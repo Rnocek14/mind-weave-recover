@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText } from '@/lib/cueGenerator';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useToast } from '@/hooks/use-toast';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
@@ -42,9 +44,67 @@ export const PhotoNamingGame = ({
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
+  const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
+  const { toast } = useToast();
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
+  
+  // Helper function to match spoken words with choices
+  const findMatchingChoice = (spokenWord: string): string | null => {
+    if (!state.choices) return null;
+    
+    const normalized = spokenWord.toLowerCase().trim();
+    
+    // Direct match
+    const directMatch = state.choices.find(choice => 
+      choice.toLowerCase() === normalized
+    );
+    if (directMatch) return directMatch;
+    
+    // Partial match (spoken word contains choice or vice versa)
+    const partialMatch = state.choices.find(choice => {
+      const choiceLower = choice.toLowerCase();
+      return normalized.includes(choiceLower) || choiceLower.includes(normalized);
+    });
+    
+    return partialMatch || null;
+  };
+  
+  // Handle speech recognition results
+  const handleSpeechResult = (transcript: string) => {
+    if (showFeedback || selectedAnswer || timedOut) return;
+    
+    console.log('Speech result:', transcript);
+    const matchedChoice = findMatchingChoice(transcript);
+    
+    if (matchedChoice) {
+      console.log('Matched choice:', matchedChoice);
+      handleAnswerSelect(matchedChoice);
+    } else {
+      console.log('No match found for:', transcript);
+      toast({
+        title: "Didn't catch that",
+        description: `Heard: "${transcript}". Try saying one of the words shown.`,
+        variant: "destructive",
+        duration: 2000,
+      });
+      // Restart listening
+      if (useVoice) {
+        setTimeout(() => startListening(), 500);
+      }
+    }
+  };
+  
+  // Speech recognition hook
+  const { 
+    isListening, 
+    transcript, 
+    startListening, 
+    stopListening, 
+    isSupported,
+    error: speechError 
+  } = useSpeechRecognition(handleSpeechResult, false);
   
   // Hard mode settings
   const isHardMode = currentDifficulty >= 8;
@@ -65,8 +125,18 @@ export const PhotoNamingGame = ({
         setCueLevel(1); // Semantic cue
         setShowCue(true);
       }
+      
+      // Start voice listening when new trial begins
+      if (useVoice && isSupported) {
+        setTimeout(() => startListening(), 500);
+      }
     }
-  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty]);
+    
+    // Stop listening when showing feedback
+    if (showFeedback && isListening) {
+      stopListening();
+    }
+  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening]);
 
   // Handle game completion
   useEffect(() => {
@@ -136,6 +206,11 @@ export const PhotoNamingGame = ({
 
   const handleAnswerSelect = (word: string) => {
     if (showFeedback || selectedAnswer || timedOut) return;
+
+    // Stop listening when answer is selected
+    if (isListening) {
+      stopListening();
+    }
 
     const reactionTime = Date.now() - trialStartTime;
     setSelectedAnswer(word);
@@ -276,6 +351,28 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
+      {/* Voice/Button Mode Toggle */}
+      {isSupported && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setUseVoice(!useVoice);
+              if (useVoice && isListening) {
+                stopListening();
+              } else if (!useVoice) {
+                startListening();
+              }
+            }}
+            className="gap-2"
+          >
+            {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            {useVoice ? 'Voice Mode' : 'Button Mode'}
+          </Button>
+        </div>
+      )}
+
       {/* Instruction */}
       <div className="text-center">
         <h3 className="text-xl font-semibold mb-1">What is this?</h3>
@@ -283,12 +380,39 @@ export const PhotoNamingGame = ({
           {isHardMode ? (
             <span className="flex items-center justify-center gap-1">
               <Clock className="w-4 h-4" />
-              Choose quickly - {timeLimit} second limit!
+              {useVoice ? 'Say it quickly' : 'Choose quickly'} - {timeLimit} second limit!
+            </span>
+          ) : useVoice ? (
+            <span className="flex items-center justify-center gap-1">
+              <Mic className="w-4 h-4" />
+              Say the word out loud
             </span>
           ) : (
             'Choose the correct word'
           )}
         </p>
+        
+        {/* Speech feedback */}
+        {useVoice && (
+          <div className="mt-2">
+            {isListening && (
+              <div className="flex items-center justify-center gap-2 text-primary animate-pulse">
+                <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
+                <span className="text-sm font-medium">Listening...</span>
+              </div>
+            )}
+            {transcript && !showFeedback && (
+              <div className="text-sm text-muted-foreground">
+                Heard: "{transcript}"
+              </div>
+            )}
+            {speechError && !showFeedback && (
+              <div className="text-sm text-destructive">
+                {speechError}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Manual Hint Button */}
@@ -308,6 +432,11 @@ export const PhotoNamingGame = ({
 
       {/* Answer Choices */}
       <div className="grid grid-cols-2 gap-4">
+        {!isSupported && (
+          <div className="col-span-2 text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+            💡 Voice recognition is not supported in this browser. Using button mode.
+          </div>
+        )}
         {state.choices.map((word) => {
           const isSelected = selectedAnswer === word;
           const isCorrect = word === state.currentTrial?.target;
