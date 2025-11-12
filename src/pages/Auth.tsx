@@ -100,8 +100,8 @@ const Auth = () => {
 
   const handleAdminLogin = async () => {
     setSubmitting(true);
-    const adminEmail = "admin@test.com";
-    const adminPassword = "admin123";
+    const adminEmail = "admin@neurorecover.dev";
+    const adminPassword = "admin123456";
 
     try {
       // Try to sign in first
