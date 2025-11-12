@@ -14,6 +14,7 @@ import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
+import { ReachTapGame } from "@/components/ReachTapGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 
 const Exercise = () => {
@@ -294,6 +295,46 @@ const Exercise = () => {
                 Start Exercise
               </Button>
             </div>
+          ) : exerciseId === 'reach-tap' ? (
+            <ReachTapGame
+              totalTrials={totalRounds}
+              initialDifficulty={level}
+              onTrialComplete={async (result) => {
+                await logTrial({
+                  correct: result.correct,
+                  reactionTimeMs: result.reactionTimeMs,
+                  cueLevel: 0, // Motor exercise doesn't use cues
+                  errorType: result.correct ? undefined : 'timeout',
+                  taskParameters: {
+                    difficulty_level: result.difficultyLevel,
+                    target_size: result.targetSize,
+                    round: currentRound,
+                    exercise_type: 'reach-tap',
+                  },
+                });
+                
+                // Move to next round
+                if (currentRound < totalRounds) {
+                  setCurrentRound((prev) => prev + 1);
+                  if (result.correct) {
+                    setScore((prev) => prev + 100);
+                  }
+                  startTrial();
+                }
+              }}
+              onGameComplete={(finalScore) => {
+                setScore(finalScore);
+                setIsPlaying(false);
+                setShowResult(true);
+              }}
+              onDifficultyChange={(newLevel, reason) => {
+                toast({
+                  title: "Difficulty Adjusted",
+                  description: reason,
+                  duration: 2000,
+                });
+              }}
+            />
           ) : (exerciseId === 'photo-naming' || exerciseId === 'word-practice') ? (
             <PhotoNamingGame
               totalTrials={totalRounds}
