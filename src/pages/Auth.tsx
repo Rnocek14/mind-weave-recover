@@ -98,6 +98,54 @@ const Auth = () => {
     setSubmitting(false);
   };
 
+  const handleAdminLogin = async () => {
+    setSubmitting(true);
+    const adminEmail = "admin@test.com";
+    const adminPassword = "admin123";
+
+    try {
+      // Try to sign in first
+      let { error: signInError } = await signIn(adminEmail, adminPassword);
+
+      // If user doesn't exist, sign up
+      if (signInError?.message.includes("Invalid")) {
+        const { error: signUpError } = await signUp(adminEmail, adminPassword, "Admin");
+        if (signUpError) throw signUpError;
+      } else if (signInError) {
+        throw signInError;
+      }
+
+      // Add admin role
+      const { data: authUser } = await supabase.auth.getUser();
+      const uid = authUser.user?.id;
+
+      if (uid) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: uid, role: 'admin' })
+          .select()
+          .single();
+
+        if (roleError && !roleError.message.includes("duplicate")) {
+          console.error("Role assignment error:", roleError);
+        }
+      }
+
+      toast({
+        title: "Admin login successful",
+        description: "Logged in as admin@test.com"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 space-y-6">
@@ -179,6 +227,15 @@ const Auth = () => {
           disabled={submitting || loading}
         >
           Start Without Account
+        </Button>
+
+        <Button 
+          variant="secondary" 
+          className="w-full"
+          onClick={handleAdminLogin}
+          disabled={submitting || loading}
+        >
+          🔑 Admin Login (Test)
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">
