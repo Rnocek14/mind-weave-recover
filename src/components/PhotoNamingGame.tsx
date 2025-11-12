@@ -8,6 +8,7 @@ import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText } from '@/lib/cueGenerator';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
+import { useGameSounds } from '@/hooks/useGameSounds';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
@@ -46,6 +47,7 @@ export const PhotoNamingGame = ({
   const [showCue, setShowCue] = useState(false);
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
   const { toast } = useToast();
+  const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
@@ -156,6 +158,9 @@ export const PhotoNamingGame = ({
     setFeedbackData(result);
     setShowFeedback(true);
     
+    // Play timeout sound
+    playTimeout();
+    
     // Track consecutive errors
     setConsecutiveErrors((prev) => prev + 1);
 
@@ -202,6 +207,9 @@ export const PhotoNamingGame = ({
     const newCueLevel = cueLevel + 1;
     setCueLevel(newCueLevel);
     setShowCue(true);
+    
+    // Play hint sound
+    playHint();
   };
 
   const handleAnswerSelect = (word: string) => {
@@ -218,6 +226,13 @@ export const PhotoNamingGame = ({
     const result = selectAnswer(word);
     setFeedbackData(result);
     setShowFeedback(true);
+    
+    // Play sound based on result
+    if (result.correct) {
+      playSuccess();
+    } else {
+      playError();
+    }
     
     // Track consecutive errors
     if (result.correct) {
@@ -236,6 +251,15 @@ export const PhotoNamingGame = ({
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
       setCurrentDifficulty(newLevel);
+      
+      // Play level change sound
+      setTimeout(() => {
+        if (direction === 'up') {
+          playLevelUp();
+        } else {
+          playLevelDown();
+        }
+      }, 500);
       
       const reason = direction === 'up' 
         ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`

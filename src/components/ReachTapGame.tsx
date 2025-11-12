@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle } from 'lucide-react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useGameSounds } from '@/hooks/useGameSounds';
 
 interface ReachTapGameProps {
   totalTrials: number;
@@ -43,6 +44,7 @@ export const ReachTapGame = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef(new AdaptiveDifficultyController());
+  const { playSuccess, playTimeout, playLevelUp, playLevelDown, playStreak } = useGameSounds();
 
   // Calculate target size based on difficulty (level 1-10)
   const getTargetSize = (difficulty: number): number => {
@@ -109,8 +111,18 @@ export const ReachTapGame = ({
     const reactionTime = Date.now() - target.appearTime;
     setFeedbackType('success');
     setShowFeedback(true);
-    setConsecutiveHits((prev) => prev + 1);
+    
+    const newConsecutiveHits = consecutiveHits + 1;
+    setConsecutiveHits(newConsecutiveHits);
     setConsecutiveMisses(0);
+
+    // Play success sound
+    playSuccess();
+    
+    // Play streak sound for 3+ consecutive hits
+    if (newConsecutiveHits >= 3 && newConsecutiveHits % 3 === 0) {
+      setTimeout(() => playStreak(), 200);
+    }
 
     // Update score
     const points = Math.max(50, 200 - Math.floor(reactionTime / 10));
@@ -126,6 +138,15 @@ export const ReachTapGame = ({
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
       setCurrentDifficulty(newLevel);
+      
+      // Play level change sound
+      setTimeout(() => {
+        if (direction === 'up') {
+          playLevelUp();
+        } else {
+          playLevelDown();
+        }
+      }, 300);
       
       const reason = direction === 'up' 
         ? `Great accuracy! Moving to level ${newLevel}`
@@ -164,6 +185,9 @@ export const ReachTapGame = ({
     setConsecutiveMisses((prev) => prev + 1);
     setConsecutiveHits(0);
 
+    // Play timeout sound
+    playTimeout();
+
     const reactionTime = target ? Date.now() - target.appearTime : 0;
 
     // Update adaptive controller
@@ -176,6 +200,15 @@ export const ReachTapGame = ({
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
       setCurrentDifficulty(newLevel);
+      
+      // Play level change sound
+      setTimeout(() => {
+        if (direction === 'up') {
+          playLevelUp();
+        } else {
+          playLevelDown();
+        }
+      }, 300);
       
       const reason = direction === 'up' 
         ? `Great progress! Moving to level ${newLevel}`
