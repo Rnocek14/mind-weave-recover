@@ -294,7 +294,7 @@ const Exercise = () => {
                 Start Exercise
               </Button>
             </div>
-          ) : exerciseId === 'photo-naming' ? (
+          ) : (exerciseId === 'photo-naming' || exerciseId === 'word-practice') ? (
             <PhotoNamingGame
               totalTrials={totalRounds}
               initialDifficulty={level}
@@ -308,7 +308,7 @@ const Exercise = () => {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,
                     round: currentRound,
-                    exercise_type: 'photo-naming',
+                    exercise_type: exerciseId || 'photo-naming',
                   },
                 });
                 
