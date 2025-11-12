@@ -108,34 +108,27 @@ const Auth = () => {
       let { error: signInError } = await signIn(adminEmail, adminPassword);
 
       // If user doesn't exist, sign up
-      if (signInError?.message.includes("Invalid")) {
+      if (signInError?.message.includes("Invalid login credentials")) {
         const { error: signUpError } = await signUp(adminEmail, adminPassword, "Admin");
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          toast({
+            title: "Account created!",
+            description: "Now run this SQL in Supabase to make yourself admin: INSERT INTO user_roles (user_id, role) VALUES (auth.uid(), 'admin');",
+            duration: 10000
+          });
+          setSubmitting(false);
+          return;
+        }
       } else if (signInError) {
         throw signInError;
       }
 
-      // Add admin role
-      const { data: authUser } = await supabase.auth.getUser();
-      const uid = authUser.user?.id;
-
-      if (uid) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({ user_id: uid, role: 'admin' })
-          .select()
-          .single();
-
-        if (roleError && !roleError.message.includes("duplicate")) {
-          console.error("Role assignment error:", roleError);
-        }
-      }
-
       toast({
-        title: "Admin login successful",
-        description: "Logged in as admin@example.com"
+        title: "Logged in as admin",
+        description: "admin@example.com"
       });
     } catch (error: any) {
+      console.error("Admin login error:", error);
       toast({
         title: "Error",
         description: error.message,
