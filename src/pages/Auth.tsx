@@ -101,7 +101,7 @@ const Auth = () => {
   const handleAdminLogin = async () => {
     setSubmitting(true);
     const adminEmail = "demo.admin@gmail.com";
-    const adminPassword = "DemoAdmin123!";
+    const adminPassword = "Tomford8*";
 
     try {
       // Try to sign in first
