@@ -166,6 +166,7 @@ export type Database = {
         Row: {
           accessibility_prefs: Json | null
           caregiver_mode_enabled: boolean | null
+          clinical_profile: Json | null
           consent_version: number | null
           created_at: string | null
           daily_goal_minutes: number | null
@@ -177,6 +178,7 @@ export type Database = {
         Insert: {
           accessibility_prefs?: Json | null
           caregiver_mode_enabled?: boolean | null
+          clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
           daily_goal_minutes?: number | null
@@ -188,6 +190,7 @@ export type Database = {
         Update: {
           accessibility_prefs?: Json | null
           caregiver_mode_enabled?: boolean | null
+          clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
           daily_goal_minutes?: number | null

@@ -4,12 +4,18 @@ import { Card } from "@/components/ui/card";
 import { ArrowRight, ArrowLeft, CheckCircle2, Hand, MessageSquare, Brain } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import ClinicalProfileForm from "@/components/ClinicalProfileForm";
+import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const goals = [
     { id: "motor", label: "Rebuild Movement", icon: Hand, desc: "Improve arm, hand, and leg mobility" },
@@ -23,7 +29,26 @@ const Onboarding = () => {
     );
   };
 
-  const handleComplete = () => {
+  const handleClinicalProfileSubmit = async (profile: ClinicalProfile) => {
+    setClinicalProfile(profile);
+    
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ clinical_profile: profile as any })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error saving clinical profile:', error);
+      }
+    }
+    
+    setStep(step + 1);
+  };
+
+  const handleComplete = async () => {
     if (selectedGoals.length === 0) {
       toast({
         title: "Please select at least one goal",
@@ -103,6 +128,23 @@ const Onboarding = () => {
               </Card>
             );
           })}
+        </div>
+      )
+    },
+    {
+      title: "Clinical Profile (Optional)",
+      subtitle: "Help us personalize your therapy by providing clinical information",
+      content: (
+        <div className="max-w-4xl mx-auto">
+          <ClinicalProfileForm 
+            onSubmit={handleClinicalProfileSubmit}
+            onCancel={() => setStep(step + 1)}
+          />
+          <div className="mt-4 text-center">
+            <Button variant="ghost" onClick={() => setStep(step + 1)}>
+              Skip for now
+            </Button>
+          </div>
         </div>
       )
     }
