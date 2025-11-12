@@ -28,14 +28,10 @@ export const useSignedUrl = (storagePath: string | null) => {
         if (!mounted) return;
         setState(prev => ({ ...prev, loading: true, error: null }));
         const signedUrl = await getSignedPhotoUrl(storagePath, 900); // 15 min
-        
         if (!mounted) return;
         setState({ url: signedUrl, loading: false, error: null });
-        
-        // Refresh 60s before expiry
-        refreshTimer = setTimeout(() => {
-          if (mounted) fetchUrl();
-        }, 14 * 60 * 1000); // 14 min
+        // refresh 60s before expiry
+        refreshTimer = setTimeout(() => mounted && fetchUrl(), 14 * 60 * 1000);
       } catch (err) {
         if (!mounted) return;
         setState({ url: null, loading: false, error: err as Error });
@@ -43,7 +39,6 @@ export const useSignedUrl = (storagePath: string | null) => {
     };
 
     fetchUrl();
-
     return () => {
       mounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);

@@ -7,6 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
 //   const compress = useImageCompressor();
 //   const compressedFile = await compress(file);
 
+type PhotoRow = {
+  id: string; user_id: string; name: string; storage_path: string; labels: string[]; created_at: string;
+};
+
+type SignedCacheValue = { url: string; expiresAt: number };
+const urlCache = new Map<string, SignedCacheValue>();
+
 // Compress image before upload (max 1600px, quality 0.7)
 const compressImage = async (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -48,89 +55,50 @@ const compressImage = async (file: File): Promise<File> => {
   });
 };
 
-export const uploadPhoto = async (userId: string, file: File) => {
-  // If you now use the worker hook elsewhere, leave this as a fallback
+export const uploadPhoto = async (userId: string, file: File): Promise<PhotoRow> => {
   const compressedFile = await compressImage(file);
   const filePath = `${userId}/${Date.now()}_${file.name}`;
-  
-  const { error: uploadError } = await supabase.storage
-    .from('photos')
-    .upload(filePath, compressedFile);
 
+  const { error: uploadError } = await supabase.storage.from('photos').upload(filePath, compressedFile);
   if (uploadError) throw uploadError;
 
-  // Save metadata to database
   const { data, error: dbError } = await supabase
     .from('photos')
-    .insert({
-      user_id: userId,
-      name: file.name.replace(/\.[^/.]+$/, ""),
-      storage_path: filePath,
-      labels: []
-    })
+    .insert({ user_id: userId, name: file.name.replace(/\.[^/.]+$/, ''), storage_path: filePath, labels: [] })
     .select()
     .single();
 
   if (dbError) throw dbError;
-  return data as { id: string; user_id: string; name: string; storage_path: string; labels: string[]; created_at: string };
+  return data as PhotoRow;
 };
 
-// Cache for signed URLs with expiration
-type SignedCacheValue = { url: string; expiresAt: number };
-const urlCache = new Map<string, SignedCacheValue>();
-
-export const getSignedPhotoUrl = async (storagePath: string, expiresIn: number = 3600): Promise<string> => {
+export const getSignedPhotoUrl = async (storagePath: string, expiresIn = 3600): Promise<string> => {
   const now = Date.now();
   const cached = urlCache.get(storagePath);
-  
-  // Return cached URL if still valid (with 60s buffer)
-  if (cached && cached.expiresAt > now + 60_000) {
-    return cached.url;
-  }
-  
-  const { data, error } = await supabase.storage
-    .from('photos')
-    .createSignedUrl(storagePath, expiresIn);
+  if (cached && cached.expiresAt > now + 60_000) return cached.url;
 
+  const { data, error } = await supabase.storage.from('photos').createSignedUrl(storagePath, expiresIn);
   if (error) throw error;
-  
-  // Cache the new URL
-  urlCache.set(storagePath, {
-    url: data.signedUrl,
-    expiresAt: now + (expiresIn * 1000)
-  });
-  
+
+  urlCache.set(storagePath, { url: data.signedUrl, expiresAt: now + expiresIn * 1000 });
   return data.signedUrl;
 };
 
-export const getUserPhotos = async (userId: string) => {
+export const getUserPhotos = async (userId: string): Promise<PhotoRow[]> => {
   const { data, error } = await supabase
     .from('photos')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
-
   if (error) throw error;
-  return (data ?? []) as { id: string; user_id: string; name: string; storage_path: string; labels: string[]; created_at: string }[];
+  return (data ?? []) as PhotoRow[];
 };
 
-export const deletePhoto = async (photoId: string, storagePath: string) => {
-  // Clear from cache
+export const deletePhoto = async (photoId: string, storagePath: string): Promise<void> => {
   urlCache.delete(storagePath);
-  
-  // Delete from storage
-  const { error: storageError } = await supabase.storage
-    .from('photos')
-    .remove([storagePath]);
-
+  const { error: storageError } = await supabase.storage.from('photos').remove([storagePath]);
   if (storageError) throw storageError;
-
-  // Delete from database
-  const { error: dbError } = await supabase
-    .from('photos')
-    .delete()
-    .eq('id', photoId);
-
+  const { error: dbError } = await supabase.from('photos').delete().eq('id', photoId);
   if (dbError) throw dbError;
 };
 
