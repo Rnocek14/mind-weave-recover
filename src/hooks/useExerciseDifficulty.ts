@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-export const useExerciseDifficulty = (userId: string | undefined, exerciseSlug: string) => {
+type ExerciseDifficulty = {
+  level: number;
+  loading: boolean;
+  saveLevel: (newLevel: number) => Promise<void>;
+  stepDown: (sessionId?: string) => Promise<number>;
+};
+
+export const useExerciseDifficulty = (userId: string | undefined, exerciseSlug: string): ExerciseDifficulty => {
   const [level, setLevel] = useState<number>(1); // 1..10
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

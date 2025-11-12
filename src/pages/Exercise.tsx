@@ -25,7 +25,7 @@ const Exercise = () => {
   const [showResult, setShowResult] = useState(false);
   const [showRestPrompt, setShowRestPrompt] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const totalRounds = 10;
   
@@ -299,7 +299,7 @@ const Exercise = () => {
                 size="lg"
                 className="min-w-[140px] min-h-[60px] text-lg"
                 onClick={async () => {
-                  const newLevel = await stepDown(sessionId);
+                  const newLevel = await stepDown(sessionId ?? undefined);
                   // Optionally adjust current round difficulty based on newLevel
                   toast({
                     title: "Adjusted!",

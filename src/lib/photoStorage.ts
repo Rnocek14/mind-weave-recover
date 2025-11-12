@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 //   const compressedFile = await compress(file);
 
 // Compress image before upload (max 1600px, quality 0.7)
-const compressImage = (file: File): Promise<File> => {
+const compressImage = async (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const canvas = document.createElement('canvas');
@@ -49,7 +49,7 @@ const compressImage = (file: File): Promise<File> => {
 };
 
 export const uploadPhoto = async (userId: string, file: File) => {
-  // Compress image before upload
+  // If you now use the worker hook elsewhere, leave this as a fallback
   const compressedFile = await compressImage(file);
   const filePath = `${userId}/${Date.now()}_${file.name}`;
   
@@ -72,18 +72,19 @@ export const uploadPhoto = async (userId: string, file: File) => {
     .single();
 
   if (dbError) throw dbError;
-  return data;
+  return data as { id: string; user_id: string; name: string; storage_path: string; labels: string[]; created_at: string };
 };
 
 // Cache for signed URLs with expiration
-const urlCache = new Map<string, { url: string; expiresAt: number }>();
+type SignedCacheValue = { url: string; expiresAt: number };
+const urlCache = new Map<string, SignedCacheValue>();
 
-export const getSignedPhotoUrl = async (storagePath: string, expiresIn: number = 3600) => {
+export const getSignedPhotoUrl = async (storagePath: string, expiresIn: number = 3600): Promise<string> => {
   const now = Date.now();
   const cached = urlCache.get(storagePath);
   
   // Return cached URL if still valid (with 60s buffer)
-  if (cached && cached.expiresAt > now + 60000) {
+  if (cached && cached.expiresAt > now + 60_000) {
     return cached.url;
   }
   
@@ -110,7 +111,7 @@ export const getUserPhotos = async (userId: string) => {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data;
+  return (data ?? []) as { id: string; user_id: string; name: string; storage_path: string; labels: string[]; created_at: string }[];
 };
 
 export const deletePhoto = async (photoId: string, storagePath: string) => {

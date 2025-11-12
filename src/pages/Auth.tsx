@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
+import { supabase } from "@/integrations/supabase/client";
 import { Brain, Loader2 } from "lucide-react";
 
 const Auth = () => {
@@ -42,9 +43,12 @@ const Auth = () => {
           variant: "destructive"
         });
       } else {
-        // Check for local data to migrate
-        if (user && hasLocalData()) {
-          const migrated = await migrateLocalToSupabase(user.id);
+        // Fetch current user safely
+        const { data: authUser } = await supabase.auth.getUser();
+        const uid = authUser.user?.id;
+        
+        if (uid && hasLocalData()) {
+          const migrated = await migrateLocalToSupabase(uid);
           if (migrated) {
             toast({
               title: isSignUp ? "Account created!" : "Welcome back!",
@@ -84,14 +88,14 @@ const Auth = () => {
       });
       // Still navigate to dashboard for sessionless mode
       navigate("/dashboard");
-      setSubmitting(false);
     } else {
       toast({
-        title: "Starting anonymous session",
+        title: "Starting session",
         description: "You can create an account later to save your progress."
       });
       // Navigation will happen via useEffect when user state updates
     }
+    setSubmitting(false);
   };
 
   return (
