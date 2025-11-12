@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PhotoTrial, getRandomTrials, generateChoices } from '@/data/photoBank';
+import { PhotoTrial, getTrialsForLevel, generateChoices } from '@/data/photoBank';
 
 export interface PhotoNamingGameState {
   currentTrial: PhotoTrial | null;
@@ -10,21 +10,21 @@ export interface PhotoNamingGameState {
   score: number;
 }
 
-export const usePhotoNamingGame = (totalTrials: number = 10) => {
+export const usePhotoNamingGame = (totalTrials: number = 10, difficultyLevel: number = 1) => {
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [choices, setChoices] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
-  // Initialize trials
+  // Initialize trials based on difficulty level
   useEffect(() => {
-    const newTrials = getRandomTrials(totalTrials);
+    const newTrials = getTrialsForLevel(difficultyLevel, totalTrials);
     setTrials(newTrials);
     if (newTrials.length > 0) {
-      setChoices(generateChoices(newTrials[0]));
+      setChoices(generateChoices(newTrials[0], difficultyLevel));
     }
-  }, [totalTrials]);
+  }, [totalTrials, difficultyLevel]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -55,7 +55,7 @@ export const usePhotoNamingGame = (totalTrials: number = 10) => {
     [currentTrial]
   );
 
-  const nextTrial = useCallback(() => {
+  const nextTrial = useCallback((currentLevel: number) => {
     if (currentTrialIndex + 1 >= trials.length) {
       setIsComplete(true);
       return;
@@ -63,17 +63,17 @@ export const usePhotoNamingGame = (totalTrials: number = 10) => {
 
     const nextIndex = currentTrialIndex + 1;
     setCurrentTrialIndex(nextIndex);
-    setChoices(generateChoices(trials[nextIndex]));
+    setChoices(generateChoices(trials[nextIndex], currentLevel));
   }, [currentTrialIndex, trials]);
 
-  const reset = useCallback(() => {
+  const reset = useCallback((level: number = 1) => {
     setCurrentTrialIndex(0);
     setScore(0);
     setIsComplete(false);
-    const newTrials = getRandomTrials(totalTrials);
+    const newTrials = getTrialsForLevel(level, totalTrials);
     setTrials(newTrials);
     if (newTrials.length > 0) {
-      setChoices(generateChoices(newTrials[0]));
+      setChoices(generateChoices(newTrials[0], level));
     }
   }, [totalTrials]);
 

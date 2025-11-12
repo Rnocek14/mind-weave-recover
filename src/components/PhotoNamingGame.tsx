@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { TrialTimer } from '@/components/TrialTimer';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
@@ -25,7 +26,7 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, selectAnswer, nextTrial } = usePhotoNamingGame(totalTrials);
+  const { state, selectAnswer, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
@@ -35,15 +36,21 @@ export const PhotoNamingGame = ({
   } | null>(null);
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
+  
+  // Hard mode settings
+  const isHardMode = currentDifficulty >= 8;
+  const timeLimit = 5; // seconds for hard mode
 
   // Start timing new trial
   useEffect(() => {
     if (state.currentTrial && !showFeedback) {
       setTrialStartTime(Date.now());
       setSelectedAnswer(null);
+      setTimedOut(false);
     }
   }, [state.currentTrial, showFeedback]);
 
@@ -54,8 +61,55 @@ export const PhotoNamingGame = ({
     }
   }, [state.isComplete, state.score, onGameComplete]);
 
+  const handleTimeout = () => {
+    if (showFeedback || selectedAnswer || timedOut) return;
+    
+    setTimedOut(true);
+    const reactionTime = Date.now() - trialStartTime;
+    
+    // Treat timeout as incorrect answer
+    const result = { correct: false, errorType: 'timeout' };
+    setFeedbackData(result);
+    setShowFeedback(true);
+
+    // Update adaptive controller
+    const controller = controllerRef.current;
+    controller.update(false);
+    
+    // Check if difficulty should adjust
+    const newLevel = controller.adjustLevel(currentDifficulty);
+    if (newLevel !== currentDifficulty) {
+      const direction = newLevel > currentDifficulty ? 'up' : 'down';
+      setDifficultyChanged(direction);
+      setCurrentDifficulty(newLevel);
+      
+      const reason = direction === 'up' 
+        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
+        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
+      
+      onDifficultyChange?.(newLevel, reason);
+      
+      setTimeout(() => setDifficultyChanged(null), 2000);
+    }
+
+    // Log telemetry
+    onTrialComplete({
+      correct: false,
+      reactionTimeMs: reactionTime,
+      errorType: 'timeout',
+      difficultyLevel: currentDifficulty,
+    });
+
+    // Auto-advance after 2 seconds
+    setTimeout(() => {
+      setShowFeedback(false);
+      setFeedbackData(null);
+      nextTrial(currentDifficulty);
+    }, 2000);
+  };
+
   const handleAnswerSelect = (word: string) => {
-    if (showFeedback || selectedAnswer) return;
+    if (showFeedback || selectedAnswer || timedOut) return;
 
     const reactionTime = Date.now() - trialStartTime;
     setSelectedAnswer(word);
@@ -97,7 +151,7 @@ export const PhotoNamingGame = ({
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
-      nextTrial();
+      nextTrial(currentDifficulty);
     }, 1500);
   };
 
@@ -162,11 +216,27 @@ export const PhotoNamingGame = ({
         </div>
       </div>
 
+      {/* Timer for hard mode */}
+      {isHardMode && !showFeedback && (
+        <TrialTimer
+          duration={timeLimit}
+          onTimeout={handleTimeout}
+          isActive={!showFeedback}
+        />
+      )}
+
       {/* Instruction */}
       <div className="text-center">
         <h3 className="text-xl font-semibold mb-1">What is this?</h3>
         <p className="text-sm text-muted-foreground">
-          Choose the correct word
+          {isHardMode ? (
+            <span className="flex items-center justify-center gap-1">
+              <Clock className="w-4 h-4" />
+              Choose quickly - {timeLimit} second limit!
+            </span>
+          ) : (
+            'Choose the correct word'
+          )}
         </p>
       </div>
 
@@ -213,6 +283,8 @@ export const PhotoNamingGame = ({
           <p className="font-semibold">
             {feedbackData.correct
               ? '✓ Correct! Great job!'
+              : feedbackData.errorType === 'timeout'
+              ? `⏱ Time's up! The answer was "${state.currentTrial?.target}"`
               : `✗ The correct answer was "${state.currentTrial?.target}"`}
           </p>
         </div>
