@@ -1,25 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
+import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
-  difficultyLevel: number;
+  initialDifficulty: number;
   onTrialComplete: (result: {
     correct: boolean;
     reactionTimeMs: number;
     errorType?: string;
+    difficultyLevel: number;
   }) => void;
   onGameComplete: (finalScore: number) => void;
+  onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
 export const PhotoNamingGame = ({
   totalTrials,
-  difficultyLevel,
+  initialDifficulty,
   onTrialComplete,
   onGameComplete,
+  onDifficultyChange,
 }: PhotoNamingGameProps) => {
   const { state, selectAnswer, nextTrial } = usePhotoNamingGame(totalTrials);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -29,6 +33,11 @@ export const PhotoNamingGame = ({
     correct: boolean;
     errorType?: string;
   } | null>(null);
+  const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
+  const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
+  
+  // Adaptive controller (persists across renders)
+  const controllerRef = useRef(new AdaptiveDifficultyController());
 
   // Start timing new trial
   useEffect(() => {
@@ -55,11 +64,33 @@ export const PhotoNamingGame = ({
     setFeedbackData(result);
     setShowFeedback(true);
 
-    // Log telemetry
+    // Update adaptive controller
+    const controller = controllerRef.current;
+    controller.update(result.correct);
+    
+    // Check if difficulty should adjust
+    const newLevel = controller.adjustLevel(currentDifficulty);
+    if (newLevel !== currentDifficulty) {
+      const direction = newLevel > currentDifficulty ? 'up' : 'down';
+      setDifficultyChanged(direction);
+      setCurrentDifficulty(newLevel);
+      
+      const reason = direction === 'up' 
+        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
+        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
+      
+      onDifficultyChange?.(newLevel, reason);
+      
+      // Clear difficulty change indicator after 2 seconds
+      setTimeout(() => setDifficultyChanged(null), 2000);
+    }
+
+    // Log telemetry with current difficulty
     onTrialComplete({
       correct: result.correct,
       reactionTimeMs: reactionTime,
       errorType: result.errorType,
+      difficultyLevel: currentDifficulty,
     });
 
     // Auto-advance after 1.5 seconds
@@ -107,9 +138,27 @@ export const PhotoNamingGame = ({
           />
         </div>
         
-        {/* Difficulty indicator */}
-        <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-          Level {difficultyLevel}
+        {/* Difficulty indicator with change animation */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {difficultyChanged && (
+            <div className={`
+              px-2 py-1 rounded-full text-xs font-medium animate-slide-up
+              ${difficultyChanged === 'up' ? 'bg-success text-white' : 'bg-warning text-white'}
+            `}>
+              {difficultyChanged === 'up' ? (
+                <span className="flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> Leveling up!
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <TrendingDown className="w-3 h-3" /> Adjusting
+                </span>
+              )}
+            </div>
+          )}
+          <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
+            Level {currentDifficulty}
+          </div>
         </div>
       </div>
 

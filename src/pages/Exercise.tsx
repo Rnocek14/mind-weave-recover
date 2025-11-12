@@ -291,7 +291,7 @@ const Exercise = () => {
           ) : exerciseId === 'photo-naming' ? (
             <PhotoNamingGame
               totalTrials={totalRounds}
-              difficultyLevel={level}
+              initialDifficulty={level}
               onTrialComplete={async (result) => {
                 await logTrial({
                   correct: result.correct,
@@ -299,7 +299,7 @@ const Exercise = () => {
                   cueLevel: 0,
                   errorType: result.errorType,
                   taskParameters: {
-                    difficulty_level: level,
+                    difficulty_level: result.difficultyLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
                   },
@@ -318,6 +318,13 @@ const Exercise = () => {
                 setScore(finalScore);
                 setIsPlaying(false);
                 setShowResult(true);
+              }}
+              onDifficultyChange={(newLevel, reason) => {
+                toast({
+                  title: "Difficulty Adjusted",
+                  description: reason,
+                  duration: 2000,
+                });
               }}
             />
           ) : (
