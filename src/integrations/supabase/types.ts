@@ -303,6 +303,7 @@ export type Database = {
         Args: { p_key: string; p_subkey: string; p_value: Json }
         Returns: undefined
       }
+      setup_admin_user: { Args: { admin_email: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

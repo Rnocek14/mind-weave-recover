@@ -110,22 +110,26 @@ const Auth = () => {
       // If user doesn't exist, sign up
       if (signInError?.message.includes("Invalid login credentials")) {
         const { error: signUpError } = await signUp(adminEmail, adminPassword, "Admin");
-        if (signUpError) {
-          toast({
-            title: "Account created!",
-            description: "Now run this SQL in Supabase to make yourself admin: INSERT INTO user_roles (user_id, role) VALUES (auth.uid(), 'admin');",
-            duration: 10000
-          });
-          setSubmitting(false);
-          return;
+        if (signUpError) throw signUpError;
+        
+        // Wait a moment for the user to be created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Set up admin role using the database function
+        const { error: roleError } = await supabase.rpc('setup_admin_user', {
+          admin_email: adminEmail
+        });
+        
+        if (roleError) {
+          console.error("Role setup error:", roleError);
         }
       } else if (signInError) {
         throw signInError;
       }
 
       toast({
-        title: "Logged in as admin",
-        description: "admin@example.com"
+        title: "Demo admin access ready!",
+        description: "Logged in as admin@example.com"
       });
     } catch (error: any) {
       console.error("Admin login error:", error);
