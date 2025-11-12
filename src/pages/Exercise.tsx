@@ -209,23 +209,9 @@ const Exercise = () => {
                 <Progress value={progress} className="h-4" />
               </div>
 
-              <div className="flex justify-center gap-4">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => setIsPlaying(false)}
-                >
-                  <Pause className="w-5 h-5 mr-2" />
-                  Pause
-                </Button>
-                <Button
-                  className="bg-success"
-                  size="lg"
-                  onClick={handleRoundComplete}
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  I Said It!
-                </Button>
+              {/* Placeholder for future difficulty adjustment */}
+              <div className="text-center text-sm text-muted-foreground">
+                Round {currentRound} in progress...
               </div>
             </div>
           )}
@@ -244,6 +230,42 @@ const Exercise = () => {
             <li>• Take breaks if you feel tired</li>
           </ul>
         </Card>
+
+        {/* Fixed Safety Controls - Always visible during exercise */}
+        {isPlaying && (
+          <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-4 z-50">
+            <div className="container mx-auto max-w-4xl flex justify-center gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                className="min-w-[120px] min-h-[60px] text-lg"
+                onClick={() => setIsPlaying(false)}
+              >
+                <Pause className="w-6 h-6 mr-2" />
+                Pause
+              </Button>
+              <Button
+                className="bg-success min-w-[160px] min-h-[60px] text-lg"
+                size="lg"
+                onClick={handleRoundComplete}
+              >
+                <CheckCircle2 className="w-6 h-6 mr-2" />
+                I Said It!
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
+                className="min-w-[120px] min-h-[60px] text-lg"
+                onClick={() => {
+                  setIsPlaying(false);
+                  navigate("/dashboard");
+                }}
+              >
+                End Session
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

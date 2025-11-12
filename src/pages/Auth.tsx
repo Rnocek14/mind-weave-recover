@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,21 +12,22 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   
-  const { signUp, signIn, signInAnonymously, user } = useAuth();
+  const { signUp, signIn, signInAnonymously, user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect if already logged in
-  if (user) {
-    navigate("/dashboard");
-    return null;
-  }
+  // Redirect if already logged in (only after loading completes)
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard");
+    }
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       const { error } = isSignUp 
@@ -46,7 +47,7 @@ const Auth = () => {
             ? "Please check your email to verify your account." 
             : "Redirecting to dashboard..."
         });
-        setTimeout(() => navigate("/dashboard"), 1000);
+        // Navigation will happen via useEffect when user state updates
       }
     } catch (error: any) {
       toast({
@@ -55,12 +56,12 @@ const Auth = () => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const handleAnonymous = async () => {
-    setLoading(true);
+    setSubmitting(true);
     const { error } = await signInAnonymously();
     
     if (error) {
@@ -69,14 +70,14 @@ const Auth = () => {
         description: error.message,
         variant: "destructive"
       });
+      setSubmitting(false);
     } else {
       toast({
         title: "Starting anonymous session",
         description: "You can create an account later to save your progress."
       });
-      setTimeout(() => navigate("/dashboard"), 1000);
+      // Navigation will happen via useEffect when user state updates
     }
-    setLoading(false);
   };
 
   return (
@@ -134,9 +135,9 @@ const Auth = () => {
           <Button 
             type="submit" 
             className="w-full bg-gradient-healing"
-            disabled={loading}
+            disabled={submitting || loading}
           >
-            {loading ? (
+            {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               isSignUp ? "Create Account" : "Sign In"
@@ -157,7 +158,7 @@ const Auth = () => {
           variant="outline" 
           className="w-full"
           onClick={handleAnonymous}
-          disabled={loading}
+          disabled={submitting || loading}
         >
           Start Without Account
         </Button>

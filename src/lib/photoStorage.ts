@@ -1,11 +1,54 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Compress image before upload (max 1600px, quality 0.7)
+const compressImage = (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    img.onload = () => {
+      const maxSize = 1600;
+      let { width, height } = img;
+      
+      if (width > height && width > maxSize) {
+        height = (height / width) * maxSize;
+        width = maxSize;
+      } else if (height > maxSize) {
+        width = (width / height) * maxSize;
+        height = maxSize;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          } else {
+            reject(new Error('Compression failed'));
+          }
+        },
+        'image/jpeg',
+        0.7
+      );
+    };
+    
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+};
+
 export const uploadPhoto = async (userId: string, file: File) => {
+  // Compress image before upload
+  const compressedFile = await compressImage(file);
   const filePath = `${userId}/${Date.now()}_${file.name}`;
   
   const { error: uploadError } = await supabase.storage
     .from('photos')
-    .upload(filePath, file);
+    .upload(filePath, compressedFile);
 
   if (uploadError) throw uploadError;
 
@@ -25,12 +68,30 @@ export const uploadPhoto = async (userId: string, file: File) => {
   return data;
 };
 
+// Cache for signed URLs with expiration
+const urlCache = new Map<string, { url: string; expiresAt: number }>();
+
 export const getSignedPhotoUrl = async (storagePath: string, expiresIn: number = 3600) => {
+  const now = Date.now();
+  const cached = urlCache.get(storagePath);
+  
+  // Return cached URL if still valid (with 60s buffer)
+  if (cached && cached.expiresAt > now + 60000) {
+    return cached.url;
+  }
+  
   const { data, error } = await supabase.storage
     .from('photos')
     .createSignedUrl(storagePath, expiresIn);
 
   if (error) throw error;
+  
+  // Cache the new URL
+  urlCache.set(storagePath, {
+    url: data.signedUrl,
+    expiresAt: now + (expiresIn * 1000)
+  });
+  
   return data.signedUrl;
 };
 
@@ -46,6 +107,9 @@ export const getUserPhotos = async (userId: string) => {
 };
 
 export const deletePhoto = async (photoId: string, storagePath: string) => {
+  // Clear from cache
+  urlCache.delete(storagePath);
+  
   // Delete from storage
   const { error: storageError } = await supabase.storage
     .from('photos')

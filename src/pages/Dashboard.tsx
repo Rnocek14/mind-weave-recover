@@ -4,20 +4,66 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Trophy, Camera, Hand, MessageSquare, 
-  TrendingUp, Flame, Award, ChevronRight 
+  TrendingUp, Flame, Award, ChevronRight, Loader2 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { calculateStreak, getTotalReps, getTodayProgress } from "@/hooks/useStreakCalculation";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [streak, setStreak] = useState(3);
+  const { user, loading: authLoading } = useAuth();
+  const [streak, setStreak] = useState(0);
+  const [totalReps, setTotalReps] = useState(0);
+  const [achievementCount, setAchievementCount] = useState(0);
   const [todayProgress, setTodayProgress] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate progress loading
-    const timer = setTimeout(() => setTodayProgress(45), 300);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!authLoading && !user) {
+      navigate("/auth");
+      return;
+    }
+
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, authLoading, navigate]);
+
+  const loadDashboardData = async () => {
+    if (!user) return;
+    
+    try {
+      const [streakVal, repsVal, progressVal] = await Promise.all([
+        calculateStreak(user.id),
+        getTotalReps(user.id),
+        getTodayProgress(user.id, 20)
+      ]);
+
+      const { data: achievements } = await supabase
+        .from('achievements')
+        .select('id')
+        .eq('user_id', user.id);
+
+      setStreak(streakVal);
+      setTotalReps(repsVal);
+      setTodayProgress(progressVal);
+      setAchievementCount(achievements?.length || 0);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const exercises = [
     {
@@ -88,7 +134,7 @@ const Dashboard = () => {
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-foreground">127</div>
+                <div className="text-3xl font-bold text-foreground">{totalReps}</div>
                 <div className="text-sm text-muted-foreground">Total Reps</div>
               </div>
             </div>
@@ -100,7 +146,7 @@ const Dashboard = () => {
                 <Trophy className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-foreground">5</div>
+                <div className="text-3xl font-bold text-foreground">{achievementCount}</div>
                 <div className="text-sm text-muted-foreground">Achievements</div>
               </div>
             </div>
