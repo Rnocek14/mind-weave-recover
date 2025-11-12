@@ -100,8 +100,8 @@ const Auth = () => {
 
   const handleAdminLogin = async () => {
     setSubmitting(true);
-    const adminEmail = "admin@example.com";
-    const adminPassword = "Test123456!";
+    const adminEmail = "testadmin@neurorecover.demo";
+    const adminPassword = "AdminTest123!";
 
     try {
       // Try to sign in first
@@ -129,7 +129,7 @@ const Auth = () => {
 
       toast({
         title: "Demo admin access ready!",
-        description: "Logged in as admin@example.com"
+        description: "Logged in as testadmin@neurorecover.demo"
       });
     } catch (error: any) {
       console.error("Admin login error:", error);
