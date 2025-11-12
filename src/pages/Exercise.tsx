@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
 import { useAuth } from "@/hooks/useAuth";
 import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
+import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
+import { startSession } from "@/lib/sessionTracking";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -30,6 +32,10 @@ const Exercise = () => {
   const totalRounds = 10;
   
   const { level, stepDown } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
+  const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
+    sessionId,
+    exerciseId || "photo-naming"
+  );
 
   // Mock exercise data
   const exercises: Record<string, any> = {
@@ -62,7 +68,23 @@ const Exercise = () => {
     }
   }, [isPlaying, currentRound]);
 
-  const handleRoundComplete = () => {
+  const handleRoundComplete = async (wasCorrect: boolean = true) => {
+    // Calculate reaction time from when trial started
+    const reactionTime = calculateReactionTime();
+    
+    // Log telemetry with rich data
+    await logTrial({
+      correct: wasCorrect,
+      reactionTimeMs: reactionTime,
+      cueLevel: 0, // TODO: Track actual cue usage
+      errorType: wasCorrect ? undefined : 'mock_error',
+      taskParameters: {
+        difficulty_level: level,
+        round: currentRound,
+        exercise_type: exercise.type,
+      },
+    });
+
     const roundScore = Math.floor(Math.random() * 20) + 80; // 80-100
     setScore(prev => prev + roundScore);
     
@@ -77,15 +99,39 @@ const Exercise = () => {
     } else {
       setCurrentRound(prev => prev + 1);
       setProgress(0);
+      // Start timing the next trial
+      startTrial();
     }
   };
 
-  const startExercise = () => {
+  const startExercise = async () => {
     setIsPlaying(true);
     setShowResult(false);
+    
+    // Initialize session tracking
     if (!sessionStartTime) {
       setSessionStartTime(Date.now());
+      
+      // Create session in database
+      if (user?.id) {
+        try {
+          const session = await startSession(user.id, {
+            blocks: [
+              {
+                exercise: exerciseId || "photo-naming",
+                duration: totalRounds,
+              },
+            ],
+          });
+          setSessionId(session.id);
+        } catch (error) {
+          console.error('Error starting session:', error);
+        }
+      }
     }
+    
+    // Start timing the first trial
+    startTrial();
   };
 
   // Check for rest prompt every minute
@@ -109,6 +155,9 @@ const Exercise = () => {
     setScore(0);
     setProgress(0);
     setShowResult(false);
+    setSessionStartTime(null);
+    setSessionId(null);
+    resetTelemetry();
   };
 
   if (showRestPrompt) {
@@ -289,7 +338,7 @@ const Exercise = () => {
               <Button
                 className="bg-success min-w-[160px] min-h-[60px] text-lg"
                 size="lg"
-                onClick={handleRoundComplete}
+                onClick={() => handleRoundComplete(true)}
               >
                 <CheckCircle2 className="w-6 h-6 mr-2" />
                 I Said It!

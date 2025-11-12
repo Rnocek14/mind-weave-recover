@@ -49,33 +49,45 @@ export type Database = {
       exercise_events: {
         Row: {
           created_at: string | null
+          cue_level: number | null
+          error_type: string | null
           exercise_slug: string | null
           id: string
           inputs: Json | null
           outputs: Json | null
+          reaction_time_ms: number | null
           round: number
           score: number | null
           session_id: string
+          task_parameters: Json | null
         }
         Insert: {
           created_at?: string | null
+          cue_level?: number | null
+          error_type?: string | null
           exercise_slug?: string | null
           id?: string
           inputs?: Json | null
           outputs?: Json | null
+          reaction_time_ms?: number | null
           round: number
           score?: number | null
           session_id: string
+          task_parameters?: Json | null
         }
         Update: {
           created_at?: string | null
+          cue_level?: number | null
+          error_type?: string | null
           exercise_slug?: string | null
           id?: string
           inputs?: Json | null
           outputs?: Json | null
+          reaction_time_ms?: number | null
           round?: number
           score?: number | null
           session_id?: string
+          task_parameters?: Json | null
         }
         Relationships: [
           {
@@ -191,6 +203,7 @@ export type Database = {
           duration_sec: number | null
           ended_at: string | null
           id: string
+          mood_rating: number | null
           plan: Json | null
           started_at: string | null
           summary: Json | null
@@ -200,6 +213,7 @@ export type Database = {
           duration_sec?: number | null
           ended_at?: string | null
           id?: string
+          mood_rating?: number | null
           plan?: Json | null
           started_at?: string | null
           summary?: Json | null
@@ -209,6 +223,7 @@ export type Database = {
           duration_sec?: number | null
           ended_at?: string | null
           id?: string
+          mood_rating?: number | null
           plan?: Json | null
           started_at?: string | null
           summary?: Json | null
