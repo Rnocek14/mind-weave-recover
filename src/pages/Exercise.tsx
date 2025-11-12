@@ -14,6 +14,7 @@ import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
+import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -178,47 +179,52 @@ const Exercise = () => {
 
   if (showResult) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4">
-        <Card className="max-w-md w-full p-8 shadow-glow text-center animate-slide-up">
-          <div className="w-24 h-24 mx-auto rounded-full bg-gradient-celebrate flex items-center justify-center mb-6 animate-celebrate">
-            <Trophy className="w-12 h-12 text-white" />
-          </div>
-          
-          <h2 className="text-3xl font-bold mb-2">Excellent Work!</h2>
-          <p className="text-muted-foreground mb-8">
-            You've completed today's {exercise.title} session
-          </p>
-
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-muted rounded-lg p-4">
-              <div className="text-3xl font-bold text-primary">{score}</div>
-              <div className="text-sm text-muted-foreground">Total Score</div>
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+        <div className="max-w-2xl w-full space-y-6 animate-slide-up">
+          <Card className="p-8 shadow-glow text-center">
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-celebrate flex items-center justify-center mb-6 animate-celebrate">
+              <Trophy className="w-12 h-12 text-white" />
             </div>
-            <div className="bg-muted rounded-lg p-4">
-              <div className="text-3xl font-bold text-success">{totalRounds}</div>
-              <div className="text-sm text-muted-foreground">Rounds</div>
-            </div>
-          </div>
+            
+            <h2 className="text-3xl font-bold mb-2">Excellent Work!</h2>
+            <p className="text-muted-foreground mb-8">
+              You&apos;ve completed today&apos;s {exercise.title} session
+            </p>
 
-          <div className="space-y-3">
-            <Button 
-              className="w-full bg-gradient-healing" 
-              size="lg"
-              onClick={resetExercise}
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Try Again
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              size="lg"
-              onClick={() => navigate("/dashboard")}
-            >
-              Back to Dashboard
-            </Button>
-          </div>
-        </Card>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-muted rounded-lg p-4">
+                <div className="text-3xl font-bold text-primary">{score}</div>
+                <div className="text-sm text-muted-foreground">Total Score</div>
+              </div>
+              <div className="bg-muted rounded-lg p-4">
+                <div className="text-3xl font-bold text-success">{totalRounds}</div>
+                <div className="text-sm text-muted-foreground">Rounds</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Button 
+                className="w-full bg-gradient-healing" 
+                size="lg"
+                onClick={resetExercise}
+              >
+                <RotateCcw className="w-5 h-5 mr-2" />
+                Try Again
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                size="lg"
+                onClick={() => navigate("/dashboard")}
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </Card>
+
+          {/* Session Summary Analytics */}
+          <SessionSummaryCard sessionId={sessionId} />
+        </div>
       </div>
     );
   }

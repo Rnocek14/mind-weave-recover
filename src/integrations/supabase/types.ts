@@ -256,6 +256,21 @@ export type Database = {
           trial_count: number
         }[]
       }
+      get_session_summary: {
+        Args: { p_session_id: string }
+        Returns: {
+          accuracy: number
+          avg_cue_level: number
+          avg_rt_ms: number
+          cue_reduction: number
+          end_difficulty: number
+          error_breakdown: Json
+          median_rt_ms: number
+          start_difficulty: number
+          timeout_count: number
+          total_trials: number
+        }[]
+      }
       merge_profile_pref: {
         Args: { p_key: string; p_subkey: string; p_value: Json }
         Returns: undefined
