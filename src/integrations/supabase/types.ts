@@ -14,7 +14,216 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          awarded_at: string | null
+          id: string
+          type: string
+          user_id: string
+          value: number | null
+        }
+        Insert: {
+          awarded_at?: string | null
+          id?: string
+          type: string
+          user_id: string
+          value?: number | null
+        }
+        Update: {
+          awarded_at?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      exercise_events: {
+        Row: {
+          created_at: string | null
+          exercise_slug: string | null
+          id: string
+          inputs: Json | null
+          outputs: Json | null
+          round: number
+          score: number | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          exercise_slug?: string | null
+          id?: string
+          inputs?: Json | null
+          outputs?: Json | null
+          round: number
+          score?: number | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string | null
+          exercise_slug?: string | null
+          id?: string
+          inputs?: Json | null
+          outputs?: Json | null
+          round?: number
+          score?: number | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_events_exercise_slug_fkey"
+            columns: ["exercise_slug"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "exercise_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          category: string
+          metadata: Json | null
+          slug: string
+          title: string
+        }
+        Insert: {
+          category: string
+          metadata?: Json | null
+          slug: string
+          title: string
+        }
+        Update: {
+          category?: string
+          metadata?: Json | null
+          slug?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      photos: {
+        Row: {
+          created_at: string | null
+          id: string
+          labels: string[] | null
+          name: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          labels?: string[] | null
+          name: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          labels?: string[] | null
+          name?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          accessibility_prefs: Json | null
+          caregiver_mode_enabled: boolean | null
+          consent_version: number | null
+          created_at: string | null
+          daily_goal_minutes: number | null
+          display_name: string | null
+          goals: string[] | null
+          hand_bias: string | null
+          user_id: string
+        }
+        Insert: {
+          accessibility_prefs?: Json | null
+          caregiver_mode_enabled?: boolean | null
+          consent_version?: number | null
+          created_at?: string | null
+          daily_goal_minutes?: number | null
+          display_name?: string | null
+          goals?: string[] | null
+          hand_bias?: string | null
+          user_id: string
+        }
+        Update: {
+          accessibility_prefs?: Json | null
+          caregiver_mode_enabled?: boolean | null
+          consent_version?: number | null
+          created_at?: string | null
+          daily_goal_minutes?: number | null
+          display_name?: string | null
+          goals?: string[] | null
+          hand_bias?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          duration_sec: number | null
+          ended_at: string | null
+          id: string
+          plan: Json | null
+          started_at: string | null
+          summary: Json | null
+          user_id: string
+        }
+        Insert: {
+          duration_sec?: number | null
+          ended_at?: string | null
+          id?: string
+          plan?: Json | null
+          started_at?: string | null
+          summary?: Json | null
+          user_id: string
+        }
+        Update: {
+          duration_sec?: number | null
+          ended_at?: string | null
+          id?: string
+          plan?: Json | null
+          started_at?: string | null
+          summary?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

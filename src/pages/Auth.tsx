@@ -1,0 +1,180 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Brain, Loader2 } from "lucide-react";
+
+const Auth = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const { signUp, signIn, signInAnonymously, user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Redirect if already logged in
+  if (user) {
+    navigate("/dashboard");
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = isSignUp 
+        ? await signUp(email, password, displayName)
+        : await signIn(email, password);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: isSignUp ? "Account created!" : "Welcome back!",
+          description: isSignUp 
+            ? "Please check your email to verify your account." 
+            : "Redirecting to dashboard..."
+        });
+        setTimeout(() => navigate("/dashboard"), 1000);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnonymous = async () => {
+    setLoading(true);
+    const { error } = await signInAnonymously();
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Starting anonymous session",
+        description: "You can create an account later to save your progress."
+      });
+      setTimeout(() => navigate("/dashboard"), 1000);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-8 space-y-6">
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-healing flex items-center justify-center">
+              <Brain className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold">Welcome to NeuroRecover</h1>
+          <p className="text-muted-foreground">
+            {isSignUp ? "Create an account to save your progress" : "Sign in to continue your journey"}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignUp && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                type="text"
+                placeholder="Your name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required={isSignUp}
+              />
+            </div>
+          )}
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Password</label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full bg-gradient-healing"
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              isSignUp ? "Create Account" : "Sign In"
+            )}
+          </Button>
+        </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or</span>
+          </div>
+        </div>
+
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={handleAnonymous}
+          disabled={loading}
+        >
+          Start Without Account
+        </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          {isSignUp ? "Already have an account? " : "Don't have an account? "}
+          <button
+            type="button"
+            className="text-primary hover:underline font-medium"
+            onClick={() => setIsSignUp(!isSignUp)}
+          >
+            {isSignUp ? "Sign In" : "Sign Up"}
+          </button>
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+export default Auth;

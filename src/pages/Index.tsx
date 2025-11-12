@@ -33,7 +33,7 @@ const Index = () => {
             <Button 
               size="lg" 
               className="text-lg px-8 py-6 bg-gradient-healing hover:opacity-90 shadow-glow transition-smooth"
-              onClick={() => navigate("/onboarding")}
+              onClick={() => navigate("/auth")}
             >
               <Brain className="w-5 h-5 mr-2" />
               Start Your Journey

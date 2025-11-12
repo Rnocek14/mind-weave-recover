@@ -1,55 +1,117 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Heart, Upload, Image as ImageIcon, X, Plus, ChevronLeft } from "lucide-react";
+import { Heart, Upload, Image as ImageIcon, X, Plus, ChevronLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { uploadPhoto, getUserPhotos, deletePhoto, getSignedPhotoUrl } from "@/lib/photoStorage";
+
+interface PhotoWithUrl {
+  id: string;
+  name: string;
+  storage_path: string;
+  labels: string[];
+  signedUrl?: string;
+}
 
 const Caregiver = () => {
-  const [photos, setPhotos] = useState<{ id: string; name: string; preview: string }[]>([]);
+  const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    } else if (user) {
+      loadPhotos();
+    }
+  }, [user, authLoading, navigate]);
 
-    Array.from(files).forEach(file => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const newPhoto = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: file.name.replace(/\.[^/.]+$/, ""),
-            preview: event.target?.result as string
-          };
-          setPhotos(prev => [...prev, newPhoto]);
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-
-    toast({
-      title: "Photos uploaded successfully! 📸",
-      description: "These will be used in speech therapy exercises"
-    });
-  };
-
-  const removePhoto = (id: string) => {
-    setPhotos(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleSave = () => {
-    // Store photos in localStorage for now (later: Supabase Storage)
-    localStorage.setItem("caregiverPhotos", JSON.stringify(photos));
+  const loadPhotos = async () => {
+    if (!user) return;
     
-    toast({
-      title: "Changes saved! ✓",
-      description: `${photos.length} photos ready for therapy sessions`
-    });
+    try {
+      const photoData = await getUserPhotos(user.id);
+      // Get signed URLs for each photo
+      const photosWithUrls = await Promise.all(
+        photoData.map(async (photo) => {
+          const signedUrl = await getSignedPhotoUrl(photo.storage_path);
+          return { ...photo, signedUrl };
+        })
+      );
+      setPhotos(photosWithUrls);
+    } catch (error: any) {
+      toast({
+        title: "Error loading photos",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user) return;
+
+    setUploading(true);
+    
+    try {
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith('image/')) {
+          await uploadPhoto(user.id, file);
+        }
+      }
+
+      toast({
+        title: "Photos uploaded! 📸",
+        description: "Photos are now available for therapy exercises"
+      });
+
+      await loadPhotos(); // Reload photo list
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async (photoId: string, storagePath: string) => {
+    try {
+      await deletePhoto(photoId, storagePath);
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
+      
+      toast({
+        title: "Photo deleted",
+        description: "Photo removed successfully"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
@@ -100,9 +162,13 @@ const Caregiver = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Click to select multiple images (JPG, PNG)
                 </p>
-                <Button type="button" className="bg-gradient-healing">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Choose Files
+                <Button type="button" className="bg-gradient-healing" disabled={uploading}>
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
+                  {uploading ? "Uploading..." : "Choose Files"}
                 </Button>
               </div>
             </Label>
@@ -124,9 +190,6 @@ const Caregiver = () => {
               <h3 className="text-xl font-semibold">
                 Uploaded Photos ({photos.length})
               </h3>
-              <Button onClick={handleSave} className="bg-gradient-healing">
-                Save Changes
-              </Button>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -136,7 +199,7 @@ const Caregiver = () => {
                   className="relative group rounded-lg overflow-hidden shadow-card hover:shadow-glow transition-smooth"
                 >
                   <img 
-                    src={photo.preview} 
+                    src={photo.signedUrl || "/placeholder.svg"} 
                     alt={photo.name}
                     className="w-full h-40 object-cover"
                   />
@@ -144,7 +207,7 @@ const Caregiver = () => {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => removePhoto(photo.id)}
+                      onClick={() => handleRemovePhoto(photo.id, photo.storage_path)}
                     >
                       <X className="w-4 h-4 mr-1" />
                       Remove
