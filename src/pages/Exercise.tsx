@@ -296,10 +296,11 @@ const Exercise = () => {
                 await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
-                  cueLevel: 0,
+                  cueLevel: result.cueLevel,
                   errorType: result.errorType,
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
+                    cue_level: result.cueLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
                   },

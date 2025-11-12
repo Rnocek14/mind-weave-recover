@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
+import { getCueText } from '@/lib/cueGenerator';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
@@ -14,6 +15,7 @@ interface PhotoNamingGameProps {
     reactionTimeMs: number;
     errorType?: string;
     difficultyLevel: number;
+    cueLevel: number;
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -37,6 +39,9 @@ export const PhotoNamingGame = ({
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   const [timedOut, setTimedOut] = useState(false);
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
+  const [showCue, setShowCue] = useState(false);
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
@@ -44,15 +49,24 @@ export const PhotoNamingGame = ({
   // Hard mode settings
   const isHardMode = currentDifficulty >= 8;
   const timeLimit = 5; // seconds for hard mode
+  const allowManualHints = currentDifficulty >= 6;
 
-  // Start timing new trial
+  // Start timing new trial and reset cue state
   useEffect(() => {
     if (state.currentTrial && !showFeedback) {
       setTrialStartTime(Date.now());
       setSelectedAnswer(null);
       setTimedOut(false);
+      setCueLevel(0);
+      setShowCue(false);
+      
+      // Auto-show cue after 2 consecutive errors
+      if (consecutiveErrors >= 2 && currentDifficulty >= 4) {
+        setCueLevel(1); // Semantic cue
+        setShowCue(true);
+      }
     }
-  }, [state.currentTrial, showFeedback]);
+  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty]);
 
   // Handle game completion
   useEffect(() => {
@@ -71,6 +85,9 @@ export const PhotoNamingGame = ({
     const result = { correct: false, errorType: 'timeout' };
     setFeedbackData(result);
     setShowFeedback(true);
+    
+    // Track consecutive errors
+    setConsecutiveErrors((prev) => prev + 1);
 
     // Update adaptive controller
     const controller = controllerRef.current;
@@ -92,12 +109,13 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry
+    // Log telemetry with cue level
     onTrialComplete({
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
       difficultyLevel: currentDifficulty,
+      cueLevel: cueLevel,
     });
 
     // Auto-advance after 2 seconds
@@ -106,6 +124,14 @@ export const PhotoNamingGame = ({
       setFeedbackData(null);
       nextTrial(currentDifficulty);
     }, 2000);
+  };
+
+  const handleRequestHint = () => {
+    if (cueLevel >= 3) return; // Already at max cue
+    
+    const newCueLevel = cueLevel + 1;
+    setCueLevel(newCueLevel);
+    setShowCue(true);
   };
 
   const handleAnswerSelect = (word: string) => {
@@ -117,6 +143,13 @@ export const PhotoNamingGame = ({
     const result = selectAnswer(word);
     setFeedbackData(result);
     setShowFeedback(true);
+    
+    // Track consecutive errors
+    if (result.correct) {
+      setConsecutiveErrors(0);
+    } else {
+      setConsecutiveErrors((prev) => prev + 1);
+    }
 
     // Update adaptive controller
     const controller = controllerRef.current;
@@ -139,12 +172,13 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry with current difficulty
+    // Log telemetry with cue level
     onTrialComplete({
       correct: result.correct,
       reactionTimeMs: reactionTime,
       errorType: result.errorType,
       difficultyLevel: currentDifficulty,
+      cueLevel: cueLevel,
     });
 
     // Auto-advance after 1.5 seconds
@@ -224,6 +258,23 @@ export const PhotoNamingGame = ({
           isActive={!showFeedback}
         />
       )}
+      
+      {/* Cue Display */}
+      {showCue && cueLevel > 0 && state.currentTrial && !showFeedback && (
+        <div className="bg-accent/20 border-2 border-accent rounded-lg p-4 animate-slide-up">
+          <div className="flex items-start gap-3">
+            <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-accent mb-1">
+                {cueLevel === 1 ? 'Hint (Category)' : cueLevel === 2 ? 'Hint (Sound)' : 'Full Answer'}
+              </p>
+              <p className="text-sm text-foreground">
+                {getCueText(cueLevel, state.currentTrial.category, state.currentTrial.target)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instruction */}
       <div className="text-center">
@@ -239,6 +290,21 @@ export const PhotoNamingGame = ({
           )}
         </p>
       </div>
+      
+      {/* Manual Hint Button */}
+      {allowManualHints && !showFeedback && cueLevel < 3 && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRequestHint}
+            className="gap-2 border-accent text-accent hover:bg-accent/10"
+          >
+            <Lightbulb className="w-4 h-4" />
+            {cueLevel === 0 ? 'Give me a hint' : cueLevel === 1 ? 'Another hint?' : 'Show answer'}
+          </Button>
+        </div>
+      )}
 
       {/* Answer Choices */}
       <div className="grid grid-cols-2 gap-4">
