@@ -8,6 +8,7 @@ import {
   Volume2, ChevronLeft, Trophy, TrendingUp 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { RestPrompt } from "@/components/RestPrompt";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -19,6 +20,8 @@ const Exercise = () => {
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [showRestPrompt, setShowRestPrompt] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 
   const totalRounds = 10;
 
@@ -74,7 +77,25 @@ const Exercise = () => {
   const startExercise = () => {
     setIsPlaying(true);
     setShowResult(false);
+    if (!sessionStartTime) {
+      setSessionStartTime(Date.now());
+    }
   };
+
+  // Check for rest prompt every minute
+  useEffect(() => {
+    if (!isPlaying || !sessionStartTime) return;
+
+    const checkInterval = setInterval(() => {
+      const elapsed = (Date.now() - sessionStartTime) / 1000 / 60; // minutes
+      if (elapsed >= 10 && !showRestPrompt) {
+        setIsPlaying(false);
+        setShowRestPrompt(true);
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(checkInterval);
+  }, [isPlaying, sessionStartTime, showRestPrompt]);
 
   const resetExercise = () => {
     setIsPlaying(false);
@@ -83,6 +104,21 @@ const Exercise = () => {
     setProgress(0);
     setShowResult(false);
   };
+
+  if (showRestPrompt) {
+    return (
+      <RestPrompt
+        onContinue={() => {
+          setShowRestPrompt(false);
+          setIsPlaying(true);
+        }}
+        onEnd={() => {
+          setShowRestPrompt(false);
+          setShowResult(true);
+        }}
+      />
+    );
+  }
 
   if (showResult) {
     return (
