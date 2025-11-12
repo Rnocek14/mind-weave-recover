@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { calculateStreak, getTotalReps, getTodayProgress } from "@/hooks/useStreakCalculation";
 import { supabase } from "@/integrations/supabase/client";
+import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -206,6 +207,23 @@ const Dashboard = () => {
                 </Card>
               );
             })}
+          </div>
+        </div>
+
+        {/* Exercise Performance Analytics */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Your Performance</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <ExerciseStatsTile
+              userId={user?.id}
+              exerciseSlug="photo-naming"
+              exerciseTitle="Photo Naming"
+            />
+            <ExerciseStatsTile
+              userId={user?.id}
+              exerciseSlug="reach-tap"
+              exerciseTitle="Reach & Tap"
+            />
           </div>
         </div>
 

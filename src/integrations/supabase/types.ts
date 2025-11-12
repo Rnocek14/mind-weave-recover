@@ -248,6 +248,14 @@ export type Database = {
         Args: { p_session_id: string; p_summary: Json }
         Returns: undefined
       }
+      get_exercise_stats_last7d: {
+        Args: { slug: string; uid: string }
+        Returns: {
+          avg_accuracy: number
+          median_rt: number
+          trial_count: number
+        }[]
+      }
       merge_profile_pref: {
         Args: { p_key: string; p_subkey: string; p_value: Json }
         Returns: undefined
