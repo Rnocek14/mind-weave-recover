@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Trophy, Camera, Hand, MessageSquare, 
-  TrendingUp, Flame, Award, ChevronRight, Loader2, History 
+  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,7 @@ const Dashboard = () => {
   const [achievementCount, setAchievementCount] = useState(0);
   const [todayProgress, setTodayProgress] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -29,8 +30,24 @@ const Dashboard = () => {
 
     if (user) {
       loadDashboardData();
+      checkAdminStatus();
     }
   }, [user, authLoading, navigate]);
+
+  const checkAdminStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+
+      setIsAdmin(roles?.some(r => r.role === "admin") || false);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
 
   const loadDashboardData = async () => {
     if (!user) return;
@@ -106,13 +123,26 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-calm">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            Welcome Back! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Ready to continue your recovery journey?
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+              Welcome Back! 👋
+            </h1>
+            <p className="text-muted-foreground">
+              Ready to continue your recovery journey?
+            </p>
+          </div>
+          
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/admin")}
+              className="gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Admin Panel
+            </Button>
+          )}
         </div>
 
         {/* Stats Grid */}
