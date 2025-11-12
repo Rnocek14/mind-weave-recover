@@ -1,5 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Note: For better performance with multiple uploads, use the Web Worker compression
+// via the useImageCompressor hook instead of this direct compression function.
+// Example usage:
+//   import { useImageCompressor } from '@/hooks/useImageCompressor';
+//   const compress = useImageCompressor();
+//   const compressedFile = await compress(file);
+
 // Compress image before upload (max 1600px, quality 0.7)
 const compressImage = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {

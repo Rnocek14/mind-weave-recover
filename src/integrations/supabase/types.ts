@@ -229,7 +229,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      merge_profile_pref: {
+        Args: { p_key: string; p_subkey: string; p_value: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

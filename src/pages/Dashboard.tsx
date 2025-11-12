@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Trophy, Camera, Hand, MessageSquare, 
-  TrendingUp, Flame, Award, ChevronRight, Loader2 
+  TrendingUp, Flame, Award, ChevronRight, Loader2, History 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -213,7 +213,11 @@ const Dashboard = () => {
         <Card className="p-6 shadow-card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Recent Achievements</h2>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate("/history")}
+            >
               View All <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>

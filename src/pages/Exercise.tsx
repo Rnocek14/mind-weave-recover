@@ -5,15 +5,18 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Pause, RotateCcw, CheckCircle2, 
-  Volume2, ChevronLeft, Trophy, TrendingUp 
+  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
+import { useAuth } from "@/hooks/useAuth";
+import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
@@ -22,8 +25,11 @@ const Exercise = () => {
   const [showResult, setShowResult] = useState(false);
   const [showRestPrompt, setShowRestPrompt] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<string | undefined>();
 
   const totalRounds = 10;
+  
+  const { level, stepDown } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
 
   // Mock exercise data
   const exercises: Record<string, any> = {
@@ -270,7 +276,7 @@ const Exercise = () => {
         {/* Fixed Safety Controls - Always visible during exercise */}
         {isPlaying && (
           <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-4 z-50">
-            <div className="container mx-auto max-w-4xl flex justify-center gap-4">
+            <div className="container mx-auto max-w-4xl flex flex-wrap justify-center gap-3">
               <Button
                 variant="outline"
                 size="lg"
@@ -287,6 +293,23 @@ const Exercise = () => {
               >
                 <CheckCircle2 className="w-6 h-6 mr-2" />
                 I Said It!
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="min-w-[140px] min-h-[60px] text-lg"
+                onClick={async () => {
+                  const newLevel = await stepDown(sessionId);
+                  // Optionally adjust current round difficulty based on newLevel
+                  toast({
+                    title: "Adjusted!",
+                    description: `Difficulty lowered to level ${newLevel}`,
+                  });
+                }}
+                title="We'll make the next step easier"
+              >
+                <HelpCircle className="w-6 h-6 mr-2" />
+                Too Hard
               </Button>
               <Button
                 variant="destructive"

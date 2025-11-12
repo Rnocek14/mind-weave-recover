@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
+import PrivacySettings from "./pages/PrivacySettings";
+import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/exercise/:exerciseId" element={<Exercise />} />
           <Route path="/caregiver" element={<Caregiver />} />
+          <Route path="/settings/privacy" element={<PrivacySettings />} />
+          <Route path="/history" element={<History />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

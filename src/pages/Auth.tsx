@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
 import { Brain, Loader2 } from "lucide-react";
 
 const Auth = () => {
@@ -41,12 +42,23 @@ const Auth = () => {
           variant: "destructive"
         });
       } else {
-        toast({
-          title: isSignUp ? "Account created!" : "Welcome back!",
-          description: isSignUp 
-            ? "Please check your email to verify your account." 
-            : "Redirecting to dashboard..."
-        });
+        // Check for local data to migrate
+        if (user && hasLocalData()) {
+          const migrated = await migrateLocalToSupabase(user.id);
+          if (migrated) {
+            toast({
+              title: isSignUp ? "Account created!" : "Welcome back!",
+              description: "Your local data has been saved to your account.",
+            });
+          }
+        } else {
+          toast({
+            title: isSignUp ? "Account created!" : "Welcome back!",
+            description: isSignUp 
+              ? "Please check your email to verify your account." 
+              : "Redirecting to dashboard..."
+          });
+        }
         // Navigation will happen via useEffect when user state updates
       }
     } catch (error: any) {
@@ -65,11 +77,13 @@ const Auth = () => {
     const { error } = await signInAnonymously();
     
     if (error) {
+      // Fallback to sessionless mode
       toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
+        title: "Starting in offline mode",
+        description: "Your progress will be saved locally. Create an account to sync across devices.",
       });
+      // Still navigate to dashboard for sessionless mode
+      navigate("/dashboard");
       setSubmitting(false);
     } else {
       toast({
