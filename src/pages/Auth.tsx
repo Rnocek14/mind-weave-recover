@@ -100,8 +100,8 @@ const Auth = () => {
 
   const handleAdminLogin = async () => {
     setSubmitting(true);
-    const adminEmail = "admin@neurorecover.dev";
-    const adminPassword = "admin123456";
+    const adminEmail = "admin@example.com";
+    const adminPassword = "Test123456!";
 
     try {
       // Try to sign in first
@@ -133,7 +133,7 @@ const Auth = () => {
 
       toast({
         title: "Admin login successful",
-        description: "Logged in as admin@test.com"
+        description: "Logged in as admin@example.com"
       });
     } catch (error: any) {
       toast({
