@@ -131,6 +131,11 @@ const Auth = () => {
         title: "Demo admin access ready!",
         description: "Logged in as demo.admin@gmail.com"
       });
+      
+      // Wait for auth state to update, then navigate
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
     } catch (error: any) {
       console.error("Admin login error:", error);
       toast({
