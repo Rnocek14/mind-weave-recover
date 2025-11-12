@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { startSession } from "@/lib/sessionTracking";
+import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -287,9 +288,41 @@ const Exercise = () => {
                 Start Exercise
               </Button>
             </div>
+          ) : exerciseId === 'photo-naming' ? (
+            <PhotoNamingGame
+              totalTrials={totalRounds}
+              difficultyLevel={level}
+              onTrialComplete={async (result) => {
+                await logTrial({
+                  correct: result.correct,
+                  reactionTimeMs: result.reactionTimeMs,
+                  cueLevel: 0,
+                  errorType: result.errorType,
+                  taskParameters: {
+                    difficulty_level: level,
+                    round: currentRound,
+                    exercise_type: 'photo-naming',
+                  },
+                });
+                
+                // Move to next round
+                if (currentRound < totalRounds) {
+                  setCurrentRound((prev) => prev + 1);
+                  if (result.correct) {
+                    setScore((prev) => prev + 100);
+                  }
+                  startTrial();
+                }
+              }}
+              onGameComplete={(finalScore) => {
+                setScore(finalScore);
+                setIsPlaying(false);
+                setShowResult(true);
+              }}
+            />
           ) : (
             <div className="w-full space-y-8">
-              {/* Mock exercise content - would be replaced with actual exercise logic */}
+              {/* Fallback for other exercise types */}
               <div className="text-center space-y-6">
                 <div className="w-48 h-48 mx-auto bg-muted rounded-lg flex items-center justify-center border-4 border-primary shadow-glow">
                   <span className="text-6xl">🏠</span>
@@ -300,7 +333,6 @@ const Exercise = () => {
                 <Progress value={progress} className="h-4" />
               </div>
 
-              {/* Placeholder for future difficulty adjustment */}
               <div className="text-center text-sm text-muted-foreground">
                 Round {currentRound} in progress...
               </div>
