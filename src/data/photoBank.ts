@@ -1,5 +1,19 @@
 // Curated photo-naming trials with semantic foils
-// Images use placeholder.svg for MVP - can be replaced with real images from storage
+// Real images for therapy exercises
+
+import houseImg from '@/assets/photos/house.jpg';
+import cupImg from '@/assets/photos/cup.jpg';
+import dogImg from '@/assets/photos/dog.jpg';
+import appleImg from '@/assets/photos/apple.jpg';
+import chairImg from '@/assets/photos/chair.jpg';
+import phoneImg from '@/assets/photos/phone.jpg';
+import birdImg from '@/assets/photos/bird.jpg';
+import breadImg from '@/assets/photos/bread.jpg';
+import carImg from '@/assets/photos/car.jpg';
+import handImg from '@/assets/photos/hand.jpg';
+import eyeImg from '@/assets/photos/eye.jpg';
+import catImg from '@/assets/photos/cat.jpg';
+import bikeImg from '@/assets/photos/bike.jpg';
 
 export interface PhotoTrial {
   id: string;
@@ -16,7 +30,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   // EASY TRIALS (Levels 1-3): Broad semantic categories, unrelated foils
   {
     id: 'house_1',
-    imageUrl: '/placeholder.svg',
+    imageUrl: houseImg,
     target: 'house',
     semanticFoils: ['tree', 'car', 'apple'], // Very different categories
     category: 'buildings',
@@ -25,7 +39,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'cup_1',
-    imageUrl: '/placeholder.svg',
+    imageUrl: cupImg,
     target: 'cup',
     semanticFoils: ['shoe', 'book', 'chair'], // Unrelated objects
     category: 'kitchenware',
@@ -34,7 +48,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'dog_1',
-    imageUrl: '/placeholder.svg',
+    imageUrl: dogImg,
     target: 'dog',
     semanticFoils: ['car', 'tree', 'house'], // Very different
     category: 'animals',
@@ -43,7 +57,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'apple_1',
-    imageUrl: '/placeholder.svg',
+    imageUrl: appleImg,
     target: 'apple',
     semanticFoils: ['shoe', 'car', 'chair'], // Unrelated
     category: 'food',
@@ -54,7 +68,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   // MEDIUM TRIALS (Levels 4-7): Close semantic foils, same category
   {
     id: 'chair_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: chairImg,
     target: 'chair',
     semanticFoils: ['table', 'stool', 'bench', 'couch'], // All furniture
     category: 'furniture',
@@ -63,7 +77,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'phone_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: phoneImg,
     target: 'phone',
     semanticFoils: ['tablet', 'computer', 'watch', 'remote'], // All electronics
     category: 'electronics',
@@ -72,7 +86,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'dog_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: dogImg,
     target: 'dog',
     semanticFoils: ['cat', 'wolf', 'fox', 'puppy'], // Close animals
     category: 'animals',
@@ -81,7 +95,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'bird_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: birdImg,
     target: 'bird',
     semanticFoils: ['eagle', 'robin', 'sparrow', 'crow'], // Specific birds
     category: 'animals',
@@ -90,7 +104,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'bread_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: breadImg,
     target: 'bread',
     semanticFoils: ['toast', 'roll', 'bagel', 'bun'], // Close food items
     category: 'food',
@@ -99,7 +113,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'car_2',
-    imageUrl: '/placeholder.svg',
+    imageUrl: carImg,
     target: 'car',
     semanticFoils: ['truck', 'van', 'suv', 'sedan'], // Vehicle types
     category: 'transportation',
@@ -110,7 +124,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   // HARD TRIALS (Levels 8-10): Phonological similarity + semantic overlap
   {
     id: 'hand_3',
-    imageUrl: '/placeholder.svg',
+    imageUrl: handImg,
     target: 'hand',
     semanticFoils: ['arm', 'wrist', 'finger', 'palm'], // Body parts
     phonologicalFoils: ['sand', 'band', 'land'], // Sound-alike
@@ -120,7 +134,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'eye_3',
-    imageUrl: '/placeholder.svg',
+    imageUrl: eyeImg,
     target: 'eye',
     semanticFoils: ['nose', 'face', 'brow', 'lid'], // Face parts
     phonologicalFoils: ['aye', 'rye', 'pie'], // Sound-alike
@@ -130,7 +144,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'cat_3',
-    imageUrl: '/placeholder.svg',
+    imageUrl: catImg,
     target: 'cat',
     semanticFoils: ['kitten', 'feline', 'tiger', 'lion'], // Close animals
     phonologicalFoils: ['hat', 'bat', 'mat'], // Sound-alike
@@ -140,7 +154,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
   },
   {
     id: 'bike_3',
-    imageUrl: '/placeholder.svg',
+    imageUrl: bikeImg,
     target: 'bike',
     semanticFoils: ['cycle', 'scooter', 'moped', 'trike'], // Vehicles
     phonologicalFoils: ['hike', 'pike', 'mike'], // Sound-alike
