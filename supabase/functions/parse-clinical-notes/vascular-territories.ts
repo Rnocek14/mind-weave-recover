@@ -307,5 +307,565 @@ export const VASCULAR_TERRITORIES: Record<string, TerritoryMapping> = {
       confidence: 'high'
     },
     source_evidence: 'Lateral medullary syndrome causes ipsilateral ataxia with dysphagia and Horner syndrome'
+  },
+  
+  // ========== SUBCORTICAL TERRITORIES ==========
+  
+  'left_thalamus': {
+    location: 'Left Thalamus',
+    keywords: ['left thalamus', 'left thalamic', 'left PCA perforator'],
+    side: 'left',
+    motor: {
+      pattern: 'minimal_weakness',
+      affected_side: 'contralateral',
+      distribution: 'mild_if_present',
+      confidence: 'low'
+    },
+    speech: {
+      deficits: ['possible_aphasia', 'reduced_fluency'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['minor_deficit_if_lgn'],
+      confidence: 'low'
+    },
+    cognitive: {
+      deficits: ['memory_impairment', 'executive_dysfunction'],
+      confidence: 'medium'
+    },
+    source_evidence: 'Pure sensory stroke with right hemisensory loss; possible aphasia if dominant thalamus'
+  },
+  
+  'right_thalamus': {
+    location: 'Right Thalamus',
+    keywords: ['right thalamus', 'right thalamic', 'right PCA perforator'],
+    side: 'right',
+    motor: {
+      pattern: 'minimal_weakness',
+      affected_side: 'contralateral',
+      distribution: 'mild_if_present',
+      confidence: 'low'
+    },
+    speech: {
+      deficits: [],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['visuospatial_neglect', 'inattention'],
+      confidence: 'low'
+    },
+    source_evidence: 'Pure sensory stroke with left hemisensory loss'
+  },
+  
+  'bilateral_thalami': {
+    location: 'Bilateral Thalami',
+    keywords: ['bilateral thalamic', 'artery of percheron', 'paramedian thalamus'],
+    side: 'bilateral',
+    motor: {
+      pattern: 'minimal_weakness',
+      affected_side: 'contralateral',
+      distribution: 'pyramidal_tracts_spared',
+      confidence: 'low'
+    },
+    speech: {
+      deficits: ['reduced_output', 'akinetic_mutism'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['vertical_gaze_palsy', 'upward_downward_paralysis'],
+      confidence: 'medium'
+    },
+    cognitive: {
+      deficits: ['impaired_consciousness', 'severe_memory_deficit', 'confusion'],
+      confidence: 'high'
+    },
+    source_evidence: 'Artery of Percheron syndrome with impaired arousal and severe memory loss'
+  },
+  
+  'left_internal_capsule': {
+    location: 'Left Internal Capsule',
+    keywords: ['left internal capsule', 'left posterior limb', 'left capsular lacune'],
+    side: 'left',
+    motor: {
+      pattern: 'pure_motor_hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg_equal',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['possible_hemianopia_if_optic_radiation'],
+      confidence: 'low'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Pure motor lacunar stroke with right face-arm-leg hemiparesis equally'
+  },
+  
+  'right_internal_capsule': {
+    location: 'Right Internal Capsule',
+    keywords: ['right internal capsule', 'right posterior limb', 'right capsular lacune'],
+    side: 'right',
+    motor: {
+      pattern: 'pure_motor_hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg_equal',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['possible_hemianopia_if_optic_radiation'],
+      confidence: 'low'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Pure motor lacunar stroke with left face-arm-leg hemiparesis'
+  },
+  
+  'left_basal_ganglia': {
+    location: 'Left Basal Ganglia',
+    keywords: ['left basal ganglia', 'left putamen', 'left lentiform', 'left lenticulostriate'],
+    side: 'left',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg_equal',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['possible_hemianopia_if_deep'],
+      confidence: 'low'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Subcortical stroke without cortical signs'
+  },
+  
+  'right_basal_ganglia': {
+    location: 'Right Basal Ganglia',
+    keywords: ['right basal ganglia', 'right putamen', 'right lentiform', 'right lenticulostriate'],
+    side: 'right',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg_equal',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['left_spatial_neglect', 'inattention'],
+      confidence: 'low'
+    },
+    source_evidence: 'Subcortical lacunar stroke'
+  },
+  
+  'left_caudate': {
+    location: 'Left Caudate Nucleus',
+    keywords: ['left caudate', 'left caudate head', 'left caudate nucleus'],
+    side: 'left',
+    motor: {
+      pattern: 'mild_weakness',
+      affected_side: 'contralateral',
+      distribution: 'arm_face_if_present',
+      confidence: 'low'
+    },
+    speech: {
+      deficits: ['aphasia', 'reduced_spontaneous_speech', 'transcortical_motor_aphasia'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['abulia', 'apathy', 'executive_dysfunction'],
+      confidence: 'high'
+    },
+    source_evidence: 'Dominant subcortical frontal syndrome with marked abulia'
+  },
+  
+  'right_caudate': {
+    location: 'Right Caudate Nucleus',
+    keywords: ['right caudate', 'right caudate head', 'right caudate nucleus'],
+    side: 'right',
+    motor: {
+      pattern: 'mild_weakness',
+      affected_side: 'contralateral',
+      distribution: 'arm_face_if_present',
+      confidence: 'low'
+    },
+    speech: {
+      deficits: [],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['abulia', 'apathy', 'visuospatial_neglect', 'inattention'],
+      confidence: 'high'
+    },
+    source_evidence: 'Non-dominant subcortical frontal syndrome'
+  },
+  
+  'left_subthalamic': {
+    location: 'Left Subthalamic Nucleus',
+    keywords: ['left subthalamic', 'left STN'],
+    side: 'left',
+    motor: {
+      pattern: 'hemiballismus',
+      affected_side: 'contralateral',
+      distribution: 'involuntary_movements',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: [],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Right hemiballismus (involuntary flinging movements) without weakness'
+  },
+  
+  'right_subthalamic': {
+    location: 'Right Subthalamic Nucleus',
+    keywords: ['right subthalamic', 'right STN'],
+    side: 'right',
+    motor: {
+      pattern: 'hemiballismus',
+      affected_side: 'contralateral',
+      distribution: 'involuntary_movements',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: [],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Left hemiballismus (movement disorder) without weakness'
+  },
+  
+  // ========== BRAINSTEM TERRITORIES ==========
+  
+  'left_midbrain': {
+    location: 'Left Midbrain',
+    keywords: ['left midbrain', 'left cerebral peduncle', 'weber syndrome left', 'weber left'],
+    side: 'left',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'low'
+    },
+    visual: {
+      deficits: ['cn3_palsy', 'ptosis', 'dilated_pupil', 'diplopia'],
+      affected_field: 'ipsilateral',
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Weber syndrome: left CN III palsy with right hemiplegia'
+  },
+  
+  'right_midbrain': {
+    location: 'Right Midbrain',
+    keywords: ['right midbrain', 'right cerebral peduncle', 'weber syndrome right', 'weber right'],
+    side: 'right',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'face_arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'low'
+    },
+    visual: {
+      deficits: ['cn3_palsy', 'ptosis', 'dilated_pupil', 'diplopia'],
+      affected_field: 'ipsilateral',
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Weber syndrome: right CN III palsy with left hemiplegia'
+  },
+  
+  'left_medial_pons': {
+    location: 'Left Medial Pons',
+    keywords: ['left medial pons', 'left paramedian pons', 'millard gubler left', 'foville left'],
+    side: 'left',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['diplopia', 'cn6_palsy', 'lateral_gaze_palsy'],
+      affected_field: 'ipsilateral',
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Millard-Gubler syndrome: left CN VI/VII palsy with right hemiplegia'
+  },
+  
+  'right_medial_pons': {
+    location: 'Right Medial Pons',
+    keywords: ['right medial pons', 'right paramedian pons', 'millard gubler right', 'foville right'],
+    side: 'right',
+    motor: {
+      pattern: 'hemiparesis',
+      affected_side: 'contralateral',
+      distribution: 'arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['diplopia', 'cn6_palsy', 'lateral_gaze_palsy'],
+      affected_field: 'ipsilateral',
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Millard-Gubler syndrome: right CN VI/VII palsy with left hemiplegia'
+  },
+  
+  'left_lateral_pons': {
+    location: 'Left Lateral Pons',
+    keywords: ['left lateral pons', 'left AICA', 'left dorsolateral pons'],
+    side: 'left',
+    motor: {
+      pattern: 'ataxia',
+      affected_side: 'ipsilateral',
+      distribution: 'limb_ataxia',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['nystagmus', 'diplopia', 'cn6_involvement'],
+      confidence: 'medium'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'AICA syndrome: vertigo, ataxia, ipsilateral CN VII/VIII deficits, crossed sensory loss'
+  },
+  
+  'right_lateral_pons': {
+    location: 'Right Lateral Pons',
+    keywords: ['right lateral pons', 'right AICA', 'right dorsolateral pons'],
+    side: 'right',
+    motor: {
+      pattern: 'ataxia',
+      affected_side: 'ipsilateral',
+      distribution: 'limb_ataxia',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: ['nystagmus', 'diplopia', 'lateral_gaze_palsy'],
+      confidence: 'medium'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'AICA syndrome: crossed sensory loss with ipsilateral CN VII/VIII'
+  },
+  
+  'left_medial_medulla': {
+    location: 'Left Medial Medulla',
+    keywords: ['left medial medulla', 'left anterior medulla', 'dejerine left'],
+    side: 'left',
+    motor: {
+      pattern: 'hemiplegia',
+      affected_side: 'contralateral',
+      distribution: 'arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria', 'tongue_weakness'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Dejerine syndrome: left CN XII palsy (tongue deviates left) with right hemiplegia'
+  },
+  
+  'right_medial_medulla': {
+    location: 'Right Medial Medulla',
+    keywords: ['right medial medulla', 'right anterior medulla', 'dejerine right'],
+    side: 'right',
+    motor: {
+      pattern: 'hemiplegia',
+      affected_side: 'contralateral',
+      distribution: 'arm_leg',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['dysarthria', 'tongue_weakness'],
+      confidence: 'medium'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Medial medullary syndrome: right CN XII palsy with left hemiplegia'
+  },
+  
+  // ========== SPECIAL SYNDROMES ==========
+  
+  'locked_in': {
+    location: 'Locked-In Syndrome',
+    keywords: ['locked in', 'locked-in', 'bilateral ventral pons', 'pontine basilar'],
+    side: 'bilateral',
+    motor: {
+      pattern: 'quadriplegia',
+      affected_side: 'contralateral',
+      distribution: 'complete_paralysis',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['anarthria', 'complete_loss_speech'],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: ['horizontal_gaze_palsy', 'vertical_movements_preserved'],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: [],
+      confidence: 'high'
+    },
+    source_evidence: 'Bilateral ventral pontine: quadriplegia with preserved awareness and vertical eye movement'
+  },
+  
+  'bilateral_aca': {
+    location: 'Bilateral ACA',
+    keywords: ['bilateral aca', 'bilateral anterior cerebral', 'bihemispheric aca'],
+    side: 'bilateral',
+    motor: {
+      pattern: 'paraplegia',
+      affected_side: 'contralateral',
+      distribution: 'both_lower_extremities',
+      confidence: 'high'
+    },
+    speech: {
+      deficits: ['akinetic_mutism', 'sparse_speech'],
+      confidence: 'high'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['severe_abulia', 'apathy', 'frontal_executive_dysfunction'],
+      confidence: 'high'
+    },
+    source_evidence: 'Bilateral ACA syndrome: frontal lobe syndrome with paraplegia and abulia'
+  },
+  
+  'watershed': {
+    location: 'Watershed Infarcts',
+    keywords: ['watershed', 'borderzone', 'man in the barrel', 'border zone'],
+    side: 'bilateral',
+    motor: {
+      pattern: 'proximal_weakness',
+      affected_side: 'contralateral',
+      distribution: 'brachial_diplegia',
+      confidence: 'medium'
+    },
+    speech: {
+      deficits: ['hypophonia'],
+      confidence: 'low'
+    },
+    visual: {
+      deficits: [],
+      confidence: 'high'
+    },
+    cognitive: {
+      deficits: ['mild_cognitive_impairment'],
+      confidence: 'low'
+    },
+    source_evidence: 'Man-in-the-barrel syndrome: proximal arm weakness from bilateral border-zone infarcts'
   }
 };
