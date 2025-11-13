@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClinicalNoteParser from './ClinicalNoteParser';
+import { useClinicalCorrections } from '@/hooks/useClinicalCorrections';
 
 interface ClinicalProfileFormProps {
   initialProfile?: ClinicalProfile;
@@ -46,6 +47,8 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     profile_source: 'manual',
     last_updated: null
   });
+  const [originalAiProfile, setOriginalAiProfile] = useState<ClinicalProfile | null>(null);
+  const { logBatchCorrections } = useClinicalCorrections();
 
   const handleImpairmentToggle = (category: keyof ClinicalProfile['impairments'], value: string) => {
     setProfile(prev => {
@@ -60,7 +63,79 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Track corrections if this profile came from AI parser
+    if (originalAiProfile && (profile.profile_source === 'hybrid' || profile.profile_source === 'nlp')) {
+      const corrections = [];
+      const clinicalNoteExcerpt = profile.notes?.substring(0, 500);
+      
+      // Check for changes in each field
+      if (JSON.stringify(profile.impairments.motor) !== JSON.stringify(originalAiProfile.impairments.motor)) {
+        corrections.push({
+          field_name: 'impairments.motor',
+          original_value: originalAiProfile.impairments.motor,
+          corrected_value: profile.impairments.motor,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (JSON.stringify(profile.impairments.speech) !== JSON.stringify(originalAiProfile.impairments.speech)) {
+        corrections.push({
+          field_name: 'impairments.speech',
+          original_value: originalAiProfile.impairments.speech,
+          corrected_value: profile.impairments.speech,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (JSON.stringify(profile.impairments.cognitive) !== JSON.stringify(originalAiProfile.impairments.cognitive)) {
+        corrections.push({
+          field_name: 'impairments.cognitive',
+          original_value: originalAiProfile.impairments.cognitive,
+          corrected_value: profile.impairments.cognitive,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (JSON.stringify(profile.impairments.visual) !== JSON.stringify(originalAiProfile.impairments.visual)) {
+        corrections.push({
+          field_name: 'impairments.visual',
+          original_value: originalAiProfile.impairments.visual,
+          corrected_value: profile.impairments.visual,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (profile.affected_side !== originalAiProfile.affected_side) {
+        corrections.push({
+          field_name: 'affected_side',
+          original_value: originalAiProfile.affected_side,
+          corrected_value: profile.affected_side,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (JSON.stringify(profile.stroke_location) !== JSON.stringify(originalAiProfile.stroke_location)) {
+        corrections.push({
+          field_name: 'stroke_location',
+          original_value: originalAiProfile.stroke_location,
+          corrected_value: profile.stroke_location,
+          clinical_note_excerpt: clinicalNoteExcerpt,
+          confidence_before: (originalAiProfile as any).confidence,
+        });
+      }
+      
+      if (corrections.length > 0) {
+        await logBatchCorrections(corrections);
+        console.log(`Logged ${corrections.length} corrections to AI profile`);
+      }
+    }
+    
     const finalProfile = {
       ...profile,
       last_updated: new Date().toISOString()
@@ -69,10 +144,13 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
   };
 
   const handleProfileExtracted = (extractedProfile: ClinicalProfile) => {
-    setProfile({
+    const profileWithSource = {
       ...extractedProfile,
       profile_source: extractedProfile.profile_source || 'nlp'
-    });
+    };
+    setProfile(profileWithSource);
+    // Store original AI profile for correction tracking
+    setOriginalAiProfile(JSON.parse(JSON.stringify(profileWithSource)));
   };
 
   return (

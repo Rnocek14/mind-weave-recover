@@ -121,12 +121,13 @@ Please review and enhance the extraction. Output ONLY valid JSON with this exact
     "cognitive": ["specific_impairment"],
     "visual": ["specific_impairment"]
   },
-  "stroke_location": "location or null",
+  "stroke_location": "location_string OR [\"location1\", \"location2\"] for multi-territory infarcts",
   "affected_side": "left/right/bilateral or null",
   "therapy_focus": ["specific_goal"],
   "confidence": "high/medium/low"
 }
 
+IMPORTANT: If multiple stroke territories are present, stroke_location MUST be an array. Preserve arrays from the rule-based extraction.
 Only include impairments that are clearly present. Ignore negated findings (e.g., "no neglect").`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -138,7 +139,7 @@ Only include impairments that are clearly present. Ignore negated findings (e.g.
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a clinical NLP assistant specializing in stroke rehabilitation. Output only valid JSON.' },
+          { role: 'system', content: 'You are a clinical NLP assistant specializing in stroke rehabilitation. Output only valid JSON. Preserve array formats for multi-territory strokes.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.2,
@@ -163,7 +164,12 @@ Only include impairments that are clearly present. Ignore negated findings (e.g.
     
     const llmProfile = JSON.parse(jsonMatch[1] || jsonMatch[0]);
     
-    // Merge rule-based and LLM results, preserving source phrases
+    // Preserve stroke_location array if it exists in rule-based profile
+    const strokeLocation = Array.isArray(ruleBasedProfile.stroke_location) 
+      ? ruleBasedProfile.stroke_location 
+      : (llmProfile.stroke_location || ruleBasedProfile.stroke_location);
+    
+    // Merge rule-based and LLM results, preserving source phrases and inference notes
     return {
       impairments: {
         motor: [...new Set([...ruleBasedProfile.impairments.motor, ...llmProfile.impairments.motor])],
@@ -171,10 +177,11 @@ Only include impairments that are clearly present. Ignore negated findings (e.g.
         cognitive: [...new Set([...ruleBasedProfile.impairments.cognitive, ...llmProfile.impairments.cognitive])],
         visual: [...new Set([...ruleBasedProfile.impairments.visual, ...llmProfile.impairments.visual])]
       },
-      stroke_location: llmProfile.stroke_location || ruleBasedProfile.stroke_location,
+      stroke_location: strokeLocation,
       affected_side: llmProfile.affected_side || ruleBasedProfile.affected_side,
       therapy_focus: [...new Set([...ruleBasedProfile.therapy_focus, ...llmProfile.therapy_focus])],
       source_phrases: ruleBasedProfile.source_phrases,
+      inference_notes: ruleBasedProfile.inference_notes || [],
       confidence: llmProfile.confidence || 'medium',
       profile_source: 'hybrid'
     };

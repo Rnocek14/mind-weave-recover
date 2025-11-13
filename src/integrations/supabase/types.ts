@@ -46,6 +46,54 @@ export type Database = {
           },
         ]
       }
+      clinical_profile_corrections: {
+        Row: {
+          clinical_note_excerpt: string | null
+          confidence_before: string | null
+          corrected_value: Json
+          correction_reason: string | null
+          corrector_role: string | null
+          created_at: string | null
+          field_name: string
+          id: string
+          original_value: Json
+          parser_version: string | null
+          profile_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          clinical_note_excerpt?: string | null
+          confidence_before?: string | null
+          corrected_value: Json
+          correction_reason?: string | null
+          corrector_role?: string | null
+          created_at?: string | null
+          field_name: string
+          id?: string
+          original_value: Json
+          parser_version?: string | null
+          profile_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          clinical_note_excerpt?: string | null
+          confidence_before?: string | null
+          corrected_value?: Json
+          correction_reason?: string | null
+          corrector_role?: string | null
+          created_at?: string | null
+          field_name?: string
+          id?: string
+          original_value?: Json
+          parser_version?: string | null
+          profile_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       exercise_events: {
         Row: {
           created_at: string | null
