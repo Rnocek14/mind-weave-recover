@@ -18,8 +18,11 @@ export interface InferredProfile {
   stroke_location: string[];
   affected_side: string | null;
   therapy_focus: string[];
-  confidence: string;
   inference_notes: InferenceNote[];
+  confidence: string;
+  stroke_mechanism?: 'cardioembolic' | 'large_artery' | 'lacunar' | 'undetermined';
+  embolic_pattern_detected?: boolean;
+  mechanism_reasoning?: string;
 }
 
 export function inferDeficitsFromLesions(lesions: DetectedLesion[]): InferredProfile {
@@ -127,7 +130,101 @@ export function inferDeficitsFromLesions(lesions: DetectedLesion[]): InferredPro
   // Generate therapy focus
   profile.therapy_focus = generateTherapyFocus(profile.impairments);
   
+  // Detect embolic pattern
+  const { mechanism, embolicDetected, reasoning } = detectEmbolismPattern(lesions);
+  profile.stroke_mechanism = mechanism;
+  profile.embolic_pattern_detected = embolicDetected;
+  profile.mechanism_reasoning = reasoning;
+
   return profile;
+}
+
+/**
+ * Detects embolic stroke patterns based on lesion distribution
+ * Embolic showers typically show:
+ * - Multiple (3+) non-contiguous vascular territories
+ * - Bilateral involvement
+ * - Mix of cortical and posterior circulation territories
+ */
+function detectEmbolismPattern(lesions: DetectedLesion[]): {
+  mechanism: 'cardioembolic' | 'large_artery' | 'lacunar' | 'undetermined';
+  embolicDetected: boolean;
+  reasoning: string;
+} {
+  const uniqueTerritories = new Set(lesions.map(l => l.territory));
+  const uniqueSides = new Set(lesions.map(l => l.side));
+  
+  // Check for lacunar pattern (single small vessel territory)
+  const lacunarTerritories = [
+    'left_internal_capsule', 'right_internal_capsule',
+    'left_basal_ganglia', 'right_basal_ganglia',
+    'left_thalamus', 'right_thalamus'
+  ];
+  
+  if (lesions.length === 1 && lacunarTerritories.includes(lesions[0].territory)) {
+    return {
+      mechanism: 'lacunar',
+      embolicDetected: false,
+      reasoning: 'Single small vessel territory infarct suggests lacunar stroke (small vessel disease)'
+    };
+  }
+  
+  // Check for embolic pattern (3+ territories, especially if bilateral)
+  if (uniqueTerritories.size >= 3) {
+    const isBilateral = uniqueSides.size > 1;
+    
+    // Strong embolic indicators
+    const hasAnterior = lesions.some(l => 
+      l.territory.includes('mca') || l.territory.includes('aca')
+    );
+    const hasPosterior = lesions.some(l => 
+      l.territory.includes('pca') || l.territory.includes('cerebellar') || 
+      l.territory.includes('pons') || l.territory.includes('medulla')
+    );
+    
+    if (isBilateral && hasAnterior && hasPosterior) {
+      return {
+        mechanism: 'cardioembolic',
+        embolicDetected: true,
+        reasoning: `${uniqueTerritories.size} non-contiguous bilateral territories (anterior + posterior circulation) detected. Pattern highly suggestive of cardioembolic source (e.g., atrial fibrillation, cardiac thrombus).`
+      };
+    }
+    
+    if (isBilateral) {
+      return {
+        mechanism: 'cardioembolic',
+        embolicDetected: true,
+        reasoning: `${uniqueTerritories.size} bilateral vascular territories affected. Multiple non-contiguous infarcts suggest embolic shower pattern.`
+      };
+    }
+    
+    return {
+      mechanism: 'cardioembolic',
+      embolicDetected: true,
+      reasoning: `${uniqueTerritories.size} separate vascular territories involved. Multiple scattered infarcts suggest cardioembolic or artery-to-artery embolic mechanism.`
+    };
+  }
+  
+  // Large artery pattern (single major vessel, extensive territory)
+  if (lesions.length >= 1 && lesions.length <= 2) {
+    const hasMajorVessel = lesions.some(l => 
+      l.territory.includes('mca') || l.territory.includes('aca') || l.territory.includes('pca')
+    );
+    
+    if (hasMajorVessel) {
+      return {
+        mechanism: 'large_artery',
+        embolicDetected: false,
+        reasoning: 'Single major vascular territory involvement suggests large artery atherosclerosis or in-situ thrombosis'
+      };
+    }
+  }
+  
+  return {
+    mechanism: 'undetermined',
+    embolicDetected: false,
+    reasoning: 'Stroke mechanism cannot be determined from lesion pattern alone. Clinical correlation recommended.'
+  };
 }
 
 function generateTherapyFocus(impairments: any): string[] {

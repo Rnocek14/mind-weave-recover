@@ -233,7 +233,11 @@ serve(async (req) => {
         : (ruleBasedProfile.stroke_location ? [ruleBasedProfile.stroke_location] : []),
       affected_side: inferredProfile.affected_side || ruleBasedProfile.affected_side,
       therapy_focus: [...new Set([...ruleBasedProfile.therapy_focus, ...inferredProfile.therapy_focus])],
-      inference_notes: inferredProfile.inference_notes
+      inference_notes: inferredProfile.inference_notes,
+      // Preserve embolic pattern detection
+      stroke_mechanism: inferredProfile.stroke_mechanism,
+      embolic_pattern_detected: inferredProfile.embolic_pattern_detected,
+      mechanism_reasoning: inferredProfile.mechanism_reasoning
     };
 
     // Phase 4: LLM enhancement

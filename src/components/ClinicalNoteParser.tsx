@@ -170,6 +170,27 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
                 </CardContent>
               </Card>
             )}
+
+            {/* Embolic Pattern Warning */}
+            {(extractedProfile as any).embolic_pattern_detected && (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-destructive text-2xl">⚠️</div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-destructive mb-1">
+                      Embolic Pattern Detected
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      <strong>Stroke Mechanism:</strong> {((extractedProfile as any).stroke_mechanism || '').replace(/_/g, ' ').toUpperCase()}
+                    </p>
+                    <p className="text-sm">
+                      {(extractedProfile as any).mechanism_reasoning}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div>
               <h4 className="font-semibold mb-2">Motor Impairments</h4>
               <div className="flex flex-wrap gap-2">
