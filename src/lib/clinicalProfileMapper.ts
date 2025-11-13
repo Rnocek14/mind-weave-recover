@@ -1,3 +1,10 @@
+export interface InferenceNote {
+  impairment: string;
+  source: string;
+  reasoning: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface ClinicalProfile {
   impairments: {
     motor: string[];
@@ -5,7 +12,7 @@ export interface ClinicalProfile {
     cognitive: string[];
     visual: string[];
   };
-  stroke_location: string | null;
+  stroke_location: string | string[] | null;
   affected_side: 'left' | 'right' | 'bilateral' | null;
   therapy_focus: string[];
   severity?: Record<string, string>;
@@ -14,6 +21,7 @@ export interface ClinicalProfile {
   last_updated?: string | null;
   source_phrases?: Record<string, any>;
   confidence?: 'high' | 'medium' | 'low';
+  inference_notes?: InferenceNote[];
 }
 
 export interface ExerciseRecommendation {

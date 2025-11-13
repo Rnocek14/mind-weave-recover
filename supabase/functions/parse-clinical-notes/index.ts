@@ -1,5 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { detectAllLesions } from './lesion-detector.ts';
+import { inferDeficitsFromLesions } from './deficit-mapper.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -203,8 +205,32 @@ serve(async (req) => {
     const ruleBasedProfile = extractRuleBased(clinicalNote);
     console.log('Rule-based profile:', JSON.stringify(ruleBasedProfile, null, 2));
 
-    // Phase 2: LLM enhancement
-    const enhancedProfile = await enhanceWithLLM(clinicalNote, ruleBasedProfile);
+    // Phase 2: Vascular territory-based lesion detection and deficit inference
+    const detectedLesions = detectAllLesions(clinicalNote);
+    console.log('Detected lesions:', JSON.stringify(detectedLesions, null, 2));
+    
+    const inferredProfile = inferDeficitsFromLesions(detectedLesions);
+    console.log('Inferred profile from lesions:', JSON.stringify(inferredProfile, null, 2));
+
+    // Phase 3: Merge rule-based and territory-based inference
+    const mergedProfile = {
+      ...ruleBasedProfile,
+      impairments: {
+        motor: [...new Set([...ruleBasedProfile.impairments.motor, ...inferredProfile.impairments.motor])],
+        speech: [...new Set([...ruleBasedProfile.impairments.speech, ...inferredProfile.impairments.speech])],
+        cognitive: [...new Set([...ruleBasedProfile.impairments.cognitive, ...inferredProfile.impairments.cognitive])],
+        visual: [...new Set([...ruleBasedProfile.impairments.visual, ...inferredProfile.impairments.visual])]
+      },
+      stroke_location: inferredProfile.stroke_location.length > 0 
+        ? inferredProfile.stroke_location 
+        : (ruleBasedProfile.stroke_location ? [ruleBasedProfile.stroke_location] : []),
+      affected_side: inferredProfile.affected_side || ruleBasedProfile.affected_side,
+      therapy_focus: [...new Set([...ruleBasedProfile.therapy_focus, ...inferredProfile.therapy_focus])],
+      inference_notes: inferredProfile.inference_notes
+    };
+
+    // Phase 4: LLM enhancement
+    const enhancedProfile = await enhanceWithLLM(clinicalNote, mergedProfile);
     console.log('Enhanced profile:', JSON.stringify(enhancedProfile, null, 2));
 
     // Add metadata

@@ -128,6 +128,48 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Inference Chain Display */}
+            {extractedProfile.inference_notes && extractedProfile.inference_notes.length > 0 && (
+              <Card className="bg-muted/50">
+                <CardHeader>
+                  <CardTitle className="text-sm">Clinical Inference Chain</CardTitle>
+                  <CardDescription className="text-xs">
+                    Deficits inferred from detected lesions with confidence levels
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {extractedProfile.inference_notes.map((note: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-background rounded-md border">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <Badge 
+                          variant={
+                            note.confidence === 'high' ? 'default' : 
+                            note.confidence === 'medium' ? 'secondary' : 
+                            'outline'
+                          }
+                          className={
+                            note.confidence === 'high' ? 'bg-green-600' :
+                            note.confidence === 'medium' ? 'bg-yellow-600' :
+                            'bg-orange-600'
+                          }
+                        >
+                          {note.confidence} confidence
+                        </Badge>
+                      </div>
+                      <p className="font-semibold text-sm mb-1">
+                        {note.impairment.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        <span className="font-medium">Source:</span> "{note.source}"
+                      </p>
+                      <p className="text-xs italic text-muted-foreground">
+                        <span className="font-medium">Reasoning:</span> {note.reasoning}
+                      </p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
             <div>
               <h4 className="font-semibold mb-2">Motor Impairments</h4>
               <div className="flex flex-wrap gap-2">
@@ -193,7 +235,15 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
             {extractedProfile.stroke_location && (
               <div>
                 <h4 className="font-semibold mb-2">Stroke Location</h4>
-                <Badge>{extractedProfile.stroke_location.replace(/_/g, ' ')}</Badge>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(extractedProfile.stroke_location) ? (
+                    extractedProfile.stroke_location.map((loc, idx) => (
+                      <Badge key={idx}>{loc.replace(/_/g, ' ')}</Badge>
+                    ))
+                  ) : (
+                    <Badge>{extractedProfile.stroke_location.replace(/_/g, ' ')}</Badge>
+                  )}
+                </div>
                 {extractedProfile.source_phrases?.stroke_location && (
                   <p className="text-xs text-muted-foreground mt-1 italic">
                     Source: "{extractedProfile.source_phrases.stroke_location}"

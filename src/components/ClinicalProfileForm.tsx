@@ -188,7 +188,7 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
             <div className="space-y-2">
               <Label htmlFor="stroke_location">Stroke Location (if known)</Label>
               <Select
-                value={profile.stroke_location || 'unknown'}
+                value={Array.isArray(profile.stroke_location) ? profile.stroke_location[0] : (profile.stroke_location || 'unknown')}
                 onValueChange={(value) => setProfile({ ...profile, stroke_location: value === 'unknown' ? null : value })}
               >
                 <SelectTrigger>
