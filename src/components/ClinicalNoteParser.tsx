@@ -7,6 +7,7 @@ import { Loader2, FileText, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
+import InferenceChainViewer from '@/components/InferenceChainViewer';
 
 interface ClinicalNoteParserProps {
   onProfileExtracted: (profile: ClinicalProfile) => void;
@@ -128,48 +129,8 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Inference Chain Display */}
-            {extractedProfile.inference_notes && extractedProfile.inference_notes.length > 0 && (
-              <Card className="bg-muted/50">
-                <CardHeader>
-                  <CardTitle className="text-sm">Clinical Inference Chain</CardTitle>
-                  <CardDescription className="text-xs">
-                    Deficits inferred from detected lesions with confidence levels
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {extractedProfile.inference_notes.map((note: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-background rounded-md border">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <Badge 
-                          variant={
-                            note.confidence === 'high' ? 'default' : 
-                            note.confidence === 'medium' ? 'secondary' : 
-                            'outline'
-                          }
-                          className={
-                            note.confidence === 'high' ? 'bg-green-600' :
-                            note.confidence === 'medium' ? 'bg-yellow-600' :
-                            'bg-orange-600'
-                          }
-                        >
-                          {note.confidence} confidence
-                        </Badge>
-                      </div>
-                      <p className="font-semibold text-sm mb-1">
-                        {note.impairment.replace(/_/g, ' ')}
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        <span className="font-medium">Source:</span> "{note.source}"
-                      </p>
-                      <p className="text-xs italic text-muted-foreground">
-                        <span className="font-medium">Reasoning:</span> {note.reasoning}
-                      </p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+            {/* Inference Chain Viewer */}
+            <InferenceChainViewer profile={extractedProfile} />
 
             {/* Embolic Pattern Warning */}
             {(extractedProfile as any).embolic_pattern_detected && (
