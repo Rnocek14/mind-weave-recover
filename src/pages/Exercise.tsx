@@ -17,8 +17,11 @@ import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 import { ReachTapGame } from "@/components/ReachTapGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
+import { GeneralizationProbe } from "@/components/GeneralizationProbe";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { supabase } from "@/integrations/supabase/client";
+import { shouldRunProbe } from "@/data/probeWords";
+import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -35,6 +38,9 @@ const Exercise = () => {
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
+  const [showProbe, setShowProbe] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [lastProbeSession, setLastProbeSession] = useState<number | null>(null);
 
   const totalRounds = 10;
   
@@ -60,7 +66,7 @@ const Exercise = () => {
 
   const exercise = exercises[exerciseId || ""] || exercises["photo-naming"];
 
-  // Fetch clinical profile
+  // Fetch clinical profile and session count
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user?.id) return;
@@ -81,8 +87,40 @@ const Exercise = () => {
       }
     };
 
+    const fetchSessionCount = async () => {
+      if (!user?.id || !exerciseId) return;
+      
+      try {
+        // Count total sessions for this exercise
+        const { count, error } = await supabase
+          .from('sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        setSessionCount(count || 0);
+        
+        // Check when last probe was run (stored in session metadata)
+        const { data: lastProbeData } = await supabase
+          .from('sessions')
+          .select('summary')
+          .eq('user_id', user.id)
+          .not('summary->last_probe_session', 'is', null)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (lastProbeData?.summary && typeof lastProbeData.summary === 'object' && 'last_probe_session' in lastProbeData.summary) {
+          setLastProbeSession(lastProbeData.summary.last_probe_session as number);
+        }
+      } catch (error) {
+        console.error('Error fetching session count:', error);
+      }
+    };
+
     fetchProfile();
-  }, [user?.id]);
+    fetchSessionCount();
+  }, [user?.id, exerciseId]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -136,6 +174,15 @@ const Exercise = () => {
   };
 
   const startExercise = async () => {
+    // Check if we should run a probe first
+    const newSessionCount = sessionCount + 1;
+    const shouldProbe = shouldRunProbe(newSessionCount, lastProbeSession);
+    
+    if (shouldProbe && (exerciseId === 'photo-naming' || exerciseId === 'word-practice')) {
+      setShowProbe(true);
+      return;
+    }
+    
     setIsPlaying(true);
     setShowResult(false);
     
@@ -165,6 +212,69 @@ const Exercise = () => {
     startTrial();
   };
 
+  const handleProbeComplete = async (results: ProbeResult[]) => {
+    // Store probe results
+    if (user?.id) {
+      try {
+        const probeData = results.map(result => ({
+          user_id: user.id,
+          session_id: sessionId,
+          probe_word: result.word,
+          target_difficulty: result.difficulty,
+          correct: result.correct,
+          error_type: result.errorType,
+          cues_needed: result.cuesNeeded,
+          reaction_time_ms: result.reactionTimeMs
+        }));
+        
+        // Note: This will require a probe_results table in the database
+        // For now, log to console
+        console.log('Probe results:', probeData);
+        
+        // Update last probe session
+        const newSessionCount = sessionCount + 1;
+        setLastProbeSession(newSessionCount);
+        
+      } catch (error) {
+        console.error('Error storing probe results:', error);
+      }
+    }
+    
+    // Now start the regular exercise
+    setShowProbe(false);
+    setIsPlaying(true);
+    setShowResult(false);
+    
+    // Initialize session tracking
+    if (!sessionStartTime) {
+      setSessionStartTime(Date.now());
+      
+      if (user?.id) {
+        try {
+          const session = await startSession(user.id, {
+            blocks: [
+              {
+                exercise: exerciseId || "photo-naming",
+                duration: totalRounds,
+              },
+            ],
+          });
+          setSessionId(session.id);
+        } catch (error) {
+          console.error('Error starting session:', error);
+        }
+      }
+    }
+    
+    startTrial();
+  };
+
+  const handleProbeSkip = () => {
+    setShowProbe(false);
+    // Continue to exercise
+    startExercise();
+  };
+
   // Check for rest prompt every minute
   useEffect(() => {
     if (!isPlaying || !sessionStartTime) return;
@@ -190,6 +300,14 @@ const Exercise = () => {
     setSessionId(null);
     resetTelemetry();
   };
+
+  if (showProbe) {
+    return <GeneralizationProbe 
+      difficultyLevel={level}
+      onComplete={handleProbeComplete}
+      onSkip={handleProbeSkip}
+    />;
+  }
 
   if (showRestPrompt) {
     return (
