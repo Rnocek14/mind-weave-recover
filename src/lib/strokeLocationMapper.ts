@@ -111,18 +111,28 @@ const LESION_ZONE_PATTERNS: Record<string, RegExp[]> = {
 /**
  * Normalize free-text stroke location into standardized format
  */
-export function normalizeStrokeLocation(rawLocation: string | null): NormalizedStrokeLocation {
-  if (!rawLocation || rawLocation.trim() === '') {
+export function normalizeStrokeLocation(rawLocation: string | null | any): NormalizedStrokeLocation {
+  // Handle non-string values (e.g., if stroke_location is an object)
+  let locationString: string | null = null;
+  
+  if (typeof rawLocation === 'string') {
+    locationString = rawLocation;
+  } else if (rawLocation && typeof rawLocation === 'object') {
+    // If it's an object, try to extract a string value
+    locationString = rawLocation.location || rawLocation.strokeLocation || rawLocation.value || JSON.stringify(rawLocation);
+  }
+  
+  if (!locationString || locationString.trim() === '') {
     return {
       territory: 'unknown',
       hemisphere: 'unknown',
       lesionZones: [],
       confidence: 'low',
-      rawInput: rawLocation || '',
+      rawInput: locationString || '',
     };
   }
 
-  const input = rawLocation.toLowerCase();
+  const input = locationString.toLowerCase();
   
   // Match territory
   let territory = 'unknown';
@@ -130,7 +140,7 @@ export function normalizeStrokeLocation(rawLocation: string | null): NormalizedS
   
   for (const [territoryName, patterns] of Object.entries(TERRITORY_PATTERNS)) {
     for (const pattern of patterns) {
-      if (pattern.test(rawLocation)) {
+      if (pattern.test(locationString)) {
         territory = territoryName;
         confidence = 'high';
         break;
@@ -147,10 +157,10 @@ export function normalizeStrokeLocation(rawLocation: string | null): NormalizedS
     hemisphere = 'right';
   } else if (territory === 'bilateral') {
     hemisphere = 'bilateral';
-  } else if (/\bleft\b/i.test(rawLocation)) {
+  } else if (/\bleft\b/i.test(locationString)) {
     hemisphere = 'left';
     if (confidence === 'low') confidence = 'medium';
-  } else if (/\bright\b/i.test(rawLocation)) {
+  } else if (/\bright\b/i.test(locationString)) {
     hemisphere = 'right';
     if (confidence === 'low') confidence = 'medium';
   }
@@ -159,7 +169,7 @@ export function normalizeStrokeLocation(rawLocation: string | null): NormalizedS
   const lesionZones: string[] = [];
   for (const [zone, patterns] of Object.entries(LESION_ZONE_PATTERNS)) {
     for (const pattern of patterns) {
-      if (pattern.test(rawLocation)) {
+      if (pattern.test(locationString)) {
         lesionZones.push(zone);
         break;
       }
@@ -171,7 +181,7 @@ export function normalizeStrokeLocation(rawLocation: string | null): NormalizedS
     hemisphere,
     lesionZones,
     confidence,
-    rawInput: rawLocation,
+    rawInput: locationString,
   };
 }
 
