@@ -151,6 +151,13 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     setProfile(profileWithSource);
     // Store original AI profile for correction tracking
     setOriginalAiProfile(JSON.parse(JSON.stringify(profileWithSource)));
+    
+    // ⭐ Auto-submit the profile immediately
+    const finalProfile = {
+      ...profileWithSource,
+      last_updated: new Date().toISOString()
+    };
+    onSubmit(finalProfile);
   };
 
   return (
