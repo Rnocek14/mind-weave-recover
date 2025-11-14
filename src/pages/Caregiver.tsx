@@ -15,6 +15,8 @@ import { FlaggedSessions } from "@/components/FlaggedSessions";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { EngagementAnalyticsDashboard } from "@/components/EngagementAnalyticsDashboard";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
+import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 
 interface PhotoWithUrl {
   id: string;
@@ -33,6 +35,7 @@ const Caregiver = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { summary, flaggedSessions, isLoading: analyticsLoading } = useCaregiverAnalytics(user?.id || null);
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -113,7 +116,7 @@ const Caregiver = () => {
         </div>
         <Tabs defaultValue="summary" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="summary"><BarChart3 className="h-4 w-4 mr-2" />Summary</TabsTrigger><TabsTrigger value="flags"><AlertCircle className="h-4 w-4 mr-2" />Flagged</TabsTrigger><TabsTrigger value="adherence"><Calendar className="h-4 w-4 mr-2" />Adherence</TabsTrigger><TabsTrigger value="photos"><ImageIcon className="h-4 w-4 mr-2" />Photos</TabsTrigger></TabsList>
-          <TabsContent value="summary" className="space-y-6">{analyticsLoading ? <Card><div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card> : summary ? <><CaregiverSummary summary={summary} />{user && <EngagementAnalyticsDashboard userId={user.id} />}</> : <Card><div className="text-center py-12"><p className="text-muted-foreground">No data available yet</p></div></Card>}</TabsContent>
+          <TabsContent value="summary" className="space-y-6">{analyticsLoading ? <Card><div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card> : summary ? <><RedFlagAlerts flags={redFlags} /><CaregiverSummary summary={summary} />{user && <EngagementAnalyticsDashboard userId={user.id} />}</> : <Card><div className="text-center py-12"><p className="text-muted-foreground">No data available yet</p></div></Card>}</TabsContent>
           <TabsContent value="flags">{analyticsLoading ? <Card><div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card> : <FlaggedSessions sessions={flaggedSessions} />}</TabsContent>
           <TabsContent value="adherence">{user && <SessionAdherenceTracker userId={user.id} currentStreak={currentStreak} />}</TabsContent>
           <TabsContent value="photos" className="space-y-6"><Card className="p-6"><h2 className="text-2xl font-bold text-primary mb-2">Personal Photos</h2><p className="text-muted-foreground mb-6">Upload meaningful photos for personalized therapy</p><div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors"><Label htmlFor="photo-upload" className="cursor-pointer"><div className="flex flex-col items-center gap-4"><div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">{uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Upload className="w-8 h-8 text-primary" />}</div><div><p className="font-medium text-lg">{uploading ? "Uploading..." : "Click to upload"}</p><p className="text-sm text-muted-foreground mt-1">JPG, PNG (max 10MB)</p></div></div></Label><Input id="photo-upload" type="file" accept="image/*" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} /></div></Card>{photos.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{photos.map(photo => <Card key={photo.id} className="overflow-hidden group relative"><div className="aspect-square relative"><img src={photo.signedUrl} alt={photo.name} className="w-full h-full object-cover" /><Button variant="destructive" size="icon" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemovePhoto(photo.id, photo.storage_path)}><X className="w-4 h-4" /></Button></div><div className="p-3"><p className="text-sm font-medium truncate">{photo.name}</p></div></Card>)}</div> : <Card className="p-12 text-center"><ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-4" /><h3 className="text-xl font-semibold mb-2">No photos yet</h3></Card>}</TabsContent>
