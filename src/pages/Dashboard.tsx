@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
+import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -260,6 +261,11 @@ const Dashboard = () => {
             Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
           </p>
         </Card>
+
+        {/* Session Adherence Tracker */}
+        <div className="mb-8">
+          <SessionAdherenceTracker userId={user?.id || null} currentStreak={streak} />
+        </div>
 
         {/* Stroke Profile Summary */}
         {clinicalProfile && (
