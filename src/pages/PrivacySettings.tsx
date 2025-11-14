@@ -20,6 +20,7 @@ export default function PrivacySettings() {
   const [voicePreference, setVoicePreference] = useState<'male' | 'female' | 'neutral'>('neutral');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -82,6 +83,66 @@ export default function PrivacySettings() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const previewVoice = async (voiceType: 'neutral' | 'male' | 'female') => {
+    const voiceMap = {
+      'neutral': 'alloy',
+      'male': 'onyx',
+      'female': 'nova'
+    };
+    
+    const sampleText = "Hello, I'm your speech therapy assistant. Let's practice together.";
+    setPlayingVoice(voiceType);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            text: sampleText,
+            voice: voiceMap[voiceType]
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech preview');
+      }
+
+      const data = await response.json();
+      
+      // Convert base64 to audio and play
+      const audioData = atob(data.audioContent);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setPlayingVoice(null);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error('Voice preview error:', error);
+      toast({
+        title: "Preview Error",
+        description: "Could not play voice preview. Please try again.",
+        variant: "destructive"
+      });
+      setPlayingVoice(null);
     }
   };
 
@@ -195,17 +256,53 @@ export default function PrivacySettings() {
                   Choose the voice type for phrase practice audio playback
                 </div>
                 <RadioGroup value={voicePreference} onValueChange={(value: any) => setVoicePreference(value)}>
-                  <div className="flex items-center space-x-2 py-2">
-                    <RadioGroupItem value="neutral" id="neutral" />
-                    <Label htmlFor="neutral" className="cursor-pointer">Neutral (Alloy)</Label>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="neutral" id="neutral" />
+                      <Label htmlFor="neutral" className="cursor-pointer">Neutral (Alloy)</Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => previewVoice('neutral')}
+                      disabled={playingVoice === 'neutral'}
+                    >
+                      <Volume2 className="w-4 h-4 mr-1" />
+                      {playingVoice === 'neutral' ? 'Playing...' : 'Preview'}
+                    </Button>
                   </div>
-                  <div className="flex items-center space-x-2 py-2">
-                    <RadioGroupItem value="male" id="male" />
-                    <Label htmlFor="male" className="cursor-pointer">Male (Onyx)</Label>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="male" id="male" />
+                      <Label htmlFor="male" className="cursor-pointer">Male (Onyx)</Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => previewVoice('male')}
+                      disabled={playingVoice === 'male'}
+                    >
+                      <Volume2 className="w-4 h-4 mr-1" />
+                      {playingVoice === 'male' ? 'Playing...' : 'Preview'}
+                    </Button>
                   </div>
-                  <div className="flex items-center space-x-2 py-2">
-                    <RadioGroupItem value="female" id="female" />
-                    <Label htmlFor="female" className="cursor-pointer">Female (Nova)</Label>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="female" id="female" />
+                      <Label htmlFor="female" className="cursor-pointer">Female (Nova)</Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => previewVoice('female')}
+                      disabled={playingVoice === 'female'}
+                    >
+                      <Volume2 className="w-4 h-4 mr-1" />
+                      {playingVoice === 'female' ? 'Playing...' : 'Preview'}
+                    </Button>
                   </div>
                 </RadioGroup>
               </div>
