@@ -94,10 +94,49 @@ export type Database = {
         }
         Relationships: []
       }
+      engagement_interventions: {
+        Row: {
+          created_at: string | null
+          id: string
+          intervention: string
+          session_id: string
+          trigger_data: Json | null
+          trigger_type: string
+          user_action: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          intervention: string
+          session_id: string
+          trigger_data?: Json | null
+          trigger_type: string
+          user_action?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          intervention?: string
+          session_id?: string
+          trigger_data?: Json | null
+          trigger_type?: string
+          user_action?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_interventions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_events: {
         Row: {
           created_at: string | null
           cue_level: number | null
+          engagement_flags: Json | null
           error_type: string | null
           exercise_slug: string | null
           id: string
@@ -112,6 +151,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           cue_level?: number | null
+          engagement_flags?: Json | null
           error_type?: string | null
           exercise_slug?: string | null
           id?: string
@@ -126,6 +166,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           cue_level?: number | null
+          engagement_flags?: Json | null
           error_type?: string | null
           exercise_slug?: string | null
           id?: string
