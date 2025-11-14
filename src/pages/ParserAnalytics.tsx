@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target, Users, UserCheck } from "lucide-react";
+import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target, Users, UserCheck, AlertCircle } from "lucide-react";
 import { ParserAnalyticsDashboard } from "@/components/ParserAnalyticsDashboard";
 import { PatientProgressDashboard } from "@/components/PatientProgressDashboard";
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { ClusterAnalyticsDashboard } from "@/components/ClusterAnalyticsDashboard";
 import { ProfileCompletionDashboard } from "@/components/ProfileCompletionDashboard";
+import { RiskScoringDashboard } from "@/components/RiskScoringDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ParserAnalytics = () => {
@@ -93,26 +94,30 @@ const ParserAnalytics = () => {
         </div>
 
         <Tabs defaultValue="parser" className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5">
+          <TabsList className="grid w-full max-w-5xl grid-cols-6">
             <TabsTrigger value="parser" className="gap-2">
               <Brain className="w-4 h-4" />
-              Parser Analytics
+              Parser
             </TabsTrigger>
             <TabsTrigger value="progress" className="gap-2">
               <TrendingUp className="w-4 h-4" />
-              Patient Progress
+              Progress
             </TabsTrigger>
             <TabsTrigger value="errors" className="gap-2">
               <Target className="w-4 h-4" />
-              Error Patterns
+              Errors
             </TabsTrigger>
             <TabsTrigger value="clusters" className="gap-2">
               <Users className="w-4 h-4" />
-              Clinical Clusters
+              Clusters
             </TabsTrigger>
             <TabsTrigger value="profiles" className="gap-2">
               <UserCheck className="w-4 h-4" />
-              Profile Completion
+              Profiles
+            </TabsTrigger>
+            <TabsTrigger value="risk" className="gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Risk Scoring
             </TabsTrigger>
           </TabsList>
 
@@ -134,6 +139,10 @@ const ParserAnalytics = () => {
 
           <TabsContent value="profiles">
             <ProfileCompletionDashboard />
+          </TabsContent>
+
+          <TabsContent value="risk">
+            <RiskScoringDashboard />
           </TabsContent>
         </Tabs>
       </div>
