@@ -213,7 +213,7 @@ const Exercise = () => {
   };
 
   const handleProbeComplete = async (results: ProbeResult[]) => {
-    // Store probe results
+    // Store probe results in database
     if (user?.id) {
       try {
         const probeData = results.map(result => ({
@@ -227,11 +227,24 @@ const Exercise = () => {
           reaction_time_ms: result.reactionTimeMs
         }));
         
-        // Note: This will require a probe_results table in the database
-        // For now, log to console
-        console.log('Probe results:', probeData);
+        // Insert probe results into database
+        // Using any cast temporarily until Supabase types are regenerated
+        const { error } = await (supabase as any)
+          .from('probe_results')
+          .insert(probeData);
         
-        // Update last probe session
+        if (error) {
+          console.error('Error storing probe results:', error);
+          toast({
+            title: "Warning",
+            description: "Probe results saved locally but couldn't sync to database",
+            variant: "destructive"
+          });
+        } else {
+          console.log('Probe results saved successfully:', probeData);
+        }
+        
+        // Update last probe session count
         const newSessionCount = sessionCount + 1;
         setLastProbeSession(newSessionCount);
         
@@ -498,6 +511,7 @@ const Exercise = () => {
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.cueLevel,
                   errorType: result.errorType,
+                  errorClassification: result.errorClassification, // Include full error classification
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,

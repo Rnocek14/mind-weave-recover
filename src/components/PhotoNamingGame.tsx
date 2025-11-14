@@ -20,6 +20,7 @@ interface PhotoNamingGameProps {
     errorType?: string;
     difficultyLevel: number;
     cueLevel: number;
+    errorClassification?: ErrorClassificationResult;
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -340,6 +341,7 @@ export const PhotoNamingGame = ({
       errorType: errorClassification.errorType,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
+      errorClassification, // Pass full classification for rich analytics
     });
 
     // Auto-advance after 1.5 seconds

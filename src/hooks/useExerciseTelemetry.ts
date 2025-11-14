@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 
 export interface TrialData {
   correct: boolean;
@@ -7,6 +8,7 @@ export interface TrialData {
   cueLevel?: number; // 0=none, 1=semantic, 2=phonemic, 3=full
   errorType?: string; // e.g. 'semantic_related', 'phonological', 'omission', 'spatial_miss'
   taskParameters?: Record<string, any>; // Current difficulty state
+  errorClassification?: ErrorClassificationResult; // Detailed error classification from ML
 }
 
 export const useExerciseTelemetry = (
@@ -29,7 +31,7 @@ export const useExerciseTelemetry = (
       }
 
       try {
-        const { error } = await supabase.from('exercise_events').insert({
+        const eventData: any = {
           session_id: sessionId,
           exercise_slug: exerciseSlug,
           round: trialNumber,
@@ -47,7 +49,23 @@ export const useExerciseTelemetry = (
             task_params: trial.taskParameters,
             timestamp: new Date().toISOString(),
           },
-        });
+        };
+
+        // Add new error classification fields if available
+        if (trial.errorClassification) {
+          eventData.error_classification = {
+            errorType: trial.errorClassification.errorType,
+            confidence: trial.errorClassification.confidence,
+            reasoning: trial.errorClassification.reasoning,
+            needs_review: trial.errorClassification.needs_review
+          };
+          eventData.phonological_similarity = trial.errorClassification.phonological_similarity;
+          eventData.semantic_similarity = trial.errorClassification.semantic_similarity;
+          eventData.classification_confidence = trial.errorClassification.confidence;
+          eventData.needs_review = trial.errorClassification.needs_review;
+        }
+
+        const { error } = await supabase.from('exercise_events').insert(eventData);
 
         if (error) throw error;
       } catch (error) {
