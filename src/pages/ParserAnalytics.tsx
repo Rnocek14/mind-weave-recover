@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target, Users, UserCheck, AlertCircle } from "lucide-react";
+import { Shield, ChevronLeft, Brain, TrendingUp, Target, Users, UserCheck, AlertCircle } from "lucide-react";
 import { ParserAnalyticsDashboard } from "@/components/ParserAnalyticsDashboard";
 import { PatientProgressDashboard } from "@/components/PatientProgressDashboard";
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
@@ -15,61 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ParserAnalytics = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      try {
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id);
-
-        const hasAdminRole = roles?.some(r => r.role === "admin");
-        
-        if (!hasAdminRole) {
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access parser analytics.",
-            variant: "destructive",
-          });
-          navigate("/dashboard");
-          return;
-        }
-
-        setIsAdmin(true);
-      } catch (error) {
-        console.error("Error checking admin status:", error);
-        navigate("/dashboard");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!authLoading) {
-      checkAdminStatus();
-    }
-  }, [user, authLoading, navigate, toast]);
-
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
