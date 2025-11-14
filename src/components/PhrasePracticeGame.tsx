@@ -9,6 +9,8 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -35,6 +37,7 @@ export const PhrasePracticeGame = ({
 }: PhrasePracticeGameProps) => {
   const { toast } = useToast();
   const { playSuccess, playError } = useGameSounds();
+  const { user } = useAuth();
   
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
@@ -47,15 +50,42 @@ export const PhrasePracticeGame = ({
   const [attempts, setAttempts] = useState(0);
   const [isListeningMode, setIsListeningMode] = useState(true);
   const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
+  const [voicePreference, setVoicePreference] = useState<string>('alloy');
   
   const difficultyController = useRef(new AdaptiveDifficultyController(5, 0.75, 0.15));
 
-  // Initialize trials
+  // Initialize trials and load voice preference
   useEffect(() => {
     const newTrials = getTrialsForLevel(difficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
-  }, [difficulty, totalTrials]);
+    
+    // Load user's voice preference
+    const loadVoicePreference = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('accessibility_prefs')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data?.accessibility_prefs) {
+        const prefs = data.accessibility_prefs as any;
+        const voicePref = prefs?.voicePreference || 'neutral';
+        
+        // Map voice preference to OpenAI voice
+        const voiceMap = {
+          'neutral': 'alloy',
+          'male': 'onyx',
+          'female': 'nova'
+        };
+        setVoicePreference(voiceMap[voicePref as keyof typeof voiceMap] || 'alloy');
+      }
+    };
+    
+    loadVoicePreference();
+  }, [difficulty, totalTrials, user]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -109,7 +139,7 @@ export const PhrasePracticeGame = ({
           },
           body: JSON.stringify({
             text: currentTrial.phrase,
-            voice: 'alloy' // Clear, neutral voice
+            voice: voicePreference // Use user's preferred voice
           }),
         }
       );
