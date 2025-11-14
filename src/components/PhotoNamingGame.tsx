@@ -5,10 +5,11 @@ import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbu
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
-import { getCueText } from '@/lib/cueGenerator';
+import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
 
 interface PhotoNamingGameProps {
   totalTrials: number;
@@ -31,7 +32,7 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, selectAnswer, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty);
+  const { state, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
@@ -45,9 +46,13 @@ export const PhotoNamingGame = ({
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
+  const [currentCueText, setCurrentCueText] = useState('');
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
+  
+  // Error history tracking for adaptive cueing
+  const [errorHistory, setErrorHistory] = useState<ErrorClassificationResult[]>([]);
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
@@ -121,10 +126,19 @@ export const PhotoNamingGame = ({
       setTimedOut(false);
       setCueLevel(0);
       setShowCue(false);
+      setCurrentCueText('');
       
       // Auto-show cue after 2 consecutive errors
       if (consecutiveErrors >= 2 && currentDifficulty >= 4) {
-        setCueLevel(1); // Semantic cue
+        const autoCueDecision = selectOptimalCue(
+          errorHistory,
+          state.currentTrial.target,
+          state.currentTrial.category,
+          state.currentTrial.features,
+          0 // First cue level
+        );
+        setCueLevel(1);
+        setCurrentCueText(autoCueDecision.cueText);
         setShowCue(true);
       }
       
@@ -202,17 +216,35 @@ export const PhotoNamingGame = ({
   };
 
   const handleRequestHint = () => {
-    if (cueLevel >= 3) return; // Already at max cue
+    if (cueLevel >= 3 || !state.currentTrial) return; // Already at max cue
     
+    playHint();
     const newCueLevel = cueLevel + 1;
+    
+    // Use enhanced cue selection with error pattern adaptation
+    const cueDecision = selectOptimalCue(
+      errorHistory,
+      state.currentTrial.target,
+      state.currentTrial.category,
+      state.currentTrial.features,
+      newCueLevel - 1 // Convert to 0-indexed
+    );
+    
+    console.log('Cue decision:', cueDecision);
+    
     setCueLevel(newCueLevel);
+    setCurrentCueText(cueDecision.cueText);
     setShowCue(true);
     
-    // Play hint sound
-    playHint();
+    // Show reasoning in toast for transparency
+    toast({
+      title: "Hint provided",
+      description: cueDecision.reasoning,
+      duration: 3000
+    });
   };
 
-  const handleAnswerSelect = (word: string) => {
+  const handleAnswerSelect = async (word: string) => {
     if (showFeedback || selectedAnswer || timedOut) return;
 
     // Stop listening when answer is selected
@@ -223,19 +255,49 @@ export const PhotoNamingGame = ({
     const reactionTime = Date.now() - trialStartTime;
     setSelectedAnswer(word);
     
-    const result = selectAnswer(word);
-    setFeedbackData(result);
+    if (!state.currentTrial) return;
+    
+    // Advanced error classification
+    const errorClassification = await classifySpeechError(
+      word,
+      state.currentTrial.target,
+      0.8, // TODO: Get actual ASR confidence when using voice
+      {
+        trialNumber: state.trialNumber,
+        previousErrors: errorHistory.map(e => e.errorType),
+        category: state.currentTrial.category,
+        features: state.currentTrial.features
+      }
+    );
+    
+    const correct = errorClassification.errorType === 'correct' || 
+                    errorClassification.errorType === 'self_corrected';
+    
+    // Add to error history for adaptive cueing
+    setErrorHistory(prev => [...prev, errorClassification]);
+    
+    // Log detailed classification for debugging
+    console.log('Error classification:', {
+      spoken: word,
+      target: state.currentTrial.target,
+      result: errorClassification
+    });
+    
+    setFeedbackData({ 
+      correct, 
+      errorType: errorClassification.errorType 
+    });
     setShowFeedback(true);
     
     // Play sound based on result
-    if (result.correct) {
+    if (correct) {
       playSuccess();
     } else {
       playError();
     }
     
     // Track consecutive errors
-    if (result.correct) {
+    if (correct) {
       setConsecutiveErrors(0);
     } else {
       setConsecutiveErrors((prev) => prev + 1);
@@ -243,7 +305,7 @@ export const PhotoNamingGame = ({
 
     // Update adaptive controller
     const controller = controllerRef.current;
-    controller.update(result.correct);
+    controller.update(correct);
     
     // Check if difficulty should adjust
     const newLevel = controller.adjustLevel(currentDifficulty);
@@ -271,11 +333,11 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry with cue level
+    // Log telemetry with cue level and detailed error classification
     onTrialComplete({
-      correct: result.correct,
+      correct,
       reactionTimeMs: reactionTime,
-      errorType: result.errorType,
+      errorType: errorClassification.errorType,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
     });
@@ -359,7 +421,7 @@ export const PhotoNamingGame = ({
       )}
       
       {/* Cue Display */}
-      {showCue && cueLevel > 0 && state.currentTrial && !showFeedback && (
+      {showCue && cueLevel > 0 && state.currentTrial && !showFeedback && currentCueText && (
         <div className="bg-accent/20 border-2 border-accent rounded-lg p-4 animate-slide-up">
           <div className="flex items-start gap-3">
             <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
@@ -368,7 +430,7 @@ export const PhotoNamingGame = ({
                 {cueLevel === 1 ? 'Hint (Category)' : cueLevel === 2 ? 'Hint (Sound)' : 'Full Answer'}
               </p>
               <p className="text-sm text-foreground">
-                {getCueText(cueLevel, state.currentTrial.category, state.currentTrial.target)}
+                {currentCueText}
               </p>
             </div>
           </div>
