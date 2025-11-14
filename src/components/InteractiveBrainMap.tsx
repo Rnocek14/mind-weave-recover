@@ -1,4 +1,5 @@
 import React from "react";
+import brainBase from '@/assets/brain-lateral-base.png';
 
 type MapMode = "injury" | "function" | "progress";
 
@@ -69,7 +70,12 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 }) => {
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <div className="relative w-full pb-[65%] rounded-2xl bg-background border border-border shadow-sm overflow-hidden">
+      <div className="relative w-full pb-[65%] rounded-2xl bg-slate-50 shadow-sm overflow-hidden">
+        <img
+          src={brainBase}
+          alt="Brain lateral view"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+        />
         <svg viewBox="0 0 400 260" className="absolute inset-0 w-full h-full">
           <BrainRegionPath
             id="frontal_lobe"
