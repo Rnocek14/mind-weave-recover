@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, ChevronLeft, Loader2, Brain, TrendingUp } from "lucide-react";
+import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target } from "lucide-react";
 import { ParserAnalyticsDashboard } from "@/components/ParserAnalyticsDashboard";
 import { PatientProgressDashboard } from "@/components/PatientProgressDashboard";
+import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ParserAnalytics = () => {
@@ -90,7 +91,7 @@ const ParserAnalytics = () => {
         </div>
 
         <Tabs defaultValue="parser" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="parser" className="gap-2">
               <Brain className="w-4 h-4" />
               Parser Analytics
@@ -98,6 +99,10 @@ const ParserAnalytics = () => {
             <TabsTrigger value="progress" className="gap-2">
               <TrendingUp className="w-4 h-4" />
               Patient Progress
+            </TabsTrigger>
+            <TabsTrigger value="errors" className="gap-2">
+              <Target className="w-4 h-4" />
+              Error Patterns
             </TabsTrigger>
           </TabsList>
 
@@ -107,6 +112,10 @@ const ParserAnalytics = () => {
 
           <TabsContent value="progress">
             <PatientProgressDashboard userId={user?.id} />
+          </TabsContent>
+
+          <TabsContent value="errors">
+            {user?.id && <ErrorPatternDashboard userId={user.id} weeksBack={12} />}
           </TabsContent>
         </Tabs>
       </div>
