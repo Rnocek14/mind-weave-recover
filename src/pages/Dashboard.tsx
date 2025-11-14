@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { 
+import { Skeleton } from "@/components/ui/skeleton";
+import {
   Play, Trophy, Camera, Hand, MessageSquare, Target,
   TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain
 } from "lucide-react";
@@ -18,6 +19,7 @@ import ClinicalProfileForm from "@/components/ClinicalProfileForm";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
+import { BrainMap } from "@/components/BrainMap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -278,6 +280,13 @@ const Dashboard = () => {
         <div className="mb-8">
           <SessionAdherenceTracker userId={user?.id || null} currentStreak={streak} />
         </div>
+
+        {/* Brain & Recovery Map */}
+        {clinicalProfile && user && (
+          <div className="mb-8">
+            <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={user.id} />
+          </div>
+        )}
 
         {/* Stroke Profile Summary */}
         {clinicalProfile && (
