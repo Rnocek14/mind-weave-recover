@@ -8,11 +8,13 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 interface ReachTapGameProps {
   totalTrials: number;
   initialDifficulty: number;
+  variant?: 'standard' | 'left-side-hunt'; // New: support neglect variant
   onTrialComplete: (result: {
     correct: boolean;
     reactionTimeMs: number;
     difficultyLevel: number;
     targetSize: number;
+    targetSide?: 'left' | 'center' | 'right'; // Track which side target appeared
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -23,11 +25,13 @@ interface TargetPosition {
   y: number;
   size: number;
   appearTime: number;
+  side: 'left' | 'center' | 'right'; // Track side for analytics
 }
 
 export const ReachTapGame = ({
   totalTrials,
   initialDifficulty,
+  variant = 'standard',
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -58,7 +62,7 @@ export const ReachTapGame = ({
     return Math.max(1000, 3000 - (difficulty * 200));
   };
 
-  // Generate random target position
+  // Generate random target position with optional bias for neglect training
   const generateTarget = () => {
     if (!containerRef.current) return;
 
@@ -71,13 +75,43 @@ export const ReachTapGame = ({
     const maxX = containerRect.width - size - padding;
     const maxY = containerRect.height - size - padding;
     
-    const x = Math.random() * maxX + padding;
+    let x: number;
+    let side: 'left' | 'center' | 'right';
+    
+    if (variant === 'left-side-hunt') {
+      // Bias 70% of targets to left side for neglect training
+      const spawnLeft = Math.random() < 0.7;
+      
+      if (spawnLeft) {
+        // Left third of screen
+        x = Math.random() * (containerRect.width / 3) + padding;
+        side = 'left';
+      } else {
+        // Right two-thirds
+        x = Math.random() * (containerRect.width * 2/3) + (containerRect.width / 3);
+        side = x > containerRect.width * 2/3 ? 'right' : 'center';
+      }
+    } else {
+      // Standard: random across entire width
+      x = Math.random() * maxX + padding;
+      
+      // Determine side for analytics
+      if (x < containerRect.width / 3) {
+        side = 'left';
+      } else if (x > containerRect.width * 2/3) {
+        side = 'right';
+      } else {
+        side = 'center';
+      }
+    }
+    
     const y = Math.random() * maxY + padding;
 
     setTarget({
       x,
       y,
       size,
+      side,
       appearTime: Date.now(),
     });
   };
@@ -162,6 +196,7 @@ export const ReachTapGame = ({
       reactionTimeMs: reactionTime,
       difficultyLevel: currentDifficulty,
       targetSize: target.size,
+      targetSide: target.side,
     });
 
     // Move to next trial
@@ -224,6 +259,7 @@ export const ReachTapGame = ({
       reactionTimeMs: reactionTime,
       difficultyLevel: currentDifficulty,
       targetSize: target?.size || 0,
+      targetSide: target?.side,
     });
 
     // Move to next trial

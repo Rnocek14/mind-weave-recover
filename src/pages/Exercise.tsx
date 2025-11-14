@@ -110,6 +110,16 @@ const Exercise = () => {
       title: "Reach & Tap",
       instruction: "Tap the highlighted targets as quickly as you can",
       type: "motor"
+    },
+    "word-practice": {
+      title: "Phrase Practice",
+      instruction: "Practice saying functional phrases for daily communication",
+      type: "speech"
+    },
+    "left-side-hunt": {
+      title: "Left-Side Hunt",
+      instruction: "Find and tap targets on the left side of the screen",
+      type: "attention"
     }
   };
 
@@ -733,6 +743,47 @@ const Exercise = () => {
                 toast({
                   title: "Difficulty Adjusted",
                   description: `Now at level ${newLevel}`,
+                  duration: 2000,
+                });
+              }}
+            />
+          ) : exerciseId === 'left-side-hunt' ? (
+            <ReachTapGame
+              totalTrials={totalRounds}
+              initialDifficulty={level}
+              variant="left-side-hunt"
+              onTrialComplete={async (result) => {
+                await logTrial({
+                  correct: result.correct,
+                  reactionTimeMs: result.reactionTimeMs,
+                  cueLevel: 0,
+                  errorType: result.correct ? undefined : 'timeout',
+                  taskParameters: {
+                    difficulty_level: result.difficultyLevel,
+                    target_size: result.targetSize,
+                    target_side: result.targetSide,
+                    round: currentRound,
+                    exercise_type: 'left-side-hunt',
+                  },
+                });
+                
+                if (currentRound < totalRounds) {
+                  setCurrentRound((prev) => prev + 1);
+                  if (result.correct) {
+                    setScore((prev) => prev + 100);
+                  }
+                  startTrial();
+                }
+              }}
+              onGameComplete={(finalScore) => {
+                setScore(finalScore);
+                setIsPlaying(false);
+                setShowResult(true);
+              }}
+              onDifficultyChange={(newLevel, reason) => {
+                toast({
+                  title: "Difficulty Adjusted",
+                  description: reason,
                   duration: 2000,
                 });
               }}
