@@ -40,7 +40,7 @@ export const PhrasePracticeGame = ({
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [difficulty, setDifficulty] = useState(initialDifficulty);
-  const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=visual, 2=audio, 3=both
+  const [cueLevel, setCueLevel] = useState(1); // Start with phrase visible for better UX // 0=none, 1=visual, 2=audio, 3=both
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(0);
