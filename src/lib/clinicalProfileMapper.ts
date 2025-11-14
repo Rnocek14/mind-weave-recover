@@ -61,7 +61,7 @@ export function getExerciseRecommendations(profile: ClinicalProfile | null): Exe
   const recommendations: ExerciseRecommendation[] = [];
   const { impairments, affected_side, therapy_focus, severity } = profile;
 
-  // Speech impairments → Photo Naming Game
+  // Speech impairments → Photo Naming Game & Phrase Practice
   if (impairments.speech.length > 0) {
     const hasExpressiveAphasia = impairments.speech.some(imp => 
       imp.includes('aphasia') || imp.includes('expressive') || imp.includes('word')
@@ -71,6 +71,15 @@ export function getExerciseRecommendations(profile: ClinicalProfile | null): Exe
       imp.includes('receptive') || imp.includes('understanding')
     );
 
+    const hasApraxia = impairments.speech.some(imp =>
+      imp.includes('apraxia') || imp.includes('motor speech')
+    );
+
+    const hasNonFluentAphasia = impairments.speech.some(imp =>
+      imp.includes('non-fluent') || imp.includes('broca')
+    );
+
+    // Photo Naming: Single-word retrieval
     recommendations.push({
       slug: 'photo-naming',
       priority: 'high',
@@ -88,6 +97,27 @@ export function getExerciseRecommendations(profile: ClinicalProfile | null): Exe
         textInstructions: !hasReceptiveAphasia
       }
     });
+
+    // Phrase Practice: Functional communication (script training, MIT-style)
+    if (hasNonFluentAphasia || hasApraxia || hasExpressiveAphasia) {
+      recommendations.push({
+        slug: 'word-practice',
+        priority: 'high',
+        reason: hasApraxia 
+          ? 'Apraxia - functional phrase practice for daily communication'
+          : hasNonFluentAphasia
+          ? 'Non-fluent aphasia - script training for everyday needs'
+          : 'Build functional communication skills',
+        config: {
+          startDifficulty: hasApraxia ? 1 : hasNonFluentAphasia ? 1 : 2,
+          enableVoice: true,
+          sessionLength: 'short',
+          errorlessMode: hasApraxia,
+          cueLevel: 2,
+          visualCues: true
+        }
+      });
+    }
   }
 
   // Motor impairments → Reach & Tap Game

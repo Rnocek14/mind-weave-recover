@@ -1,0 +1,374 @@
+import { useState, useEffect, useRef } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Volume2, Mic, MicOff, Lightbulb, RotateCcw, MessageSquare } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useGameSounds } from '@/hooks/useGameSounds';
+import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
+
+interface PhrasePracticeGameProps {
+  totalTrials: number;
+  initialDifficulty: number;
+  onTrialComplete?: (data: {
+    correct: boolean;
+    timeMs: number;
+    cueLevel: number;
+    difficulty: number;
+    phraseId: string;
+    wordAccuracy: number;
+    repetitions: number;
+  }) => void;
+  onGameComplete?: (finalScore: number, finalLevel: number) => void;
+  onDifficultyChange?: (newLevel: number) => void;
+}
+
+export const PhrasePracticeGame = ({
+  totalTrials,
+  initialDifficulty,
+  onTrialComplete,
+  onGameComplete,
+  onDifficultyChange
+}: PhrasePracticeGameProps) => {
+  const { toast } = useToast();
+  const { playSuccess, playError } = useGameSounds();
+  
+  const [trials, setTrials] = useState<PhraseTrial[]>([]);
+  const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [difficulty, setDifficulty] = useState(initialDifficulty);
+  const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=visual, 2=audio, 3=both
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackCorrect, setFeedbackCorrect] = useState(false);
+  const [trialStartTime, setTrialStartTime] = useState<number>(0);
+  const [attempts, setAttempts] = useState(0);
+  const [isListeningMode, setIsListeningMode] = useState(true);
+  const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
+  
+  const difficultyController = useRef(new AdaptiveDifficultyController(5, 0.75, 0.15));
+
+  // Initialize trials
+  useEffect(() => {
+    const newTrials = getTrialsForLevel(difficulty, totalTrials);
+    setTrials(newTrials);
+    setTrialStartTime(Date.now());
+  }, [difficulty, totalTrials]);
+
+  const currentTrial = trials[currentTrialIndex] || null;
+
+  // Speech recognition
+  const handleSpeechResult = (transcript: string) => {
+    if (!currentTrial || showFeedback) return;
+
+    console.log('Speech recognized:', transcript);
+    
+    const evaluation = evaluatePhraseMatch(transcript, currentTrial);
+    setCurrentWordAccuracy(evaluation.wordAccuracy);
+    
+    if (evaluation.match) {
+      handleCorrectAnswer(evaluation.wordAccuracy);
+    } else if (evaluation.wordAccuracy > 0.3) {
+      // Partial match - give feedback
+      toast({
+        title: "Almost there!",
+        description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
+      });
+      setAttempts(prev => prev + 1);
+    } else {
+      handleIncorrectAnswer();
+    }
+  };
+
+  const { isListening, transcript, startListening, stopListening, isSupported, error } = 
+    useSpeechRecognition(handleSpeechResult, false);
+
+  // Toggle listening
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // Play audio cue (text-to-speech or pre-recorded)
+  const handlePlayAudio = () => {
+    if (!currentTrial) return;
+    
+    // Use browser TTS
+    const utterance = new SpeechSynthesisUtterance(currentTrial.phrase);
+    utterance.rate = 0.8; // Slower for clarity
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+    
+    setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
+  };
+
+  // Show visual cue
+  const handleShowCue = () => {
+    setCueLevel(prev => {
+      if (prev === 0) return 1; // First time: show text
+      if (prev === 1) return 3; // Second time: show text + play audio
+      return 3;
+    });
+    
+    if (cueLevel === 1) {
+      handlePlayAudio(); // Auto-play audio on second cue request
+    }
+    
+    toast({
+      title: "Hint",
+      description: cueLevel === 0 
+        ? "Try saying the phrase shown above" 
+        : "Listen to how it sounds",
+      duration: 3000,
+    });
+  };
+
+  const handleCorrectAnswer = (wordAccuracy: number) => {
+    const reactionTime = Date.now() - trialStartTime;
+    
+    playSuccess();
+    setScore(prev => prev + 100);
+    setFeedbackCorrect(true);
+    setShowFeedback(true);
+    
+    // Update adaptive difficulty
+    difficultyController.current.update(true);
+    
+    // Log trial
+    onTrialComplete?.({
+      correct: true,
+      timeMs: reactionTime,
+      cueLevel,
+      difficulty,
+      phraseId: currentTrial!.id,
+      wordAccuracy,
+      repetitions: attempts + 1
+    });
+
+    setTimeout(() => {
+      nextTrial();
+    }, 1500);
+  };
+
+  const handleIncorrectAnswer = () => {
+    playError();
+    setFeedbackCorrect(false);
+    setShowFeedback(true);
+    setAttempts(prev => prev + 1);
+    
+    difficultyController.current.update(false);
+    
+    setTimeout(() => {
+      setShowFeedback(false);
+    }, 1500);
+  };
+
+  const nextTrial = () => {
+    if (currentTrialIndex + 1 >= trials.length) {
+      // Game complete
+      onGameComplete?.(score, difficulty);
+      return;
+    }
+
+    // Adjust difficulty based on performance
+    const newLevel = difficultyController.current.adjustLevel(difficulty);
+    if (newLevel !== difficulty) {
+      setDifficulty(newLevel);
+      onDifficultyChange?.(newLevel);
+      
+      // Regenerate trials at new difficulty
+      const newTrials = getTrialsForLevel(newLevel, totalTrials - currentTrialIndex - 1);
+      setTrials(prev => [...prev.slice(0, currentTrialIndex + 1), ...newTrials]);
+    }
+
+    setCurrentTrialIndex(prev => prev + 1);
+    setShowFeedback(false);
+    setCueLevel(0);
+    setAttempts(0);
+    setCurrentWordAccuracy(0);
+    setTrialStartTime(Date.now());
+  };
+
+  const reset = () => {
+    setCurrentTrialIndex(0);
+    setScore(0);
+    setDifficulty(initialDifficulty);
+    setCueLevel(0);
+    setAttempts(0);
+    setShowFeedback(false);
+    difficultyController.current.reset();
+    const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
+    setTrials(newTrials);
+    setTrialStartTime(Date.now());
+  };
+
+  if (!currentTrial) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto p-8 text-center">
+        <p className="text-muted-foreground mb-4">Loading phrases...</p>
+      </Card>
+    );
+  }
+
+  const progress = ((currentTrialIndex + 1) / trials.length) * 100;
+
+  return (
+    <div className="w-full max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="text-lg px-4 py-2">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Phrase {currentTrialIndex + 1} / {trials.length}
+          </Badge>
+          <Badge 
+            variant={difficulty <= 2 ? "secondary" : difficulty <= 4 ? "default" : "destructive"}
+            className="text-lg px-4 py-2"
+          >
+            Level {difficulty}
+          </Badge>
+        </div>
+        <div className="text-2xl font-bold text-primary">
+          {score} pts
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <Progress value={progress} className="h-3" />
+
+      {/* Main Phrase Card */}
+      <Card className="p-8 text-center space-y-6">
+        {/* Phrase Display */}
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground uppercase tracking-wide">
+            Practice this phrase:
+          </div>
+          
+          {cueLevel >= 1 ? (
+            <div className="text-4xl font-bold text-foreground leading-relaxed py-6 px-4 bg-accent/20 rounded-lg">
+              {currentTrial.phrase}
+            </div>
+          ) : (
+            <div className="text-2xl text-muted-foreground italic py-6">
+              (Click "Show Phrase" for help)
+            </div>
+          )}
+          
+          <Badge variant="outline" className="text-sm">
+            {currentTrial.category.replace('_', ' ')}
+          </Badge>
+        </div>
+
+        {/* Speech Recognition Status */}
+        {isListeningMode && (
+          <div className="flex flex-col items-center gap-3 py-4">
+            <Button
+              size="lg"
+              variant={isListening ? "destructive" : "default"}
+              onClick={toggleListening}
+              className="w-48 h-16 text-lg"
+            >
+              {isListening ? (
+                <>
+                  <MicOff className="w-6 h-6 mr-2" />
+                  Stop Listening
+                </>
+              ) : (
+                <>
+                  <Mic className="w-6 h-6 mr-2" />
+                  Start Speaking
+                </>
+              )}
+            </Button>
+            
+            {isListening && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-destructive" />
+                Listening...
+              </div>
+            )}
+            
+            {transcript && (
+              <div className="text-sm text-muted-foreground mt-2">
+                You said: "{transcript}"
+              </div>
+            )}
+
+            {currentWordAccuracy > 0 && currentWordAccuracy < 0.8 && (
+              <div className="text-sm text-amber-600 dark:text-amber-400">
+                {Math.round(currentWordAccuracy * 100)}% correct - keep trying!
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hint Buttons */}
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleShowCue}
+            disabled={cueLevel >= 3}
+          >
+            <Lightbulb className="w-5 h-5 mr-2" />
+            {cueLevel === 0 ? "Show Phrase" : cueLevel === 1 ? "Hear It" : "Max Hints"}
+          </Button>
+          
+          {cueLevel >= 1 && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handlePlayAudio}
+            >
+              <Volume2 className="w-5 h-5 mr-2" />
+              Play Audio
+            </Button>
+          )}
+        </div>
+
+        {/* Attempts Counter */}
+        {attempts > 0 && (
+          <div className="text-sm text-muted-foreground">
+            Attempts: {attempts + 1}
+          </div>
+        )}
+      </Card>
+
+      {/* Feedback */}
+      {showFeedback && (
+        <Card className={`p-6 text-center ${feedbackCorrect ? 'bg-green-50 dark:bg-green-950/20 border-green-500' : 'bg-red-50 dark:bg-red-950/20 border-red-500'}`}>
+          <div className="text-2xl font-bold mb-2">
+            {feedbackCorrect ? '✓ Excellent!' : '✗ Try Again'}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {feedbackCorrect 
+              ? `Great job! ${currentWordAccuracy >= 0.95 ? 'Perfect!' : 'Well done!'}`
+              : 'Keep practicing - you can do it!'}
+          </div>
+        </Card>
+      )}
+
+      {/* Instructions */}
+      {!isSupported && (
+        <Card className="p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-500">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.
+          </p>
+        </Card>
+      )}
+
+      {error && (
+        <Card className="p-4 bg-red-50 dark:bg-red-950/20 border-red-500">
+          <p className="text-sm text-red-800 dark:text-red-200">
+            {error}
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+};
