@@ -13,7 +13,7 @@ import { calculateStreak, getTotalReps, getTodayProgress } from "@/hooks/useStre
 import { supabase } from "@/integrations/supabase/client";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { getExerciseRecommendations, ClinicalProfile } from "@/lib/clinicalProfileMapper";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
@@ -198,6 +198,9 @@ const Dashboard = () => {
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto pointer-events-auto">
                 <DialogHeader>
                   <DialogTitle>Clinical Profile</DialogTitle>
+                  <DialogDescription>
+                    Set up your clinical stroke profile for personalized therapy
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="pointer-events-auto">
                   <ClinicalProfileForm
