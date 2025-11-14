@@ -12,12 +12,15 @@ import { RestPrompt } from "@/components/RestPrompt";
 import { useAuth } from "@/hooks/useAuth";
 import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
+import { useEngagementMonitor } from "@/hooks/useEngagementMonitor";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 import { ReachTapGame } from "@/components/ReachTapGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { GeneralizationProbe } from "@/components/GeneralizationProbe";
+import { ConfidenceBoost } from "@/components/ConfidenceBoost";
+import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
@@ -41,14 +44,59 @@ const Exercise = () => {
   const [showProbe, setShowProbe] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
   const [lastProbeSession, setLastProbeSession] = useState<number | null>(null);
+  const [showConfidenceBoost, setShowConfidenceBoost] = useState(false);
+  const [showBreakPrompt, setShowBreakPrompt] = useState(false);
+  const [todayStats, setTodayStats] = useState({ correct: 0, total: 0, weeklyAccuracy: 0, improvement: 0 });
 
   const totalRounds = 10;
   
-  const { level, stepDown } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
+  const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
   const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
     sessionId,
     exerciseId || "photo-naming"
   );
+  const { 
+    recordTrial, 
+    trackBehavior, 
+    getState, 
+    getEngagementFlags, 
+    logIntervention, 
+    reset: resetEngagement 
+  } = useEngagementMonitor(sessionId);
+
+  // Fetch today's stats for confidence boost
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!user?.id || !sessionId) return;
+      
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: sessions } = await supabase
+          .from('sessions')
+          .select('id')
+          .eq('user_id', user.id)
+          .gte('started_at', `${today}T00:00:00`)
+          .lte('started_at', `${today}T23:59:59`);
+        
+        const sessionIds = sessions?.map(s => s.id) || [];
+        if (sessionIds.length === 0) return;
+        
+        const { data: events } = await supabase
+          .from('exercise_events')
+          .select('score')
+          .in('session_id', sessionIds);
+        
+        const total = events?.length || 0;
+        const correct = events?.filter(e => e.score > 0).length || 0;
+        
+        setTodayStats(prev => ({ ...prev, correct, total }));
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+    
+    fetchStats();
+  }, [user?.id, sessionId, currentRound]);
 
   // Mock exercise data
   const exercises: Record<string, any> = {
@@ -141,21 +189,62 @@ const Exercise = () => {
     // Calculate reaction time from when trial started
     const reactionTime = calculateReactionTime();
     
-    // Log telemetry with rich data
+    // Record trial in engagement monitor
+    const engagementState = recordTrial({
+      correct: wasCorrect,
+      reactionTimeMs: reactionTime,
+      timeout: false,
+      cueLevel: 0,
+      timestamp: Date.now()
+    });
+
+    // Log telemetry with rich data including engagement flags
     await logTrial({
       correct: wasCorrect,
       reactionTimeMs: reactionTime,
-      cueLevel: 0, // TODO: Track actual cue usage
+      cueLevel: 0,
       errorType: wasCorrect ? undefined : 'mock_error',
       taskParameters: {
         difficulty_level: level,
         round: currentRound,
         exercise_type: exercise.type,
       },
+      engagementFlags: getEngagementFlags()
     });
 
     const roundScore = Math.floor(Math.random() * 20) + 80; // 80-100
     setScore(prev => prev + roundScore);
+    
+    // Check engagement state and trigger interventions
+    if (engagementState.recommendedAction === 'confidence_boost') {
+      await logIntervention('frustration', 'confidence_boost');
+      setShowConfidenceBoost(true);
+      setIsPlaying(false);
+      return;
+    } else if (engagementState.recommendedAction === 'break_prompt') {
+      await logIntervention('fatigue', 'break_prompt');
+      setShowBreakPrompt(true);
+      setIsPlaying(false);
+      return;
+    } else if (engagementState.recommendedAction === 'difficulty_down') {
+      await logIntervention('frustration', 'difficulty_down');
+      const newLevel = Math.max(1, level - 2);
+      await saveLevel(newLevel);
+      toast({
+        title: "Adjusting Difficulty",
+        description: "We've made things a bit easier to help you succeed",
+      });
+    } else if (engagementState.recommendedAction === 'session_end') {
+      await logIntervention('critical_state', 'session_end');
+      setIsPlaying(false);
+      setShowResult(true);
+      toast({
+        title: "Time to Rest",
+        description: "You've worked really hard today. Let's take a break.",
+        variant: "default"
+      });
+      return;
+    }
     
     if (currentRound >= totalRounds) {
       setIsPlaying(false);
@@ -391,11 +480,39 @@ const Exercise = () => {
 
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
+      {/* Intervention Modals */}
+      <ConfidenceBoost
+        open={showConfidenceBoost}
+        onClose={() => setShowConfidenceBoost(false)}
+        onContinue={() => {
+          logIntervention('frustration', 'confidence_boost', 'accepted');
+          setIsPlaying(true);
+        }}
+        onSwitchExercise={() => navigate("/dashboard")}
+        stats={todayStats}
+      />
+      
+      <BreakPrompt
+        open={showBreakPrompt}
+        onClose={() => setShowBreakPrompt(false)}
+        onContinue={() => {
+          logIntervention('fatigue', 'break_prompt', 'accepted');
+          setIsPlaying(true);
+        }}
+        onEndSession={() => {
+          logIntervention('fatigue', 'break_prompt', 'end_session');
+          setShowResult(true);
+        }}
+      />
+
       <div className="container mx-auto max-w-4xl">
         <Button 
           variant="ghost" 
           className="mb-6"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => {
+            trackBehavior('end_attempt');
+            navigate("/dashboard");
+          }}
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
