@@ -16,6 +16,9 @@ import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 import { ReachTapGame } from "@/components/ReachTapGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
+import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
+import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import { supabase } from "@/integrations/supabase/client";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -31,6 +34,7 @@ const Exercise = () => {
   const [showRestPrompt, setShowRestPrompt] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
 
   const totalRounds = 10;
   
@@ -55,6 +59,30 @@ const Exercise = () => {
   };
 
   const exercise = exercises[exerciseId || ""] || exercises["photo-naming"];
+
+  // Fetch clinical profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('clinical_profile')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data?.clinical_profile) {
+          setClinicalProfile(data.clinical_profile as unknown as ClinicalProfile);
+        }
+      } catch (error) {
+        console.error('Error fetching clinical profile:', error);
+      }
+    };
+
+    fetchProfile();
+  }, [user?.id]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -241,6 +269,13 @@ const Exercise = () => {
           <ChevronLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Button>
+
+        {/* Clinical Profile Widget */}
+        {clinicalProfile && (
+          <div className="mb-6">
+            <StrokeProfileWidget profile={clinicalProfile} />
+          </div>
+        )}
 
         {/* Header */}
         <Card className="p-6 mb-6 shadow-card">
