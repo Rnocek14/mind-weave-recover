@@ -22,6 +22,12 @@ export interface ClinicalProfile {
   source_phrases?: Record<string, any>;
   confidence?: 'high' | 'medium' | 'low';
   inference_notes?: InferenceNote[];
+  stroke_mechanism?: 'cardioembolic' | 'lacunar' | 'large_artery' | 'undetermined';
+  extraction_metadata?: {
+    last_updated?: string;
+    parser_version?: string;
+    [key: string]: any;
+  };
 }
 
 export interface ExerciseRecommendation {
