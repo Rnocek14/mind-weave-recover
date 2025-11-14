@@ -44,6 +44,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       clinical_profile_corrections: {
@@ -249,6 +256,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       profiles: {
@@ -335,6 +349,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       user_roles: {
@@ -360,12 +381,43 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_cluster_assignments: {
+        Row: {
+          chronicity: string | null
+          cluster_key: string | null
+          hemisphere: string | null
+          lesion_zone: string | null
+          months_since_stroke: number | null
+          stroke_date: string | null
+          stroke_mechanism: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       end_session_server: {
         Args: { p_session_id: string; p_summary: Json }
         Returns: undefined
+      }
+      get_cluster_assignments: {
+        Args: never
+        Returns: {
+          chronicity: string | null
+          cluster_key: string | null
+          hemisphere: string | null
+          lesion_zone: string | null
+          months_since_stroke: number | null
+          stroke_date: string | null
+          stroke_mechanism: string | null
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_cluster_assignments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_exercise_stats_last7d: {
         Args: { slug: string; uid: string }
@@ -401,6 +453,7 @@ export type Database = {
         Args: { p_key: string; p_subkey: string; p_value: Json }
         Returns: undefined
       }
+      refresh_cluster_assignments: { Args: never; Returns: undefined }
       setup_admin_user: { Args: { admin_email: string }; Returns: boolean }
     }
     Enums: {
