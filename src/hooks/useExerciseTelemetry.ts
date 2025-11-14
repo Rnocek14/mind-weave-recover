@@ -9,6 +9,7 @@ export interface TrialData {
   errorType?: string; // e.g. 'semantic_related', 'phonological', 'omission', 'spatial_miss'
   taskParameters?: Record<string, any>; // Current difficulty state
   errorClassification?: ErrorClassificationResult; // Detailed error classification from ML
+  engagementFlags?: Record<string, any>; // Frustration/fatigue state from engagement monitor
 }
 
 export const useExerciseTelemetry = (
@@ -63,6 +64,11 @@ export const useExerciseTelemetry = (
           eventData.semantic_similarity = trial.errorClassification.semantic_similarity;
           eventData.classification_confidence = trial.errorClassification.confidence;
           eventData.needs_review = trial.errorClassification.needs_review;
+        }
+
+        // Add engagement monitoring flags if available
+        if (trial.engagementFlags) {
+          eventData.engagement_flags = trial.engagementFlags;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);
