@@ -195,15 +195,17 @@ const Dashboard = () => {
                   {clinicalProfile ? 'Update Profile' : 'Set Clinical Profile'}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto pointer-events-auto">
                 <DialogHeader>
                   <DialogTitle>Clinical Profile</DialogTitle>
                 </DialogHeader>
-                <ClinicalProfileForm
-                  initialProfile={clinicalProfile || undefined}
-                  onSubmit={handleProfileSubmit}
-                  onCancel={() => setShowProfileDialog(false)}
-                />
+                <div className="pointer-events-auto">
+                  <ClinicalProfileForm
+                    initialProfile={clinicalProfile || undefined}
+                    onSubmit={handleProfileSubmit}
+                    onCancel={() => setShowProfileDialog(false)}
+                  />
+                </div>
               </DialogContent>
             </Dialog>
 
