@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target, Users } from "lucide-react";
+import { Shield, ChevronLeft, Loader2, Brain, TrendingUp, Target, Users, UserCheck } from "lucide-react";
 import { ParserAnalyticsDashboard } from "@/components/ParserAnalyticsDashboard";
 import { PatientProgressDashboard } from "@/components/PatientProgressDashboard";
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { ClusterAnalyticsDashboard } from "@/components/ClusterAnalyticsDashboard";
+import { ProfileCompletionDashboard } from "@/components/ProfileCompletionDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ParserAnalytics = () => {
@@ -92,7 +93,7 @@ const ParserAnalytics = () => {
         </div>
 
         <Tabs defaultValue="parser" className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="parser" className="gap-2">
               <Brain className="w-4 h-4" />
               Parser Analytics
@@ -108,6 +109,10 @@ const ParserAnalytics = () => {
             <TabsTrigger value="clusters" className="gap-2">
               <Users className="w-4 h-4" />
               Clinical Clusters
+            </TabsTrigger>
+            <TabsTrigger value="profiles" className="gap-2">
+              <UserCheck className="w-4 h-4" />
+              Profile Completion
             </TabsTrigger>
           </TabsList>
 
@@ -125,6 +130,10 @@ const ParserAnalytics = () => {
 
           <TabsContent value="clusters">
             <ClusterAnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="profiles">
+            <ProfileCompletionDashboard />
           </TabsContent>
         </Tabs>
       </div>
