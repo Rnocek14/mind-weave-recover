@@ -195,20 +195,18 @@ const Dashboard = () => {
                   {clinicalProfile ? 'Update Profile' : 'Set Clinical Profile'}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto pointer-events-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Clinical Profile</DialogTitle>
                   <DialogDescription>
                     Set up your clinical stroke profile for personalized therapy
                   </DialogDescription>
                 </DialogHeader>
-                <div className="pointer-events-auto">
-                  <ClinicalProfileForm
-                    initialProfile={clinicalProfile || undefined}
-                    onSubmit={handleProfileSubmit}
-                    onCancel={() => setShowProfileDialog(false)}
-                  />
-                </div>
+                <ClinicalProfileForm
+                  initialProfile={clinicalProfile || undefined}
+                  onSubmit={handleProfileSubmit}
+                  onCancel={() => setShowProfileDialog(false)}
+                />
               </DialogContent>
             </Dialog>
 
