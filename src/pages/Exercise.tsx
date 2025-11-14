@@ -16,6 +16,7 @@ import { useEngagementMonitor } from "@/hooks/useEngagementMonitor";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 import { ReachTapGame } from "@/components/ReachTapGame";
+import { PhrasePracticeGame } from "@/components/PhrasePracticeGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { GeneralizationProbe } from "@/components/GeneralizationProbe";
@@ -654,7 +655,7 @@ const Exercise = () => {
                 });
               }}
             />
-          ) : (exerciseId === 'photo-naming' || exerciseId === 'word-practice') ? (
+          ) : exerciseId === 'photo-naming' ? (
             <PhotoNamingGame
               totalTrials={totalRounds}
               initialDifficulty={level}
@@ -664,16 +665,15 @@ const Exercise = () => {
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.cueLevel,
                   errorType: result.errorType,
-                  errorClassification: result.errorClassification, // Include full error classification
+                  errorClassification: result.errorClassification,
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,
                     round: currentRound,
-                    exercise_type: exerciseId || 'photo-naming',
+                    exercise_type: 'photo-naming',
                   },
                 });
                 
-                // Move to next round
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
                   if (result.correct) {
@@ -691,6 +691,48 @@ const Exercise = () => {
                 toast({
                   title: "Difficulty Adjusted",
                   description: reason,
+                  duration: 2000,
+                });
+              }}
+            />
+          ) : exerciseId === 'word-practice' ? (
+            <PhrasePracticeGame
+              totalTrials={totalRounds}
+              initialDifficulty={level}
+              onTrialComplete={async (result) => {
+                await logTrial({
+                  correct: result.correct,
+                  reactionTimeMs: result.timeMs,
+                  cueLevel: result.cueLevel,
+                  errorType: result.correct ? undefined : 'incorrect',
+                  taskParameters: {
+                    difficulty_level: result.difficulty,
+                    phrase_id: result.phraseId,
+                    word_accuracy: result.wordAccuracy,
+                    repetitions: result.repetitions,
+                    round: currentRound,
+                    exercise_type: 'phrase-practice',
+                  },
+                });
+                
+                if (currentRound < totalRounds) {
+                  setCurrentRound((prev) => prev + 1);
+                  if (result.correct) {
+                    setScore((prev) => prev + 100);
+                  }
+                  startTrial();
+                }
+              }}
+              onGameComplete={(finalScore) => {
+                setScore(finalScore);
+                setIsPlaying(false);
+                setShowResult(true);
+              }}
+              onDifficultyChange={(newLevel) => {
+                saveLevel(newLevel);
+                toast({
+                  title: "Difficulty Adjusted",
+                  description: `Now at level ${newLevel}`,
                   duration: 2000,
                 });
               }}

@@ -143,7 +143,7 @@ const Dashboard = () => {
     },
     {
       id: "word-practice",
-      title: "Word Practice",
+      title: "Phrase Practice",
       icon: MessageSquare,
       category: "Speech",
       duration: "5-7 min",
