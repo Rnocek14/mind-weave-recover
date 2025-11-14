@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Shield, Trash2 } from "lucide-react";
+import { ChevronLeft, Shield, Trash2, Volume2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +17,7 @@ export default function PrivacySettings() {
   const [consentVersion, setConsentVersion] = useState<number>(1);
   const [allowAnalytics, setAllowAnalytics] = useState<boolean>(true);
   const [allowASR, setAllowASR] = useState<boolean>(false);
+  const [voicePreference, setVoicePreference] = useState<'male' | 'female' | 'neutral'>('neutral');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +43,7 @@ export default function PrivacySettings() {
       const prefs = data?.accessibility_prefs as any;
       setAllowAnalytics(Boolean(prefs?.allowAnalytics ?? true));
       setAllowASR(Boolean(prefs?.allowASR ?? false));
+      setVoicePreference(prefs?.voicePreference ?? 'neutral');
     } catch (error) {
       console.error("Error loading settings:", error);
     } finally {
@@ -58,7 +62,8 @@ export default function PrivacySettings() {
           consent_version: consentVersion,
           accessibility_prefs: {
             allowAnalytics,
-            allowASR
+            allowASR,
+            voicePreference
           }
         })
         .eq("user_id", user.id);
@@ -179,6 +184,30 @@ export default function PrivacySettings() {
                   checked={allowASR} 
                   onCheckedChange={setAllowASR} 
                 />
+              </div>
+
+              <div className="py-4 border-b">
+                <div className="flex items-center gap-2 mb-3">
+                  <Volume2 className="w-5 h-5 text-primary" />
+                  <div className="font-medium">Voice for Audio Cues</div>
+                </div>
+                <div className="text-sm text-muted-foreground mb-3">
+                  Choose the voice type for phrase practice audio playback
+                </div>
+                <RadioGroup value={voicePreference} onValueChange={(value: any) => setVoicePreference(value)}>
+                  <div className="flex items-center space-x-2 py-2">
+                    <RadioGroupItem value="neutral" id="neutral" />
+                    <Label htmlFor="neutral" className="cursor-pointer">Neutral (Alloy)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 py-2">
+                    <RadioGroupItem value="male" id="male" />
+                    <Label htmlFor="male" className="cursor-pointer">Male (Onyx)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 py-2">
+                    <RadioGroupItem value="female" id="female" />
+                    <Label htmlFor="female" className="cursor-pointer">Female (Nova)</Label>
+                  </div>
+                </RadioGroup>
               </div>
             </div>
 
