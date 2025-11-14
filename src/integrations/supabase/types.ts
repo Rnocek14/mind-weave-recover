@@ -294,6 +294,7 @@ export type Database = {
         Row: {
           duration_sec: number | null
           ended_at: string | null
+          engagement_summary: Json | null
           id: string
           mood_rating: number | null
           plan: Json | null
@@ -304,6 +305,7 @@ export type Database = {
         Insert: {
           duration_sec?: number | null
           ended_at?: string | null
+          engagement_summary?: Json | null
           id?: string
           mood_rating?: number | null
           plan?: Json | null
@@ -314,6 +316,7 @@ export type Database = {
         Update: {
           duration_sec?: number | null
           ended_at?: string | null
+          engagement_summary?: Json | null
           id?: string
           mood_rating?: number | null
           plan?: Json | null
