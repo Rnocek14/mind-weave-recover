@@ -6,12 +6,22 @@
 
 import type { PhotoTrial, LinguisticFeatures } from './photoBank';
 
-// Note: These are placeholder image paths - you'll need to add actual images to assets/photos/
+// Probe images
+import treeImg from '@/assets/photos/tree.jpg';
+import bookImg from '@/assets/photos/book.jpg';
+import ballImg from '@/assets/photos/ball.jpg';
+import doorImg from '@/assets/photos/door.jpg';
+import shoeImg from '@/assets/photos/shoe.jpg';
+import watchImg from '@/assets/photos/watch.jpg';
+import flowerImg from '@/assets/photos/flower.jpg';
+import spoonImg from '@/assets/photos/spoon.jpg';
+import keyImg from '@/assets/photos/key.jpg';
+import noseImg from '@/assets/photos/nose.jpg';
 const PROBE_WORDS: PhotoTrial[] = [
   // EASY PROBES (Difficulty 1-2)
   {
     id: 'probe_tree',
-    imageUrl: '/placeholder-tree.jpg', // TODO: Add actual image
+    imageUrl: treeImg,
     target: 'tree',
     semanticFoils: ['bush', 'plant', 'flower'],
     phonologicalFoils: ['three', 'free'],
@@ -36,7 +46,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_book',
-    imageUrl: '/placeholder-book.jpg', // TODO: Add actual image
+    imageUrl: bookImg,
     target: 'book',
     semanticFoils: ['magazine', 'paper', 'notebook'],
     phonologicalFoils: ['cook', 'hook', 'look'],
@@ -63,7 +73,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   // MEDIUM PROBES (Difficulty 3-4)
   {
     id: 'probe_shoe',
-    imageUrl: '/placeholder-shoe.jpg', // TODO: Add actual image
+    imageUrl: shoeImg,
     target: 'shoe',
     semanticFoils: ['boot', 'sandal', 'slipper', 'sneaker'],
     phonologicalFoils: ['chew', 'shoo', 'sue'],
@@ -88,7 +98,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_watch',
-    imageUrl: '/placeholder-watch.jpg', // TODO: Add actual image
+    imageUrl: watchImg,
     target: 'watch',
     semanticFoils: ['clock', 'timer', 'bracelet', 'band'],
     phonologicalFoils: ['wash', 'match', 'catch'],
@@ -113,7 +123,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_flower',
-    imageUrl: '/placeholder-flower.jpg', // TODO: Add actual image
+    imageUrl: flowerImg,
     target: 'flower',
     semanticFoils: ['rose', 'plant', 'daisy', 'tulip'],
     phonologicalFoils: ['flour', 'power', 'tower'],
@@ -140,7 +150,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   // HARD PROBES (Difficulty 4-5)
   {
     id: 'probe_spoon',
-    imageUrl: '/placeholder-spoon.jpg', // TODO: Add actual image
+    imageUrl: spoonImg,
     target: 'spoon',
     semanticFoils: ['fork', 'knife', 'utensil', 'ladle'],
     phonologicalFoils: ['soon', 'moon', 'boon'],
@@ -165,7 +175,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_key',
-    imageUrl: '/placeholder-key.jpg', // TODO: Add actual image
+    imageUrl: keyImg,
     target: 'key',
     semanticFoils: ['lock', 'card', 'keychain', 'remote'],
     phonologicalFoils: ['knee', 'pea', 'tea'],
@@ -190,7 +200,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_nose',
-    imageUrl: '/placeholder-nose.jpg', // TODO: Add actual image
+    imageUrl: noseImg,
     target: 'nose',
     semanticFoils: ['mouth', 'face', 'chin', 'cheek'],
     phonologicalFoils: ['hose', 'rose', 'pose'],
@@ -215,7 +225,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_ball',
-    imageUrl: '/placeholder-ball.jpg', // TODO: Add actual image
+    imageUrl: ballImg,
     target: 'ball',
     semanticFoils: ['sphere', 'toy', 'marble', 'globe'],
     phonologicalFoils: ['call', 'hall', 'wall'],
@@ -240,7 +250,7 @@ const PROBE_WORDS: PhotoTrial[] = [
   },
   {
     id: 'probe_door',
-    imageUrl: '/placeholder-door.jpg', // TODO: Add actual image
+    imageUrl: doorImg,
     target: 'door',
     semanticFoils: ['gate', 'window', 'entrance', 'opening'],
     phonologicalFoils: ['floor', 'more', 'pour'],
