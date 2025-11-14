@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, ChevronLeft, Loader2 } from "lucide-react";
+import { Shield, ChevronLeft, Loader2, Brain, TrendingUp } from "lucide-react";
 import { ParserAnalyticsDashboard } from "@/components/ParserAnalyticsDashboard";
+import { PatientProgressDashboard } from "@/components/PatientProgressDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ParserAnalytics = () => {
   const navigate = useNavigate();
@@ -80,14 +82,33 @@ const ParserAnalytics = () => {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">Parser Analytics Dashboard</h1>
+            <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
           </div>
           <p className="text-muted-foreground">
-            Monitor AI parser performance, correction patterns, and confidence calibration
+            Monitor AI parser performance and patient progress trends
           </p>
         </div>
 
-        <ParserAnalyticsDashboard />
+        <Tabs defaultValue="parser" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="parser" className="gap-2">
+              <Brain className="w-4 h-4" />
+              Parser Analytics
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Patient Progress
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="parser">
+            <ParserAnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="progress">
+            <PatientProgressDashboard userId={user?.id} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
