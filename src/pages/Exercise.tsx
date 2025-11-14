@@ -262,6 +262,42 @@ const Exercise = () => {
     }
   };
 
+  // Save engagement summary when session ends
+  useEffect(() => {
+    const saveEngagementSummary = async () => {
+      if (!showResult || !sessionId) return;
+      
+      try {
+        const engagementState = getState();
+        const flags = getEngagementFlags();
+        const engagementSummary = {
+          frustration: engagementState.frustration,
+          fatigue: engagementState.fatigue,
+          intervention_count: flags.interventionCount || 0,
+          recommended_action: engagementState.recommendedAction || 'none',
+          confidence: engagementState.confidence || 0
+        };
+
+        const { error } = await supabase
+          .from('sessions')
+          .update({ engagement_summary: engagementSummary })
+          .eq('id', sessionId);
+
+        if (error) {
+          console.error('Error saving engagement summary:', error);
+        } else {
+          console.log('Engagement summary saved:', engagementSummary);
+        }
+      } catch (error) {
+        console.error('Error in saveEngagementSummary:', error);
+      }
+    };
+
+    if (showResult && sessionId) {
+      saveEngagementSummary();
+    }
+  }, [showResult, sessionId]);
+
   const startExercise = async () => {
     // Check if we should run a probe first
     const newSessionCount = sessionCount + 1;
