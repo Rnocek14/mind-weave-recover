@@ -15,26 +15,10 @@ interface BrainRegionDetailProps {
 export const BrainRegionDetail = ({ region, score }: BrainRegionDetailProps) => {
   const navigate = useNavigate();
 
-  const getTrendIcon = () => {
-    switch (score.trend) {
-      case 'improving':
-        return <TrendingUp className="h-4 w-4 text-green-600" />;
-      case 'declining':
-        return <TrendingDown className="h-4 w-4 text-orange-600" />;
-      default:
-        return <Minus className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
-  const getTrendColor = () => {
-    switch (score.trend) {
-      case 'improving':
-        return 'text-green-600';
-      case 'declining':
-        return 'text-orange-600';
-      default:
-        return 'text-muted-foreground';
-    }
+  const getTrendLabel = (trend: string) => {
+    if (trend === 'improving') return 'Getting Stronger';
+    if (trend === 'declining') return 'Needs Extra Support';
+    return 'Holding Steady';
   };
 
   const getScoreColor = (value: number) => {
@@ -54,31 +38,25 @@ export const BrainRegionDetail = ({ region, score }: BrainRegionDetailProps) => 
               {region.hemisphere === 'bilateral' ? 'Both hemispheres' : `${region.hemisphere} hemisphere`}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            {getTrendIcon()}
-            <span className={`text-sm font-medium ${getTrendColor()}`}>
-              {score.trend === 'improving' && '+'}
-              {score.trendValue.toFixed(1)}%
-            </span>
-          </div>
+          <p className="text-sm text-blue-600 font-medium">{getTrendLabel(score.trend)}</p>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Functional Score */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Current Function</span>
-            <span className={`text-2xl font-bold ${getScoreColor(score.currentScore)}`}>
-              {score.currentScore}
-            </span>
-          </div>
-          <Progress value={score.currentScore} className="h-2" />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Baseline: {score.baselineImpairment}% impaired</span>
-            <Badge variant={score.confidence === 'high' ? 'default' : 'secondary'} className="text-xs">
-              {score.confidence} confidence
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium">Estimated Functional Level</p>
+            <Badge variant={score.confidence === 'high' ? 'default' : score.confidence === 'medium' ? 'secondary' : 'outline'}>
+              {score.confidence === 'high' ? 'High confidence' : score.confidence === 'medium' ? 'Medium confidence' : 'Collecting data'}
             </Badge>
           </div>
+          <div className="flex items-center gap-3">
+            <Progress value={score.currentScore} className="flex-1" />
+            <span className={`text-2xl font-bold ${getScoreColor(score.currentScore)}`}>{Math.round(score.currentScore)}%</span>
+          </div>
+          {score.confidence === 'low' && (
+            <p className="text-xs text-muted-foreground mt-2">Keep doing exercises that use this area to improve accuracy</p>
+          )}
         </div>
 
         {/* Affected Deficits */}
@@ -86,7 +64,7 @@ export const BrainRegionDetail = ({ region, score }: BrainRegionDetailProps) => 
           <div className="space-y-2">
             <h4 className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4" />
-              Affected Functions
+              Functions Likely Affected
             </h4>
             <div className="flex flex-wrap gap-2">
               {score.affectedDeficits.map((deficit, idx) => (
