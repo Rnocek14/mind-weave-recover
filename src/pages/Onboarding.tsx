@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, ArrowLeft, CheckCircle2, Hand, MessageSquare, Brain } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight, ArrowLeft, CheckCircle2, Hand, MessageSquare, Brain, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
@@ -144,6 +146,53 @@ const Onboarding = () => {
             <Button variant="ghost" onClick={() => setStep(step + 1)}>
               Skip for now
             </Button>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Ready to Start",
+      subtitle: "Here's your personalized therapy plan",
+      content: (
+        <div className="max-w-3xl mx-auto space-y-6">
+          {clinicalProfile && (
+            <div className="space-y-4">
+              <StrokeProfileWidget profile={clinicalProfile} />
+              <div className="bg-muted/30 border border-border rounded-lg p-4">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  Your Focus Areas:
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedGoals.map(goalId => {
+                    const goal = goals.find(g => g.id === goalId);
+                    return goal ? (
+                      <Badge key={goalId} className="bg-primary/10 text-primary border-primary/20">
+                        {goal.label}
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          {!clinicalProfile && (
+            <div className="bg-muted/30 border border-border rounded-lg p-6 text-center">
+              <h4 className="font-semibold mb-2">Your Focus Areas:</h4>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {selectedGoals.map(goalId => {
+                  const goal = goals.find(g => g.id === goalId);
+                  return goal ? (
+                    <Badge key={goalId} className="bg-primary/10 text-primary border-primary/20">
+                      {goal.label}
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
+          <div className="text-center text-muted-foreground">
+            <p>Your personalized therapy plan is ready. Let's begin your recovery journey!</p>
           </div>
         </div>
       )
