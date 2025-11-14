@@ -1,5 +1,4 @@
 import React from "react";
-import brainImage from '@/assets/brain-anatomy.png';
 
 type MapMode = "injury" | "function" | "progress";
 
@@ -40,25 +39,25 @@ function getRegionColor(
 
   if (mode === "injury") {
     if (affectedRegions?.includes(regionId)) {
-      return "rgba(220,38,38,0.55)";
+      return "rgba(220,38,38,0.75)";
     }
-    return "transparent";
+    return "rgba(148,163,184,0.25)";
   }
 
   if (!score || score.trialCount < 10) {
-    return "rgba(148,163,184,0.35)";
+    return "rgba(148,163,184,0.45)";
   }
 
   if (mode === "function") {
-    if (score.currentScore >= 70) return "rgba(34,197,94,0.45)";
-    if (score.currentScore >= 50) return "rgba(234,179,8,0.45)";
-    if (score.currentScore >= 30) return "rgba(249,115,22,0.45)";
-    return "rgba(220,38,38,0.55)";
+    if (score.currentScore >= 70) return "rgba(34,197,94,0.65)";
+    if (score.currentScore >= 50) return "rgba(234,179,8,0.65)";
+    if (score.currentScore >= 30) return "rgba(249,115,22,0.65)";
+    return "rgba(220,38,38,0.75)";
   }
 
-  if (score.trend === "improving") return "rgba(59,130,246,0.5)";
-  if (score.trend === "declining") return "rgba(249,115,22,0.5)";
-  return "rgba(148,163,184,0.35)";
+  if (score.trend === "improving") return "rgba(59,130,246,0.7)";
+  if (score.trend === "declining") return "rgba(249,115,22,0.7)";
+  return "rgba(148,163,184,0.45)";
 }
 
 export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
@@ -70,13 +69,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 }) => {
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <div className="relative w-full pb-[65%] rounded-2xl bg-muted/30 shadow-sm overflow-hidden">
-        <img
-          src={brainImage}
-          alt="Brain anatomy"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
-        />
-
+      <div className="relative w-full pb-[65%] rounded-2xl bg-background border border-border shadow-sm overflow-hidden">
         <svg viewBox="0 0 400 260" className="absolute inset-0 w-full h-full">
           <BrainRegionPath
             id="frontal_lobe"
@@ -195,14 +188,18 @@ const BrainRegionPath: React.FC<BrainRegionPathProps> = ({
 }) => {
   return (
     <g
-      className="cursor-pointer transition-all duration-200 hover:opacity-90"
+      className="cursor-pointer transition-all duration-200"
       onClick={() => onClick?.(id)}
     >
       <path
         d={d}
         fill={color}
-        stroke={selected ? "hsl(var(--primary))" : "rgba(15,23,42,0.35)"}
-        strokeWidth={selected ? 3 : 1.5}
+        stroke={selected ? "hsl(var(--primary))" : "hsl(var(--border))"}
+        strokeWidth={selected ? 3 : 2}
+        className="transition-all duration-200 hover:brightness-110"
+        style={{ 
+          filter: selected ? 'drop-shadow(0 0 8px hsl(var(--primary)))' : 'none'
+        }}
       />
     </g>
   );
