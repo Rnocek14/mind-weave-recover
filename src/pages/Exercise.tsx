@@ -310,11 +310,11 @@ const Exercise = () => {
   }, [showResult, sessionId]);
 
   const startExercise = async () => {
-    // Check if we should run a probe first
+    // Check if we should run a probe first (only for photo-naming, not phrase practice)
     const newSessionCount = sessionCount + 1;
     const shouldProbe = shouldRunProbe(newSessionCount, lastProbeSession);
     
-    if (shouldProbe && (exerciseId === 'photo-naming' || exerciseId === 'word-practice')) {
+    if (shouldProbe && exerciseId === 'photo-naming') {
       setShowProbe(true);
       return;
     }
