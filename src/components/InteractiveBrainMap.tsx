@@ -79,7 +79,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
         <svg viewBox="0 0 400 260" className="absolute inset-0 w-full h-full">
           <BrainRegionPath
             id="frontal_lobe"
-            d="M55,120 C40,75 80,40 150,40 C195,40 210,60 215,85 C185,110 150,125 105,135 C80,140 65,135 55,120 Z"
+            d="M45,125 C35,95 40,70 55,50 C75,35 105,28 140,28 C175,28 200,35 218,50 C228,62 232,78 230,95 C220,110 205,122 185,130 C160,135 130,138 100,138 C75,136 58,132 45,125 Z"
             mode={mode}
             color={getRegionColor(mode, "frontal_lobe", scores, affectedRegions)}
             selected={selectedRegion === "frontal_lobe"}
@@ -88,7 +88,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="motor_cortex"
-            d="M205,60 C215,55 230,55 245,65 C240,80 235,95 225,110 C210,105 200,95 195,80 Z"
+            d="M228,50 C238,45 248,43 258,46 C263,58 265,72 263,88 C260,102 255,115 248,125 C240,120 233,110 228,98 C225,85 224,68 228,50 Z"
             mode={mode}
             color={getRegionColor(mode, "motor_cortex", scores, affectedRegions)}
             selected={selectedRegion === "motor_cortex"}
@@ -97,7 +97,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="somatosensory_cortex"
-            d="M245,65 C260,75 270,90 275,105 C260,120 245,130 230,135 C225,120 223,115 225,110 Z"
+            d="M258,46 C268,48 278,54 286,65 C290,78 291,93 288,108 C283,120 275,128 265,133 C258,128 253,120 250,110 C248,95 251,70 258,46 Z"
             mode={mode}
             color={getRegionColor(mode, "somatosensory_cortex", scores, affectedRegions)}
             selected={selectedRegion === "somatosensory_cortex"}
@@ -106,7 +106,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="parietal_lobe"
-            d="M230,75 C260,60 300,70 325,95 C330,125 320,150 295,165 C270,175 245,170 225,155 C235,135 240,125 245,115 Z"
+            d="M286,65 C305,68 325,78 340,95 C348,112 350,132 346,152 C338,168 325,180 308,185 C288,188 270,185 255,175 C248,165 245,150 248,133 C255,115 268,85 286,65 Z"
             mode={mode}
             color={getRegionColor(mode, "parietal_lobe", scores, affectedRegions)}
             selected={selectedRegion === "parietal_lobe"}
@@ -115,7 +115,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="temporal_lobe"
-            d="M150,135 C190,135 220,140 240,155 C245,195 230,215 200,225 C165,235 125,225 105,205 C105,180 120,160 150,150 Z"
+            d="M95,138 C125,145 160,148 188,150 C208,152 228,155 242,165 C248,180 250,198 245,215 C235,228 218,235 198,238 C170,240 140,235 115,222 C95,210 85,192 85,172 C88,155 90,145 95,138 Z"
             mode={mode}
             color={getRegionColor(mode, "temporal_lobe", scores, affectedRegions)}
             selected={selectedRegion === "temporal_lobe"}
@@ -133,7 +133,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="occipital_lobe"
-            d="M295,135 C325,135 350,150 360,170 C355,195 335,210 310,215 C285,210 270,195 265,180 C275,165 285,150 295,135 Z"
+            d="M308,185 C328,182 348,185 365,195 C375,208 378,225 375,242 C368,255 355,262 340,265 C320,266 302,260 288,248 C278,235 273,218 275,200 C280,192 293,187 308,185 Z"
             mode={mode}
             color={getRegionColor(mode, "occipital_lobe", scores, affectedRegions)}
             selected={selectedRegion === "occipital_lobe"}
@@ -142,7 +142,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="cerebellum"
-            d="M220,190 C240,190 260,200 270,220 C260,240 240,255 215,255 C195,252 180,240 175,225 C185,205 200,195 220,190 Z"
+            d="M245,215 C265,218 285,228 298,242 C305,253 308,268 305,282 C298,295 285,304 268,308 C245,310 222,305 205,292 C192,280 185,262 188,245 C195,230 218,218 245,215 Z"
             mode={mode}
             color={getRegionColor(mode, "cerebellum", scores, affectedRegions)}
             selected={selectedRegion === "cerebellum"}
@@ -151,7 +151,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
 
           <BrainRegionPath
             id="brainstem"
-            d="M185,205 C195,205 205,210 210,225 C210,240 205,252 195,260 C180,260 170,250 168,238 C170,225 175,215 185,205 Z"
+            d="M188,245 C198,248 208,255 215,265 C220,278 220,292 215,305 C208,315 197,320 185,320 C170,318 158,310 152,298 C148,285 150,270 158,260 C168,252 178,247 188,245 Z"
             mode={mode}
             color={getRegionColor(mode, "brainstem", scores, affectedRegions)}
             selected={selectedRegion === "brainstem"}
