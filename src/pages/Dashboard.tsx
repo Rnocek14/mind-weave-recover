@@ -16,6 +16,7 @@ import { getExerciseRecommendations, ClinicalProfile } from "@/lib/clinicalProfi
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
+import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -259,6 +260,13 @@ const Dashboard = () => {
             Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
           </p>
         </Card>
+
+        {/* Stroke Profile Summary */}
+        {clinicalProfile && (
+          <div className="mb-8">
+            <StrokeProfileSummary profile={clinicalProfile} />
+          </div>
+        )}
 
         {/* Mechanism-Based Session Planner */}
         {clinicalProfile && (clinicalProfile as any).stroke_mechanism && (
