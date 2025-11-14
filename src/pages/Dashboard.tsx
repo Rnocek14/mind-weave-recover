@@ -15,6 +15,7 @@ import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { getExerciseRecommendations, ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
+import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -258,6 +259,13 @@ const Dashboard = () => {
             Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
           </p>
         </Card>
+
+        {/* Mechanism-Based Session Planner */}
+        {clinicalProfile && (clinicalProfile as any).stroke_mechanism && (
+          <div className="mb-8">
+            <MechanismSessionPlanner profile={clinicalProfile} />
+          </div>
+        )}
 
         {/* Exercises */}
         <div className="mb-8">
