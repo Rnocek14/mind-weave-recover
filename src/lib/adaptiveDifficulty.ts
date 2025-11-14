@@ -69,6 +69,14 @@ export class AdaptiveDifficultyController {
   }
 
   /**
+   * Emergency difficulty reduction for frustration intervention
+   * Steps down 2 levels instead of 1
+   */
+  handleFrustration(currentLevel: number): number {
+    return Math.max(1, currentLevel - 2);
+  }
+
+  /**
    * Get cue level based on recent error count
    * More errors = more cues needed
    */
