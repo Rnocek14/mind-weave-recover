@@ -94,17 +94,55 @@ export const PhrasePracticeGame = ({
     }
   };
 
-  // Play audio cue (text-to-speech or pre-recorded)
-  const handlePlayAudio = () => {
+  // Play audio cue using OpenAI TTS
+  const handlePlayAudio = async () => {
     if (!currentTrial) return;
     
-    // Use browser TTS
-    const utterance = new SpeechSynthesisUtterance(currentTrial.phrase);
-    utterance.rate = 0.8; // Slower for clarity
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
-    
-    setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            text: currentTrial.phrase,
+            voice: 'alloy' // Clear, neutral voice
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+
+      const data = await response.json();
+      
+      // Convert base64 to audio and play
+      const audioData = atob(data.audioContent);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+      await audio.play();
+      
+      setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
+    } catch (error) {
+      console.error('Audio playback error:', error);
+      toast({
+        title: "Audio Error",
+        description: "Could not play audio. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Show visual cue
