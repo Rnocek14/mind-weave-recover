@@ -148,6 +148,34 @@ export function getExerciseRecommendations(profile: ClinicalProfile | null): Exe
     });
   }
 
+  // Visual/Neglect impairments → Left-Side Hunt
+  if (impairments.visual.length > 0 || impairments.cognitive.length > 0) {
+    const hasNeglect = 
+      impairments.visual.some(imp => imp.includes('neglect') || imp.includes('inattention')) ||
+      impairments.cognitive.some(imp => imp.includes('neglect') || imp.includes('spatial'));
+    
+    const isRightHemisphere = 
+      (typeof profile.stroke_location === 'string' && profile.stroke_location.toLowerCase().includes('right')) ||
+      (Array.isArray(profile.stroke_location) && profile.stroke_location.some(loc => loc.toLowerCase().includes('right'))) ||
+      affected_side === 'left';
+
+    if (hasNeglect || isRightHemisphere) {
+      recommendations.push({
+        slug: 'left-side-hunt',
+        priority: hasNeglect ? 'high' : 'medium',
+        reason: hasNeglect 
+          ? 'Left neglect - attention training for left visual field'
+          : 'Right hemisphere stroke - preventive attention training',
+        config: {
+          startDifficulty: hasNeglect ? 1 : 2,
+          targetSide: 'left',
+          sessionLength: 'short',
+          timeout: hasNeglect ? 4000 : 3000
+        }
+      });
+    }
+  }
+
   // Cognitive impairments → Apply global adjustments
   if (impairments.cognitive.length > 0) {
     const hasSlowProcessing = impairments.cognitive.some(imp => 

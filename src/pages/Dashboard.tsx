@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Play, Trophy, Camera, Hand, MessageSquare, 
+  Play, Trophy, Camera, Hand, MessageSquare, Target,
   TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -148,6 +148,15 @@ const Dashboard = () => {
       category: "Speech",
       duration: "5-7 min",
       difficulty: "Easy",
+      color: "bg-gradient-healing"
+    },
+    {
+      id: "left-side-hunt",
+      title: "Left-Side Hunt",
+      icon: Target,
+      category: "Attention",
+      duration: "8-10 min",
+      difficulty: "Medium",
       color: "bg-gradient-healing"
     }
   ];
