@@ -118,14 +118,16 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
       {extractedProfile && (
         <Card className="border-primary">
           <CardHeader>
-            <CardTitle className="text-lg">Extracted Profile</CardTitle>
-            <CardDescription>
-              Review the extracted information. Edit if needed before confirming.
+            <CardTitle className="text-lg flex items-center gap-2">
+              Extracted Profile
               {extractedProfile.confidence && (
-                <Badge variant={extractedProfile.confidence === 'high' ? 'default' : 'secondary'} className="ml-2">
+                <Badge variant={extractedProfile.confidence === 'high' ? 'default' : 'secondary'}>
                   {extractedProfile.confidence} confidence
                 </Badge>
               )}
+            </CardTitle>
+            <CardDescription>
+              Review the extracted information. Edit if needed before confirming.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
