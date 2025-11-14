@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ErrorBreakdown {
@@ -34,7 +34,7 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -167,13 +167,58 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId, weeksBack]);
 
   useEffect(() => {
     if (userId) {
       fetchAnalytics();
     }
   }, [userId, weeksBack]);
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!userId) return;
+
+    // Subscribe to exercise_events changes
+    const exerciseChannel = supabase
+      .channel('exercise-events-analytics')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'exercise_events',
+        },
+        (payload) => {
+          console.log('New exercise event detected, refreshing analytics...');
+          fetchAnalytics();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to probe_results changes
+    const probeChannel = supabase
+      .channel('probe-results-analytics')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'probe_results',
+        },
+        (payload) => {
+          console.log('New probe result detected, refreshing analytics...');
+          fetchAnalytics();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      supabase.removeChannel(exerciseChannel);
+      supabase.removeChannel(probeChannel);
+    };
+  }, [userId, fetchAnalytics]);
 
   return {
     analytics,

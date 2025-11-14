@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, TrendingDown, TrendingUp, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -18,6 +20,20 @@ const ERROR_COLORS = {
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
   const { analytics, isLoading, error } = useErrorPatternAnalytics(userId, weeksBack);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [showUpdateBadge, setShowUpdateBadge] = useState(false);
+
+  // Monitor for analytics updates
+  useEffect(() => {
+    if (analytics && !isLoading) {
+      setLastUpdate(new Date());
+      setShowUpdateBadge(true);
+      
+      // Hide the update badge after 3 seconds
+      const timer = setTimeout(() => setShowUpdateBadge(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [analytics, isLoading]);
 
   if (isLoading) {
     return (
@@ -59,6 +75,20 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
 
   return (
     <div className="space-y-6">
+      {/* Real-time Status Badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Radio className="h-4 w-4 text-success animate-pulse" />
+          <span className="text-sm text-muted-foreground">Live updates enabled</span>
+        </div>
+        {showUpdateBadge && (
+          <Badge variant="secondary" className="animate-slide-up">
+            <Radio className="h-3 w-3 mr-1" />
+            Updated {lastUpdate.toLocaleTimeString()}
+          </Badge>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
