@@ -409,6 +409,14 @@ const Dashboard = () => {
               exerciseIcon={Volume2}
               targets="phonemic paraphasias, sound discrimination"
             />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/analytics/phoneme")}
+              className="mt-2"
+            >
+              View Detailed Analytics
+            </Button>
             <ExerciseProgressCard
               userId={user?.id}
               exerciseSlug="sentence-construction"
