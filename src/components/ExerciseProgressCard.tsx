@@ -164,6 +164,27 @@ export const ExerciseProgressCard = ({
         if (mostCommonError) {
           weakestArea = mostCommonError[0];
         }
+      } else if (exerciseSlug === "sentence-construction") {
+        // Analyze grammar errors
+        const grammarErrors: Record<string, number> = {};
+        events.forEach((event) => {
+          const outputs = event.outputs as any;
+          const inputs = event.inputs as any;
+          if (!event.score && outputs?.errorType) {
+            grammarErrors[outputs.errorType] = (grammarErrors[outputs.errorType] || 0) + 1;
+          }
+          // Also track grammar focus from inputs
+          if (!event.score && inputs?.grammarFocus) {
+            grammarErrors[inputs.grammarFocus] = (grammarErrors[inputs.grammarFocus] || 0) + 1;
+          }
+        });
+
+        const mostCommonError = Object.entries(grammarErrors).sort(
+          ([, a], [, b]) => b - a
+        )[0];
+        if (mostCommonError) {
+          weakestArea = mostCommonError[0].replace(/_/g, " ");
+        }
       }
 
       setStats({
