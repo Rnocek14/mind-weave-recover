@@ -9,13 +9,15 @@ import { useBrainRegionScores } from '@/hooks/useBrainRegionScores';
 import { normalizeStrokeLocationArray } from '@/lib/strokeLocationMapper';
 import { BrainRegionDetail } from './BrainRegionDetail';
 import { InteractiveBrainMap, type RegionId } from './InteractiveBrainMap';
+import { ClinicalContextPanel } from './ClinicalContextPanel';
+import { ClinicalSummaryTab } from './ClinicalSummaryTab';
 
 interface BrainMapProps {
   profile: { clinical_profile?: any };
   userId: string;
 }
 
-type MapMode = 'progress' | 'function' | 'injury';
+type MapMode = 'progress' | 'function' | 'injury' | 'summary';
 
 export const BrainMap = ({ profile, userId }: BrainMapProps) => {
   const [mode, setMode] = useState<MapMode>('progress');
@@ -33,42 +35,78 @@ export const BrainMap = ({ profile, userId }: BrainMapProps) => {
   const selectedRegion = selectedRegionId ? BRAIN_REGIONS.find(r => r.id === selectedRegionId) : null;
   const selectedScore = selectedRegionId ? scores[selectedRegionId] : null;
 
+  const strokeLocations = Array.isArray(profile?.clinical_profile?.stroke_location) 
+    ? profile.clinical_profile.stroke_location 
+    : profile?.clinical_profile?.stroke_location ? [profile.clinical_profile.stroke_location] : [];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Brain Function Map</CardTitle>
-        <CardDescription>Track recovery based on exercise performance</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Tabs value={mode} onValueChange={(v) => setMode(v as MapMode)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="progress">Recovery Progress</TabsTrigger>
-            <TabsTrigger value="function">Current Function</TabsTrigger>
-            <TabsTrigger value="injury">Affected Areas</TabsTrigger>
-          </TabsList>
-          <TabsContent value={mode} className="mt-4">
+    <>
+      <ClinicalContextPanel profile={profile} />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Brain Function Map</CardTitle>
+          <CardDescription>Track recovery based on exercise performance</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Tabs value={mode} onValueChange={(v) => setMode(v as MapMode)}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="progress">Recovery</TabsTrigger>
+              <TabsTrigger value="function">Function</TabsTrigger>
+              <TabsTrigger value="injury">Injury</TabsTrigger>
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+            </TabsList>
+          <TabsContent value="progress" className="mt-4">
             <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mb-4">
               <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
               <p className="text-sm text-muted-foreground">
-                {mode === 'progress' && 'Estimated trends based on exercise data, not brain scans.'}
-                {mode === 'function' && 'Estimated function based on your exercise performance.'}
-                {mode === 'injury' && 'Functions likely affected based on medical notes.'}
+                Estimated trends based on exercise data, not brain scans.
               </p>
             </div>
           </TabsContent>
+          
+          <TabsContent value="function" className="mt-4">
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mb-4">
+              <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+              <p className="text-sm text-muted-foreground">
+                Estimated function based on your exercise performance.
+              </p>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="injury" className="mt-4">
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mb-4">
+              <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+              <p className="text-sm text-muted-foreground">
+                Functions likely affected based on medical notes and vascular territories.
+              </p>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="summary" className="mt-4">
+            <ClinicalSummaryTab profile={profile} />
+          </TabsContent>
         </Tabs>
 
-        <InteractiveBrainMap
-          mode={mode}
-          scores={scores}
-          affectedRegions={affectedRegionIds}
-          selectedRegion={selectedRegionId}
-          onSelectRegion={setSelectedRegionId}
-        />
+        {mode !== 'summary' && (
+          <InteractiveBrainMap
+            mode={mode}
+            scores={scores}
+            affectedRegions={affectedRegionIds}
+            affectedTerritories={strokeLocations}
+            selectedRegion={selectedRegionId}
+            onSelectRegion={setSelectedRegionId}
+          />
+        )}
 
-        {selectedRegion && (
+        {mode !== 'summary' && selectedRegion && (
           selectedScore ? (
-            <BrainRegionDetail region={selectedRegion} score={selectedScore} />
+            <BrainRegionDetail 
+              region={selectedRegion} 
+              score={selectedScore} 
+              profile={profile}
+              affectedTerritories={strokeLocations}
+            />
           ) : (
             <Card>
               <CardHeader>
@@ -122,5 +160,6 @@ export const BrainMap = ({ profile, userId }: BrainMapProps) => {
         )}
       </CardContent>
     </Card>
+    </>
   );
 };
