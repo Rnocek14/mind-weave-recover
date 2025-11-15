@@ -127,6 +127,33 @@ const Dashboard = () => {
 
   const exercises = [
     {
+      id: "semantic-features",
+      title: "Semantic Feature Analysis",
+      icon: Lightbulb,
+      category: "Language",
+      duration: "10-15 min",
+      difficulty: "Medium",
+      color: "bg-gradient-primary"
+    },
+    {
+      id: "phonological-awareness",
+      title: "Phonological Awareness",
+      icon: Volume2,
+      category: "Language",
+      duration: "10-15 min",
+      difficulty: "Medium",
+      color: "bg-gradient-primary"
+    },
+    {
+      id: "sentence-construction",
+      title: "Sentence Construction",
+      icon: List,
+      category: "Language",
+      duration: "10-15 min",
+      difficulty: "Medium",
+      color: "bg-gradient-primary"
+    },
+    {
       id: "photo-naming",
       title: "Name That Photo",
       icon: Camera,
