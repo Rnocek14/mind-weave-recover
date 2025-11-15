@@ -45,7 +45,7 @@ async function aggregateExerciseMetrics(
 
   const validEvents = events.filter(e => e.score !== null);
   const accuracy = validEvents.length > 0
-    ? validEvents.reduce((sum, e) => sum + (e.score || 0), 0) / validEvents.length
+    ? validEvents.reduce((sum, e) => sum + (e.score || 0), 0) / validEvents.length / 100
     : 0;
 
   const validRTs = events.filter(e => e.reaction_time_ms !== null && e.reaction_time_ms > 0);
