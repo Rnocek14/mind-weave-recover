@@ -108,6 +108,20 @@ const LESION_ZONE_PATTERNS: Record<string, RegExp[]> = {
   'cerebellum': [/cerebell/i],
 };
 
+// Map vascular territories to the anatomical structures they supply
+const TERRITORY_TO_ANATOMY: Record<string, string[]> = {
+  'left_mca': ['frontal', 'temporal', 'parietal', 'insula', 'M1', 'premotor', 'Broca', 'Wernicke', 'basal_ganglia', 'internal_capsule'],
+  'right_mca': ['frontal', 'temporal', 'parietal', 'insula', 'M1', 'premotor', 'basal_ganglia', 'internal_capsule'],
+  'left_aca': ['frontal', 'prefrontal', 'premotor'],
+  'right_aca': ['frontal', 'prefrontal', 'premotor'],
+  'left_pca': ['occipital', 'V1', 'temporal', 'thalamus'],
+  'right_pca': ['occipital', 'V1', 'temporal', 'thalamus'],
+  'basilar': ['brainstem', 'pons', 'cerebellum', 'thalamus', 'occipital'],
+  'subcortical': ['basal_ganglia', 'thalamus', 'internal_capsule'],
+  'left_cerebellar': ['cerebellum'],
+  'right_cerebellar': ['cerebellum'],
+};
+
 /**
  * Normalize multiple stroke locations (array) into a single merged result
  */
@@ -210,6 +224,22 @@ export function normalizeStrokeLocation(rawLocation: string | null | any): Norma
         lesionZones.push(zone);
         break;
       }
+    }
+  }
+  
+  // Add anatomical structures implied by the vascular territory
+  if (territory !== 'unknown' && TERRITORY_TO_ANATOMY[territory]) {
+    const impliedZones = TERRITORY_TO_ANATOMY[territory];
+    // Only add zones that aren't already detected from text
+    impliedZones.forEach(zone => {
+      if (!lesionZones.includes(zone)) {
+        lesionZones.push(zone);
+      }
+    });
+    
+    // If we found zones from territory, upgrade confidence
+    if (confidence === 'low' && lesionZones.length > 0) {
+      confidence = 'medium';
     }
   }
   
