@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BRAIN_REGIONS, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { calculateRegionScore, RegionFunctionalScore } from '@/lib/functionalScoreCalculator';
-import { normalizeStrokeLocation } from '@/lib/strokeLocationMapper';
+import { normalizeStrokeLocationArray } from '@/lib/strokeLocationMapper';
 
 export const useBrainRegionScores = (userId: string | undefined, profile: any) => {
   const [scores, setScores] = useState<Record<string, RegionFunctionalScore>>({});
@@ -20,7 +20,7 @@ export const useBrainRegionScores = (userId: string | undefined, profile: any) =
         setError(null);
 
         // Get affected regions based on stroke location
-        const normalized = normalizeStrokeLocation(
+        const normalized = normalizeStrokeLocationArray(
           profile.clinical_profile?.stroke_location || null
         );
         const affectedRegions = getAffectedRegions(normalized.lesionZones);
