@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Play, Trophy, Camera, Hand, MessageSquare, Target,
-  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain
+  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain, Lightbulb, Volume2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { calculateStreak, getTotalReps, getTodayProgress } from "@/hooks/useStreakCalculation";
 import { supabase } from "@/integrations/supabase/client";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
+import { ExerciseProgressCard } from "@/components/ExerciseProgressCard";
 import { getExerciseRecommendations, ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import ClinicalProfileForm from "@/components/ClinicalProfileForm";
@@ -363,9 +364,30 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Language Recovery Progress */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <ExerciseProgressCard
+              userId={user?.id}
+              exerciseSlug="semantic-features"
+              exerciseTitle="Semantic Feature Analysis"
+              exerciseIcon={Lightbulb}
+              targets="word-finding, semantic errors"
+            />
+            <ExerciseProgressCard
+              userId={user?.id}
+              exerciseSlug="phonological-awareness"
+              exerciseTitle="Phonological Awareness"
+              exerciseIcon={Volume2}
+              targets="phonemic paraphasias, sound discrimination"
+            />
+          </div>
+        </div>
+
         {/* Exercise Performance Analytics */}
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Your Performance</h2>
+          <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <ExerciseStatsTile
               userId={user?.id}
