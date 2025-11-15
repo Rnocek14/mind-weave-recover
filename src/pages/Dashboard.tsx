@@ -395,28 +395,40 @@ const Dashboard = () => {
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
           <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <ExerciseProgressCard
-              userId={user?.id}
-              exerciseSlug="semantic-features"
-              exerciseTitle="Semantic Feature Analysis"
-              exerciseIcon={Lightbulb}
-              targets="word-finding, semantic errors"
-            />
-            <ExerciseProgressCard
-              userId={user?.id}
-              exerciseSlug="phonological-awareness"
-              exerciseTitle="Phonological Awareness"
-              exerciseIcon={Volume2}
-              targets="phonemic paraphasias, sound discrimination"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/analytics/phoneme")}
-              className="mt-2"
-            >
-              View Detailed Analytics
-            </Button>
+            <div className="space-y-2">
+              <ExerciseProgressCard
+                userId={user?.id}
+                exerciseSlug="semantic-features"
+                exerciseTitle="Semantic Feature Analysis"
+                exerciseIcon={Lightbulb}
+                targets="word-finding, semantic errors"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/analytics/semantic")}
+                className="w-full"
+              >
+                View Detailed Analytics
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <ExerciseProgressCard
+                userId={user?.id}
+                exerciseSlug="phonological-awareness"
+                exerciseTitle="Phonological Awareness"
+                exerciseIcon={Volume2}
+                targets="phonemic paraphasias, sound discrimination"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/analytics/phoneme")}
+                className="w-full"
+              >
+                View Detailed Analytics
+              </Button>
+            </div>
             <ExerciseProgressCard
               userId={user?.id}
               exerciseSlug="sentence-construction"
