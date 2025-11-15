@@ -109,6 +109,43 @@ const LESION_ZONE_PATTERNS: Record<string, RegExp[]> = {
 };
 
 /**
+ * Normalize multiple stroke locations (array) into a single merged result
+ */
+export function normalizeStrokeLocationArray(rawLocations: string[] | string | null | any): NormalizedStrokeLocation {
+  // If it's an array, process each location and merge
+  if (Array.isArray(rawLocations)) {
+    const normalized = rawLocations.map(loc => normalizeStrokeLocation(loc));
+    
+    // Merge all results
+    const allLesionZones = [...new Set(normalized.flatMap(n => n.lesionZones))];
+    const territories = normalized.map(n => n.territory).filter(t => t !== 'unknown');
+    const hemispheres = normalized.map(n => n.hemisphere).filter(h => h !== 'unknown');
+    
+    // Determine overall hemisphere
+    const hasLeft = hemispheres.includes('left');
+    const hasRight = hemispheres.includes('right');
+    const overallHemisphere = (hasLeft && hasRight) ? 'bilateral' : 
+                              hasLeft ? 'left' : 
+                              hasRight ? 'right' : 'unknown';
+    
+    // Determine confidence (lowest of all)
+    const lowestConfidence = normalized.every(n => n.confidence === 'high') ? 'high' :
+                             normalized.some(n => n.confidence === 'medium') ? 'medium' : 'low';
+    
+    return {
+      territory: territories.length > 1 ? 'multiple' : territories[0] || 'unknown',
+      hemisphere: overallHemisphere,
+      lesionZones: allLesionZones,
+      confidence: lowestConfidence,
+      rawInput: JSON.stringify(rawLocations)
+    };
+  }
+  
+  // Fall back to single location processing
+  return normalizeStrokeLocation(rawLocations);
+}
+
+/**
  * Normalize free-text stroke location into standardized format
  */
 export function normalizeStrokeLocation(rawLocation: string | null | any): NormalizedStrokeLocation {

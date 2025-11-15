@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { BRAIN_REGIONS, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { useBrainRegionScores } from '@/hooks/useBrainRegionScores';
-import { normalizeStrokeLocation } from '@/lib/strokeLocationMapper';
+import { normalizeStrokeLocationArray } from '@/lib/strokeLocationMapper';
 import { BrainRegionDetail } from './BrainRegionDetail';
 import { InteractiveBrainMap, type RegionId } from './InteractiveBrainMap';
 
@@ -22,7 +22,7 @@ export const BrainMap = ({ profile, userId }: BrainMapProps) => {
   const [selectedRegionId, setSelectedRegionId] = useState<RegionId | null>(null);
   const { scores, loading, error } = useBrainRegionScores(userId, profile);
 
-  const normalized = normalizeStrokeLocation(profile?.clinical_profile?.stroke_location);
+  const normalized = normalizeStrokeLocationArray(profile?.clinical_profile?.stroke_location);
   const affectedRegions = getAffectedRegions(normalized.lesionZones);
   const affectedRegionIds = affectedRegions.map(r => r.id) as RegionId[];
 
