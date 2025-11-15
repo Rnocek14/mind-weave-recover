@@ -448,13 +448,17 @@ const Dashboard = () => {
         <Card className="p-6 shadow-card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Recent Achievements</h2>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate("/history")}
-            >
-              View All <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate("/history")}
+                className="gap-2"
+              >
+                <History className="w-4 h-4" />
+                View History
+              </Button>
+            </div>
           </div>
           <div className="space-y-3">
             {recentAchievements.map((achievement, i) => {

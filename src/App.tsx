@@ -11,6 +11,7 @@ import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
 import PhonologicalExercise from "./pages/PhonologicalExercise";
 import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import PhonemeAnalytics from "./pages/PhonemeAnalytics";
+import SessionHistory from "./pages/SessionHistory";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
           <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
           <Route path="/analytics/phoneme" element={<PhonemeAnalytics />} />
+          <Route path="/history" element={<SessionHistory />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
