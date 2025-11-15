@@ -1,0 +1,383 @@
+/**
+ * Semantic Feature Analysis Bank
+ * 
+ * Structured vocabulary with psycholinguistic features for semantic therapy.
+ * Features are categorized by abstractness to enable progressive difficulty.
+ */
+
+export type FeatureCategory = 'perceptual' | 'functional' | 'categorical' | 'associative' | 'abstract';
+
+export interface SemanticFeature {
+  text: string;
+  category: FeatureCategory;
+  abstractness: number; // 1 (concrete) to 5 (abstract)
+}
+
+export interface SemanticFeatureTrial {
+  word: string;
+  imageCategory: string; // Maps to photo bank categories
+  difficulty: number; // 1-5
+  wordFrequency: 'high' | 'medium' | 'low';
+  correctFeatures: SemanticFeature[];
+  typicalDistractors: SemanticFeature[]; // Common semantic confusions
+}
+
+// Feature pool organized by category
+export const FEATURE_POOL: Record<FeatureCategory, SemanticFeature[]> = {
+  perceptual: [
+    { text: 'red', category: 'perceptual', abstractness: 1 },
+    { text: 'blue', category: 'perceptual', abstractness: 1 },
+    { text: 'green', category: 'perceptual', abstractness: 1 },
+    { text: 'yellow', category: 'perceptual', abstractness: 1 },
+    { text: 'round', category: 'perceptual', abstractness: 1 },
+    { text: 'square', category: 'perceptual', abstractness: 1 },
+    { text: 'shiny', category: 'perceptual', abstractness: 2 },
+    { text: 'soft', category: 'perceptual', abstractness: 2 },
+    { text: 'hard', category: 'perceptual', abstractness: 2 },
+    { text: 'smooth', category: 'perceptual', abstractness: 2 },
+    { text: 'rough', category: 'perceptual', abstractness: 2 },
+    { text: 'large', category: 'perceptual', abstractness: 1 },
+    { text: 'small', category: 'perceptual', abstractness: 1 },
+    { text: 'heavy', category: 'perceptual', abstractness: 2 },
+    { text: 'light', category: 'perceptual', abstractness: 2 },
+  ],
+  functional: [
+    { text: 'you eat it', category: 'functional', abstractness: 2 },
+    { text: 'you wear it', category: 'functional', abstractness: 2 },
+    { text: 'you drink from it', category: 'functional', abstractness: 2 },
+    { text: 'you ride it', category: 'functional', abstractness: 2 },
+    { text: 'you sit on it', category: 'functional', abstractness: 2 },
+    { text: 'you write with it', category: 'functional', abstractness: 2 },
+    { text: 'you read it', category: 'functional', abstractness: 2 },
+    { text: 'it tells time', category: 'functional', abstractness: 3 },
+    { text: 'it opens things', category: 'functional', abstractness: 3 },
+    { text: 'it makes sound', category: 'functional', abstractness: 3 },
+    { text: 'you throw it', category: 'functional', abstractness: 2 },
+    { text: 'it provides shelter', category: 'functional', abstractness: 3 },
+  ],
+  categorical: [
+    { text: 'fruit', category: 'categorical', abstractness: 2 },
+    { text: 'vegetable', category: 'categorical', abstractness: 2 },
+    { text: 'animal', category: 'categorical', abstractness: 2 },
+    { text: 'bird', category: 'categorical', abstractness: 2 },
+    { text: 'clothing', category: 'categorical', abstractness: 2 },
+    { text: 'furniture', category: 'categorical', abstractness: 2 },
+    { text: 'tool', category: 'categorical', abstractness: 2 },
+    { text: 'toy', category: 'categorical', abstractness: 2 },
+    { text: 'vehicle', category: 'categorical', abstractness: 2 },
+    { text: 'food', category: 'categorical', abstractness: 2 },
+    { text: 'living thing', category: 'categorical', abstractness: 3 },
+    { text: 'body part', category: 'categorical', abstractness: 2 },
+    { text: 'building', category: 'categorical', abstractness: 2 },
+    { text: 'container', category: 'categorical', abstractness: 3 },
+  ],
+  associative: [
+    { text: 'grows on trees', category: 'associative', abstractness: 3 },
+    { text: 'found in kitchen', category: 'associative', abstractness: 3 },
+    { text: 'found outdoors', category: 'associative', abstractness: 3 },
+    { text: 'has wheels', category: 'associative', abstractness: 2 },
+    { text: 'has legs', category: 'associative', abstractness: 2 },
+    { text: 'has wings', category: 'associative', abstractness: 2 },
+    { text: 'made of wood', category: 'associative', abstractness: 3 },
+    { text: 'made of metal', category: 'associative', abstractness: 3 },
+    { text: 'made of fabric', category: 'associative', abstractness: 3 },
+    { text: 'used daily', category: 'associative', abstractness: 4 },
+    { text: 'expensive', category: 'associative', abstractness: 4 },
+    { text: 'common', category: 'associative', abstractness: 4 },
+  ],
+  abstract: [
+    { text: 'healthy', category: 'abstract', abstractness: 4 },
+    { text: 'useful', category: 'abstract', abstractness: 4 },
+    { text: 'important', category: 'abstract', abstractness: 5 },
+    { text: 'natural', category: 'abstract', abstractness: 4 },
+    { text: 'comfortable', category: 'abstract', abstractness: 4 },
+    { text: 'dangerous', category: 'abstract', abstractness: 4 },
+    { text: 'valuable', category: 'abstract', abstractness: 5 },
+    { text: 'modern', category: 'abstract', abstractness: 5 },
+    { text: 'traditional', category: 'abstract', abstractness: 5 },
+  ],
+};
+
+// Semantic feature trials organized by difficulty
+export const SEMANTIC_TRIALS: SemanticFeatureTrial[] = [
+  // Level 1: High-frequency, concrete perceptual features
+  {
+    word: 'apple',
+    imageCategory: 'apple',
+    difficulty: 1,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'red', category: 'perceptual', abstractness: 1 },
+      { text: 'round', category: 'perceptual', abstractness: 1 },
+      { text: 'fruit', category: 'categorical', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+    ],
+    typicalDistractors: [
+      { text: 'yellow', category: 'perceptual', abstractness: 1 },
+      { text: 'vegetable', category: 'categorical', abstractness: 2 },
+      { text: 'you drink from it', category: 'functional', abstractness: 2 },
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+    ],
+  },
+  {
+    word: 'dog',
+    imageCategory: 'dog',
+    difficulty: 1,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+      { text: 'has legs', category: 'associative', abstractness: 2 },
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'common', category: 'abstract', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'bird', category: 'categorical', abstractness: 2 },
+      { text: 'has wings', category: 'associative', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'grows on trees', category: 'associative', abstractness: 3 },
+    ],
+  },
+  {
+    word: 'car',
+    imageCategory: 'car',
+    difficulty: 1,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'vehicle', category: 'categorical', abstractness: 2 },
+      { text: 'has wheels', category: 'associative', abstractness: 2 },
+      { text: 'you ride it', category: 'functional', abstractness: 2 },
+      { text: 'large', category: 'perceptual', abstractness: 1 },
+    ],
+    typicalDistractors: [
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+      { text: 'has wings', category: 'associative', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+    ],
+  },
+
+  // Level 2: Mix of concrete and functional
+  {
+    word: 'chair',
+    imageCategory: 'chair',
+    difficulty: 2,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'furniture', category: 'categorical', abstractness: 2 },
+      { text: 'you sit on it', category: 'functional', abstractness: 2 },
+      { text: 'has legs', category: 'associative', abstractness: 2 },
+      { text: 'found in kitchen', category: 'associative', abstractness: 3 },
+      { text: 'made of wood', category: 'associative', abstractness: 3 },
+    ],
+    typicalDistractors: [
+      { text: 'vehicle', category: 'categorical', abstractness: 2 },
+      { text: 'you ride it', category: 'functional', abstractness: 2 },
+      { text: 'has wheels', category: 'associative', abstractness: 2 },
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+    ],
+  },
+  {
+    word: 'cup',
+    imageCategory: 'cup',
+    difficulty: 2,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'container', category: 'categorical', abstractness: 3 },
+      { text: 'you drink from it', category: 'functional', abstractness: 2 },
+      { text: 'found in kitchen', category: 'associative', abstractness: 3 },
+      { text: 'small', category: 'perceptual', abstractness: 1 },
+      { text: 'used daily', category: 'associative', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'furniture', category: 'categorical', abstractness: 2 },
+      { text: 'has legs', category: 'associative', abstractness: 2 },
+      { text: 'large', category: 'perceptual', abstractness: 1 },
+    ],
+  },
+  {
+    word: 'book',
+    imageCategory: 'book',
+    difficulty: 2,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'you read it', category: 'functional', abstractness: 2 },
+      { text: 'made of wood', category: 'associative', abstractness: 3 },
+      { text: 'common', category: 'abstract', abstractness: 4 },
+      { text: 'useful', category: 'abstract', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'has legs', category: 'associative', abstractness: 2 },
+      { text: 'vehicle', category: 'categorical', abstractness: 2 },
+    ],
+  },
+
+  // Level 3: More abstract features
+  {
+    word: 'key',
+    imageCategory: 'key',
+    difficulty: 3,
+    wordFrequency: 'medium',
+    correctFeatures: [
+      { text: 'tool', category: 'categorical', abstractness: 2 },
+      { text: 'it opens things', category: 'functional', abstractness: 3 },
+      { text: 'made of metal', category: 'associative', abstractness: 3 },
+      { text: 'small', category: 'perceptual', abstractness: 1 },
+      { text: 'important', category: 'abstract', abstractness: 5 },
+      { text: 'used daily', category: 'associative', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'large', category: 'perceptual', abstractness: 1 },
+      { text: 'soft', category: 'perceptual', abstractness: 2 },
+    ],
+  },
+  {
+    word: 'bird',
+    imageCategory: 'bird',
+    difficulty: 3,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+      { text: 'bird', category: 'categorical', abstractness: 2 },
+      { text: 'has wings', category: 'associative', abstractness: 2 },
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'found outdoors', category: 'associative', abstractness: 3 },
+      { text: 'natural', category: 'abstract', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'furniture', category: 'categorical', abstractness: 2 },
+      { text: 'has wheels', category: 'associative', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'made of metal', category: 'associative', abstractness: 3 },
+    ],
+  },
+
+  // Level 4: Abstract and associative features dominate
+  {
+    word: 'watch',
+    imageCategory: 'watch',
+    difficulty: 4,
+    wordFrequency: 'medium',
+    correctFeatures: [
+      { text: 'it tells time', category: 'functional', abstractness: 3 },
+      { text: 'you wear it', category: 'functional', abstractness: 2 },
+      { text: 'small', category: 'perceptual', abstractness: 1 },
+      { text: 'made of metal', category: 'associative', abstractness: 3 },
+      { text: 'expensive', category: 'associative', abstractness: 4 },
+      { text: 'useful', category: 'abstract', abstractness: 4 },
+      { text: 'modern', category: 'abstract', abstractness: 5 },
+    ],
+    typicalDistractors: [
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'natural', category: 'abstract', abstractness: 4 },
+      { text: 'grows on trees', category: 'associative', abstractness: 3 },
+    ],
+  },
+  {
+    word: 'phone',
+    imageCategory: 'phone',
+    difficulty: 4,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'tool', category: 'categorical', abstractness: 2 },
+      { text: 'it makes sound', category: 'functional', abstractness: 3 },
+      { text: 'made of metal', category: 'associative', abstractness: 3 },
+      { text: 'used daily', category: 'associative', abstractness: 4 },
+      { text: 'important', category: 'abstract', abstractness: 5 },
+      { text: 'modern', category: 'abstract', abstractness: 5 },
+      { text: 'expensive', category: 'associative', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'natural', category: 'abstract', abstractness: 4 },
+      { text: 'soft', category: 'perceptual', abstractness: 2 },
+    ],
+  },
+
+  // Level 5: Highly abstract reasoning required
+  {
+    word: 'house',
+    imageCategory: 'house',
+    difficulty: 5,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'building', category: 'categorical', abstractness: 2 },
+      { text: 'it provides shelter', category: 'functional', abstractness: 3 },
+      { text: 'large', category: 'perceptual', abstractness: 1 },
+      { text: 'made of wood', category: 'associative', abstractness: 3 },
+      { text: 'expensive', category: 'associative', abstractness: 4 },
+      { text: 'important', category: 'abstract', abstractness: 5 },
+      { text: 'valuable', category: 'abstract', abstractness: 5 },
+      { text: 'common', category: 'abstract', abstractness: 4 },
+    ],
+    typicalDistractors: [
+      { text: 'living thing', category: 'categorical', abstractness: 3 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'has wings', category: 'associative', abstractness: 2 },
+      { text: 'small', category: 'perceptual', abstractness: 1 },
+    ],
+  },
+];
+
+/**
+ * Get trials for a given difficulty level
+ */
+export function getTrialsForLevel(level: number, count: number = 10): SemanticFeatureTrial[] {
+  const pool = SEMANTIC_TRIALS.filter(t => t.difficulty === level);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+/**
+ * Generate feature options for a trial (correct + distractors)
+ */
+export function generateFeatureOptions(
+  trial: SemanticFeatureTrial,
+  difficulty: number
+): SemanticFeature[] {
+  const featureCount = Math.min(4 + difficulty, trial.correctFeatures.length);
+  const distractorCount = Math.min(4 + Math.floor(difficulty / 2), 6);
+  
+  const correctSubset = trial.correctFeatures.slice(0, featureCount);
+  const distractorSubset = trial.typicalDistractors.slice(0, distractorCount);
+  
+  const allOptions = [...correctSubset, ...distractorSubset];
+  return allOptions.sort(() => Math.random() - 0.5);
+}
+
+/**
+ * Analyze which feature categories user struggles with
+ */
+export function analyzeFeatureErrors(
+  selectedFeatures: SemanticFeature[],
+  correctFeatures: SemanticFeature[]
+): {
+  missedCategories: FeatureCategory[];
+  incorrectCategories: FeatureCategory[];
+  weakestAbstractness: number;
+} {
+  const correctIds = new Set(correctFeatures.map(f => f.text));
+  const selectedIds = new Set(selectedFeatures.map(f => f.text));
+  
+  const missed = correctFeatures.filter(f => !selectedIds.has(f.text));
+  const incorrect = selectedFeatures.filter(f => !correctIds.has(f.text));
+  
+  const missedCategories = [...new Set(missed.map(f => f.category))];
+  const incorrectCategories = [...new Set(incorrect.map(f => f.category))];
+  
+  const missedAbstractness = missed.length > 0
+    ? Math.max(...missed.map(f => f.abstractness))
+    : 1;
+  
+  return {
+    missedCategories,
+    incorrectCategories,
+    weakestAbstractness: missedAbstractness,
+  };
+}
