@@ -429,13 +429,23 @@ const Dashboard = () => {
                 View Detailed Analytics
               </Button>
             </div>
-            <ExerciseProgressCard
-              userId={user?.id}
-              exerciseSlug="sentence-construction"
-              exerciseTitle="Sentence Construction"
-              exerciseIcon={List}
-              targets="syntax, grammar, word order"
-            />
+            <div className="space-y-2">
+              <ExerciseProgressCard
+                userId={user?.id}
+                exerciseSlug="sentence-construction"
+                exerciseTitle="Sentence Construction"
+                exerciseIcon={List}
+                targets="syntax, grammar, word order"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/analytics/grammar")}
+                className="w-full"
+              >
+                View Detailed Analytics
+              </Button>
+            </div>
           </div>
         </div>
 
