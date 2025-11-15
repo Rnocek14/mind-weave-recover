@@ -8,6 +8,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
 import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
+import PhonologicalExercise from "./pages/PhonologicalExercise";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/exercise/:exerciseId" element={<Exercise />} />
           <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
+          <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
