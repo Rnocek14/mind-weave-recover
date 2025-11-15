@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
 import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
 import PhonologicalExercise from "./pages/PhonologicalExercise";
+import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/exercise/:exerciseId" element={<Exercise />} />
           <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
           <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
+          <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />

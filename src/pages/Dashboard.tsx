@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Play, Trophy, Camera, Hand, MessageSquare, Target,
-  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain, Lightbulb, Volume2
+  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain, Lightbulb, Volume2, List
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -367,7 +367,7 @@ const Dashboard = () => {
         {/* Language Recovery Progress */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
             <ExerciseProgressCard
               userId={user?.id}
               exerciseSlug="semantic-features"
@@ -381,6 +381,13 @@ const Dashboard = () => {
               exerciseTitle="Phonological Awareness"
               exerciseIcon={Volume2}
               targets="phonemic paraphasias, sound discrimination"
+            />
+            <ExerciseProgressCard
+              userId={user?.id}
+              exerciseSlug="sentence-construction"
+              exerciseTitle="Sentence Construction"
+              exerciseIcon={List}
+              targets="syntax, grammar, word order"
             />
           </div>
         </div>
