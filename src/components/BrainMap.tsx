@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { BRAIN_REGIONS, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { useBrainRegionScores } from '@/hooks/useBrainRegionScores';
@@ -65,7 +66,60 @@ export const BrainMap = ({ profile, userId }: BrainMapProps) => {
           onSelectRegion={setSelectedRegionId}
         />
 
-        {selectedRegion && selectedScore && <BrainRegionDetail region={selectedRegion} score={selectedScore} />}
+        {selectedRegion && (
+          selectedScore ? (
+            <BrainRegionDetail region={selectedRegion} score={selectedScore} />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">{selectedRegion.displayName}</CardTitle>
+                <CardDescription>
+                  {selectedRegion.hemisphere === 'bilateral' ? 'Both hemispheres' : `${selectedRegion.hemisphere} hemisphere`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Not Enough Data Yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Complete more exercises that work with this brain region to see performance stats here.
+                    </p>
+                  </div>
+                </div>
+                
+                {selectedRegion.functionalDomains.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Functions This Area Supports</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRegion.functionalDomains.map((domain) => (
+                        <Badge key={domain} variant="outline" className="capitalize">
+                          {domain}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedRegion.exerciseSlugs.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Recommended Exercises</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Try these exercises to build data for this region:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRegion.exerciseSlugs.map((slug) => (
+                        <Badge key={slug} variant="secondary" className="text-xs">
+                          {slug.replace(/-/g, ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        )}
       </CardContent>
     </Card>
   );
