@@ -79,14 +79,19 @@ export const useDailyLesson = (
         const sessionIds = recentSessions.map(s => s.id);
 
         // Then get trials from those sessions
-        const { data: recentTrials, error: trialsError } = await supabase
-          .from('exercise_events')
-          .select('*')
-          .in('session_id', sessionIds)
-          .order('created_at', { ascending: false })
-          .limit(200);
+        let recentTrials: any[] = [];
 
-        if (trialsError) throw trialsError;
+        if (sessionIds.length > 0) {
+          const { data, error: trialsError } = await supabase
+            .from('exercise_events')
+            .select('*')
+            .in('session_id', sessionIds)
+            .order('created_at', { ascending: false })
+            .limit(200);
+
+          if (trialsError) throw trialsError;
+          recentTrials = data || [];
+        }
 
         // Aggregate performance signals
         const signals = aggregatePerformanceSignals(recentTrials || [], recentSessions || []);
