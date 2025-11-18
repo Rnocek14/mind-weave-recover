@@ -22,6 +22,8 @@ import PrivacySettings from "./pages/PrivacySettings";
 import History from "./pages/History";
 import ResearchExport from "./pages/ResearchExport";
 import ClusterAnalytics from "./pages/ClusterAnalytics";
+import PhotoLibrary from "./pages/PhotoLibrary";
+import PhotoNamingExercise from "./pages/PhotoNamingExercise";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +54,8 @@ const App = () => (
           <Route path="/analytics/cluster" element={<ClusterAnalytics />} />
           <Route path="/settings/privacy" element={<PrivacySettings />} />
           <Route path="/history" element={<History />} />
+          <Route path="/photo-library" element={<PhotoLibrary />} />
+          <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
