@@ -26,6 +26,8 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDoseCap } from "@/hooks/useDoseCap";
 import { LearningRateCard } from "@/components/LearningRateCard";
 import { useLearningRate } from "@/hooks/useLearningRate";
+import { FunctionalGoalsWidget } from "@/components/FunctionalGoalsWidget";
+import { GoalLearningCorrelationCard } from "@/components/GoalLearningCorrelationCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -350,6 +352,14 @@ const Dashboard = () => {
               clusterComparisons={clusterComparisons}
               timeWindow={14}
             />
+          </div>
+        )}
+
+        {/* Functional Goals */}
+        {user && (
+          <div className="mb-8 grid md:grid-cols-2 gap-4">
+            <FunctionalGoalsWidget userId={user.id} />
+            <GoalLearningCorrelationCard userId={user.id} />
           </div>
         )}
 
