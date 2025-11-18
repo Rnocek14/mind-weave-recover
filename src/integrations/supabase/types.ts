@@ -256,6 +256,80 @@ export type Database = {
         }
         Relationships: []
       }
+      functional_goals: {
+        Row: {
+          archived_at: string | null
+          baseline_status: string
+          created_at: string
+          created_by: string | null
+          goal_text: string
+          id: string
+          target_date: string | null
+          target_domain: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          baseline_status?: string
+          created_at?: string
+          created_by?: string | null
+          goal_text: string
+          id?: string
+          target_date?: string | null
+          target_domain: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          baseline_status?: string
+          created_at?: string
+          created_by?: string | null
+          goal_text?: string
+          id?: string
+          target_date?: string | null
+          target_domain?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      goal_progress_ratings: {
+        Row: {
+          confidence_level: number | null
+          goal_id: string
+          id: string
+          notes: string | null
+          rated_at: string
+          rated_by: string | null
+          status: string
+        }
+        Insert: {
+          confidence_level?: number | null
+          goal_id: string
+          id?: string
+          notes?: string | null
+          rated_at?: string
+          rated_by?: string | null
+          status: string
+        }
+        Update: {
+          confidence_level?: number | null
+          goal_id?: string
+          id?: string
+          notes?: string | null
+          rated_at?: string
+          rated_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_progress_ratings_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "functional_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_rates: {
         Row: {
           accuracy_slope: number | null
