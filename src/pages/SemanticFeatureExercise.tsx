@@ -6,6 +6,8 @@ import { startSession, endSession } from '@/lib/sessionTracking';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
+import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 
 export default function SemanticFeatureExercise() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function SemanticFeatureExercise() {
   const { toast } = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
+  const { level, bounds } = useExerciseDifficulty(user?.id, 'semantic-features');
 
   const handleGameStart = async () => {
     if (!user?.id) return;
@@ -53,20 +56,23 @@ export default function SemanticFeatureExercise() {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/dashboard')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Semantic Feature Analysis</h1>
-            <p className="text-muted-foreground">
-              Strengthen word retrieval by identifying semantic features
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/dashboard')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Semantic Feature Analysis</h1>
+              <p className="text-muted-foreground">
+                Strengthen word retrieval by identifying semantic features
+              </p>
+            </div>
           </div>
+          <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
 
         {/* Game */}

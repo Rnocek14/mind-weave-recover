@@ -39,6 +39,7 @@ import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
+import { useDailyLesson } from "@/hooks/useDailyLesson";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ const Dashboard = () => {
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
   const { currentAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id);
+  const { lesson } = useDailyLesson(user?.id || undefined, clinicalProfile);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -482,6 +484,9 @@ const Dashboard = () => {
               const adaptationSummary = adaptations ? getAdaptationSummary(adaptations) : [];
               const isLocked = !accessCheck.accessible;
               
+              // Check if this exercise is in today's plan
+              const inTodaysPlan = lesson?.blocks?.some(b => b.exerciseId === exercise.id);
+              
               return (
                 <Card 
                   key={exercise.id}
@@ -513,6 +518,11 @@ const Dashboard = () => {
                         {recommendation && (
                           <Badge variant="outline" className="text-xs">
                             {recommendation.priority} priority
+                          </Badge>
+                        )}
+                        {inTodaysPlan && (
+                          <Badge className="text-xs bg-blue-500 hover:bg-blue-600">
+                            In today's plan
                           </Badge>
                         )}
                       </div>
