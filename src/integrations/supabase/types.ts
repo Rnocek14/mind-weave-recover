@@ -101,6 +101,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dismissed_flags: {
+        Row: {
+          dismissed_at: string | null
+          dismissed_by: string | null
+          flag_details: Json
+          flag_severity: string
+          flag_type: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          flag_details?: Json
+          flag_severity: string
+          flag_type: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          flag_details?: Json
+          flag_severity?: string
+          flag_type?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       engagement_interventions: {
         Row: {
           created_at: string | null
@@ -272,10 +305,13 @@ export type Database = {
           clinical_profile: Json | null
           consent_version: number | null
           created_at: string | null
+          daily_cap_minutes: number | null
           daily_goal_minutes: number | null
           display_name: string | null
+          enforce_dose_caps: boolean | null
           goals: string[] | null
           hand_bias: string | null
+          session_cap_minutes: number | null
           stroke_date: string | null
           user_id: string
         }
@@ -285,10 +321,13 @@ export type Database = {
           clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
+          daily_cap_minutes?: number | null
           daily_goal_minutes?: number | null
           display_name?: string | null
+          enforce_dose_caps?: boolean | null
           goals?: string[] | null
           hand_bias?: string | null
+          session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id: string
         }
@@ -298,10 +337,13 @@ export type Database = {
           clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
+          daily_cap_minutes?: number | null
           daily_goal_minutes?: number | null
           display_name?: string | null
+          enforce_dose_caps?: boolean | null
           goals?: string[] | null
           hand_bias?: string | null
+          session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id?: string
         }

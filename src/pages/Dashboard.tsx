@@ -21,6 +21,9 @@ import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { BrainMap } from "@/components/BrainMap";
+import { RedFlagAlerts } from "@/components/RedFlagAlerts";
+import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { useDoseCap } from "@/hooks/useDoseCap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -33,6 +36,9 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  
+  const { flags: redFlags, isLoading: flagsLoading, refresh: refreshFlags } = useRedFlagDetection(user?.id || null);
+  const { doseCap } = useDoseCap(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -291,6 +297,30 @@ const Dashboard = () => {
             </div>
           </Card>
         </div>
+
+        {/* Red Flag Alerts */}
+        {!flagsLoading && redFlags.length > 0 && (
+          <div className="mb-8">
+            <RedFlagAlerts flags={redFlags} />
+          </div>
+        )}
+
+        {/* Dose Cap Warning if approaching limit */}
+        {doseCap.warningLevel !== 'safe' && doseCap.warningLevel !== 'limit' && doseCap.enforceCaps && (
+          <div className="mb-8">
+            <Card className="p-6 border-primary/50 bg-primary/5">
+              <h3 className="font-semibold mb-2">Practice Progress Today</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                You've practiced for {doseCap.todayMinutes} minutes today. 
+                {doseCap.minutesRemaining > 0 
+                  ? ` About ${doseCap.minutesRemaining} minutes remaining before your daily goal.`
+                  : ' Great work reaching your goal!'
+                }
+              </p>
+              <Progress value={(doseCap.todayMinutes / doseCap.dailyCapMinutes) * 100} className="h-2" />
+            </Card>
+          </div>
+        )}
 
         {/* Today's Progress */}
         <Card className="p-6 mb-8 shadow-card">
