@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, ChevronLeft, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Upload, Trash2, ChevronLeft, Image as ImageIcon, Loader2, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface Photo {
@@ -220,14 +220,23 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-6xl">
-        <Button
-          variant="ghost"
-          className="mb-6"
-          onClick={() => navigate("/dashboard")}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/dashboard")}
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => navigate("/admin/research-export")}
+          >
+            <Database className="w-4 h-4 mr-2" />
+            Research Export
+          </Button>
+        </div>
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
