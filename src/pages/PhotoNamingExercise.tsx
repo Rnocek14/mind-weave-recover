@@ -29,6 +29,7 @@ export default function PhotoNamingExercise() {
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [gameKey, setGameKey] = useState(0);
+  const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
@@ -93,6 +94,10 @@ export default function PhotoNamingExercise() {
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
+    const interactionMode = mode === 'caregiver' 
+      ? 'caregiver_assisted' 
+      : 'independent';
+
     // 🧪 Log trial with condition tags for microtesting
     await logTrial({
       correct: result.correct,
@@ -102,7 +107,7 @@ export default function PhotoNamingExercise() {
       taskParameters: {
         // Condition tags for experimental analysis
         photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
-        interaction_mode: 'independent',     // Will be 'caregiver_assisted' once that's added
+        interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
         difficulty_level: result.difficultyLevel,
         custom_photo_id: trial.id,           // Useful for per-photo analysis
         is_custom_photo: trial.category === 'personal',
@@ -156,6 +161,16 @@ export default function PhotoNamingExercise() {
                 <SelectItem value="stock">Stock Photos Only</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="independent">Independent Mode</SelectItem>
+                <SelectItem value="caregiver">Caregiver Assisted</SelectItem>
+              </SelectContent>
+            </Select>
             
             {customPhotos.length === 0 && (
               <Link to="/photo-library">
@@ -173,6 +188,7 @@ export default function PhotoNamingExercise() {
             key={gameKey}
             totalTrials={trials.length}
             initialDifficulty={1}
+            assistMode={mode === 'caregiver'}
             onTrialComplete={(result, trial) => {
               handleTrialComplete(result, trial);
               startTrial(); // Start timing next trial
