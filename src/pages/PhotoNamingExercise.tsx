@@ -173,9 +173,8 @@ export default function PhotoNamingExercise() {
             key={gameKey}
             totalTrials={trials.length}
             initialDifficulty={1}
-            onTrialComplete={(result) => {
-              const currentTrial = trials[result.difficultyLevel - 1] || trials[0];
-              handleTrialComplete(result, currentTrial);
+            onTrialComplete={(result, trial) => {
+              handleTrialComplete(result, trial);
               startTrial(); // Start timing next trial
             }}
             onGameComplete={handleGameComplete}
