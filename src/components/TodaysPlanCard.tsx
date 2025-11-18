@@ -55,6 +55,10 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
   }
 
   if (error || !lesson) {
+    const friendlyMessage = error 
+      ? 'We had trouble generating your plan. Please try again.'
+      : 'We need a little more recent practice data to build your personalized plan. Try 1–2 exercises first.';
+    
     return (
       <Card className="h-full">
         <CardHeader>
@@ -67,7 +71,7 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error || 'Unable to generate lesson plan. Complete a few sessions to build your personalized plan.'}
+              {friendlyMessage}
             </AlertDescription>
           </Alert>
         </CardContent>
