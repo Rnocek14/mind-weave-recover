@@ -99,3 +99,44 @@ export function smoothScore(
   const blended = blendWithPrevious(rawScore, previousScore);
   return applyMaxDropLimit(blended, previousScore);
 }
+
+/**
+ * Caregiver observations from graceful exit
+ */
+export interface CaregiverObservations {
+  lookingAtScreen: boolean;
+  seemsConfused: boolean;
+  tooTired: boolean;
+  motorLimitation: boolean;
+  notes: string;
+}
+
+export type InteractionMode = 'independent' | 'assisted' | 'passive';
+
+/**
+ * Suggests an interaction mode based on caregiver observations.
+ * 
+ * - 'assisted': User is cognitively present but has motor limitations
+ * - 'passive': User shows low arousal, confusion, or severe fatigue
+ * - 'independent': Default mode for users who can interact normally
+ */
+export function suggestInteractionMode(
+  caregiverObs?: CaregiverObservations | null
+): InteractionMode | null {
+  if (!caregiverObs) return null;
+
+  const { lookingAtScreen, seemsConfused, tooTired, motorLimitation } = caregiverObs;
+
+  // Assisted: cognitively present, motor-limited
+  if (lookingAtScreen && motorLimitation) {
+    return 'assisted';
+  }
+
+  // Passive: very low arousal / confusion
+  if (tooTired || (!lookingAtScreen && seemsConfused)) {
+    return 'passive';
+  }
+
+  // Otherwise: independent-ish
+  return 'independent';
+}

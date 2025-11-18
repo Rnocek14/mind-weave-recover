@@ -236,11 +236,21 @@ export function generateDailyLesson(
   clinicalProfile: ClinicalProfile | null,
   accessibleExercises: string[],
   performanceSignals: PerformanceSignals,
-  learningRates: LearningRateData[]
+  learningRates: LearningRateData[],
+  suggestedMode?: 'independent' | 'assisted' | 'passive' | null
 ): DailyLesson {
   const domainPriorities = calculateDomainPriorities(clinicalProfile);
-  const totalDuration = calculateTodaysDose(performanceSignals);
+  let totalDuration = calculateTodaysDose(performanceSignals);
   const reasoning: string[] = [];
+
+  // Adjust duration based on suggested interaction mode
+  if (suggestedMode === 'assisted') {
+    totalDuration = Math.min(totalDuration, 8);
+    reasoning.push('Using shorter session length for caregiver-assisted mode');
+  } else if (suggestedMode === 'passive') {
+    totalDuration = Math.min(totalDuration, 5);
+    reasoning.push('Using light session length due to low engagement signals');
+  }
 
   // Exercise metadata (extend this with your actual exercise catalog)
   const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number }> = {
