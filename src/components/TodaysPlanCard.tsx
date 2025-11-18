@@ -174,9 +174,16 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
                     {block.exerciseId.replace(/-/g, ' ')}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {block.duration} min
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    {block.duration} min
+                  </span>
+                  {block.adaptations?.startDifficulty && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Starts at Lv {block.adaptations.startDifficulty}
+                    </span>
+                  )}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 {block.reasoning}
