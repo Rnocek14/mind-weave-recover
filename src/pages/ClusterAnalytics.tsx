@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClusterComparisonDashboard } from '@/components/ClusterComparisonDashboard';
+import { OutcomePredictionCard } from '@/components/OutcomePredictionCard';
+import { useFunctionalGoals } from '@/hooks/useFunctionalGoals';
 import { ChevronLeft, BarChart3 } from 'lucide-react';
 
 const ClusterAnalytics = () => {
@@ -12,6 +14,7 @@ const ClusterAnalytics = () => {
   const navigate = useNavigate();
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { goals } = useFunctionalGoals(user?.id);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -79,10 +82,18 @@ const ClusterAnalytics = () => {
         </div>
 
         {user && clinicalProfile && (
-          <ClusterComparisonDashboard 
-            userId={user.id} 
-            clinicalProfile={clinicalProfile} 
-          />
+          <div className="space-y-6">
+            <OutcomePredictionCard 
+              userId={user.id}
+              clinicalProfile={clinicalProfile}
+              currentGoals={goals}
+            />
+            
+            <ClusterComparisonDashboard 
+              userId={user.id} 
+              clinicalProfile={clinicalProfile} 
+            />
+          </div>
         )}
 
         {!clinicalProfile && (

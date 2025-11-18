@@ -378,6 +378,30 @@ export type Database = {
         }
         Relationships: []
       }
+      outcome_predictions: {
+        Row: {
+          clinical_context: Json
+          created_at: string | null
+          id: string
+          prediction_data: Json
+          user_id: string
+        }
+        Insert: {
+          clinical_context: Json
+          created_at?: string | null
+          id?: string
+          prediction_data: Json
+          user_id: string
+        }
+        Update: {
+          clinical_context?: Json
+          created_at?: string | null
+          id?: string
+          prediction_data?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       photos: {
         Row: {
           created_at: string | null
