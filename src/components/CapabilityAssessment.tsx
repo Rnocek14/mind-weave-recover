@@ -77,6 +77,12 @@ export const CapabilityAssessment = ({
   // Generate random position for target
   const generateTargetPosition = useCallback(() => {
     const padding = 100;
+    
+    if (typeof window === 'undefined') {
+      // Safe fallback for SSR
+      return { x: 200, y: 300 };
+    }
+    
     const maxX = window.innerWidth - padding;
     const maxY = window.innerHeight - padding;
     return {
@@ -259,12 +265,14 @@ export const CapabilityAssessment = ({
 
   // Check for graceful exit conditions
   useEffect(() => {
-    const exitCheck = shouldGracefullyExit(level0Result, trialNumber);
+    // Count actual timeouts from Level 2 trials
+    const timeoutCount = level2Trials.filter(t => t.response === 'timeout').length;
+    const exitCheck = shouldGracefullyExit(level0Result, timeoutCount);
     if (exitCheck.shouldExit && !showGracefulExit) {
       setShowGracefulExit(true);
       setExitReason(exitCheck.reason);
     }
-  }, [level0Result, trialNumber, showGracefulExit]);
+  }, [level0Result, level2Trials, showGracefulExit]);
 
   const handleGracefulPause = () => {
     onExit();
