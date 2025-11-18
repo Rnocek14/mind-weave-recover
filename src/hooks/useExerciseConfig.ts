@@ -2,17 +2,26 @@ import { useMemo } from 'react';
 import { useExerciseGating } from './useExerciseGating';
 import { getExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
+import { getCapabilityDifficultyBounds, clampToBounds } from '@/lib/difficultyBounds';
 
 /**
  * Hook to get fully merged exercise configuration
  * Combines clinical profile recommendations + capability-based adaptations
+ * with difficulty bounds based on capability scores
  */
 export const useExerciseConfig = (
   exerciseId: string,
   userId: string | undefined,
-  clinicalProfile: any | null
+  clinicalProfile: any | null,
+  lessonBlock?: { startDifficulty?: number } | null
 ) => {
   const { getAdaptations, capabilityScores } = useExerciseGating(userId);
+
+  // Calculate capability-based difficulty bounds
+  const bounds = useMemo(
+    () => getCapabilityDifficultyBounds(exerciseId, capabilityScores),
+    [exerciseId, capabilityScores]
+  );
 
   const mergedConfig: ExerciseConfig = useMemo(() => {
     // Start with clinical profile config
@@ -22,18 +31,39 @@ export const useExerciseConfig = (
     const capabilityAdaptations = getAdaptations(exerciseId);
     
     if (!capabilityAdaptations) {
-      return clinicalConfig;
+      // No capability adaptations, but still clamp to bounds
+      const baseStart =
+        lessonBlock?.startDifficulty ??
+        clinicalConfig.startDifficulty ??
+        bounds.suggestedStart;
+
+      return {
+        ...clinicalConfig,
+        startDifficulty: clampToBounds(baseStart, bounds),
+      };
     }
+
+    const adapted = capabilityAdaptations.adaptations;
+
+    // Choose starting difficulty from all sources, then clamp to capability bounds
+    const rawStart =
+      lessonBlock?.startDifficulty ??
+      adapted.startDifficulty ??
+      clinicalConfig.startDifficulty ??
+      bounds.suggestedStart;
 
     // Merge configs with capability adaptations taking precedence for safety features
     return {
       ...clinicalConfig,
-      ...capabilityAdaptations.adaptations,
+      ...adapted,
       
-      // For numeric values, take the more conservative (easier) option
-      startDifficulty: Math.min(
-        clinicalConfig.startDifficulty || 2,
-        capabilityAdaptations.adaptations.startDifficulty || 2
+      // For numeric values, take the more conservative option, then clamp to bounds
+      startDifficulty: clampToBounds(
+        Math.min(
+          clinicalConfig.startDifficulty ?? rawStart,
+          adapted.startDifficulty ?? rawStart
+        ),
+        bounds
       ),
       
       cueLevel: Math.max(
@@ -57,14 +87,13 @@ export const useExerciseConfig = (
       ),
       
       // Boolean flags: OR them (enable if either source suggests it)
-      enableVoice: clinicalConfig.enableVoice || capabilityAdaptations.adaptations.enableVoice || false,
-      visualCues: clinicalConfig.visualCues || capabilityAdaptations.adaptations.visualCues || false,
-      simplifyUI: clinicalConfig.simplifyUI || capabilityAdaptations.adaptations.simplifiedUI || false,
-      textInstructions: clinicalConfig.textInstructions && 
-        !capabilityAdaptations.adaptations.eliminateText,
-      errorlessMode: clinicalConfig.errorlessMode || capabilityAdaptations.adaptations.errorlessMode || false,
+      enableVoice: clinicalConfig.enableVoice || adapted.enableVoice || false,
+      visualCues: clinicalConfig.visualCues || adapted.visualCues || false,
+      simplifyUI: clinicalConfig.simplifyUI || adapted.simplifiedUI || false,
+      textInstructions: clinicalConfig.textInstructions && !adapted.eliminateText,
+      errorlessMode: clinicalConfig.errorlessMode || adapted.errorlessMode || false,
     };
-  }, [exerciseId, clinicalProfile, getAdaptations]);
+  }, [exerciseId, clinicalProfile, lessonBlock, getAdaptations, bounds]);
 
   const adaptations = getAdaptations(exerciseId);
 
@@ -72,5 +101,6 @@ export const useExerciseConfig = (
     config: mergedConfig,
     capabilityScores,
     hasCapabilityAdaptations: !!adaptations,
+    bounds,
   };
 };
