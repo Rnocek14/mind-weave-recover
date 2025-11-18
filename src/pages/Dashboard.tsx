@@ -353,6 +353,15 @@ const Dashboard = () => {
               clusterComparisons={clusterComparisons}
               timeWindow={14}
             />
+            
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/analytics/cluster')}
+              >
+                View Detailed Cluster Analytics
+              </Button>
+            </div>
           </div>
         )}
 
