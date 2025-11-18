@@ -33,6 +33,10 @@ import { CapabilityProfileCard } from "@/components/CapabilityProfileCard";
 import { CapabilityAssessment } from "@/components/CapabilityAssessment";
 import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
 import type { AssessmentResult } from "@/lib/capabilityAssessor";
+import { useExerciseGating } from "@/hooks/useExerciseGating";
+import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
+import { getAdaptationSummary } from "@/lib/exerciseGating";
+import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -51,6 +55,7 @@ const Dashboard = () => {
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
   const { currentAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
+  const { checkExerciseAccess, getAdaptations, hasAssessment } = useExerciseGating(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -432,19 +437,52 @@ const Dashboard = () => {
               </Badge>
             )}
           </div>
+          
+          {/* Capability Gating Info Banner */}
+          <CapabilityGatingInfo
+            hasAssessment={hasAssessment}
+            lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
+            adaptedCount={recommendedExercises.filter(ex => {
+              const access = checkExerciseAccess(ex.id);
+              const adaptations = getAdaptations(ex.id);
+              return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
+            }).length}
+            onStartAssessment={() => setShowCapabilityAssessment(true)}
+          />
+          
           <div className="grid md:grid-cols-3 gap-4">
             {recommendedExercises.map((exercise) => {
               const Icon = exercise.icon;
               const recommendation = recommendations.find(r => r.slug === exercise.id);
+              
+              // Check capability-based access
+              const accessCheck = checkExerciseAccess(exercise.id);
+              const adaptations = getAdaptations(exercise.id);
+              const adaptationSummary = adaptations ? getAdaptationSummary(adaptations) : [];
+              const isLocked = !accessCheck.accessible;
+              
               return (
                 <Card 
                   key={exercise.id}
-                  className="p-6 shadow-card hover:shadow-glow transition-smooth cursor-pointer border-2 hover:border-primary group"
-                  onClick={() => navigate(`/exercise/${exercise.id}`)}
+                  className={`p-6 shadow-card transition-smooth border-2 ${
+                    isLocked 
+                      ? 'opacity-60 cursor-not-allowed' 
+                      : 'hover:shadow-glow cursor-pointer hover:border-primary'
+                  } group`}
+                  onClick={() => !isLocked && navigate(`/exercise/${exercise.id}`)}
                 >
                   <div className="space-y-4">
-                    <div className={`w-14 h-14 rounded-full ${exercise.color} flex items-center justify-center group-hover:scale-110 transition-smooth`}>
-                      <Icon className="w-7 h-7 text-white" />
+                    <div className="flex items-start justify-between">
+                      <div className={`w-14 h-14 rounded-full ${exercise.color} flex items-center justify-center ${!isLocked && 'group-hover:scale-110'} transition-smooth`}>
+                        <Icon className="w-7 h-7 text-white" />
+                      </div>
+                      <ExerciseGatingBadge
+                        isAccessible={accessCheck.accessible}
+                        reason={accessCheck.reason}
+                        alternative={accessCheck.alternative}
+                        hasAdaptations={!!adaptations}
+                        adaptationCount={adaptationSummary.length}
+                      />
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -465,13 +503,29 @@ const Dashboard = () => {
                           Difficulty: {exercise.difficulty}
                         </p>
                       )}
+                      
+                      {/* Show adaptations if present */}
+                      {!isLocked && adaptationSummary.length > 0 && (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs font-medium text-primary mb-1">Active Adaptations:</p>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {adaptationSummary.slice(0, 3).map((adaptation, idx) => (
+                              <li key={idx}>• {adaptation}</li>
+                            ))}
+                            {adaptationSummary.length > 3 && (
+                              <li className="text-primary">+ {adaptationSummary.length - 3} more</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                     <Button 
                       className="w-full bg-gradient-healing hover:opacity-90"
                       size="lg"
+                      disabled={isLocked}
                     >
                       <Play className="w-5 h-5 mr-2" />
-                      Start Exercise
+                      {isLocked ? 'Locked' : 'Start Exercise'}
                     </Button>
                   </div>
                 </Card>
