@@ -1,22 +1,28 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, TrendingDown, Minus, Eye, Hand, Focus, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Eye, Hand, Focus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useCapabilityProgression } from "@/hooks/useCapabilityProgression";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSignificantDrops } from "@/lib/capabilityScoreSmoothing";
 
 interface CapabilityProfileCardProps {
   userId: string | undefined;
   currentAssessment?: any;
+  previousAssessment?: any;
   onStartAssessment: () => void;
 }
 
 export const CapabilityProfileCard = ({ 
   userId, 
   currentAssessment,
+  previousAssessment,
   onStartAssessment 
 }: CapabilityProfileCardProps) => {
   const { progression, loading, getTrend, hasMultipleAssessments } = useCapabilityProgression(userId);
+  
+  // Detect significant score drops
+  const drops = getSignificantDrops(currentAssessment, previousAssessment);
 
   if (loading) {
     return (
@@ -141,6 +147,29 @@ export const CapabilityProfileCard = ({
           </div>
           <Progress value={attentionScore * 10} className="h-2" />
         </div>
+
+        {/* Score drop warning */}
+        {drops.length > 0 && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1.5">
+                <p className="font-medium">We noticed some changes since your last check</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {drops.map((d) => (
+                    <li key={d.domain}>
+                      {d.domain.charAt(0).toUpperCase() + d.domain.slice(1)} changed from {d.from}/10 to {d.to}/10
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-muted-foreground">
+                  This can be due to fatigue, mood, or screen environment. If this doesn't match what you see day to day,
+                  it may help to repeat the check when feeling rested.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {currentAssessment.confidence_score && (
           <div className="pt-4 border-t text-center">

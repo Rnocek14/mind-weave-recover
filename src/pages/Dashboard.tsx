@@ -57,7 +57,7 @@ const Dashboard = () => {
   const { flags: redFlags, isLoading: flagsLoading, refresh: refreshFlags } = useRedFlagDetection(user?.id || null);
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
-  const { currentAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
+  const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id);
   const { lesson } = useDailyLesson(user?.id || undefined, clinicalProfile);
 
@@ -363,6 +363,7 @@ const Dashboard = () => {
             <CapabilityProfileCard
               userId={user.id}
               currentAssessment={currentAssessment}
+              previousAssessment={previousAssessment}
               onStartAssessment={() => setShowCapabilityAssessment(true)}
             />
             
