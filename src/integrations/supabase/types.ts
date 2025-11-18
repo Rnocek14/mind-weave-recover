@@ -522,6 +522,42 @@ export type Database = {
           },
         ]
       }
+      standardized_assessments: {
+        Row: {
+          assessed_by: string | null
+          assessment_date: string
+          assessment_type: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          scores: Json
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          assessed_by?: string | null
+          assessment_date: string
+          assessment_type: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          scores?: Json
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          assessed_by?: string | null
+          assessment_date?: string
+          assessment_type?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          scores?: Json
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
