@@ -1,8 +1,12 @@
+import type { DifficultyBounds } from './difficultyBounds';
+import { clampToBounds } from './difficultyBounds';
+
 /**
  * Adaptive Difficulty Controller
  * 
  * PID-style controller that maintains 75-85% success rate
- * by adjusting difficulty level based on rolling performance window
+ * by adjusting difficulty level based on rolling performance window.
+ * Respects capability-based floor/ceiling bounds to ensure safety.
  */
 
 export class AdaptiveDifficultyController {
@@ -10,12 +14,15 @@ export class AdaptiveDifficultyController {
   private windowSize: number;
   private targetSuccessRate: number;
   private adjustmentThreshold: number;
+  private bounds: DifficultyBounds;
 
   constructor(
     windowSize: number = 5,
     targetSuccessRate: number = 0.80,
-    adjustmentThreshold: number = 0.15 // ±15% from target
+    adjustmentThreshold: number = 0.15, // ±15% from target
+    initialBounds?: DifficultyBounds
   ) {
+    this.bounds = initialBounds ?? { floor: 1, ceiling: 10, suggestedStart: 1 };
     this.windowSize = windowSize;
     this.targetSuccessRate = targetSuccessRate;
     this.adjustmentThreshold = adjustmentThreshold;
@@ -42,7 +49,7 @@ export class AdaptiveDifficultyController {
 
   /**
    * Determine if difficulty should be adjusted
-   * Returns new level (clamped 1-10) or current level if no change needed
+   * Returns new level (clamped to capability bounds) or current level if no change needed
    */
   adjustLevel(currentLevel: number): number {
     // Need enough trials to make a decision
@@ -56,24 +63,40 @@ export class AdaptiveDifficultyController {
 
     let newLevel = currentLevel;
 
-    // Too easy - increase difficulty
-    if (successRate > upperBound && currentLevel < 10) {
+    // Too easy - increase difficulty (but respect ceiling)
+    if (successRate > upperBound && currentLevel < this.bounds.ceiling) {
       newLevel = currentLevel + 1;
     }
-    // Too hard - decrease difficulty
-    else if (successRate < lowerBound && currentLevel > 1) {
+    // Too hard - decrease difficulty (but respect floor)
+    else if (successRate < lowerBound && currentLevel > this.bounds.floor) {
       newLevel = currentLevel - 1;
     }
 
-    return newLevel;
+    // Always clamp to bounds (in case bounds changed)
+    return clampToBounds(newLevel, this.bounds);
   }
 
   /**
    * Emergency difficulty reduction for frustration intervention
-   * Steps down 2 levels instead of 1
+   * Steps down 2 levels instead of 1, respecting floor
    */
   handleFrustration(currentLevel: number): number {
-    return Math.max(1, currentLevel - 2);
+    return Math.max(this.bounds.floor, currentLevel - 2);
+  }
+
+  /**
+   * Update bounds (e.g., after new capability assessment)
+   * Re-clamps current level if needed
+   */
+  setBounds(bounds: DifficultyBounds): void {
+    this.bounds = bounds;
+  }
+
+  /**
+   * Get current bounds for display/logging
+   */
+  getBounds(): DifficultyBounds {
+    return { ...this.bounds };
   }
 
   /**

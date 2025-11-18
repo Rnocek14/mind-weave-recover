@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useExerciseGating } from "./useExerciseGating";
+import { getCapabilityDifficultyBounds, clampToBounds } from "@/lib/difficultyBounds";
 
 type ExerciseDifficulty = {
   level: number;
   loading: boolean;
   saveLevel: (newLevel: number) => Promise<void>;
   stepDown: (sessionId?: string) => Promise<number>;
+  bounds: { floor: number; ceiling: number; suggestedStart: number };
 };
 
 export const useExerciseDifficulty = (
@@ -16,6 +19,13 @@ export const useExerciseDifficulty = (
   const [level, setLevel] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
+  const { capabilityScores } = useExerciseGating(userId);
+
+  // Calculate capability-based bounds
+  const bounds = useMemo(
+    () => getCapabilityDifficultyBounds(exerciseSlug, capabilityScores),
+    [exerciseSlug, capabilityScores]
+  );
 
   useEffect(() => { void loadLevel(); }, [userId, exerciseSlug]);
 
@@ -29,9 +39,13 @@ export const useExerciseDifficulty = (
         .single();
       const prefs = (data?.accessibility_prefs as any) ?? {};
       const difficulties = (prefs.difficulties ?? {}) as Record<string, number>;
-      setLevel(difficulties[exerciseSlug] ?? 1);
+      const savedLevel = difficulties[exerciseSlug] ?? bounds.suggestedStart;
+      
+      // Clamp saved level to current capability bounds
+      setLevel(clampToBounds(savedLevel, bounds));
     } catch (e) {
       console.error('Error loading difficulty:', e);
+      setLevel(bounds.suggestedStart);
     } finally {
       setLoading(false);
     }
@@ -39,12 +53,16 @@ export const useExerciseDifficulty = (
 
   const saveLevel = async (newLevel: number): Promise<void> => {
     if (!userId) return;
-    setLevel(newLevel);
+    
+    // Clamp to capability bounds before saving
+    const clampedLevel = clampToBounds(newLevel, bounds);
+    setLevel(clampedLevel);
+    
     try {
       await supabase.rpc('merge_profile_pref', {
         p_key: 'difficulties',
         p_subkey: exerciseSlug,
-        p_value: newLevel
+        p_value: clampedLevel
       });
     } catch (e) {
       console.error('Error saving difficulty:', e);
@@ -52,8 +70,10 @@ export const useExerciseDifficulty = (
   };
 
   const stepDown = async (sessionId?: string): Promise<number> => {
-    const next = Math.max(1, level - 1);
+    // Step down but respect floor
+    const next = Math.max(bounds.floor, level - 1);
     await saveLevel(next);
+    
     try {
       await supabase.from('exercise_events').insert({
         session_id: sessionId ?? null,
@@ -66,9 +86,13 @@ export const useExerciseDifficulty = (
     } catch (e) {
       console.error('Error logging step-down:', e);
     }
-    toast({ title: "We've made it easier", description: "The next round will be more manageable. You're doing great!" });
+    
+    toast({ 
+      title: "We've made it easier", 
+      description: "The next round will be more manageable. You're doing great!" 
+    });
     return next;
   };
 
-  return { level, loading, saveLevel, stepDown };
+  return { level, loading, saveLevel, stepDown, bounds };
 };
