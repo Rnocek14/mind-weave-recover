@@ -20,6 +20,7 @@ import Admin from "./pages/Admin";
 import ParserAnalytics from "./pages/ParserAnalytics";
 import PrivacySettings from "./pages/PrivacySettings";
 import History from "./pages/History";
+import ResearchExport from "./pages/ResearchExport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
+          <Route path="/admin/research-export" element={<ResearchExport />} />
           <Route path="/settings/privacy" element={<PrivacySettings />} />
           <Route path="/history" element={<History />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
