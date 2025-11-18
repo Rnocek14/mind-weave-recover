@@ -256,6 +256,54 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_rates: {
+        Row: {
+          accuracy_slope: number | null
+          calculated_at: string | null
+          confidence_score: number | null
+          domain: string
+          end_accuracy: number | null
+          end_date: string
+          id: string
+          rt_slope: number | null
+          start_accuracy: number | null
+          start_date: string
+          time_window_days: number
+          trial_count: number
+          user_id: string
+        }
+        Insert: {
+          accuracy_slope?: number | null
+          calculated_at?: string | null
+          confidence_score?: number | null
+          domain: string
+          end_accuracy?: number | null
+          end_date: string
+          id?: string
+          rt_slope?: number | null
+          start_accuracy?: number | null
+          start_date: string
+          time_window_days: number
+          trial_count?: number
+          user_id: string
+        }
+        Update: {
+          accuracy_slope?: number | null
+          calculated_at?: string | null
+          confidence_score?: number | null
+          domain?: string
+          end_accuracy?: number | null
+          end_date?: string
+          id?: string
+          rt_slope?: number | null
+          start_accuracy?: number | null
+          start_date?: string
+          time_window_days?: number
+          trial_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       photos: {
         Row: {
           created_at: string | null
@@ -423,6 +471,29 @@ export type Database = {
       }
     }
     Views: {
+      cluster_learning_rates: {
+        Row: {
+          avg_accuracy_slope: number | null
+          avg_confidence: number | null
+          avg_rt_slope: number | null
+          chronicity: string | null
+          cluster_key: string | null
+          domain: string | null
+          hemisphere: string | null
+          last_updated: string | null
+          lesion_zone: string | null
+          median_accuracy_slope: number | null
+          median_rt_slope: number | null
+          p25_accuracy_slope: number | null
+          p75_accuracy_slope: number | null
+          sd_accuracy_slope: number | null
+          stroke_mechanism: string | null
+          time_window_days: number | null
+          total_trials: number | null
+          user_count: number | null
+        }
+        Relationships: []
+      }
       user_cluster_assignments: {
         Row: {
           chronicity: string | null

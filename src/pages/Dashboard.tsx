@@ -24,6 +24,8 @@ import { BrainMap } from "@/components/BrainMap";
 import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDoseCap } from "@/hooks/useDoseCap";
+import { LearningRateCard } from "@/components/LearningRateCard";
+import { useLearningRate } from "@/hooks/useLearningRate";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ const Dashboard = () => {
   
   const { flags: redFlags, isLoading: flagsLoading, refresh: refreshFlags } = useRedFlagDetection(user?.id || null);
   const { doseCap } = useDoseCap(user?.id);
+  const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -338,6 +341,17 @@ const Dashboard = () => {
         <div className="mb-8">
           <SessionAdherenceTracker userId={user?.id || null} currentStreak={streak} />
         </div>
+
+        {/* Learning Rate Intelligence */}
+        {!learningRatesLoading && learningRates.length > 0 && (
+          <div className="mb-8">
+            <LearningRateCard 
+              learningRates={learningRates}
+              clusterComparisons={clusterComparisons}
+              timeWindow={14}
+            />
+          </div>
+        )}
 
         {/* Brain & Recovery Map */}
         {clinicalProfile && user && (
