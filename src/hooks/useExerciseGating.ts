@@ -25,8 +25,42 @@ export const useExerciseGating = (userId: string | undefined) => {
   }, [currentAssessment]);
 
   const accessibleExercises = useMemo(() => {
-    return getAccessibleExercises(capabilityScores);
+    if (!capabilityScores) {
+      return getAccessibleExercises(null);
+    }
+
+    const baseAccessible = getAccessibleExercises(capabilityScores);
+    
+    // Safety valve: if fewer than 2 exercises are accessible, soften thresholds
+    if (baseAccessible.length >= 2) {
+      return baseAccessible;
+    }
+
+    // Temporarily increase all scores by 1 to unlock more exercises
+    const softenedScores = {
+      ...capabilityScores,
+      vision: Math.min(10, capabilityScores.vision + 1),
+      motor: Math.min(10, capabilityScores.motor + 1),
+      attention: Math.min(10, capabilityScores.attention + 1),
+    };
+
+    const softenedAccessible = getAccessibleExercises(softenedScores);
+    
+    console.log('[Exercise Gating] Soft override active:', {
+      originalCount: baseAccessible.length,
+      softenedCount: softenedAccessible.length,
+      originalScores: capabilityScores,
+      softenedScores,
+    });
+
+    return softenedAccessible.length > 0 ? softenedAccessible : baseAccessible;
   }, [capabilityScores]);
+
+  const hasSoftOverride = useMemo(() => {
+    if (!capabilityScores) return false;
+    const baseAccessible = getAccessibleExercises(capabilityScores);
+    return baseAccessible.length < 2 && accessibleExercises.length > baseAccessible.length;
+  }, [capabilityScores, accessibleExercises]);
 
   const checkExerciseAccess = (exerciseId: string) => {
     return isExerciseAccessible(exerciseId, capabilityScores);
@@ -42,5 +76,6 @@ export const useExerciseGating = (userId: string | undefined) => {
     checkExerciseAccess,
     getAdaptations,
     hasAssessment: !!capabilityScores,
+    hasSoftOverride,
   };
 };

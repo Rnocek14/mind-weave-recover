@@ -37,6 +37,7 @@ import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
+import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ const Dashboard = () => {
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
   const { currentAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
-  const { checkExerciseAccess, getAdaptations, hasAssessment } = useExerciseGating(user?.id);
+  const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -354,11 +355,18 @@ const Dashboard = () => {
 
         {/* Capability Profile Assessment */}
         {user && (
-          <div className="mb-8">
+          <div className="mb-8 grid gap-4 md:grid-cols-2">
+            {/* Patient-facing capability card */}
             <CapabilityProfileCard
               userId={user.id}
               currentAssessment={currentAssessment}
               onStartAssessment={() => setShowCapabilityAssessment(true)}
+            />
+            
+            {/* Clinician view: expected vs measured */}
+            <ClinicianCapabilityCard
+              userId={user.id}
+              clinicalProfile={clinicalProfile}
             />
           </div>
         )}
@@ -447,6 +455,7 @@ const Dashboard = () => {
               const adaptations = getAdaptations(ex.id);
               return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
             }).length}
+            hasSoftOverride={hasSoftOverride}
             onStartAssessment={() => setShowCapabilityAssessment(true)}
           />
           

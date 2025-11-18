@@ -6,6 +6,7 @@ interface CapabilityGatingInfoProps {
   hasAssessment: boolean;
   lockedCount: number;
   adaptedCount: number;
+  hasSoftOverride?: boolean;
   onStartAssessment?: () => void;
 }
 
@@ -13,6 +14,7 @@ export const CapabilityGatingInfo = ({
   hasAssessment, 
   lockedCount, 
   adaptedCount,
+  hasSoftOverride = false,
   onStartAssessment 
 }: CapabilityGatingInfoProps) => {
   if (!hasAssessment) {
@@ -47,8 +49,15 @@ export const CapabilityGatingInfo = ({
   return (
     <Alert className="mb-6 border-primary/50 bg-primary/5">
       <Shield className="h-4 w-4 text-primary" />
-      <AlertTitle className="text-primary">Smart Exercise Personalization Active</AlertTitle>
+      <AlertTitle className="text-primary">
+        {hasSoftOverride ? 'Extra Support Mode Active' : 'Smart Exercise Personalization Active'}
+      </AlertTitle>
       <AlertDescription className="space-y-2">
+        {hasSoftOverride && (
+          <p className="text-sm font-medium text-primary">
+            We're offering exercises with additional support since fewer exercises matched your current level.
+          </p>
+        )}
         <div className="flex items-center gap-4 text-sm">
           {adaptedCount > 0 && (
             <div className="flex items-center gap-1.5">
