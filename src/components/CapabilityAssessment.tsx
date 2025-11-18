@@ -41,6 +41,7 @@ export const CapabilityAssessment = ({
 }: CapabilityAssessmentProps) => {
   const { saveAssessment } = useCapabilityAssessment(userId);
   
+  const [showIntro, setShowIntro] = useState(true);
   const [currentLevel, setCurrentLevel] = useState<AssessmentLevel>(0);
   const [trialNumber, setTrialNumber] = useState(0);
   const [targetPosition, setTargetPosition] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
@@ -317,10 +318,52 @@ export const CapabilityAssessment = ({
     );
   }
 
+  // Intro screen
+  if (showIntro) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-6">
+        <div className="max-w-lg space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold">Quick Baseline Check</h2>
+            <p className="text-muted-foreground">
+              This is a 2–3 minute baseline check so we can safely match exercises
+              to your current abilities. You won't do this every day—only when we
+              need to re-check.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">What to expect:</p>
+            <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+              <li>Tap big dots so we know you can see and touch the screen</li>
+              <li>Tap dots as they appear to check reaction speed</li>
+              <li>Match shapes to check visual attention</li>
+            </ul>
+          </div>
+
+          <Button onClick={() => setShowIntro(false)} size="lg" className="w-full">
+            Start Check
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get step info based on current level
+  const stepInfo = currentLevel === 0 
+    ? { step: 1, title: 'Tap the Dot' }
+    : currentLevel === 1 
+    ? { step: 2, title: 'Follow the Dots' }
+    : { step: 3, title: 'Match the Shapes' };
+
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
       {/* Progress bar - visual only, no text */}
-      <div className="p-4">
+      <div className="p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Step {stepInfo.step}: {stepInfo.title}</h2>
+          <span className="text-xs text-muted-foreground">Step {stepInfo.step} of 3</span>
+        </div>
         <Progress value={progressPercent} className="h-2" />
       </div>
 

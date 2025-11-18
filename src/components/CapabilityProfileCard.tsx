@@ -71,6 +71,10 @@ export const CapabilityProfileCard = ({
     year: 'numeric',
   });
 
+  const daysAgo = Math.round(
+    (Date.now() - new Date(currentAssessment.assessed_at).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -78,7 +82,8 @@ export const CapabilityProfileCard = ({
           <div>
             <CardTitle>Capability Profile</CardTitle>
             <CardDescription>
-              Last assessed {assessmentDate}
+              Last checked {assessmentDate}
+              {daysAgo <= 3 && ` (${daysAgo} day${daysAgo === 1 ? '' : 's'} ago)`}
             </CardDescription>
           </div>
           <Button
