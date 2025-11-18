@@ -246,6 +246,15 @@ const Dashboard = () => {
           </div>
           
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/photo-library")}
+              className="gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              Photo Library
+            </Button>
+
             <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2">
