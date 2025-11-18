@@ -274,3 +274,125 @@ export function getExerciseConfig(exerciseSlug: string, profile: ClinicalProfile
   
   return recommendation?.config || {};
 }
+
+/**
+ * Predict expected capability scores based on clinical profile
+ * Used to compare against behavioral assessment results
+ */
+export interface ExpectedCapabilities {
+  vision: { min: number; max: number; predicted: number };
+  motor: { min: number; max: number; predicted: number };
+  attention: { min: number; max: number; predicted: number };
+  reasoning: string[];
+}
+
+export function predictExpectedCapabilities(profile: ClinicalProfile | null): ExpectedCapabilities {
+  if (!profile) {
+    return {
+      vision: { min: 5, max: 10, predicted: 7 },
+      motor: { min: 5, max: 10, predicted: 7 },
+      attention: { min: 5, max: 10, predicted: 7 },
+      reasoning: ['No clinical profile available'],
+    };
+  }
+
+  const reasoning: string[] = [];
+  let visionScore = 7; // Default baseline
+  let motorScore = 7;
+  let attentionScore = 7;
+
+  // Visual impairments
+  const visualImpairments = profile.impairments.visual || [];
+  if (visualImpairments.length > 0) {
+    if (visualImpairments.some(imp => imp.includes('neglect') || imp.includes('hemianopia'))) {
+      visionScore = 3;
+      reasoning.push('Severe visual impairment (neglect/hemianopia) → Vision 3/10');
+    } else if (visualImpairments.some(imp => imp.includes('field cut') || imp.includes('visual'))) {
+      visionScore = 5;
+      reasoning.push('Moderate visual impairment → Vision 5/10');
+    }
+  }
+
+  // Motor impairments
+  const motorImpairments = profile.impairments.motor || [];
+  if (motorImpairments.length > 0) {
+    if (motorImpairments.some(imp => imp.includes('severe') || imp.includes('plegia'))) {
+      motorScore = 2;
+      reasoning.push('Severe motor impairment (plegia) → Motor 2/10');
+    } else if (motorImpairments.some(imp => imp.includes('paresis') || imp.includes('weakness'))) {
+      motorScore = 4;
+      reasoning.push('Moderate motor impairment (paresis) → Motor 4/10');
+    } else if (motorImpairments.some(imp => imp.includes('mild') || imp.includes('coordination'))) {
+      motorScore = 6;
+      reasoning.push('Mild motor impairment → Motor 6/10');
+    }
+  }
+
+  // Cognitive impairments (attention)
+  const cognitiveImpairments = profile.impairments.cognitive || [];
+  if (cognitiveImpairments.length > 0) {
+    if (cognitiveImpairments.some(imp => imp.includes('severe') || imp.includes('confusion'))) {
+      attentionScore = 3;
+      reasoning.push('Severe cognitive impairment → Attention 3/10');
+    } else if (cognitiveImpairments.some(imp => imp.includes('attention') || imp.includes('executive'))) {
+      attentionScore = 5;
+      reasoning.push('Attention/executive deficits → Attention 5/10');
+    } else if (cognitiveImpairments.some(imp => imp.includes('mild'))) {
+      attentionScore = 6;
+      reasoning.push('Mild cognitive impairment → Attention 6/10');
+    }
+  }
+
+  // Stroke location adjustments
+  const strokeLocation = Array.isArray(profile.stroke_location) 
+    ? profile.stroke_location 
+    : profile.stroke_location 
+    ? [profile.stroke_location] 
+    : [];
+
+  if (strokeLocation.some(loc => loc.toLowerCase().includes('occipital') || loc.toLowerCase().includes('pca'))) {
+    visionScore = Math.min(visionScore, 4);
+    reasoning.push('Occipital/PCA lesion → Further reduces vision score');
+  }
+
+  if (strokeLocation.some(loc => loc.toLowerCase().includes('parietal'))) {
+    attentionScore = Math.min(attentionScore, 5);
+    reasoning.push('Parietal lesion → Attention/spatial deficits expected');
+  }
+
+  if (strokeLocation.some(loc => loc.toLowerCase().includes('motor cortex') || loc.toLowerCase().includes('mca'))) {
+    motorScore = Math.min(motorScore, 5);
+    reasoning.push('Motor cortex/MCA lesion → Motor deficits expected');
+  }
+
+  // Severity adjustments
+  if (profile.severity) {
+    const overallSeverity = Object.values(profile.severity).find(s => s === 'severe');
+    if (overallSeverity) {
+      // Reduce all scores slightly for severe overall presentation
+      visionScore = Math.max(1, visionScore - 1);
+      motorScore = Math.max(1, motorScore - 1);
+      attentionScore = Math.max(1, attentionScore - 1);
+      reasoning.push('Severe overall presentation → All scores reduced');
+    }
+  }
+
+  return {
+    vision: {
+      min: Math.max(1, visionScore - 2),
+      max: Math.min(10, visionScore + 2),
+      predicted: visionScore,
+    },
+    motor: {
+      min: Math.max(1, motorScore - 2),
+      max: Math.min(10, motorScore + 2),
+      predicted: motorScore,
+    },
+    attention: {
+      min: Math.max(1, attentionScore - 2),
+      max: Math.min(10, attentionScore + 2),
+      predicted: attentionScore,
+    },
+    reasoning,
+  };
+}

@@ -53,6 +53,69 @@ export type Database = {
           },
         ]
       }
+      capability_assessments: {
+        Row: {
+          assessed_at: string
+          assessment_version: string
+          attention_score: number | null
+          can_match_patterns: boolean | null
+          can_orient: boolean | null
+          can_tap: boolean | null
+          clinical_snapshot: Json | null
+          completed: boolean | null
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          motor_score: number | null
+          needs_retry: boolean | null
+          retry_reason: string | null
+          trial_data: Json | null
+          understands_cause_effect: boolean | null
+          user_id: string
+          vision_score: number | null
+        }
+        Insert: {
+          assessed_at?: string
+          assessment_version?: string
+          attention_score?: number | null
+          can_match_patterns?: boolean | null
+          can_orient?: boolean | null
+          can_tap?: boolean | null
+          clinical_snapshot?: Json | null
+          completed?: boolean | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          motor_score?: number | null
+          needs_retry?: boolean | null
+          retry_reason?: string | null
+          trial_data?: Json | null
+          understands_cause_effect?: boolean | null
+          user_id: string
+          vision_score?: number | null
+        }
+        Update: {
+          assessed_at?: string
+          assessment_version?: string
+          attention_score?: number | null
+          can_match_patterns?: boolean | null
+          can_orient?: boolean | null
+          can_tap?: boolean | null
+          clinical_snapshot?: Json | null
+          completed?: boolean | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          motor_score?: number | null
+          needs_retry?: boolean | null
+          retry_reason?: string | null
+          trial_data?: Json | null
+          understands_cause_effect?: boolean | null
+          user_id?: string
+          vision_score?: number | null
+        }
+        Relationships: []
+      }
       clinical_profile_corrections: {
         Row: {
           clinical_note_excerpt: string | null
@@ -447,6 +510,7 @@ export type Database = {
       profiles: {
         Row: {
           accessibility_prefs: Json | null
+          capability_profile_id: string | null
           caregiver_mode_enabled: boolean | null
           clinical_profile: Json | null
           consent_version: number | null
@@ -463,6 +527,7 @@ export type Database = {
         }
         Insert: {
           accessibility_prefs?: Json | null
+          capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
           clinical_profile?: Json | null
           consent_version?: number | null
@@ -479,6 +544,7 @@ export type Database = {
         }
         Update: {
           accessibility_prefs?: Json | null
+          capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
           clinical_profile?: Json | null
           consent_version?: number | null
@@ -493,7 +559,15 @@ export type Database = {
           stroke_date?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_capability_profile_id_fkey"
+            columns: ["capability_profile_id"]
+            isOneToOne: false
+            referencedRelation: "capability_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sessions: {
         Row: {

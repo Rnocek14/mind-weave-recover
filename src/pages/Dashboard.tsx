@@ -29,6 +29,10 @@ import { useLearningRate } from "@/hooks/useLearningRate";
 import { FunctionalGoalsWidget } from "@/components/FunctionalGoalsWidget";
 import { GoalLearningCorrelationCard } from "@/components/GoalLearningCorrelationCard";
 import { AssessmentTrendsCard } from "@/components/AssessmentTrendsCard";
+import { CapabilityProfileCard } from "@/components/CapabilityProfileCard";
+import { CapabilityAssessment } from "@/components/CapabilityAssessment";
+import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
+import type { AssessmentResult } from "@/lib/capabilityAssessor";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,10 +45,12 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showCapabilityAssessment, setShowCapabilityAssessment] = useState(false);
   
   const { flags: redFlags, isLoading: flagsLoading, refresh: refreshFlags } = useRedFlagDetection(user?.id || null);
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
+  const { currentAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -55,6 +61,7 @@ const Dashboard = () => {
     if (user) {
       loadDashboardData();
       checkAdminStatus();
+      fetchLatestAssessment();
     }
   }, [user, authLoading, navigate]);
 
@@ -340,6 +347,17 @@ const Dashboard = () => {
           </p>
         </Card>
 
+        {/* Capability Profile Assessment */}
+        {user && (
+          <div className="mb-8">
+            <CapabilityProfileCard
+              userId={user.id}
+              currentAssessment={currentAssessment}
+              onStartAssessment={() => setShowCapabilityAssessment(true)}
+            />
+          </div>
+        )}
+
         {/* Session Adherence Tracker */}
         <div className="mb-8">
           <SessionAdherenceTracker userId={user?.id || null} currentStreak={streak} />
@@ -574,6 +592,20 @@ const Dashboard = () => {
           </div>
         </Card>
       </div>
+
+      {/* Capability Assessment Modal */}
+      {showCapabilityAssessment && user && (
+        <CapabilityAssessment
+          userId={user.id}
+          clinicalProfile={clinicalProfile}
+          onComplete={(result: AssessmentResult) => {
+            console.log('Assessment completed:', result);
+            setShowCapabilityAssessment(false);
+            fetchLatestAssessment();
+          }}
+          onExit={() => setShowCapabilityAssessment(false)}
+        />
+      )}
     </div>
   );
 };
