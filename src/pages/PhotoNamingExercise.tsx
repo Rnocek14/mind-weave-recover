@@ -8,6 +8,9 @@ import { ArrowLeft, Camera } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { Card } from '@/components/ui/card';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { supabase } from '@/integrations/supabase/client';
+import { startSession } from '@/lib/sessionTracking';
 
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
@@ -26,8 +29,27 @@ export default function PhotoNamingExercise() {
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [gameKey, setGameKey] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
+  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
+
+  // Initialize session when component mounts
+  useEffect(() => {
+    const initSession = async () => {
+      if (!user?.id) return;
+      
+      const session = await startSession(user.id, {
+        blocks: [{ exercise: 'photo_naming', duration: 10 }]
+      });
+      
+      if (session) {
+        setSessionId(session.id);
+      }
+    };
+    
+    initSession();
+  }, [user?.id]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -62,7 +84,42 @@ export default function PhotoNamingExercise() {
     setGameKey(prev => prev + 1);
   }, [photoSource, customPhotos, isLoading]);
 
-  const handleGameComplete = () => {
+  const handleTrialComplete = async (result: {
+    correct: boolean;
+    reactionTimeMs: number;
+    errorType?: string;
+    difficultyLevel: number;
+    cueLevel: number;
+  }, trial: PhotoTrial) => {
+    if (!sessionId) return;
+
+    // 🧪 Log trial with condition tags for microtesting
+    await logTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      cueLevel: result.cueLevel,
+      errorType: result.errorType,
+      taskParameters: {
+        // Condition tags for experimental analysis
+        photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
+        interaction_mode: 'independent',     // Will be 'caregiver_assisted' once that's added
+        difficulty_level: result.difficultyLevel,
+        custom_photo_id: trial.id,           // Useful for per-photo analysis
+        is_custom_photo: trial.category === 'personal',
+        target_word: trial.target,
+      },
+    });
+  };
+
+  const handleGameComplete = async () => {
+    // End session
+    if (sessionId) {
+      await supabase
+        .from('sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', sessionId);
+    }
+    
     navigate('/dashboard');
   };
 
@@ -116,6 +173,11 @@ export default function PhotoNamingExercise() {
             key={gameKey}
             totalTrials={trials.length}
             initialDifficulty={1}
+            onTrialComplete={(result) => {
+              const currentTrial = trials[result.difficultyLevel - 1] || trials[0];
+              handleTrialComplete(result, currentTrial);
+              startTrial(); // Start timing next trial
+            }}
             onGameComplete={handleGameComplete}
             customTrials={trials}
           />
