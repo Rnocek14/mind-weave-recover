@@ -117,24 +117,25 @@ export function calculateConfidence(level0: Level0Result, level1: Level1Result, 
 }
 
 /**
- * Determine if assessment should gracefully exit
+ * Determine if assessment should stop early
+ * Returns true if user shows signs of not being able to complete
  */
-export function shouldGracefullyExit(level0: Level0Result, currentTrialCount: number): {
+export function shouldGracefullyExit(
+  level0: Level0Result,
+  timeoutCount: number
+): {
   shouldExit: boolean;
   reason?: AssessmentResult['retryReason'];
 } {
-  // Level 0: No orientation after 3 attempts with increasing stimulus
+  // Level 0: No orientation after 3 attempts
   if (!level0.oriented && level0.attempts >= 3) {
     return { shouldExit: true, reason: 'no_response' };
   }
-  
+
   // Too many timeouts suggests fatigue or distress
-  if (currentTrialCount > 5) {
-    const recentTimeouts = currentTrialCount; // Would track actual timeouts
-    if (recentTimeouts > 4) {
-      return { shouldExit: true, reason: 'fatigue_suspected' };
-    }
+  if (timeoutCount >= 4) {
+    return { shouldExit: true, reason: 'fatigue_suspected' };
   }
-  
+
   return { shouldExit: false };
 }
