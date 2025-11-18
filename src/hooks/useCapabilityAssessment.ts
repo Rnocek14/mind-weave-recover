@@ -2,28 +2,32 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { AssessmentResult } from '@/lib/capabilityAssessor';
+import { smoothScore } from '@/lib/capabilityScoreSmoothing';
 
 export const useCapabilityAssessment = (userId: string | undefined) => {
   const [loading, setLoading] = useState(false);
   const [currentAssessment, setCurrentAssessment] = useState<any | null>(null);
+  const [previousAssessment, setPreviousAssessment] = useState<any | null>(null);
   const { toast } = useToast();
 
   const fetchLatestAssessment = async () => {
     if (!userId) return null;
 
     try {
-      // Type workaround until types are regenerated after migration
+      // Fetch top 2 assessments to enable drop detection and smoothing
       const { data, error } = await (supabase as any)
         .from('capability_assessments')
         .select('*')
         .eq('user_id', userId)
         .order('assessed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(2);
 
       if (error) throw error;
-      setCurrentAssessment(data);
-      return data;
+      
+      setCurrentAssessment(data?.[0] ?? null);
+      setPreviousAssessment(data?.[1] ?? null);
+      
+      return data?.[0] ?? null;
     } catch (error) {
       console.error('Error fetching capability assessment:', error);
       return null;
@@ -42,14 +46,25 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
 
     setLoading(true);
     try {
+      // Apply score smoothing to prevent wild swings from a single tired/distracted session
+      const smoothedVision = smoothScore(result.scores.vision, previousAssessment?.vision_score ?? null);
+      const smoothedMotor = smoothScore(result.scores.motor, previousAssessment?.motor_score ?? null);
+      const smoothedAttention = smoothScore(result.scores.attention, previousAssessment?.attention_score ?? null);
+
+      console.log('[CapabilityAssessment] Score smoothing applied:', {
+        vision: { raw: result.scores.vision, smoothed: smoothedVision, previous: previousAssessment?.vision_score },
+        motor: { raw: result.scores.motor, smoothed: smoothedMotor, previous: previousAssessment?.motor_score },
+        attention: { raw: result.scores.attention, smoothed: smoothedAttention, previous: previousAssessment?.attention_score },
+      });
+
       // Type workaround until types are regenerated after migration
       const { data, error } = await (supabase as any)
         .from('capability_assessments')
         .insert({
           user_id: userId,
-          vision_score: result.scores.vision,
-          motor_score: result.scores.motor,
-          attention_score: result.scores.attention,
+          vision_score: smoothedVision,
+          motor_score: smoothedMotor,
+          attention_score: smoothedAttention,
           can_orient: result.behavioralFlags.canOrient,
           can_tap: result.behavioralFlags.canTap,
           understands_cause_effect: result.behavioralFlags.understandsCauseEffect,
@@ -122,6 +137,7 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
   return {
     loading,
     currentAssessment,
+    previousAssessment,
     fetchLatestAssessment,
     saveAssessment,
     markForRetry,
