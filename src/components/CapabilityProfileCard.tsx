@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Minus, Eye, Hand, Focus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useCapabilityProgression } from "@/hooks/useCapabilityProgression";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSignificantDrops } from "@/lib/capabilityScoreSmoothing";
+import { getSignificantDrops, suggestInteractionMode, type CaregiverObservations } from "@/lib/capabilityScoreSmoothing";
 
 interface CapabilityProfileCardProps {
   userId: string | undefined;
@@ -170,6 +170,56 @@ export const CapabilityProfileCard = ({
             </div>
           </div>
         )}
+
+        {/* Caregiver observations */}
+        {(() => {
+          const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+          const suggestedMode = suggestInteractionMode(caregiverObs);
+          
+          if (!caregiverObs) return null;
+
+          return (
+            <div className="rounded-md bg-muted/40 p-3 space-y-2">
+              <div className="font-medium text-sm">Caregiver observations (last check)</div>
+              <ul className="space-y-1 text-xs">
+                {caregiverObs.lookingAtScreen && (
+                  <li>• Looking at the screen but not tapping</li>
+                )}
+                {caregiverObs.seemsConfused && (
+                  <li>• Seemed confused about what to do</li>
+                )}
+                {caregiverObs.tooTired && (
+                  <li>• Too tired / falling asleep</li>
+                )}
+                {caregiverObs.motorLimitation && (
+                  <li>• Arm/hand couldn't reach or press</li>
+                )}
+                {caregiverObs.notes && (
+                  <li className="mt-1 text-muted-foreground italic">
+                    "{caregiverObs.notes}"
+                  </li>
+                )}
+              </ul>
+
+              {suggestedMode && (
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <span className="text-xs font-medium">Suggested mode:</span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    suggestedMode === 'assisted'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+                      : suggestedMode === 'passive'
+                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-200'
+                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+                  }`}>
+                    {suggestedMode === 'independent' && 'Independent'}
+                    {suggestedMode === 'assisted' && 'Caregiver-assisted'}
+                    {suggestedMode === 'passive' && 'Passive / very light'}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {currentAssessment.confidence_score && (
           <div className="pt-4 border-t text-center">

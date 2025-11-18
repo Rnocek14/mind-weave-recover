@@ -10,6 +10,7 @@ import {
   type LearningRateData
 } from '@/lib/dailyLessonEngine';
 import type { ClinicalProfile } from '@/lib/clinicalProfileMapper';
+import { suggestInteractionMode, type CaregiverObservations } from '@/lib/capabilityScoreSmoothing';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
@@ -69,12 +70,18 @@ export const useDailyLesson = (
           // No recent activity - use defaults
           const defaultSignals = aggregatePerformanceSignals([], []);
           setPerformanceSignals(defaultSignals);
+          
+          // Get suggested mode from current assessment
+          const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+          const mode = suggestInteractionMode(caregiverObs);
+          
           const defaultLesson = generateDailyLesson(
             capabilityScores,
             clinicalProfile,
             accessibleExercises,
             defaultSignals,
-            []
+            [],
+            mode
           );
           setLesson(defaultLesson);
           setLoading(false);
@@ -127,13 +134,18 @@ export const useDailyLesson = (
           trialCount: lr.trial_count || 0,
         }));
 
+        // Get suggested mode from current assessment
+        const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+        const mode = suggestInteractionMode(caregiverObs);
+
         // Generate daily lesson
         const dailyLesson = generateDailyLesson(
           capabilityScores,
           clinicalProfile,
           accessibleExercises,
           signals,
-          formattedLearningRates
+          formattedLearningRates,
+          mode
         );
 
         setLesson(dailyLesson);
