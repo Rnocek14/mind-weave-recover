@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type RedFlagType = 'plateau' | 'regression' | 'low_adherence' | 'high_fatigue' | 'quit_early';
+export type RedFlagType = 'plateau' | 'regression' | 'low_adherence' | 'high_fatigue' | 'quit_early' | 'low_mood_streak';
 export type RedFlagSeverity = 'yellow' | 'orange' | 'red';
 
 export interface RedFlag {
@@ -201,6 +201,38 @@ export const detectHighFatigueOrQuit = async (userId: string): Promise<RedFlag |
 };
 
 /**
+ * Detects low mood streaks (3+ consecutive sessions with mood <= 2)
+ */
+export const detectLowMoodStreak = async (userId: string): Promise<RedFlag | null> => {
+  const { data: sessions, error } = await supabase
+    .from('sessions')
+    .select('mood_rating, started_at')
+    .eq('user_id', userId)
+    .not('mood_rating', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(5);
+
+  if (error || !sessions || sessions.length < 3) {
+    return null;
+  }
+
+  const recentMoods = sessions.slice(0, 3).map(s => s.mood_rating);
+  const lowMoodCount = recentMoods.filter(m => m !== null && m <= 2).length;
+
+  if (lowMoodCount >= 3) {
+    return {
+      type: 'low_mood_streak',
+      severity: 'orange',
+      message: 'Persistent Low Mood Detected',
+      details: `User has reported low mood (≤2) for ${lowMoodCount} consecutive sessions. Consider checking in with patient or caregiver about emotional well-being and adjusting therapy approach.`,
+      detectedAt: new Date().toISOString()
+    };
+  }
+
+  return null;
+};
+
+/**
  * Runs all red flag checks and returns all detected flags
  */
 export const detectAllRedFlags = async (userId: string): Promise<RedFlag[]> => {
@@ -208,14 +240,16 @@ export const detectAllRedFlags = async (userId: string): Promise<RedFlag[]> => {
     plateau,
     regression,
     lowAdherence,
-    highFatigueOrQuit
+    highFatigueOrQuit,
+    lowMoodStreak
   ] = await Promise.all([
     detectPlateau(userId),
     detectRegression(userId),
     detectLowAdherence(userId),
-    detectHighFatigueOrQuit(userId)
+    detectHighFatigueOrQuit(userId),
+    detectLowMoodStreak(userId)
   ]);
 
-  return [plateau, regression, lowAdherence, highFatigueOrQuit]
+  return [plateau, regression, lowAdherence, highFatigueOrQuit, lowMoodStreak]
     .filter((flag): flag is RedFlag => flag !== null);
 };

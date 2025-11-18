@@ -26,6 +26,9 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
+import { MoodCheckIn } from "@/components/MoodCheckIn";
+import { DoseCapWarning } from "@/components/DoseCapWarning";
+import { useDoseCap } from "@/hooks/useDoseCap";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -48,8 +51,12 @@ const Exercise = () => {
   const [showConfidenceBoost, setShowConfidenceBoost] = useState(false);
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
   const [todayStats, setTodayStats] = useState({ correct: 0, total: 0, weeklyAccuracy: 0, improvement: 0 });
+  const [showMoodCheckIn, setShowMoodCheckIn] = useState(false);
+  const [preMood, setPreMood] = useState<number | null>(null);
+  const [sessionDurationMinutes, setSessionDurationMinutes] = useState(0);
 
   const totalRounds = 10;
+  const { doseCap, refresh: refreshDoseCap } = useDoseCap(user?.id);
   
   const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
   const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
@@ -309,7 +316,36 @@ const Exercise = () => {
     }
   }, [showResult, sessionId]);
 
+  // Track session duration for dose cap warnings
+  useEffect(() => {
+    if (!isPlaying || !sessionStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsedMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+      setSessionDurationMinutes(elapsedMinutes);
+    }, 10000); // Update every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isPlaying, sessionStartTime]);
+
   const startExercise = async () => {
+    // Check dose cap before allowing start
+    if (doseCap.enforceCaps && !doseCap.canStartSession) {
+      toast({
+        title: "Daily Practice Limit Reached",
+        description: `You've already practiced for ${doseCap.todayMinutes} minutes today. Great work! Rest is important for recovery.`,
+        variant: "default"
+      });
+      navigate("/dashboard");
+      return;
+    }
+
+    // Show mood check-in before starting
+    if (!preMood) {
+      setShowMoodCheckIn(true);
+      return;
+    }
+    
     // Check if we should run a probe first (only for photo-naming, not phrase practice)
     const newSessionCount = sessionCount + 1;
     const shouldProbe = shouldRunProbe(newSessionCount, lastProbeSession);
@@ -326,7 +362,7 @@ const Exercise = () => {
     if (!sessionStartTime) {
       setSessionStartTime(Date.now());
       
-      // Create session in database
+      // Create session in database with mood rating
       if (user?.id) {
         try {
           const session = await startSession(user.id, {
@@ -338,6 +374,12 @@ const Exercise = () => {
             ],
           });
           setSessionId(session.id);
+          
+          // Update session with mood rating
+          await supabase
+            .from('sessions')
+            .update({ mood_rating: preMood })
+            .eq('id', session.id);
         } catch (error) {
           console.error('Error starting session:', error);
         }
@@ -346,6 +388,37 @@ const Exercise = () => {
     
     // Start timing the first trial
     startTrial();
+  };
+
+  const handleMoodSelect = (mood: number) => {
+    setPreMood(mood);
+    setShowMoodCheckIn(false);
+    // Continue to exercise start
+    setTimeout(() => startExercise(), 100);
+  };
+
+  const handleSessionEnd = async () => {
+    if (sessionId && preMood) {
+      // Store post-session mood in summary
+      const { data: session } = await supabase
+        .from('sessions')
+        .select('summary')
+        .eq('id', sessionId)
+        .single();
+      
+      const updatedSummary = {
+        ...(session?.summary as any || {}),
+        post_mood: preMood // Could prompt for post-mood, but for now use same
+      };
+      
+      await supabase
+        .from('sessions')
+        .update({ summary: updatedSummary })
+        .eq('id', sessionId);
+    }
+    
+    await refreshDoseCap();
+    setShowResult(true);
   };
 
   const handleProbeComplete = async (results: ProbeResult[]) => {
@@ -447,8 +520,21 @@ const Exercise = () => {
     setShowResult(false);
     setSessionStartTime(null);
     setSessionId(null);
+    setPreMood(null);
     resetTelemetry();
   };
+
+  // Show mood check-in first
+  if (showMoodCheckIn) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+        <MoodCheckIn 
+          type="pre" 
+          onMoodSelect={handleMoodSelect}
+        />
+      </div>
+    );
+  }
 
   if (showProbe) {
     return <GeneralizationProbe 
@@ -569,6 +655,21 @@ const Exercise = () => {
         {clinicalProfile && (
           <div className="mb-6">
             <StrokeProfileWidget profile={clinicalProfile} />
+          </div>
+        )}
+
+        {/* Dose Cap Warning */}
+        {isPlaying && doseCap.enforceCaps && (doseCap.warningLevel === 'warning' || doseCap.warningLevel === 'limit') && (
+          <div className="mb-6">
+            <DoseCapWarning
+              minutesPracticed={doseCap.todayMinutes + sessionDurationMinutes}
+              dailyCapMinutes={doseCap.dailyCapMinutes}
+              sessionCapMinutes={doseCap.sessionCapMinutes}
+              onEndSession={async () => {
+                await handleSessionEnd();
+              }}
+              type={doseCap.warningLevel}
+            />
           </div>
         )}
 
