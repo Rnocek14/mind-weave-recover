@@ -38,6 +38,7 @@ import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
+import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -367,6 +368,17 @@ const Dashboard = () => {
             <ClinicianCapabilityCard
               userId={user.id}
               clinicalProfile={clinicalProfile}
+            />
+          </div>
+        )}
+
+        {/* Today's Personalized Plan */}
+        {user && (
+          <div className="mb-8">
+            <TodaysPlanCard
+              userId={user.id}
+              clinicalProfile={clinicalProfile}
+              onStartAssessment={() => setShowCapabilityAssessment(true)}
             />
           </div>
         )}
