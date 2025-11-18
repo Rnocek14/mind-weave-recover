@@ -1,6 +1,11 @@
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 
-export interface LearningRateResult {
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface LearningRateResult {
   userId: string;
   domain: string;
   timeWindowDays: number;
@@ -14,20 +19,105 @@ export interface LearningRateResult {
   confidenceScore: number;
 }
 
-/**
- * Calculates learning rate (improvement velocity) for a user in a specific domain
- * Uses linear regression to compute daily improvement slope
- */
-export const calculateLearningRate = async (
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { userId, allUsers } = await req.json();
+
+    console.log('Starting learning rate calculation:', { userId, allUsers });
+
+    let userIds: string[] = [];
+
+    if (allUsers) {
+      // Get all users who have had activity in last 90 days
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+      const { data: activeSessions } = await supabase
+        .from('sessions')
+        .select('user_id')
+        .gte('started_at', ninetyDaysAgo.toISOString());
+
+      if (activeSessions) {
+        userIds = [...new Set(activeSessions.map(s => s.user_id))];
+      }
+      console.log(`Found ${userIds.length} active users`);
+    } else if (userId) {
+      userIds = [userId];
+    } else {
+      throw new Error('Must provide userId or allUsers=true');
+    }
+
+    const results = [];
+    const domains = ['phonological', 'semantic', 'grammar', 'motor', 'visuospatial'];
+    const windows = [7, 14, 30];
+
+    for (const uid of userIds) {
+      console.log(`Calculating learning rates for user ${uid}`);
+      
+      for (const domain of domains) {
+        for (const window of windows) {
+          try {
+            const result = await calculateLearningRate(supabase, uid, domain, window);
+            if (result) {
+              await saveLearningRate(supabase, result);
+              results.push({ userId: uid, domain, window, success: true });
+            }
+          } catch (err) {
+            console.error(`Error calculating ${domain} ${window}d for ${uid}:`, err);
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            results.push({ userId: uid, domain, window, success: false, error: errorMessage });
+          }
+        }
+      }
+    }
+
+    console.log('Learning rate calculation complete:', {
+      totalUsers: userIds.length,
+      totalCalculations: results.length,
+      successful: results.filter(r => r.success).length
+    });
+
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        usersProcessed: userIds.length,
+        calculations: results.length,
+        results 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in calculate-learning-rates:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});
+
+async function calculateLearningRate(
+  supabase: any,
   userId: string,
   domain: string,
   windowDays: number
-): Promise<LearningRateResult | null> => {
+): Promise<LearningRateResult | null> {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - windowDays);
 
-  // First get session IDs for this user in the time window
+  // Get sessions in time window
   const { data: sessions } = await supabase
     .from('sessions')
     .select('id')
@@ -39,43 +129,40 @@ export const calculateLearningRate = async (
     return null;
   }
 
-  const sessionIds = sessions.map(s => s.id);
+  const sessionIds = sessions.map((s: any) => s.id);
+  const exerciseSlug = getDomainExerciseSlug(domain);
 
-  // Fetch all exercise events for this domain in the time window
-  const { data: events, error } = await supabase
+  // Fetch exercise events
+  const { data: events } = await supabase
     .from('exercise_events')
-    .select('score, reaction_time_ms, created_at, session_id')
+    .select('score, reaction_time_ms, created_at')
     .in('session_id', sessionIds)
-    .eq('exercise_slug', getDomainExerciseSlug(domain))
+    .eq('exercise_slug', exerciseSlug)
     .not('reaction_time_ms', 'is', null)
     .order('created_at', { ascending: true });
 
-  if (error || !events || events.length < 10) {
-    // Need minimum 10 trials for meaningful regression
-    return null;
+  if (!events || events.length < 10) {
+    return null; // Need minimum 10 trials
   }
 
-  // Group by day and calculate daily accuracy
+  // Group by day
   const dailyData = groupByDay(events);
   
   if (dailyData.length < 3) {
-    // Need at least 3 days of data
-    return null;
+    return null; // Need at least 3 days
   }
 
-  // Linear regression: accuracy ~ day
+  // Calculate slopes
   const accuracySlope = linearRegression(
     dailyData.map(d => d.dayIndex),
     dailyData.map(d => d.accuracy)
   );
 
-  // Linear regression: reaction time ~ day
   const rtSlope = linearRegression(
     dailyData.map(d => d.dayIndex),
     dailyData.map(d => d.avgReactionTime)
   );
 
-  // Calculate confidence based on sample size and R²
   const confidenceScore = calculateConfidence(events.length, dailyData.length);
 
   return {
@@ -91,12 +178,9 @@ export const calculateLearningRate = async (
     endDate: endDate.toISOString().split('T')[0],
     confidenceScore
   };
-};
+}
 
-/**
- * Save calculated learning rate to database
- */
-export const saveLearningRate = async (result: LearningRateResult): Promise<void> => {
+async function saveLearningRate(supabase: any, result: LearningRateResult): Promise<void> {
   const { error } = await supabase
     .from('learning_rates')
     .upsert({
@@ -120,26 +204,7 @@ export const saveLearningRate = async (result: LearningRateResult): Promise<void
     console.error('Error saving learning rate:', error);
     throw error;
   }
-};
-
-/**
- * Calculate learning rates for all domains and all time windows for a user
- * Calls the edge function to perform the calculation
- */
-export const calculateAllLearningRates = async (userId: string): Promise<void> => {
-  const { data, error } = await supabase.functions.invoke('calculate-learning-rates', {
-    body: { userId }
-  });
-
-  if (error) {
-    console.error('Error calculating learning rates:', error);
-    throw error;
-  }
-
-  console.log('Learning rates calculated:', data);
-};
-
-// Helper functions
+}
 
 function getDomainExerciseSlug(domain: string): string {
   const mapping: Record<string, string> = {
@@ -190,9 +255,6 @@ function groupByDay(events: any[]): DailyDataPoint[] {
   return sortedDays;
 }
 
-/**
- * Simple linear regression: returns slope
- */
 function linearRegression(x: number[], y: number[]): number {
   const n = x.length;
   if (n === 0) return 0;
@@ -207,13 +269,9 @@ function linearRegression(x: number[], y: number[]): number {
   return isNaN(slope) ? 0 : slope;
 }
 
-/**
- * Calculate confidence score based on sample size
- */
 function calculateConfidence(trialCount: number, dayCount: number): number {
-  // More trials and more days = higher confidence
-  const trialScore = Math.min(1, trialCount / 50); // Max at 50 trials
-  const dayScore = Math.min(1, dayCount / 7); // Max at 7 days
+  const trialScore = Math.min(1, trialCount / 50);
+  const dayScore = Math.min(1, dayCount / 7);
   
   return Math.round((trialScore * 0.6 + dayScore * 0.4) * 100) / 100;
 }

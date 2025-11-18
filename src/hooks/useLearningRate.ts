@@ -53,11 +53,7 @@ export const useLearningRate = (userId: string | null, autoCalculate = true) => 
         if (ratesError) throw ratesError;
 
         if (!rates || rates.length === 0) {
-          // No learning rates yet, calculate them if auto
-          if (autoCalculate) {
-            await calculateRates();
-            return; // Will re-fetch after calculation
-          }
+          // No learning rates yet - user needs to calculate them manually
           setLearningRates([]);
           setIsLoading(false);
           return;
@@ -162,15 +158,40 @@ export const useLearningRate = (userId: string | null, autoCalculate = true) => 
     }
   };
 
-  const calculateRates = async () => {
+  const refresh = async () => {
     if (!userId) return;
     
     try {
       setIsCalculating(true);
+      
+      // Trigger calculation
       await calculateAllLearningRates(userId);
       
-      // Refresh data after calculation
-      window.location.reload(); // Simple approach - could be more elegant
+      // Re-fetch learning rates
+      const { data: rates, error: ratesError } = await supabase
+        .from('learning_rates')
+        .select('*')
+        .eq('user_id', userId)
+        .order('calculated_at', { ascending: false });
+
+      if (ratesError) throw ratesError;
+
+      if (rates) {
+        const transformed = rates.map(rate => ({
+          domain: rate.domain,
+          window: rate.time_window_days,
+          accuracySlope: Number(rate.accuracy_slope || 0),
+          rtSlope: Number(rate.rt_slope || 0),
+          trend: determineTrend(Number(rate.accuracy_slope || 0)),
+          trialCount: rate.trial_count,
+          confidence: Number(rate.confidence_score || 0),
+          startAccuracy: Number(rate.start_accuracy || 0),
+          endAccuracy: Number(rate.end_accuracy || 0)
+        }));
+
+        setLearningRates(transformed);
+        await fetchClusterComparisons(userId, transformed);
+      }
     } catch (err) {
       console.error('Error calculating learning rates:', err);
       setError(err instanceof Error ? err.message : 'Calculation failed');
@@ -185,8 +206,8 @@ export const useLearningRate = (userId: string | null, autoCalculate = true) => 
     isLoading,
     isCalculating,
     error,
-    calculateRates,
-    refresh: calculateRates
+    calculateRates: refresh,
+    refresh
   };
 };
 
