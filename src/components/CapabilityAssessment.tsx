@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CapabilityGracefulExit } from './CapabilityGracefulExit';
+import { CapabilityGracefulExit, type CaregiverObservations } from './CapabilityGracefulExit';
 import { useCapabilityAssessment } from '@/hooks/useCapabilityAssessment';
 import {
   calculateVisionScore,
@@ -275,7 +275,43 @@ export const CapabilityAssessment = ({
     }
   }, [level0Result, level2Trials, showGracefulExit]);
 
-  const handleGracefulPause = () => {
+  const handleGracefulPause = async (observations?: CaregiverObservations) => {
+    // If we have caregiver observations, save them with a partial assessment
+    if (observations) {
+      const partialResult: AssessmentResult = {
+        level0: level0Result,
+        level1: level1Result,
+        level2: {
+          accuracy: 0,
+          avgReactionTime: 0,
+          consistentHand: false,
+          trials: level2Trials,
+        },
+        scores: {
+          vision: 0,
+          motor: 0,
+          attention: 0,
+          confidence: 0,
+        },
+        behavioralFlags: {
+          canOrient: level0Result.oriented,
+          canTap: level1Result.repeatTaps > 0,
+          understandsCauseEffect: level1Result.discoveredCauseEffect,
+          canMatchPatterns: false,
+        },
+        completed: false,
+        needsRetry: true,
+        retryReason: exitReason,
+      };
+      
+      const clinicalWithObservations = {
+        ...clinicalProfile,
+        caregiver_observations: observations,
+      };
+      
+      await saveAssessment(partialResult, clinicalWithObservations);
+    }
+    
     onExit();
   };
 
