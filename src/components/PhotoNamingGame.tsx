@@ -22,7 +22,7 @@ interface PhotoNamingGameProps {
     difficultyLevel: number;
     cueLevel: number;
     errorClassification?: ErrorClassificationResult;
-  }) => void;
+  }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
@@ -202,13 +202,13 @@ export const PhotoNamingGame = ({
     }
 
     // Log telemetry with cue level
-    onTrialComplete({
+    onTrialComplete?.({
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
-    });
+    }, state.currentTrial);
 
     // Auto-advance after 2 seconds
     setTimeout(() => {
@@ -337,14 +337,14 @@ export const PhotoNamingGame = ({
     }
 
     // Log telemetry with cue level and detailed error classification
-    onTrialComplete({
+    onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
       errorType: errorClassification.errorType,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       errorClassification, // Pass full classification for rich analytics
-    });
+    }, state.currentTrial);
 
     // Auto-advance after 1.5 seconds
     setTimeout(() => {
