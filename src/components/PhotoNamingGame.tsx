@@ -15,6 +15,7 @@ interface PhotoNamingGameProps {
   totalTrials?: number;
   initialDifficulty?: number;
   customTrials?: any[];
+  assistMode?: boolean;
   onTrialComplete?: (result: {
     correct: boolean;
     reactionTimeMs: number;
@@ -31,6 +32,7 @@ export const PhotoNamingGame = ({
   totalTrials = 10,
   initialDifficulty = 1,
   customTrials,
+  assistMode = false,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -354,6 +356,94 @@ export const PhotoNamingGame = ({
     }, 1500);
   };
 
+  const handleCaregiverResponse = (responseType: 'looked' | 'tried' | 'said_roughly' | 'no_response') => {
+    if (!state.currentTrial) return;
+
+    const reactionTime = Date.now() - trialStartTime;
+
+    let score = 0;
+    let errorType: string | undefined;
+    let correct = false;
+
+    switch (responseType) {
+      case 'said_roughly':
+        score = 100;
+        correct = true;
+        break;
+      case 'tried':
+        score = 50;
+        errorType = 'phonological_approximation';
+        break;
+      case 'looked':
+        score = 25;
+        errorType = 'no_verbal_output';
+        break;
+      case 'no_response':
+        score = 0;
+        errorType = 'no_response';
+        break;
+    }
+
+    setFeedbackData({ 
+      correct, 
+      errorType 
+    });
+    setShowFeedback(true);
+    
+    // Play sound based on result
+    if (correct) {
+      playSuccess();
+    } else {
+      playError();
+    }
+
+    // Update adaptive controller
+    const controller = controllerRef.current;
+    controller.update(correct);
+    
+    // Check if difficulty should adjust
+    const newLevel = controller.adjustLevel(currentDifficulty);
+    if (newLevel !== currentDifficulty) {
+      const direction = newLevel > currentDifficulty ? 'up' : 'down';
+      setDifficultyChanged(direction);
+      setCurrentDifficulty(newLevel);
+      
+      // Play level change sound
+      setTimeout(() => {
+        if (direction === 'up') {
+          playLevelUp();
+        } else {
+          playLevelDown();
+        }
+      }, 500);
+      
+      const reason = direction === 'up' 
+        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
+        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
+      
+      onDifficultyChange?.(newLevel, reason);
+      
+      // Clear difficulty change indicator after 2 seconds
+      setTimeout(() => setDifficultyChanged(null), 2000);
+    }
+
+    // Log telemetry
+    onTrialComplete?.({
+      correct,
+      reactionTimeMs: reactionTime,
+      errorType,
+      difficultyLevel: currentDifficulty,
+      cueLevel: cueLevel,
+    }, state.currentTrial);
+
+    // Auto-advance after 1.5 seconds
+    setTimeout(() => {
+      setShowFeedback(false);
+      setFeedbackData(null);
+      nextTrial(currentDifficulty);
+    }, 1500);
+  };
+
   if (!state.currentTrial) {
     return (
       <div className="text-center py-12">
@@ -520,42 +610,94 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Answer Choices */}
-      <div className="grid grid-cols-2 gap-4">
-        {!isSupported && (
-          <div className="col-span-2 text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-            💡 Voice recognition is not supported in this browser. Using button mode.
-          </div>
-        )}
-        {state.choices.map((word) => {
-          const isSelected = selectedAnswer === word;
-          const isCorrect = word === state.currentTrial?.target;
-          const showCorrect = showFeedback && isCorrect;
-          const showIncorrect = showFeedback && isSelected && !isCorrect;
+      {/* Answer Choices or Caregiver Controls */}
+      {assistMode ? (
+        // Caregiver Assisted Mode UI
+        <div className="space-y-3">
+          <p className="text-sm text-center text-muted-foreground">
+            For caregiver: what did you observe?
+          </p>
 
-          return (
+          <div className="grid grid-cols-2 gap-3">
             <Button
-              key={word}
-              size="lg"
-              variant={showFeedback ? (showCorrect ? 'default' : 'outline') : 'outline'}
-              className={`
-                h-20 text-lg font-medium transition-all
-                ${showCorrect ? 'bg-success border-success text-white' : ''}
-                ${showIncorrect ? 'bg-destructive border-destructive text-white' : ''}
-                ${!showFeedback ? 'hover:border-primary hover:bg-primary/10' : ''}
-              `}
-              onClick={() => handleAnswerSelect(word)}
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2"
+              onClick={() => handleCaregiverResponse('looked')}
               disabled={showFeedback}
             >
-              <span className="flex items-center gap-2">
-                {showCorrect && <CheckCircle2 className="w-5 h-5" />}
-                {showIncorrect && <XCircle className="w-5 h-5" />}
-                {word.charAt(0).toUpperCase() + word.slice(1)}
-              </span>
+              <span className="text-2xl">👁️</span>
+              <span className="text-sm font-medium">Looked at it</span>
             </Button>
-          );
-        })}
-      </div>
+
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2"
+              onClick={() => handleCaregiverResponse('tried')}
+              disabled={showFeedback}
+            >
+              <span className="text-2xl">🗣️</span>
+              <span className="text-sm font-medium">Tried to say it</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2 border-success text-success hover:bg-success/10"
+              onClick={() => handleCaregiverResponse('said_roughly')}
+              disabled={showFeedback}
+            >
+              <span className="text-2xl">✅</span>
+              <span className="text-sm font-medium">Said it roughly</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="h-auto py-4 flex flex-col gap-2"
+              onClick={() => handleCaregiverResponse('no_response')}
+              disabled={showFeedback}
+            >
+              <span className="text-2xl">⚪</span>
+              <span className="text-sm font-medium">No response</span>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        // Independent Mode UI (original answer choices)
+        <div className="grid grid-cols-2 gap-4">
+          {!isSupported && (
+            <div className="col-span-2 text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              💡 Voice recognition is not supported in this browser. Using button mode.
+            </div>
+          )}
+          {state.choices.map((word) => {
+            const isSelected = selectedAnswer === word;
+            const isCorrect = word === state.currentTrial?.target;
+            const showCorrect = showFeedback && isCorrect;
+            const showIncorrect = showFeedback && isSelected && !isCorrect;
+
+            return (
+              <Button
+                key={word}
+                size="lg"
+                variant={showFeedback ? (showCorrect ? 'default' : 'outline') : 'outline'}
+                className={`
+                  h-20 text-lg font-medium transition-all
+                  ${showCorrect ? 'bg-success border-success text-white' : ''}
+                  ${showIncorrect ? 'bg-destructive border-destructive text-white' : ''}
+                  ${!showFeedback ? 'hover:border-primary hover:bg-primary/10' : ''}
+                `}
+                onClick={() => handleAnswerSelect(word)}
+                disabled={showFeedback}
+              >
+                <span className="flex items-center gap-2">
+                  {showCorrect && <CheckCircle2 className="w-5 h-5" />}
+                  {showIncorrect && <XCircle className="w-5 h-5" />}
+                  {word.charAt(0).toUpperCase() + word.slice(1)}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Feedback Message */}
       {showFeedback && feedbackData && (
