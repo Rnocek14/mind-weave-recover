@@ -12,9 +12,10 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
 
 interface PhotoNamingGameProps {
-  totalTrials: number;
-  initialDifficulty: number;
-  onTrialComplete: (result: {
+  totalTrials?: number;
+  initialDifficulty?: number;
+  customTrials?: any[];
+  onTrialComplete?: (result: {
     correct: boolean;
     reactionTimeMs: number;
     errorType?: string;
@@ -22,18 +23,19 @@ interface PhotoNamingGameProps {
     cueLevel: number;
     errorClassification?: ErrorClassificationResult;
   }) => void;
-  onGameComplete: (finalScore: number) => void;
+  onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
 export const PhotoNamingGame = ({
-  totalTrials,
-  initialDifficulty,
+  totalTrials = 10,
+  initialDifficulty = 1,
+  customTrials,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty);
+  const { state, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty, customTrials);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());

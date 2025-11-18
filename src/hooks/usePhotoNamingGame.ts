@@ -10,21 +10,25 @@ export interface PhotoNamingGameState {
   score: number;
 }
 
-export const usePhotoNamingGame = (totalTrials: number = 10, difficultyLevel: number = 1) => {
+export const usePhotoNamingGame = (
+  totalTrials: number = 10, 
+  difficultyLevel: number = 1,
+  customTrials?: PhotoTrial[]
+) => {
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [choices, setChoices] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
-  // Initialize trials based on difficulty level
+  // Initialize trials based on difficulty level or use custom trials
   useEffect(() => {
-    const newTrials = getTrialsForLevel(difficultyLevel, totalTrials);
+    const newTrials = customTrials || getTrialsForLevel(difficultyLevel, totalTrials);
     setTrials(newTrials);
     if (newTrials.length > 0) {
       setChoices(generateChoices(newTrials[0], difficultyLevel));
     }
-  }, [totalTrials, difficultyLevel]);
+  }, [totalTrials, difficultyLevel, customTrials]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
