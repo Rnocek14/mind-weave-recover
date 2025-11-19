@@ -4,6 +4,7 @@ import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
@@ -31,6 +32,7 @@ export default function PhotoNamingExercise() {
   const [gameKey, setGameKey] = useState(0);
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [caregiverNotes, setCaregiverNotes] = useState('');
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
@@ -117,11 +119,14 @@ export default function PhotoNamingExercise() {
   };
 
   const handleGameComplete = async () => {
-    // End session
+    // End session with caregiver notes
     if (sessionId) {
       await supabase
         .from('sessions')
-        .update({ ended_at: new Date().toISOString() })
+        .update({ 
+          ended_at: new Date().toISOString(),
+          caregiver_notes: caregiverNotes.trim() || null,
+        })
         .eq('id', sessionId);
     }
     
@@ -182,6 +187,26 @@ export default function PhotoNamingExercise() {
             )}
           </div>
         </div>
+
+        {/* Optional caregiver notes */}
+        <Card className="p-4 bg-muted/50 mb-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">
+                Session Notes (optional)
+              </label>
+              <span className="text-xs text-muted-foreground">
+                Quick observations about mood, energy, engagement
+              </span>
+            </div>
+            <Textarea
+              placeholder="e.g., Alert and engaged today. Needed more time with family photos. Laughed at the dog picture."
+              value={caregiverNotes}
+              onChange={(e) => setCaregiverNotes(e.target.value)}
+              className="min-h-[60px] text-sm"
+            />
+          </div>
+        </Card>
 
         {trials.length > 0 ? (
           <PhotoNamingGame

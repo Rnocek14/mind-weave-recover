@@ -571,6 +571,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          caregiver_notes: string | null
           duration_sec: number | null
           ended_at: string | null
           engagement_summary: Json | null
@@ -582,6 +583,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          caregiver_notes?: string | null
           duration_sec?: number | null
           ended_at?: string | null
           engagement_summary?: Json | null
@@ -593,6 +595,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          caregiver_notes?: string | null
           duration_sec?: number | null
           ended_at?: string | null
           engagement_summary?: Json | null
