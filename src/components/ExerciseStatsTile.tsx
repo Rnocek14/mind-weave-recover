@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, Clock, Target } from 'lucide-react';
+import { TrendingUp, Clock, Target, AlertCircle } from 'lucide-react';
 import { useExerciseStats } from '@/hooks/useExerciseStats';
 
 interface ExerciseStatsTileProps {
@@ -48,9 +48,11 @@ export const ExerciseStatsTile = ({
       </div>
 
       {!hasData ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <p className="text-sm">No practice data yet</p>
-          <p className="text-xs mt-1">Complete some exercises to see your stats</p>
+        <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-muted-foreground">
+            Complete sessions to track progress here. Start from the Overview tab.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4">
