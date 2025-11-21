@@ -50,7 +50,12 @@ export const CapabilityProfileCard = ({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={onStartAssessment} className="w-full" size="lg">
+          <Button 
+            onClick={onStartAssessment} 
+            className="w-full min-h-[44px] md:min-h-[40px]" 
+            size="lg"
+            aria-label="Start capability assessment"
+          >
             Start Capability Assessment
           </Button>
           <p className="text-xs text-muted-foreground mt-4 text-center">
@@ -96,7 +101,8 @@ export const CapabilityProfileCard = ({
             variant="outline"
             size="icon"
             onClick={onStartAssessment}
-            title="Reassess capabilities"
+            className="min-h-[44px] min-w-[44px] md:min-h-[40px] md:min-w-[40px]"
+            aria-label="Reassess capabilities"
           >
             <RefreshCw className="h-4 w-4" />
           </Button>

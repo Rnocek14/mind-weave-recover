@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronRight, TrendingUp, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -202,7 +204,8 @@ export const ExerciseProgressCard = ({
 
   if (loading) {
     return (
-      <Card className="p-6 shadow-card">
+      <Card className="p-6 shadow-card" role="status" aria-live="polite">
+        <span className="sr-only">Loading exercise progress data...</span>
         <Skeleton className="h-32 w-full" />
       </Card>
     );
@@ -213,19 +216,19 @@ export const ExerciseProgressCard = ({
       <Card className="p-6 shadow-card border-2 hover:border-primary transition-smooth">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center flex-shrink-0">
-            <Icon className="w-6 h-6 text-white" />
+            <Icon className="w-6 h-6 text-white" aria-hidden="true" />
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-lg mb-1">{exerciseTitle}</h3>
             <p className="text-sm text-muted-foreground mb-3">
               Targets: {targets}
             </p>
-            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mt-4">
-              <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                Complete sessions to track progress here. Start from the Overview tab.
-              </p>
-            </div>
+            <EmptyState
+              icon={AlertCircle}
+              description="Complete sessions to track progress here. Start from the Overview tab."
+              variant="info"
+              className="mt-4"
+            />
           </div>
         </div>
       </Card>
@@ -242,7 +245,7 @@ export const ExerciseProgressCard = ({
       onClick={() => navigate("/history")}>
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-smooth">
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-6 h-6 text-white" aria-hidden="true" />
         </div>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
@@ -269,8 +272,9 @@ export const ExerciseProgressCard = ({
                       ? "text-warning"
                       : "text-destructive"
                   }`}
+                  aria-hidden="true"
                 />
-                <span className="text-lg font-bold">{stats.accuracy}%</span>
+                <span className="text-lg font-bold" aria-label={`${stats.accuracy} percent accuracy`}>{stats.accuracy}%</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
@@ -283,7 +287,7 @@ export const ExerciseProgressCard = ({
 
           {stats.weakestArea !== "Not enough data" && (
             <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mb-4">
-              <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div className="flex-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">
                   Weakest area
@@ -293,14 +297,24 @@ export const ExerciseProgressCard = ({
             </div>
           )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full gap-2 group-hover:bg-primary/10"
-          >
-            View Session History
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full gap-2 group-hover:bg-primary/10 min-h-[44px] md:min-h-[40px]"
+                  aria-label={`View detailed session history for ${exerciseTitle}`}
+                >
+                  View Session History
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>View detailed session-by-session progress, accuracy trends, and performance patterns for {exerciseTitle}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </Card>

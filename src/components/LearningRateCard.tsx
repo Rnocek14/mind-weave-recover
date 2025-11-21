@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TrendingUp, TrendingDown, Minus, Info, Users } from "lucide-react";
 import { LearningRate, ClusterComparison } from "@/hooks/useLearningRate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,11 +22,22 @@ export const LearningRateCard = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Learning Velocity</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" aria-hidden="true" />
+            Learning Velocity
+          </CardTitle>
           <CardDescription>
-            Calculating your improvement rates... Check back after a few sessions.
+            Track your improvement rates across different skill domains
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={TrendingUp}
+            title="Learning rates calculating..."
+            description="Complete 3-5 practice sessions in each domain to generate personalized learning rate data. This helps track your progress velocity over time."
+            variant="info"
+          />
+        </CardContent>
       </Card>
     );
   }
@@ -74,10 +86,11 @@ export const LearningRateCard = ({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" aria-hidden="true" />
               Learning Velocity
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger aria-label="Information about learning velocity">
                     <Info className="h-4 w-4 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
