@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Shield, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { memo } from "react";
 
 interface CapabilityGatingInfoProps {
   hasAssessment: boolean;
@@ -10,13 +11,13 @@ interface CapabilityGatingInfoProps {
   onStartAssessment?: () => void;
 }
 
-export const CapabilityGatingInfo = ({ 
+export const CapabilityGatingInfo = memo(function CapabilityGatingInfo({ 
   hasAssessment, 
   lockedCount, 
   adaptedCount,
   hasSoftOverride = false,
   onStartAssessment 
-}: CapabilityGatingInfoProps) => {
+}: CapabilityGatingInfoProps) {
   if (!hasAssessment) {
     return (
       <Alert className="mb-6">
@@ -80,4 +81,4 @@ export const CapabilityGatingInfo = ({
       </AlertDescription>
     </Alert>
   );
-};
+});

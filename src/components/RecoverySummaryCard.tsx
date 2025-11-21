@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +29,13 @@ interface RecoverySummaryCardProps {
   autoGenerate?: boolean;
 }
 
-export const RecoverySummaryCard = ({ 
+export const RecoverySummaryCard = memo(function RecoverySummaryCard({ 
   userId, 
   summaryType, 
   title, 
   description,
   autoGenerate = false 
-}: RecoverySummaryCardProps) => {
+}: RecoverySummaryCardProps) {
   const { 
     getLatestSummary, 
     generating, 
@@ -240,4 +240,4 @@ export const RecoverySummaryCard = ({
       </CardContent>
     </Card>
   );
-};
+});
