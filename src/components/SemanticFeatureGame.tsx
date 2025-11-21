@@ -13,11 +13,14 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { PHOTO_BANK } from '@/data/photoBank';
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import type { ExerciseAdaptation } from '@/lib/exerciseGating';
+import { AdaptationBadges } from '@/components/AdaptationBadges';
 
 interface SemanticFeatureGameProps {
   totalTrials?: number;
   config: ExerciseConfig;
   bounds: DifficultyBounds;
+  adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -29,6 +32,7 @@ export const SemanticFeatureGame = ({
   totalTrials = 10,
   config,
   bounds,
+  adaptations,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -217,6 +221,11 @@ export const SemanticFeatureGame = ({
               </div>
             </div>
             <Progress value={game.progress} />
+            {adaptations && (
+              <div className="pt-2">
+                <AdaptationBadges adaptations={adaptations} />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

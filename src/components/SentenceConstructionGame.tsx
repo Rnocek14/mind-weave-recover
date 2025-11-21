@@ -17,10 +17,12 @@ import {
 import { useSentenceGame } from "@/hooks/useSentenceGame";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { cn } from "@/lib/utils";
+import { AdaptationBadges } from '@/components/AdaptationBadges';
 
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
   bounds: DifficultyBounds;
+  adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: {
     correct: boolean;
     reactionTime: number;
@@ -30,9 +32,23 @@ interface SentenceConstructionGameProps {
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
 }
 
+interface ExerciseAdaptation {
+  exerciseId: string;
+  adaptations: {
+    useAudioCues?: boolean;
+    eliminateText?: boolean;
+    simplifiedUI?: boolean;
+    extendedTimeouts?: boolean;
+    largeTargets?: boolean;
+    highContrast?: boolean;
+  };
+  reason: string;
+}
+
 export const SentenceConstructionGame = ({
   config,
   bounds,
+  adaptations,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
@@ -212,6 +228,11 @@ export const SentenceConstructionGame = ({
           <span className="font-medium">Score: {score}</span>
         </div>
         <Progress value={progress} className="h-2" />
+        {adaptations && (
+          <div className="pt-2">
+            <AdaptationBadges adaptations={adaptations} />
+          </div>
+        )}
       </div>
 
       {/* Task Type Badge */}

@@ -118,6 +118,7 @@ export default function SemanticFeatureExercise() {
           totalTrials={10}
           config={config}
           bounds={bounds}
+          adaptations={getAdaptations('semantic-features')}
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}

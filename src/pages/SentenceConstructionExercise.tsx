@@ -223,6 +223,7 @@ const SentenceConstructionExercise = () => {
         <SentenceConstructionGame
           config={config}
           bounds={bounds}
+          adaptations={getAdaptations('sentence-construction')}
           onTrialComplete={handleTrialComplete}
           onGameComplete={handleGameComplete}
         />
