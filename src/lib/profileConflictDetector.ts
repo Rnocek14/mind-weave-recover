@@ -8,13 +8,14 @@
 export interface ConflictItem {
   field: string;
   category?: string;
-  conflictType: 'value_change' | 'addition' | 'removal' | 'multi_territory' | 'severity_change';
+  conflictType: 'value_change' | 'addition' | 'removal' | 'multi_territory' | 'severity_change' | 'severity_progression' | 'severity_regression';
   existingValue: any;
   newValue: any;
   severity: 'low' | 'medium' | 'high' | 'critical';
   reasoning: string;
   autoMergeable: boolean;
   suggestedResolution?: 'keep_existing' | 'use_new' | 'merge_both' | 'requires_review';
+  clinicalSignificance?: string;
 }
 
 export interface ConflictDetectionResult {
@@ -252,6 +253,10 @@ function detectImpairmentConflicts(
   const removed = existingImpairments.filter(imp => !newSet.has(imp));
   const added = newImpairments.filter(imp => !existingSet.has(imp));
 
+  // Detect severity changes for overlapping impairments
+  const severityConflicts = detectSeverityChanges(category, existingImpairments, newImpairments);
+  conflicts.push(...severityConflicts);
+
   // Conflict: Impairments removed (possible recovery or documentation error)
   if (removed.length > 0) {
     const severity = removed.length > 2 ? 'high' : 'medium';
@@ -289,6 +294,214 @@ function detectImpairmentConflicts(
   }
 
   return conflicts;
+}
+
+/**
+ * Detect severity changes in impairments
+ */
+function detectSeverityChanges(
+  category: 'motor' | 'speech' | 'cognitive' | 'visual',
+  existingImpairments: string[],
+  newImpairments: string[]
+): ConflictItem[] {
+  const conflicts: ConflictItem[] = [];
+
+  // Map impairments by their base type (without severity)
+  const existingMap = new Map<string, { full: string; severity: number; type: string }>();
+  const newMap = new Map<string, { full: string; severity: number; type: string }>();
+
+  existingImpairments.forEach(imp => {
+    const parsed = parseImpairmentSeverity(imp);
+    existingMap.set(parsed.baseType, { full: imp, severity: parsed.severity, type: parsed.specificType });
+  });
+
+  newImpairments.forEach(imp => {
+    const parsed = parseImpairmentSeverity(imp);
+    newMap.set(parsed.baseType, { full: imp, severity: parsed.severity, type: parsed.specificType });
+  });
+
+  // Check for severity changes in overlapping impairments
+  for (const [baseType, existingData] of existingMap.entries()) {
+    const newData = newMap.get(baseType);
+    
+    if (newData) {
+      // Check for severity level change
+      if (newData.severity !== existingData.severity) {
+        const isProgression = newData.severity > existingData.severity;
+        const severityChange = Math.abs(newData.severity - existingData.severity);
+        
+        conflicts.push({
+          field: `impairments.${category}`,
+          category,
+          conflictType: isProgression ? 'severity_progression' : 'severity_regression',
+          existingValue: existingData.full,
+          newValue: newData.full,
+          severity: severityChange >= 2 ? 'critical' : severityChange >= 1 ? 'high' : 'medium',
+          reasoning: isProgression
+            ? `${formatBaseType(baseType)} severity increased from ${formatImpairment(existingData.full)} to ${formatImpairment(newData.full)}. This indicates clinical progression and requires immediate attention.`
+            : `${formatBaseType(baseType)} severity decreased from ${formatImpairment(existingData.full)} to ${formatImpairment(newData.full)}. This suggests improvement or recovery.`,
+          autoMergeable: !isProgression, // Auto-merge improvements, review progressions
+          suggestedResolution: isProgression ? 'requires_review' : 'use_new',
+          clinicalSignificance: isProgression 
+            ? 'Worsening condition - may require care plan adjustment'
+            : 'Positive recovery trajectory',
+        });
+      }
+      // Check for type change (e.g., expressive → global aphasia)
+      else if (newData.type !== existingData.type && newData.type && existingData.type) {
+        const typeChange = analyzeTypeChange(baseType, existingData.type, newData.type);
+        
+        conflicts.push({
+          field: `impairments.${category}`,
+          category,
+          conflictType: 'severity_change',
+          existingValue: existingData.full,
+          newValue: newData.full,
+          severity: typeChange.severity,
+          reasoning: typeChange.reasoning,
+          autoMergeable: false,
+          suggestedResolution: 'requires_review',
+          clinicalSignificance: typeChange.clinicalSignificance,
+        });
+      }
+    }
+  }
+
+  return conflicts;
+}
+
+/**
+ * Parse impairment string to extract severity and type information
+ */
+function parseImpairmentSeverity(impairment: string): {
+  baseType: string;
+  severity: number;
+  specificType: string;
+} {
+  const lower = impairment.toLowerCase();
+  
+  // Severity levels (0 = none/unknown, 1 = mild, 2 = moderate, 3 = severe, 4 = global/profound)
+  let severity = 0;
+  if (lower.includes('mild')) severity = 1;
+  else if (lower.includes('moderate')) severity = 2;
+  else if (lower.includes('severe')) severity = 3;
+  else if (lower.includes('global') || lower.includes('profound') || lower.includes('complete')) severity = 4;
+  
+  // Extract base type (e.g., "aphasia" from "expressive_aphasia")
+  let baseType = impairment;
+  let specificType = '';
+  
+  // Common patterns
+  const aphasiaTypes = ['expressive', 'receptive', 'global', 'anomic', 'conduction', 'transcortical', 'broca', 'wernicke'];
+  const motorTypes = ['hemiplegia', 'hemiparesis', 'weakness', 'paralysis'];
+  const visualTypes = ['hemianopia', 'neglect', 'agnosia'];
+  
+  if (lower.includes('aphasia')) {
+    baseType = 'aphasia';
+    const aphasiaType = aphasiaTypes.find(t => lower.includes(t));
+    if (aphasiaType) specificType = aphasiaType;
+  } else if (motorTypes.some(t => lower.includes(t))) {
+    baseType = 'motor_impairment';
+    const motorType = motorTypes.find(t => lower.includes(t));
+    if (motorType) specificType = motorType;
+  } else if (visualTypes.some(t => lower.includes(t))) {
+    baseType = 'visual_impairment';
+    const visualType = visualTypes.find(t => lower.includes(t));
+    if (visualType) specificType = visualType;
+  }
+  
+  return { baseType, severity, specificType };
+}
+
+/**
+ * Analyze type change for clinical significance
+ */
+function analyzeTypeChange(
+  baseType: string,
+  oldType: string,
+  newType: string
+): {
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  reasoning: string;
+  clinicalSignificance: string;
+} {
+  // Aphasia progression patterns
+  if (baseType === 'aphasia') {
+    const progressionMap: { [key: string]: number } = {
+      'anomic': 1,
+      'conduction': 2,
+      'transcortical': 2,
+      'broca': 3,
+      'expressive': 3,
+      'wernicke': 3,
+      'receptive': 3,
+      'global': 4,
+    };
+    
+    const oldSeverity = progressionMap[oldType] || 2;
+    const newSeverity = progressionMap[newType] || 2;
+    
+    if (newSeverity > oldSeverity) {
+      return {
+        severity: newSeverity === 4 ? 'critical' : 'high',
+        reasoning: `Aphasia type changed from ${oldType} to ${newType}, indicating significant progression. ${newType === 'global' ? 'Global aphasia represents the most severe form affecting all language modalities.' : 'This suggests expanding language deficits.'}`,
+        clinicalSignificance: 'Requires immediate reassessment of communication strategies and potential care plan modification',
+      };
+    } else if (newSeverity < oldSeverity) {
+      return {
+        severity: 'medium',
+        reasoning: `Aphasia type changed from ${oldType} to ${newType}, suggesting positive recovery. This indicates improving language function.`,
+        clinicalSignificance: 'Positive trajectory - consider advancing therapy goals',
+      };
+    }
+  }
+  
+  // Motor impairment changes
+  if (baseType === 'motor_impairment') {
+    const progressionMap: { [key: string]: number } = {
+      'weakness': 1,
+      'hemiparesis': 2,
+      'hemiplegia': 3,
+      'paralysis': 3,
+    };
+    
+    const oldSeverity = progressionMap[oldType] || 2;
+    const newSeverity = progressionMap[newType] || 2;
+    
+    if (newSeverity > oldSeverity) {
+      return {
+        severity: 'high',
+        reasoning: `Motor impairment changed from ${oldType} to ${newType}, indicating worsening motor function. This may suggest stroke progression or secondary complications.`,
+        clinicalSignificance: 'Urgent medical evaluation recommended',
+      };
+    } else if (newSeverity < oldSeverity) {
+      return {
+        severity: 'low',
+        reasoning: `Motor impairment improved from ${oldType} to ${newType}, showing positive motor recovery.`,
+        clinicalSignificance: 'Excellent progress - continue current therapy approach',
+      };
+    }
+  }
+  
+  return {
+    severity: 'medium',
+    reasoning: `Impairment type changed from ${oldType} to ${newType}. Clinical significance requires expert review.`,
+    clinicalSignificance: 'Requires clinical interpretation',
+  };
+}
+
+/**
+ * Helper: Format base type for display
+ */
+function formatBaseType(baseType: string): string {
+  return baseType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+/**
+ * Helper: Format impairment for display
+ */
+function formatImpairment(impairment: string): string {
+  return impairment.replace(/_/g, ' ');
 }
 
 /**
