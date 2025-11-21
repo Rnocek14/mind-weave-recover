@@ -8,16 +8,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import InferenceChainViewer from '@/components/InferenceChainViewer';
+import { useClinicalNotes } from '@/hooks/useClinicalNotes';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ClinicalNoteParserProps {
-  onProfileExtracted: (profile: ClinicalProfile) => void;
+  onProfileExtracted: (profile: ClinicalProfile, noteId: string, confidence: 'high' | 'medium' | 'low') => void;
 }
 
 export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteParserProps) {
   const [clinicalNote, setClinicalNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [extractedProfile, setExtractedProfile] = useState<ClinicalProfile | null>(null);
+  const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const [parseConfidence, setParseConfidence] = useState<'high' | 'medium' | 'low'>('medium');
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { createNote, updateNoteWithParseResults } = useClinicalNotes(user?.id);
 
   const handleParse = async () => {
     if (!clinicalNote.trim()) {
@@ -29,8 +35,32 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
       return;
     }
 
+    if (!user?.id) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to parse clinical notes',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setExtractedProfile(null);
+    setCurrentNoteId(null);
+
     try {
+      // Step 1: Save the raw clinical note to the database
+      const note = await createNote({
+        note_type: 'initial_assessment',
+        document_date: new Date().toISOString().split('T')[0],
+        raw_text: clinicalNote,
+        document_title: 'Clinical Note',
+        source_system: 'manual_upload',
+      });
+
+      setCurrentNoteId(note.id);
+
+      // Step 2: Parse the note using the edge function
       const { data, error } = await supabase.functions.invoke('parse-clinical-notes', {
         body: { clinicalNote }
       });
@@ -38,7 +68,20 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
       if (error) throw error;
 
       const profile = data.profile as ClinicalProfile;
+      
+      // Step 3: Update the note with extracted profile and parsing metadata
+      const confidence = (profile as any).extraction_metadata?.confidence_score > 0.8 ? 'high' :
+                        (profile as any).extraction_metadata?.confidence_score > 0.5 ? 'medium' : 'low';
+      
+      await updateNoteWithParseResults(
+        note.id,
+        profile,
+        'v1.0',
+        confidence
+      );
+
       setExtractedProfile(profile);
+      setParseConfidence(confidence);
       
       toast({
         title: 'Profile extracted successfully',
@@ -57,8 +100,8 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
   };
 
   const handleConfirm = () => {
-    if (extractedProfile) {
-      onProfileExtracted(extractedProfile);
+    if (extractedProfile && currentNoteId) {
+      onProfileExtracted(extractedProfile, currentNoteId, parseConfidence);
     }
   };
 
@@ -259,7 +302,11 @@ export default function ClinicalNoteParser({ onProfileExtracted }: ClinicalNoteP
               </div>
             )}
 
-            <Button onClick={handleConfirm} className="w-full">
+            <Button 
+              onClick={handleConfirm} 
+              className="w-full"
+              disabled={!currentNoteId}
+            >
               Confirm & Use This Profile
             </Button>
           </CardContent>
