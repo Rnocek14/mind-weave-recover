@@ -1,14 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Play, Camera, Hand, MessageSquare, Target,
-  Lightbulb, Volume2, List, Brain
-} from "lucide-react";
+import { Play, Brain, Lightbulb } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
 import { StrokeEducationPanel } from "@/components/StrokeEducationPanel";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
@@ -18,45 +14,29 @@ import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { ExerciseCarousel } from "@/components/ExerciseCarousel";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { 
   ProgressCardSkeleton, 
   RecoverySummarySkeleton, 
   ExerciseCardSkeleton 
 } from "./DashboardSkeletons";
 
-interface OverviewTabProps {
-  userId: string;
-  todayProgress: number;
-  doseCap: any;
-  redFlags: any[];
-  clinicalProfile: ClinicalProfile | null;
-  exercises: any[];
-  recommendations: any[];
-  recommendedExercises: any[];
-  lesson: DailyLesson | null;
-  checkExerciseAccess: (id: string) => any;
-  getAdaptations: (id: string) => any;
-  hasAssessment: boolean;
-  hasSoftOverride: boolean;
-  onStartAssessment: () => void;
-}
-
-export function OverviewTab({
-  userId,
-  todayProgress,
-  doseCap,
-  redFlags,
-  clinicalProfile,
-  recommendations,
-  recommendedExercises,
-  lesson,
-  checkExerciseAccess,
-  getAdaptations,
-  hasAssessment,
-  hasSoftOverride,
-  onStartAssessment
-}: OverviewTabProps) {
+export const OverviewTab = memo(function OverviewTab() {
+  const {
+    userId,
+    todayProgress,
+    doseCap,
+    redFlags,
+    clinicalProfile,
+    recommendations,
+    recommendedExercises,
+    lesson,
+    checkExerciseAccess,
+    getAdaptations,
+    hasAssessment,
+    hasSoftOverride,
+    onStartAssessment
+  } = useDashboardContext();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
@@ -343,4 +323,4 @@ export function OverviewTab({
       </div>
     </div>
   );
-}
+});

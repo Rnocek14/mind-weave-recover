@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Volume2, List, Trophy, History } from "lucide-react";
+import { Lightbulb, Volume2, List, History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { LearningRateCard } from "@/components/LearningRateCard";
 import { FunctionalGoalsWidget } from "@/components/FunctionalGoalsWidget";
@@ -13,34 +12,22 @@ import { CapabilityProfileCard } from "@/components/CapabilityProfileCard";
 import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { ExerciseProgressCard } from "@/components/ExerciseProgressCard";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
-import type { AssessmentResult } from "@/lib/capabilityAssessor";
+import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { AnalyticsCardSkeleton } from "./DashboardSkeletons";
 
-interface AnalyticsTabProps {
-  userId: string;
-  streak: number;
-  clinicalProfile: ClinicalProfile | null;
-  learningRates: any[];
-  clusterComparisons: any[];
-  learningRatesLoading: boolean;
-  currentAssessment: AssessmentResult | null;
-  previousAssessment: AssessmentResult | null;
-  onStartAssessment: () => void;
-  recentAchievements: any[];
-}
-
-export function AnalyticsTab({
-  userId,
-  streak,
-  clinicalProfile,
-  learningRates,
-  clusterComparisons,
-  learningRatesLoading,
-  currentAssessment,
-  previousAssessment,
-  onStartAssessment,
-  recentAchievements
-}: AnalyticsTabProps) {
+export const AnalyticsTab = memo(function AnalyticsTab() {
+  const {
+    userId,
+    streak,
+    clinicalProfile,
+    learningRates,
+    clusterComparisons,
+    learningRatesLoading,
+    currentAssessment,
+    previousAssessment,
+    onStartAssessment,
+    recentAchievements
+  } = useDashboardContext();
   const navigate = useNavigate();
   
   // Progressive loading states
@@ -294,4 +281,4 @@ export function AnalyticsTab({
       )}
     </div>
   );
-}
+});

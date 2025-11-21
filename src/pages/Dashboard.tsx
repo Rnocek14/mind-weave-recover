@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Trophy, Camera, Hand, MessageSquare, Target, TrendingUp, Flame, Award, Loader2, 
-  Settings, Brain, FileText, Activity, LineChart, Stethoscope, AlertCircle, Lightbulb, Volume2, List
+  Trophy, Camera, TrendingUp, Flame, Award, Loader2, 
+  Settings, Brain, FileText, Activity, LineChart, Stethoscope, AlertCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +32,8 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { EXERCISES } from "@/data/exercises";
+import { DashboardProvider } from "@/contexts/DashboardContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -180,82 +182,73 @@ const Dashboard = () => {
     );
   }
 
-  const exercises = [
-    {
-      id: "semantic-features",
-      title: "Semantic Feature Analysis",
-      icon: Lightbulb,
-      category: "Language",
-      duration: "10-15 min",
-      difficulty: "Medium",
-      color: "bg-gradient-primary"
-    },
-    {
-      id: "phonological-awareness",
-      title: "Phonological Awareness",
-      icon: Volume2,
-      category: "Language",
-      duration: "10-15 min",
-      difficulty: "Medium",
-      color: "bg-gradient-primary"
-    },
-    {
-      id: "sentence-construction",
-      title: "Sentence Construction",
-      icon: List,
-      category: "Language",
-      duration: "10-15 min",
-      difficulty: "Medium",
-      color: "bg-gradient-primary"
-    },
-    {
-      id: "photo-naming",
-      title: "Name That Photo",
-      icon: Camera,
-      category: "Speech",
-      duration: "5-7 min",
-      difficulty: "Easy",
-      color: "bg-gradient-healing"
-    },
-    {
-      id: "reach-tap",
-      title: "Reach & Tap",
-      icon: Hand,
-      category: "Motor",
-      duration: "8-10 min",
-      difficulty: "Medium",
-      color: "bg-gradient-healing"
-    },
-    {
-      id: "word-practice",
-      title: "Phrase Practice",
-      icon: MessageSquare,
-      category: "Speech",
-      duration: "5-7 min",
-      difficulty: "Easy",
-      color: "bg-gradient-healing"
-    },
-    {
-      id: "left-side-hunt",
-      title: "Left-Side Hunt",
-      icon: Target,
-      category: "Attention",
-      duration: "8-10 min",
-      difficulty: "Medium",
-      color: "bg-gradient-healing"
-    }
-  ];
+  // Memoize computed values for performance
+  const recommendations = useMemo(
+    () => clinicalProfile ? getExerciseRecommendations(clinicalProfile) : [],
+    [clinicalProfile]
+  );
+  
+  const recommendedExercises = useMemo(
+    () => recommendations.length > 0 
+      ? EXERCISES.filter(ex => recommendations.some(r => r.slug === ex.id))
+      : EXERCISES,
+    [recommendations]
+  );
 
-  const recommendations = clinicalProfile ? getExerciseRecommendations(clinicalProfile) : [];
-  const recommendedExercises = recommendations.length > 0 
-    ? exercises.filter(ex => recommendations.some(r => r.slug === ex.id))
-    : exercises;
-
-  const recentAchievements = [
+  const recentAchievements = useMemo(() => [
     { label: "First Session Complete", icon: Trophy, date: "Today" },
     { label: "3-Day Streak", icon: Flame, date: "Today" },
     { label: "50 Reps Milestone", icon: Award, date: "Yesterday" }
-  ];
+  ], []);
+
+  // Create context value
+  const dashboardContextValue = useMemo(() => ({
+    userId: user?.id || '',
+    streak,
+    totalReps,
+    achievementCount,
+    todayProgress,
+    clinicalProfile,
+    exercises: EXERCISES,
+    recommendations,
+    recommendedExercises,
+    checkExerciseAccess,
+    getAdaptations,
+    hasAssessment,
+    hasSoftOverride,
+    lesson,
+    redFlags,
+    doseCap,
+    learningRates,
+    clusterComparisons,
+    learningRatesLoading,
+    currentAssessment,
+    previousAssessment,
+    onStartAssessment: () => setShowCapabilityAssessment(true),
+    recentAchievements
+  }), [
+    user?.id,
+    streak,
+    totalReps,
+    achievementCount,
+    todayProgress,
+    clinicalProfile,
+    recommendations,
+    recommendedExercises,
+    checkExerciseAccess,
+    getAdaptations,
+    hasAssessment,
+    hasSoftOverride,
+    lesson,
+    redFlags,
+    doseCap,
+    learningRates,
+    clusterComparisons,
+    learningRatesLoading,
+    currentAssessment,
+    previousAssessment,
+    recentAchievements
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-calm">
@@ -374,79 +367,46 @@ const Dashboard = () => {
         </div>
 
         {/* Tabbed Dashboard */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="overview" className="gap-2">
-              <Activity className="w-4 h-4" />
-              Overview
-              {!flagsLoading && redFlags.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {redFlags.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <LineChart className="w-4 h-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="clinical" className="gap-2">
-              <Stethoscope className="w-4 h-4" />
-              Clinical
-              {!clinicalProfile && (
-                <Badge variant="secondary" className="ml-1">
-                  <AlertCircle className="w-3 h-3" />
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        <DashboardProvider value={dashboardContextValue}>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="overview" className="gap-2">
+                <Activity className="w-4 h-4" />
+                Overview
+                {!flagsLoading && redFlags.length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                    {redFlags.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="gap-2">
+                <LineChart className="w-4 h-4" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="clinical" className="gap-2">
+                <Stethoscope className="w-4 h-4" />
+                Clinical
+                {!clinicalProfile && (
+                  <Badge variant="secondary" className="ml-1">
+                    <AlertCircle className="w-3 h-3" />
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="overview">
-            {user && (
-              <OverviewTab
-                userId={user.id}
-                todayProgress={todayProgress}
-                doseCap={doseCap}
-                redFlags={redFlags}
-                clinicalProfile={clinicalProfile}
-                exercises={exercises}
-                recommendations={recommendations}
-                recommendedExercises={recommendedExercises}
-                lesson={lesson}
-                checkExerciseAccess={checkExerciseAccess}
-                getAdaptations={getAdaptations}
-                hasAssessment={hasAssessment}
-                hasSoftOverride={hasSoftOverride}
-                onStartAssessment={() => setShowCapabilityAssessment(true)}
-              />
-            )}
-          </TabsContent>
+            <TabsContent value="overview">
+              <OverviewTab />
+            </TabsContent>
 
-          <TabsContent value="analytics">
-            {user && (
-              <AnalyticsTab
-                userId={user.id}
-                streak={streak}
-                clinicalProfile={clinicalProfile}
-                learningRates={learningRates}
-                clusterComparisons={clusterComparisons}
-                learningRatesLoading={learningRatesLoading}
-                currentAssessment={currentAssessment}
-                previousAssessment={previousAssessment}
-                onStartAssessment={() => setShowCapabilityAssessment(true)}
-                recentAchievements={recentAchievements}
-              />
-            )}
-          </TabsContent>
+            <TabsContent value="analytics">
+              <AnalyticsTab />
+            </TabsContent>
 
-          <TabsContent value="clinical">
-            {user && (
-              <ClinicalTab
-                userId={user.id}
-                clinicalProfile={clinicalProfile}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="clinical">
+              <ClinicalTab />
+            </TabsContent>
+          </Tabs>
+        </DashboardProvider>
       </div>
 
       {/* Capability Assessment Modal */}

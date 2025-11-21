@@ -1,18 +1,14 @@
-import { useState, useEffect } from "react";
-import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import { useState, useEffect, memo } from "react";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { ClinicalProfileSkeleton } from "./DashboardSkeletons";
 
-interface ClinicalTabProps {
-  userId: string;
-  clinicalProfile: ClinicalProfile | null;
-}
-
-export function ClinicalTab({ userId, clinicalProfile }: ClinicalTabProps) {
+export const ClinicalTab = memo(function ClinicalTab() {
+  const { userId, clinicalProfile } = useDashboardContext();
   const [showProfile, setShowProfile] = useState(false);
   const [showBrainMap, setShowBrainMap] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
@@ -79,4 +75,4 @@ export function ClinicalTab({ userId, clinicalProfile }: ClinicalTabProps) {
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, memo } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,11 +22,11 @@ interface ExerciseCarouselProps {
   gatingInfo?: Record<string, any>;
 }
 
-export const ExerciseCarousel = ({
+export const ExerciseCarousel = memo(function ExerciseCarousel({
   exercises,
   onStartExercise,
   gatingInfo = {},
-}: ExerciseCarouselProps) => {
+}: ExerciseCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "start",
     containScroll: "trimSnaps",
@@ -146,4 +146,4 @@ export const ExerciseCarousel = ({
       </div>
     </div>
   );
-};
+});
