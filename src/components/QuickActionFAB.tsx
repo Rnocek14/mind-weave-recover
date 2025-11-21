@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Zap, Play, Brain, Activity, FileText, TrendingUp } from "lucide-react";
+import { Zap, Play, Brain, Activity, FileText, TrendingUp, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -14,6 +14,7 @@ interface QuickAction {
 interface QuickActionFABProps {
   activeTab: string;
   onStartAssessment?: () => void;
+  onShowTour?: () => void;
   recommendedExercises?: any[];
   hasRecoverySummary?: boolean;
 }
@@ -21,6 +22,7 @@ interface QuickActionFABProps {
 export const QuickActionFAB = ({
   activeTab,
   onStartAssessment,
+  onShowTour,
   recommendedExercises = [],
   hasRecoverySummary = false,
 }: QuickActionFABProps) => {
@@ -53,18 +55,24 @@ export const QuickActionFAB = ({
             color: "bg-secondary text-secondary-foreground",
           },
           {
-            icon: FileText,
-            label: "View Documents",
-            action: () => navigate("/clinical-documents"),
+            icon: Map,
+            label: "Dashboard Tour",
+            action: () => {
+              onShowTour?.();
+              setIsOpen(false);
+            },
             color: "bg-accent text-accent-foreground",
           },
         ];
       case "analytics":
         return [
           {
-            icon: TrendingUp,
-            label: "View Full Analytics",
-            action: () => navigate("/history"),
+            icon: Map,
+            label: "Dashboard Tour",
+            action: () => {
+              onShowTour?.();
+              setIsOpen(false);
+            },
             color: "bg-primary text-primary-foreground",
           },
           {
@@ -100,20 +108,18 @@ export const QuickActionFAB = ({
             color: "bg-primary text-primary-foreground",
           },
           {
-            icon: Activity,
-            label: "View History",
-            action: () => navigate("/profile-version-history"),
+            icon: Map,
+            label: "Dashboard Tour",
+            action: () => {
+              onShowTour?.();
+              setIsOpen(false);
+            },
             color: "bg-secondary text-secondary-foreground",
           },
           {
-            icon: Play,
-            label: "Start Exercise",
-            action: () => {
-              const firstExercise = recommendedExercises[0];
-              if (firstExercise?.slug) {
-                navigate(`/exercise/${firstExercise.slug}`);
-              }
-            },
+            icon: Activity,
+            label: "View History",
+            action: () => navigate("/profile-version-history"),
             color: "bg-accent text-accent-foreground",
           },
         ];

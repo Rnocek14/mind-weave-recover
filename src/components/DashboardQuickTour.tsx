@@ -14,6 +14,11 @@ interface TourStep {
   visual: React.ReactNode;
 }
 
+interface DashboardQuickTourProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
 const tourSteps: TourStep[] = [
   {
     title: "Welcome to Your Dashboard! 👋",
@@ -98,18 +103,32 @@ const tourSteps: TourStep[] = [
   },
 ];
 
-export function DashboardQuickTour() {
-  const [open, setOpen] = useState(false);
+export function DashboardQuickTour({ open: controlledOpen, onOpenChange }: DashboardQuickTourProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  
+  const setOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
 
   useEffect(() => {
-    const hasCompletedTour = localStorage.getItem(TOUR_STORAGE_KEY);
-    if (!hasCompletedTour) {
-      // Show tour after a short delay for better UX
-      const timer = setTimeout(() => setOpen(true), 800);
-      return () => clearTimeout(timer);
+    // Only auto-show if not controlled
+    if (!isControlled) {
+      const hasCompletedTour = localStorage.getItem(TOUR_STORAGE_KEY);
+      if (!hasCompletedTour) {
+        // Show tour after a short delay for better UX
+        const timer = setTimeout(() => setOpen(true), 800);
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [isControlled]);
 
   const handleNext = () => {
     if (currentStep < tourSteps.length - 1) {
@@ -127,11 +146,13 @@ export function DashboardQuickTour() {
 
   const handleComplete = () => {
     localStorage.setItem(TOUR_STORAGE_KEY, "true");
+    setCurrentStep(0); // Reset for next time
     setOpen(false);
   };
 
   const handleSkip = () => {
     localStorage.setItem(TOUR_STORAGE_KEY, "true");
+    setCurrentStep(0); // Reset for next time
     setOpen(false);
   };
 
