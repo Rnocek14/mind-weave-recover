@@ -167,7 +167,7 @@ Return as JSON:
     }
 
     // Call OpenAI
-    console.log('Calling OpenAI GPT-5-mini for summary generation...');
+    console.log('Calling OpenAI gpt-4o-mini for summary generation...');
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -175,12 +175,13 @@ Return as JSON:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 2000,
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
@@ -239,7 +240,7 @@ Return as JSON:
         data_snapshot: dataSnapshot,
         ai_summary: parsedResponse.summary,
         key_insights: parsedResponse.keyInsights || [],
-        model_used: 'gpt-5-mini-2025-08-07',
+        model_used: 'gpt-4o-mini',
         generation_duration_ms: generationDuration,
         confidence_score: 0.85
       })
