@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
 
@@ -30,7 +31,14 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')!;
+
+    if (!openAIApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'OPENAI_API_KEY is not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -158,21 +166,21 @@ Return as JSON:
 }`;
     }
 
-    // Call Lovable AI
-    console.log('Calling Lovable AI for summary generation...');
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call OpenAI
+    console.log('Calling OpenAI GPT-5-mini for summary generation...');
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
+        max_completion_tokens: 2000,
       }),
     });
 
@@ -189,12 +197,12 @@ Return as JSON:
       
       if (aiResponse.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI service requires payment. Please add credits to your workspace.' }),
+          JSON.stringify({ error: 'OpenAI API requires payment. Please check your OpenAI account.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      throw new Error(`OpenAI API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
@@ -231,7 +239,7 @@ Return as JSON:
         data_snapshot: dataSnapshot,
         ai_summary: parsedResponse.summary,
         key_insights: parsedResponse.keyInsights || [],
-        model_used: 'google/gemini-2.5-flash',
+        model_used: 'gpt-5-mini-2025-08-07',
         generation_duration_ms: generationDuration,
         confidence_score: 0.85
       })
