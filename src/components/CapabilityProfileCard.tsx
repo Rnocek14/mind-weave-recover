@@ -21,11 +21,31 @@ export const CapabilityProfileCard = memo(({
   onStartAssessment 
 }: CapabilityProfileCardProps) => {
   const { progression, loading, getTrend, hasMultipleAssessments } = useCapabilityProgression(userId);
-  
-  // Detect significant score drops
+
+  // All hooks must be called unconditionally, before any early returns
   const drops = useMemo(
-    () => getSignificantDrops(currentAssessment, previousAssessment),
+    () => currentAssessment && previousAssessment 
+      ? getSignificantDrops(currentAssessment, previousAssessment)
+      : [],
     [currentAssessment, previousAssessment]
+  );
+
+  const assessmentDate = useMemo(
+    () => currentAssessment?.assessed_at 
+      ? new Date(currentAssessment.assessed_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : '',
+    [currentAssessment?.assessed_at]
+  );
+
+  const daysAgo = useMemo(
+    () => currentAssessment?.assessed_at
+      ? Math.round((Date.now() - new Date(currentAssessment.assessed_at).getTime()) / (1000 * 60 * 60 * 24))
+      : 0,
+    [currentAssessment?.assessed_at]
   );
 
   if (loading) {
@@ -79,20 +99,6 @@ export const CapabilityProfileCard = memo(({
   const visionScore = currentAssessment.vision_score || 0;
   const motorScore = currentAssessment.motor_score || 0;
   const attentionScore = currentAssessment.attention_score || 0;
-
-  const assessmentDate = useMemo(
-    () => new Date(currentAssessment.assessed_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    [currentAssessment.assessed_at]
-  );
-
-  const daysAgo = useMemo(
-    () => Math.round((Date.now() - new Date(currentAssessment.assessed_at).getTime()) / (1000 * 60 * 60 * 24)),
-    [currentAssessment.assessed_at]
-  );
 
   return (
     <Card>
