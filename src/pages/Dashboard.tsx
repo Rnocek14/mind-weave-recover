@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Play, Trophy, Camera, Hand, MessageSquare, Target,
-  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain, Lightbulb, Volume2, List
+  TrendingUp, Flame, Award, ChevronRight, Loader2, History, Settings, Brain, Lightbulb, Volume2, List, FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -246,6 +246,15 @@ const Dashboard = () => {
           </div>
           
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/clinical-documents")}
+              className="gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Documents
+            </Button>
+
             <Button
               variant="outline"
               onClick={() => navigate("/photo-library")}
