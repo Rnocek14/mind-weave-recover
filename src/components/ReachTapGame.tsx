@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle } from 'lucide-react';
-import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface ReachTapGameProps {
   totalTrials: number;
@@ -41,14 +42,43 @@ export const ReachTapGame = ({
   const [target, setTarget] = useState<TargetPosition | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'success' | 'miss'>('success');
-  const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   const [consecutiveHits, setConsecutiveHits] = useState(0);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const controllerRef = useRef(new AdaptiveDifficultyController());
   const { playSuccess, playTimeout, playLevelUp, playLevelDown, playStreak } = useGameSounds();
+  
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: initialDifficulty || 5,
+    bounds: { floor: 1, ceiling: 10, suggestedStart: 5 },
+    windowSize: 5,
+    targetSuccessRate: 0.75,
+    adjustmentThreshold: 0.20,
+    onDifficultyChange: (newLevel) => {
+      const direction = newLevel > currentDifficulty ? 'up' : 'down';
+      setDifficultyChanged(direction);
+      
+      setTimeout(() => {
+        if (direction === 'up') {
+          playLevelUp();
+        } else {
+          playLevelDown();
+        }
+      }, 300);
+      
+      const reason = direction === 'up' 
+        ? `Great accuracy! Moving to level ${newLevel}`
+        : `Adjusting to level ${newLevel} for better experience`;
+      
+      onDifficultyChange?.(newLevel, reason);
+      setTimeout(() => setDifficultyChanged(null), 2000);
+    },
+  });
 
   // Calculate target size based on difficulty (level 1-10)
   const getTargetSize = (difficulty: number): number => {
@@ -162,33 +192,9 @@ export const ReachTapGame = ({
     const points = Math.max(50, 200 - Math.floor(reactionTime / 10));
     setScore((prev) => prev + points);
 
-    // Update adaptive controller
-    const controller = controllerRef.current;
-    controller.update(true);
-    
-    // Check if difficulty should adjust
-    const newLevel = controller.adjustLevel(currentDifficulty);
-    if (newLevel !== currentDifficulty) {
-      const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      setDifficultyChanged(direction);
-      setCurrentDifficulty(newLevel);
-      
-      // Play level change sound
-      setTimeout(() => {
-        if (direction === 'up') {
-          playLevelUp();
-        } else {
-          playLevelDown();
-        }
-      }, 300);
-      
-      const reason = direction === 'up' 
-        ? `Great accuracy! Moving to level ${newLevel}`
-        : `Adjusting to level ${newLevel} for better experience`;
-      
-      onDifficultyChange?.(newLevel, reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
-    }
+    // Update adaptive difficulty tracking and check for adjustment
+    updateTrial(true);
+    checkAndAdjust();
 
     // Log telemetry
     onTrialComplete({
@@ -225,33 +231,9 @@ export const ReachTapGame = ({
 
     const reactionTime = target ? Date.now() - target.appearTime : 0;
 
-    // Update adaptive controller
-    const controller = controllerRef.current;
-    controller.update(false);
-    
-    // Check if difficulty should adjust
-    const newLevel = controller.adjustLevel(currentDifficulty);
-    if (newLevel !== currentDifficulty) {
-      const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      setDifficultyChanged(direction);
-      setCurrentDifficulty(newLevel);
-      
-      // Play level change sound
-      setTimeout(() => {
-        if (direction === 'up') {
-          playLevelUp();
-        } else {
-          playLevelDown();
-        }
-      }, 300);
-      
-      const reason = direction === 'up' 
-        ? `Great progress! Moving to level ${newLevel}`
-        : `Adjusting to level ${newLevel} for better experience`;
-      
-      onDifficultyChange?.(newLevel, reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
-    }
+    // Update adaptive difficulty tracking and check for adjustment
+    updateTrial(false);
+    checkAndAdjust();
 
     // Log telemetry
     onTrialComplete({

@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { usePhonoGame } from '@/hooks/usePhonoGame';
 import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,6 @@ export const PhonologicalGame = ({
   userId,
   sessionId,
 }: PhonologicalGameProps) => {
-  const difficulty = config.startDifficulty || 1;
   const { saveLevel } = useExerciseDifficulty(
     userId,
     'phonological-awareness'
@@ -52,16 +51,23 @@ export const PhonologicalGame = ({
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
   
-  const game = usePhonoGame(totalTrials, difficulty);
-  const adaptiveController = useRef(
-    new AdaptiveDifficultyController(
-      5,           // windowSize
-      0.80,        // targetSuccessRate
-      0.15,        // adjustmentThreshold
-      bounds       // initialBounds
-    )
-  );
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: config.startDifficulty || 1,
+    bounds,
+    onDifficultyChange: (newLevel) => {
+      saveLevel(newLevel);
+      setShowDifficultyChange(true);
+      playLevelUp();
+      onDifficultyChange?.(newLevel);
+      setTimeout(() => setShowDifficultyChange(false), 2000);
+    },
+  });
   
+  const game = usePhonoGame(totalTrials, currentDifficulty);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
@@ -99,8 +105,8 @@ export const PhonologicalGame = ({
     const result = game.submitAnswer(answer);
     const reactionTime = calculateReactionTime();
     
-    // Update adaptive controller
-    adaptiveController.current.update(result.correct);
+    // Update adaptive difficulty tracking
+    updateTrial(result.correct);
     
     // Play feedback sound
     if (result.correct) {
@@ -117,7 +123,7 @@ export const PhonologicalGame = ({
       cueLevel: 0,
       errorType: result.correct ? null : 'phonological_error',
       taskParameters: {
-        difficulty,
+        difficulty: currentDifficulty,
         word1: trial?.word1,
         word2: trial?.word2,
         relationType: result.relationType,
@@ -137,21 +143,9 @@ export const PhonologicalGame = ({
     }
   };
 
-  const handleNext = async () => {
-    // Check if difficulty should adjust
-    const newLevel = adaptiveController.current.adjustLevel(difficulty);
-    
-    if (newLevel !== difficulty) {
-      await saveLevel(newLevel);
-      setShowDifficultyChange(true);
-      playLevelUp();
-      
-      if (onDifficultyChange) {
-        onDifficultyChange(newLevel);
-      }
-      
-      setTimeout(() => setShowDifficultyChange(false), 2000);
-    }
+  const handleNext = () => {
+    // Check and adjust difficulty if needed
+    checkAndAdjust();
     
     game.nextTrial();
     
@@ -223,7 +217,7 @@ export const PhonologicalGame = ({
                 Trial {game.currentTrial + 1} of {totalTrials}
               </span>
               <div className="flex gap-2 items-center">
-                <Badge variant="outline">Level {difficulty}</Badge>
+                <Badge variant="outline">Level {currentDifficulty}</Badge>
                 <Badge variant="secondary">{game.score} correct</Badge>
               </div>
             </div>
@@ -243,7 +237,7 @@ export const PhonologicalGame = ({
           <CardContent className="pt-6">
             <p className="text-center font-medium flex items-center justify-center gap-2">
               <Target className="h-4 w-4" />
-              Difficulty adjusted to Level {difficulty}
+              Difficulty adjusted to Level {currentDifficulty}
             </p>
           </CardContent>
         </Card>

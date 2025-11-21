@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,10 +7,11 @@ import { Volume2, Mic, MicOff, Lightbulb, RotateCcw, MessageSquare } from 'lucid
 import { useToast } from '@/hooks/use-toast';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
-import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -42,7 +43,6 @@ export const PhrasePracticeGame = ({
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [cueLevel, setCueLevel] = useState(1); // Start with phrase visible for better UX // 0=none, 1=visual, 2=audio, 3=both
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
@@ -52,11 +52,25 @@ export const PhrasePracticeGame = ({
   const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
   const [voicePreference, setVoicePreference] = useState<string>('alloy');
   
-  const difficultyController = useRef(new AdaptiveDifficultyController(5, 0.75, 0.15));
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+    getCueLevel: getAdaptiveCueLevel,
+  } = useAdaptiveDifficulty({
+    initialDifficulty,
+    bounds: { floor: 1, ceiling: 10, suggestedStart: 5 },
+    windowSize: 5,
+    targetSuccessRate: 0.75,
+    adjustmentThreshold: 0.15,
+    onDifficultyChange: (newLevel) => {
+      onDifficultyChange?.(newLevel);
+    },
+  });
 
   // Initialize trials and load voice preference
   useEffect(() => {
-    const newTrials = getTrialsForLevel(difficulty, totalTrials);
+    const newTrials = getTrialsForLevel(currentDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
     
@@ -85,7 +99,7 @@ export const PhrasePracticeGame = ({
     };
     
     loadVoicePreference();
-  }, [difficulty, totalTrials, user]);
+  }, [currentDifficulty, totalTrials, user]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -204,15 +218,15 @@ export const PhrasePracticeGame = ({
     setFeedbackCorrect(true);
     setShowFeedback(true);
     
-    // Update adaptive difficulty
-    difficultyController.current.update(true);
+    // Update adaptive difficulty tracking
+    updateTrial(true);
     
     // Log trial
     onTrialComplete?.({
       correct: true,
       timeMs: reactionTime,
       cueLevel,
-      difficulty,
+      difficulty: currentDifficulty,
       phraseId: currentTrial!.id,
       wordAccuracy,
       repetitions: attempts + 1
@@ -229,7 +243,8 @@ export const PhrasePracticeGame = ({
     setShowFeedback(true);
     setAttempts(prev => prev + 1);
     
-    difficultyController.current.update(false);
+    // Update adaptive difficulty tracking
+    updateTrial(false);
     
     setTimeout(() => {
       setShowFeedback(false);
@@ -239,16 +254,14 @@ export const PhrasePracticeGame = ({
   const nextTrial = () => {
     if (currentTrialIndex + 1 >= trials.length) {
       // Game complete
-      onGameComplete?.(score, difficulty);
+      onGameComplete?.(score, currentDifficulty);
       return;
     }
 
-    // Adjust difficulty based on performance
-    const newLevel = difficultyController.current.adjustLevel(difficulty);
-    if (newLevel !== difficulty) {
-      setDifficulty(newLevel);
-      onDifficultyChange?.(newLevel);
-      
+    // Check and adjust difficulty
+    const { adjusted, newLevel } = checkAndAdjust();
+    
+    if (adjusted) {
       // Regenerate trials at new difficulty
       const newTrials = getTrialsForLevel(newLevel, totalTrials - currentTrialIndex - 1);
       setTrials(prev => [...prev.slice(0, currentTrialIndex + 1), ...newTrials]);
@@ -265,11 +278,9 @@ export const PhrasePracticeGame = ({
   const reset = () => {
     setCurrentTrialIndex(0);
     setScore(0);
-    setDifficulty(initialDifficulty);
     setCueLevel(0);
     setAttempts(0);
     setShowFeedback(false);
-    difficultyController.current.reset();
     const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -295,10 +306,10 @@ export const PhrasePracticeGame = ({
             Phrase {currentTrialIndex + 1} / {trials.length}
           </Badge>
           <Badge 
-            variant={difficulty <= 2 ? "secondary" : difficulty <= 4 ? "default" : "destructive"}
+            variant={currentDifficulty <= 2 ? "secondary" : currentDifficulty <= 4 ? "default" : "destructive"}
             className="text-lg px-4 py-2"
           >
-            Level {difficulty}
+            Level {currentDifficulty}
           </Badge>
         </div>
         <div className="text-2xl font-bold text-primary">

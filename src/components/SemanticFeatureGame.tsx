@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSemanticFeatureGame } from '@/hooks/useSemanticFeatureGame';
 import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,6 @@ export const SemanticFeatureGame = ({
   userId,
   sessionId,
 }: SemanticFeatureGameProps) => {
-  const difficulty = config.startDifficulty || 1;
   const { saveLevel } = useExerciseDifficulty(
     userId,
     'semantic-features'
@@ -51,16 +50,23 @@ export const SemanticFeatureGame = ({
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   
-  const game = useSemanticFeatureGame(totalTrials, difficulty);
-  const adaptiveController = useRef(
-    new AdaptiveDifficultyController(
-      5,           // windowSize
-      0.80,        // targetSuccessRate
-      0.15,        // adjustmentThreshold
-      bounds       // initialBounds
-    )
-  );
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: config.startDifficulty || 1,
+    bounds,
+    onDifficultyChange: (newLevel) => {
+      saveLevel(newLevel);
+      setShowDifficultyChange(true);
+      playLevelUp();
+      onDifficultyChange?.(newLevel);
+      setTimeout(() => setShowDifficultyChange(false), 2000);
+    },
+  });
   
+  const game = useSemanticFeatureGame(totalTrials, currentDifficulty);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
 
@@ -79,8 +85,8 @@ export const SemanticFeatureGame = ({
     const result = game.submitAnswer();
     const reactionTime = calculateReactionTime();
     
-    // Update adaptive controller
-    adaptiveController.current.update(result.correct);
+    // Update adaptive difficulty tracking
+    updateTrial(result.correct);
     
     // Play feedback sound
     if (result.correct) {
@@ -96,7 +102,7 @@ export const SemanticFeatureGame = ({
       cueLevel: 0, // No cues in this game
       errorType: result.correct ? null : 'semantic_error',
       taskParameters: {
-        difficulty: difficulty,
+        difficulty: currentDifficulty,
         word: game.getCurrentTrial()?.word,
         feature_count: game.getCurrentTrial()?.correctFeatures.length,
         total_correct: result.totalCorrect,
@@ -116,21 +122,9 @@ export const SemanticFeatureGame = ({
     }
   };
 
-  const handleNext = async () => {
-    // Check if difficulty should adjust
-    const newLevel = adaptiveController.current.adjustLevel(difficulty);
-    
-    if (newLevel !== difficulty) {
-      await saveLevel(newLevel);
-      setShowDifficultyChange(true);
-      playLevelUp();
-      
-      if (onDifficultyChange) {
-        onDifficultyChange(newLevel);
-      }
-      
-      setTimeout(() => setShowDifficultyChange(false), 2000);
-    }
+  const handleNext = () => {
+    // Check and adjust difficulty if needed
+    const { adjusted, newLevel } = checkAndAdjust();
     
     game.nextTrial(newLevel);
     
@@ -216,7 +210,7 @@ export const SemanticFeatureGame = ({
                 Trial {game.currentTrial + 1} of {totalTrials}
               </span>
               <div className="flex gap-2 items-center">
-                <Badge variant="outline">Level {difficulty}</Badge>
+                <Badge variant="outline">Level {currentDifficulty}</Badge>
                 <Badge variant="secondary">{game.score} correct</Badge>
               </div>
             </div>
@@ -236,7 +230,7 @@ export const SemanticFeatureGame = ({
           <CardContent className="pt-6">
             <p className="text-center font-medium flex items-center justify-center gap-2">
               <Target className="h-4 w-4" />
-              Difficulty adjusted to Level {difficulty}
+              Difficulty adjusted to Level {currentDifficulty}
             </p>
           </CardContent>
         </Card>
