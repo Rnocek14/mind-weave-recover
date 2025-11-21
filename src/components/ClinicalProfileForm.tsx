@@ -9,6 +9,8 @@ import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClinicalNoteParser from './ClinicalNoteParser';
 import { useClinicalCorrections } from '@/hooks/useClinicalCorrections';
+import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ClinicalProfileFormProps {
   initialProfile?: ClinicalProfile;
@@ -48,7 +50,10 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     last_updated: null
   });
   const [originalAiProfile, setOriginalAiProfile] = useState<ClinicalProfile | null>(null);
+  const [sourceNoteId, setSourceNoteId] = useState<string | null>(null);
   const { logBatchCorrections } = useClinicalCorrections();
+  const { user } = useAuth();
+  const { createVersion } = useClinicalProfileVersions(user?.id);
 
   const handleImpairmentToggle = (category: keyof ClinicalProfile['impairments'], value: string) => {
     setProfile(prev => {
@@ -135,6 +140,22 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
         console.log(`Logged ${corrections.length} corrections to AI profile`);
       }
     }
+
+    // Create a new profile version if we have a user
+    if (user?.id) {
+      try {
+        await createVersion(
+          profile,
+          originalAiProfile ? 'note_parsing' : 'manual_edit',
+          {
+            sourceNoteId: sourceNoteId || undefined,
+            changeReason: originalAiProfile ? 'AI-parsed profile with manual corrections' : 'Manual profile creation',
+          }
+        );
+      } catch (error) {
+        console.error('Error creating profile version:', error);
+      }
+    }
     
     const finalProfile = {
       ...profile,
@@ -143,7 +164,7 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     onSubmit(finalProfile);
   };
 
-  const handleProfileExtracted = (extractedProfile: ClinicalProfile) => {
+  const handleProfileExtracted = (extractedProfile: ClinicalProfile, noteId: string, confidence: 'high' | 'medium' | 'low') => {
     const profileWithSource = {
       ...extractedProfile,
       profile_source: extractedProfile.profile_source || 'nlp'
@@ -151,6 +172,7 @@ export default function ClinicalProfileForm({ initialProfile, onSubmit, onCancel
     setProfile(profileWithSource);
     // Store original AI profile for correction tracking
     setOriginalAiProfile(JSON.parse(JSON.stringify(profileWithSource)));
+    setSourceNoteId(noteId);
     
     // ⭐ Auto-submit the profile immediately
     const finalProfile = {

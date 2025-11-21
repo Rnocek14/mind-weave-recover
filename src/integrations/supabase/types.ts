@@ -116,6 +116,115 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_notes: {
+        Row: {
+          created_at: string
+          document_date: string
+          document_title: string | null
+          extracted_profile: Json | null
+          id: string
+          note_type: string
+          notes: string | null
+          parsed_at: string | null
+          parser_version: string | null
+          parsing_confidence: string | null
+          raw_text: string
+          requires_review: boolean | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scan_details: Json | null
+          source_system: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_date: string
+          document_title?: string | null
+          extracted_profile?: Json | null
+          id?: string
+          note_type: string
+          notes?: string | null
+          parsed_at?: string | null
+          parser_version?: string | null
+          parsing_confidence?: string | null
+          raw_text: string
+          requires_review?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scan_details?: Json | null
+          source_system?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_date?: string
+          document_title?: string | null
+          extracted_profile?: Json | null
+          id?: string
+          note_type?: string
+          notes?: string | null
+          parsed_at?: string | null
+          parser_version?: string | null
+          parsing_confidence?: string | null
+          raw_text?: string
+          requires_review?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scan_details?: Json | null
+          source_system?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       clinical_profile_corrections: {
         Row: {
           clinical_note_excerpt: string | null
@@ -163,6 +272,110 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      clinical_profile_versions: {
+        Row: {
+          change_reason: string | null
+          changes_from_previous: Json | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          overall_confidence: string | null
+          profile_data: Json
+          source_note_id: string | null
+          source_type: string
+          user_id: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string | null
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          changes_from_previous?: Json | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          overall_confidence?: string | null
+          profile_data?: Json
+          source_note_id?: string | null
+          source_type: string
+          user_id: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          changes_from_previous?: Json | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          overall_confidence?: string | null
+          profile_data?: Json
+          source_note_id?: string | null
+          source_type?: string
+          user_id?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_profile_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_source_note_id_fkey"
+            columns: ["source_note_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       dismissed_flags: {
         Row: {
@@ -507,6 +720,91 @@ export type Database = {
           },
         ]
       }
+      profile_merge_conflicts: {
+        Row: {
+          conflicts: Json
+          created_at: string
+          existing_profile_version_id: string | null
+          id: string
+          new_note_id: string | null
+          new_parsed_profile: Json
+          resolution_choice: Json | null
+          resolution_status: string
+          resolved_at: string | null
+          resolved_by: string | null
+          user_id: string
+        }
+        Insert: {
+          conflicts?: Json
+          created_at?: string
+          existing_profile_version_id?: string | null
+          id?: string
+          new_note_id?: string | null
+          new_parsed_profile?: Json
+          resolution_choice?: Json | null
+          resolution_status?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id: string
+        }
+        Update: {
+          conflicts?: Json
+          created_at?: string
+          existing_profile_version_id?: string | null
+          id?: string
+          new_note_id?: string | null
+          new_parsed_profile?: Json
+          resolution_choice?: Json | null
+          resolution_status?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_merge_conflicts_existing_profile_version_id_fkey"
+            columns: ["existing_profile_version_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_profile_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_new_note_id_fkey"
+            columns: ["new_note_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_cluster_assignments"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           accessibility_prefs: Json | null
@@ -720,9 +1018,24 @@ export type Database = {
       }
     }
     Functions: {
+      create_profile_version: {
+        Args: {
+          p_change_reason?: string
+          p_created_by?: string
+          p_profile_data: Json
+          p_source_note_id?: string
+          p_source_type: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       end_session_server: {
         Args: { p_session_id: string; p_summary: Json }
         Returns: undefined
+      }
+      get_active_clinical_profile: {
+        Args: { p_user_id: string }
+        Returns: Json
       }
       get_cluster_assignments: {
         Args: never

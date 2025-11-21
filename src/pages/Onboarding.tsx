@@ -33,20 +33,8 @@ const Onboarding = () => {
 
   const handleClinicalProfileSubmit = async (profile: ClinicalProfile) => {
     setClinicalProfile(profile);
-    
-    if (user) {
-      try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ clinical_profile: profile as any })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-      } catch (error) {
-        console.error('Error saving clinical profile:', error);
-      }
-    }
-    
+    // The ClinicalProfileForm now handles version creation via useClinicalProfileVersions
+    // The create_profile_version function updates profiles.clinical_profile automatically
     setStep(step + 1);
   };
 
