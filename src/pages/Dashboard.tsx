@@ -26,7 +26,12 @@ import { OverviewTab } from "@/components/dashboard/OverviewTab";
 import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
 import { ClinicalTab } from "@/components/dashboard/ClinicalTab";
 import { QuickActionFAB } from "@/components/QuickActionFAB";
+import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 import { useRecoverySummary } from "@/hooks/useRecoverySummary";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useSwipeGesture } from "@/hooks/useSwipeGesture";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -52,6 +57,34 @@ const Dashboard = () => {
   const { lesson } = useDailyLesson(user?.id || undefined, clinicalProfile);
   const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
   const recoverySummary = getLatestSummary('progress');
+  const isMobile = useIsMobile();
+
+  // Pull to refresh
+  const { isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadDashboardData();
+      toast.success("Dashboard refreshed!");
+    },
+    enabled: isMobile,
+  });
+
+  // Swipe gestures for tab navigation
+  const tabs = ['overview', 'analytics', 'clinical'];
+  const currentTabIndex = tabs.indexOf(activeTab);
+
+  useSwipeGesture({
+    onSwipeLeft: () => {
+      if (currentTabIndex < tabs.length - 1) {
+        handleTabChange(tabs[currentTabIndex + 1]);
+      }
+    },
+    onSwipeRight: () => {
+      if (currentTabIndex > 0) {
+        handleTabChange(tabs[currentTabIndex - 1]);
+      }
+    },
+    enabled: isMobile,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -226,42 +259,51 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-calm">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Pull to Refresh Indicator */}
+      {isMobile && (
+        <PullToRefreshIndicator
+          pullDistance={pullDistance}
+          isRefreshing={isRefreshing}
+          pullProgress={pullProgress}
+        />
+      )}
+
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl touch-manipulation">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-start">
+        <div className="mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
               Welcome Back! 👋
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground">
               Ready to continue your recovery journey?
             </p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Button
               variant="outline"
               onClick={() => navigate("/clinical-documents")}
-              className="gap-2"
+              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
             >
               <FileText className="w-4 h-4" />
-              Documents
+              <span className="hidden sm:inline">Documents</span>
             </Button>
 
             <Button
               variant="outline"
               onClick={() => navigate("/photo-library")}
-              className="gap-2"
+              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
             >
               <Camera className="w-4 h-4" />
-              Photo Library
+              <span className="hidden sm:inline">Photo Library</span>
             </Button>
 
             <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]">
                   <Brain className="w-4 h-4" />
-                  {clinicalProfile ? 'Update Profile' : 'Set Clinical Profile'}
+                  <span className="hidden sm:inline">{clinicalProfile ? 'Update' : 'Set'} Profile</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -283,49 +325,49 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 onClick={() => navigate("/admin")}
-                className="gap-2"
+                className="gap-2 touch-manipulation min-h-[44px]"
               >
                 <Settings className="w-4 h-4" />
-                Admin Panel
+                <span className="hidden lg:inline">Admin</span>
               </Button>
             )}
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <Card className="p-6 shadow-card border-2 hover:border-primary transition-smooth">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-celebrate flex items-center justify-center">
-                <Flame className="w-6 h-6 text-white" />
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
+            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-celebrate flex items-center justify-center shrink-0">
+                <Flame className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
-              <div>
-                <div className="text-3xl font-bold text-foreground">{streak}</div>
-                <div className="text-sm text-muted-foreground">Day Streak 🔥</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 shadow-card border-2 hover:border-primary transition-smooth">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-healing flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-foreground">{totalReps}</div>
-                <div className="text-sm text-muted-foreground">Total Reps</div>
+              <div className="text-center md:text-left">
+                <div className="text-2xl md:text-3xl font-bold text-foreground">{streak}</div>
+                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Day Streak</div>
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 shadow-card border-2 hover:border-primary transition-smooth">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-success flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-white" />
+          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
+            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-healing flex items-center justify-center shrink-0">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
-              <div>
-                <div className="text-3xl font-bold text-foreground">{achievementCount}</div>
-                <div className="text-sm text-muted-foreground">Achievements</div>
+              <div className="text-center md:text-left">
+                <div className="text-2xl md:text-3xl font-bold text-foreground">{totalReps}</div>
+                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Total Reps</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
+            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-success flex items-center justify-center shrink-0">
+                <Trophy className="w-5 h-5 md:w-6 md:h-6 text-white" />
+              </div>
+              <div className="text-center md:text-left">
+                <div className="text-2xl md:text-3xl font-bold text-foreground">{achievementCount}</div>
+                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Wins</div>
               </div>
             </div>
           </Card>
