@@ -13,11 +13,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import type { ExerciseAdaptation } from '@/lib/exerciseGating';
+import { AdaptationBadges } from '@/components/AdaptationBadges';
 
 interface PhonologicalGameProps {
   totalTrials?: number;
   config: ExerciseConfig;
   bounds: DifficultyBounds;
+  adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -29,6 +32,7 @@ export const PhonologicalGame = ({
   totalTrials = 10,
   config,
   bounds,
+  adaptations,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -224,6 +228,11 @@ export const PhonologicalGame = ({
               </div>
             </div>
             <Progress value={game.progress} />
+            {adaptations && (
+              <div className="pt-2">
+                <AdaptationBadges adaptations={adaptations} />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

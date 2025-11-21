@@ -118,6 +118,7 @@ export default function PhonologicalExercise() {
           totalTrials={10}
           config={config}
           bounds={bounds}
+          adaptations={getAdaptations('phonological-awareness')}
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}
