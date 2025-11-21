@@ -1,18 +1,26 @@
+import { memo, useMemo, lazy, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useStandardizedAssessments, AssessmentType } from '@/hooks/useStandardizedAssessments';
 import { AddAssessmentDialog } from './AddAssessmentDialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { format } from 'date-fns';
+
+const LineChart = lazy(() => import('recharts').then(mod => ({ default: mod.LineChart })));
+const Line = lazy(() => import('recharts').then(mod => ({ default: mod.Line })));
+const XAxis = lazy(() => import('recharts').then(mod => ({ default: mod.XAxis })));
+const YAxis = lazy(() => import('recharts').then(mod => ({ default: mod.YAxis })));
+const CartesianGrid = lazy(() => import('recharts').then(mod => ({ default: mod.CartesianGrid })));
+const Tooltip = lazy(() => import('recharts').then(mod => ({ default: mod.Tooltip })));
+const ResponsiveContainer = lazy(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer })));
 
 interface AssessmentTrendsCardProps {
   userId: string;
 }
 
-export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
+export const AssessmentTrendsCard = memo(({ userId }: AssessmentTrendsCardProps) => {
   const { assessments, loading, addAssessment } = useStandardizedAssessments(userId);
 
   if (loading) {
@@ -32,14 +40,8 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
 
   const assessmentTypes: AssessmentType[] = ['WAB-R', 'BNT', 'NIHSS', 'ASHA-NOMS'];
 
-  // Group assessments by type
-  const groupedAssessments = assessmentTypes.map((type) => {
-    const typeAssessments = assessments.filter((a) => a.assessmentType === type);
-    return { type, assessments: typeAssessments };
-  });
-
   // Get primary score key for each assessment type
-  const getPrimaryScoreKey = (type: AssessmentType): string => {
+  const getPrimaryScoreKey = useMemo(() => (type: AssessmentType): string => {
     switch (type) {
       case 'WAB-R':
         return 'aphasia_quotient';
@@ -52,10 +54,19 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
       default:
         return 'total_score';
     }
-  };
+  }, []);
+
+  // Group assessments by type
+  const groupedAssessments = useMemo(() => 
+    assessmentTypes.map((type) => {
+      const typeAssessments = assessments.filter((a) => a.assessmentType === type);
+      return { type, assessments: typeAssessments };
+    }),
+    [assessments]
+  );
 
   // Prepare chart data for each assessment type
-  const getChartData = (type: AssessmentType) => {
+  const getChartData = useMemo(() => (type: AssessmentType) => {
     const typeAssessments = assessments
       .filter((a) => a.assessmentType === type)
       .sort((a, b) => new Date(a.assessmentDate).getTime() - new Date(b.assessmentDate).getTime());
@@ -67,10 +78,10 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
       fullDate: a.assessmentDate,
       score: a.scores[scoreKey] || 0,
     }));
-  };
+  }, [assessments, getPrimaryScoreKey]);
 
   // Calculate trend
-  const getTrend = (type: AssessmentType) => {
+  const getTrend = useMemo(() => (type: AssessmentType) => {
     const typeAssessments = assessments
       .filter((a) => a.assessmentType === type)
       .sort((a, b) => new Date(a.assessmentDate).getTime() - new Date(b.assessmentDate).getTime());
@@ -93,7 +104,7 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
     if (change > 2) return 'improving';
     if (change < -2) return 'declining';
     return 'stable';
-  };
+  }, [assessments, getPrimaryScoreKey]);
 
   const getTrendIcon = (trend: string | null) => {
     if (!trend) return <Minus className="w-4 h-4" />;
@@ -164,34 +175,36 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
               </div>
 
               {chartData.length > 1 && (
-                <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 12 }}
-                      className="text-muted-foreground"
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }}
-                      className="text-muted-foreground"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="score"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <Suspense fallback={<div className="h-[150px] w-full bg-muted animate-pulse rounded" />}>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        tick={{ fontSize: 12 }}
+                        className="text-muted-foreground"
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        className="text-muted-foreground"
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="score"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Suspense>
               )}
             </div>
           );
@@ -199,4 +212,6 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
       </CardContent>
     </Card>
   );
-};
+});
+
+AssessmentTrendsCard.displayName = 'AssessmentTrendsCard';

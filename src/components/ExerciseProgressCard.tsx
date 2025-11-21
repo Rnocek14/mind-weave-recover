@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ interface SessionStats {
   sessionDate: string;
 }
 
-export const ExerciseProgressCard = ({
+export const ExerciseProgressCard = memo(({
   userId,
   exerciseSlug,
   exerciseTitle,
@@ -235,10 +235,13 @@ export const ExerciseProgressCard = ({
     );
   }
 
-  const sessionDate = new Date(stats.sessionDate).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  const sessionDate = useMemo(() => 
+    new Date(stats.sessionDate).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
+    [stats.sessionDate]
+  );
 
   return (
     <Card className="p-6 shadow-card border-2 hover:border-primary transition-smooth group cursor-pointer"
@@ -324,4 +327,6 @@ export const ExerciseProgressCard = ({
       </div>
     </Card>
   );
-};
+});
+
+ExerciseProgressCard.displayName = 'ExerciseProgressCard';
