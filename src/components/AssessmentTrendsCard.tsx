@@ -23,23 +23,9 @@ interface AssessmentTrendsCardProps {
 export const AssessmentTrendsCard = memo(({ userId }: AssessmentTrendsCardProps) => {
   const { assessments, loading, addAssessment } = useStandardizedAssessments(userId);
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
-        </CardHeader>
-        <CardContent role="status" aria-live="polite">
-          <span className="sr-only">Loading assessment data...</span>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   const assessmentTypes: AssessmentType[] = ['WAB-R', 'BNT', 'NIHSS', 'ASHA-NOMS'];
 
+  // All hooks must be called unconditionally before any early returns
   // Get primary score key for each assessment type
   const getPrimaryScoreKey = useMemo(() => (type: AssessmentType): string => {
     switch (type) {
@@ -105,6 +91,21 @@ export const AssessmentTrendsCard = memo(({ userId }: AssessmentTrendsCardProps)
     if (change < -2) return 'declining';
     return 'stable';
   }, [assessments, getPrimaryScoreKey]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </CardHeader>
+        <CardContent role="status" aria-live="polite">
+          <span className="sr-only">Loading assessment data...</span>
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getTrendIcon = (trend: string | null) => {
     if (!trend) return <Minus className="w-4 h-4" />;
