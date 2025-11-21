@@ -34,6 +34,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { EXERCISES } from "@/data/exercises";
 import { DashboardProvider } from "@/contexts/DashboardContext";
+import { DashboardQuickTour } from "@/components/DashboardQuickTour";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -252,6 +253,8 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-calm">
+      <DashboardQuickTour />
+      
       {/* Pull to Refresh Indicator */}
       {isMobile && (
         <PullToRefreshIndicator
