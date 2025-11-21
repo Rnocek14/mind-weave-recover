@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ interface GoalLearningCorrelationCardProps {
   userId: string;
 }
 
-export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationCardProps) => {
+export const GoalLearningCorrelationCard = memo(({ userId }: GoalLearningCorrelationCardProps) => {
   const { correlations, loading } = useGoalLearningCorrelation(userId);
   const navigate = useNavigate();
 
@@ -169,4 +170,6 @@ export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationC
       </CardContent>
     </Card>
   );
-};
+});
+
+GoalLearningCorrelationCard.displayName = 'GoalLearningCorrelationCard';

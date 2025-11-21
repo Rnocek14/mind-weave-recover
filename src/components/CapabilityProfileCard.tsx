@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -13,7 +14,7 @@ interface CapabilityProfileCardProps {
   onStartAssessment: () => void;
 }
 
-export const CapabilityProfileCard = ({ 
+export const CapabilityProfileCard = memo(({ 
   userId, 
   currentAssessment,
   previousAssessment,
@@ -22,7 +23,10 @@ export const CapabilityProfileCard = ({
   const { progression, loading, getTrend, hasMultipleAssessments } = useCapabilityProgression(userId);
   
   // Detect significant score drops
-  const drops = getSignificantDrops(currentAssessment, previousAssessment);
+  const drops = useMemo(
+    () => getSignificantDrops(currentAssessment, previousAssessment),
+    [currentAssessment, previousAssessment]
+  );
 
   if (loading) {
     return (
@@ -76,14 +80,18 @@ export const CapabilityProfileCard = ({
   const motorScore = currentAssessment.motor_score || 0;
   const attentionScore = currentAssessment.attention_score || 0;
 
-  const assessmentDate = new Date(currentAssessment.assessed_at).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const assessmentDate = useMemo(
+    () => new Date(currentAssessment.assessed_at).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+    [currentAssessment.assessed_at]
+  );
 
-  const daysAgo = Math.round(
-    (Date.now() - new Date(currentAssessment.assessed_at).getTime()) / (1000 * 60 * 60 * 24)
+  const daysAgo = useMemo(
+    () => Math.round((Date.now() - new Date(currentAssessment.assessed_at).getTime()) / (1000 * 60 * 60 * 24)),
+    [currentAssessment.assessed_at]
   );
 
   return (
@@ -237,4 +245,6 @@ export const CapabilityProfileCard = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+CapabilityProfileCard.displayName = 'CapabilityProfileCard';

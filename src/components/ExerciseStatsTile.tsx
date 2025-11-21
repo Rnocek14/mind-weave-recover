@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -10,7 +11,7 @@ interface ExerciseStatsTileProps {
   exerciseTitle: string;
 }
 
-export const ExerciseStatsTile = ({
+export const ExerciseStatsTile = memo(({
   userId,
   exerciseSlug,
   exerciseTitle,
@@ -93,4 +94,6 @@ export const ExerciseStatsTile = ({
       )}
     </Card>
   );
-};
+});
+
+ExerciseStatsTile.displayName = 'ExerciseStatsTile';

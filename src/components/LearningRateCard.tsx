@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,12 +12,15 @@ interface LearningRateCardProps {
   timeWindow?: number; // Default to 14 days
 }
 
-export const LearningRateCard = ({ 
+export const LearningRateCard = memo(({ 
   learningRates, 
   clusterComparisons, 
   timeWindow = 14 
 }: LearningRateCardProps) => {
-  const filteredRates = learningRates.filter(lr => lr.window === timeWindow);
+  const filteredRates = useMemo(
+    () => learningRates.filter(lr => lr.window === timeWindow),
+    [learningRates, timeWindow]
+  );
   
   if (filteredRates.length === 0) {
     return (
@@ -198,4 +202,6 @@ export const LearningRateCard = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+LearningRateCard.displayName = 'LearningRateCard';
