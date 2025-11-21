@@ -12,11 +12,17 @@ import { Separator } from '@/components/ui/separator';
 import { FileText, Upload, CheckCircle2, AlertCircle, Clock, Sparkles, Calendar, ArrowLeft, Trash2, History } from 'lucide-react';
 import { useClinicalNotes, CreateNoteParams } from '@/hooks/useClinicalNotes';
 import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
+import { useMergeConflicts } from '@/hooks/useMergeConflicts';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  detectProfileConflicts, 
+  autoMergeProfiles, 
+  generateConflictSummary 
+} from '@/lib/profileConflictDetector';
 
 const NOTE_TYPE_LABELS = {
   mri_report: 'MRI Report',
@@ -43,7 +49,8 @@ export default function ClinicalDocuments() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fetchNotes, createNote, updateNoteWithParseResults, deleteNote, isLoading } = useClinicalNotes(user?.id);
-  const { createVersion } = useClinicalProfileVersions(user?.id);
+  const { createVersion, getActiveProfile } = useClinicalProfileVersions(user?.id);
+  const { createConflictRecord } = useMergeConflicts(user?.id);
   
   const [notes, setNotes] = useState<any[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -105,21 +112,99 @@ export default function ClinicalDocuments() {
           confidence
         );
 
-        // Step 4: Create a new profile version
-        await createVersion(
-          data.profile,
-          'note_parsing',
-          {
-            sourceNoteId: note.id,
-            changeReason: `Parsed from ${NOTE_TYPE_LABELS[noteType]} dated ${format(new Date(documentDate), 'MMM d, yyyy')}`,
-            confidence: confidence,
-          }
-        );
+        // Step 4: Get active profile for conflict detection
+        const activeProfile = await getActiveProfile();
 
-        toast({
-          title: 'Document uploaded and parsed',
-          description: 'Clinical profile has been updated with new information',
-        });
+        if (activeProfile && activeProfile.profile_data) {
+          // Step 5: Detect conflicts
+          const conflictResult = detectProfileConflicts(
+            activeProfile.profile_data,
+            data.profile
+          );
+
+          if (conflictResult.hasConflicts) {
+            // Create conflict record
+            await createConflictRecord(
+              activeProfile.id,
+              note.id,
+              data.profile,
+              conflictResult
+            );
+
+            // Show conflict notification
+            const conflictSummary = generateConflictSummary(conflictResult);
+            
+            toast({
+              title: '⚠️ Profile Conflicts Detected',
+              description: conflictSummary,
+              variant: conflictResult.recommendation === 'manual_resolution_required' ? 'destructive' : 'default',
+              duration: 8000,
+            });
+
+            // If safe to auto-merge, do it
+            if (conflictResult.safeToAutoMerge && conflictResult.recommendation === 'auto_merge') {
+              const mergedProfile = autoMergeProfiles(
+                activeProfile.profile_data,
+                data.profile,
+                conflictResult
+              );
+
+              await createVersion(
+                mergedProfile,
+                'merge',
+                {
+                  sourceNoteId: note.id,
+                  changeReason: `Auto-merged from ${NOTE_TYPE_LABELS[noteType]} with ${conflictResult.conflicts.length} low-priority conflicts resolved automatically`,
+                  confidence: confidence,
+                }
+              );
+
+              toast({
+                title: '✓ Auto-merged successfully',
+                description: 'Conflicts were automatically resolved and merged into your profile',
+              });
+            } else {
+              // Conflicts require manual review - don't create version yet
+              toast({
+                title: 'Manual review required',
+                description: 'Please review and resolve conflicts before merging. Go to Merge Conflicts page.',
+                variant: 'default',
+              });
+            }
+          } else {
+            // No conflicts - create version normally
+            await createVersion(
+              data.profile,
+              'note_parsing',
+              {
+                sourceNoteId: note.id,
+                changeReason: `Parsed from ${NOTE_TYPE_LABELS[noteType]} dated ${format(new Date(documentDate), 'MMM d, yyyy')}`,
+                confidence: confidence,
+              }
+            );
+
+            toast({
+              title: 'Document uploaded and parsed',
+              description: 'Clinical profile has been updated with new information',
+            });
+          }
+        } else {
+          // No existing profile - create initial version
+          await createVersion(
+            data.profile,
+            'initial_onboarding',
+            {
+              sourceNoteId: note.id,
+              changeReason: `Initial profile from ${NOTE_TYPE_LABELS[noteType]}`,
+              confidence: confidence,
+            }
+          );
+
+          toast({
+            title: 'Initial profile created',
+            description: 'Clinical profile has been created from uploaded document',
+          });
+        }
 
         // Reset form and close dialog
         setRawText('');
