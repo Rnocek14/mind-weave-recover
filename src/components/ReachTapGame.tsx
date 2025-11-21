@@ -196,7 +196,7 @@ export const ReachTapGame = ({
     updateTrial(true);
     checkAndAdjust();
 
-    // Log telemetry
+    // Log telemetry (Note: ReachTap adaptations handled by parent component)
     onTrialComplete({
       correct: true,
       reactionTimeMs: reactionTime,

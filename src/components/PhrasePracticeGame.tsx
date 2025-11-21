@@ -221,7 +221,7 @@ export const PhrasePracticeGame = ({
     // Update adaptive difficulty tracking
     updateTrial(true);
     
-    // Log trial
+    // Log trial (Note: Phrase practice adaptations tracked separately via cueLevel)
     onTrialComplete?.({
       correct: true,
       timeMs: reactionTime,
