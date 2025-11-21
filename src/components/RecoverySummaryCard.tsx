@@ -19,6 +19,7 @@ import { useRecoverySummary, SummaryType } from '@/hooks/useRecoverySummary';
 import { formatDistanceToNow } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RecoverySummaryLoadingState } from './RecoverySummaryLoadingState';
+import { RecoverySummaryErrorState } from './RecoverySummaryErrorState';
 
 interface RecoverySummaryCardProps {
   userId: string;
@@ -40,14 +41,17 @@ export const RecoverySummaryCard = ({
     generating, 
     generateSummary, 
     needsRegeneration,
-    loading 
+    loading,
+    error 
   } = useRecoverySummary(userId, summaryType);
 
   const [isExpanded, setIsExpanded] = useState(true);
+  const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
   const summary = getLatestSummary(summaryType);
   const needsUpdate = needsRegeneration(summary);
 
   const handleGenerate = async () => {
+    setHasAttemptedGeneration(true);
     await generateSummary(summaryType);
   };
 
@@ -92,6 +96,19 @@ export const RecoverySummaryCard = ({
         title={title}
         description={description}
         summaryType={summaryType}
+      />
+    );
+  }
+
+  // Show error state if generation failed and user has attempted to generate
+  if (error && hasAttemptedGeneration && !summary) {
+    return (
+      <RecoverySummaryErrorState
+        title={title}
+        description={description}
+        error={error}
+        onRetry={handleGenerate}
+        isRetrying={generating}
       />
     );
   }

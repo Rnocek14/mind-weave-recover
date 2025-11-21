@@ -67,7 +67,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
     }
 
     setGenerating(true);
-    setError(null);
+    setError(null); // Clear previous errors
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke(
@@ -95,6 +95,9 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
         description: `Your ${type} summary has been created successfully.`,
       });
 
+      // Clear error state on success
+      setError(null);
+      
       // Refresh summaries list
       await fetchSummaries();
 
@@ -103,27 +106,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
       const error = err as Error;
       setError(error);
       
-      // Handle specific error cases
-      if (error.message.includes('Rate limit')) {
-        toast({
-          title: "Rate Limit Exceeded",
-          description: "Please wait a moment before generating another summary.",
-          variant: "destructive",
-        });
-      } else if (error.message.includes('payment') || error.message.includes('credits')) {
-        toast({
-          title: "Service Unavailable",
-          description: "AI service requires credits. Please contact support.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Generation Failed",
-          description: error.message || "Failed to generate summary. Please try again.",
-          variant: "destructive",
-        });
-      }
-      
+      // Handle specific error cases - Don't show toast, let UI handle it
       console.error('Error generating recovery summary:', error);
       return null;
     } finally {
