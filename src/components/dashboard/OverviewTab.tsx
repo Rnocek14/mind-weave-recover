@@ -15,7 +15,9 @@ import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { RedFlagAlerts } from "@/components/RedFlagAlerts";
+import { ExerciseCarousel } from "@/components/ExerciseCarousel";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { 
   ProgressCardSkeleton, 
@@ -56,6 +58,7 @@ export function OverviewTab({
   onStartAssessment
 }: OverviewTabProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   // Progressive loading states
   const [showProgress, setShowProgress] = useState(false);
@@ -200,7 +203,7 @@ export function OverviewTab({
       {/* Recommended Exercises */}
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">
+          <h2 className="text-xl md:text-2xl font-semibold">
             {clinicalProfile ? 'Recommended Exercises' : "Today's Exercises"}
           </h2>
           {clinicalProfile && (
@@ -212,7 +215,7 @@ export function OverviewTab({
         </div>
         
         {showExercises && (
-          <div className="animate-fade-in">
+          <div className="animate-fade-in mb-4">
             <CapabilityGatingInfo
               hasAssessment={hasAssessment}
               lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
@@ -227,15 +230,31 @@ export function OverviewTab({
           </div>
         )}
         
-        <div className="grid md:grid-cols-3 gap-4">
-          {!showExercises ? (
-            <>
-              <ExerciseCardSkeleton delay={0} />
-              <ExerciseCardSkeleton delay={100} />
-              <ExerciseCardSkeleton delay={200} />
-            </>
-          ) : (
-            recommendedExercises.map((exercise, index) => {
+        {!showExercises ? (
+          <div className="grid md:grid-cols-3 gap-4">
+            <ExerciseCardSkeleton delay={0} />
+            <ExerciseCardSkeleton delay={100} />
+            <ExerciseCardSkeleton delay={200} />
+          </div>
+        ) : isMobile ? (
+          <div className="animate-fade-in">
+            <ExerciseCarousel
+              exercises={recommendedExercises}
+              onStartExercise={(slug) => navigate(`/exercise/${slug}`)}
+              gatingInfo={Object.fromEntries(
+                recommendedExercises.map((ex) => {
+                  const accessCheck = checkExerciseAccess(ex.id);
+                  return [ex.id, {
+                    blocked: !accessCheck.accessible,
+                    reason: accessCheck.reason,
+                  }];
+                })
+              )}
+            />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-4 animate-fade-in">
+            {recommendedExercises.map((exercise, index) => {
             const Icon = exercise.icon;
             const recommendation = recommendations.find(r => r.slug === exercise.id);
             const accessCheck = checkExerciseAccess(exercise.id);
@@ -318,9 +337,9 @@ export function OverviewTab({
                 </div>
               </Card>
             );
-          })
-          )}
-        </div>
+          })}
+          </div>
+        )}
       </div>
     </div>
   );
