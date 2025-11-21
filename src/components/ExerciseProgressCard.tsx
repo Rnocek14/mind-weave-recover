@@ -286,13 +286,18 @@ export const ExerciseProgressCard = ({
           </div>
 
           {stats.weakestArea !== "Not enough data" && (
-            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mb-4">
-              <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Weakest area
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700 text-xs font-semibold">
+                    Needs Attention
+                  </Badge>
+                </div>
+                <p className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-1">
+                  Weakest area identified
                 </p>
-                <p className="text-sm font-medium">{stats.weakestArea}</p>
+                <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">{stats.weakestArea}</p>
               </div>
             </div>
           )}

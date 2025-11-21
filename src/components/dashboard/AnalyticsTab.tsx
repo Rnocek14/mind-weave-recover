@@ -1,7 +1,9 @@
 import { useState, useEffect, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Volume2, List, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Lightbulb, Volume2, List, History, MessageSquare, Hand, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { LearningRateCard } from "@/components/LearningRateCard";
@@ -13,7 +15,7 @@ import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { ExerciseProgressCard } from "@/components/ExerciseProgressCard";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
-import { AnalyticsCardSkeleton } from "./DashboardSkeletons";
+import { AnalyticsCardSkeleton, ExerciseProgressCardSkeleton, ExerciseStatsTileSkeleton } from "./DashboardSkeletons";
 
 export const AnalyticsTab = memo(function AnalyticsTab() {
   const {
@@ -148,16 +150,42 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
       {/* Language Recovery Progress */}
       {!showExercises ? (
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <MessageSquare className="w-6 h-6 text-primary" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Language Recovery Progress</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger aria-label="Information about language recovery progress">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Track your progress across speech and language exercises. Data appears once you complete sessions.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="grid md:grid-cols-3 gap-4">
-            <AnalyticsCardSkeleton delay={0} />
-            <AnalyticsCardSkeleton delay={100} />
-            <AnalyticsCardSkeleton delay={200} />
+            <ExerciseProgressCardSkeleton delay={0} />
+            <ExerciseProgressCardSkeleton delay={100} />
+            <ExerciseProgressCardSkeleton delay={200} />
           </div>
         </div>
       ) : (
         <div className="animate-fade-in">
-          <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <MessageSquare className="w-6 h-6 text-primary" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Language Recovery Progress</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger aria-label="Information about language recovery progress">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Track your progress across speech and language exercises. Data appears once you complete sessions.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="grid md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <ExerciseProgressCard
@@ -167,14 +195,24 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={Lightbulb}
               targets="word-finding, semantic errors"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/analytics/semantic")}
-              className="w-full"
-            >
-              View Detailed Analytics
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/analytics/semantic")}
+                    className="w-full min-h-[44px] md:min-h-[40px]"
+                    aria-label="View detailed semantic feature analytics"
+                  >
+                    View Detailed Analytics
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>View category-by-category analysis, abstractness patterns, and semantic error trends</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="space-y-2">
             <ExerciseProgressCard
@@ -184,14 +222,24 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={Volume2}
               targets="phonemic paraphasias, sound discrimination"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/analytics/phoneme")}
-              className="w-full"
-            >
-              View Detailed Analytics
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/analytics/phoneme")}
+                    className="w-full min-h-[44px] md:min-h-[40px]"
+                    aria-label="View detailed phoneme analytics"
+                  >
+                    View Detailed Analytics
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>View phoneme-by-phoneme accuracy, sound confusion patterns, and discrimination trends</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="space-y-2">
             <ExerciseProgressCard
@@ -201,14 +249,24 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={List}
               targets="syntax, grammar, word order"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/analytics/grammar")}
-              className="w-full"
-            >
-              View Detailed Analytics
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/analytics/grammar")}
+                    className="w-full min-h-[44px] md:min-h-[40px]"
+                    aria-label="View detailed grammar analytics"
+                  >
+                    View Detailed Analytics
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>View grammar error patterns, syntax accuracy, word order analysis, and sentence complexity trends</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         </div>
@@ -217,15 +275,41 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
       {/* Motor Performance */}
       {!showExercises ? (
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <Hand className="w-6 h-6 text-primary" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Motor Performance</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger aria-label="Information about motor performance">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Monitor motor control and coordination progress through tapping and naming exercises.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <AnalyticsCardSkeleton delay={0} />
-            <AnalyticsCardSkeleton delay={100} />
+            <ExerciseStatsTileSkeleton delay={0} />
+            <ExerciseStatsTileSkeleton delay={100} />
           </div>
         </div>
       ) : (
         <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
-          <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <Hand className="w-6 h-6 text-primary" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Motor Performance</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger aria-label="Information about motor performance">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Monitor motor control and coordination progress through tapping and naming exercises.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
           <ExerciseStatsTile
             userId={userId}
