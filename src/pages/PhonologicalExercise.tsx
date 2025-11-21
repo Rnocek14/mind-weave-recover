@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhonologicalGame } from '@/components/PhonologicalGame';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
-import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
+import { useExerciseConfig } from '@/hooks/useExerciseConfig';
+import { useExerciseGating } from '@/hooks/useExerciseGating';
+import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
@@ -15,7 +18,34 @@ export default function PhonologicalExercise() {
   const { toast } = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
-  const { level, bounds } = useExerciseDifficulty(user?.id, 'phonological-awareness');
+  const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+
+  // Fetch clinical profile
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const fetchProfile = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('clinical_profile')
+        .eq('user_id', user.id)
+        .single();
+      
+      setClinicalProfile(data?.clinical_profile);
+    };
+    
+    fetchProfile();
+  }, [user?.id]);
+
+  // Get merged exercise config with capability adaptations
+  const { config, hasCapabilityAdaptations, bounds } = useExerciseConfig(
+    'phonological-awareness',
+    user?.id,
+    clinicalProfile,
+    null
+  );
+  
+  const { getAdaptations } = useExerciseGating(user?.id);
 
   const handleGameStart = async () => {
     if (!user?.id) return;
@@ -72,13 +102,22 @@ export default function PhonologicalExercise() {
               </p>
             </div>
           </div>
-          <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
+          <DifficultyInfoBadge level={config.startDifficulty || 1} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
+
+        {/* Capability Adaptation Banner */}
+        {hasCapabilityAdaptations && (
+          <ExerciseAdaptationBanner 
+            adaptation={getAdaptations('phonological-awareness')} 
+            showDetails={true}
+          />
+        )}
 
         {/* Game */}
         <PhonologicalGame
           totalTrials={10}
-          initialDifficulty={1}
+          config={config}
+          bounds={bounds}
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}

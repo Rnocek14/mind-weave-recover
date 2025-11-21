@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import {
   CheckCircle2,
   XCircle,
@@ -17,7 +19,8 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { cn } from "@/lib/utils";
 
 interface SentenceConstructionGameProps {
-  difficultyLevel: number;
+  config: ExerciseConfig;
+  bounds: DifficultyBounds;
   onTrialComplete?: (data: {
     correct: boolean;
     reactionTime: number;
@@ -28,10 +31,12 @@ interface SentenceConstructionGameProps {
 }
 
 export const SentenceConstructionGame = ({
-  difficultyLevel,
+  config,
+  bounds,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
+  const difficultyLevel = config.startDifficulty || 1;
   const {
     currentTrial,
     trials,

@@ -11,10 +11,13 @@ import { Progress } from '@/components/ui/progress';
 import { Check, X, Volume2, Ear, Sparkles, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface PhonologicalGameProps {
   totalTrials?: number;
-  initialDifficulty?: number;
+  config: ExerciseConfig;
+  bounds: DifficultyBounds;
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -24,14 +27,16 @@ interface PhonologicalGameProps {
 
 export const PhonologicalGame = ({
   totalTrials = 10,
-  initialDifficulty = 1,
+  config,
+  bounds,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
   userId,
   sessionId,
 }: PhonologicalGameProps) => {
-  const { level: difficulty, saveLevel } = useExerciseDifficulty(
+  const difficulty = config.startDifficulty || 1;
+  const { saveLevel } = useExerciseDifficulty(
     userId,
     'phonological-awareness'
   );
@@ -43,8 +48,15 @@ export const PhonologicalGame = ({
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
   
-  const game = usePhonoGame(totalTrials, difficulty || initialDifficulty);
-  const adaptiveController = useRef(new AdaptiveDifficultyController(5, 0.80, 0.15));
+  const game = usePhonoGame(totalTrials, difficulty);
+  const adaptiveController = useRef(
+    new AdaptiveDifficultyController(
+      5,           // windowSize
+      0.80,        // targetSuccessRate
+      0.15,        // adjustmentThreshold
+      bounds       // initialBounds
+    )
+  );
   
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);

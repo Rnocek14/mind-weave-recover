@@ -11,10 +11,13 @@ import { Check, X, Brain, Sparkles, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { PHOTO_BANK } from '@/data/photoBank';
+import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface SemanticFeatureGameProps {
   totalTrials?: number;
-  initialDifficulty?: number;
+  config: ExerciseConfig;
+  bounds: DifficultyBounds;
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -24,14 +27,16 @@ interface SemanticFeatureGameProps {
 
 export const SemanticFeatureGame = ({
   totalTrials = 10,
-  initialDifficulty = 1,
+  config,
+  bounds,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
   userId,
   sessionId,
 }: SemanticFeatureGameProps) => {
-  const { level: difficulty, saveLevel } = useExerciseDifficulty(
+  const difficulty = config.startDifficulty || 1;
+  const { saveLevel } = useExerciseDifficulty(
     userId,
     'semantic-features'
   );
@@ -42,8 +47,15 @@ export const SemanticFeatureGame = ({
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   
-  const game = useSemanticFeatureGame(totalTrials, difficulty || initialDifficulty);
-  const adaptiveController = useRef(new AdaptiveDifficultyController(5, 0.80, 0.15));
+  const game = useSemanticFeatureGame(totalTrials, difficulty);
+  const adaptiveController = useRef(
+    new AdaptiveDifficultyController(
+      5,           // windowSize
+      0.80,        // targetSuccessRate
+      0.15,        // adjustmentThreshold
+      bounds       // initialBounds
+    )
+  );
   
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
