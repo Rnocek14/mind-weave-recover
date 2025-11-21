@@ -48,6 +48,7 @@ const Dashboard = () => {
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showCapabilityAssessment, setShowCapabilityAssessment] = useState(false);
+  const [showQuickTour, setShowQuickTour] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('dashboard-active-tab') || 'overview';
   });
@@ -253,7 +254,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-calm">
-      <DashboardQuickTour />
+      <DashboardQuickTour open={showQuickTour} onOpenChange={setShowQuickTour} />
       
       {/* Pull to Refresh Indicator */}
       {isMobile && (
@@ -430,6 +431,7 @@ const Dashboard = () => {
       <QuickActionFAB
         activeTab={activeTab}
         onStartAssessment={() => setShowCapabilityAssessment(true)}
+        onShowTour={() => setShowQuickTour(true)}
         recommendedExercises={recommendedExercises}
         hasRecoverySummary={!!recoverySummary}
       />
