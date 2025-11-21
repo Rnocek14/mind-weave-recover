@@ -152,37 +152,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleProfileSubmit = async (profile: ClinicalProfile) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ clinical_profile: profile as any })
-        .eq('user_id', user!.id);
-
-      if (error) throw error;
-
-      setClinicalProfile(profile);
-      setShowProfileDialog(false);
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error saving clinical profile:', error);
-    }
-  };
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    localStorage.setItem('dashboard-active-tab', value);
-  };
-
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Memoize computed values for performance
+  // Memoize computed values for performance - MUST be before any conditional returns
   const recommendations = useMemo(
     () => clinicalProfile ? getExerciseRecommendations(clinicalProfile) : [],
     [clinicalProfile]
@@ -249,6 +219,36 @@ const Dashboard = () => {
     previousAssessment,
     recentAchievements
   ]);
+
+  const handleProfileSubmit = async (profile: ClinicalProfile) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ clinical_profile: profile as any })
+        .eq('user_id', user!.id);
+
+      if (error) throw error;
+
+      setClinicalProfile(profile);
+      setShowProfileDialog(false);
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error saving clinical profile:', error);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    localStorage.setItem('dashboard-active-tab', value);
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-calm">
