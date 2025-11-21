@@ -40,6 +40,8 @@ import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
+import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
+import { StrokeEducationPanel } from "@/components/StrokeEducationPanel";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -441,6 +443,52 @@ const Dashboard = () => {
         {user && (
           <div className="mb-8">
             <AssessmentTrendsCard userId={user.id} />
+          </div>
+        )}
+
+        {/* AI Recovery Summaries */}
+        {user && (
+          <div className="mb-8 space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
+              <Badge variant="secondary" className="gap-1">
+                <Lightbulb className="w-3 h-3" />
+                AI-Powered
+              </Badge>
+            </div>
+            
+            <div className="grid lg:grid-cols-2 gap-6">
+              <RecoverySummaryCard
+                userId={user.id}
+                summaryType="progress"
+                title="Your Progress Journey"
+                description="AI analysis of your recovery trajectory, what's working, and areas of focus"
+                autoGenerate={true}
+              />
+              
+              <RecoverySummaryCard
+                userId={user.id}
+                summaryType="education"
+                title="Understanding Your Stroke"
+                description="Plain-language explanation of your stroke and its effects"
+                autoGenerate={true}
+              />
+            </div>
+
+            {/* Additional education panel for detailed impairment breakdown */}
+            {clinicalProfile && (
+              <div className="mt-6">
+                <StrokeEducationPanel
+                  strokeLocation={
+                    Array.isArray(clinicalProfile.stroke_location)
+                      ? clinicalProfile.stroke_location.join(', ')
+                      : clinicalProfile.stroke_location || undefined
+                  }
+                  affectedSide={clinicalProfile.affected_side || undefined}
+                  impairments={clinicalProfile.impairments}
+                />
+              </div>
+            )}
           </div>
         )}
 
