@@ -23,6 +23,7 @@ import {
   autoMergeProfiles, 
   generateConflictSummary 
 } from '@/lib/profileConflictDetector';
+import { useRecoverySummary } from '@/hooks/useRecoverySummary';
 
 const NOTE_TYPE_LABELS = {
   mri_report: 'MRI Report',
@@ -51,6 +52,7 @@ export default function ClinicalDocuments() {
   const { fetchNotes, createNote, updateNoteWithParseResults, deleteNote, isLoading } = useClinicalNotes(user?.id);
   const { createVersion, getActiveProfile } = useClinicalProfileVersions(user?.id);
   const { createConflictRecord } = useMergeConflicts(user?.id);
+  const { generateSummary } = useRecoverySummary(user?.id);
   
   const [notes, setNotes] = useState<any[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -69,6 +71,29 @@ export default function ClinicalDocuments() {
   const loadNotes = async () => {
     const data = await fetchNotes();
     setNotes(data);
+  };
+
+  const regenerateSummaries = async (reason: string) => {
+    if (!user?.id) return;
+
+    console.log(`Regenerating recovery summaries: ${reason}`);
+    
+    try {
+      // Regenerate both progress and education summaries in parallel
+      await Promise.all([
+        generateSummary('progress'),
+        generateSummary('education')
+      ]);
+
+      toast({
+        title: 'AI Summaries Updated',
+        description: 'Your recovery summaries have been regenerated with the latest clinical data',
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Error regenerating summaries:', error);
+      // Don't show error toast - summaries are a nice-to-have
+    }
   };
 
   const handleUploadAndParse = async () => {
@@ -163,6 +188,9 @@ export default function ClinicalDocuments() {
                 title: '✓ Auto-merged successfully',
                 description: 'Conflicts were automatically resolved and merged into your profile',
               });
+
+              // Regenerate AI summaries after profile update
+              await regenerateSummaries('Profile updated via auto-merge');
             } else {
               // Conflicts require manual review - don't create version yet
               toast({
@@ -187,6 +215,9 @@ export default function ClinicalDocuments() {
               title: 'Document uploaded and parsed',
               description: 'Clinical profile has been updated with new information',
             });
+
+            // Regenerate AI summaries after profile update
+            await regenerateSummaries('New clinical note parsed');
           }
         } else {
           // No existing profile - create initial version
@@ -204,6 +235,9 @@ export default function ClinicalDocuments() {
             title: 'Initial profile created',
             description: 'Clinical profile has been created from uploaded document',
           });
+
+          // Regenerate AI summaries after initial profile creation
+          await regenerateSummaries('Initial clinical profile created');
         }
 
         // Reset form and close dialog
