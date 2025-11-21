@@ -25,6 +25,7 @@ import ResearchExport from "./pages/ResearchExport";
 import ClusterAnalytics from "./pages/ClusterAnalytics";
 import PhotoLibrary from "./pages/PhotoLibrary";
 import PhotoNamingExercise from "./pages/PhotoNamingExercise";
+import ClinicalDocuments from "./pages/ClinicalDocuments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="/history" element={<History />} />
           <Route path="/photo-library" element={<PhotoLibrary />} />
           <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
+          <Route path="/clinical-documents" element={<ClinicalDocuments />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
