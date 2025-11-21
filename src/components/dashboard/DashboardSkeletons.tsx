@@ -6,7 +6,10 @@ export function StatCardSkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading statistics...</span>
       <div className="flex items-center gap-4">
         <Skeleton className="w-12 h-12 rounded-full" />
         <div className="space-y-2 flex-1">
@@ -23,7 +26,10 @@ export function ProgressCardSkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading progress data...</span>
       <div className="flex justify-between items-center mb-4">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-5 w-12" />
@@ -39,7 +45,10 @@ export function RecoverySummarySkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading recovery summary...</span>
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Skeleton className="h-6 w-48" />
@@ -63,7 +72,10 @@ export function ExerciseCardSkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading exercise card...</span>
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <Skeleton className="w-14 h-14 rounded-full" />
@@ -86,7 +98,10 @@ export function AnalyticsCardSkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading analytics...</span>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <Skeleton className="h-6 w-40" />
@@ -115,7 +130,10 @@ export function ClinicalProfileSkeleton({ delay = 0 }: { delay?: number }) {
     <Card 
       className="p-6 shadow-card animate-fade-in"
       style={{ animationDelay: `${delay}ms` }}
+      role="status"
+      aria-live="polite"
     >
+      <span className="sr-only">Loading clinical profile...</span>
       <div className="space-y-6">
         <div>
           <Skeleton className="h-7 w-48 mb-4" />

@@ -3,6 +3,7 @@ import { useStandardizedAssessments, AssessmentType } from '@/hooks/useStandardi
 import { AddAssessmentDialog } from './AddAssessmentDialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { format } from 'date-fns';
@@ -21,7 +22,8 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-64 mt-2" />
         </CardHeader>
-        <CardContent>
+        <CardContent role="status" aria-live="polite">
+          <span className="sr-only">Loading assessment data...</span>
           <Skeleton className="h-64 w-full" />
         </CardContent>
       </Card>
@@ -119,7 +121,7 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5" />
+              <Activity className="w-5 h-5" aria-hidden="true" />
               Standardized Assessments
             </CardTitle>
             <CardDescription>
@@ -131,11 +133,12 @@ export const AssessmentTrendsCard = ({ userId }: AssessmentTrendsCardProps) => {
       </CardHeader>
       <CardContent className="space-y-6">
         {!hasAnyData && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No assessments recorded yet</p>
-            <p className="text-xs mt-1">Add baseline assessments to track clinical outcomes</p>
-          </div>
+          <EmptyState
+            icon={Activity}
+            title="No assessments recorded yet"
+            description="Add baseline assessments to track clinical outcomes over time. Use the 'Add Assessment' button above to get started."
+            variant="info"
+          />
         )}
 
         {groupedAssessments.map(({ type, assessments: typeAssessments }) => {

@@ -1,7 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { TrendingUp, TrendingDown, Minus, Target, Brain } from 'lucide-react';
 import { useGoalLearningCorrelation } from '@/hooks/useGoalLearningCorrelation';
+import { useNavigate } from 'react-router-dom';
 
 interface GoalLearningCorrelationCardProps {
   userId: string;
@@ -9,6 +12,7 @@ interface GoalLearningCorrelationCardProps {
 
 export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationCardProps) => {
   const { correlations, loading } = useGoalLearningCorrelation(userId);
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -16,7 +20,8 @@ export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationC
         <CardHeader>
           <CardTitle>Goal & Learning Correlation</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent role="status" aria-live="polite">
+          <span className="sr-only">Loading correlation data...</span>
           <div className="space-y-3">
             {[1, 2].map((i) => (
               <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
@@ -32,7 +37,7 @@ export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationC
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
+            <Brain className="h-5 w-5" aria-hidden="true" />
             Goal & Learning Correlation
           </CardTitle>
           <CardDescription>
@@ -40,9 +45,15 @@ export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationC
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-6 text-muted-foreground">
-            <p className="text-sm">Complete some exercises and rate your goals to see correlations.</p>
-          </div>
+          <EmptyState
+            icon={Target}
+            description="Track goal progress and complete sessions to see correlations here. Add a goal to get started."
+            variant="info"
+            action={{
+              label: "Add Your First Goal",
+              onClick: () => navigate('/dashboard')
+            }}
+          />
         </CardContent>
       </Card>
     );
@@ -86,7 +97,7 @@ export const GoalLearningCorrelationCard = ({ userId }: GoalLearningCorrelationC
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
+          <Brain className="h-5 w-5" aria-hidden="true" />
           Goal & Learning Correlation
         </CardTitle>
         <CardDescription>
