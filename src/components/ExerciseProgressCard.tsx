@@ -220,18 +220,12 @@ export const ExerciseProgressCard = ({
             <p className="text-sm text-muted-foreground mb-3">
               Targets: {targets}
             </p>
-            <p className="text-sm text-muted-foreground italic">
-              No sessions yet
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 gap-2"
-              onClick={() => navigate(`/exercise/${exerciseSlug}`)}
-            >
-              Start First Session
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg mt-4">
+              <AlertCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground">
+                Complete sessions to track progress here. Start from the Overview tab.
+              </p>
+            </div>
           </div>
         </div>
       </Card>
