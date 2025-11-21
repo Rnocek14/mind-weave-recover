@@ -51,15 +51,25 @@ export const CapabilityGatingInfo = memo(function CapabilityGatingInfo({
     <Alert className="mb-6 border-primary/50 bg-primary/5">
       <Shield className="h-4 w-4 text-primary" />
       <AlertTitle className="text-primary">
-        {hasSoftOverride ? 'Extra Support Mode Active' : 'Smart Exercise Personalization Active'}
+        {hasSoftOverride ? 'Extended Access Mode Active' : 'Smart Exercise Personalization Active'}
       </AlertTitle>
-      <AlertDescription className="space-y-2">
+      <AlertDescription className="space-y-3">
         {hasSoftOverride && (
-          <p className="text-sm font-medium text-primary">
-            We're offering exercises with additional support since fewer exercises matched your current level.
-          </p>
+          <div className="p-3 rounded-md bg-background/50 border border-primary/20">
+            <p className="text-sm font-semibold text-foreground mb-2">
+              🌟 We've unlocked extra exercises for you
+            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Based on your current scores, we're offering a wider variety of exercises with enhanced support. 
+              This gives you more options to practice while we gradually adjust difficulty. As you progress 
+              and your capability scores improve, even more exercises will become available naturally.
+            </p>
+            <p className="text-xs text-primary mt-2 font-medium">
+              Think of this as training wheels - we're here to help you succeed! 🚀
+            </p>
+          </div>
         )}
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-4 text-sm">
           {adaptedCount > 0 && (
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-primary" />
