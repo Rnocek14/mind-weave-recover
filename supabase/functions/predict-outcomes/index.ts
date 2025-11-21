@@ -124,7 +124,7 @@ For each functional goal, predict:
 Also provide an overall recovery trajectory forecast for the next 6 months.`;
 
     // Call OpenAI with structured output
-    console.log("Calling OpenAI GPT-5 for outcome prediction...");
+    console.log("Calling OpenAI gpt-4o for outcome prediction...");
     const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -132,12 +132,13 @@ Also provide an overall recovery trajectory forecast for the next 6 months.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-2025-08-07",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 3000,
+        temperature: 1.0,
+        max_tokens: 3000,
         tools: [
           {
             type: "function",
