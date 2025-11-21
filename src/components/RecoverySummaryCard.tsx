@@ -114,7 +114,7 @@ export const RecoverySummaryCard = ({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-recovery-summary>
       <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-2">

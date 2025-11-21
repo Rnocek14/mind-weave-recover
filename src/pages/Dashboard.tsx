@@ -25,6 +25,8 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { OverviewTab } from "@/components/dashboard/OverviewTab";
 import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
 import { ClinicalTab } from "@/components/dashboard/ClinicalTab";
+import { QuickActionFAB } from "@/components/QuickActionFAB";
+import { useRecoverySummary } from "@/hooks/useRecoverySummary";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -48,6 +50,8 @@ const Dashboard = () => {
   const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id);
   const { lesson } = useDailyLesson(user?.id || undefined, clinicalProfile);
+  const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
+  const recoverySummary = getLatestSummary('progress');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -416,6 +420,14 @@ const Dashboard = () => {
           onExit={() => setShowCapabilityAssessment(false)}
         />
       )}
+
+      {/* Quick Action FAB */}
+      <QuickActionFAB
+        activeTab={activeTab}
+        onStartAssessment={() => setShowCapabilityAssessment(true)}
+        recommendedExercises={recommendedExercises}
+        hasRecoverySummary={!!recoverySummary}
+      />
     </div>
   );
 };
