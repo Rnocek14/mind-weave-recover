@@ -9,13 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Upload, CheckCircle2, AlertCircle, Clock, Sparkles, Calendar, ArrowLeft, Trash2 } from 'lucide-react';
+import { FileText, Upload, CheckCircle2, AlertCircle, Clock, Sparkles, Calendar, ArrowLeft, Trash2, History } from 'lucide-react';
 import { useClinicalNotes, CreateNoteParams } from '@/hooks/useClinicalNotes';
 import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 const NOTE_TYPE_LABELS = {
@@ -41,6 +41,7 @@ const NOTE_TYPE_ICONS = {
 export default function ClinicalDocuments() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { fetchNotes, createNote, updateNoteWithParseResults, deleteNote, isLoading } = useClinicalNotes(user?.id);
   const { createVersion } = useClinicalProfileVersions(user?.id);
   
@@ -327,13 +328,16 @@ export default function ClinicalDocuments() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => navigate('/profile-history')}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">High Confidence</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Profile Versions
+              <History className="h-4 w-4" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-primary">
-              {notes.filter(n => n.parsing_confidence === 'high').length}
+              View History →
             </div>
           </CardContent>
         </Card>
