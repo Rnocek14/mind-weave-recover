@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,11 @@ import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import { 
+  ProgressCardSkeleton, 
+  RecoverySummarySkeleton, 
+  ExerciseCardSkeleton 
+} from "./DashboardSkeletons";
 
 interface OverviewTabProps {
   userId: string;
@@ -50,6 +56,32 @@ export function OverviewTab({
   onStartAssessment
 }: OverviewTabProps) {
   const navigate = useNavigate();
+  
+  // Progressive loading states
+  const [showProgress, setShowProgress] = useState(false);
+  const [showRecoveryIntel, setShowRecoveryIntel] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
+  const [showExercises, setShowExercises] = useState(false);
+
+  useEffect(() => {
+    // Phase 1: Critical content (immediate)
+    setShowProgress(true);
+    
+    // Phase 2: AI summaries (300ms delay)
+    const timer1 = setTimeout(() => setShowRecoveryIntel(true), 300);
+    
+    // Phase 3: Plan (600ms delay)
+    const timer2 = setTimeout(() => setShowPlan(true), 600);
+    
+    // Phase 4: Exercises (900ms delay)
+    const timer3 = setTimeout(() => setShowExercises(true), 900);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -74,64 +106,96 @@ export function OverviewTab({
       )}
 
       {/* Today's Progress */}
-      <Card className="p-6 shadow-card">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Today's Progress</h2>
-          <span className="text-sm font-medium text-primary">{todayProgress}%</span>
-        </div>
-        <Progress value={todayProgress} className="h-3 mb-2" />
-        <p className="text-sm text-muted-foreground">
-          Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
-        </p>
-      </Card>
+      {!showProgress ? (
+        <ProgressCardSkeleton />
+      ) : (
+        <Card className="p-6 shadow-card animate-fade-in">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Today's Progress</h2>
+            <span className="text-sm font-medium text-primary">{todayProgress}%</span>
+          </div>
+          <Progress value={todayProgress} className="h-3 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
+          </p>
+        </Card>
+      )}
 
       {/* AI Recovery Intelligence */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
-          <Badge variant="secondary" className="gap-1">
-            <Lightbulb className="w-3 h-3" />
-            AI-Powered
-          </Badge>
+      {!showRecoveryIntel ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
+            <Badge variant="secondary" className="gap-1">
+              <Lightbulb className="w-3 h-3" />
+              AI-Powered
+            </Badge>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <RecoverySummarySkeleton delay={0} />
+            <RecoverySummarySkeleton delay={100} />
+          </div>
         </div>
-        
-        <div className="grid lg:grid-cols-2 gap-6">
-          <RecoverySummaryCard
-            userId={userId}
-            summaryType="progress"
-            title="Your Progress Journey"
-            description="AI analysis of your recovery trajectory, what's working, and areas of focus"
-            autoGenerate={true}
-          />
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 animate-fade-in">
+            <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
+            <Badge variant="secondary" className="gap-1">
+              <Lightbulb className="w-3 h-3" />
+              AI-Powered
+            </Badge>
+          </div>
           
-          <RecoverySummaryCard
-            userId={userId}
-            summaryType="education"
-            title="Understanding Your Stroke"
-            description="Plain-language explanation of your stroke and its effects"
-            autoGenerate={true}
-          />
-        </div>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+              <RecoverySummaryCard
+                userId={userId}
+                summaryType="progress"
+                title="Your Progress Journey"
+                description="AI analysis of your recovery trajectory, what's working, and areas of focus"
+                autoGenerate={true}
+              />
+            </div>
+            
+            <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <RecoverySummaryCard
+                userId={userId}
+                summaryType="education"
+                title="Understanding Your Stroke"
+                description="Plain-language explanation of your stroke and its effects"
+                autoGenerate={true}
+              />
+            </div>
+          </div>
 
-        {clinicalProfile && (
-          <StrokeEducationPanel
-            strokeLocation={
-              Array.isArray(clinicalProfile.stroke_location)
-                ? clinicalProfile.stroke_location.join(', ')
-                : clinicalProfile.stroke_location || undefined
-            }
-            affectedSide={clinicalProfile.affected_side || undefined}
-            impairments={clinicalProfile.impairments}
-          />
-        )}
-      </div>
+          {clinicalProfile && (
+            <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
+              <StrokeEducationPanel
+                strokeLocation={
+                  Array.isArray(clinicalProfile.stroke_location)
+                    ? clinicalProfile.stroke_location.join(', ')
+                    : clinicalProfile.stroke_location || undefined
+                }
+                affectedSide={clinicalProfile.affected_side || undefined}
+                impairments={clinicalProfile.impairments}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Today's Personalized Plan */}
-      <TodaysPlanCard
-        userId={userId}
-        clinicalProfile={clinicalProfile}
-        onStartAssessment={onStartAssessment}
-      />
+      {!showPlan ? (
+        <ProgressCardSkeleton delay={0} />
+      ) : (
+        <div className="animate-fade-in">
+          <TodaysPlanCard
+            userId={userId}
+            clinicalProfile={clinicalProfile}
+            onStartAssessment={onStartAssessment}
+          />
+        </div>
+      )}
 
       {/* Recommended Exercises */}
       <div>
@@ -147,20 +211,31 @@ export function OverviewTab({
           )}
         </div>
         
-        <CapabilityGatingInfo
-          hasAssessment={hasAssessment}
-          lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
-          adaptedCount={recommendedExercises.filter(ex => {
-            const access = checkExerciseAccess(ex.id);
-            const adaptations = getAdaptations(ex.id);
-            return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
-          }).length}
-          hasSoftOverride={hasSoftOverride}
-          onStartAssessment={onStartAssessment}
-        />
+        {showExercises && (
+          <div className="animate-fade-in">
+            <CapabilityGatingInfo
+              hasAssessment={hasAssessment}
+              lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
+              adaptedCount={recommendedExercises.filter(ex => {
+                const access = checkExerciseAccess(ex.id);
+                const adaptations = getAdaptations(ex.id);
+                return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
+              }).length}
+              hasSoftOverride={hasSoftOverride}
+              onStartAssessment={onStartAssessment}
+            />
+          </div>
+        )}
         
         <div className="grid md:grid-cols-3 gap-4">
-          {recommendedExercises.map((exercise) => {
+          {!showExercises ? (
+            <>
+              <ExerciseCardSkeleton delay={0} />
+              <ExerciseCardSkeleton delay={100} />
+              <ExerciseCardSkeleton delay={200} />
+            </>
+          ) : (
+            recommendedExercises.map((exercise, index) => {
             const Icon = exercise.icon;
             const recommendation = recommendations.find(r => r.slug === exercise.id);
             const accessCheck = checkExerciseAccess(exercise.id);
@@ -172,11 +247,12 @@ export function OverviewTab({
             return (
               <Card 
                 key={exercise.id}
-                className={`p-6 shadow-card transition-smooth border-2 ${
+                className={`p-6 shadow-card transition-smooth border-2 animate-fade-in ${
                   isLocked 
                     ? 'opacity-60 cursor-not-allowed' 
                     : 'hover:shadow-glow cursor-pointer hover:border-primary'
                 } group`}
+                style={{ animationDelay: `${index * 100}ms` }}
                 onClick={() => !isLocked && navigate(`/exercise/${exercise.id}`)}
               >
                 <div className="space-y-4">
@@ -242,7 +318,8 @@ export function OverviewTab({
                 </div>
               </Card>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     </div>

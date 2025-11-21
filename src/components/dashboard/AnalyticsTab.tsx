@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, Volume2, List, Trophy, History } from "lucide-react";
@@ -13,6 +14,7 @@ import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { ExerciseProgressCard } from "@/components/ExerciseProgressCard";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import type { AssessmentResult } from "@/lib/capabilityAssessor";
+import { AnalyticsCardSkeleton } from "./DashboardSkeletons";
 
 interface AnalyticsTabProps {
   userId: string;
@@ -40,15 +42,53 @@ export function AnalyticsTab({
   recentAchievements
 }: AnalyticsTabProps) {
   const navigate = useNavigate();
+  
+  // Progressive loading states
+  const [showAdherence, setShowAdherence] = useState(false);
+  const [showLearning, setShowLearning] = useState(false);
+  const [showCapability, setShowCapability] = useState(false);
+  const [showGoals, setShowGoals] = useState(false);
+  const [showExercises, setShowExercises] = useState(false);
+
+  useEffect(() => {
+    // Phase 1: Adherence (immediate)
+    setShowAdherence(true);
+    
+    // Phase 2: Learning rates (300ms delay)
+    const timer1 = setTimeout(() => setShowLearning(true), 300);
+    
+    // Phase 3: Capability (600ms delay)
+    const timer2 = setTimeout(() => setShowCapability(true), 600);
+    
+    // Phase 4: Goals & Exercises (900ms delay)
+    const timer3 = setTimeout(() => {
+      setShowGoals(true);
+      setShowExercises(true);
+    }, 900);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, []);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8">
       {/* Session Adherence Tracker */}
-      <SessionAdherenceTracker userId={userId} currentStreak={streak} />
+      {!showAdherence ? (
+        <AnalyticsCardSkeleton delay={0} />
+      ) : (
+        <div className="animate-fade-in">
+          <SessionAdherenceTracker userId={userId} currentStreak={streak} />
+        </div>
+      )}
 
       {/* Learning Rate Intelligence */}
-      {!learningRatesLoading && learningRates.length > 0 && (
-        <div>
+      {!showLearning ? (
+        <AnalyticsCardSkeleton delay={0} />
+      ) : !learningRatesLoading && learningRates.length > 0 ? (
+        <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
           <LearningRateCard 
             learningRates={learningRates}
             clusterComparisons={clusterComparisons}
@@ -64,36 +104,74 @@ export function AnalyticsTab({
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Capability Profile Assessment */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <CapabilityProfileCard
-          userId={userId}
-          currentAssessment={currentAssessment}
-          previousAssessment={previousAssessment}
-          onStartAssessment={onStartAssessment}
-        />
-        
-        <ClinicianCapabilityCard
-          userId={userId}
-          clinicalProfile={clinicalProfile}
-        />
-      </div>
+      {!showCapability ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <AnalyticsCardSkeleton delay={0} />
+          <AnalyticsCardSkeleton delay={100} />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <CapabilityProfileCard
+              userId={userId}
+              currentAssessment={currentAssessment}
+              previousAssessment={previousAssessment}
+              onStartAssessment={onStartAssessment}
+            />
+          </div>
+          
+          <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <ClinicianCapabilityCard
+              userId={userId}
+              clinicalProfile={clinicalProfile}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Functional Goals */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <FunctionalGoalsWidget userId={userId} />
-        <GoalLearningCorrelationCard userId={userId} />
-      </div>
+      {!showGoals ? (
+        <div className="grid md:grid-cols-2 gap-4">
+          <AnalyticsCardSkeleton delay={0} />
+          <AnalyticsCardSkeleton delay={100} />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <FunctionalGoalsWidget userId={userId} />
+          </div>
+          <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <GoalLearningCorrelationCard userId={userId} />
+          </div>
+        </div>
+      )}
 
       {/* Standardized Assessments */}
-      <AssessmentTrendsCard userId={userId} />
+      {!showGoals ? (
+        <AnalyticsCardSkeleton delay={0} />
+      ) : (
+        <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
+          <AssessmentTrendsCard userId={userId} />
+        </div>
+      )}
 
       {/* Language Recovery Progress */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
-        <div className="grid md:grid-cols-3 gap-4">
+      {!showExercises ? (
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <AnalyticsCardSkeleton delay={0} />
+            <AnalyticsCardSkeleton delay={100} />
+            <AnalyticsCardSkeleton delay={200} />
+          </div>
+        </div>
+      ) : (
+        <div className="animate-fade-in">
+          <h2 className="text-2xl font-semibold mb-4">Language Recovery Progress</h2>
+          <div className="grid md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <ExerciseProgressCard
               userId={userId}
@@ -146,12 +224,22 @@ export function AnalyticsTab({
             </Button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Motor Performance */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
-        <div className="grid md:grid-cols-2 gap-4">
+      {!showExercises ? (
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <AnalyticsCardSkeleton delay={0} />
+            <AnalyticsCardSkeleton delay={100} />
+          </div>
+        </div>
+      ) : (
+        <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <h2 className="text-2xl font-semibold mb-4">Motor Performance</h2>
+          <div className="grid md:grid-cols-2 gap-4">
           <ExerciseStatsTile
             userId={userId}
             exerciseSlug="photo-naming"
@@ -163,10 +251,14 @@ export function AnalyticsTab({
             exerciseTitle="Reach & Tap"
           />
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Recent Achievements */}
-      <Card className="p-6 shadow-card">
+      {!showExercises ? (
+        <AnalyticsCardSkeleton delay={0} />
+      ) : (
+        <Card className="p-6 shadow-card animate-fade-in" style={{ animationDelay: '200ms' }}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Recent Achievements</h2>
           <Button 
@@ -199,6 +291,7 @@ export function AnalyticsTab({
           })}
         </div>
       </Card>
+      )}
     </div>
   );
 }

@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { ClinicalProfileSkeleton } from "./DashboardSkeletons";
 
 interface ClinicalTabProps {
   userId: string;
@@ -11,6 +13,26 @@ interface ClinicalTabProps {
 }
 
 export function ClinicalTab({ userId, clinicalProfile }: ClinicalTabProps) {
+  const [showProfile, setShowProfile] = useState(false);
+  const [showBrainMap, setShowBrainMap] = useState(false);
+  const [showPlanner, setShowPlanner] = useState(false);
+
+  useEffect(() => {
+    // Phase 1: Profile summary (immediate)
+    setShowProfile(true);
+    
+    // Phase 2: Brain map (400ms delay)
+    const timer1 = setTimeout(() => setShowBrainMap(true), 400);
+    
+    // Phase 3: Planner (700ms delay)
+    const timer2 = setTimeout(() => setShowPlanner(true), 700);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, []);
+
   if (!clinicalProfile) {
     return (
       <div className="animate-fade-in">
@@ -26,16 +48,34 @@ export function ClinicalTab({ userId, clinicalProfile }: ClinicalTabProps) {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8">
       {/* Stroke Profile Summary */}
-      <StrokeProfileSummary profile={clinicalProfile} />
+      {!showProfile ? (
+        <ClinicalProfileSkeleton delay={0} />
+      ) : (
+        <div className="animate-fade-in">
+          <StrokeProfileSummary profile={clinicalProfile} />
+        </div>
+      )}
 
       {/* Brain & Recovery Map */}
-      <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={userId} />
+      {!showBrainMap ? (
+        <ClinicalProfileSkeleton delay={0} />
+      ) : (
+        <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={userId} />
+        </div>
+      )}
 
       {/* Mechanism-Based Session Planner */}
       {(clinicalProfile as any).stroke_mechanism && (
-        <MechanismSessionPlanner profile={clinicalProfile} />
+        !showPlanner ? (
+          <ClinicalProfileSkeleton delay={0} />
+        ) : (
+          <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <MechanismSessionPlanner profile={clinicalProfile} />
+          </div>
+        )
       )}
     </div>
   );
