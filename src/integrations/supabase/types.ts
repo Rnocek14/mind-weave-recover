@@ -867,6 +867,62 @@ export type Database = {
           },
         ]
       }
+      recovery_summaries: {
+        Row: {
+          ai_summary: string
+          confidence_score: number | null
+          created_at: string
+          data_snapshot: Json
+          generated_at: string
+          generation_duration_ms: number | null
+          id: string
+          key_insights: string[]
+          model_used: string | null
+          replaces_summary_id: string | null
+          summary_type: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          ai_summary: string
+          confidence_score?: number | null
+          created_at?: string
+          data_snapshot?: Json
+          generated_at?: string
+          generation_duration_ms?: number | null
+          id?: string
+          key_insights?: string[]
+          model_used?: string | null
+          replaces_summary_id?: string | null
+          summary_type: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          ai_summary?: string
+          confidence_score?: number | null
+          created_at?: string
+          data_snapshot?: Json
+          generated_at?: string
+          generation_duration_ms?: number | null
+          id?: string
+          key_insights?: string[]
+          model_used?: string | null
+          replaces_summary_id?: string | null
+          summary_type?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_summaries_replaces_summary_id_fkey"
+            columns: ["replaces_summary_id"]
+            isOneToOne: false
+            referencedRelation: "recovery_summaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           caregiver_notes: string | null

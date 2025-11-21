@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.predict-outcomes]
 verify_jwt = true
+
+[functions.generate-recovery-summary]
+verify_jwt = true
