@@ -6,10 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Settings } from "lucide-react";
 import { SentenceConstructionGame } from "@/components/SentenceConstructionGame";
 import { useAuth } from "@/hooks/useAuth";
-import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
+import { useExerciseConfig } from "@/hooks/useExerciseConfig";
+import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
 import { toast } from "sonner";
+import { ExerciseAdaptationBanner } from "@/components/ExerciseAdaptationBanner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +27,38 @@ import { DifficultyInfoBadge } from "@/components/DifficultyInfoBadge";
 const SentenceConstructionExercise = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { level, loading: levelLoading, saveLevel, stepDown, bounds } = useExerciseDifficulty(
-    user?.id,
-    "sentence-construction"
-  );
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState<number>(Date.now());
   const [showSettings, setShowSettings] = useState(false);
+  const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+
+  // Fetch clinical profile
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const fetchProfile = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('clinical_profile')
+        .eq('user_id', user.id)
+        .single();
+      
+      setClinicalProfile(data?.clinical_profile);
+    };
+    
+    fetchProfile();
+  }, [user?.id]);
+
+  // Get merged exercise config with capability adaptations
+  const { config, hasCapabilityAdaptations, bounds } = useExerciseConfig(
+    'sentence-construction',
+    user?.id,
+    clinicalProfile,
+    null
+  );
+  
+  const { getAdaptations } = useExerciseGating(user?.id);
+  const level = config.startDifficulty || 1;
   
   const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
     sessionId || "temp",
@@ -112,18 +140,9 @@ const SentenceConstructionExercise = () => {
   };
 
   const handleDifficultyChange = async (newLevel: number) => {
-    await saveLevel(newLevel);
     setShowSettings(false);
     toast.success(`Difficulty set to Level ${newLevel}`);
   };
-
-  if (levelLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,9 +209,20 @@ const SentenceConstructionExercise = () => {
           </div>
         </div>
 
+        {/* Capability Adaptation Banner */}
+        {hasCapabilityAdaptations && (
+          <div className="mb-4">
+            <ExerciseAdaptationBanner 
+              adaptation={getAdaptations('sentence-construction')} 
+              showDetails={true}
+            />
+          </div>
+        )}
+
         {/* Game */}
         <SentenceConstructionGame
-          difficultyLevel={level}
+          config={config}
+          bounds={bounds}
           onTrialComplete={handleTrialComplete}
           onGameComplete={handleGameComplete}
         />
