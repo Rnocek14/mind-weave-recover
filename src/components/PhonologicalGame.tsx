@@ -131,6 +131,12 @@ export const PhonologicalGame = ({
         userAnswer: answer,
         phonemeDifferences: trial?.phonemeDifferences,
       },
+      adaptationsActive: adaptations ? {
+        extended_time: adaptations.adaptations.extendedTimeouts || false,
+        audio_cues: adaptations.adaptations.useAudioCues || false,
+        high_contrast: adaptations.adaptations.highContrast || false,
+        larger_targets: adaptations.adaptations.largeTargets || false,
+      } : undefined,
     });
     
     // Callback

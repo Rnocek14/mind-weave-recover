@@ -10,6 +10,13 @@ export interface TrialData {
   taskParameters?: Record<string, any>; // Current difficulty state
   errorClassification?: ErrorClassificationResult; // Detailed error classification from ML
   engagementFlags?: Record<string, any>; // Frustration/fatigue state from engagement monitor
+  adaptationsActive?: {
+    extended_time?: boolean;
+    larger_targets?: boolean;
+    audio_cues?: boolean;
+    high_contrast?: boolean;
+    simplified_ui?: boolean;
+  }; // Track which adaptations are currently active
 }
 
 export const useExerciseTelemetry = (
@@ -69,6 +76,11 @@ export const useExerciseTelemetry = (
         // Add engagement monitoring flags if available
         if (trial.engagementFlags) {
           eventData.engagement_flags = trial.engagementFlags;
+        }
+
+        // Add adaptation tracking if available
+        if (trial.adaptationsActive) {
+          eventData.adaptations_active = trial.adaptationsActive;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);

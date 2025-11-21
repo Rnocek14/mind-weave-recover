@@ -450,47 +450,65 @@ export type Database = {
       }
       exercise_events: {
         Row: {
+          adaptations_active: Json | null
+          classification_confidence: number | null
           created_at: string | null
           cue_level: number | null
           engagement_flags: Json | null
+          error_classification: Json | null
           error_type: string | null
           exercise_slug: string | null
           id: string
           inputs: Json | null
+          needs_review: boolean | null
           outputs: Json | null
+          phonological_similarity: number | null
           reaction_time_ms: number | null
           round: number
           score: number | null
+          semantic_similarity: number | null
           session_id: string
           task_parameters: Json | null
         }
         Insert: {
+          adaptations_active?: Json | null
+          classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
           engagement_flags?: Json | null
+          error_classification?: Json | null
           error_type?: string | null
           exercise_slug?: string | null
           id?: string
           inputs?: Json | null
+          needs_review?: boolean | null
           outputs?: Json | null
+          phonological_similarity?: number | null
           reaction_time_ms?: number | null
           round: number
           score?: number | null
+          semantic_similarity?: number | null
           session_id: string
           task_parameters?: Json | null
         }
         Update: {
+          adaptations_active?: Json | null
+          classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
           engagement_flags?: Json | null
+          error_classification?: Json | null
           error_type?: string | null
           exercise_slug?: string | null
           id?: string
           inputs?: Json | null
+          needs_review?: boolean | null
           outputs?: Json | null
+          phonological_similarity?: number | null
           reaction_time_ms?: number | null
           round?: number
           score?: number | null
+          semantic_similarity?: number | null
           session_id?: string
           task_parameters?: Json | null
         }
