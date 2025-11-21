@@ -18,6 +18,7 @@ import {
 import { useRecoverySummary, SummaryType } from '@/hooks/useRecoverySummary';
 import { formatDistanceToNow } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RecoverySummaryLoadingState } from './RecoverySummaryLoadingState';
 
 interface RecoverySummaryCardProps {
   userId: string;
@@ -84,6 +85,17 @@ export const RecoverySummaryCard = ({
     );
   }
 
+  // Show full enhanced loading state when generating
+  if (generating) {
+    return (
+      <RecoverySummaryLoadingState
+        title={title}
+        description={description}
+        summaryType={summaryType}
+      />
+    );
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20">
@@ -131,18 +143,6 @@ export const RecoverySummaryCard = ({
               No summary generated yet. Click "Generate" to create an AI-powered {summaryType} summary.
             </AlertDescription>
           </Alert>
-        )}
-
-        {generating && (
-          <div className="space-y-3">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
-              <Sparkles className="h-4 w-4 animate-pulse" />
-              <span>AI is analyzing your data and generating insights...</span>
-            </div>
-          </div>
         )}
 
         {summary && (
