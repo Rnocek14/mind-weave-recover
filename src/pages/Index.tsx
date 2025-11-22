@@ -25,7 +25,7 @@ const Index = () => {
           
           <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
             Your Journey to
-            <span className="block bg-gradient-healing bg-clip-text text-transparent">
+            <span className="block bg-gradient-healing [-webkit-background-clip:text] [background-clip:text] [-webkit-text-fill-color:transparent] [color:transparent]">
               Recovery Starts Here
             </span>
           </h1>
