@@ -97,12 +97,12 @@ const Index = () => {
             { value: "24/7", label: "Available Access" },
             { value: "AI", label: "Adaptive Learning" },
           ].map((stat, i) => (
-            <div key={i} className="text-center">
-              <div className="text-4xl font-bold bg-gradient-healing bg-clip-text text-transparent">
-                {stat.value}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+          <div key={i} className="text-center">
+            <div className="text-4xl font-bold bg-gradient-healing [-webkit-background-clip:text] [background-clip:text] [-webkit-text-fill-color:transparent] [color:transparent]">
+              {stat.value}
             </div>
+            <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+          </div>
           ))}
         </div>
       </div>
