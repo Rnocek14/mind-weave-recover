@@ -20,6 +20,18 @@ export interface TrialData {
   audioStoragePath?: string; // Path to audio recording in storage
   recordingDurationMs?: number; // Duration of audio recording
   audioMimeType?: string; // MIME type of audio (webm, mp4, etc.)
+  whisperTranscript?: string; // Whisper transcription of audio
+  whisperConfidence?: number; // Whisper confidence score (0-1)
+  acousticMetrics?: {
+    speechRateWpm: number;
+    totalDurationSec: number;
+    wordCount: number;
+    pauseCount: number;
+    avgPauseDurationMs: number;
+    totalPauseDurationSec: number;
+    speechToPauseRatio: number;
+    segmentCount: number;
+  };
 }
 
 export const useExerciseTelemetry = (
@@ -91,6 +103,16 @@ export const useExerciseTelemetry = (
           eventData.audio_storage_path = trial.audioStoragePath;
           eventData.recording_duration_ms = trial.recordingDurationMs;
           eventData.audio_mime_type = trial.audioMimeType;
+        }
+
+        // Add Whisper transcription and acoustic metrics if available
+        if (trial.whisperTranscript) {
+          eventData.whisper_transcript = trial.whisperTranscript;
+          eventData.whisper_confidence = trial.whisperConfidence;
+        }
+        
+        if (trial.acousticMetrics) {
+          eventData.acoustic_metrics = trial.acousticMetrics;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);

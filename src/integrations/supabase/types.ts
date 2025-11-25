@@ -450,6 +450,7 @@ export type Database = {
       }
       exercise_events: {
         Row: {
+          acoustic_metrics: Json | null
           adaptations_active: Json | null
           audio_mime_type: string | null
           audio_storage_path: string | null
@@ -472,8 +473,11 @@ export type Database = {
           semantic_similarity: number | null
           session_id: string
           task_parameters: Json | null
+          whisper_confidence: number | null
+          whisper_transcript: string | null
         }
         Insert: {
+          acoustic_metrics?: Json | null
           adaptations_active?: Json | null
           audio_mime_type?: string | null
           audio_storage_path?: string | null
@@ -496,8 +500,11 @@ export type Database = {
           semantic_similarity?: number | null
           session_id: string
           task_parameters?: Json | null
+          whisper_confidence?: number | null
+          whisper_transcript?: string | null
         }
         Update: {
+          acoustic_metrics?: Json | null
           adaptations_active?: Json | null
           audio_mime_type?: string | null
           audio_storage_path?: string | null
@@ -520,6 +527,8 @@ export type Database = {
           semantic_similarity?: number | null
           session_id?: string
           task_parameters?: Json | null
+          whisper_confidence?: number | null
+          whisper_transcript?: string | null
         }
         Relationships: [
           {

@@ -296,19 +296,52 @@ export const SessionHistoryTimeline = ({
                                   <td className="text-center py-2 px-3">
                                     {trial.cueLevel ?? "-"}
                                   </td>
-                                  <td className="text-center py-2 px-3">
-                                    {(trial as any).audioStoragePath ? (
-                                      <AudioPlayback storagePath={(trial as any).audioStoragePath} />
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                                   <td className="text-center py-2 px-3">
+                                     {(trial as any).audioStoragePath ? (
+                                       <AudioPlayback storagePath={(trial as any).audioStoragePath} />
+                                     ) : (
+                                       <span className="text-muted-foreground text-xs">-</span>
+                                     )}
+                                   </td>
+                                 </tr>
+                               ))}
+                             </tbody>
+                           </table>
+                         </div>
+
+                         {/* Whisper Analysis Section */}
+                         {exercise.trials.some((t: any) => t.whisperTranscript) && (
+                           <div className="mt-4 space-y-2">
+                             <h5 className="text-sm font-medium">Speech Analysis (Whisper AI)</h5>
+                             {exercise.trials
+                               .filter((t: any) => t.whisperTranscript)
+                               .map((trial: any) => (
+                                 <div key={trial.id} className="p-3 bg-muted/50 rounded space-y-1">
+                                   <div className="flex items-center gap-2">
+                                     <Badge variant="outline" className="text-xs">Trial #{trial.round}</Badge>
+                                     <span className="text-xs text-muted-foreground">
+                                       Confidence: {((trial.whisperConfidence || 0) * 100).toFixed(0)}%
+                                     </span>
+                                   </div>
+                                   <p className="text-sm">&ldquo;{trial.whisperTranscript}&rdquo;</p>
+                                   {trial.acousticMetrics && (
+                                     <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mt-2">
+                                       <div>
+                                         <span className="font-medium">Speech Rate:</span> {trial.acousticMetrics.speechRateWpm} wpm
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">Pauses:</span> {trial.acousticMetrics.pauseCount} ({trial.acousticMetrics.avgPauseDurationMs}ms avg)
+                                       </div>
+                                       <div>
+                                         <span className="font-medium">Duration:</span> {trial.acousticMetrics.totalDurationSec}s
+                                       </div>
+                                     </div>
+                                   )}
+                                 </div>
+                               ))}
+                           </div>
+                         )}
+                       </div>
                     </div>
                   );
                 })}
