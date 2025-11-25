@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { SessionDetail } from "@/hooks/useSessionHistory";
 import { cn } from "@/lib/utils";
+import { AudioPlayback } from "@/components/AudioPlayback";
 import {
   BarChart,
   Bar,
@@ -263,6 +264,7 @@ export const SessionHistoryTimeline = ({
                                 <th className="text-right py-2 px-3">RT (ms)</th>
                                 <th className="text-left py-2 px-3">Error Type</th>
                                 <th className="text-center py-2 px-3">Cue Level</th>
+                                <th className="text-center py-2 px-3">Audio</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -293,6 +295,13 @@ export const SessionHistoryTimeline = ({
                                   </td>
                                   <td className="text-center py-2 px-3">
                                     {trial.cueLevel ?? "-"}
+                                  </td>
+                                  <td className="text-center py-2 px-3">
+                                    {(trial as any).audioStoragePath ? (
+                                      <AudioPlayback storagePath={(trial as any).audioStoragePath} />
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">-</span>
+                                    )}
                                   </td>
                                 </tr>
                               ))}

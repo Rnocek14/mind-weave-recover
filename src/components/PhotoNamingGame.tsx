@@ -7,6 +7,8 @@ import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
@@ -16,6 +18,7 @@ interface PhotoNamingGameProps {
   initialDifficulty?: number;
   customTrials?: any[];
   assistMode?: boolean;
+  sessionId?: string | null;
   onTrialComplete?: (result: {
     correct: boolean;
     reactionTimeMs: number;
@@ -23,6 +26,9 @@ interface PhotoNamingGameProps {
     difficultyLevel: number;
     cueLevel: number;
     errorClassification?: ErrorClassificationResult;
+    audioStoragePath?: string;
+    recordingDurationMs?: number;
+    audioMimeType?: string;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -33,6 +39,7 @@ export const PhotoNamingGame = ({
   initialDifficulty = 1,
   customTrials,
   assistMode = false,
+  sessionId,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -41,7 +48,7 @@ export const PhotoNamingGame = ({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
-  const [feedbackData, setFeedbackData] = useState<{
+  const [feedbackData, setFeedbackData] = useState<{\
     correct: boolean;
     errorType?: string;
   } | null>(null);
@@ -55,6 +62,16 @@ export const PhotoNamingGame = ({
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
+  const { user } = useAuth();
+  
+  // Audio recording
+  const { 
+    isRecording, 
+    isSupported: isRecordingSupported,
+    startRecording, 
+    stopRecording, 
+    uploadRecording 
+  } = useAudioRecorder();
   
   // Error history tracking for adaptive cueing
   const [errorHistory, setErrorHistory] = useState<ErrorClassificationResult[]>([]);
@@ -123,7 +140,7 @@ export const PhotoNamingGame = ({
   const timeLimit = 5; // seconds for hard mode
   const allowManualHints = currentDifficulty >= 6;
 
-  // Start timing new trial and reset cue state
+  // Start timing new trial and reset state
   useEffect(() => {
     if (state.currentTrial && !showFeedback) {
       setTrialStartTime(Date.now());
@@ -132,6 +149,11 @@ export const PhotoNamingGame = ({
       setCueLevel(0);
       setShowCue(false);
       setCurrentCueText('');
+      
+      // Start audio recording if supported
+      if (isRecordingSupported && user && sessionId) {
+        startRecording();
+      }
       
       // Auto-show cue after 2 consecutive errors
       if (consecutiveErrors >= 2 && currentDifficulty >= 4) {
@@ -157,7 +179,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening]);
+  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
 
   // Handle game completion
   useEffect(() => {
@@ -166,11 +188,36 @@ export const PhotoNamingGame = ({
     }
   }, [state.isComplete, state.score, onGameComplete]);
 
-  const handleTimeout = () => {
+  const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
     
     setTimedOut(true);
     const reactionTime = Date.now() - trialStartTime;
+    
+    // Stop recording and upload
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    let mimeType: string | undefined;
+    
+    if (isRecording && user && sessionId) {
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        mimeType = recordingResult.mimeType;
+        
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          sessionId,
+          state.trialNumber,
+          recordingResult.mimeType
+        );
+        
+        if (path) {
+          uploadedPath = path;
+        }
+      }
+    }
     
     // Treat timeout as incorrect answer
     const result = { correct: false, errorType: 'timeout' };
@@ -203,13 +250,16 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry with cue level
+    // Log telemetry with cue level and audio
     onTrialComplete?.({
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+      audioMimeType: mimeType,
     }, state.currentTrial);
 
     // Auto-advance after 2 seconds
@@ -261,6 +311,31 @@ export const PhotoNamingGame = ({
     setSelectedAnswer(word);
     
     if (!state.currentTrial) return;
+    
+    // Stop recording and upload
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    let mimeType: string | undefined;
+    
+    if (isRecording && user && sessionId) {
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        mimeType = recordingResult.mimeType;
+        
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          sessionId,
+          state.trialNumber,
+          recordingResult.mimeType
+        );
+        
+        if (path) {
+          uploadedPath = path;
+        }
+      }
+    }
     
     // Advanced error classification
     const errorClassification = await classifySpeechError(
@@ -338,7 +413,7 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry with cue level and detailed error classification
+    // Log telemetry with cue level, detailed error classification, and audio
     onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
@@ -346,6 +421,9 @@ export const PhotoNamingGame = ({
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       errorClassification, // Pass full classification for rich analytics
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+      audioMimeType: mimeType,
     }, state.currentTrial);
 
     // Auto-advance after 1.5 seconds
@@ -401,33 +479,21 @@ export const PhotoNamingGame = ({
     const controller = controllerRef.current;
     controller.update(correct);
     
-    // Check if difficulty should adjust
     const newLevel = controller.adjustLevel(currentDifficulty);
     if (newLevel !== currentDifficulty) {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
       setCurrentDifficulty(newLevel);
       
-      // Play level change sound
-      setTimeout(() => {
-        if (direction === 'up') {
-          playLevelUp();
-        } else {
-          playLevelDown();
-        }
-      }, 500);
-      
       const reason = direction === 'up' 
-        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
-        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
+        ? 'Performance improving - increasing challenge'
+        : 'Providing more support';
       
       onDifficultyChange?.(newLevel, reason);
       
-      // Clear difficulty change indicator after 2 seconds
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry
     onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
@@ -436,284 +502,213 @@ export const PhotoNamingGame = ({
       cueLevel: cueLevel,
     }, state.currentTrial);
 
-    // Auto-advance after 1.5 seconds
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
       nextTrial(currentDifficulty);
-    }, 1500);
+    }, 2000);
   };
 
   if (!state.currentTrial) {
     return (
-      <div className="text-center py-12">
-        <Camera className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-        <p className="text-lg text-muted-foreground">Loading exercise...</p>
+      <div className="flex items-center justify-center p-8">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-6">
-      {/* Progress */}
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* Progress bar */}
       <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">
-            Trial {state.trialNumber} of {state.totalTrials}
-          </span>
-          <span className="font-medium text-primary">
-            Score: {state.score}
-          </span>
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>Trial {state.trialNumber} of {state.totalTrials}</span>
+          <span>Score: {state.score}</span>
         </div>
-        <Progress
-          value={(state.trialNumber / state.totalTrials) * 100}
+        <Progress 
+          value={(state.trialNumber / state.totalTrials) * 100} 
           className="h-2"
         />
       </div>
 
-      {/* Image Display */}
-      <div className="relative">
-        <div className="w-full max-w-md mx-auto aspect-square bg-muted rounded-xl flex items-center justify-center border-4 border-primary shadow-glow overflow-hidden">
-          <img
-            src={state.currentTrial.imageUrl}
-            alt="Name this object"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        
-        {/* Difficulty indicator with change animation */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
-          {difficultyChanged && (
-            <div className={`
-              px-2 py-1 rounded-full text-xs font-medium animate-slide-up
-              ${difficultyChanged === 'up' ? 'bg-success text-white' : 'bg-warning text-white'}
-            `}>
-              {difficultyChanged === 'up' ? (
-                <span className="flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Leveling up!
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3" /> Adjusting
-                </span>
-              )}
-            </div>
-          )}
-          <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-            Level {currentDifficulty}
-          </div>
-        </div>
-      </div>
-
-      {/* Timer for hard mode */}
-      {isHardMode && !showFeedback && (
-        <TrialTimer
-          duration={timeLimit}
-          onTimeout={handleTimeout}
-          isActive={!showFeedback}
-        />
-      )}
-      
-      {/* Cue Display */}
-      {showCue && cueLevel > 0 && state.currentTrial && !showFeedback && currentCueText && (
-        <div className="bg-accent/20 border-2 border-accent rounded-lg p-4 animate-slide-up">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-accent mb-1">
-                {cueLevel === 1 ? 'Hint (Category)' : cueLevel === 2 ? 'Hint (Sound)' : 'Full Answer'}
-              </p>
-              <p className="text-sm text-foreground">
-                {currentCueText}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Voice/Button Mode Toggle */}
-      {isSupported && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setUseVoice(!useVoice);
-              if (useVoice && isListening) {
-                stopListening();
-              } else if (!useVoice) {
-                startListening();
-              }
-            }}
-            className="gap-2"
-          >
-            {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            {useVoice ? 'Voice Mode' : 'Button Mode'}
-          </Button>
-        </div>
-      )}
-
-      {/* Instruction */}
-      <div className="text-center">
-        <h3 className="text-xl font-semibold mb-1">What is this?</h3>
-        <p className="text-sm text-muted-foreground">
-          {isHardMode ? (
-            <span className="flex items-center justify-center gap-1">
-              <Clock className="w-4 h-4" />
-              {useVoice ? 'Say it quickly' : 'Choose quickly'} - {timeLimit} second limit!
-            </span>
-          ) : useVoice ? (
-            <span className="flex items-center justify-center gap-1">
-              <Mic className="w-4 h-4" />
-              Say the word out loud
-            </span>
+      {/* Difficulty indicator */}
+      {difficultyChanged && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+          difficultyChanged === 'up' ? 'bg-success/10 border-success' : 'bg-warning/10 border-warning'
+        }`}>
+          {difficultyChanged === 'up' ? (
+            <>
+              <TrendingUp className="w-5 h-5" />
+              <span className="text-sm font-medium">Level increased!</span>
+            </>
           ) : (
-            'Choose the correct word'
+            <>
+              <TrendingDown className="w-5 h-5" />
+              <span className="text-sm font-medium">Adjusting to help</span>
+            </>
           )}
-        </p>
+        </div>
+      )}
+
+      {/* Recording indicator */}
+      {isRecording && (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+          Recording
+        </div>
+      )}
+
+      {/* Image */}
+      <div className="relative">
+        <img
+          src={state.currentTrial.image}
+          alt="Naming task"
+          className="w-full h-64 object-contain rounded-lg bg-muted"
+        />
+        <div className="absolute top-2 right-2">
+          <Camera className="w-6 h-6 text-muted-foreground" />
+        </div>
         
-        {/* Speech feedback */}
-        {useVoice && (
-          <div className="mt-2">
-            {isListening && (
-              <div className="flex items-center justify-center gap-2 text-primary animate-pulse">
-                <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
-                <span className="text-sm font-medium">Listening...</span>
-              </div>
-            )}
-            {transcript && !showFeedback && (
-              <div className="text-sm text-muted-foreground">
-                Heard: "{transcript}"
-              </div>
-            )}
-            {speechError && !showFeedback && (
-              <div className="text-sm text-destructive">
-                {speechError}
-              </div>
-            )}
+        {/* Timer for hard mode */}
+        {isHardMode && !showFeedback && (
+          <div className="absolute bottom-2 right-2">
+            <TrialTimer 
+              duration={timeLimit}
+              onTimeout={handleTimeout}
+              paused={showFeedback || timedOut}
+            />
           </div>
         )}
       </div>
-      
-      {/* Manual Hint Button */}
-      {allowManualHints && !showFeedback && cueLevel < 3 && (
+
+      {/* Cue display */}
+      {showCue && currentCueText && (
+        <div className="bg-accent/10 border border-accent p-4 rounded-lg flex items-start gap-3">
+          <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium text-accent mb-1">Hint (Level {cueLevel}/3)</p>
+            <p className="text-sm">{currentCueText}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Voice mode toggle */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
+        </p>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setUseVoice(!useVoice);
+            if (!useVoice && isSupported) {
+              setTimeout(() => startListening(), 500);
+            } else if (isListening) {
+              stopListening();
+            }
+          }}
+          className="gap-2"
+        >
+          {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+          {useVoice ? "Voice On" : "Voice Off"}
+        </Button>
+      </div>
+
+      {/* Show transcript when listening */}
+      {useVoice && isListening && transcript && (
+        <div className="text-sm text-center p-2 bg-muted rounded">
+          Heard: "{transcript}"
+        </div>
+      )}
+
+      {/* Answer choices */}
+      {!assistMode ? (
+        <div className="grid grid-cols-2 gap-3">
+          {state.choices.map((choice, idx) => (
+            <Button
+              key={idx}
+              variant={selectedAnswer === choice ? "default" : "outline"}
+              size="lg"
+              className="h-16 text-lg"
+              onClick={() => handleAnswerSelect(choice)}
+              disabled={showFeedback || timedOut}
+            >
+              {choice}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        // Caregiver assist mode controls
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-center">What did they do?</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleCaregiverResponse('looked')}
+              disabled={showFeedback}
+            >
+              👀 Looked
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCaregiverResponse('tried')}
+              disabled={showFeedback}
+            >
+              🗣️ Tried
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCaregiverResponse('said_roughly')}
+              disabled={showFeedback}
+            >
+              ✅ Said it
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCaregiverResponse('no_response')}
+              disabled={showFeedback}
+            >
+              ⏸️ No response
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Hint button */}
+      {allowManualHints && !showFeedback && !timedOut && cueLevel < 3 && (
         <div className="flex justify-center">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleRequestHint}
-            className="gap-2 border-accent text-accent hover:bg-accent/10"
+            className="gap-2"
           >
             <Lightbulb className="w-4 h-4" />
-            {cueLevel === 0 ? 'Give me a hint' : cueLevel === 1 ? 'Another hint?' : 'Show answer'}
+            Need a hint?
           </Button>
         </div>
       )}
 
-      {/* Answer Choices or Caregiver Controls */}
-      {assistMode ? (
-        // Caregiver Assisted Mode UI
-        <div className="space-y-3">
-          <p className="text-sm text-center text-muted-foreground">
-            For caregiver: what did you observe?
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => handleCaregiverResponse('looked')}
-              disabled={showFeedback}
-            >
-              <span className="text-2xl">👁️</span>
-              <span className="text-sm font-medium">Looked at it</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => handleCaregiverResponse('tried')}
-              disabled={showFeedback}
-            >
-              <span className="text-2xl">🗣️</span>
-              <span className="text-sm font-medium">Tried to say it</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col gap-2 border-success text-success hover:bg-success/10"
-              onClick={() => handleCaregiverResponse('said_roughly')}
-              disabled={showFeedback}
-            >
-              <span className="text-2xl">✅</span>
-              <span className="text-sm font-medium">Said it roughly</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => handleCaregiverResponse('no_response')}
-              disabled={showFeedback}
-            >
-              <span className="text-2xl">⚪</span>
-              <span className="text-sm font-medium">No response</span>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        // Independent Mode UI (original answer choices)
-        <div className="grid grid-cols-2 gap-4">
-          {!isSupported && (
-            <div className="col-span-2 text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-              💡 Voice recognition is not supported in this browser. Using button mode.
-            </div>
-          )}
-          {state.choices.map((word) => {
-            const isSelected = selectedAnswer === word;
-            const isCorrect = word === state.currentTrial?.target;
-            const showCorrect = showFeedback && isCorrect;
-            const showIncorrect = showFeedback && isSelected && !isCorrect;
-
-            return (
-              <Button
-                key={word}
-                size="lg"
-                variant={showFeedback ? (showCorrect ? 'default' : 'outline') : 'outline'}
-                className={`
-                  h-20 text-lg font-medium transition-all
-                  ${showCorrect ? 'bg-success border-success text-white' : ''}
-                  ${showIncorrect ? 'bg-destructive border-destructive text-white' : ''}
-                  ${!showFeedback ? 'hover:border-primary hover:bg-primary/10' : ''}
-                `}
-                onClick={() => handleAnswerSelect(word)}
-                disabled={showFeedback}
-              >
-                <span className="flex items-center gap-2">
-                  {showCorrect && <CheckCircle2 className="w-5 h-5" />}
-                  {showIncorrect && <XCircle className="w-5 h-5" />}
-                  {word.charAt(0).toUpperCase() + word.slice(1)}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Feedback Message */}
+      {/* Feedback */}
       {showFeedback && feedbackData && (
-        <div
-          className={`
-            text-center p-4 rounded-lg animate-slide-up
-            ${feedbackData.correct ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}
-          `}
-        >
-          <p className="font-semibold">
-            {feedbackData.correct
-              ? '✓ Correct! Great job!'
-              : feedbackData.errorType === 'timeout'
-              ? `⏱ Time's up! The answer was "${state.currentTrial?.target}"`
-              : `✗ The correct answer was "${state.currentTrial?.target}"`}
+        <div className={`p-6 rounded-lg text-center ${
+          feedbackData.correct ? 'bg-success/10' : 'bg-destructive/10'
+        }`}>
+          {feedbackData.correct ? (
+            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-success" />
+          ) : (
+            <XCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+          )}
+          <p className="text-lg font-semibold mb-2">
+            {feedbackData.correct ? "Correct!" : timedOut ? "Time's up!" : "Not quite"}
           </p>
+          {!feedbackData.correct && state.currentTrial && (
+            <p className="text-sm text-muted-foreground">
+              The answer was: <span className="font-medium">{state.currentTrial.target}</span>
+            </p>
+          )}
         </div>
       )}
     </div>
