@@ -17,6 +17,9 @@ export interface TrialData {
     high_contrast?: boolean;
     simplified_ui?: boolean;
   }; // Track which adaptations are currently active
+  audioStoragePath?: string; // Path to audio recording in storage
+  recordingDurationMs?: number; // Duration of audio recording
+  audioMimeType?: string; // MIME type of audio (webm, mp4, etc.)
 }
 
 export const useExerciseTelemetry = (
@@ -81,6 +84,13 @@ export const useExerciseTelemetry = (
         // Add adaptation tracking if available
         if (trial.adaptationsActive) {
           eventData.adaptations_active = trial.adaptationsActive;
+        }
+
+        // Add audio recording metadata if available
+        if (trial.audioStoragePath) {
+          eventData.audio_storage_path = trial.audioStoragePath;
+          eventData.recording_duration_ms = trial.recordingDurationMs;
+          eventData.audio_mime_type = trial.audioMimeType;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);

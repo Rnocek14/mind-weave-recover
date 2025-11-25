@@ -451,6 +451,8 @@ export type Database = {
       exercise_events: {
         Row: {
           adaptations_active: Json | null
+          audio_mime_type: string | null
+          audio_storage_path: string | null
           classification_confidence: number | null
           created_at: string | null
           cue_level: number | null
@@ -464,6 +466,7 @@ export type Database = {
           outputs: Json | null
           phonological_similarity: number | null
           reaction_time_ms: number | null
+          recording_duration_ms: number | null
           round: number
           score: number | null
           semantic_similarity: number | null
@@ -472,6 +475,8 @@ export type Database = {
         }
         Insert: {
           adaptations_active?: Json | null
+          audio_mime_type?: string | null
+          audio_storage_path?: string | null
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
@@ -485,6 +490,7 @@ export type Database = {
           outputs?: Json | null
           phonological_similarity?: number | null
           reaction_time_ms?: number | null
+          recording_duration_ms?: number | null
           round: number
           score?: number | null
           semantic_similarity?: number | null
@@ -493,6 +499,8 @@ export type Database = {
         }
         Update: {
           adaptations_active?: Json | null
+          audio_mime_type?: string | null
+          audio_storage_path?: string | null
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
@@ -506,6 +514,7 @@ export type Database = {
           outputs?: Json | null
           phonological_similarity?: number | null
           reaction_time_ms?: number | null
+          recording_duration_ms?: number | null
           round?: number
           score?: number | null
           semantic_similarity?: number | null
