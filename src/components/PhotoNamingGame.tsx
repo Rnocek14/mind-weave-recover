@@ -48,7 +48,7 @@ export const PhotoNamingGame = ({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
-  const [feedbackData, setFeedbackData] = useState<{\
+  const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
   } | null>(null);
@@ -561,7 +561,7 @@ export const PhotoNamingGame = ({
       {/* Image */}
       <div className="relative">
         <img
-          src={state.currentTrial.image}
+          src={state.currentTrial.imageUrl}
           alt="Naming task"
           className="w-full h-64 object-contain rounded-lg bg-muted"
         />
@@ -575,7 +575,7 @@ export const PhotoNamingGame = ({
             <TrialTimer 
               duration={timeLimit}
               onTimeout={handleTimeout}
-              paused={showFeedback || timedOut}
+              isActive={!showFeedback && !timedOut}
             />
           </div>
         )}
