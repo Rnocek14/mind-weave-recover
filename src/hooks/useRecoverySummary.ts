@@ -16,6 +16,7 @@ export interface RecoverySummary {
   generation_duration_ms: number | null;
   confidence_score: number | null;
   created_at: string;
+  trial_count_at_generation?: number;
 }
 
 export const useRecoverySummary = (userId: string | undefined, summaryType?: SummaryType) => {
@@ -56,7 +57,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
     }
   };
 
-  const generateSummary = async (type: SummaryType) => {
+  const generateSummary = async (type: SummaryType, silent = false) => {
     if (!userId) {
       toast({
         title: "Error",
@@ -70,12 +71,27 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
     setError(null); // Clear previous errors
 
     try {
+      // Get all session IDs for this user
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', userId);
+
+      const sessionIds = sessions?.map(s => s.id) || [];
+
+      // Get current trial count for tracking
+      const { count: trialCount } = await supabase
+        .from('exercise_events')
+        .select('*', { count: 'exact', head: true })
+        .in('session_id', sessionIds);
+
       const { data, error: invokeError } = await supabase.functions.invoke(
         'generate-recovery-summary',
         {
           body: {
             userId,
             summaryType: type,
+            trialCount: trialCount || 0,
           },
         }
       );
@@ -90,10 +106,12 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
         throw new Error('Failed to generate summary');
       }
 
-      toast({
-        title: "Summary Generated",
-        description: `Your ${type} summary has been created successfully.`,
-      });
+      if (!silent) {
+        toast({
+          title: "Summary Generated",
+          description: `Your ${type} summary has been created successfully.`,
+        });
+      }
 
       // Clear error state on success
       setError(null);

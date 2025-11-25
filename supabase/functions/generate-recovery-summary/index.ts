@@ -10,6 +10,7 @@ const corsHeaders = {
 interface GenerateSummaryRequest {
   userId: string;
   summaryType: 'progress' | 'education';
+  trialCount?: number; // Optional: current trial count for tracking
 }
 
 serve(async (req) => {
@@ -20,7 +21,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { userId, summaryType }: GenerateSummaryRequest = await req.json();
+    const { userId, summaryType, trialCount }: GenerateSummaryRequest = await req.json();
 
     if (!userId || !summaryType) {
       return new Response(
@@ -242,7 +243,8 @@ Return as JSON:
         key_insights: parsedResponse.keyInsights || [],
         model_used: 'gpt-4o-mini',
         generation_duration_ms: generationDuration,
-        confidence_score: 0.85
+        confidence_score: 0.85,
+        trial_count_at_generation: trialCount || 0
       })
       .select()
       .single();
