@@ -69,17 +69,24 @@ export const endSession = async (sessionId: string, summary: SessionSummary) => 
     .single();
     
   if (session) {
+    // Import here to avoid circular dependencies
+    const { checkAndTriggerSummaryRegeneration } = await import('./smartSummaryTrigger');
+    
     // Check achievements
     await checkAchievements(session.user_id);
     
     // Trigger learning rate calculation in background (don't await)
-    // This runs asynchronously and won't block the session end
     supabase.functions.invoke('calculate-learning-rates', {
       body: { userId: session.user_id }
     }).then(() => {
       console.log('Learning rates calculation triggered for user:', session.user_id);
     }).catch(err => {
       console.error('Error triggering learning rate calculation:', err);
+    });
+    
+    // Trigger smart summary regeneration in background (don't await)
+    checkAndTriggerSummaryRegeneration(session.user_id).catch(err => {
+      console.error('Error checking summary regeneration:', err);
     });
   }
 };

@@ -135,6 +135,9 @@ export const RecoverySummaryCard = memo(function RecoverySummaryCard({
                     Update Available
                   </Badge>
                 )}
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  Auto-updates after sessions
+                </Badge>
               </div>
             )}
           </div>

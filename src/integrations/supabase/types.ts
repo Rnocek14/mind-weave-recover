@@ -916,6 +916,7 @@ export type Database = {
           model_used: string | null
           replaces_summary_id: string | null
           summary_type: string
+          trial_count_at_generation: number | null
           user_id: string
           version: number
         }
@@ -931,6 +932,7 @@ export type Database = {
           model_used?: string | null
           replaces_summary_id?: string | null
           summary_type: string
+          trial_count_at_generation?: number | null
           user_id: string
           version?: number
         }
@@ -946,6 +948,7 @@ export type Database = {
           model_used?: string | null
           replaces_summary_id?: string | null
           summary_type?: string
+          trial_count_at_generation?: number | null
           user_id?: string
           version?: number
         }
