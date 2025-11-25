@@ -15,6 +15,7 @@ import PhonemeAnalytics from "./pages/PhonemeAnalytics";
 import SessionHistory from "./pages/SessionHistory";
 import SemanticAnalytics from "./pages/SemanticAnalytics";
 import GrammarAnalytics from "./pages/GrammarAnalytics";
+import PronunciationAnalytics from "./pages/PronunciationAnalytics";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/history" element={<SessionHistory />} />
           <Route path="/analytics/semantic" element={<SemanticAnalytics />} />
           <Route path="/analytics/grammar" element={<GrammarAnalytics />} />
+          <Route path="/analytics/pronunciation" element={<PronunciationAnalytics />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
