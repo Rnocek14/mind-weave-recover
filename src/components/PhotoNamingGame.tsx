@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -29,6 +30,9 @@ interface PhotoNamingGameProps {
     audioStoragePath?: string;
     recordingDurationMs?: number;
     audioMimeType?: string;
+    whisperTranscript?: string;
+    whisperConfidence?: number;
+    acousticMetrics?: any;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -140,6 +144,51 @@ export const PhotoNamingGame = ({
   const timeLimit = 5; // seconds for hard mode
   const allowManualHints = currentDifficulty >= 6;
 
+  // Async speech analysis (doesn't block trial logging)
+  const analyzeSpeechAsync = async (
+    audioBlob: Blob,
+    mimeType: string
+  ): Promise<{ transcript: string; confidence: number; acousticMetrics: any } | null> => {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          const base64Audio = result.split(',')[1];
+          resolve(base64Audio);
+        };
+      });
+      
+      reader.readAsDataURL(audioBlob);
+      const base64Audio = await base64Promise;
+
+      const { data, error } = await supabase.functions.invoke('analyze-speech', {
+        body: { audioBlob: base64Audio, mimeType },
+      });
+
+      if (error) {
+        console.error('Speech analysis error:', error);
+        return null;
+      }
+
+      console.log('Speech analysis complete:', {
+        transcript: data.transcript,
+        confidence: data.confidence,
+        metrics: data.acousticMetrics,
+      });
+
+      return {
+        transcript: data.transcript,
+        confidence: data.confidence,
+        acousticMetrics: data.acousticMetrics,
+      };
+    } catch (error) {
+      console.error('Failed to analyze speech:', error);
+      return null;
+    }
+  };
+
   // Start timing new trial and reset state
   useEffect(() => {
     if (state.currentTrial && !showFeedback) {
@@ -198,6 +247,9 @@ export const PhotoNamingGame = ({
     let uploadedPath: string | undefined;
     let duration: number | undefined;
     let mimeType: string | undefined;
+    let whisperTranscript: string | undefined;
+    let whisperConfidence: number | undefined;
+    let acousticMetrics: any | undefined;
     
     if (isRecording && user && sessionId) {
       const recordingResult = await stopRecording();
@@ -215,6 +267,18 @@ export const PhotoNamingGame = ({
         
         if (path) {
           uploadedPath = path;
+        }
+
+        // Analyze speech with Whisper (async, but we await to include in telemetry)
+        const analysisResult = await analyzeSpeechAsync(
+          recordingResult.audioBlob,
+          recordingResult.mimeType
+        );
+        
+        if (analysisResult) {
+          whisperTranscript = analysisResult.transcript;
+          whisperConfidence = analysisResult.confidence;
+          acousticMetrics = analysisResult.acousticMetrics;
         }
       }
     }
@@ -260,6 +324,9 @@ export const PhotoNamingGame = ({
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
+      whisperTranscript,
+      whisperConfidence,
+      acousticMetrics,
     }, state.currentTrial);
 
     // Auto-advance after 2 seconds
@@ -316,6 +383,9 @@ export const PhotoNamingGame = ({
     let uploadedPath: string | undefined;
     let duration: number | undefined;
     let mimeType: string | undefined;
+    let whisperTranscript: string | undefined;
+    let whisperConfidence: number | undefined;
+    let acousticMetrics: any | undefined;
     
     if (isRecording && user && sessionId) {
       const recordingResult = await stopRecording();
@@ -333,6 +403,18 @@ export const PhotoNamingGame = ({
         
         if (path) {
           uploadedPath = path;
+        }
+
+        // Analyze speech with Whisper (async, but we await to include in telemetry)
+        const analysisResult = await analyzeSpeechAsync(
+          recordingResult.audioBlob,
+          recordingResult.mimeType
+        );
+        
+        if (analysisResult) {
+          whisperTranscript = analysisResult.transcript;
+          whisperConfidence = analysisResult.confidence;
+          acousticMetrics = analysisResult.acousticMetrics;
         }
       }
     }
@@ -424,6 +506,9 @@ export const PhotoNamingGame = ({
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
+      whisperTranscript,
+      whisperConfidence,
+      acousticMetrics,
     }, state.currentTrial);
 
     // Auto-advance after 1.5 seconds

@@ -1,0 +1,140 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { audioBlob, mimeType } = await req.json();
+    
+    if (!audioBlob) {
+      throw new Error('No audio data provided');
+    }
+
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
+
+    // Convert base64 to binary
+    const binaryAudio = Uint8Array.from(atob(audioBlob), c => c.charCodeAt(0));
+    
+    // Prepare form data for Whisper
+    const formData = new FormData();
+    const blob = new Blob([binaryAudio], { type: mimeType || 'audio/webm' });
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'verbose_json'); // Get word-level timestamps
+
+    // Call OpenAI Whisper API
+    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!whisperResponse.ok) {
+      const errorText = await whisperResponse.text();
+      console.error('Whisper API error:', errorText);
+      throw new Error(`Whisper API error: ${whisperResponse.status}`);
+    }
+
+    const whisperData = await whisperResponse.json();
+    
+    // Calculate acoustic metrics
+    const acousticMetrics = calculateAcousticMetrics(whisperData);
+
+    return new Response(
+      JSON.stringify({
+        transcript: whisperData.text,
+        confidence: calculateOverallConfidence(whisperData),
+        acousticMetrics,
+        rawWhisperData: whisperData,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error) {
+    console.error('Error in analyze-speech:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});
+
+function calculateOverallConfidence(whisperData: any): number {
+  // Whisper doesn't provide word-level confidence in standard API
+  // Use duration and segment count as proxy for confidence
+  if (!whisperData.segments || whisperData.segments.length === 0) {
+    return 0;
+  }
+  
+  // Higher segment count relative to duration suggests clearer speech
+  const avgSegmentDuration = whisperData.duration / whisperData.segments.length;
+  
+  // Typical clear speech has segments of 2-4 seconds
+  // Too short = fragmented, too long = mumbled
+  if (avgSegmentDuration >= 2 && avgSegmentDuration <= 4) {
+    return 0.9;
+  } else if (avgSegmentDuration >= 1 && avgSegmentDuration <= 6) {
+    return 0.7;
+  }
+  
+  return 0.5;
+}
+
+function calculateAcousticMetrics(whisperData: any): any {
+  const segments = whisperData.segments || [];
+  const duration = whisperData.duration || 0;
+  const text = whisperData.text || '';
+  
+  // Calculate speech rate (words per minute)
+  const wordCount = text.trim().split(/\s+/).length;
+  const speechRate = duration > 0 ? (wordCount / duration) * 60 : 0;
+  
+  // Calculate pause patterns
+  const pauses: number[] = [];
+  for (let i = 1; i < segments.length; i++) {
+    const pauseDuration = segments[i].start - segments[i - 1].end;
+    if (pauseDuration > 0.1) { // Only count pauses > 100ms
+      pauses.push(pauseDuration);
+    }
+  }
+  
+  const avgPauseDuration = pauses.length > 0 
+    ? pauses.reduce((a, b) => a + b, 0) / pauses.length 
+    : 0;
+  
+  const totalPauseDuration = pauses.reduce((a, b) => a + b, 0);
+  
+  // Calculate speech vs pause ratio
+  const actualSpeechDuration = duration - totalPauseDuration;
+  const speechToPauseRatio = totalPauseDuration > 0 
+    ? actualSpeechDuration / totalPauseDuration 
+    : actualSpeechDuration;
+  
+  return {
+    speechRateWpm: Math.round(speechRate * 10) / 10,
+    totalDurationSec: Math.round(duration * 10) / 10,
+    wordCount,
+    pauseCount: pauses.length,
+    avgPauseDurationMs: Math.round(avgPauseDuration * 1000),
+    totalPauseDurationSec: Math.round(totalPauseDuration * 10) / 10,
+    speechToPauseRatio: Math.round(speechToPauseRatio * 100) / 100,
+    segmentCount: segments.length,
+  };
+}
