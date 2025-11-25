@@ -1113,6 +1113,7 @@ export type Database = {
       }
     }
     Functions: {
+      can_view_cluster_analytics: { Args: never; Returns: boolean }
       create_profile_version: {
         Args: {
           p_change_reason?: string
@@ -1147,6 +1148,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "user_cluster_assignments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_cluster_learning_rates: {
+        Args: never
+        Returns: {
+          avg_accuracy_slope: number | null
+          avg_confidence: number | null
+          avg_rt_slope: number | null
+          chronicity: string | null
+          cluster_key: string | null
+          domain: string | null
+          hemisphere: string | null
+          last_updated: string | null
+          lesion_zone: string | null
+          median_accuracy_slope: number | null
+          median_rt_slope: number | null
+          p25_accuracy_slope: number | null
+          p75_accuracy_slope: number | null
+          sd_accuracy_slope: number | null
+          stroke_mechanism: string | null
+          time_window_days: number | null
+          total_trials: number | null
+          user_count: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "cluster_learning_rates"
           isOneToOne: false
           isSetofReturn: true
         }
