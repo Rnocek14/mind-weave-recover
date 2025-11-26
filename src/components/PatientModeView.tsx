@@ -1,18 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, LogOut } from "lucide-react";
+import { Play, LogOut, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import { useDailyLesson } from "@/hooks/useDailyLesson";
+import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
 
 interface PatientModeViewProps {
   userId: string;
-  lesson: DailyLesson | null;
   clinicalProfile: ClinicalProfile | null;
 }
 
-export function PatientModeView({ lesson, clinicalProfile }: PatientModeViewProps) {
+export function PatientModeView({ userId, clinicalProfile }: PatientModeViewProps) {
   const navigate = useNavigate();
+  const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, clinicalProfile);
+  const { currentAssessment, loading: assessmentLoading } = useCapabilityAssessment(userId);
 
   const handleStartSession = () => {
     navigate('/lesson', { 
@@ -25,6 +28,84 @@ export function PatientModeView({ lesson, clinicalProfile }: PatientModeViewProp
     // Could show a friendly toast message
   };
 
+  const handleStartAssessment = () => {
+    navigate('/dashboard');
+    // Toggle to caregiver mode would be better but for now just go to dashboard
+    // where they can start assessment
+  };
+
+  // Loading state
+  if (lessonLoading || assessmentLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
+          <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
+          <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Getting ready...
+          </h2>
+          <p className="text-lg md:text-xl text-muted-foreground">
+            Loading your personalized session
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  // No assessment state
+  if (!currentAssessment) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
+          <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-amber-500 mx-auto" />
+          <div className="space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+              Let's get started!
+            </h2>
+            <p className="text-xl md:text-2xl text-muted-foreground font-medium">
+              We need to do a quick check first to personalize your exercises.
+            </p>
+          </div>
+          <Button
+            onClick={handleStartAssessment}
+            size="lg"
+            className="w-full min-h-[140px] md:min-h-[160px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl px-8 py-6 rounded-2xl"
+          >
+            <Play className="w-12 h-12 md:w-14 md:h-14 mr-4 shrink-0" />
+            <span>Start Setup</span>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Error state
+  if (lessonError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2 border-destructive/20">
+          <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-destructive mx-auto" />
+          <div className="space-y-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+              Something went wrong
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground">
+              {lessonError}
+            </p>
+          </div>
+          <Button
+            onClick={handleStartAssessment}
+            variant="outline"
+            size="lg"
+            className="min-h-[80px] text-xl md:text-2xl font-semibold px-8 py-4 rounded-xl"
+          >
+            Go to Dashboard
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Main Patient Mode view
   return (
     <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
       <Card className="max-w-3xl w-full p-8 md:p-16 space-y-12 text-center shadow-2xl border-2">
@@ -71,9 +152,9 @@ export function PatientModeView({ lesson, clinicalProfile }: PatientModeViewProp
         </div>
 
         {/* Lesson status indicator */}
-        {!lesson && (
+        {!lesson && !lessonLoading && (
           <p className="text-base md:text-lg text-muted-foreground pt-4 animate-pulse">
-            Loading your personalized session...
+            Preparing your session...
           </p>
         )}
       </Card>
