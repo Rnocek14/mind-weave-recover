@@ -42,7 +42,7 @@ import { UiModeToggle } from "@/components/UiModeToggle";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { uiMode } = useUiMode();
+  const { uiMode, setUiMode } = useUiMode();
   const [streak, setStreak] = useState(0);
   const [totalReps, setTotalReps] = useState(0);
   const [achievementCount, setAchievementCount] = useState(0);
@@ -53,6 +53,8 @@ const Dashboard = () => {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showCapabilityAssessment, setShowCapabilityAssessment] = useState(false);
   const [showQuickTour, setShowQuickTour] = useState(false);
+  const [assessmentOrigin, setAssessmentOrigin] = useState<'patient' | 'caregiver' | null>(null);
+  const [pendingLessonNavigation, setPendingLessonNavigation] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('dashboard-active-tab') || 'overview';
   });
@@ -256,13 +258,26 @@ const Dashboard = () => {
     );
   }
 
+  // Effect to handle pending lesson navigation after assessment completes
+  useEffect(() => {
+    if (pendingLessonNavigation && lesson && !showCapabilityAssessment) {
+      console.log('[Dashboard] Lesson ready after assessment, navigating to /lesson');
+      setPendingLessonNavigation(false);
+      navigate("/lesson", { state: { lesson, clinicalProfile } });
+    }
+  }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate, clinicalProfile]);
+
   // Patient Mode: Simple one-button interface
   if (uiMode === 'patient') {
     return (
       <PatientModeView 
         userId={user!.id}
         clinicalProfile={clinicalProfile}
-        onStartAssessment={() => setShowCapabilityAssessment(true)}
+        onStartAssessment={() => {
+          console.log('[Dashboard] Patient mode starting assessment');
+          setAssessmentOrigin('patient');
+          setShowCapabilityAssessment(true);
+        }}
       />
     );
   }
@@ -436,19 +451,34 @@ const Dashboard = () => {
         <CapabilityAssessment
           userId={user.id}
           clinicalProfile={clinicalProfile}
-          onComplete={(result: AssessmentResult) => {
-            console.log('Assessment completed:', result);
-            setShowCapabilityAssessment(false);
-            fetchLatestAssessment();
+          onComplete={async (result: AssessmentResult) => {
+            console.log('[Dashboard] Assessment completed:', result);
+            const origin = assessmentOrigin;
             
-            // Navigate to lesson after assessment
-            if (lesson) {
-              navigate("/lesson", { state: { lesson, clinicalProfile } });
+            // Close modal first
+            setShowCapabilityAssessment(false);
+            
+            // Await fresh assessment data to ensure capability scores are updated
+            console.log('[Dashboard] Fetching latest assessment data...');
+            await fetchLatestAssessment();
+            console.log('[Dashboard] Assessment data refreshed');
+            
+            // If assessment started from patient mode, navigate back to patient mode and to lesson
+            if (origin === 'patient') {
+              console.log('[Dashboard] Assessment origin was patient mode, switching back and navigating to lesson');
+              setUiMode('patient');
+              setPendingLessonNavigation(true);
+              setAssessmentOrigin(null);
             } else {
+              // Caregiver mode: just show success toast
               toast.success("Assessment complete! Start an exercise when you're ready.");
+              setAssessmentOrigin(null);
             }
           }}
-          onExit={() => setShowCapabilityAssessment(false)}
+          onExit={() => {
+            setShowCapabilityAssessment(false);
+            setAssessmentOrigin(null);
+          }}
         />
       )}
 
