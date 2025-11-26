@@ -265,7 +265,7 @@ const Dashboard = () => {
       setPendingLessonNavigation(false);
       navigate("/lesson", { state: { lesson, clinicalProfile } });
     }
-  }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate, clinicalProfile]);
+  }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate]);
 
   // Patient Mode: Simple one-button interface
   if (uiMode === 'patient') {
