@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
 import { Button } from "@/components/ui/button";
@@ -31,10 +31,27 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [checkResults, setCheckResults] = useState<any>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const currentBlock = lesson.blocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
+  
+  // Restore state if returning from exercise
+  useEffect(() => {
+    const savedState = sessionStorage.getItem('lessonFlowState');
+    if (savedState && !location.state?.resuming) {
+      try {
+        const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
+        console.log('[LessonFlow] Restored state:', { savedPhase, savedIndex, savedSessionId });
+        setPhase(savedPhase);
+        setCurrentBlockIndex(savedIndex);
+        setSessionId(savedSessionId);
+      } catch (error) {
+        console.error('[LessonFlow] Error restoring state:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Create session when lesson overview starts
@@ -86,7 +103,14 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   };
 
   const navigateToExercise = (exerciseId: string) => {
-    console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId });
+    console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId, currentBlockIndex });
+    
+    // Save state to sessionStorage before navigating
+    sessionStorage.setItem('lessonFlowState', JSON.stringify({
+      phase: 'exercise',
+      currentBlockIndex,
+      sessionId,
+    }));
     
     // Map exercise IDs to their routes
     const routeMap: Record<string, string> = {
@@ -143,12 +167,21 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   // Listen for exercise completion
   useEffect(() => {
     const handleExerciseComplete = () => {
+      console.log('[LessonFlow] Exercise completed, moving to next block');
       handleNextBlock();
     };
 
     window.addEventListener("exercise-complete", handleExerciseComplete);
     return () => window.removeEventListener("exercise-complete", handleExerciseComplete);
   }, [currentBlockIndex, isLastBlock]);
+  
+  // Clear sessionStorage when lesson completes
+  useEffect(() => {
+    if (phase === 'summary') {
+      console.log('[LessonFlow] Clearing saved state');
+      sessionStorage.removeItem('lessonFlowState');
+    }
+  }, [phase]);
 
   if (phase === "daily-check") {
     return <DailyCapabilityCheck onComplete={handleDailyCheckComplete} />;

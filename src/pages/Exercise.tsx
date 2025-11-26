@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -33,8 +33,13 @@ import { useDoseCap } from "@/hooks/useDoseCap";
 const Exercise = () => {
   const { exerciseId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Check if we're coming from lesson flow
+  const fromLesson = location.state?.fromLesson === true;
+  const lessonSessionId = location.state?.sessionId as string | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
@@ -340,8 +345,8 @@ const Exercise = () => {
       return;
     }
 
-    // Show mood check-in before starting
-    if (!preMood) {
+    // Skip mood check-in when in lesson mode
+    if (!preMood && !fromLesson) {
       setShowMoodCheckIn(true);
       return;
     }
@@ -350,7 +355,7 @@ const Exercise = () => {
     const newSessionCount = sessionCount + 1;
     const shouldProbe = shouldRunProbe(newSessionCount, lastProbeSession);
     
-    if (shouldProbe && exerciseId === 'photo-naming') {
+    if (shouldProbe && exerciseId === 'photo-naming' && !fromLesson) {
       setShowProbe(true);
       return;
     }
@@ -362,8 +367,12 @@ const Exercise = () => {
     if (!sessionStartTime) {
       setSessionStartTime(Date.now());
       
-      // Create session in database with mood rating
-      if (user?.id) {
+      // Use lesson session if coming from lesson flow
+      if (fromLesson && lessonSessionId) {
+        console.log('[Exercise] Using lesson sessionId:', lessonSessionId);
+        setSessionId(lessonSessionId);
+      } else if (user?.id) {
+        // Create new session
         try {
           const session = await startSession(user.id, {
             blocks: [
@@ -376,10 +385,12 @@ const Exercise = () => {
           setSessionId(session.id);
           
           // Update session with mood rating
-          await supabase
-            .from('sessions')
-            .update({ mood_rating: preMood })
-            .eq('id', session.id);
+          if (preMood) {
+            await supabase
+              .from('sessions')
+              .update({ mood_rating: preMood })
+              .eq('id', session.id);
+          }
         } catch (error) {
           console.error('Error starting session:', error);
         }
@@ -560,6 +571,14 @@ const Exercise = () => {
   }
 
   if (showResult) {
+    // If in lesson mode, dispatch event and return to lesson flow
+    if (fromLesson) {
+      console.log('[Exercise] Dispatching exercise-complete event');
+      window.dispatchEvent(new CustomEvent('exercise-complete'));
+      navigate('/lesson', { replace: true });
+      return null;
+    }
+    
     return (
       <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
         <div className="max-w-2xl w-full space-y-6 animate-slide-up">
