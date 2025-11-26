@@ -110,6 +110,8 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       phase: 'exercise',
       currentBlockIndex,
       sessionId,
+      lesson,
+      clinicalProfile,
     }));
     
     // Map exercise IDs to their routes
