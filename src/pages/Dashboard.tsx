@@ -109,6 +109,15 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
+  // Effect to handle pending lesson navigation after assessment completes
+  useEffect(() => {
+    if (pendingLessonNavigation && lesson && !showCapabilityAssessment) {
+      console.log('[Dashboard] Lesson ready after assessment, navigating to /lesson');
+      setPendingLessonNavigation(false);
+      navigate("/lesson", { state: { lesson, clinicalProfile } });
+    }
+  }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate]);
+
   const checkAdminStatus = async () => {
     if (!user) return;
     
@@ -257,15 +266,6 @@ const Dashboard = () => {
       </div>
     );
   }
-
-  // Effect to handle pending lesson navigation after assessment completes
-  useEffect(() => {
-    if (pendingLessonNavigation && lesson && !showCapabilityAssessment) {
-      console.log('[Dashboard] Lesson ready after assessment, navigating to /lesson');
-      setPendingLessonNavigation(false);
-      navigate("/lesson", { state: { lesson, clinicalProfile } });
-    }
-  }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate]);
 
   // Patient Mode: Simple one-button interface
   if (uiMode === 'patient') {
