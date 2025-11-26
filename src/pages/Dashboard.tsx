@@ -35,10 +35,14 @@ import { toast } from "sonner";
 import { EXERCISES } from "@/data/exercises";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardQuickTour } from "@/components/DashboardQuickTour";
+import { useUiMode } from "@/hooks/useUiMode";
+import { PatientModeView } from "@/components/PatientModeView";
+import { UiModeToggle } from "@/components/UiModeToggle";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { uiMode } = useUiMode();
   const [streak, setStreak] = useState(0);
   const [totalReps, setTotalReps] = useState(0);
   const [achievementCount, setAchievementCount] = useState(0);
@@ -252,6 +256,18 @@ const Dashboard = () => {
     );
   }
 
+  // Patient Mode: Simple one-button interface
+  if (uiMode === 'patient') {
+    return (
+      <PatientModeView 
+        userId={user!.id}
+        lesson={lesson}
+        clinicalProfile={clinicalProfile}
+      />
+    );
+  }
+
+  // Caregiver Mode: Full dashboard with all features
   return (
     <div className="min-h-screen bg-gradient-calm">
       <DashboardQuickTour open={showQuickTour} onOpenChange={setShowQuickTour} />
@@ -278,6 +294,8 @@ const Dashboard = () => {
           </div>
           
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <UiModeToggle />
+            
             <Button
               variant="outline"
               onClick={() => navigate("/clinical-documents")}

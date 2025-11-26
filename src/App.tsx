@@ -30,6 +30,7 @@ import ClinicalDocuments from "./pages/ClinicalDocuments";
 import ProfileVersionHistory from "./pages/ProfileVersionHistory";
 import Lesson from "./pages/Lesson";
 import NotFound from "./pages/NotFound";
+import { UiModeProvider } from "@/contexts/UiModeContext";
 
 const queryClient = new QueryClient();
 
@@ -37,10 +38,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <TooltipProvider>
-        <BrowserRouter>
-        <Toaster />
-        <Sonner />
-        <Routes>
+        <UiModeProvider>
+          <BrowserRouter>
+          <Toaster />
+          <Sonner />
+          <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
@@ -70,6 +72,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
         </BrowserRouter>
+        </UiModeProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
