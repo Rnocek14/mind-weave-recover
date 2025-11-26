@@ -176,6 +176,12 @@ export const OverviewTab = memo(function OverviewTab() {
             userId={userId}
             clinicalProfile={clinicalProfile}
             onStartAssessment={onStartAssessment}
+            onStartLesson={() => {
+              if (lesson) {
+                navigate("/lesson", { state: { lesson, clinicalProfile } });
+              }
+            }}
+            doseCapReached={doseCap.warningLevel === 'limit'}
           />
         </div>
       )}
