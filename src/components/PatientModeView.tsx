@@ -6,14 +6,17 @@ import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
+import { useUiMode } from "@/hooks/useUiMode";
 
 interface PatientModeViewProps {
   userId: string;
   clinicalProfile: ClinicalProfile | null;
+  onStartAssessment?: () => void;
 }
 
-export function PatientModeView({ userId, clinicalProfile }: PatientModeViewProps) {
+export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: PatientModeViewProps) {
   const navigate = useNavigate();
+  const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useCapabilityAssessment(userId);
 
@@ -29,9 +32,17 @@ export function PatientModeView({ userId, clinicalProfile }: PatientModeViewProp
   };
 
   const handleStartAssessment = () => {
-    navigate('/dashboard');
-    // Toggle to caregiver mode would be better but for now just go to dashboard
-    // where they can start assessment
+    console.log('[PatientMode] Starting assessment - switching to caregiver mode');
+    // Switch to caregiver mode and trigger assessment
+    setUiMode('caregiver');
+    
+    // Small delay to let the mode switch render, then trigger assessment
+    setTimeout(() => {
+      console.log('[PatientMode] Triggering assessment modal');
+      if (onStartAssessment) {
+        onStartAssessment();
+      }
+    }, 100);
   };
 
   // Loading state

@@ -262,6 +262,7 @@ const Dashboard = () => {
       <PatientModeView 
         userId={user!.id}
         clinicalProfile={clinicalProfile}
+        onStartAssessment={() => setShowCapabilityAssessment(true)}
       />
     );
   }
