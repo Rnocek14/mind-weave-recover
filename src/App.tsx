@@ -28,6 +28,7 @@ import PhotoLibrary from "./pages/PhotoLibrary";
 import PhotoNamingExercise from "./pages/PhotoNamingExercise";
 import ClinicalDocuments from "./pages/ClinicalDocuments";
 import ProfileVersionHistory from "./pages/ProfileVersionHistory";
+import Lesson from "./pages/Lesson";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
           <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
           <Route path="/clinical-documents" element={<ClinicalDocuments />} />
           <Route path="/profile-history" element={<ProfileVersionHistory />} />
+          <Route path="/lesson" element={<Lesson />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

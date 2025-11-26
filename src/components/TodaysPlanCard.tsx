@@ -10,7 +10,8 @@ import {
   Activity, 
   AlertCircle,
   Zap,
-  Brain
+  Brain,
+  Play
 } from "lucide-react";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
@@ -19,12 +20,16 @@ interface TodaysPlanCardProps {
   userId: string;
   clinicalProfile: ClinicalProfile | null;
   onStartAssessment?: () => void;
+  onStartLesson?: () => void;
+  doseCapReached?: boolean;
 }
 
 export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
   userId,
   clinicalProfile,
   onStartAssessment,
+  onStartLesson,
+  doseCapReached = false,
 }) => {
   const { 
     lesson, 
@@ -249,6 +254,29 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
             </div>
           </>
         )}
+
+        {/* Start Lesson Button */}
+        <div className="pt-4">
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={onStartLesson}
+            disabled={doseCapReached || needsReassessment}
+          >
+            <Play className="w-5 h-5 mr-2" />
+            Start Today's Lesson ({lesson.totalDuration} min)
+          </Button>
+          {doseCapReached && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Daily practice cap reached
+            </p>
+          )}
+          {needsReassessment && !doseCapReached && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Run capability check first
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
