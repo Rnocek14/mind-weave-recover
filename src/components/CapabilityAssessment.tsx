@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { HelpCircle, ArrowRight } from 'lucide-react';
 import { CapabilityGracefulExit, type CaregiverObservations } from './CapabilityGracefulExit';
 import { useCapabilityAssessment } from '@/hooks/useCapabilityAssessment';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import {
   calculateVisionScore,
   calculateMotorScore,
@@ -40,6 +42,7 @@ export const CapabilityAssessment = ({
   onExit,
 }: CapabilityAssessmentProps) => {
   const { saveAssessment } = useCapabilityAssessment(userId);
+  const { speak } = useTextToSpeech();
   
   const [showIntro, setShowIntro] = useState(true);
   const [currentLevel, setCurrentLevel] = useState<AssessmentLevel>(0);
@@ -70,6 +73,14 @@ export const CapabilityAssessment = ({
   // Graceful exit state
   const [showGracefulExit, setShowGracefulExit] = useState(false);
   const [exitReason, setExitReason] = useState<AssessmentResult['retryReason']>();
+  
+  // Inactivity detection state
+  const [inactivitySeconds, setInactivitySeconds] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [consecutiveTimeouts, setConsecutiveTimeouts] = useState(0);
+  const [offTargetClicks, setOffTargetClicks] = useState(0);
+  const [showRedirectHint, setShowRedirectHint] = useState(false);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalTrials = 3 + 5 + 6; // Level 0: 3, Level 1: 5, Level 2: 6
   const completedTrials = trialNumber;
@@ -134,13 +145,120 @@ export const CapabilityAssessment = ({
     if (currentLevel === 0) {
       setTargetPosition(generateTargetPosition());
       setTrialStartTime(Date.now());
+      setInactivitySeconds(0);
+      setShowHint(false);
     } else if (currentLevel === 2 && !currentMatchingTrial) {
       setCurrentMatchingTrial(generateMatchingTrial());
       setTrialStartTime(Date.now());
+      setInactivitySeconds(0);
+      setShowHint(false);
     }
   }, [currentLevel, currentMatchingTrial, generateTargetPosition, generateMatchingTrial]);
 
+  // Inactivity timer
+  useEffect(() => {
+    if (showIntro || showGracefulExit) return;
+    
+    inactivityTimerRef.current = setInterval(() => {
+      setInactivitySeconds(prev => {
+        const next = prev + 1;
+        
+        // At 5 seconds: Show visual hint
+        if (next === 5) {
+          setShowHint(true);
+        }
+        
+        // At 8 seconds: Play audio prompt
+        if (next === 8) {
+          if (currentLevel === 0 || currentLevel === 1) {
+            speak("Tap the circle").catch(console.error);
+          } else if (currentLevel === 2) {
+            speak("Choose the matching shape").catch(console.error);
+          }
+        }
+        
+        // At 12 seconds: Record timeout and move on
+        if (next === 12) {
+          handleTimeout();
+        }
+        
+        return next;
+      });
+    }, 1000);
+    
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearInterval(inactivityTimerRef.current);
+      }
+    };
+  }, [currentLevel, showIntro, showGracefulExit, trialNumber]);
+
+  const resetInactivityTimer = useCallback(() => {
+    setInactivitySeconds(0);
+    setShowHint(false);
+  }, []);
+
+  const handleTimeout = useCallback(() => {
+    resetInactivityTimer();
+    setConsecutiveTimeouts(prev => prev + 1);
+    
+    if (currentLevel === 0) {
+      // Level 0: Record timeout attempt
+      setLevel0Result(prev => ({
+        ...prev,
+        attempts: prev.attempts + 1,
+      }));
+      
+      // Move to next position or trigger graceful exit
+      if (trialNumber >= 2) {
+        setCurrentLevel(1);
+        setTrialNumber(0);
+      } else {
+        setTargetPosition(generateTargetPosition());
+        setTrialNumber(prev => prev + 1);
+        setTrialStartTime(Date.now());
+      }
+    } else if (currentLevel === 1) {
+      // Level 1: Record as missed interaction
+      if (trialNumber >= 4) {
+        // Move to Level 2 with low interaction data
+        setLevel1Result({
+          discoveredCauseEffect: false,
+          repeatTaps: level1Taps.length,
+          consistentInteraction: false,
+        });
+        setCurrentLevel(2);
+        setTrialNumber(0);
+      } else {
+        setTargetPosition(generateTargetPosition());
+        setTrialNumber(prev => prev + 1);
+        setTrialStartTime(Date.now());
+      }
+    } else if (currentLevel === 2) {
+      // Level 2: Record timeout trial
+      const trial: TrialResult = {
+        level: 2,
+        trialNumber,
+        timestamp: Date.now(),
+        response: 'timeout',
+        position: targetPosition,
+      };
+      
+      setLevel2Trials(prev => [...prev, trial]);
+      setTrialNumber(prev => prev + 1);
+      
+      if (trialNumber >= 5) {
+        completeAssessment([...level2Trials, trial]);
+      } else {
+        setCurrentMatchingTrial(generateMatchingTrial());
+        setTrialStartTime(Date.now());
+      }
+    }
+  }, [currentLevel, trialNumber, targetPosition, level1Taps, level2Trials, generateTargetPosition, generateMatchingTrial, resetInactivityTimer]);
+
   const handleTargetTap = useCallback(() => {
+    resetInactivityTimer();
+    setConsecutiveTimeouts(0); // Reset consecutive timeouts on successful interaction
     const reactionTime = Date.now() - trialStartTime;
     
     if (currentLevel === 0) {
@@ -202,6 +320,8 @@ export const CapabilityAssessment = ({
   const handleMatchingChoice = useCallback((chosenPosition: number) => {
     if (!currentMatchingTrial) return;
     
+    resetInactivityTimer();
+    setConsecutiveTimeouts(0); // Reset consecutive timeouts on successful interaction
     const reactionTime = Date.now() - trialStartTime;
     const isCorrect = chosenPosition === currentMatchingTrial.correctPosition;
     
@@ -264,16 +384,29 @@ export const CapabilityAssessment = ({
     onComplete(result);
   }, [level0Result, level1Result, saveAssessment, clinicalProfile, onComplete]);
 
+  // Track off-target clicks
+  const handleAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (currentLevel === 0 || currentLevel === 1) {
+      // For dot-tapping levels, any click outside the target is off-target
+      const target = e.target as HTMLElement;
+      if (target.tagName !== 'BUTTON') {
+        setOffTargetClicks(prev => prev + 1);
+        setShowRedirectHint(true);
+        setTimeout(() => setShowRedirectHint(false), 1500);
+      }
+    }
+  }, [currentLevel]);
+
   // Check for graceful exit conditions
   useEffect(() => {
     // Count actual timeouts from Level 2 trials
     const timeoutCount = level2Trials.filter(t => t.response === 'timeout').length;
-    const exitCheck = shouldGracefullyExit(level0Result, timeoutCount);
+    const exitCheck = shouldGracefullyExit(level0Result, timeoutCount, consecutiveTimeouts, offTargetClicks);
     if (exitCheck.shouldExit && !showGracefulExit) {
       setShowGracefulExit(true);
       setExitReason(exitCheck.reason);
     }
-  }, [level0Result, level2Trials, showGracefulExit]);
+  }, [level0Result, level2Trials, consecutiveTimeouts, offTargetClicks, showGracefulExit]);
 
   const handleGracefulPause = async (observations?: CaregiverObservations) => {
     // If we have caregiver observations, save them with a partial assessment
@@ -350,6 +483,12 @@ export const CapabilityAssessment = ({
       <CapabilityGracefulExit
         reason={exitReason}
         onPause={handleGracefulPause}
+        onContinue={() => {
+          setShowGracefulExit(false);
+          setConsecutiveTimeouts(0);
+          setOffTargetClicks(0);
+          resetInactivityTimer();
+        }}
       />
     );
   }
@@ -404,10 +543,21 @@ export const CapabilityAssessment = ({
       </div>
 
       {/* Assessment area */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" onClick={handleAreaClick}>
+        {/* Redirect hint for off-target clicks */}
+        {showRedirectHint && (
+          <div 
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-lg animate-fade-in pointer-events-none"
+          >
+            <ArrowRight className="h-5 w-5" />
+            <span className="text-sm font-medium">Tap the circle</span>
+          </div>
+        )}
+
         {(currentLevel === 0 || currentLevel === 1) && showTarget && (
           <button
             onClick={handleTargetTap}
+            className={showHint ? 'assessment-target-pulse' : ''}
             style={{
               position: 'absolute',
               left: `${targetPosition.x}px`,
@@ -456,10 +606,20 @@ export const CapabilityAssessment = ({
         )}
       </div>
 
-      {/* Exit button (small, bottom) */}
-      <div className="p-4 flex justify-center">
+      {/* Help and Exit buttons */}
+      <div className="p-4 flex justify-between items-center gap-4">
+        <Button 
+          variant="outline" 
+          size="lg" 
+          onClick={() => setShowGracefulExit(true)}
+          className={`flex items-center gap-2 ${offTargetClicks >= 5 ? 'ring-2 ring-primary animate-pulse' : ''}`}
+        >
+          <HelpCircle className="h-5 w-5" />
+          Need Help?
+        </Button>
+        
         <Button variant="ghost" size="sm" onClick={onExit}>
-          Exit Assessment
+          Exit
         </Button>
       </div>
     </div>

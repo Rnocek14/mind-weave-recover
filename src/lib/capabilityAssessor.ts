@@ -122,7 +122,9 @@ export function calculateConfidence(level0: Level0Result, level1: Level1Result, 
  */
 export function shouldGracefullyExit(
   level0: Level0Result,
-  timeoutCount: number
+  timeoutCount: number,
+  consecutiveTimeouts: number = 0,
+  offTargetClicks: number = 0
 ): {
   shouldExit: boolean;
   reason?: AssessmentResult['retryReason'];
@@ -132,9 +134,19 @@ export function shouldGracefullyExit(
     return { shouldExit: true, reason: 'no_response' };
   }
 
-  // Too many timeouts suggests fatigue or distress
+  // 3 consecutive timeouts = user not responding
+  if (consecutiveTimeouts >= 3) {
+    return { shouldExit: true, reason: 'no_response' };
+  }
+
+  // Too many total timeouts suggests fatigue or distress
   if (timeoutCount >= 4) {
     return { shouldExit: true, reason: 'fatigue_suspected' };
+  }
+
+  // High confusion (many off-target clicks)
+  if (offTargetClicks >= 8) {
+    return { shouldExit: true, reason: 'distress_observed' };
   }
 
   return { shouldExit: false };
