@@ -422,6 +422,13 @@ const Dashboard = () => {
             console.log('Assessment completed:', result);
             setShowCapabilityAssessment(false);
             fetchLatestAssessment();
+            
+            // Navigate to lesson after assessment
+            if (lesson) {
+              navigate("/lesson", { state: { lesson, clinicalProfile } });
+            } else {
+              toast.success("Assessment complete! Start an exercise when you're ready.");
+            }
           }}
           onExit={() => setShowCapabilityAssessment(false)}
         />
