@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { AssessmentResult } from '@/lib/capabilityAssessor';
@@ -10,7 +10,7 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
   const [previousAssessment, setPreviousAssessment] = useState<any | null>(null);
   const { toast } = useToast();
 
-  const fetchLatestAssessment = async () => {
+  const fetchLatestAssessment = useCallback(async () => {
     if (!userId) {
       setLoading(false);
       return null;
@@ -38,12 +38,24 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   // Auto-fetch latest assessment on mount or userId change
   useEffect(() => {
-    fetchLatestAssessment();
-  }, [userId]);
+    let isMounted = true;
+    
+    const loadAssessment = async () => {
+      if (isMounted) {
+        await fetchLatestAssessment();
+      }
+    };
+    
+    loadAssessment();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchLatestAssessment]);
 
   const saveAssessment = async (result: AssessmentResult, clinicalSnapshot: any = {}) => {
     if (!userId) {
