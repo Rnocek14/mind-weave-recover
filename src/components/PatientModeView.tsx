@@ -26,47 +26,53 @@ export function PatientModeView({ lesson, clinicalProfile }: PatientModeViewProp
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
-      <Card className="max-w-2xl w-full p-8 md:p-12 space-y-8 text-center shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+      <Card className="max-w-3xl w-full p-8 md:p-16 space-y-12 text-center shadow-2xl border-2">
         {/* Friendly greeting */}
-        <div className="space-y-3">
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground">
+        <div className="space-y-4">
+          <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
             Ready to practice?
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground">
+          <p className="text-xl md:text-2xl text-muted-foreground font-medium">
             No wrong answers. You can stop anytime. 💛
           </p>
         </div>
 
-        {/* Big primary button */}
-        <div className="pt-6">
+        {/* Big primary button - Extra large touch target */}
+        <div className="pt-8">
           <Button
             onClick={handleStartSession}
             size="lg"
             disabled={!lesson}
-            className="w-full h-24 md:h-32 text-2xl md:text-3xl font-bold shadow-lg hover:shadow-xl transition-all"
+            aria-label="Start today's therapy session"
+            aria-describedby="session-help-text"
+            className="w-full min-h-[140px] md:min-h-[180px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed px-8 py-6 rounded-2xl"
           >
-            <Play className="w-10 h-10 md:w-12 md:h-12 mr-4" />
-            Start Today's Session
+            <Play className="w-12 h-12 md:w-16 md:h-16 mr-4 shrink-0" />
+            <span>Start Today's Session</span>
           </Button>
+          <p id="session-help-text" className="sr-only">
+            This button will start your personalized therapy exercises for today
+          </p>
         </div>
 
-        {/* Small secondary option */}
-        <div className="pt-4">
+        {/* Small secondary option - Still accessible */}
+        <div className="pt-6">
           <Button
             onClick={handleRest}
             variant="ghost"
             size="lg"
-            className="text-lg text-muted-foreground hover:text-foreground"
+            aria-label="Take a rest break"
+            className="min-h-[64px] text-xl md:text-2xl text-muted-foreground hover:text-foreground px-8 py-4 rounded-xl hover:bg-accent/50 active:scale-[0.98] transition-all"
           >
-            <LogOut className="w-5 h-5 mr-2" />
+            <LogOut className="w-6 h-6 md:w-7 md:h-7 mr-3" />
             I need to rest
           </Button>
         </div>
 
         {/* Lesson status indicator */}
         {!lesson && (
-          <p className="text-sm text-muted-foreground pt-4">
+          <p className="text-base md:text-lg text-muted-foreground pt-4 animate-pulse">
             Loading your personalized session...
           </p>
         )}
