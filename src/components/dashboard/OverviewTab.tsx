@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb } from "lucide-react";
+import { Play, Brain, Lightbulb, Volume2, List, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
 import { StrokeEducationPanel } from "@/components/StrokeEducationPanel";
@@ -12,13 +12,15 @@ import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { ExerciseCarousel } from "@/components/ExerciseCarousel";
+import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { 
   ProgressCardSkeleton, 
   RecoverySummarySkeleton, 
-  ExerciseCardSkeleton 
+  ExerciseCardSkeleton,
+  ExerciseStatsTileSkeleton
 } from "./DashboardSkeletons";
 
 export const OverviewTab = memo(function OverviewTab() {
@@ -44,6 +46,7 @@ export const OverviewTab = memo(function OverviewTab() {
   const [showProgress, setShowProgress] = useState(false);
   const [showRecoveryIntel, setShowRecoveryIntel] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
+  const [showLanguageStats, setShowLanguageStats] = useState(false);
   const [showExercises, setShowExercises] = useState(false);
 
   useEffect(() => {
@@ -56,13 +59,17 @@ export const OverviewTab = memo(function OverviewTab() {
     // Phase 3: Plan (600ms delay)
     const timer2 = setTimeout(() => setShowPlan(true), 600);
     
-    // Phase 4: Exercises (900ms delay)
-    const timer3 = setTimeout(() => setShowExercises(true), 900);
+    // Phase 4: Language Stats (750ms delay)
+    const timer3 = setTimeout(() => setShowLanguageStats(true), 750);
+    
+    // Phase 5: Exercises (900ms delay)
+    const timer4 = setTimeout(() => setShowExercises(true), 900);
     
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
+      clearTimeout(timer4);
     };
   }, []);
 
@@ -183,6 +190,48 @@ export const OverviewTab = memo(function OverviewTab() {
             }}
             doseCapReached={doseCap.warningLevel === 'limit'}
           />
+        </div>
+      )}
+
+      {/* Language Recovery Quick Stats */}
+      {!showLanguageStats ? (
+        <div>
+          <h2 className="text-xl md:text-2xl font-semibold mb-4">Language Progress at a Glance</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <ExerciseStatsTileSkeleton delay={0} />
+            <ExerciseStatsTileSkeleton delay={100} />
+            <ExerciseStatsTileSkeleton delay={200} />
+          </div>
+        </div>
+      ) : (
+        <div className="animate-fade-in">
+          <div className="flex items-center gap-3 mb-4">
+            <MessageSquare className="w-6 h-6 text-primary" />
+            <h2 className="text-xl md:text-2xl font-semibold">Language Progress at a Glance</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+              <ExerciseStatsTile
+                userId={userId}
+                exerciseSlug="semantic-features"
+                exerciseTitle="Semantic Features"
+              />
+            </div>
+            <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <ExerciseStatsTile
+                userId={userId}
+                exerciseSlug="phonological"
+                exerciseTitle="Phonological"
+              />
+            </div>
+            <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
+              <ExerciseStatsTile
+                userId={userId}
+                exerciseSlug="sentence-construction"
+                exerciseTitle="Grammar"
+              />
+            </div>
+          </div>
         </div>
       )}
 
