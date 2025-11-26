@@ -15,29 +15,26 @@ export const useTextToSpeech = () => {
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'EXAVITQu4vr4xnSDxMaL', autoPlay = true } = options;
+    const { voiceId = 'alloy', autoPlay = true } = options;
 
     setIsLoading(true);
     setError(null);
 
     try {
+      // Try OpenAI TTS first
       const { data, error: functionError } = await supabase.functions.invoke(
-        'text-to-speech-elevenlabs',
+        'text-to-speech',
         {
-          body: { text, voiceId }
+          body: { text, voice: voiceId }
         }
       );
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
-
-      if (!data?.audioBase64) {
-        throw new Error('No audio data received');
+      if (functionError || !data?.audioContent) {
+        throw new Error(functionError?.message || 'No audio data received');
       }
 
       // Convert base64 to audio blob
-      const binaryString = atob(data.audioBase64);
+      const binaryString = atob(data.audioContent);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
@@ -65,9 +62,26 @@ export const useTextToSpeech = () => {
       };
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate speech';
-      console.error('TTS error:', errorMessage);
-      setError(errorMessage);
+      console.warn('OpenAI TTS failed, falling back to browser speech:', err);
+      
+      // Fallback to browser speech synthesis
+      try {
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          window.speechSynthesis.cancel(); // Stop any ongoing speech
+          if (autoPlay) {
+            window.speechSynthesis.speak(utterance);
+          }
+        } else {
+          throw new Error('Speech synthesis not available');
+        }
+      } catch (fallbackErr) {
+        const errorMessage = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to generate speech';
+        console.error('TTS fallback error:', errorMessage);
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
