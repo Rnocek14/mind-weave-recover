@@ -73,6 +73,14 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
     }
   }, [phase, user]);
 
+  // Ensure navigation happens when phase is exercise
+  useEffect(() => {
+    if (phase === "exercise" && currentBlock && sessionId) {
+      console.log('[LessonFlow] Phase is exercise, ensuring navigation happens:', currentBlock.exerciseId);
+      navigateToExercise(currentBlock.exerciseId);
+    }
+  }, [phase, currentBlock, sessionId]);
+
   const createSession = async () => {
     if (!user) return;
 
