@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,13 @@ import { DifficultyInfoBadge } from "@/components/DifficultyInfoBadge";
 
 const SentenceConstructionExercise = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  
+  // Extract lesson flow state
+  const fromLesson = location.state?.fromLesson === true;
+  const lessonSessionId = location.state?.sessionId as string | undefined;
+  
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState<number>(Date.now());
   const [showSettings, setShowSettings] = useState(false);
@@ -75,10 +81,16 @@ const SentenceConstructionExercise = () => {
     if (!user) return;
 
     try {
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: "sentence-construction", duration: 600 }]
-      });
-      setSessionId(session.id);
+      // If coming from lesson, use the passed sessionId
+      if (fromLesson && lessonSessionId) {
+        setSessionId(lessonSessionId);
+      } else {
+        // Create new session
+        const session = await startSession(user.id, {
+          blocks: [{ exercise: "sentence-construction", duration: 600 }]
+        });
+        setSessionId(session.id);
+      }
     } catch (error) {
       console.error("Failed to start session:", error);
       toast.error("Failed to start session");
@@ -137,6 +149,15 @@ const SentenceConstructionExercise = () => {
     toast.success("Session completed!", {
       description: `Score: ${finalScore}/${totalTrials}`
     });
+    
+    if (fromLesson) {
+      // Return to lesson flow
+      window.dispatchEvent(new CustomEvent('exercise-complete'));
+      navigate('/lesson', { state: { resuming: true } });
+    } else {
+      // Standalone mode - go to dashboard
+      setTimeout(() => navigate('/dashboard'), 2000);
+    }
   };
 
   const handleDifficultyChange = async (newLevel: number) => {

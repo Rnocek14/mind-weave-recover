@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PhonologicalGame } from '@/components/PhonologicalGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
@@ -14,8 +14,13 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Extract lesson flow state
+  const fromLesson = location.state?.fromLesson === true;
+  const lessonSessionId = location.state?.sessionId as string | undefined;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
@@ -50,11 +55,16 @@ export default function PhonologicalExercise() {
   const handleGameStart = async () => {
     if (!user?.id) return;
     
-    const session = await startSession(user.id, {
-      blocks: [{ exercise: 'phonological-awareness', duration: 10 }],
-    });
-    
-    setSessionId(session.id);
+    // If coming from lesson, use the passed sessionId
+    if (fromLesson && lessonSessionId) {
+      setSessionId(lessonSessionId);
+    } else {
+      // Create new session
+      const session = await startSession(user.id, {
+        blocks: [{ exercise: 'phonological-awareness', duration: 10 }],
+      });
+      setSessionId(session.id);
+    }
   };
 
   const handleGameComplete = async (finalScore: number, totalTrials: number) => {
@@ -74,7 +84,14 @@ export default function PhonologicalExercise() {
       description: `You completed ${totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
     });
     
-    setTimeout(() => navigate('/dashboard'), 2000);
+    if (fromLesson) {
+      // Return to lesson flow
+      window.dispatchEvent(new CustomEvent('exercise-complete'));
+      navigate('/lesson', { state: { resuming: true } });
+    } else {
+      // Standalone mode - go to dashboard
+      setTimeout(() => navigate('/dashboard'), 2000);
+    }
   };
 
   // Start session on mount
