@@ -1,18 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { AssessmentResult } from '@/lib/capabilityAssessor';
 import { smoothScore } from '@/lib/capabilityScoreSmoothing';
 
 export const useCapabilityAssessment = (userId: string | undefined) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentAssessment, setCurrentAssessment] = useState<any | null>(null);
   const [previousAssessment, setPreviousAssessment] = useState<any | null>(null);
   const { toast } = useToast();
 
   const fetchLatestAssessment = async () => {
-    if (!userId) return null;
+    if (!userId) {
+      setLoading(false);
+      return null;
+    }
 
+    setLoading(true);
     try {
       // Fetch top 2 assessments to enable drop detection and smoothing
       const { data, error } = await (supabase as any)
@@ -31,8 +35,15 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
     } catch (error) {
       console.error('Error fetching capability assessment:', error);
       return null;
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Auto-fetch latest assessment on mount or userId change
+  useEffect(() => {
+    fetchLatestAssessment();
+  }, [userId]);
 
   const saveAssessment = async (result: AssessmentResult, clinicalSnapshot: any = {}) => {
     if (!userId) {
