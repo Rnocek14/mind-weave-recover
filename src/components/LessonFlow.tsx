@@ -86,6 +86,8 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   };
 
   const navigateToExercise = (exerciseId: string) => {
+    console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId });
+    
     // Map exercise IDs to their routes
     const routeMap: Record<string, string> = {
       "photo-naming": "/exercise/photo-naming",
@@ -94,18 +96,30 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       "semantic-features": "/exercise/semantic-features",
       "sentence-construction": "/exercise/sentence-construction",
       "phrase-practice": "/exercise/phrase-practice",
+      "reach-tap": "/exercise/reach-tap",
     };
 
     const route = routeMap[exerciseId];
-    if (route && sessionId) {
-      navigate(route, { 
-        state: { 
-          sessionId,
-          adaptations: currentBlock?.adaptations,
-          fromLesson: true,
-        } 
-      });
+    
+    if (!route) {
+      console.error('[LessonFlow] No route found for exercise:', exerciseId);
+      toast.error(`Exercise "${exerciseId}" is not available`);
+      return;
     }
+    
+    if (!sessionId) {
+      console.error('[LessonFlow] No sessionId available');
+      toast.error("Session not ready. Please wait...");
+      return;
+    }
+    
+    navigate(route, { 
+      state: { 
+        sessionId,
+        adaptations: currentBlock?.adaptations,
+        fromLesson: true,
+      } 
+    });
   };
 
   const handleNextBlock = () => {
@@ -192,9 +206,14 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
           </div>
 
           <div className="pt-4">
-            <Button size="lg" className="w-full" onClick={handleStartExercises}>
+            <Button 
+              size="lg" 
+              className="w-full" 
+              onClick={handleStartExercises}
+              disabled={!sessionId}
+            >
               <Play className="w-5 h-5 mr-2" />
-              Start Exercises
+              {!sessionId ? "Creating session..." : "Start Exercises"}
             </Button>
           </div>
         </Card>
