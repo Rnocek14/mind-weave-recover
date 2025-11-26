@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
@@ -27,6 +27,12 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 export default function PhotoNamingExercise() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract lesson flow state
+  const fromLesson = location.state?.fromLesson === true;
+  const lessonSessionId = location.state?.sessionId as string | undefined;
+  
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [gameKey, setGameKey] = useState(0);
@@ -42,17 +48,23 @@ export default function PhotoNamingExercise() {
     const initSession = async () => {
       if (!user?.id) return;
       
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: 'photo_naming', duration: 10 }]
-      });
-      
-      if (session) {
-        setSessionId(session.id);
+      // If coming from lesson, use the passed sessionId
+      if (fromLesson && lessonSessionId) {
+        setSessionId(lessonSessionId);
+      } else {
+        // Create new session
+        const session = await startSession(user.id, {
+          blocks: [{ exercise: 'photo_naming', duration: 10 }]
+        });
+        
+        if (session) {
+          setSessionId(session.id);
+        }
       }
     };
     
     initSession();
-  }, [user?.id]);
+  }, [user?.id, fromLesson, lessonSessionId]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -130,7 +142,14 @@ export default function PhotoNamingExercise() {
         .eq('id', sessionId);
     }
     
-    navigate('/dashboard');
+    if (fromLesson) {
+      // Return to lesson flow
+      window.dispatchEvent(new CustomEvent('exercise-complete'));
+      navigate('/lesson', { state: { resuming: true } });
+    } else {
+      // Standalone mode - go to dashboard
+      navigate('/dashboard');
+    }
   };
 
   if (isLoading) {

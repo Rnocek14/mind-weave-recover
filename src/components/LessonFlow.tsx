@@ -40,18 +40,31 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   // Restore state if returning from exercise
   useEffect(() => {
     const savedState = sessionStorage.getItem('lessonFlowState');
-    if (savedState && !location.state?.resuming) {
+    if (savedState) {
       try {
         const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
-        console.log('[LessonFlow] Restored state:', { savedPhase, savedIndex, savedSessionId });
-        setPhase(savedPhase);
-        setCurrentBlockIndex(savedIndex);
-        setSessionId(savedSessionId);
+        console.log('[LessonFlow] Restoring state:', { savedPhase, savedIndex, savedSessionId, resuming: location.state?.resuming });
+        
+        // If returning from exercise (resuming), move to next phase
+        if (location.state?.resuming && savedPhase === 'exercise') {
+          setCurrentBlockIndex(savedIndex);
+          setSessionId(savedSessionId);
+          
+          // Move to transition or summary based on block index
+          const isLast = savedIndex >= lesson.blocks.length - 1;
+          setPhase(isLast ? 'summary' : 'transition');
+          console.log('[LessonFlow] Advancing from exercise to:', isLast ? 'summary' : 'transition');
+        } else {
+          // Normal restore
+          setPhase(savedPhase);
+          setCurrentBlockIndex(savedIndex);
+          setSessionId(savedSessionId);
+        }
       } catch (error) {
         console.error('[LessonFlow] Error restoring state:', error);
       }
     }
-  }, []);
+  }, [lesson.blocks.length, location.state?.resuming]);
 
   useEffect(() => {
     // Create session when lesson overview starts
