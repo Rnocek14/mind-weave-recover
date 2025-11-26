@@ -24,7 +24,7 @@ export const EXERCISES: Exercise[] = [
     color: "bg-gradient-primary"
   },
   {
-    id: "phonological-awareness",
+    id: "phonological",
     title: "Phonological Awareness",
     icon: Volume2,
     category: "Language",
@@ -60,7 +60,7 @@ export const EXERCISES: Exercise[] = [
     color: "bg-gradient-healing"
   },
   {
-    id: "word-practice",
+    id: "phrase-practice",
     title: "Phrase Practice",
     icon: MessageSquare,
     category: "Speech",

@@ -89,7 +89,8 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
     // Map exercise IDs to their routes
     const routeMap: Record<string, string> = {
       "photo-naming": "/exercise/photo-naming",
-      "phonological": "/exercise/phonological",
+      "phonological": "/exercise/phonological-awareness",
+      "phonological-awareness": "/exercise/phonological-awareness",
       "semantic-features": "/exercise/semantic-features",
       "sentence-construction": "/exercise/sentence-construction",
       "phrase-practice": "/exercise/phrase-practice",
