@@ -261,7 +261,6 @@ const Dashboard = () => {
     return (
       <PatientModeView 
         userId={user!.id}
-        lesson={lesson}
         clinicalProfile={clinicalProfile}
       />
     );
