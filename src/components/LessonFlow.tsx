@@ -271,5 +271,24 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
     );
   }
 
+  // Loading state when navigating to exercise
+  if (phase === "exercise") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 space-y-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto animate-pulse">
+            <Play className="w-8 h-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">Loading Exercise...</h2>
+            <p className="text-muted-foreground capitalize">
+              {currentBlock?.exerciseId.replace(/-/g, ' ')}
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return null;
 };
