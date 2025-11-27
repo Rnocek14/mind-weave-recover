@@ -160,7 +160,8 @@ export const PhotoNamingGame = ({
   
   // Handle speech recognition results
   const handleSpeechResult = (transcript: string) => {
-    if (showFeedback || selectedAnswer || timedOut) return;
+    // Block speech recognition while playing choices
+    if (showFeedback || selectedAnswer || timedOut || isPlayingChoices) return;
     
     console.log('Speech result:', transcript);
     const matchedChoice = findMatchingChoice(transcript);
@@ -177,7 +178,7 @@ export const PhotoNamingGame = ({
         duration: 2000,
       });
       // Restart listening
-      if (useVoice) {
+      if (useVoice && !isPlayingChoices) {
         setTimeout(() => startListening(), 500);
       }
     }
@@ -423,27 +424,33 @@ export const PhotoNamingGame = ({
   const handlePlayAllChoices = async () => {
     if (!state.choices || isPlayingChoices) return;
     
-    setIsPlayingChoices(true);
-    
-    // Stop listening while playing audio
+    // Stop listening FIRST and wait a moment before playing
     if (isListening) {
       stopListening();
+      // Wait for mic to fully stop before playing audio
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
+    
+    setIsPlayingChoices(true);
     
     try {
       for (const choice of state.choices) {
         await playPhrase(choice, { voice: 'alloy' });
         // Small pause between choices
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 400));
       }
+      
+      // Extra delay after all audio finishes to ensure system audio stops
+      await new Promise(resolve => setTimeout(resolve, 800));
     } catch (error) {
       console.error('Error playing choices:', error);
     } finally {
       setIsPlayingChoices(false);
       
       // Resume listening after audio if voice mode is on
+      // Give more time for audio system to settle
       if (useVoice && isSupported && !showFeedback) {
-        setTimeout(() => startListening(), 500);
+        setTimeout(() => startListening(), 1000);
       }
     }
   };
