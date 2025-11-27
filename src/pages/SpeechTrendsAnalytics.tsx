@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, TrendingUp, Activity, MessageSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, subDays, startOfDay } from 'date-fns';
 
 interface ErrorTypeCount {
@@ -19,6 +19,21 @@ interface DailyMetric {
   avgEncouragementScore: number;
   effortfulRate: number;
   trialCount: number;
+}
+
+interface CategoryErrorPattern {
+  category: string;
+  mostCommonError: string;
+  errorCounts: Record<string, number>;
+  totalTrials: number;
+}
+
+interface DifficultWord {
+  targetWord: string;
+  trials: number;
+  avgScore: number;
+  effortfulRate: number;
+  mostCommonError: string;
 }
 
 const ERROR_TYPE_COLORS: Record<string, string> = {
@@ -38,6 +53,13 @@ export default function SpeechTrendsAnalytics() {
   const [loading, setLoading] = useState(true);
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
   const [errorDistribution, setErrorDistribution] = useState<ErrorTypeCount[]>([]);
+  const [categoryPatterns, setCategoryPatterns] = useState<CategoryErrorPattern[]>([]);
+  const [difficultWords, setDifficultWords] = useState<DifficultWord[]>([]);
+  const [clinicalSnapshot, setClinicalSnapshot] = useState({
+    mostCommonError: '',
+    strongestCategory: '',
+    totalTrials: 0,
+  });
   const [keyMetrics, setKeyMetrics] = useState({
     avgSpeechRateWpm: 0,
     avgPauseCount: 0,
@@ -87,6 +109,13 @@ export default function SpeechTrendsAnalytics() {
       // Process daily metrics
       const dailyMap = new Map<string, { scoreSum: number; effortfulCount: number; total: number }>();
       const errorTypeMap = new Map<string, number>();
+      const categoryErrorMap = new Map<string, { errors: Map<string, number>; total: number }>();
+      const wordDifficultyMap = new Map<string, {
+        scoreSum: number;
+        trials: number;
+        effortfulCount: number;
+        errors: Map<string, number>;
+      }>();
       let totalSpeechRate = 0;
       let totalPauseCount = 0;
       let speechRateCount = 0;
@@ -115,6 +144,37 @@ export default function SpeechTrendsAnalytics() {
         // Error type distribution
         const errorType = utteranceAnalysis?.errorType || event.error_type || 'unknown';
         errorTypeMap.set(errorType, (errorTypeMap.get(errorType) || 0) + 1);
+
+        // Category-level patterns
+        const category = taskParams?.category || utteranceAnalysis?.context?.domain || 'general';
+        if (!categoryErrorMap.has(category)) {
+          categoryErrorMap.set(category, { errors: new Map(), total: 0 });
+        }
+        const categoryData = categoryErrorMap.get(category)!;
+        categoryData.total += 1;
+        categoryData.errors.set(errorType, (categoryData.errors.get(errorType) || 0) + 1);
+
+        // Word-level difficulty tracking
+        const targetWord = taskParams?.target_word || utteranceAnalysis?.context?.targetWord;
+        if (targetWord) {
+          if (!wordDifficultyMap.has(targetWord)) {
+            wordDifficultyMap.set(targetWord, {
+              scoreSum: 0,
+              trials: 0,
+              effortfulCount: 0,
+              errors: new Map(),
+            });
+          }
+          const wordData = wordDifficultyMap.get(targetWord)!;
+          wordData.trials += 1;
+          if (taskParams?.encouragement_score) {
+            wordData.scoreSum += taskParams.encouragement_score;
+          }
+          if (taskParams?.effortful_speech === true) {
+            wordData.effortfulCount += 1;
+          }
+          wordData.errors.set(errorType, (wordData.errors.get(errorType) || 0) + 1);
+        }
 
         // Acoustic metrics
         const acousticMetrics = event.acoustic_metrics as any;
@@ -145,8 +205,62 @@ export default function SpeechTrendsAnalytics() {
         .map(([errorType, count]) => ({ errorType, count }))
         .sort((a, b) => b.count - a.count);
 
+      // Category patterns
+      const categoryData: CategoryErrorPattern[] = Array.from(categoryErrorMap.entries())
+        .map(([category, data]) => {
+          const sortedErrors = Array.from(data.errors.entries()).sort((a, b) => b[1] - a[1]);
+          const mostCommonError = sortedErrors[0]?.[0] || 'none';
+          const errorCounts = Object.fromEntries(data.errors);
+          return {
+            category,
+            mostCommonError,
+            errorCounts,
+            totalTrials: data.total,
+          };
+        })
+        .sort((a, b) => b.totalTrials - a.totalTrials);
+
+      // Difficult words
+      const difficultWordsData: DifficultWord[] = Array.from(wordDifficultyMap.entries())
+        .map(([targetWord, data]) => {
+          const avgScore = data.trials > 0 ? Math.round(data.scoreSum / data.trials) : 0;
+          const effortfulRate = data.trials > 0 ? Math.round((data.effortfulCount / data.trials) * 100) : 0;
+          const sortedErrors = Array.from(data.errors.entries()).sort((a, b) => b[1] - a[1]);
+          const mostCommonError = sortedErrors[0]?.[0] || 'none';
+          return {
+            targetWord,
+            trials: data.trials,
+            avgScore,
+            effortfulRate,
+            mostCommonError,
+          };
+        })
+        .sort((a, b) => a.avgScore - b.avgScore)
+        .slice(0, 10);
+
+      // Clinical snapshot
+      const mostCommonError = errorData[0]?.errorType || 'none';
+      const strongestCategory = categoryData.reduce((best, current) => {
+        const correctRate = (current.errorCounts['correct'] || 0) / current.totalTrials;
+        const attemptedRate = (current.errorCounts['attempted'] || 0) / current.totalTrials;
+        const strengthScore = correctRate + (attemptedRate * 0.7);
+        
+        const bestCorrectRate = (best.errorCounts['correct'] || 0) / best.totalTrials;
+        const bestAttemptedRate = (best.errorCounts['attempted'] || 0) / best.totalTrials;
+        const bestScore = bestCorrectRate + (bestAttemptedRate * 0.7);
+        
+        return strengthScore > bestScore ? current : best;
+      }, categoryData[0] || { category: 'none', errorCounts: {}, totalTrials: 0 });
+
       setDailyMetrics(dailyData);
       setErrorDistribution(errorData);
+      setCategoryPatterns(categoryData);
+      setDifficultWords(difficultWordsData);
+      setClinicalSnapshot({
+        mostCommonError,
+        strongestCategory: strongestCategory?.category || 'none',
+        totalTrials: events?.length || 0,
+      });
       setKeyMetrics({
         avgSpeechRateWpm: speechRateCount > 0 ? Math.round(totalSpeechRate / speechRateCount) : 0,
         avgPauseCount: pauseCountCount > 0 ? Math.round((totalPauseCount / pauseCountCount) * 10) / 10 : 0,
@@ -266,7 +380,7 @@ export default function SpeechTrendsAnalytics() {
         </div>
 
         {/* Error Type Distribution */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Error Type Distribution</h2>
             <ResponsiveContainer width="100%" height={300}>
@@ -303,6 +417,119 @@ export default function SpeechTrendsAnalytics() {
             )}
           </Card>
         </div>
+
+        {/* Clinical Snapshot */}
+        <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold mb-3 text-blue-900 dark:text-blue-100">Clinical Snapshot</h2>
+              <div className="grid md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">Most Common Pattern</p>
+                  <p className="text-blue-900 dark:text-blue-100 capitalize">
+                    {clinicalSnapshot.mostCommonError.replace('_', ' ')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">Area of Strength</p>
+                  <p className="text-blue-900 dark:text-blue-100 capitalize">
+                    {clinicalSnapshot.strongestCategory}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">Total Trials Analyzed</p>
+                  <p className="text-blue-900 dark:text-blue-100">
+                    {clinicalSnapshot.totalTrials}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Category Error Patterns */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Error Patterns by Category</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-3">Category</th>
+                  <th className="text-left py-2 px-3">Most Common Error</th>
+                  <th className="text-right py-2 px-3">Trials</th>
+                  <th className="text-left py-2 px-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryPatterns.map((pattern) => {
+                  const correctCount = pattern.errorCounts['correct'] || 0;
+                  const attemptedCount = pattern.errorCounts['attempted'] || 0;
+                  const circumlocutionCount = pattern.errorCounts['circumlocution'] || 0;
+                  const notes = 
+                    correctCount / pattern.totalTrials > 0.7 ? 'Strong area' :
+                    circumlocutionCount / pattern.totalTrials > 0.3 ? 'Frequent descriptions' :
+                    attemptedCount / pattern.totalTrials > 0.4 ? 'Good effort, partial success' :
+                    'Challenging area';
+                  
+                  return (
+                    <tr key={pattern.category} className="border-b hover:bg-muted/50">
+                      <td className="py-2 px-3 capitalize">{pattern.category}</td>
+                      <td className="py-2 px-3 capitalize">{pattern.mostCommonError.replace('_', ' ')}</td>
+                      <td className="py-2 px-3 text-right">{pattern.totalTrials}</td>
+                      <td className="py-2 px-3 text-sm text-muted-foreground">{notes}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {categoryPatterns.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No category data available yet
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* Difficult Words */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Most Challenging Words</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-3">Word</th>
+                  <th className="text-right py-2 px-3">Trials</th>
+                  <th className="text-right py-2 px-3">Avg Score</th>
+                  <th className="text-right py-2 px-3">Effortful %</th>
+                  <th className="text-left py-2 px-3">Common Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {difficultWords.map((word) => (
+                  <tr key={word.targetWord} className="border-b hover:bg-muted/50">
+                    <td className="py-2 px-3 font-medium">{word.targetWord}</td>
+                    <td className="py-2 px-3 text-right">{word.trials}</td>
+                    <td className="py-2 px-3 text-right">
+                      <Badge variant={word.avgScore >= 70 ? 'default' : 'destructive'}>
+                        {word.avgScore}
+                      </Badge>
+                    </td>
+                    <td className="py-2 px-3 text-right">{word.effortfulRate}%</td>
+                    <td className="py-2 px-3 capitalize text-sm text-muted-foreground">
+                      {word.mostCommonError.replace('_', ' ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {difficultWords.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No word difficulty data available yet
+              </p>
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

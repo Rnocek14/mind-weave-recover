@@ -172,19 +172,29 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
         </div>
       ) : (
         <div className="animate-fade-in">
-          <div className="flex items-center gap-3 mb-4">
-            <MessageSquare className="w-6 h-6 text-primary" aria-hidden="true" />
-            <h2 className="text-2xl font-semibold">Language Recovery Progress</h2>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger aria-label="Information about language recovery progress">
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>Track your progress across speech and language exercises. Data appears once you complete sessions.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="w-6 h-6 text-primary" aria-hidden="true" />
+              <h2 className="text-2xl font-semibold">Language Recovery Progress</h2>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger aria-label="Information about language recovery progress">
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Track your progress across speech and language exercises. Data appears once you complete sessions.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/analytics/speech-trends')}
+              className="gap-2"
+            >
+              <History className="w-4 h-4" />
+              Speech Trends
+            </Button>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
           <div className="space-y-2">
