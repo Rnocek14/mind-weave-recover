@@ -68,6 +68,7 @@ export const PhotoNamingGame = ({
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
+  const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   
   // Refs to avoid stale closures
   const isPlayingChoicesRef = useRef(false);
@@ -476,6 +477,39 @@ export const PhotoNamingGame = ({
       description: cueDecision.reasoning,
       duration: 3000
     });
+  };
+
+  const handlePlaySingleChoice = async (choice: string) => {
+    if (isPlayingChoices || playingChoice || showFeedback || timedOut) return;
+    
+    // Update BOTH ref and state
+    isPlayingChoicesRef.current = true;
+    setIsPlayingChoices(true);
+    setPlayingChoice(choice);
+    
+    // Stop listening FIRST and wait a moment before playing
+    if (isListening) {
+      stopListening();
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    try {
+      await playPhrase(choice, { voice: 'alloy', playbackSpeed });
+      // Extra delay after audio finishes
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('Error playing choice:', error);
+    } finally {
+      // Update BOTH ref and state
+      isPlayingChoicesRef.current = false;
+      setIsPlayingChoices(false);
+      setPlayingChoice(null);
+      
+      // Resume listening after audio if voice mode is on using safe method
+      if (useVoice && isSupported && !showFeedback) {
+        safeStartListening(1200);
+      }
+    }
   };
 
   const handlePlayAllChoices = async () => {
@@ -892,16 +926,31 @@ export const PhotoNamingGame = ({
           
           <div className="grid grid-cols-2 gap-3">
             {state.choices.map((choice, idx) => (
-              <Button
-                key={idx}
-                variant={selectedAnswer === choice ? "default" : "outline"}
-                size="lg"
-                className="h-16 text-lg"
-                onClick={() => handleAnswerSelect(choice)}
-                disabled={showFeedback || timedOut || isPlayingChoices}
-              >
-                {choice}
-              </Button>
+              <div key={idx} className="relative">
+                <Button
+                  variant={selectedAnswer === choice ? "default" : "outline"}
+                  size="lg"
+                  className="w-full h-16 text-lg pr-12"
+                  onClick={() => handleAnswerSelect(choice)}
+                  disabled={showFeedback || timedOut || isPlayingChoices}
+                >
+                  {choice}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlaySingleChoice(choice);
+                  }}
+                  disabled={showFeedback || timedOut || isPlayingChoices}
+                >
+                  <Volume2 
+                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
+                  />
+                </Button>
+              </div>
             ))}
           </div>
         </div>
