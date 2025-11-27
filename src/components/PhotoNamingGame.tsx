@@ -329,8 +329,24 @@ export const PhotoNamingGame = ({
       }
       
       // Auto-listen: Start voice listening when new trial begins using safe method
+      // Use a separate mechanism to avoid cleanup race condition
       if (useVoice && isSupported) {
-        safeStartListening(800); // Auto-listen delay for accessibility
+        // Don't use safeStartListening here because cleanup might clear it
+        const timeoutId = setTimeout(() => {
+          console.log('🎤 Auto-listen timeout executed for new trial');
+          if (!isPlayingChoicesRef.current && !showFeedback) {
+            try {
+              startListening();
+            } catch (err) {
+              console.error('🎤 Error auto-starting listening:', err);
+            }
+          }
+        }, 800);
+        
+        // Return cleanup for THIS specific timeout only
+        return () => {
+          clearTimeout(timeoutId);
+        };
       }
     }
     
@@ -338,15 +354,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-    
-    // Cleanup function to clear pending timeouts
-    return () => {
-      if (listeningTimeoutRef.current) {
-        clearTimeout(listeningTimeoutRef.current);
-        listeningTimeoutRef.current = null;
-      }
-    };
-  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, safeStartListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
+  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
 
   // Handle game completion
   useEffect(() => {
