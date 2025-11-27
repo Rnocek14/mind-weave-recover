@@ -252,6 +252,7 @@ export const PhrasePracticeGame = ({
       asrConfidence: errorClassification.confidence,
       errorType: 'correct',
       meaningAccuracy: wordAccuracy,
+      semanticSimilarity: errorClassification.semantic_similarity,
       phonologicalSimilarity: errorClassification.phonological_similarity,
       phonemeAccuracy: errorClassification.phonemeAccuracy,
       encouragementScore,
