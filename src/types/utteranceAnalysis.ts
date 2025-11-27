@@ -48,7 +48,7 @@ export interface UtteranceAnalysis {
 
   // ===== Phonology =====
   phonologicalSimilarity?: number;  // 0-1, current: char-level Levenshtein
-  phonemeAccuracy?: number;         // 0-1, future: G2P-based phoneme comparison
+  phonemeAccuracy?: number;         // 0-1, pseudo-phoneme sequence comparison
   phonemeErrors?: PhonemeError[];   // future: detailed phoneme-level breakdown
 
   // ===== Fluency / Acoustic =====
@@ -137,7 +137,7 @@ export function toUtteranceAnalysis(
   encouragementScore: number,
   acousticMetrics?: any
 ): UtteranceAnalysis {
-  return {
+  const utteranceAnalysis: UtteranceAnalysis = {
     transcript,
     asrConfidence: errorClassification.confidence,
     errorType: errorClassification.errorType,
@@ -145,6 +145,7 @@ export function toUtteranceAnalysis(
     semanticSimilarity: errorClassification.semantic_similarity,
     circumlocutionDetected: errorClassification.circumlocutionDetected,
     phonologicalSimilarity: errorClassification.phonological_similarity,
+    phonemeAccuracy: errorClassification.phonemeAccuracy,
     speechRateWpm: acousticMetrics?.speechRateWpm,
     pauseCount: acousticMetrics?.pauseCount,
     avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
@@ -155,6 +156,8 @@ export function toUtteranceAnalysis(
     needsReview: errorClassification.needs_review,
     classificationConfidence: errorClassification.confidence,
   };
+  
+  return utteranceAnalysis;
 }
 
 /**

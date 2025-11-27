@@ -253,6 +253,7 @@ export const PhrasePracticeGame = ({
       errorType: 'correct',
       meaningAccuracy: wordAccuracy,
       phonologicalSimilarity: errorClassification.phonological_similarity,
+      phonemeAccuracy: errorClassification.phonemeAccuracy,
       encouragementScore,
       encouragementLevel: errorClassification.errorType === 'correct' ? 'excellent' : 'good',
       reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
