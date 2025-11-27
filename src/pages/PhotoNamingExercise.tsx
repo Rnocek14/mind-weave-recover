@@ -124,6 +124,14 @@ export default function PhotoNamingExercise() {
       : 'independent';
 
     // 🧪 Log trial with unified UtteranceAnalysis + ShadowEvent
+    console.log('📊 Logging trial with utterance analysis:', {
+      targetWord: trial.target,
+      utteranceAnalysis: result.utteranceAnalysis,
+      shadowEvent: result.shadowEvent,
+      hasAnalysis: !!result.utteranceAnalysis,
+      hasShadowEvent: !!result.shadowEvent,
+    });
+    
     await logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -152,6 +160,8 @@ export default function PhotoNamingExercise() {
         shadow_event: result.shadowEvent,
       },
     });
+    
+    console.log('✅ Trial logged successfully to exercise_events');
   };
 
   const handleGameComplete = async () => {

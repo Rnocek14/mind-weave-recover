@@ -715,7 +715,7 @@ export const PhotoNamingGame = ({
       acousticMetrics ? {
         speechRateWpm: acousticMetrics.speechRateWPM,
         pauseCount: acousticMetrics.pauseCount,
-        avgPauseDuration: acousticMetrics.averagePauseDuration
+        avgPauseDurationMs: acousticMetrics.averagePauseDuration
       } : undefined
     );
     
