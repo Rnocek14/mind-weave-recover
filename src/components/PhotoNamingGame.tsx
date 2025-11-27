@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2 } from 'lucide-react';
@@ -67,6 +67,12 @@ export const PhotoNamingGame = ({
   const [currentCueText, setCurrentCueText] = useState('');
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
+  
+  // Refs to avoid stale closures
+  const isPlayingChoicesRef = useRef(false);
+  const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
   const { user } = useAuth();
@@ -158,10 +164,10 @@ export const PhotoNamingGame = ({
     return matrix[str2.length][str1.length];
   };
   
-  // Handle speech recognition results
-  const handleSpeechResult = (transcript: string) => {
-    // Block speech recognition while playing choices
-    if (showFeedback || selectedAnswer || timedOut || isPlayingChoices) return;
+  // Handle speech recognition results - MUST be declared before hook
+  const handleSpeechResult = useCallback((transcript: string) => {
+    // Use REF to avoid stale closure bug!
+    if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) return;
     
     console.log('Speech result:', transcript);
     const matchedChoice = findMatchingChoice(transcript);
@@ -177,14 +183,10 @@ export const PhotoNamingGame = ({
         variant: "destructive",
         duration: 2000,
       });
-      // Restart listening
-      if (useVoice && !isPlayingChoices) {
-        setTimeout(() => startListening(), 500);
-      }
     }
-  };
+  }, [showFeedback, selectedAnswer, timedOut, toast]);
   
-  // Speech recognition hook
+  // Speech recognition hook - uses handleSpeechResult callback
   const { 
     isListening, 
     transcript, 
@@ -193,6 +195,33 @@ export const PhotoNamingGame = ({
     isSupported,
     error: speechError 
   } = useSpeechRecognition(handleSpeechResult, false);
+  
+  // Centralized safe startListening to prevent race conditions
+  const safeStartListening = useCallback((delayMs: number = 0) => {
+    // Clear any pending timeout
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+      listeningTimeoutRef.current = null;
+    }
+    
+    // Don't start if audio is playing
+    if (isPlayingChoicesRef.current) {
+      console.log('Blocked startListening: audio is playing');
+      return;
+    }
+    
+    if (delayMs > 0) {
+      listeningTimeoutRef.current = setTimeout(() => {
+        if (!isPlayingChoicesRef.current && !showFeedback && !timedOut) {
+          startListening();
+        }
+      }, delayMs);
+    } else {
+      if (!showFeedback && !timedOut) {
+        startListening();
+      }
+    }
+  }, [startListening, showFeedback, timedOut]);
   
   // Hard mode settings
   const isHardMode = currentDifficulty >= 8;
@@ -273,9 +302,9 @@ export const PhotoNamingGame = ({
         setShowCue(true);
       }
       
-      // Start voice listening when new trial begins
+      // Auto-listen: Start voice listening when new trial begins using safe method
       if (useVoice && isSupported) {
-        setTimeout(() => startListening(), 500);
+        safeStartListening(800); // Auto-listen delay for accessibility
       }
     }
     
@@ -283,7 +312,15 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
+    
+    // Cleanup function to clear pending timeouts
+    return () => {
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+    };
+  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, safeStartListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
 
   // Handle game completion
   useEffect(() => {
@@ -424,6 +461,10 @@ export const PhotoNamingGame = ({
   const handlePlayAllChoices = async () => {
     if (!state.choices || isPlayingChoices) return;
     
+    // Update BOTH ref and state
+    isPlayingChoicesRef.current = true;
+    setIsPlayingChoices(true);
+    
     // Stop listening FIRST and wait a moment before playing
     if (isListening) {
       stopListening();
@@ -431,26 +472,25 @@ export const PhotoNamingGame = ({
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    setIsPlayingChoices(true);
-    
     try {
       for (const choice of state.choices) {
-        await playPhrase(choice, { voice: 'alloy' });
+        await playPhrase(choice, { voice: 'alloy', playbackSpeed });
         // Small pause between choices
         await new Promise(resolve => setTimeout(resolve, 400));
       }
       
       // Extra delay after all audio finishes to ensure system audio stops
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
       console.error('Error playing choices:', error);
     } finally {
+      // Update BOTH ref and state
+      isPlayingChoicesRef.current = false;
       setIsPlayingChoices(false);
       
-      // Resume listening after audio if voice mode is on
-      // Give more time for audio system to settle
+      // Resume listening after audio if voice mode is on using safe method
       if (useVoice && isSupported && !showFeedback) {
-        setTimeout(() => startListening(), 1000);
+        safeStartListening(1200);
       }
     }
   };
@@ -800,16 +840,35 @@ export const PhotoNamingGame = ({
       {/* Answer choices */}
       {!assistMode ? (
         <div className="space-y-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handlePlayAllChoices}
-            disabled={showFeedback || timedOut || isPlayingChoices}
-            className="w-full gap-2"
-          >
-            <Volume2 className="w-4 h-4" />
-            {isPlayingChoices ? "Playing choices..." : "Hear all choices"}
-          </Button>
+          {/* Hear All Choices Button with Speed Control */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handlePlayAllChoices}
+              disabled={isPlayingChoices || showFeedback || timedOut}
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+            >
+              <Volume2 className="w-4 h-4 mr-2" />
+              {isPlayingChoices ? 'Playing choices...' : 'Hear all choices'}
+            </Button>
+            
+            <div className="flex items-center gap-1 text-sm">
+              <label htmlFor="speed-control" className="text-muted-foreground text-xs whitespace-nowrap">Speed:</label>
+              <select
+                id="speed-control"
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                className="px-2 py-1 rounded border border-border bg-background text-foreground text-xs"
+                disabled={isPlayingChoices}
+              >
+                <option value={0.5}>0.5×</option>
+                <option value={0.75}>0.75×</option>
+                <option value={1.0}>1×</option>
+                <option value={1.25}>1.25×</option>
+              </select>
+            </div>
+          </div>
           
           <div className="grid grid-cols-2 gap-3">
             {state.choices.map((choice, idx) => (

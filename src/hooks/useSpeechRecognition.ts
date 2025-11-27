@@ -17,6 +17,12 @@ export const useSpeechRecognition = (
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  
+  // Store callback in ref to avoid stale closures
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   // Check if Speech Recognition is supported
   const isSupported = typeof window !== 'undefined' && 
@@ -51,7 +57,8 @@ export const useSpeechRecognition = (
         const finalTranscript = lastResult[0].transcript.trim().toLowerCase();
         console.log('Final transcript:', finalTranscript);
         setTranscript(finalTranscript);
-        onResult(finalTranscript);
+        // Use ref to get latest callback, avoiding stale closure
+        onResultRef.current(finalTranscript);
       } else {
         // Show interim results
         const interimTranscript = lastResult[0].transcript.trim().toLowerCase();
@@ -85,7 +92,7 @@ export const useSpeechRecognition = (
         recognitionRef.current.stop();
       }
     };
-  }, [isSupported, onResult]);
+  }, [isSupported]); // Removed onResult from deps - using ref instead
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || isListening) return;
