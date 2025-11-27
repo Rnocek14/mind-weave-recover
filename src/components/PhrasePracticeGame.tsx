@@ -13,12 +13,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { buildShadowEvent, toUtteranceAnalysis, type UtteranceAnalysis, type ShadowEvent } from '@/types/utteranceAnalysis';
+import { classifySpeechError } from '@/lib/errorClassifier';
+import { calculateEncouragementScore } from '@/lib/feedbackGenerator';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
   initialDifficulty: number;
-  autoListen?: boolean; // Auto-open mic after delay
-  listenDelayMs?: number; // Delay before auto-listen
+  autoListen?: boolean;
+  listenDelayMs?: number;
   onTrialComplete?: (data: {
     correct: boolean;
     timeMs: number;
@@ -27,6 +30,12 @@ interface PhrasePracticeGameProps {
     phraseId: string;
     wordAccuracy: number;
     repetitions: number;
+    whisperTranscript?: string;
+    whisperConfidence?: number;
+    encouragementScore?: number;
+    effortfulSpeech?: boolean;
+    utteranceAnalysis?: UtteranceAnalysis;
+    shadowEvent?: ShadowEvent;
   }) => void;
   onGameComplete?: (finalScore: number, finalLevel: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -213,7 +222,7 @@ export const PhrasePracticeGame = ({
     });
   };
 
-  const handleCorrectAnswer = (wordAccuracy: number) => {
+  const handleCorrectAnswer = async (wordAccuracy: number) => {
     const reactionTime = Date.now() - trialStartTime;
     
     playSuccess();
@@ -224,7 +233,44 @@ export const PhrasePracticeGame = ({
     // Update adaptive difficulty tracking
     updateTrial(true);
     
-    // Log trial (Note: Phrase practice adaptations tracked separately via cueLevel)
+    // Build UtteranceAnalysis for phrase practice
+    const errorClassification = await classifySpeechError(
+      transcript || currentTrial!.phrase,
+      currentTrial!.phrase,
+      0.9,
+      { 
+        trialNumber: currentTrialIndex + 1,
+        previousErrors: [],
+        category: currentTrial!.category 
+      }
+    );
+    
+    const encouragementScore = calculateEncouragementScore(errorClassification.errorType);
+    
+    const utteranceAnalysis: UtteranceAnalysis = {
+      transcript: transcript || currentTrial!.phrase,
+      asrConfidence: errorClassification.confidence,
+      errorType: 'correct',
+      meaningAccuracy: wordAccuracy,
+      phonologicalSimilarity: errorClassification.phonological_similarity,
+      encouragementScore,
+      encouragementLevel: errorClassification.errorType === 'correct' ? 'excellent' : 'good',
+      reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
+    };
+    
+    const shadowEvent: ShadowEvent | undefined = user?.id ? buildShadowEvent(
+      user.id,
+      null,
+      {
+        taskType: 'phrase_practice',
+        domain: currentTrial!.category as any,
+        interactionMode: 'independent',
+        targetPhrase: currentTrial!.phrase,
+      },
+      utteranceAnalysis
+    ) : undefined;
+    
+    // Log trial
     onTrialComplete?.({
       correct: true,
       timeMs: reactionTime,
@@ -232,7 +278,12 @@ export const PhrasePracticeGame = ({
       difficulty: currentDifficulty,
       phraseId: currentTrial!.id,
       wordAccuracy,
-      repetitions: attempts + 1
+      repetitions: attempts + 1,
+      whisperTranscript: transcript,
+      encouragementScore,
+      effortfulSpeech: false,
+      utteranceAnalysis,
+      shadowEvent,
     });
 
     setTimeout(() => {
