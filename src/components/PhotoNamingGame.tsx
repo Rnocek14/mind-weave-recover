@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
+import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedbackGenerator';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
@@ -634,7 +635,7 @@ export const PhotoNamingGame = ({
       }
     }
     
-    // Advanced error classification
+    // Advanced error classification with acoustic metrics
     const errorClassification = await classifySpeechError(
       word,
       state.currentTrial.target,
@@ -644,11 +645,19 @@ export const PhotoNamingGame = ({
         previousErrors: errorHistory.map(e => e.errorType),
         category: state.currentTrial.category,
         features: state.currentTrial.features
-      }
+      },
+      acousticMetrics ? {
+        speechRateWpm: acousticMetrics.speechRateWPM,
+        pauseCount: acousticMetrics.pauseCount,
+        avgPauseDuration: acousticMetrics.averagePauseDuration
+      } : undefined
     );
     
     const correct = errorClassification.errorType === 'correct' || 
                     errorClassification.errorType === 'self_corrected';
+    
+    // Calculate encouragement score based on error type
+    const encouragementScore = calculateEncouragementScore(errorClassification.errorType);
     
     // Add to error history for adaptive cueing
     setErrorHistory(prev => [...prev, errorClassification]);
@@ -1051,20 +1060,31 @@ export const PhotoNamingGame = ({
 
       {/* Feedback */}
       {showFeedback && feedbackData && (
-        <div className={`p-6 rounded-lg text-center ${
-          feedbackData.correct ? 'bg-success/10' : 'bg-destructive/10'
+        <div className={`p-6 rounded-lg text-center transition-all ${
+          feedbackData.correct 
+            ? 'bg-success/10 border border-success/20' 
+            : 'bg-accent/10 border border-accent/20'
         }`}>
           {feedbackData.correct ? (
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-success" />
+            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-success animate-bounce" />
           ) : (
-            <XCircle className="w-12 h-12 mx-auto mb-3 text-destructive" />
+            <div className="w-12 h-12 mx-auto mb-3 text-accent flex items-center justify-center text-3xl">
+              💪
+            </div>
           )}
-          <p className="text-lg font-semibold mb-2">
-            {feedbackData.correct ? "Correct!" : timedOut ? "Time's up!" : "Not quite"}
+          <p className="text-lg font-semibold mb-3">
+            {state.currentTrial && generateGentleFeedback(
+              feedbackData.errorType as any,
+              state.currentTrial.target,
+              selectedAnswer || undefined
+            )}
           </p>
-          {!feedbackData.correct && state.currentTrial && (
-            <p className="text-sm text-muted-foreground">
-              The answer was: <span className="font-medium">{state.currentTrial.target}</span>
+          {feedbackData.errorType && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {feedbackData.errorType === 'attempted' && '(Close phonological approximation)'}
+              {feedbackData.errorType === 'circumlocution' && '(Multi-word description recognized)'}
+              {feedbackData.errorType === 'phonemic_paraphasia' && '(Phonological similarity detected)'}
+              {feedbackData.errorType === 'semantic_paraphasia' && '(Semantic relationship recognized)'}
             </p>
           )}
         </div>
