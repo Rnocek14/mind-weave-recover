@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeASROutput } from '@/lib/speechNormalizer';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -86,9 +87,6 @@ export const PhotoNamingGame = ({
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
     if (!state.choices) return null;
-    
-    // Import normalizer dynamically
-    const { normalizeASROutput } = require('@/lib/speechNormalizer');
     
     // Clean up fillers and noise FIRST
     const normalized = normalizeASROutput(spokenWord).toLowerCase().trim();
