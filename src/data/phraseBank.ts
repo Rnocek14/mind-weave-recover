@@ -1,6 +1,8 @@
 // Functional phrases for speech rehabilitation
 // Focused on daily communication needs (script training & MIT-inspired)
 
+import { normalizeASROutput, extractContentWords } from '@/lib/speechNormalizer';
+
 export interface PhraseFeatures {
   syllable_count: number;
   word_count: number;
@@ -459,9 +461,6 @@ export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
   wordAccuracy: number;
   matchedWords: string[];
 } {
-  // Import normalizer
-  const { normalizeASROutput, extractContentWords } = require('@/lib/speechNormalizer');
-  
   // Clean up fillers FIRST
   const cleanedSpoken = normalizeASROutput(spoken);
   const spokenWords = cleanedSpoken.toLowerCase().trim().split(/\s+/);
