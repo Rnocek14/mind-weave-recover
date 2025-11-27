@@ -154,8 +154,14 @@ export const PhrasePracticeGame = ({
       }
     }, listenDelayMs);
     
-    return () => clearTimeout(timer);
-  }, [autoListen, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening]);
+    return () => {
+      clearTimeout(timer);
+      // Cleanup: stop listening if navigating away
+      if (isListening) {
+        stopListening();
+      }
+    };
+  }, [autoListen, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening, stopListening]);
 
   // Toggle listening
   const toggleListening = () => {
