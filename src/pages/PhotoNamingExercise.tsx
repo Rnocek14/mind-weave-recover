@@ -189,20 +189,6 @@ export default function PhotoNamingExercise() {
         console.error('Error logging skip:', error);
       }
     }
-
-    // Log the skip in session for legacy tracking
-    if (sessionId) {
-      await logTrial({
-        correct: false,
-        reactionTimeMs: 0,
-        cueLevel: 0,
-        errorType: 'skipped',
-        taskParameters: {
-          skipped: true,
-          skipReason: 'too_difficult'
-        }
-      });
-    }
     
     toast.info("Exercise skipped - moving to next activity");
     

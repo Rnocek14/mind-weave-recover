@@ -184,18 +184,6 @@ const SentenceConstructionExercise = () => {
         console.error('Error logging skip:', error);
       }
     }
-
-    // Log the skip in session for legacy tracking
-    if (sessionId) {
-      await trackRound(
-        sessionId,
-        "sentence-construction",
-        trialNumber,
-        0,
-        { difficulty: level, skipped: true },
-        { skipReason: "too_difficult" }
-      );
-    }
     
     toast.info("Exercise skipped - moving to next activity");
     
