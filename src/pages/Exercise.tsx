@@ -575,7 +575,7 @@ const Exercise = () => {
     if (fromLesson) {
       console.log('[Exercise] Dispatching exercise-complete event');
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { replace: true });
+      navigate('/lesson', { state: { resuming: true }, replace: true });
       return null;
     }
     
