@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
-import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedbackGenerator';
+import { generateGentleFeedback, calculateEncouragementScore, type ExtendedErrorType } from '@/lib/feedbackGenerator';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
@@ -36,6 +36,8 @@ interface PhotoNamingGameProps {
     whisperTranscript?: string;
     whisperConfidence?: number;
     acousticMetrics?: any;
+    encouragementScore?: number;
+    effortfulSpeech?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -442,6 +444,13 @@ export const PhotoNamingGame = ({
     }
 
     // Log telemetry with cue level and audio
+    const timeoutEncouragementScore = calculateEncouragementScore('timeout');
+    const timeoutEffortfulSpeech = acousticMetrics ? (
+      (acousticMetrics.speechRateWpm !== undefined && acousticMetrics.speechRateWpm < 30) ||
+      (acousticMetrics.pauseCount !== undefined && acousticMetrics.pauseCount > 3) ||
+      (acousticMetrics.avgPauseDurationMs !== undefined && acousticMetrics.avgPauseDurationMs > 2000)
+    ) : false;
+    
     onTrialComplete?.({
       correct: false,
       reactionTimeMs: reactionTime,
@@ -454,6 +463,8 @@ export const PhotoNamingGame = ({
       whisperTranscript,
       whisperConfidence,
       acousticMetrics,
+      encouragementScore: timeoutEncouragementScore,
+      effortfulSpeech: timeoutEffortfulSpeech,
     }, state.currentTrial);
 
     // Auto-advance after 2 seconds
@@ -720,6 +731,9 @@ export const PhotoNamingGame = ({
     }
 
     // Log telemetry with cue level, detailed error classification, and audio
+    const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
+    const speechEffortfulSpeech = errorClassification.fluencyMetrics?.effortfulSpeech || false;
+    
     onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
@@ -733,6 +747,8 @@ export const PhotoNamingGame = ({
       whisperTranscript,
       whisperConfidence,
       acousticMetrics,
+      encouragementScore: speechEncouragementScore,
+      effortfulSpeech: speechEffortfulSpeech,
     }, state.currentTrial);
 
     // Auto-advance after 1.5 seconds
@@ -803,12 +819,17 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
+    // Calculate encouragement score for caregiver response
+    const caregiverEncouragementScore = correct ? 100 : (responseType === 'tried' ? 50 : (responseType === 'looked' ? 25 : 0));
+    
     onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
       errorType,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
+      encouragementScore: caregiverEncouragementScore,
+      effortfulSpeech: false, // Not applicable in caregiver assist mode
     }, state.currentTrial);
 
     setTimeout(() => {
@@ -1079,14 +1100,6 @@ export const PhotoNamingGame = ({
               selectedAnswer || undefined
             )}
           </p>
-          {feedbackData.errorType && (
-            <p className="text-xs text-muted-foreground mt-2">
-              {feedbackData.errorType === 'attempted' && '(Close phonological approximation)'}
-              {feedbackData.errorType === 'circumlocution' && '(Multi-word description recognized)'}
-              {feedbackData.errorType === 'phonemic_paraphasia' && '(Phonological similarity detected)'}
-              {feedbackData.errorType === 'semantic_paraphasia' && '(Semantic relationship recognized)'}
-            </p>
-          )}
         </div>
       )}
     </div>

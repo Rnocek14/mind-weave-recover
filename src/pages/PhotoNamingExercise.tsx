@@ -105,6 +105,15 @@ export default function PhotoNamingExercise() {
     errorType?: string;
     difficultyLevel: number;
     cueLevel: number;
+    errorClassification?: any;
+    audioStoragePath?: string;
+    recordingDurationMs?: number;
+    audioMimeType?: string;
+    whisperTranscript?: string;
+    whisperConfidence?: number;
+    acousticMetrics?: any;
+    encouragementScore?: number;
+    effortfulSpeech?: boolean;
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
@@ -118,6 +127,13 @@ export default function PhotoNamingExercise() {
       reactionTimeMs: result.reactionTimeMs,
       cueLevel: result.cueLevel,
       errorType: result.errorType,
+      errorClassification: result.errorClassification,
+      whisperTranscript: result.whisperTranscript,
+      whisperConfidence: result.whisperConfidence,
+      acousticMetrics: result.acousticMetrics,
+      audioStoragePath: result.audioStoragePath,
+      audioMimeType: result.audioMimeType,
+      recordingDurationMs: result.recordingDurationMs,
       taskParameters: {
         // Condition tags for experimental analysis
         photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
@@ -126,6 +142,8 @@ export default function PhotoNamingExercise() {
         custom_photo_id: trial.id,           // Useful for per-photo analysis
         is_custom_photo: trial.category === 'personal',
         target_word: trial.target,
+        encouragement_score: result.encouragementScore,
+        effortful_speech: result.effortfulSpeech,
       },
     });
   };
