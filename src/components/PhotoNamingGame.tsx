@@ -81,6 +81,7 @@ export const PhotoNamingGame = ({
   // Refs to avoid stale closures
   const isPlayingChoicesRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -336,12 +337,12 @@ export const PhotoNamingGame = ({
         setShowCue(true);
       }
       
-      // Auto-listen: Start voice listening when new trial begins using safe method
-      // Use a separate mechanism to avoid cleanup race condition
-      if (useVoice && isSupported) {
-        // Don't use safeStartListening here because cleanup might clear it
+      // Auto-listen: Only initiate once per trial
+      if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
+        autoListenInitiatedRef.current = state.trialNumber;
+        
         const timeoutId = setTimeout(() => {
-          console.log('🎤 Auto-listen timeout executed for new trial');
+          console.log('🎤 Auto-listen timeout executed for new trial', state.trialNumber);
           if (!isPlayingChoicesRef.current && !showFeedback) {
             try {
               startListening();
@@ -351,7 +352,6 @@ export const PhotoNamingGame = ({
           }
         }, 800);
         
-        // Return cleanup for THIS specific timeout only
         return () => {
           clearTimeout(timeoutId);
         };
@@ -362,7 +362,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, showFeedback, consecutiveErrors, currentDifficulty, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, errorHistory]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, consecutiveErrors, currentDifficulty, errorHistory]);
 
   // Handle game completion
   useEffect(() => {
