@@ -495,16 +495,18 @@ export const PhotoNamingGame = ({
   const handlePlaySingleChoice = async (choice: string) => {
     if (isPlayingChoices || playingChoice || showFeedback || timedOut) return;
     
+    // Stop listening and ensure it's fully stopped
+    if (isListening) {
+      stopListening();
+    }
+    
     // Update BOTH ref and state
     isPlayingChoicesRef.current = true;
     setIsPlayingChoices(true);
     setPlayingChoice(choice);
     
-    // Stop listening FIRST and wait a moment before playing
-    if (isListening) {
-      stopListening();
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    // Wait for mic to fully stop before playing
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       await playPhrase(choice, { voice: 'alloy', playbackSpeed });
@@ -518,9 +520,23 @@ export const PhotoNamingGame = ({
       setIsPlayingChoices(false);
       setPlayingChoice(null);
       
-      // Resume listening after audio if voice mode is on using safe method
+      console.log('🎤 Audio finished, will restart listening for voice mode:', useVoice);
+      
+      // Resume listening after audio if voice mode is on
       if (useVoice && isSupported && !showFeedback) {
-        safeStartListening(1200);
+        // Ensure mic is stopped first, then restart
+        stopListening();
+        setTimeout(() => {
+          console.log('🎤 Attempting to restart listening after single choice audio');
+          if (!showFeedback && !timedOut && !selectedAnswer) {
+            try {
+              startListening();
+              console.log('🎤 Successfully restarted listening');
+            } catch (err) {
+              console.error('🎤 Failed to restart listening:', err);
+            }
+          }
+        }, 1500);
       }
     }
   };
@@ -528,16 +544,17 @@ export const PhotoNamingGame = ({
   const handlePlayAllChoices = async () => {
     if (!state.choices || isPlayingChoices) return;
     
+    // Stop listening and ensure it's fully stopped
+    if (isListening) {
+      stopListening();
+    }
+    
     // Update BOTH ref and state
     isPlayingChoicesRef.current = true;
     setIsPlayingChoices(true);
     
-    // Stop listening FIRST and wait a moment before playing
-    if (isListening) {
-      stopListening();
-      // Wait for mic to fully stop before playing audio
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    // Wait for mic to fully stop before playing audio
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       for (const choice of state.choices) {
@@ -555,9 +572,23 @@ export const PhotoNamingGame = ({
       isPlayingChoicesRef.current = false;
       setIsPlayingChoices(false);
       
-      // Resume listening after audio if voice mode is on using safe method
+      console.log('🎤 All choices audio finished, will restart listening for voice mode:', useVoice);
+      
+      // Resume listening after audio if voice mode is on
       if (useVoice && isSupported && !showFeedback) {
-        safeStartListening(1200);
+        // Ensure mic is stopped first, then restart
+        stopListening();
+        setTimeout(() => {
+          console.log('🎤 Attempting to restart listening after all choices audio');
+          if (!showFeedback && !timedOut && !selectedAnswer) {
+            try {
+              startListening();
+              console.log('🎤 Successfully restarted listening');
+            } catch (err) {
+              console.error('🎤 Failed to restart listening:', err);
+            }
+          }
+        }, 1500);
       }
     }
   };
