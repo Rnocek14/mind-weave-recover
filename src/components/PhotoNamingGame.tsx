@@ -871,22 +871,33 @@ export const PhotoNamingGame = ({
           {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
         </p>
         
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setUseVoice(!useVoice);
-            if (!useVoice && isSupported) {
-              setTimeout(() => startListening(), 500);
-            } else if (isListening) {
-              stopListening();
-            }
-          }}
-          className="gap-2"
-        >
-          {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-          {useVoice ? "Voice On" : "Voice Off"}
-        </Button>
+        <div className="relative">
+          {/* Listening pulse ring */}
+          {isListening && (
+            <div className="absolute inset-0 rounded-md animate-pulse">
+              <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
+            </div>
+          )}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setUseVoice(!useVoice);
+              if (!useVoice && isSupported) {
+                setTimeout(() => startListening(), 500);
+              } else if (isListening) {
+                stopListening();
+              }
+            }}
+            className={`gap-2 relative z-10 ${isListening ? 'ring-2 ring-primary/50 ring-offset-2' : ''}`}
+          >
+            <div className={isListening ? 'animate-pulse' : ''}>
+              {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            </div>
+            {useVoice ? "Voice On" : "Voice Off"}
+          </Button>
+        </div>
       </div>
 
       {/* Show transcript when listening */}
