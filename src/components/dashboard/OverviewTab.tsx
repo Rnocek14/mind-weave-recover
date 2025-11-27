@@ -13,6 +13,7 @@ import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
 import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { ExerciseCarousel } from "@/components/ExerciseCarousel";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
+import { TodaysSessionStats } from "@/components/TodaysSessionStats";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -95,20 +96,11 @@ export const OverviewTab = memo(function OverviewTab() {
         </Card>
       )}
 
-      {/* Today's Progress */}
+      {/* Today's Session Stats */}
       {!showProgress ? (
         <ProgressCardSkeleton />
       ) : (
-        <Card className="p-6 shadow-card animate-fade-in">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Today's Progress</h2>
-            <span className="text-sm font-medium text-primary">{todayProgress}%</span>
-          </div>
-          <Progress value={todayProgress} className="h-3 mb-2" />
-          <p className="text-sm text-muted-foreground">
-            Goal: 20 minutes of therapy • {Math.round((todayProgress / 100) * 20)} min completed
-          </p>
-        </Card>
+        <TodaysSessionStats />
       )}
 
       {/* AI Recovery Intelligence */}
