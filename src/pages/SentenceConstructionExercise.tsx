@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Settings, SkipForward } from "lucide-react";
 import { SentenceConstructionGame } from "@/components/SentenceConstructionGame";
 import { useAuth } from "@/hooks/useAuth";
 import { useExerciseConfig } from "@/hooks/useExerciseConfig";
@@ -160,6 +160,26 @@ const SentenceConstructionExercise = () => {
     }
   };
 
+  const handleSkipExercise = async () => {
+    // Log the skip for analytics
+    if (sessionId) {
+      await trackRound(
+        sessionId,
+        "sentence-construction",
+        trialNumber,
+        0,
+        { difficulty: level, skipped: true },
+        { skipReason: "too_difficult" }
+      );
+    }
+    
+    toast.info("Exercise skipped - moving to next activity");
+    
+    // Dispatch event and navigate back to lesson
+    window.dispatchEvent(new CustomEvent('exercise-complete'));
+    navigate('/lesson', { state: { resuming: true } });
+  };
+
   const handleDifficultyChange = async (newLevel: number) => {
     setShowSettings(false);
     toast.success(`Difficulty set to Level ${newLevel}`);
@@ -170,14 +190,26 @@ const SentenceConstructionExercise = () => {
       <div className="container max-w-4xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/dashboard")}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/dashboard")}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            
+            {fromLesson && (
+              <Button
+                variant="outline"
+                onClick={handleSkipExercise}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+              >
+                <SkipForward className="w-4 h-4 mr-2" />
+                Skip - Too Difficult
+              </Button>
+            )}
+          </div>
 
           <div className="flex items-start justify-between gap-4">
             <div>
