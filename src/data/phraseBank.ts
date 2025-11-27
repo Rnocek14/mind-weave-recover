@@ -453,14 +453,22 @@ export function getPhraseAlternatives(phrase: PhraseTrial): string[] {
   return phrase.semanticAlternatives || [phrase.phrase];
 }
 
-// Check if spoken phrase matches target (allows for minor variations)
+// Check if spoken phrase matches target (MORE FORGIVING for aphasia)
 export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
   match: boolean;
   wordAccuracy: number;
   matchedWords: string[];
 } {
-  const spokenWords = spoken.toLowerCase().trim().split(/\s+/);
+  // Import normalizer
+  const { normalizeASROutput, extractContentWords } = require('@/lib/speechNormalizer');
+  
+  // Clean up fillers FIRST
+  const cleanedSpoken = normalizeASROutput(spoken);
+  const spokenWords = cleanedSpoken.toLowerCase().trim().split(/\s+/);
   const targetWords = target.phrase.toLowerCase().split(/\s+/);
+  
+  // Extract content words for partial credit
+  const contentWords = extractContentWords(target.phrase);
   
   let matchedCount = 0;
   const matched: string[] = [];
@@ -469,7 +477,7 @@ export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
     // Check if any spoken word closely matches this target word
     const found = spokenWords.some(sw => {
       const similarity = getWordSimilarity(sw, targetWord);
-      return similarity > 0.7; // Allow minor variations
+      return similarity > 0.65; // More forgiving (was 0.7)
     });
     
     if (found) {
@@ -480,9 +488,14 @@ export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
   
   const wordAccuracy = targetWords.length > 0 ? matchedCount / targetWords.length : 0;
   
-  // Consider it a match if 80%+ of words are correct
+  // Consider it a match if 65%+ of words are correct (was 80%)
+  // Give partial credit for getting key content words
+  const matchThreshold = contentWords.length > 0 && matched.some(w => contentWords.includes(w))
+    ? 0.6  // Lower threshold if they got at least one content word
+    : 0.65; // Standard threshold
+  
   return {
-    match: wordAccuracy >= 0.8,
+    match: wordAccuracy >= matchThreshold,
     wordAccuracy,
     matchedWords: matched
   };
