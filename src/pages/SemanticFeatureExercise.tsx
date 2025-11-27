@@ -53,6 +53,30 @@ export default function SemanticFeatureExercise() {
   const { getAdaptations } = useExerciseGating(user?.id);
 
   const handleSkipExercise = async () => {
+    // Log skip analytics with clinical profile snapshot
+    if (user?.id) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, clinical_profile')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+
+        await supabase.from('exercise_skips').insert({
+          user_id: user.id,
+          profile_id: profile?.id,
+          session_id: sessionId,
+          exercise_slug: 'semantic-features',
+          skip_reason: 'too_difficult',
+          from_lesson: fromLesson,
+          clinical_snapshot: profile?.clinical_profile
+        });
+      } catch (error) {
+        console.error('Error logging skip:', error);
+      }
+    }
+
     toast({
       title: "Exercise skipped",
       description: "Moving to next activity",

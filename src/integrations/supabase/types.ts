@@ -509,6 +509,60 @@ export type Database = {
           },
         ]
       }
+      exercise_skips: {
+        Row: {
+          clinical_snapshot: Json | null
+          created_at: string | null
+          exercise_slug: string
+          from_lesson: boolean | null
+          id: string
+          profile_id: string | null
+          session_id: string | null
+          skip_reason: string | null
+          skipped_at: string
+          user_id: string
+        }
+        Insert: {
+          clinical_snapshot?: Json | null
+          created_at?: string | null
+          exercise_slug: string
+          from_lesson?: boolean | null
+          id?: string
+          profile_id?: string | null
+          session_id?: string | null
+          skip_reason?: string | null
+          skipped_at?: string
+          user_id: string
+        }
+        Update: {
+          clinical_snapshot?: Json | null
+          created_at?: string | null
+          exercise_slug?: string
+          from_lesson?: boolean | null
+          id?: string
+          profile_id?: string | null
+          session_id?: string | null
+          skip_reason?: string | null
+          skipped_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_skips_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_skips_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercises: {
         Row: {
           category: string
