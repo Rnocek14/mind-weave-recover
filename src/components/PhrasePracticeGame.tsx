@@ -17,6 +17,8 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 interface PhrasePracticeGameProps {
   totalTrials: number;
   initialDifficulty: number;
+  autoListen?: boolean; // Auto-open mic after delay
+  listenDelayMs?: number; // Delay before auto-listen
   onTrialComplete?: (data: {
     correct: boolean;
     timeMs: number;
@@ -33,6 +35,8 @@ interface PhrasePracticeGameProps {
 export const PhrasePracticeGame = ({
   totalTrials,
   initialDifficulty,
+  autoListen = true, // Default ON for stroke survivors
+  listenDelayMs = 800, // 800ms warmup before mic opens
   onTrialComplete,
   onGameComplete,
   onDifficultyChange
@@ -129,6 +133,29 @@ export const PhrasePracticeGame = ({
 
   const { isListening, transcript, startListening, stopListening, isSupported, error } = 
     useSpeechRecognition(handleSpeechResult, false);
+  
+  // Bulletproof audio playback (declare before useEffect that uses it)
+  const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
+  
+  // AUTO-LISTEN MODE: Open mic automatically on new trial
+  useEffect(() => {
+    if (!autoListen || !currentTrial || showFeedback) return;
+    
+    // Don't compete with audio playback
+    if (isAudioPlaying) return;
+    
+    // Don't restart if already listening
+    if (isListening) return;
+    
+    const timer = setTimeout(() => {
+      if (isSupported && !isListening) {
+        console.log('[Auto-Listen] Starting mic after warmup delay');
+        startListening();
+      }
+    }, listenDelayMs);
+    
+    return () => clearTimeout(timer);
+  }, [autoListen, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening]);
 
   // Toggle listening
   const toggleListening = () => {
@@ -138,15 +165,25 @@ export const PhrasePracticeGame = ({
       startListening();
     }
   };
-
-  // Bulletproof audio playback
-  const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
   
   const handlePlayAudio = async () => {
     if (!currentTrial || isAudioPlaying) return;
     
+    // Stop listening while audio plays
+    if (isListening) stopListening();
+    
     await playPhrase(currentTrial.phrase, { voice: voicePreference });
     setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
+    
+    // Re-open mic after audio finishes (if auto-listen enabled)
+    if (autoListen && isSupported) {
+      setTimeout(() => {
+        if (!isListening && !showFeedback) {
+          console.log('[Auto-Listen] Restarting mic after audio playback');
+          startListening();
+        }
+      }, 500);
+    }
   };
 
   // Show visual cue
@@ -306,6 +343,11 @@ export const PhrasePracticeGame = ({
         {/* Speech Recognition Status */}
         {isListeningMode && (
           <div className="flex flex-col items-center gap-3 py-4">
+            {autoListen && (
+              <p className="text-sm text-muted-foreground">
+                🎤 Auto-listen enabled - speak when ready
+              </p>
+            )}
             <Button
               size="lg"
               variant={isListening ? "destructive" : "default"}
@@ -320,7 +362,7 @@ export const PhrasePracticeGame = ({
               ) : (
                 <>
                   <Mic className="w-6 h-6 mr-2" />
-                  Start Speaking
+                  {autoListen ? 'Restart Mic' : 'Start Speaking'}
                 </>
               )}
             </Button>
