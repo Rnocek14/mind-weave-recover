@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface AudioPlaybackOptions {
   voice?: string;
   fallbackToTTS?: boolean;
+  playbackSpeed?: number; // 0.5 = half speed, 1.0 = normal, 1.5 = faster
 }
 
 /**
@@ -43,7 +44,7 @@ export function usePhraseAudio() {
       const audioUrl = await generateOpenAIAudio(text, options.voice);
       
       if (audioUrl) {
-        await playAudioUrl(audioUrl);
+        await playAudioUrl(audioUrl, options.playbackSpeed || 1.0);
         return;
       }
 
@@ -55,7 +56,7 @@ export function usePhraseAudio() {
       
       // Try browser TTS fallback
       try {
-        await speakWithBrowserTTS(text);
+        await speakWithBrowserTTS(text, options.playbackSpeed || 1.0);
       } catch (fallbackError) {
         console.error('All audio methods failed:', fallbackError);
         setLastError('audio-unavailable');
@@ -99,10 +100,13 @@ export function usePhraseAudio() {
     }
   };
 
-  const playAudioUrl = async (url: string): Promise<void> => {
+  const playAudioUrl = async (url: string, speed: number = 1.0): Promise<void> => {
     return new Promise((resolve, reject) => {
       const audio = new Audio(url);
       audioRef.current = audio;
+      
+      // Set playback speed for accessibility
+      audio.playbackRate = speed;
 
       audio.onerror = () => {
         setLastError('audio-load-error');
@@ -131,13 +135,14 @@ export function usePhraseAudio() {
     });
   };
 
-  const speakWithBrowserTTS = async (text: string): Promise<void> => {
+  const speakWithBrowserTTS = async (text: string, speed: number = 1.0): Promise<void> => {
     if (!('speechSynthesis' in window)) {
       throw new Error('Browser TTS not supported');
     }
 
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = speed; // Set playback speed
       
       utterance.onstart = () => {
         setIsPlaying(true);
