@@ -11,12 +11,15 @@ interface SpeechRecognitionHook {
 
 export const useSpeechRecognition = (
   onResult: (transcript: string) => void,
-  autoStart = false
+  autoStart = false,
+  continuousListening = false
 ): SpeechRecognitionHook => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<any>(null);
+  const noSpeechCountRef = useRef(0);
   
   // Store callback in ref to avoid stale closures
   const onResultRef = useRef(onResult);
@@ -57,6 +60,10 @@ export const useSpeechRecognition = (
         const finalTranscript = lastResult[0].transcript.trim().toLowerCase();
         console.log('Final transcript:', finalTranscript);
         setTranscript(finalTranscript);
+        
+        // Reset no-speech counter on successful recognition
+        noSpeechCountRef.current = 0;
+        
         // Use ref to get latest callback, avoiding stale closure
         onResultRef.current(finalTranscript);
       } else {
@@ -70,6 +77,30 @@ export const useSpeechRecognition = (
       console.error('Speech recognition error:', event.error);
       
       if (event.error === 'no-speech') {
+        // Auto-restart if continuous listening is enabled
+        if (continuousListening && noSpeechCountRef.current < 5) {
+          noSpeechCountRef.current += 1;
+          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, ')');
+          
+          // Clear any existing restart timeout
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
+          }
+          
+          // Schedule restart after brief pause
+          restartTimeoutRef.current = setTimeout(() => {
+            try {
+              recognitionRef.current?.start();
+              console.log('🎤 Successfully restarted after no-speech');
+            } catch (err) {
+              console.error('🎤 Failed to restart after no-speech:', err);
+              setIsListening(false);
+            }
+          }, 500);
+          
+          return; // Don't set error or stop listening
+        }
+        
         setError('No speech detected. Please try again.');
       } else if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please enable microphone permissions.');
@@ -91,6 +122,9 @@ export const useSpeechRecognition = (
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
     };
   }, [isSupported]); // Removed onResult from deps - using ref instead
 
@@ -110,6 +144,15 @@ export const useSpeechRecognition = (
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current || !isListening) return;
+    
+    // Clear any pending restart
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+    
+    // Reset no-speech counter
+    noSpeechCountRef.current = 0;
     
     try {
       recognitionRef.current.stop();
