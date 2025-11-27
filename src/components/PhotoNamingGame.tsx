@@ -206,22 +206,42 @@ export const PhotoNamingGame = ({
     
     // Don't start if audio is playing
     if (isPlayingChoicesRef.current) {
-      console.log('Blocked startListening: audio is playing');
+      console.log('🎤 Blocked startListening: audio is playing');
       return;
     }
     
     if (delayMs > 0) {
+      console.log(`🎤 Scheduling startListening in ${delayMs}ms`);
       listeningTimeoutRef.current = setTimeout(() => {
-        if (!isPlayingChoicesRef.current && !showFeedback && !timedOut) {
-          startListening();
+        listeningTimeoutRef.current = null; // Clear ref after execution
+        console.log('🎤 Timeout executed, attempting to start listening...');
+        if (!isPlayingChoicesRef.current && !showFeedback && !timedOut && !selectedAnswer) {
+          console.log('🎤 Conditions met, calling startListening()');
+          try {
+            startListening();
+          } catch (err) {
+            console.error('🎤 Error starting listening:', err);
+          }
+        } else {
+          console.log('🎤 Conditions not met:', {
+            isPlayingChoices: isPlayingChoicesRef.current,
+            showFeedback,
+            timedOut,
+            selectedAnswer
+          });
         }
       }, delayMs);
     } else {
-      if (!showFeedback && !timedOut) {
-        startListening();
+      if (!showFeedback && !timedOut && !selectedAnswer) {
+        console.log('🎤 Starting listening immediately');
+        try {
+          startListening();
+        } catch (err) {
+          console.error('🎤 Error starting listening:', err);
+        }
       }
     }
-  }, [startListening, showFeedback, timedOut]);
+  }, [startListening, showFeedback, timedOut, selectedAnswer]);
   
   // Hard mode settings
   const isHardMode = currentDifficulty >= 8;
