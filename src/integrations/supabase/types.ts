@@ -47,20 +47,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "achievements_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "achievements_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       capability_assessments: {
@@ -212,48 +198,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "clinical_notes_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_notes_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_notes_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_notes_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_notes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_notes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       clinical_profile_corrections: {
@@ -369,20 +313,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "clinical_profile_versions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_profile_versions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "clinical_profile_versions_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -395,34 +325,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clinical_notes"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinical_profile_versions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_profile_versions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_profile_versions_validated_by_fkey"
-            columns: ["validated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "clinical_profile_versions_validated_by_fkey"
-            columns: ["validated_by"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -843,20 +745,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "photos_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "photos_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       profile_merge_conflicts: {
@@ -923,34 +811,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profile_merge_conflicts_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "profile_merge_conflicts_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "profile_merge_conflicts_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "profile_merge_conflicts_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1153,20 +1013,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_cluster_assignments"
-            referencedColumns: ["user_id"]
           },
         ]
       }
