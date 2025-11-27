@@ -520,7 +520,18 @@ export const PhotoNamingGame = ({
       setIsPlayingChoices(false);
       setPlayingChoice(null);
       
-      console.log('🎤 Audio finished, continuous listening will auto-restart');
+      console.log('🎤 Audio finished, restarting listening');
+      
+      // Restart listening after audio finishes
+      if (useVoice && !showFeedback && !timedOut && !selectedAnswer) {
+        setTimeout(() => {
+          try {
+            startListening();
+          } catch (err) {
+            console.error('🎤 Error restarting listening:', err);
+          }
+        }, 300);
+      }
     }
   };
 
@@ -555,7 +566,18 @@ export const PhotoNamingGame = ({
       isPlayingChoicesRef.current = false;
       setIsPlayingChoices(false);
       
-      console.log('🎤 All choices audio finished, continuous listening will auto-restart');
+      console.log('🎤 All choices audio finished, restarting listening');
+      
+      // Restart listening after all audio finishes
+      if (useVoice && !showFeedback && !timedOut && !selectedAnswer) {
+        setTimeout(() => {
+          try {
+            startListening();
+          } catch (err) {
+            console.error('🎤 Error restarting listening:', err);
+          }
+        }, 300);
+      }
     }
   };
 
