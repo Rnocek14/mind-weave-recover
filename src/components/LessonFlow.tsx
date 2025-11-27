@@ -9,6 +9,7 @@ import { Play, CheckCircle2, Clock } from "lucide-react";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
 
   const currentBlock = lesson.blocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
@@ -69,10 +71,10 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
 
   useEffect(() => {
     // Create session when lesson overview starts
-    if (phase === "lesson-overview" && !sessionId && user) {
+    if (phase === "lesson-overview" && !sessionId && user && activeProfile) {
       createSession();
     }
-  }, [phase, user]);
+  }, [phase, user, activeProfile]);
 
   // Ensure navigation happens when phase is exercise
   useEffect(() => {
@@ -89,6 +91,7 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       .from("sessions")
       .insert({
         user_id: user.id,
+        profile_id: activeProfile?.id,
         started_at: new Date().toISOString(),
         plan: lesson as any,
       })
