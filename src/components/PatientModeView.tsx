@@ -7,6 +7,7 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
 import { useUiMode } from "@/hooks/useUiMode";
+import { UiModeToggle } from "@/components/UiModeToggle";
 
 interface PatientModeViewProps {
   userId: string;
@@ -49,6 +50,9 @@ export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: 
   if (lessonLoading || assessmentLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
         <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
           <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
           <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
@@ -66,6 +70,9 @@ export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: 
   if (!currentAssessment) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
         <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
           <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-amber-500 mx-auto" />
           <div className="space-y-4">
@@ -93,6 +100,9 @@ export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: 
   if (lessonError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
         <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2 border-destructive/20">
           <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-destructive mx-auto" />
           <div className="space-y-4">
@@ -119,6 +129,9 @@ export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: 
   // Main Patient Mode view
   return (
     <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="absolute top-4 right-4 z-10">
+        <UiModeToggle />
+      </div>
       <Card className="max-w-3xl w-full p-8 md:p-16 space-y-12 text-center shadow-2xl border-2">
         {/* Friendly greeting */}
         <div className="space-y-4">
