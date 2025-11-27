@@ -464,9 +464,9 @@ const detectCircumlocution = async (
 const detectEffortfulSpeech = (metrics: {
   speechRateWpm?: number;
   pauseCount?: number;
-  avgPauseDuration?: number;
+  avgPauseDurationMs?: number;
 }): boolean => {
-  const { speechRateWpm, pauseCount, avgPauseDuration } = metrics;
+  const { speechRateWpm, pauseCount, avgPauseDurationMs } = metrics;
   
   // Typical conversational speech: 150-160 WPM
   // Aphasic speech often <100 WPM, severely impaired <30 WPM
@@ -476,7 +476,7 @@ const detectEffortfulSpeech = (metrics: {
   const hasExcessivePauses = pauseCount !== undefined && pauseCount > 3;
   
   // Long pauses (>2 seconds) indicate effortful retrieval
-  const hasLongPauses = avgPauseDuration !== undefined && avgPauseDuration > 2000;
+  const hasLongPauses = avgPauseDurationMs !== undefined && avgPauseDurationMs > 2000;
   
   return isSlow || hasExcessivePauses || hasLongPauses;
 };
