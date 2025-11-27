@@ -114,6 +114,8 @@ export default function PhotoNamingExercise() {
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
+    utteranceAnalysis?: any;
+    shadowEvent?: any;
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
@@ -121,7 +123,7 @@ export default function PhotoNamingExercise() {
       ? 'caregiver_assisted' 
       : 'independent';
 
-    // 🧪 Log trial with condition tags for microtesting
+    // 🧪 Log trial with unified UtteranceAnalysis + ShadowEvent
     await logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -144,6 +146,10 @@ export default function PhotoNamingExercise() {
         target_word: trial.target,
         encouragement_score: result.encouragementScore,
         effortful_speech: result.effortfulSpeech,
+        
+        // NEW: Store unified analysis for future co-pilot
+        utterance_analysis: result.utteranceAnalysis,
+        shadow_event: result.shadowEvent,
       },
     });
   };

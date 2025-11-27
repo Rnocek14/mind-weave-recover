@@ -12,7 +12,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
-import { generateGentleFeedback, calculateEncouragementScore, type ExtendedErrorType } from '@/lib/feedbackGenerator';
+import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedbackGenerator';
+import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
@@ -38,6 +39,8 @@ interface PhotoNamingGameProps {
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
+    utteranceAnalysis?: UtteranceAnalysis;  // NEW: unified analysis
+    shadowEvent?: any;                       // NEW: for co-pilot logging
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -730,17 +733,44 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Log telemetry with cue level, detailed error classification, and audio
+    // Build unified UtteranceAnalysis object
     const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
-    const speechEffortfulSpeech = errorClassification.fluencyMetrics?.effortfulSpeech || false;
+    const utteranceAnalysis = toUtteranceAnalysis(
+      whisperTranscript || '',
+      errorClassification,
+      speechEncouragementScore,
+      acousticMetrics
+    );
+
+    // Build ShadowEvent for future co-pilot integration
+    const shadowEvent = user?.id ? buildShadowEvent(
+      user.id,
+      sessionId,
+      {
+        taskType: 'photo_naming',
+        domain: 'general',
+        interactionMode: assistMode ? 'caregiver_assisted' : 'independent',
+        difficultyLevel: currentDifficulty,
+        cueLevel: cueLevel,
+        targetWord: state.currentTrial?.target,
+        category: state.currentTrial?.category,
+      },
+      utteranceAnalysis,
+      {
+        storagePath: uploadedPath,
+        mimeType: mimeType,
+        durationMs: duration,
+      }
+    ) : null;
     
+    // Log telemetry with unified analysis
     onTrialComplete?.({
       correct,
       reactionTimeMs: reactionTime,
       errorType: errorClassification.errorType,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
-      errorClassification, // Pass full classification for rich analytics
+      errorClassification,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
@@ -748,7 +778,9 @@ export const PhotoNamingGame = ({
       whisperConfidence,
       acousticMetrics,
       encouragementScore: speechEncouragementScore,
-      effortfulSpeech: speechEffortfulSpeech,
+      effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
+      utteranceAnalysis, // NEW: unified analysis object
+      shadowEvent,       // NEW: for future co-pilot
     }, state.currentTrial);
 
     // Auto-advance after 1.5 seconds
