@@ -161,7 +161,31 @@ const SentenceConstructionExercise = () => {
   };
 
   const handleSkipExercise = async () => {
-    // Log the skip for analytics
+    // Log skip analytics with clinical profile snapshot
+    if (user?.id) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, clinical_profile')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+
+        await supabase.from('exercise_skips').insert({
+          user_id: user.id,
+          profile_id: profile?.id,
+          session_id: sessionId,
+          exercise_slug: 'sentence-construction',
+          skip_reason: 'too_difficult',
+          from_lesson: fromLesson,
+          clinical_snapshot: profile?.clinical_profile
+        });
+      } catch (error) {
+        console.error('Error logging skip:', error);
+      }
+    }
+
+    // Log the skip in session for legacy tracking
     if (sessionId) {
       await trackRound(
         sessionId,
