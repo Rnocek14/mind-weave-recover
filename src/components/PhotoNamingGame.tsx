@@ -105,10 +105,22 @@ export const PhotoNamingGame = ({
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
-    if (!state.choices) return null;
+    console.log('🔍 findMatchingChoice called:', {
+      spokenWord,
+      currentTrial: state.currentTrial?.target,
+      choices: state.choices,
+      choicesLength: state.choices?.length
+    });
+    
+    if (!state.choices || state.choices.length === 0) {
+      console.error('❌ No choices available!');
+      return null;
+    }
     
     // Clean up fillers and noise FIRST
     const normalized = normalizeASROutput(spokenWord).toLowerCase().trim();
+    
+    console.log('🔍 Normalized spoken word:', normalized);
     
     if (!normalized) return null;
     
@@ -116,7 +128,10 @@ export const PhotoNamingGame = ({
     const directMatch = state.choices.find(choice => 
       choice.toLowerCase() === normalized
     );
-    if (directMatch) return directMatch;
+    if (directMatch) {
+      console.log('✅ Direct match found:', directMatch);
+      return directMatch;
+    }
     
     // Fuzzy match with phonetic tolerance
     const fuzzyMatch = state.choices.find(choice => {
@@ -129,8 +144,15 @@ export const PhotoNamingGame = ({
       
       // Levenshtein similarity for phonetic variations (e.g., "dawg" → "dog")
       const similarity = calculateSimilarity(normalized, choiceLower);
+      console.log(`🔍 Similarity "${normalized}" vs "${choiceLower}": ${similarity}`);
       return similarity > 0.7;
     });
+    
+    if (fuzzyMatch) {
+      console.log('✅ Fuzzy match found:', fuzzyMatch);
+    } else {
+      console.log('❌ No match found. Choices were:', state.choices.map(c => c.toLowerCase()));
+    }
     
     return fuzzyMatch || null;
   };
@@ -179,6 +201,17 @@ export const PhotoNamingGame = ({
     // Use REF to avoid stale closure bug!
     if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) return;
     
+    // Guard: Ensure we have choices before trying to match
+    if (!state.choices || state.choices.length === 0 || !state.currentTrial) {
+      console.warn('⚠️ Speech result received but game not ready:', {
+        hasChoices: !!state.choices,
+        choicesLength: state.choices?.length,
+        hasTrial: !!state.currentTrial,
+        transcript
+      });
+      return;
+    }
+    
     console.log('Speech result:', transcript);
     const matchedChoice = findMatchingChoice(transcript);
     
@@ -194,7 +227,7 @@ export const PhotoNamingGame = ({
         duration: 2000,
       });
     }
-  }, [showFeedback, selectedAnswer, timedOut, toast]);
+  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, toast]);
   
   // Speech recognition hook - uses handleSpeechResult callback
   const { 
