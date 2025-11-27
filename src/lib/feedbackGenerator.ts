@@ -10,17 +10,10 @@
  * - Gentle, positive feedback supports confidence building
  */
 
-export type ExtendedErrorType = 
-  | 'correct' 
-  | 'self_corrected' 
-  | 'attempted'
-  | 'circumlocution'
-  | 'phonemic_paraphasia' 
-  | 'semantic_paraphasia' 
-  | 'neologism' 
-  | 'unrelated' 
-  | 'no_response'
-  | 'timeout';
+import type { ExtendedErrorType, EncouragementLevel } from '@/types/utteranceAnalysis';
+
+// Re-export for backwards compatibility
+export type { ExtendedErrorType, EncouragementLevel };
 
 /**
  * Generate gentle, encouraging feedback message based on error type
@@ -117,7 +110,7 @@ export const calculateEncouragementScore = (errorType: ExtendedErrorType): numbe
  * Get encouragement level for UI display
  */
 export const getEncouragementLevel = (score: number): {
-  level: 'excellent' | 'good' | 'fair' | 'keep-trying';
+  level: EncouragementLevel;
   color: string;
   icon: string;
 } => {
