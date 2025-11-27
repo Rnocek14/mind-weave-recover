@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, TrendingUp, Activity, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, MessageSquare, Brain, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -64,6 +64,7 @@ export default function SpeechTrendsAnalytics() {
     avgSpeechRateWpm: 0,
     avgPauseCount: 0,
     avgPhonemeAccuracy: 0,
+    avgSemanticSimilarity: 0,
     circumlocutionCount: 0,
     totalTrials: 0,
   });
@@ -120,9 +121,11 @@ export default function SpeechTrendsAnalytics() {
       let totalSpeechRate = 0;
       let totalPauseCount = 0;
       let totalPhonemeAcc = 0;
+      let totalSemanticSim = 0;
       let speechRateCount = 0;
       let pauseCountCount = 0;
       let phonemeCount = 0;
+      let semanticCount = 0;
       let circumlocutions = 0;
 
       events?.forEach((event) => {
@@ -194,6 +197,12 @@ export default function SpeechTrendsAnalytics() {
         if (utteranceAnalysis?.phonemeAccuracy !== undefined) {
           totalPhonemeAcc += utteranceAnalysis.phonemeAccuracy;
           phonemeCount += 1;
+        }
+
+        // Semantic similarity
+        if (utteranceAnalysis?.semanticSimilarity !== undefined) {
+          totalSemanticSim += utteranceAnalysis.semanticSimilarity;
+          semanticCount += 1;
         }
 
         // Circumlocution count
@@ -274,6 +283,7 @@ export default function SpeechTrendsAnalytics() {
         avgSpeechRateWpm: speechRateCount > 0 ? Math.round(totalSpeechRate / speechRateCount) : 0,
         avgPauseCount: pauseCountCount > 0 ? Math.round((totalPauseCount / pauseCountCount) * 10) / 10 : 0,
         avgPhonemeAccuracy: phonemeCount > 0 ? Math.round((totalPhonemeAcc / phonemeCount) * 100) : 0,
+        avgSemanticSimilarity: semanticCount > 0 ? Math.round((totalSemanticSim / semanticCount) * 100) : 0,
         circumlocutionCount: circumlocutions,
         totalTrials: events?.length || 0,
       });
@@ -314,6 +324,15 @@ export default function SpeechTrendsAnalytics() {
             </div>
             <p className="text-3xl font-bold">{keyMetrics.avgPhonemeAccuracy}%</p>
             <p className="text-xs text-muted-foreground mt-1">sound-level match</p>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="w-4 h-4 text-indigo-500" />
+              <p className="text-sm text-muted-foreground">Avg Semantic Match</p>
+            </div>
+            <p className="text-3xl font-bold">{keyMetrics.avgSemanticSimilarity}%</p>
+            <p className="text-xs text-muted-foreground mt-1">meaning-level match</p>
           </Card>
 
           <Card className="p-4">

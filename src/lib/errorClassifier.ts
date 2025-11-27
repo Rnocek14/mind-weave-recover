@@ -10,6 +10,7 @@
 
 import type { LinguisticFeatures } from '@/data/photoBank';
 import { getPhonemeAccuracy } from '@/lib/phonemeUtils';
+import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 
 export interface ErrorClassificationResult {
   errorType: 'correct' | 'semantic_paraphasia' | 'phonemic_paraphasia' | 
@@ -128,8 +129,8 @@ export const classifySpeechError = async (
   // Step 4b: Calculate phoneme-level accuracy (v1)
   const phonemeAccuracy = getPhonemeAccuracy(normalized_spoken, normalized_target);
   
-  // Step 5: Calculate semantic similarity
-  const semantic_sim = await calculateSemanticSimilarity(
+  // Step 5: Calculate semantic similarity using embeddings
+  const semantic_sim = await getSemanticSimilarity(
     normalized_spoken,
     normalized_target,
     context.category
@@ -237,74 +238,16 @@ export const calculatePhonologicalSimilarity = (word1: string, word2: string): n
 };
 
 /**
- * Calculate semantic similarity using rule-based category matching
- * Returns 0-1 (1 = very similar meaning)
- * 
- * MVP: Rule-based semantic similarity using predefined category groups
- * V2: Use word embedding API (OpenAI embeddings, etc.) for true semantic similarity
+ * DEPRECATED: Use getSemanticSimilarity from semanticSimilarity.ts instead
+ * Kept for backward compatibility only
  */
 export const calculateSemanticSimilarity = async (
   word1: string,
   word2: string,
   category: string
 ): Promise<number> => {
-  // Semantic groups with related words
-  const semanticGroups: Record<string, string[]> = {
-    'animals': ['dog', 'cat', 'bird', 'fish', 'pet', 'animal', 'puppy', 'kitten', 
-                'wolf', 'fox', 'eagle', 'robin', 'sparrow', 'crow', 'feline', 'tiger', 'lion'],
-    'food': ['apple', 'bread', 'banana', 'fruit', 'vegetable', 'snack', 'orange', 
-             'pear', 'toast', 'roll', 'bagel', 'bun'],
-    'furniture': ['chair', 'table', 'desk', 'sofa', 'bed', 'stool', 'bench', 'couch'],
-    'transportation': ['car', 'bike', 'bus', 'train', 'vehicle', 'truck', 'van', 
-                      'suv', 'sedan', 'cycle', 'scooter', 'moped', 'trike'],
-    'body': ['hand', 'eye', 'arm', 'leg', 'foot', 'head', 'wrist', 'finger', 
-             'palm', 'nose', 'face', 'brow', 'lid'],
-    'buildings': ['house', 'building', 'home', 'structure'],
-    'kitchenware': ['cup', 'mug', 'glass', 'bowl', 'plate', 'dish'],
-    'electronics': ['phone', 'tablet', 'computer', 'watch', 'remote', 'device']
-  };
-  
-  // Sub-category to parent category mapping
-  const categoryMapping: Record<string, string> = {
-    'domestic_animal': 'animals',
-    'flying_animal': 'animals',
-    'fruit': 'food',
-    'baked_good': 'food',
-    'seating': 'furniture',
-    'vehicle': 'transportation',
-    'body_part': 'body',
-    'dwelling': 'buildings',
-    'drinking_vessel': 'kitchenware',
-    'communication_device': 'electronics'
-  };
-  
-  // Map fine-grained category to broad category
-  const broadCategory = categoryMapping[category] || category;
-  const groupForCategory = semanticGroups[broadCategory] || [];
-  
-  const word1InGroup = groupForCategory.includes(word1);
-  const word2InGroup = groupForCategory.includes(word2);
-  
-  // Both words in same semantic group = high similarity
-  if (word1InGroup && word2InGroup) {
-    return 0.7;
-  }
-  
-  // One word is the category name (superordinate error)
-  if (word1 === broadCategory || word2 === broadCategory || 
-      word1 === category || word2 === category) {
-    return 0.6;
-  }
-  
-  // Check for coordinate relationships (both animals, both furniture, etc.)
-  for (const [cat, words] of Object.entries(semanticGroups)) {
-    if (words.includes(word1) && words.includes(word2) && cat !== broadCategory) {
-      return 0.5; // Related but different category
-    }
-  }
-  
-  // No semantic relationship detected
-  return 0.1;
+  // Delegate to new embeddings-based implementation
+  return getSemanticSimilarity(word1, word2, category);
 };
 
 /**
