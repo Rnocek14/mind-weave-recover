@@ -20,12 +20,18 @@ export const useSpeechRecognition = (
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
   const noSpeechCountRef = useRef(0);
+  const isListeningRef = useRef(false);
   
   // Store callback in ref to avoid stale closures
   const onResultRef = useRef(onResult);
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
+
+  // Keep isListeningRef in sync with state
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   // Check if Speech Recognition is supported
   const isSupported = typeof window !== 'undefined' && 
@@ -129,8 +135,16 @@ export const useSpeechRecognition = (
   }, [isSupported]); // Removed onResult from deps - using ref instead
 
   const startListening = useCallback(() => {
-    if (!recognitionRef.current || isListening) return;
+    // Use REF for current value, not stale closure
+    if (!recognitionRef.current || isListeningRef.current) {
+      console.log('🎤 startListening blocked:', { 
+        hasRecognition: !!recognitionRef.current, 
+        isListening: isListeningRef.current 
+      });
+      return;
+    }
     
+    console.log('🎤 Starting listening...');
     setTranscript('');
     setError(null);
     
@@ -140,10 +154,11 @@ export const useSpeechRecognition = (
       console.error('Error starting recognition:', error);
       setError('Failed to start speech recognition');
     }
-  }, [isListening]);
+  }, []);
 
   const stopListening = useCallback(() => {
-    if (!recognitionRef.current || !isListening) return;
+    // Use REF for current value
+    if (!recognitionRef.current || !isListeningRef.current) return;
     
     // Clear any pending restart
     if (restartTimeoutRef.current) {
@@ -159,7 +174,7 @@ export const useSpeechRecognition = (
     } catch (error) {
       console.error('Error stopping recognition:', error);
     }
-  }, [isListening]);
+  }, []);
 
   // Auto-start if requested
   useEffect(() => {
