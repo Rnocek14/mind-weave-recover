@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
+import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 
 export interface TrialData {
   correct: boolean;
@@ -32,6 +33,9 @@ export interface TrialData {
     speechToPauseRatio: number;
     segmentCount: number;
   };
+  // Structured analysis for future co-pilot
+  utteranceAnalysis?: UtteranceAnalysis;
+  shadowEvent?: ShadowEvent;
 }
 
 export const useExerciseTelemetry = (
