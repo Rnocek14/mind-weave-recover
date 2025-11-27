@@ -1,0 +1,126 @@
+import { createContext, ReactNode, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Profile = Tables<"profiles">;
+
+interface ProfileContextValue {
+  activeProfile: Profile | null;
+  allProfiles: Profile[];
+  loading: boolean;
+  switchProfile: (profileId: string) => Promise<void>;
+  createProfile: (data: {
+    profile_name: string;
+    birthdate?: string;
+    stroke_date?: string;
+    avatar_url?: string;
+    profile_notes?: string;
+  }) => Promise<void>;
+  refreshProfiles: () => Promise<void>;
+}
+
+export const ProfileContext = createContext<ProfileContextValue | null>(null);
+
+interface ProfileProviderProps {
+  children: ReactNode;
+}
+
+export function ProfileProvider({ children }: ProfileProviderProps) {
+  const { user } = useAuth();
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfiles = async () => {
+    if (!user) {
+      setActiveProfile(null);
+      setAllProfiles([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("profile_created_at", { ascending: true });
+
+      if (error) throw error;
+
+      setAllProfiles(data || []);
+      const active = data?.find(p => p.is_active) || data?.[0] || null;
+      setActiveProfile(active);
+    } catch (error) {
+      console.error("Error fetching profiles:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchProfile = async (profileId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.rpc("switch_active_profile", {
+        p_profile_id: profileId,
+      });
+
+      if (error) throw error;
+
+      await fetchProfiles();
+    } catch (error) {
+      console.error("Error switching profile:", error);
+      throw error;
+    }
+  };
+
+  const createProfile = async (data: {
+    profile_name: string;
+    birthdate?: string;
+    stroke_date?: string;
+    avatar_url?: string;
+    profile_notes?: string;
+  }) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.from("profiles").insert({
+        user_id: user.id,
+        profile_name: data.profile_name,
+        birthdate: data.birthdate || null,
+        stroke_date: data.stroke_date || null,
+        avatar_url: data.avatar_url || null,
+        profile_notes: data.profile_notes || null,
+        is_active: false,
+      });
+
+      if (error) throw error;
+
+      await fetchProfiles();
+    } catch (error) {
+      console.error("Error creating profile:", error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, [user]);
+
+  return (
+    <ProfileContext.Provider
+      value={{
+        activeProfile,
+        allProfiles,
+        loading,
+        switchProfile,
+        createProfile,
+        refreshProfiles: fetchProfiles,
+      }}
+    >
+      {children}
+    </ProfileContext.Provider>
+  );
+}

@@ -32,6 +32,7 @@ import ProfileVersionHistory from "./pages/ProfileVersionHistory";
 import Lesson from "./pages/Lesson";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,8 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <TooltipProvider>
         <UiModeProvider>
-          <BrowserRouter>
+          <ProfileProvider>
+            <BrowserRouter>
           <Toaster />
           <Sonner />
           <Routes>
@@ -72,8 +74,9 @@ const App = () => (
           <Route path="/lesson" element={<Lesson />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-        </BrowserRouter>
+          </Routes>
+            </BrowserRouter>
+          </ProfileProvider>
         </UiModeProvider>
       </TooltipProvider>
     </ThemeProvider>
