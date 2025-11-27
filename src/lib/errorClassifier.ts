@@ -26,7 +26,7 @@ export interface ErrorClassificationResult {
   fluencyMetrics?: {
     speechRateWpm?: number;
     pauseCount?: number;
-    avgPauseDuration?: number;
+    avgPauseDurationMs?: number;  // CRITICAL: milliseconds, not seconds
     effortfulSpeech?: boolean;
   };
   circumlocutionDetected?: boolean;
@@ -52,7 +52,7 @@ export const classifySpeechError = async (
   acousticMetrics?: {
     speechRateWpm?: number;
     pauseCount?: number;
-    avgPauseDuration?: number;
+    avgPauseDurationMs?: number;  // CRITICAL: milliseconds, not seconds
   }
 ): Promise<ErrorClassificationResult> => {
   
