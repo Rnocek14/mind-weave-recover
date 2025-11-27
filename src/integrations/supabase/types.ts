@@ -419,6 +419,8 @@ export type Database = {
           classification_confidence: number | null
           created_at: string | null
           cue_level: number | null
+          cue_type_given: string | null
+          cue_was_effective: boolean | null
           engagement_flags: Json | null
           error_classification: Json | null
           error_type: string | null
@@ -435,6 +437,7 @@ export type Database = {
           semantic_similarity: number | null
           session_id: string
           task_parameters: Json | null
+          time_to_success_after_cue_ms: number | null
           whisper_confidence: number | null
           whisper_transcript: string | null
         }
@@ -446,6 +449,8 @@ export type Database = {
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
+          cue_type_given?: string | null
+          cue_was_effective?: boolean | null
           engagement_flags?: Json | null
           error_classification?: Json | null
           error_type?: string | null
@@ -462,6 +467,7 @@ export type Database = {
           semantic_similarity?: number | null
           session_id: string
           task_parameters?: Json | null
+          time_to_success_after_cue_ms?: number | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
@@ -473,6 +479,8 @@ export type Database = {
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
+          cue_type_given?: string | null
+          cue_was_effective?: boolean | null
           engagement_flags?: Json | null
           error_classification?: Json | null
           error_type?: string | null
@@ -489,6 +497,7 @@ export type Database = {
           semantic_similarity?: number | null
           session_id?: string
           task_parameters?: Json | null
+          time_to_success_after_cue_ms?: number | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
@@ -1137,6 +1146,80 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_speech_profiles: {
+        Row: {
+          avg_stall_duration_ms: number | null
+          baseline_pause_frequency: number | null
+          baseline_wpm: number | null
+          common_stall_markers: string[] | null
+          common_substitutions: Json | null
+          created_at: string | null
+          cue_efficacy_by_category: Json | null
+          cue_efficacy_by_type: Json | null
+          effortful_speech_rate: number | null
+          error_type_distribution: Json | null
+          id: string
+          known_circumlocutions: Json | null
+          last_computed_at: string | null
+          most_challenging_categories: Json | null
+          phoneme_difficulty_map: Json | null
+          profile_id: string | null
+          trial_count_at_computation: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avg_stall_duration_ms?: number | null
+          baseline_pause_frequency?: number | null
+          baseline_wpm?: number | null
+          common_stall_markers?: string[] | null
+          common_substitutions?: Json | null
+          created_at?: string | null
+          cue_efficacy_by_category?: Json | null
+          cue_efficacy_by_type?: Json | null
+          effortful_speech_rate?: number | null
+          error_type_distribution?: Json | null
+          id?: string
+          known_circumlocutions?: Json | null
+          last_computed_at?: string | null
+          most_challenging_categories?: Json | null
+          phoneme_difficulty_map?: Json | null
+          profile_id?: string | null
+          trial_count_at_computation?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avg_stall_duration_ms?: number | null
+          baseline_pause_frequency?: number | null
+          baseline_wpm?: number | null
+          common_stall_markers?: string[] | null
+          common_substitutions?: Json | null
+          created_at?: string | null
+          cue_efficacy_by_category?: Json | null
+          cue_efficacy_by_type?: Json | null
+          effortful_speech_rate?: number | null
+          error_type_distribution?: Json | null
+          id?: string
+          known_circumlocutions?: Json | null
+          last_computed_at?: string | null
+          most_challenging_categories?: Json | null
+          phoneme_difficulty_map?: Json | null
+          profile_id?: string | null
+          trial_count_at_computation?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_speech_profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
