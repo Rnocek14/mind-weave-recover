@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { HelpCircle, ArrowRight } from 'lucide-react';
+import { HelpCircle, ArrowRight, SkipForward } from 'lucide-react';
 import { CapabilityGracefulExit, type CaregiverObservations } from './CapabilityGracefulExit';
 import { useCapabilityAssessment } from '@/hooks/useCapabilityAssessment';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -606,7 +606,7 @@ export const CapabilityAssessment = ({
         )}
       </div>
 
-      {/* Help and Exit buttons */}
+      {/* Help, Skip, and Exit buttons */}
       <div className="p-4 flex justify-between items-center gap-4">
         <Button 
           variant="outline" 
@@ -618,9 +618,23 @@ export const CapabilityAssessment = ({
           Need Help?
         </Button>
         
-        <Button variant="ghost" size="sm" onClick={onExit}>
-          Exit
-        </Button>
+        <div className="flex items-center gap-2">
+          {inactivitySeconds >= 3 && (
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              onClick={handleTimeout}
+              className="flex items-center gap-2"
+            >
+              <SkipForward className="h-5 w-5" />
+              Skip
+            </Button>
+          )}
+          
+          <Button variant="ghost" size="sm" onClick={onExit}>
+            Exit
+          </Button>
+        </div>
       </div>
     </div>
   );
