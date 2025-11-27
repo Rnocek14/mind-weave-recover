@@ -195,7 +195,7 @@ export const PhotoNamingGame = ({
     stopListening, 
     isSupported,
     error: speechError 
-  } = useSpeechRecognition(handleSpeechResult, false);
+  } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
   
   // Centralized safe startListening to prevent race conditions
   const safeStartListening = useCallback((delayMs: number = 0) => {
@@ -520,24 +520,7 @@ export const PhotoNamingGame = ({
       setIsPlayingChoices(false);
       setPlayingChoice(null);
       
-      console.log('🎤 Audio finished, will restart listening for voice mode:', useVoice);
-      
-      // Resume listening after audio if voice mode is on
-      if (useVoice && isSupported && !showFeedback) {
-        // Ensure mic is stopped first, then restart
-        stopListening();
-        setTimeout(() => {
-          console.log('🎤 Attempting to restart listening after single choice audio');
-          if (!showFeedback && !timedOut && !selectedAnswer) {
-            try {
-              startListening();
-              console.log('🎤 Successfully restarted listening');
-            } catch (err) {
-              console.error('🎤 Failed to restart listening:', err);
-            }
-          }
-        }, 1500);
-      }
+      console.log('🎤 Audio finished, continuous listening will auto-restart');
     }
   };
 
@@ -572,24 +555,7 @@ export const PhotoNamingGame = ({
       isPlayingChoicesRef.current = false;
       setIsPlayingChoices(false);
       
-      console.log('🎤 All choices audio finished, will restart listening for voice mode:', useVoice);
-      
-      // Resume listening after audio if voice mode is on
-      if (useVoice && isSupported && !showFeedback) {
-        // Ensure mic is stopped first, then restart
-        stopListening();
-        setTimeout(() => {
-          console.log('🎤 Attempting to restart listening after all choices audio');
-          if (!showFeedback && !timedOut && !selectedAnswer) {
-            try {
-              startListening();
-              console.log('🎤 Successfully restarted listening');
-            } catch (err) {
-              console.error('🎤 Failed to restart listening:', err);
-            }
-          }
-        }, 1500);
-      }
+      console.log('🎤 All choices audio finished, continuous listening will auto-restart');
     }
   };
 
