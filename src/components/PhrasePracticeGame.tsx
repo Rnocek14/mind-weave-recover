@@ -11,6 +11,7 @@ import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface PhrasePracticeGameProps {
@@ -138,55 +139,14 @@ export const PhrasePracticeGame = ({
     }
   };
 
-  // Play audio cue using OpenAI TTS
+  // Bulletproof audio playback
+  const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
+  
   const handlePlayAudio = async () => {
-    if (!currentTrial) return;
+    if (!currentTrial || isAudioPlaying) return;
     
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            text: currentTrial.phrase,
-            voice: voicePreference // Use user's preferred voice
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to generate speech');
-      }
-
-      const data = await response.json();
-      
-      // Convert base64 to audio and play
-      const audioData = atob(data.audioContent);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
-      }
-      
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
-      
-      setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
-    } catch (error) {
-      console.error('Audio playback error:', error);
-      toast({
-        title: "Audio Error",
-        description: "Could not play audio. Please try again.",
-        variant: "destructive"
-      });
-    }
+    await playPhrase(currentTrial.phrase, { voice: voicePreference });
+    setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
   };
 
   // Show visual cue
@@ -403,10 +363,17 @@ export const PhrasePracticeGame = ({
               variant="outline"
               size="lg"
               onClick={handlePlayAudio}
+              disabled={isAudioPlaying}
             >
               <Volume2 className="w-5 h-5 mr-2" />
-              Play Audio
+              {isAudioPlaying ? 'Playing...' : 'Play Audio'}
             </Button>
+          )}
+          
+          {audioError && (
+            <p className="text-sm text-muted-foreground">
+              Audio unavailable - read and speak the phrase
+            </p>
           )}
         </div>
 

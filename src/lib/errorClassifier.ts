@@ -86,27 +86,29 @@ export const classifySpeechError = async (
     context.category
   );
   
-  // Step 6: Classify based on similarities and thresholds
+  // Step 6: Classify based on similarities and thresholds (MORE FORGIVING for stroke survivors)
   
-  // Phonemic paraphasia: >50% phoneme overlap, real or non-word
-  if (phonological_sim > 0.5) {
+  // Phonemic paraphasia: >35% phoneme overlap (was 50%), real or non-word
+  // Lower threshold for aphasia patients who struggle with phoneme production
+  if (phonological_sim > 0.35) {
     const isRealWord = await isValidWord(normalized_spoken);
     return {
-      errorType: phonological_sim > 0.7 ? 'phonemic_paraphasia' : 'neologism',
+      errorType: phonological_sim > 0.6 ? 'phonemic_paraphasia' : 'neologism',
       confidence: Math.min(0.9, asrConfidence + 0.1),
-      reasoning: `High phonological similarity (${phonological_sim.toFixed(2)}), ${isRealWord ? 'real word' : 'non-word'}`,
-      needs_review: phonological_sim > 0.45 && phonological_sim < 0.55,
+      reasoning: `Phonological similarity (${phonological_sim.toFixed(2)}), ${isRealWord ? 'real word' : 'attempted'}`,
+      needs_review: phonological_sim > 0.3 && phonological_sim < 0.4,
       phonological_similarity: phonological_sim
     };
   }
   
-  // Semantic paraphasia: >0.55 similarity, low phonological overlap
-  if (semantic_sim > 0.55 && phonological_sim < 0.4) {
+  // Semantic paraphasia: >0.45 similarity (was 0.55), low phonological overlap
+  // Lower threshold to catch more semantic relationships
+  if (semantic_sim > 0.45 && phonological_sim < 0.4) {
     return {
       errorType: 'semantic_paraphasia',
       confidence: Math.min(0.85, semantic_sim),
-      reasoning: `Semantically related (${semantic_sim.toFixed(2)}), not phonologically similar`,
-      needs_review: semantic_sim > 0.5 && semantic_sim < 0.6,
+      reasoning: `Semantically related (${semantic_sim.toFixed(2)}), close attempt`,
+      needs_review: semantic_sim > 0.4 && semantic_sim < 0.5,
       semantic_similarity: semantic_sim
     };
   }

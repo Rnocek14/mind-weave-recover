@@ -83,11 +83,17 @@ export const PhotoNamingGame = ({
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
   
-  // Helper function to match spoken words with choices
+  // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
     if (!state.choices) return null;
     
-    const normalized = spokenWord.toLowerCase().trim();
+    // Import normalizer dynamically
+    const { normalizeASROutput } = require('@/lib/speechNormalizer');
+    
+    // Clean up fillers and noise FIRST
+    const normalized = normalizeASROutput(spokenWord).toLowerCase().trim();
+    
+    if (!normalized) return null;
     
     // Direct match
     const directMatch = state.choices.find(choice => 
@@ -95,13 +101,60 @@ export const PhotoNamingGame = ({
     );
     if (directMatch) return directMatch;
     
-    // Partial match (spoken word contains choice or vice versa)
-    const partialMatch = state.choices.find(choice => {
+    // Fuzzy match with phonetic tolerance
+    const fuzzyMatch = state.choices.find(choice => {
       const choiceLower = choice.toLowerCase();
-      return normalized.includes(choiceLower) || choiceLower.includes(normalized);
+      
+      // Contains match
+      if (normalized.includes(choiceLower) || choiceLower.includes(normalized)) {
+        return true;
+      }
+      
+      // Levenshtein similarity for phonetic variations (e.g., "dawg" → "dog")
+      const similarity = calculateSimilarity(normalized, choiceLower);
+      return similarity > 0.7;
     });
     
-    return partialMatch || null;
+    return fuzzyMatch || null;
+  };
+  
+  // Calculate word similarity for fuzzy matching
+  const calculateSimilarity = (word1: string, word2: string): number => {
+    const longer = word1.length > word2.length ? word1 : word2;
+    const shorter = word1.length > word2.length ? word2 : word1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    const editDistance = levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  };
+  
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
   };
   
   // Handle speech recognition results
