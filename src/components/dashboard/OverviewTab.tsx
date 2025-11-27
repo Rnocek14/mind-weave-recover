@@ -14,6 +14,7 @@ import { RedFlagAlerts } from "@/components/RedFlagAlerts";
 import { ExerciseCarousel } from "@/components/ExerciseCarousel";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { TodaysSessionStats } from "@/components/TodaysSessionStats";
+import { WeeklyTrendsChart } from "@/components/WeeklyTrendsChart";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -100,7 +101,10 @@ export const OverviewTab = memo(function OverviewTab() {
       {!showProgress ? (
         <ProgressCardSkeleton />
       ) : (
-        <TodaysSessionStats />
+        <>
+          <TodaysSessionStats />
+          <WeeklyTrendsChart />
+        </>
       )}
 
       {/* AI Recovery Intelligence */}
