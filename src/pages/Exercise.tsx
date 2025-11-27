@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Pause, RotateCcw, CheckCircle2, 
-  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle 
+  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle, SkipForward 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
@@ -535,6 +535,17 @@ const Exercise = () => {
     resetTelemetry();
   };
 
+  const handleSkipExercise = async () => {
+    toast({
+      title: "Exercise skipped",
+      description: "Moving to next activity",
+    });
+    
+    // Dispatch event and navigate back to lesson
+    window.dispatchEvent(new CustomEvent('exercise-complete'));
+    navigate('/lesson', { state: { resuming: true } });
+  };
+
   // Show mood check-in first
   if (showMoodCheckIn) {
     return (
@@ -658,17 +669,29 @@ const Exercise = () => {
       />
 
       <div className="container mx-auto max-w-4xl">
-        <Button 
-          variant="ghost" 
-          className="mb-6"
-          onClick={() => {
-            trackBehavior('end_attempt');
-            navigate("/dashboard");
-          }}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <div className="flex items-center gap-2 mb-6">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              trackBehavior('end_attempt');
+              navigate("/dashboard");
+            }}
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          
+          {fromLesson && (
+            <Button
+              variant="outline"
+              onClick={handleSkipExercise}
+              className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+            >
+              <SkipForward className="w-4 h-4 mr-2" />
+              Skip - Too Difficult
+            </Button>
+          )}
+        </div>
 
         {/* Clinical Profile Widget */}
         {clinicalProfile && (

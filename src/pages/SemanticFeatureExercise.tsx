@@ -4,7 +4,7 @@ import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, SkipForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
 import { useExerciseConfig } from '@/hooks/useExerciseConfig';
@@ -51,6 +51,17 @@ export default function SemanticFeatureExercise() {
   );
   
   const { getAdaptations } = useExerciseGating(user?.id);
+
+  const handleSkipExercise = async () => {
+    toast({
+      title: "Exercise skipped",
+      description: "Moving to next activity",
+    });
+    
+    // Dispatch event and navigate back to lesson
+    window.dispatchEvent(new CustomEvent('exercise-complete'));
+    navigate('/lesson', { state: { resuming: true } });
+  };
 
   const handleGameStart = async () => {
     if (!user?.id) return;
@@ -118,6 +129,17 @@ export default function SemanticFeatureExercise() {
                 Strengthen word retrieval by identifying semantic features
               </p>
             </div>
+            
+            {fromLesson && (
+              <Button
+                variant="outline"
+                onClick={handleSkipExercise}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+              >
+                <SkipForward className="w-4 h-4 mr-2" />
+                Skip - Too Difficult
+              </Button>
+            )}
           </div>
           <DifficultyInfoBadge level={config.startDifficulty || 1} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>

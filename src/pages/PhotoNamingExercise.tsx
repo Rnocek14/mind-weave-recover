@@ -5,13 +5,14 @@ import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, SkipForward } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
+import { toast } from 'sonner';
 
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
@@ -164,6 +165,28 @@ export default function PhotoNamingExercise() {
     console.log('✅ Trial logged successfully to exercise_events');
   };
 
+  const handleSkipExercise = async () => {
+    // Log the skip for analytics
+    if (sessionId) {
+      await logTrial({
+        correct: false,
+        reactionTimeMs: 0,
+        cueLevel: 0,
+        errorType: 'skipped',
+        taskParameters: {
+          skipped: true,
+          skipReason: 'too_difficult'
+        }
+      });
+    }
+    
+    toast.info("Exercise skipped - moving to next activity");
+    
+    // Dispatch event and navigate back to lesson
+    window.dispatchEvent(new CustomEvent('exercise-complete'));
+    navigate('/lesson', { state: { resuming: true } });
+  };
+
   const handleGameComplete = async () => {
     // End session with caregiver notes
     if (sessionId) {
@@ -201,12 +224,25 @@ export default function PhotoNamingExercise() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="flex justify-between items-center mb-6">
-          <Link to="/dashboard">
-            <Button variant="ghost">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/dashboard">
+              <Button variant="ghost">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </Link>
+            
+            {fromLesson && (
+              <Button
+                variant="outline"
+                onClick={handleSkipExercise}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+              >
+                <SkipForward className="w-4 h-4 mr-2" />
+                Skip - Too Difficult
+              </Button>
+            )}
+          </div>
           
           <div className="flex items-center gap-2">
             <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)}>
