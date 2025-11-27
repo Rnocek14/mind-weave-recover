@@ -47,13 +47,14 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
         
         // If returning from exercise (resuming), move to next phase
         if (location.state?.resuming && savedPhase === 'exercise') {
-          setCurrentBlockIndex(savedIndex);
+          const nextIndex = savedIndex + 1;
+          setCurrentBlockIndex(nextIndex);
           setSessionId(savedSessionId);
           
-          // Move to transition or summary based on block index
-          const isLast = savedIndex >= lesson.blocks.length - 1;
+          // Move to transition or summary based on next block index
+          const isLast = nextIndex >= lesson.blocks.length;
           setPhase(isLast ? 'summary' : 'transition');
-          console.log('[LessonFlow] Advancing from exercise to:', isLast ? 'summary' : 'transition');
+          console.log('[LessonFlow] Advancing from exercise to next:', { nextIndex, isLast, phase: isLast ? 'summary' : 'transition' });
         } else {
           // Normal restore
           setPhase(savedPhase);
