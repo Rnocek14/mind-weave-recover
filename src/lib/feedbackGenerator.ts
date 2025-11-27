@@ -21,8 +21,24 @@ export type { ExtendedErrorType, EncouragementLevel };
 export const generateGentleFeedback = (
   errorType: ExtendedErrorType,
   targetWord: string,
-  spokenWord?: string
+  spokenWord?: string,
+  semanticSimilarity?: number,
+  phonemeAccuracy?: number
 ): string => {
+  // Special case: High semantic similarity but lower phoneme accuracy
+  // This means they knew what it was but struggled with the exact word
+  if (semanticSimilarity !== undefined && phonemeAccuracy !== undefined) {
+    if (semanticSimilarity > 0.7 && phonemeAccuracy < 0.6) {
+      const meaningPraise = [
+        `You knew exactly what it was! The word is "${targetWord}".`,
+        `That's in the same family – you were thinking of the right idea! It's "${targetWord}".`,
+        `Great thinking! That's very close in meaning. The word is "${targetWord}".`,
+        `You picked a related word – that shows you understood it! The word is "${targetWord}".`
+      ];
+      return meaningPraise[Math.floor(Math.random() * meaningPraise.length)];
+    }
+  }
+  
   switch (errorType) {
     case 'correct':
       return `That's it! Great job saying "${targetWord}"!`;

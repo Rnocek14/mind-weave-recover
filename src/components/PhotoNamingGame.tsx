@@ -63,6 +63,8 @@ export const PhotoNamingGame = ({
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
+    semanticSimilarity?: number;
+    phonemeAccuracy?: number;
   } | null>(null);
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
@@ -685,7 +687,9 @@ export const PhotoNamingGame = ({
     
     setFeedbackData({ 
       correct, 
-      errorType: errorClassification.errorType 
+      errorType: errorClassification.errorType,
+      semanticSimilarity: errorClassification.semantic_similarity,
+      phonemeAccuracy: errorClassification.phonemeAccuracy
     });
     setShowFeedback(true);
     
@@ -1129,7 +1133,9 @@ export const PhotoNamingGame = ({
             {state.currentTrial && generateGentleFeedback(
               feedbackData.errorType as any,
               state.currentTrial.target,
-              selectedAnswer || undefined
+              selectedAnswer || undefined,
+              feedbackData.semanticSimilarity,
+              feedbackData.phonemeAccuracy
             )}
           </p>
         </div>
