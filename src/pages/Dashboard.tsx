@@ -38,6 +38,7 @@ import { DashboardQuickTour } from "@/components/DashboardQuickTour";
 import { useUiMode } from "@/hooks/useUiMode";
 import { PatientModeView } from "@/components/PatientModeView";
 import { UiModeToggle } from "@/components/UiModeToggle";
+import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -310,6 +311,7 @@ const Dashboard = () => {
           
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <UiModeToggle />
+            <ProfileSwitcher />
             
             <Button
               variant="outline"

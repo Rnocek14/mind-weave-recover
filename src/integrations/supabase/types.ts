@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           awarded_at: string | null
           id: string
+          profile_id: string | null
           type: string
           user_id: string
           value: number | null
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           awarded_at?: string | null
           id?: string
+          profile_id?: string | null
           type: string
           user_id: string
           value?: number | null
@@ -32,11 +34,19 @@ export type Database = {
         Update: {
           awarded_at?: string | null
           id?: string
+          profile_id?: string | null
           type?: string
           user_id?: string
           value?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "achievements_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "achievements_user_id_fkey"
             columns: ["user_id"]
@@ -68,6 +78,7 @@ export type Database = {
           id: string
           motor_score: number | null
           needs_retry: boolean | null
+          profile_id: string | null
           retry_reason: string | null
           trial_data: Json | null
           understands_cause_effect: boolean | null
@@ -88,6 +99,7 @@ export type Database = {
           id?: string
           motor_score?: number | null
           needs_retry?: boolean | null
+          profile_id?: string | null
           retry_reason?: string | null
           trial_data?: Json | null
           understands_cause_effect?: boolean | null
@@ -108,13 +120,22 @@ export type Database = {
           id?: string
           motor_score?: number | null
           needs_retry?: boolean | null
+          profile_id?: string | null
           retry_reason?: string | null
           trial_data?: Json | null
           understands_cause_effect?: boolean | null
           user_id?: string
           vision_score?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "capability_assessments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clinical_notes: {
         Row: {
@@ -128,6 +149,7 @@ export type Database = {
           parsed_at: string | null
           parser_version: string | null
           parsing_confidence: string | null
+          profile_id: string | null
           raw_text: string
           requires_review: boolean | null
           reviewed_at: string | null
@@ -149,6 +171,7 @@ export type Database = {
           parsed_at?: string | null
           parser_version?: string | null
           parsing_confidence?: string | null
+          profile_id?: string | null
           raw_text: string
           requires_review?: boolean | null
           reviewed_at?: string | null
@@ -170,6 +193,7 @@ export type Database = {
           parsed_at?: string | null
           parser_version?: string | null
           parsing_confidence?: string | null
+          profile_id?: string | null
           raw_text?: string
           requires_review?: boolean | null
           reviewed_at?: string | null
@@ -181,6 +205,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clinical_notes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clinical_notes_reviewed_by_fkey"
             columns: ["reviewed_by"]
@@ -271,7 +302,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clinical_profile_corrections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clinical_profile_versions: {
         Row: {
@@ -283,6 +322,7 @@ export type Database = {
           is_active: boolean
           overall_confidence: string | null
           profile_data: Json
+          profile_id: string | null
           source_note_id: string | null
           source_type: string
           user_id: string
@@ -300,6 +340,7 @@ export type Database = {
           is_active?: boolean
           overall_confidence?: string | null
           profile_data?: Json
+          profile_id?: string | null
           source_note_id?: string | null
           source_type: string
           user_id: string
@@ -317,6 +358,7 @@ export type Database = {
           is_active?: boolean
           overall_confidence?: string | null
           profile_data?: Json
+          profile_id?: string | null
           source_note_id?: string | null
           source_type?: string
           user_id?: string
@@ -339,6 +381,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_cluster_assignments"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "clinical_profile_versions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "clinical_profile_versions_source_note_id_fkey"
@@ -386,6 +435,7 @@ export type Database = {
           flag_type: string
           id: string
           notes: string | null
+          profile_id: string | null
           user_id: string
         }
         Insert: {
@@ -396,6 +446,7 @@ export type Database = {
           flag_type: string
           id?: string
           notes?: string | null
+          profile_id?: string | null
           user_id: string
         }
         Update: {
@@ -406,9 +457,18 @@ export type Database = {
           flag_type?: string
           id?: string
           notes?: string | null
+          profile_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "dismissed_flags_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       engagement_interventions: {
         Row: {
@@ -576,6 +636,7 @@ export type Database = {
           created_by: string | null
           goal_text: string
           id: string
+          profile_id: string | null
           target_date: string | null
           target_domain: string
           user_id: string
@@ -587,6 +648,7 @@ export type Database = {
           created_by?: string | null
           goal_text: string
           id?: string
+          profile_id?: string | null
           target_date?: string | null
           target_domain: string
           user_id: string
@@ -598,11 +660,20 @@ export type Database = {
           created_by?: string | null
           goal_text?: string
           id?: string
+          profile_id?: string | null
           target_date?: string | null
           target_domain?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "functional_goals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       goal_progress_ratings: {
         Row: {
@@ -651,6 +722,7 @@ export type Database = {
           end_accuracy: number | null
           end_date: string
           id: string
+          profile_id: string | null
           rt_slope: number | null
           start_accuracy: number | null
           start_date: string
@@ -666,6 +738,7 @@ export type Database = {
           end_accuracy?: number | null
           end_date: string
           id?: string
+          profile_id?: string | null
           rt_slope?: number | null
           start_accuracy?: number | null
           start_date: string
@@ -681,6 +754,7 @@ export type Database = {
           end_accuracy?: number | null
           end_date?: string
           id?: string
+          profile_id?: string | null
           rt_slope?: number | null
           start_accuracy?: number | null
           start_date?: string
@@ -688,7 +762,15 @@ export type Database = {
           trial_count?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "learning_rates_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       outcome_predictions: {
         Row: {
@@ -696,6 +778,7 @@ export type Database = {
           created_at: string | null
           id: string
           prediction_data: Json
+          profile_id: string | null
           user_id: string
         }
         Insert: {
@@ -703,6 +786,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           prediction_data: Json
+          profile_id?: string | null
           user_id: string
         }
         Update: {
@@ -710,9 +794,18 @@ export type Database = {
           created_at?: string | null
           id?: string
           prediction_data?: Json
+          profile_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "outcome_predictions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photos: {
         Row: {
@@ -720,6 +813,7 @@ export type Database = {
           id: string
           labels: string[] | null
           name: string
+          profile_id: string | null
           storage_path: string
           user_id: string
         }
@@ -728,6 +822,7 @@ export type Database = {
           id?: string
           labels?: string[] | null
           name: string
+          profile_id?: string | null
           storage_path: string
           user_id: string
         }
@@ -736,10 +831,18 @@ export type Database = {
           id?: string
           labels?: string[] | null
           name?: string
+          profile_id?: string | null
           storage_path?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "photos_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "photos_user_id_fkey"
             columns: ["user_id"]
@@ -764,6 +867,7 @@ export type Database = {
           id: string
           new_note_id: string | null
           new_parsed_profile: Json
+          profile_id: string | null
           resolution_choice: Json | null
           resolution_status: string
           resolved_at: string | null
@@ -777,6 +881,7 @@ export type Database = {
           id?: string
           new_note_id?: string | null
           new_parsed_profile?: Json
+          profile_id?: string | null
           resolution_choice?: Json | null
           resolution_status?: string
           resolved_at?: string | null
@@ -790,6 +895,7 @@ export type Database = {
           id?: string
           new_note_id?: string | null
           new_parsed_profile?: Json
+          profile_id?: string | null
           resolution_choice?: Json | null
           resolution_status?: string
           resolved_at?: string | null
@@ -809,6 +915,13 @@ export type Database = {
             columns: ["new_note_id"]
             isOneToOne: false
             referencedRelation: "clinical_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_merge_conflicts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -844,6 +957,8 @@ export type Database = {
       profiles: {
         Row: {
           accessibility_prefs: Json | null
+          avatar_url: string | null
+          birthdate: string | null
           capability_profile_id: string | null
           caregiver_mode_enabled: boolean | null
           clinical_profile: Json | null
@@ -855,12 +970,19 @@ export type Database = {
           enforce_dose_caps: boolean | null
           goals: string[] | null
           hand_bias: string | null
+          id: string
+          is_active: boolean | null
+          profile_created_at: string | null
+          profile_name: string
+          profile_notes: string | null
           session_cap_minutes: number | null
           stroke_date: string | null
           user_id: string
         }
         Insert: {
           accessibility_prefs?: Json | null
+          avatar_url?: string | null
+          birthdate?: string | null
           capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
           clinical_profile?: Json | null
@@ -872,12 +994,19 @@ export type Database = {
           enforce_dose_caps?: boolean | null
           goals?: string[] | null
           hand_bias?: string | null
+          id?: string
+          is_active?: boolean | null
+          profile_created_at?: string | null
+          profile_name: string
+          profile_notes?: string | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id: string
         }
         Update: {
           accessibility_prefs?: Json | null
+          avatar_url?: string | null
+          birthdate?: string | null
           capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
           clinical_profile?: Json | null
@@ -889,6 +1018,11 @@ export type Database = {
           enforce_dose_caps?: boolean | null
           goals?: string[] | null
           hand_bias?: string | null
+          id?: string
+          is_active?: boolean | null
+          profile_created_at?: string | null
+          profile_name?: string
+          profile_notes?: string | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id?: string
@@ -914,6 +1048,7 @@ export type Database = {
           id: string
           key_insights: string[]
           model_used: string | null
+          profile_id: string | null
           replaces_summary_id: string | null
           summary_type: string
           trial_count_at_generation: number | null
@@ -930,6 +1065,7 @@ export type Database = {
           id?: string
           key_insights?: string[]
           model_used?: string | null
+          profile_id?: string | null
           replaces_summary_id?: string | null
           summary_type: string
           trial_count_at_generation?: number | null
@@ -946,6 +1082,7 @@ export type Database = {
           id?: string
           key_insights?: string[]
           model_used?: string | null
+          profile_id?: string | null
           replaces_summary_id?: string | null
           summary_type?: string
           trial_count_at_generation?: number | null
@@ -953,6 +1090,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "recovery_summaries_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recovery_summaries_replaces_summary_id_fkey"
             columns: ["replaces_summary_id"]
@@ -971,6 +1115,7 @@ export type Database = {
           id: string
           mood_rating: number | null
           plan: Json | null
+          profile_id: string | null
           started_at: string | null
           summary: Json | null
           user_id: string
@@ -983,6 +1128,7 @@ export type Database = {
           id?: string
           mood_rating?: number | null
           plan?: Json | null
+          profile_id?: string | null
           started_at?: string | null
           summary?: Json | null
           user_id: string
@@ -995,11 +1141,19 @@ export type Database = {
           id?: string
           mood_rating?: number | null
           plan?: Json | null
+          profile_id?: string | null
           started_at?: string | null
           summary?: Json | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sessions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sessions_user_id_fkey"
             columns: ["user_id"]
@@ -1024,6 +1178,7 @@ export type Database = {
           created_at: string | null
           id: string
           notes: string | null
+          profile_id: string | null
           scores: Json
           updated_at: string | null
           user_id: string
@@ -1035,6 +1190,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           notes?: string | null
+          profile_id?: string | null
           scores?: Json
           updated_at?: string | null
           user_id: string
@@ -1046,11 +1202,20 @@ export type Database = {
           created_at?: string | null
           id?: string
           notes?: string | null
+          profile_id?: string | null
           scores?: Json
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "standardized_assessments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1132,6 +1297,39 @@ export type Database = {
       get_active_clinical_profile: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      get_active_profile: {
+        Args: never
+        Returns: {
+          accessibility_prefs: Json | null
+          avatar_url: string | null
+          birthdate: string | null
+          capability_profile_id: string | null
+          caregiver_mode_enabled: boolean | null
+          clinical_profile: Json | null
+          consent_version: number | null
+          created_at: string | null
+          daily_cap_minutes: number | null
+          daily_goal_minutes: number | null
+          display_name: string | null
+          enforce_dose_caps: boolean | null
+          goals: string[] | null
+          hand_bias: string | null
+          id: string
+          is_active: boolean | null
+          profile_created_at: string | null
+          profile_name: string
+          profile_notes: string | null
+          session_cap_minutes: number | null
+          stroke_date: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_cluster_assignments: {
         Args: never
@@ -1217,6 +1415,10 @@ export type Database = {
       }
       refresh_cluster_assignments: { Args: never; Returns: undefined }
       setup_admin_user: { Args: { admin_email: string }; Returns: boolean }
+      switch_active_profile: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
