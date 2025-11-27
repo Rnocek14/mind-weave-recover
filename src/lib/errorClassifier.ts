@@ -9,6 +9,7 @@
  */
 
 import type { LinguisticFeatures } from '@/data/photoBank';
+import { getPhonemeAccuracy } from '@/lib/phonemeUtils';
 
 export interface ErrorClassificationResult {
   errorType: 'correct' | 'semantic_paraphasia' | 'phonemic_paraphasia' | 
@@ -18,6 +19,7 @@ export interface ErrorClassificationResult {
   reasoning: string;               // For logging/debugging
   needs_review: boolean;           // Flag uncertain cases
   phonological_similarity?: number; // 0-1
+  phonemeAccuracy?: number;        // 0-1, pseudo-phoneme sequence accuracy
   semantic_similarity?: number;     // 0-1
   // Enhanced analysis fields
   fluencyMetrics?: {
@@ -94,7 +96,14 @@ export const classifySpeechError = async (
       errorType: 'correct',
       confidence: asrConfidence,
       reasoning: 'Exact match to target',
-      needs_review: false
+      needs_review: false,
+      phonemeAccuracy: 1.0,
+      phonological_similarity: 1.0,
+      meaningAccuracy: 1.0,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
     };
   }
   
@@ -116,6 +125,9 @@ export const classifySpeechError = async (
     normalized_target
   );
   
+  // Step 4b: Calculate phoneme-level accuracy (v1)
+  const phonemeAccuracy = getPhonemeAccuracy(normalized_spoken, normalized_target);
+  
   // Step 5: Calculate semantic similarity
   const semantic_sim = await calculateSemanticSimilarity(
     normalized_spoken,
@@ -131,9 +143,10 @@ export const classifySpeechError = async (
     return {
       errorType: 'attempted',
       confidence: Math.min(0.85, asrConfidence + 0.15),
-      reasoning: `Close phonological approximation (${phonological_sim.toFixed(2)}) - good effort`,
+      reasoning: `Close phonological approximation (phonological: ${phonological_sim.toFixed(2)}, phoneme: ${phonemeAccuracy.toFixed(2)}) - good effort`,
       needs_review: false,
       phonological_similarity: phonological_sim,
+      phonemeAccuracy,
       meaningAccuracy: 0.7,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -148,10 +161,12 @@ export const classifySpeechError = async (
     return {
       errorType: 'phonemic_paraphasia',
       confidence: Math.min(0.9, asrConfidence + 0.1),
-      reasoning: `High phonological similarity (${phonological_sim.toFixed(2)}), ${isRealWord ? 'real word' : 'close attempt'}`,
+      reasoning: `High phonological overlap (${phonological_sim.toFixed(2)}, phoneme: ${phonemeAccuracy.toFixed(2)}), ${isRealWord ? 'real word' : 'non-word'}`,
       needs_review: false,
       phonological_similarity: phonological_sim,
-      meaningAccuracy: 0.8,
+      phonemeAccuracy,
+      semantic_similarity: semantic_sim,
+      meaningAccuracy: 0.66,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
         effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
@@ -168,6 +183,7 @@ export const classifySpeechError = async (
       reasoning: `Semantically related (${semantic_sim.toFixed(2)}), close attempt`,
       needs_review: semantic_sim > 0.4 && semantic_sim < 0.5,
       semantic_similarity: semantic_sim,
+      phonemeAccuracy,
       meaningAccuracy: 0.6,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -183,9 +199,10 @@ export const classifySpeechError = async (
       return {
         errorType: 'neologism',
         confidence: 0.7,
-        reasoning: `Non-word with partial phonological overlap (${phonological_sim.toFixed(2)})`,
+        reasoning: `Non-word with partial phonological overlap (${phonological_sim.toFixed(2)}, phoneme: ${phonemeAccuracy.toFixed(2)})`,
         needs_review: true,
-        phonological_similarity: phonological_sim
+        phonological_similarity: phonological_sim,
+        phonemeAccuracy
       };
     }
   }
@@ -197,7 +214,8 @@ export const classifySpeechError = async (
     reasoning: `Low phonological (${phonological_sim.toFixed(2)}) and semantic (${semantic_sim.toFixed(2)}) similarity`,
     needs_review: asrConfidence < 0.6,
     phonological_similarity: phonological_sim,
-    semantic_similarity: semantic_sim
+    semantic_similarity: semantic_sim,
+    phonemeAccuracy
   };
 };
 

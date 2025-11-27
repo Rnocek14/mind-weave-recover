@@ -63,6 +63,7 @@ export default function SpeechTrendsAnalytics() {
   const [keyMetrics, setKeyMetrics] = useState({
     avgSpeechRateWpm: 0,
     avgPauseCount: 0,
+    avgPhonemeAccuracy: 0,
     circumlocutionCount: 0,
     totalTrials: 0,
   });
@@ -118,8 +119,10 @@ export default function SpeechTrendsAnalytics() {
       }>();
       let totalSpeechRate = 0;
       let totalPauseCount = 0;
+      let totalPhonemeAcc = 0;
       let speechRateCount = 0;
       let pauseCountCount = 0;
+      let phonemeCount = 0;
       let circumlocutions = 0;
 
       events?.forEach((event) => {
@@ -185,6 +188,12 @@ export default function SpeechTrendsAnalytics() {
         if (acousticMetrics?.pauseCount !== undefined) {
           totalPauseCount += acousticMetrics.pauseCount;
           pauseCountCount += 1;
+        }
+
+        // Phoneme accuracy
+        if (utteranceAnalysis?.phonemeAccuracy !== undefined) {
+          totalPhonemeAcc += utteranceAnalysis.phonemeAccuracy;
+          phonemeCount += 1;
         }
 
         // Circumlocution count
@@ -264,6 +273,7 @@ export default function SpeechTrendsAnalytics() {
       setKeyMetrics({
         avgSpeechRateWpm: speechRateCount > 0 ? Math.round(totalSpeechRate / speechRateCount) : 0,
         avgPauseCount: pauseCountCount > 0 ? Math.round((totalPauseCount / pauseCountCount) * 10) / 10 : 0,
+        avgPhonemeAccuracy: phonemeCount > 0 ? Math.round((totalPhonemeAcc / phonemeCount) * 100) : 0,
         circumlocutionCount: circumlocutions,
         totalTrials: events?.length || 0,
       });
@@ -297,6 +307,15 @@ export default function SpeechTrendsAnalytics() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <p className="text-sm text-muted-foreground">Avg Phoneme Accuracy</p>
+            </div>
+            <p className="text-3xl font-bold">{keyMetrics.avgPhonemeAccuracy}%</p>
+            <p className="text-xs text-muted-foreground mt-1">sound-level match</p>
+          </Card>
+
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-primary" />
