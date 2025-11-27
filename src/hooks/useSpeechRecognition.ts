@@ -22,6 +22,8 @@ export const useSpeechRecognition = (
   const noSpeechCountRef = useRef(0);
   const isListeningRef = useRef(false);
   const manuallyStoppedRef = useRef(false);
+  const pendingTranscriptRef = useRef<string>('');
+  const lastProcessedTranscriptRef = useRef<string>('');
   
   // Store callback in ref to avoid stale closures
   const onResultRef = useRef(onResult);
@@ -71,12 +73,17 @@ export const useSpeechRecognition = (
         // Reset no-speech counter on successful recognition
         noSpeechCountRef.current = 0;
         
-        // Use ref to get latest callback, avoiding stale closure
-        onResultRef.current(finalTranscript);
+        // Clear pending transcript and process if not already processed
+        pendingTranscriptRef.current = '';
+        if (finalTranscript !== lastProcessedTranscriptRef.current) {
+          lastProcessedTranscriptRef.current = finalTranscript;
+          onResultRef.current(finalTranscript);
+        }
       } else {
-        // Show interim results
+        // Show interim results and track for potential processing on end
         const interimTranscript = lastResult[0].transcript.trim().toLowerCase();
         setTranscript(interimTranscript);
+        pendingTranscriptRef.current = interimTranscript;
       }
     };
 
@@ -129,6 +136,16 @@ export const useSpeechRecognition = (
     recognition.onend = () => {
       console.log('Speech recognition ended');
       setIsListening(false);
+      
+      // Process any pending interim transcript as final result if not already processed
+      if (pendingTranscriptRef.current && 
+          !manuallyStoppedRef.current &&
+          pendingTranscriptRef.current !== lastProcessedTranscriptRef.current) {
+        console.log('🎤 Processing pending transcript:', pendingTranscriptRef.current);
+        lastProcessedTranscriptRef.current = pendingTranscriptRef.current;
+        onResultRef.current(pendingTranscriptRef.current);
+        pendingTranscriptRef.current = '';
+      }
       
       // Auto-restart for continuous mode if not manually stopped
       if (continuousListening && !manuallyStoppedRef.current && noSpeechCountRef.current < 5) {
