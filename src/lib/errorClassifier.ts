@@ -12,12 +12,22 @@ import type { LinguisticFeatures } from '@/data/photoBank';
 
 export interface ErrorClassificationResult {
   errorType: 'correct' | 'semantic_paraphasia' | 'phonemic_paraphasia' | 
-             'neologism' | 'unrelated' | 'no_response' | 'self_corrected';
+             'neologism' | 'unrelated' | 'no_response' | 'self_corrected' |
+             'attempted' | 'circumlocution';
   confidence: number;              // 0-1
   reasoning: string;               // For logging/debugging
   needs_review: boolean;           // Flag uncertain cases
   phonological_similarity?: number; // 0-1
   semantic_similarity?: number;     // 0-1
+  // Enhanced analysis fields
+  fluencyMetrics?: {
+    speechRateWpm?: number;
+    pauseCount?: number;
+    avgPauseDuration?: number;
+    effortfulSpeech?: boolean;
+  };
+  circumlocutionDetected?: boolean;
+  meaningAccuracy?: number;        // 0-1 overall meaning conveyed
 }
 
 export interface ErrorContext {
@@ -35,8 +45,35 @@ export const classifySpeechError = async (
   spokenWord: string,
   targetWord: string,
   asrConfidence: number,
-  context: ErrorContext
+  context: ErrorContext,
+  acousticMetrics?: {
+    speechRateWpm?: number;
+    pauseCount?: number;
+    avgPauseDuration?: number;
+  }
 ): Promise<ErrorClassificationResult> => {
+  
+  // Step 0: Check for circumlocution (multi-word description)
+  const circumlocutionCheck = await detectCircumlocution(
+    spokenWord, 
+    targetWord, 
+    context.category
+  );
+  
+  if (circumlocutionCheck.detected) {
+    return {
+      errorType: 'circumlocution',
+      confidence: 0.8,
+      reasoning: circumlocutionCheck.reasoning,
+      needs_review: false,
+      circumlocutionDetected: true,
+      meaningAccuracy: 0.9,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
+    };
+  }
   
   // Step 1: Handle no response or very low confidence
   if (!spokenWord || spokenWord.trim() === '' || asrConfidence < 0.3) {
@@ -88,16 +125,37 @@ export const classifySpeechError = async (
   
   // Step 6: Classify based on similarities and thresholds (MORE FORGIVING for stroke survivors)
   
-  // Phonemic paraphasia: >35% phoneme overlap (was 50%), real or non-word
-  // Lower threshold for aphasia patients who struggle with phoneme production
-  if (phonological_sim > 0.35) {
+  // NEW: "Attempted" tier for close phonological approximations (0.35-0.60 range)
+  // This recognizes genuine effort without labeling as "wrong"
+  if (phonological_sim >= 0.35 && phonological_sim < 0.60) {
+    return {
+      errorType: 'attempted',
+      confidence: Math.min(0.85, asrConfidence + 0.15),
+      reasoning: `Close phonological approximation (${phonological_sim.toFixed(2)}) - good effort`,
+      needs_review: false,
+      phonological_similarity: phonological_sim,
+      meaningAccuracy: 0.7,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
+    };
+  }
+  
+  // Phonemic paraphasia: >=60% phoneme overlap, very close to target
+  if (phonological_sim >= 0.60) {
     const isRealWord = await isValidWord(normalized_spoken);
     return {
-      errorType: phonological_sim > 0.6 ? 'phonemic_paraphasia' : 'neologism',
+      errorType: 'phonemic_paraphasia',
       confidence: Math.min(0.9, asrConfidence + 0.1),
-      reasoning: `Phonological similarity (${phonological_sim.toFixed(2)}), ${isRealWord ? 'real word' : 'attempted'}`,
-      needs_review: phonological_sim > 0.3 && phonological_sim < 0.4,
-      phonological_similarity: phonological_sim
+      reasoning: `High phonological similarity (${phonological_sim.toFixed(2)}), ${isRealWord ? 'real word' : 'close attempt'}`,
+      needs_review: false,
+      phonological_similarity: phonological_sim,
+      meaningAccuracy: 0.8,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
     };
   }
   
@@ -109,7 +167,12 @@ export const classifySpeechError = async (
       confidence: Math.min(0.85, semantic_sim),
       reasoning: `Semantically related (${semantic_sim.toFixed(2)}), close attempt`,
       needs_review: semantic_sim > 0.4 && semantic_sim < 0.5,
-      semantic_similarity: semantic_sim
+      semantic_similarity: semantic_sim,
+      meaningAccuracy: 0.6,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
     };
   }
   
@@ -340,4 +403,80 @@ export const analyzeErrorPatterns = (
     neologismCount,
     predominantPattern
   };
+};
+
+/**
+ * Detect circumlocution (multi-word description of target)
+ * Examples: "the thing you drink from" for "cup", "you use it to talk" for "phone"
+ */
+const detectCircumlocution = async (
+  spokenWord: string,
+  targetWord: string,
+  category: string
+): Promise<{ detected: boolean; reasoning: string }> => {
+  const normalized = spokenWord.toLowerCase().trim();
+  
+  // Must be multi-word
+  const words = normalized.split(/\s+/);
+  if (words.length < 2) {
+    return { detected: false, reasoning: 'Single word response' };
+  }
+  
+  // Check for circumlocution phrases
+  const circumlocutionPhrases = [
+    'use it to', 'you use', 'something that', 'it has', 'kind of',
+    'thing you', 'thing for', 'used for', 'helps you', 'lets you'
+  ];
+  
+  const hasCircumlocutionPhrase = circumlocutionPhrases.some(phrase => 
+    normalized.includes(phrase)
+  );
+  
+  if (hasCircumlocutionPhrase) {
+    return { 
+      detected: true, 
+      reasoning: 'Multi-word description with circumlocution phrase' 
+    };
+  }
+  
+  // Check if response contains words from same semantic category
+  const semanticSim = await calculateSemanticSimilarity(
+    normalized,
+    targetWord,
+    category
+  );
+  
+  // If multi-word AND semantically related, likely circumlocution
+  if (words.length >= 3 && semanticSim > 0.4) {
+    return { 
+      detected: true, 
+      reasoning: 'Multi-word semantically-related description' 
+    };
+  }
+  
+  return { detected: false, reasoning: 'Not circumlocution' };
+};
+
+/**
+ * Detect effortful speech based on fluency metrics
+ * Indicators: slow speech rate, excessive pauses, long pause duration
+ */
+const detectEffortfulSpeech = (metrics: {
+  speechRateWpm?: number;
+  pauseCount?: number;
+  avgPauseDuration?: number;
+}): boolean => {
+  const { speechRateWpm, pauseCount, avgPauseDuration } = metrics;
+  
+  // Typical conversational speech: 150-160 WPM
+  // Aphasic speech often <100 WPM, severely impaired <30 WPM
+  const isSlow = speechRateWpm !== undefined && speechRateWpm < 30;
+  
+  // Excessive pauses indicate word-finding difficulty
+  const hasExcessivePauses = pauseCount !== undefined && pauseCount > 3;
+  
+  // Long pauses (>2 seconds) indicate effortful retrieval
+  const hasLongPauses = avgPauseDuration !== undefined && avgPauseDuration > 2000;
+  
+  return isSlow || hasExcessivePauses || hasLongPauses;
 };
