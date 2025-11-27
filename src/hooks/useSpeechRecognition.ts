@@ -21,6 +21,7 @@ export const useSpeechRecognition = (
   const restartTimeoutRef = useRef<any>(null);
   const noSpeechCountRef = useRef(0);
   const isListeningRef = useRef(false);
+  const manuallyStoppedRef = useRef(false);
   
   // Store callback in ref to avoid stale closures
   const onResultRef = useRef(onResult);
@@ -120,6 +121,21 @@ export const useSpeechRecognition = (
     recognition.onend = () => {
       console.log('Speech recognition ended');
       setIsListening(false);
+      
+      // Auto-restart for continuous mode if not manually stopped
+      if (continuousListening && !manuallyStoppedRef.current && noSpeechCountRef.current < 5) {
+        console.log('🎤 Auto-restarting continuous listening...');
+        setTimeout(() => {
+          try {
+            if (recognitionRef.current && !manuallyStoppedRef.current) {
+              recognitionRef.current.start();
+              console.log('🎤 Successfully auto-restarted');
+            }
+          } catch (err) {
+            console.error('🎤 Failed to auto-restart:', err);
+          }
+        }, 300);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -145,6 +161,7 @@ export const useSpeechRecognition = (
     }
     
     console.log('🎤 Starting listening...');
+    manuallyStoppedRef.current = false; // Clear manual stop flag
     setTranscript('');
     setError(null);
     
@@ -159,6 +176,9 @@ export const useSpeechRecognition = (
   const stopListening = useCallback(() => {
     // Use REF for current value
     if (!recognitionRef.current || !isListeningRef.current) return;
+    
+    console.log('🎤 Manually stopping listening...');
+    manuallyStoppedRef.current = true; // Mark as intentional stop
     
     // Clear any pending restart
     if (restartTimeoutRef.current) {

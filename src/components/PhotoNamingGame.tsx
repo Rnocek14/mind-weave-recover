@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -102,6 +102,9 @@ export const PhotoNamingGame = ({
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
+  
+  // Ref to trigger voice restart after no-match
+  const needsVoiceRestartRef = useRef(false);
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -226,6 +229,9 @@ export const PhotoNamingGame = ({
         variant: "destructive",
         duration: 2000,
       });
+      
+      // Phase 1 Fix: Flag for voice restart after no-match
+      needsVoiceRestartRef.current = true;
     }
   }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, toast]);
   
@@ -395,7 +401,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, consecutiveErrors, currentDifficulty, errorHistory]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, consecutiveErrors, currentDifficulty]);
 
   // Handle game completion
   useEffect(() => {
@@ -403,6 +409,17 @@ export const PhotoNamingGame = ({
       onGameComplete(state.score);
     }
   }, [state.isComplete, state.score, onGameComplete]);
+  
+  // Phase 1 Fix: Restart voice after no-match toast
+  useEffect(() => {
+    if (needsVoiceRestartRef.current && useVoice && !showFeedback && !timedOut && !selectedAnswer && !isListening) {
+      console.log('🎤 Restarting voice after no-match');
+      needsVoiceRestartRef.current = false;
+      setTimeout(() => {
+        startListening();
+      }, 500);
+    }
+  }, [useVoice, showFeedback, timedOut, selectedAnswer, isListening, startListening]);
 
   const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
@@ -1030,6 +1047,14 @@ export const PhotoNamingGame = ({
       {useVoice && isListening && transcript && (
         <div className="text-sm text-center p-2 bg-muted rounded">
           Heard: "{transcript}"
+        </div>
+      )}
+      
+      {/* Phase 3: Visual indicator when voice is unexpectedly off */}
+      {useVoice && !isListening && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-warning/10 border border-warning rounded-lg text-sm">
+          <AlertCircle className="w-4 h-4 text-warning" />
+          <span className="text-warning">Voice paused - tap the mic to restart</span>
         </div>
       )}
 
