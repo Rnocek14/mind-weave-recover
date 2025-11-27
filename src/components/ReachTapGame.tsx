@@ -10,6 +10,7 @@ interface ReachTapGameProps {
   totalTrials: number;
   initialDifficulty: number;
   variant?: 'standard' | 'left-side-hunt'; // New: support neglect variant
+  slowMode?: boolean; // Gentle mode: longer timers, no penalties
   onTrialComplete: (result: {
     correct: boolean;
     reactionTimeMs: number;
@@ -33,6 +34,7 @@ export const ReachTapGame = ({
   totalTrials,
   initialDifficulty,
   variant = 'standard',
+  slowMode = true, // Default ON for stroke survivors
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -82,14 +84,21 @@ export const ReachTapGame = ({
 
   // Calculate target size based on difficulty (level 1-10)
   const getTargetSize = (difficulty: number): number => {
-    // Size ranges from 100px (easy) to 40px (hard)
-    return Math.max(40, 100 - (difficulty * 6));
+    const baseSize = slowMode 
+      ? Math.max(70, 130 - (difficulty * 6))  // Slow mode: 130px -> 70px (+30px boost)
+      : Math.max(40, 100 - (difficulty * 6)); // Normal: 100px -> 40px
+    return baseSize;
   };
 
   // Calculate timeout based on difficulty
   const getTimeout = (difficulty: number): number => {
-    // Timeout ranges from 3000ms (easy) to 1000ms (hard)
-    return Math.max(1000, 3000 - (difficulty * 200));
+    if (slowMode) {
+      // Slow mode: 8000ms (easy) -> 4000ms (hard) - way more forgiving
+      return Math.max(4000, 8000 - (difficulty * 400));
+    } else {
+      // Normal mode: 3000ms (easy) -> 1000ms (hard)
+      return Math.max(1000, 3000 - (difficulty * 200));
+    }
   };
 
   // Generate random target position with optional bias for neglect training
@@ -157,9 +166,12 @@ export const ReachTapGame = ({
     }
   }, [currentTrial, showFeedback, target, totalTrials]);
 
-  // Auto-timeout if target not hit
+  // Auto-timeout if target not hit (only in normal mode)
   useEffect(() => {
     if (!target || showFeedback) return;
+    
+    // In slow mode, no timeout penalty - let them take their time
+    if (slowMode) return;
 
     const timeout = getTimeout(currentDifficulty);
     const timer = setTimeout(() => {
@@ -167,7 +179,7 @@ export const ReachTapGame = ({
     }, timeout);
 
     return () => clearTimeout(timer);
-  }, [target, showFeedback, currentDifficulty]);
+  }, [target, showFeedback, currentDifficulty, slowMode]);
 
   const handleTargetHit = () => {
     if (!target || showFeedback) return;
@@ -381,9 +393,9 @@ export const ReachTapGame = ({
                 </>
               ) : (
                 <>
-                  <XCircle className="w-16 h-16 mx-auto text-destructive" />
-                  <p className="text-2xl font-bold text-destructive">
-                    Too slow!
+                  <XCircle className="w-16 h-16 mx-auto text-muted-foreground" />
+                  <p className="text-2xl font-bold text-muted-foreground">
+                    {slowMode ? 'Take your time' : 'Too slow!'}
                   </p>
                 </>
               )}
@@ -396,7 +408,9 @@ export const ReachTapGame = ({
       <div className="text-center space-y-2">
         <h3 className="text-xl font-semibold">Tap the targets as they appear!</h3>
         <p className="text-sm text-muted-foreground">
-          React quickly - targets disappear after a few seconds
+          {slowMode 
+            ? '🕒 Gentle Mode: Take your time - no rush!' 
+            : 'React quickly - targets disappear after a few seconds'}
         </p>
       </div>
     </div>
