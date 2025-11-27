@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2 } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -14,6 +14,7 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput } from '@/lib/speechNormalizer';
+import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -65,9 +66,11 @@ export const PhotoNamingGame = ({
   const [showCue, setShowCue] = useState(false);
   const [currentCueText, setCurrentCueText] = useState('');
   const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
+  const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
   const { user } = useAuth();
+  const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   
   // Audio recording
   const { 
@@ -417,6 +420,34 @@ export const PhotoNamingGame = ({
     });
   };
 
+  const handlePlayAllChoices = async () => {
+    if (!state.choices || isPlayingChoices) return;
+    
+    setIsPlayingChoices(true);
+    
+    // Stop listening while playing audio
+    if (isListening) {
+      stopListening();
+    }
+    
+    try {
+      for (const choice of state.choices) {
+        await playPhrase(choice, { voice: 'alloy' });
+        // Small pause between choices
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    } catch (error) {
+      console.error('Error playing choices:', error);
+    } finally {
+      setIsPlayingChoices(false);
+      
+      // Resume listening after audio if voice mode is on
+      if (useVoice && isSupported && !showFeedback) {
+        setTimeout(() => startListening(), 500);
+      }
+    }
+  };
+
   const handleAnswerSelect = async (word: string) => {
     if (showFeedback || selectedAnswer || timedOut) return;
 
@@ -761,19 +792,32 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="grid grid-cols-2 gap-3">
-          {state.choices.map((choice, idx) => (
-            <Button
-              key={idx}
-              variant={selectedAnswer === choice ? "default" : "outline"}
-              size="lg"
-              className="h-16 text-lg"
-              onClick={() => handleAnswerSelect(choice)}
-              disabled={showFeedback || timedOut}
-            >
-              {choice}
-            </Button>
-          ))}
+        <div className="space-y-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handlePlayAllChoices}
+            disabled={showFeedback || timedOut || isPlayingChoices}
+            className="w-full gap-2"
+          >
+            <Volume2 className="w-4 h-4" />
+            {isPlayingChoices ? "Playing choices..." : "Hear all choices"}
+          </Button>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {state.choices.map((choice, idx) => (
+              <Button
+                key={idx}
+                variant={selectedAnswer === choice ? "default" : "outline"}
+                size="lg"
+                className="h-16 text-lg"
+                onClick={() => handleAnswerSelect(choice)}
+                disabled={showFeedback || timedOut || isPlayingChoices}
+              >
+                {choice}
+              </Button>
+            ))}
+          </div>
         </div>
       ) : (
         // Caregiver assist mode controls
