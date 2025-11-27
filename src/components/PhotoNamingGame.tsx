@@ -205,17 +205,14 @@ export const PhotoNamingGame = ({
       listeningTimeoutRef.current = null;
     }
     
-    // Don't start if audio is playing
-    if (isPlayingChoicesRef.current) {
-      console.log('🎤 Blocked startListening: audio is playing');
-      return;
-    }
-    
     if (delayMs > 0) {
+      // Schedule the listening attempt - check conditions WHEN it executes, not now
       console.log(`🎤 Scheduling startListening in ${delayMs}ms`);
       listeningTimeoutRef.current = setTimeout(() => {
         listeningTimeoutRef.current = null; // Clear ref after execution
-        console.log('🎤 Timeout executed, attempting to start listening...');
+        console.log('🎤 Timeout executed, checking conditions...');
+        
+        // Check all conditions at execution time
         if (!isPlayingChoicesRef.current && !showFeedback && !timedOut && !selectedAnswer) {
           console.log('🎤 Conditions met, calling startListening()');
           try {
@@ -233,13 +230,21 @@ export const PhotoNamingGame = ({
         }
       }, delayMs);
     } else {
-      if (!showFeedback && !timedOut && !selectedAnswer) {
+      // Immediate call - check conditions now including audio state
+      if (!isPlayingChoicesRef.current && !showFeedback && !timedOut && !selectedAnswer) {
         console.log('🎤 Starting listening immediately');
         try {
           startListening();
         } catch (err) {
           console.error('🎤 Error starting listening:', err);
         }
+      } else {
+        console.log('🎤 Blocked immediate start:', {
+          isPlayingChoices: isPlayingChoicesRef.current,
+          showFeedback,
+          timedOut,
+          selectedAnswer
+        });
       }
     }
   }, [startListening, showFeedback, timedOut, selectedAnswer]);
