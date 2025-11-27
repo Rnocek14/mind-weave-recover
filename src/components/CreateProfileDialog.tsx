@@ -26,9 +26,9 @@ import { toast } from "sonner";
 
 const profileSchema = z.object({
   profile_name: z.string().min(1, "Profile name is required").max(100),
-  birthdate: z.string().min(1, "Birthdate is required"),
-  stroke_date: z.string().min(1, "Stroke date is required"),
-  profile_notes: z.string().min(1, "Clinical notes are required").max(500),
+  birthdate: z.string().optional(),
+  stroke_date: z.string().optional(),
+  profile_notes: z.string().max(500).optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -57,9 +57,9 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
     try {
       await createProfile({
         profile_name: data.profile_name,
-        birthdate: data.birthdate,
-        stroke_date: data.stroke_date,
-        profile_notes: data.profile_notes,
+        birthdate: data.birthdate || undefined,
+        stroke_date: data.stroke_date || undefined,
+        profile_notes: data.profile_notes || undefined,
       });
       toast.success("Profile created successfully");
       form.reset();
@@ -105,7 +105,7 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               name="birthdate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Birthdate *</FormLabel>
+                  <FormLabel>Birthdate</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -119,7 +119,7 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               name="stroke_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stroke Date *</FormLabel>
+                  <FormLabel>Stroke Date</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -133,17 +133,17 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               name="profile_notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Clinical Notes *</FormLabel>
+                  <FormLabel>Clinical Notes</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., Left MCA stroke, right-side weakness, aphasia"
+                      placeholder="Optional notes about this patient"
                       className="resize-none"
                       rows={3}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Brief clinical summary (max 500 characters)
+                    Max 500 characters
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
