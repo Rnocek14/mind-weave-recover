@@ -6,6 +6,7 @@ import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
+import { selectOptimalCue as selectPersonalizedCue } from '@/lib/cueSelector';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +18,7 @@ import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type Ext
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
+import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -90,6 +92,7 @@ export const PhotoNamingGame = ({
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
   const { user } = useAuth();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
+  const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id);
   
   // Audio recording
   const { 
@@ -546,14 +549,50 @@ export const PhotoNamingGame = ({
     playHint();
     const newCueLevel = cueLevel + 1;
     
-    // Use enhanced cue selection with error pattern adaptation
-    const cueDecision = selectOptimalCue(
-      errorHistory,
-      state.currentTrial.target,
-      state.currentTrial.category,
-      state.currentTrial.features,
-      newCueLevel - 1 // Convert to 0-indexed
-    );
+    // First: check if user speech profile suggests a better cue type
+    // (based on long-term personalization data)
+    let personalizedCueType: 'semantic' | 'phonemic' | 'full_word' | null = null;
+    let personalizedReasoning: string | null = null;
+    
+    if (speechProfile && !profileLoading) {
+      // Get the last error type if available
+      const lastErrorType = errorHistory.length > 0 
+        ? (errorHistory[errorHistory.length - 1].errorType as any) 
+        : 'other';
+      
+      const recommendation = selectPersonalizedCue(lastErrorType, speechProfile);
+      
+      // Only use personalized cue if confidence is high enough and it's not 'none'
+      if (recommendation.confidence > 0.6 && recommendation.cueType !== 'none') {
+        personalizedCueType = recommendation.cueType;
+        personalizedReasoning = recommendation.reasoning;
+        console.log('🎯 Using personalized cue:', recommendation);
+      }
+    }
+    
+    // Second: fall back to error-history-based adaptive cueing if no personalization
+    let cueDecision;
+    if (personalizedCueType && personalizedReasoning) {
+      // Use personalized recommendation
+      cueDecision = {
+        cueType: personalizedCueType,
+        cueText: personalizedCueType === 'semantic' 
+          ? getCueText(1, state.currentTrial.category, state.currentTrial.target)
+          : personalizedCueType === 'phonemic'
+          ? getCueText(2, state.currentTrial.category, state.currentTrial.target)
+          : getCueText(3, state.currentTrial.category, state.currentTrial.target),
+        reasoning: personalizedReasoning
+      };
+    } else {
+      // Use error-history-based adaptive cueing (existing logic)
+      cueDecision = selectOptimalCue(
+        errorHistory,
+        state.currentTrial.target,
+        state.currentTrial.category,
+        state.currentTrial.features,
+        newCueLevel - 1 // Convert to 0-indexed
+      );
+    }
     
     console.log('Cue decision:', cueDecision);
     
@@ -580,7 +619,7 @@ export const PhotoNamingGame = ({
     
     // Show reasoning in toast for transparency
     toast({
-      title: "Hint provided",
+      title: personalizedCueType ? "Personalized Hint" : "Hint provided",
       description: cueDecision.reasoning,
       duration: 3000
     });
