@@ -215,6 +215,24 @@ export default function PhotoNamingExercise() {
         .eq('id', sessionId);
     }
     
+    // Auto-trigger speech profile recompute (non-blocking)
+    if (user?.id) {
+      supabase.functions
+        .invoke('compute-speech-profile', {
+          body: { user_id: user.id },
+        })
+        .then((res) => {
+          if (res.data?.skipped) {
+            console.log('🔄 Speech profile recompute skipped:', res.data.reason, res.data);
+          } else if (res.data?.success) {
+            console.log('✅ Speech profile auto-recomputed:', res.data);
+          }
+        })
+        .catch((err) => {
+          console.error('❌ Error auto-computing speech profile:', err);
+        });
+    }
+    
     if (fromLesson) {
       // Return to lesson flow
       window.dispatchEvent(new CustomEvent('exercise-complete'));
