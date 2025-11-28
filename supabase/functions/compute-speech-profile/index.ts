@@ -32,7 +32,18 @@ serve(async (req) => {
 
     console.log(`Computing speech profile for user ${user_id}...`);
 
-    // First get sessions for this user
+    // First, check if profile exists and if we have enough new trials to justify recompute
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('user_speech_profiles')
+      .select('*')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching existing profile:', profileError);
+    }
+
+    // Get sessions for this user
     const { data: userSessions, error: sessionsError } = await supabase
       .from('sessions')
       .select('id')
@@ -70,7 +81,29 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${events.length} exercise events...`);
+    const totalTrials = events.length;
+    const previousCount = existingProfile?.trial_count_at_computation ?? 0;
+    const newTrials = totalTrials - previousCount;
+
+    // Debounce: skip if we don't have enough new trials (min 10)
+    if (existingProfile && newTrials > 0 && newTrials < 10) {
+      console.log(
+        `Skipping recompute for user ${user_id}: only ${newTrials} new trials since last computation (${previousCount} → ${totalTrials})`
+      );
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'not_enough_new_trials',
+          previousTrialCount: previousCount,
+          totalTrials,
+          newTrials,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Processing ${totalTrials} exercise events (${newTrials} new since last computation)...`);
 
     // Initialize aggregation structures
     const errorTypeCounts: Record<string, number> = {};
@@ -204,7 +237,9 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         profile: upsertedProfile,
-        eventsProcessed: events.length
+        eventsProcessed: events.length,
+        newTrials,
+        previousTrialCount: previousCount
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
