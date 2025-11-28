@@ -117,6 +117,9 @@ export default function PhotoNamingExercise() {
     effortfulSpeech?: boolean;
     utteranceAnalysis?: any;
     shadowEvent?: any;
+    cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
+    cueWasEffective?: boolean | null;
+    timeToSuccessAfterCueMs?: number | null;
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
@@ -145,6 +148,9 @@ export default function PhotoNamingExercise() {
       audioStoragePath: result.audioStoragePath,
       audioMimeType: result.audioMimeType,
       recordingDurationMs: result.recordingDurationMs,
+      cueTypeGiven: result.cueTypeGiven,
+      cueWasEffective: result.cueWasEffective,
+      timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
       taskParameters: {
         // Condition tags for experimental analysis
         photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
