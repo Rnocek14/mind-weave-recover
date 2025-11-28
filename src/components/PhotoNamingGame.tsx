@@ -39,8 +39,11 @@ interface PhotoNamingGameProps {
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
-    utteranceAnalysis?: UtteranceAnalysis;  // NEW: unified analysis
-    shadowEvent?: any;                       // NEW: for co-pilot logging
+    utteranceAnalysis?: UtteranceAnalysis;
+    shadowEvent?: any;
+    cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
+    cueWasEffective?: boolean | null;
+    timeToSuccessAfterCueMs?: number | null;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -99,6 +102,13 @@ export const PhotoNamingGame = ({
   
   // Error history tracking for adaptive cueing
   const [errorHistory, setErrorHistory] = useState<ErrorClassificationResult[]>([]);
+  
+  // Track cue state for efficacy logging
+  const [cueState, setCueState] = useState<{
+    type: 'semantic' | 'phonemic' | 'full_word';
+    level: number;
+    shownAt: number;
+  } | null>(null);
   
   // Adaptive controller (persists across renders)
   const controllerRef = useRef(new AdaptiveDifficultyController());
@@ -551,6 +561,23 @@ export const PhotoNamingGame = ({
     setCurrentCueText(cueDecision.cueText);
     setShowCue(true);
     
+    // Track cue for efficacy logging
+    // Infer cue type from cue decision
+    let cueType: 'semantic' | 'phonemic' | 'full_word' = 'semantic';
+    if (cueDecision.cueType === 'phonemic') {
+      cueType = 'phonemic';
+    } else if (cueDecision.cueType === 'full') {
+      cueType = 'full_word';
+    } else if (cueDecision.cueType === 'semantic') {
+      cueType = 'semantic';
+    }
+    
+    setCueState({
+      type: cueType,
+      level: newCueLevel,
+      shownAt: Date.now()
+    });
+    
     // Show reasoning in toast for transparency
     toast({
       title: "Hint provided",
@@ -787,6 +814,22 @@ export const PhotoNamingGame = ({
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
+    // Compute cue efficacy before resetting state
+    let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
+    let cueWasEffective: boolean | null = null;
+    let timeToSuccessAfterCueMs: number | null = null;
+
+    if (cueState) {
+      cueTypeGiven = cueState.type;
+      if (correct) {
+        cueWasEffective = true;
+        timeToSuccessAfterCueMs = Date.now() - cueState.shownAt;
+      } else {
+        cueWasEffective = false;
+        timeToSuccessAfterCueMs = null;
+      }
+    }
+
     // Build unified UtteranceAnalysis object
     const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
     const utteranceAnalysis = toUtteranceAnalysis(
@@ -835,7 +878,13 @@ export const PhotoNamingGame = ({
       effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
       utteranceAnalysis, // NEW: unified analysis object
       shadowEvent,       // NEW: for future co-pilot
+      cueTypeGiven,      // NEW: cue efficacy tracking
+      cueWasEffective,   // NEW: cue efficacy tracking
+      timeToSuccessAfterCueMs, // NEW: cue efficacy tracking
     }, state.currentTrial);
+
+    // Reset cue state for next trial
+    setCueState(null);
 
     // Auto-advance after 1.5 seconds
     setTimeout(() => {

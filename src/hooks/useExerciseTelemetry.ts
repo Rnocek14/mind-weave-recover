@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 
+export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
+
 export interface TrialData {
   correct: boolean;
   reactionTimeMs: number;
@@ -36,6 +38,10 @@ export interface TrialData {
   // Structured analysis for future co-pilot
   utteranceAnalysis?: UtteranceAnalysis;
   shadowEvent?: ShadowEvent;
+  // NEW: Cue efficacy tracking for UserSpeechProfile
+  cueTypeGiven?: CueType;
+  cueWasEffective?: boolean | null;
+  timeToSuccessAfterCueMs?: number | null;
 }
 
 export const useExerciseTelemetry = (
@@ -117,6 +123,13 @@ export const useExerciseTelemetry = (
         
         if (trial.acousticMetrics) {
           eventData.acoustic_metrics = trial.acousticMetrics;
+        }
+
+        // Add cue efficacy tracking fields
+        if (trial.cueTypeGiven) {
+          eventData.cue_type_given = trial.cueTypeGiven;
+          eventData.cue_was_effective = trial.cueWasEffective ?? null;
+          eventData.time_to_success_after_cue_ms = trial.timeToSuccessAfterCueMs ?? null;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);
