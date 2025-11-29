@@ -66,7 +66,7 @@ serve(async (req) => {
     // Fetch all exercise events for these sessions
     const { data: events, error: fetchError } = await supabase
       .from('exercise_events')
-      .select('error_type, cue_type_given, cue_was_effective, time_to_success_after_cue_ms, utterance_analysis, task_parameters')
+      .select('error_type, cue_type_given, cue_was_effective, time_to_success_after_cue_ms, task_parameters')
       .in('session_id', sessionIds);
 
     if (fetchError) {
@@ -149,24 +149,8 @@ serve(async (req) => {
         }
       }
 
-      // Fluency metrics from utterance_analysis
-      const ua = event.utterance_analysis as any;
-      if (ua?.fluency) {
-        if (typeof ua.fluency.speechRateWpm === 'number') {
-          totalWpm += ua.fluency.speechRateWpm;
-          wpmCount += 1;
-        }
-        if (typeof ua.fluency.pauseCount === 'number') {
-          totalPauseCount += ua.fluency.pauseCount;
-          pauseMetricCount += 1;
-        }
-        if (typeof ua.fluency.avgPauseDurationMs === 'number') {
-          totalPauseDuration += ua.fluency.avgPauseDurationMs;
-        }
-        if (ua.fluency.effortfulSpeech === true) {
-          effortfulCount += 1;
-        }
-      }
+      // Fluency metrics - not available yet in this version
+      // Will be added when utterance_analysis column exists
     }
 
     // Compute cue efficacy with success rates and average times

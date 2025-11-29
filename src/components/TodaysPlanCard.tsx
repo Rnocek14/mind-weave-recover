@@ -38,7 +38,7 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
     error,
     needsReassessment,
     reassessmentReason 
-  } = useDailyLesson(userId, clinicalProfile);
+  } = useDailyLesson(userId, undefined, clinicalProfile);
 
   if (loading) {
     return (

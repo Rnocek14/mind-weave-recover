@@ -50,7 +50,7 @@ export default function SemanticFeatureExercise() {
     null
   );
   
-  const { getAdaptations } = useExerciseGating(user?.id);
+  const { getAdaptations } = useExerciseGating(user?.id, undefined);
 
   const handleSkipExercise = async () => {
     // Log skip analytics with clinical profile snapshot

@@ -63,7 +63,7 @@ const SentenceConstructionExercise = () => {
     null
   );
   
-  const { getAdaptations } = useExerciseGating(user?.id);
+  const { getAdaptations } = useExerciseGating(user?.id, undefined);
   const level = config.startDifficulty || 1;
   
   const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
