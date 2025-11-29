@@ -78,3 +78,102 @@ export const getContentWordCount = (transcript: string): number => {
   const normalized = normalizeASROutput(transcript);
   return normalized.split(/\s+/).filter(w => w.length > 0).length;
 };
+
+/**
+ * Common homophones map - words that sound identical but are spelled differently
+ * Maps each variant to all its homophones (including itself)
+ */
+const HOMOPHONES: Record<string, string[]> = {
+  // I/eye
+  'i': ['i', 'eye'],
+  'eye': ['i', 'eye'],
+  
+  // to/too/two
+  'to': ['to', 'too', 'two'],
+  'too': ['to', 'too', 'two'],
+  'two': ['to', 'too', 'two'],
+  
+  // there/their/they're
+  'there': ['there', 'their', "they're"],
+  'their': ['there', 'their', "they're"],
+  "they're": ['there', 'their', "they're"],
+  
+  // hear/here
+  'hear': ['hear', 'here'],
+  'here': ['hear', 'here'],
+  
+  // our/hour
+  'our': ['our', 'hour'],
+  'hour': ['our', 'hour'],
+  
+  // see/sea
+  'see': ['see', 'sea'],
+  'sea': ['see', 'sea'],
+  
+  // be/bee
+  'be': ['be', 'bee'],
+  'bee': ['be', 'bee'],
+  
+  // flour/flower
+  'flour': ['flour', 'flower'],
+  'flower': ['flour', 'flower'],
+  
+  // sun/son
+  'sun': ['sun', 'son'],
+  'son': ['sun', 'son'],
+  
+  // no/know
+  'no': ['no', 'know'],
+  'know': ['no', 'know'],
+  
+  // new/knew
+  'new': ['new', 'knew'],
+  'knew': ['new', 'knew'],
+  
+  // for/four
+  'for': ['for', 'four'],
+  'four': ['for', 'four'],
+  
+  // one/won
+  'one': ['one', 'won'],
+  'won': ['one', 'won'],
+  
+  // write/right
+  'write': ['write', 'right'],
+  'right': ['write', 'right'],
+  
+  // wear/where
+  'wear': ['wear', 'where'],
+  'where': ['wear', 'where'],
+  
+  // by/buy/bye
+  'by': ['by', 'buy', 'bye'],
+  'buy': ['by', 'buy', 'bye'],
+  'bye': ['by', 'buy', 'bye'],
+  
+  // nose/knows
+  'nose': ['nose', 'knows'],
+  'knows': ['nose', 'knows'],
+};
+
+/**
+ * Check if two words are homophones (sound the same)
+ */
+export const areHomophones = (word1: string, word2: string): boolean => {
+  const w1 = word1.toLowerCase();
+  const w2 = word2.toLowerCase();
+  
+  if (w1 === w2) return true;
+  
+  const homophones = HOMOPHONES[w1];
+  if (!homophones) return false;
+  
+  return homophones.includes(w2);
+};
+
+/**
+ * Get all homophone variants of a word
+ */
+export const getHomophones = (word: string): string[] => {
+  return HOMOPHONES[word.toLowerCase()] || [word.toLowerCase()];
+};
