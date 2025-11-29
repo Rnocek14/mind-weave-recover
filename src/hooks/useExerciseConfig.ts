@@ -12,10 +12,11 @@ import { getCapabilityDifficultyBounds, clampToBounds } from '@/lib/difficultyBo
 export const useExerciseConfig = (
   exerciseId: string,
   userId: string | undefined,
+  profileId: string | undefined,
   clinicalProfile: any | null,
   lessonBlock?: { startDifficulty?: number } | null
 ) => {
-  const { getAdaptations, capabilityScores } = useExerciseGating(userId);
+  const { getAdaptations, capabilityScores } = useExerciseGating(userId, profileId);
 
   // Calculate capability-based difficulty bounds
   const bounds = useMemo(

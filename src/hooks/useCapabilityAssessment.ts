@@ -4,14 +4,14 @@ import { useToast } from '@/hooks/use-toast';
 import type { AssessmentResult } from '@/lib/capabilityAssessor';
 import { smoothScore } from '@/lib/capabilityScoreSmoothing';
 
-export const useCapabilityAssessment = (userId: string | undefined) => {
+export const useCapabilityAssessment = (userId: string | undefined, profileId: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const [currentAssessment, setCurrentAssessment] = useState<any | null>(null);
   const [previousAssessment, setPreviousAssessment] = useState<any | null>(null);
   const { toast } = useToast();
 
   const fetchLatestAssessment = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !profileId) {
       setLoading(false);
       return null;
     }
@@ -23,6 +23,7 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
         .from('capability_assessments')
         .select('*')
         .eq('user_id', userId)
+        .eq('profile_id', profileId)
         .order('assessed_at', { ascending: false })
         .limit(2);
 
@@ -38,7 +39,7 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, profileId]);
 
   // Auto-fetch latest assessment on mount or userId change
   useEffect(() => {
@@ -58,10 +59,10 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
   }, [fetchLatestAssessment]);
 
   const saveAssessment = async (result: AssessmentResult, clinicalSnapshot: any = {}) => {
-    if (!userId) {
+    if (!userId || !profileId) {
       toast({
         title: "Error",
-        description: "User not authenticated",
+        description: "User not authenticated or profile not selected",
         variant: "destructive",
       });
       return null;
@@ -85,6 +86,7 @@ export const useCapabilityAssessment = (userId: string | undefined) => {
         .from('capability_assessments')
         .insert({
           user_id: userId,
+          profile_id: profileId,
           vision_score: smoothedVision,
           motor_score: smoothedMotor,
           attention_score: smoothedAttention,

@@ -63,9 +63,27 @@ const Dashboard = () => {
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
-  const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id);
-  const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id);
-  const { lesson } = useDailyLesson(user?.id || undefined, clinicalProfile);
+  
+  // Get active profile from ProfileContext
+  const [activeProfile, setActiveProfile] = useState<any>(null);
+  
+  useEffect(() => {
+    const fetchActiveProfile = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+      setActiveProfile(data);
+    };
+    fetchActiveProfile();
+  }, [user?.id]);
+  
+  const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id, activeProfile?.id);
+  const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id, activeProfile?.id);
+  const { lesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
   const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
   const recoverySummary = getLatestSummary('progress');
   const isMobile = useIsMobile();
@@ -273,6 +291,7 @@ const Dashboard = () => {
     return (
       <PatientModeView 
         userId={user!.id}
+        profileId={activeProfile?.id || ""}
         clinicalProfile={clinicalProfile}
         onStartAssessment={() => {
           console.log('[Dashboard] Patient mode starting assessment');
@@ -449,9 +468,10 @@ const Dashboard = () => {
       </div>
 
       {/* Capability Assessment Modal */}
-      {showCapabilityAssessment && user && (
+      {showCapabilityAssessment && user && activeProfile && (
         <CapabilityAssessment
           userId={user.id}
+          profileId={activeProfile.id}
           clinicalProfile={clinicalProfile}
           onComplete={async (result: AssessmentResult) => {
             console.log('[Dashboard] Assessment completed:', result);

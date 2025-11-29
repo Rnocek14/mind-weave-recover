@@ -23,6 +23,7 @@ interface UseDailyLessonResult {
 
 export const useDailyLesson = (
   userId: string | undefined,
+  profileId: string | undefined,
   clinicalProfile: ClinicalProfile | null
 ): UseDailyLessonResult => {
   const [lesson, setLesson] = useState<DailyLesson | null>(null);
@@ -32,8 +33,8 @@ export const useDailyLesson = (
   const [needsReassessment, setNeedsReassessment] = useState(false);
   const [reassessmentReason, setReassessmentReason] = useState<string | null>(null);
 
-  const { currentAssessment } = useCapabilityAssessment(userId);
-  const { capabilityScores, accessibleExercises } = useExerciseGating(userId);
+  const { currentAssessment } = useCapabilityAssessment(userId, profileId);
+  const { capabilityScores, accessibleExercises } = useExerciseGating(userId, profileId);
 
   useEffect(() => {
     if (!userId || !capabilityScores) {
