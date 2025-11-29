@@ -14,12 +14,13 @@ type ExerciseDifficulty = {
 
 export const useExerciseDifficulty = (
   userId: string | undefined,
+  profileId: string | undefined,
   exerciseSlug: string
 ): ExerciseDifficulty => {
   const [level, setLevel] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
-  const { capabilityScores } = useExerciseGating(userId);
+  const { capabilityScores } = useExerciseGating(userId, profileId);
 
   // Calculate capability-based bounds
   const bounds = useMemo(

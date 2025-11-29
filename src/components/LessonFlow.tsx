@@ -218,6 +218,7 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
     return (
       <CapabilityAssessment
         userId={user?.id || ""}
+        profileId={activeProfile?.id || ""}
         clinicalProfile={clinicalProfile}
         onComplete={handleFullAssessmentComplete}
         onExit={() => navigate("/dashboard")}

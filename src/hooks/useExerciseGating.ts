@@ -8,8 +8,8 @@ import {
 } from '@/lib/exerciseGating';
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
-export const useExerciseGating = (userId: string | undefined) => {
-  const { currentAssessment } = useCapabilityAssessment(userId);
+export const useExerciseGating = (userId: string | undefined, profileId: string | undefined) => {
+  const { currentAssessment } = useCapabilityAssessment(userId, profileId);
 
   const capabilityScores: CapabilityScores | null = useMemo(() => {
     if (!currentAssessment || !currentAssessment.completed) {

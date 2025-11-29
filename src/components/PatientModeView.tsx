@@ -11,15 +11,16 @@ import { UiModeToggle } from "@/components/UiModeToggle";
 
 interface PatientModeViewProps {
   userId: string;
+  profileId: string;
   clinicalProfile: ClinicalProfile | null;
   onStartAssessment?: () => void;
 }
 
-export function PatientModeView({ userId, clinicalProfile, onStartAssessment }: PatientModeViewProps) {
+export function PatientModeView({ userId, profileId, clinicalProfile, onStartAssessment }: PatientModeViewProps) {
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
-  const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, clinicalProfile);
-  const { currentAssessment, loading: assessmentLoading } = useCapabilityAssessment(userId);
+  const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
+  const { currentAssessment, loading: assessmentLoading } = useCapabilityAssessment(userId, profileId);
 
   const handleStartSession = () => {
     navigate('/lesson', { 

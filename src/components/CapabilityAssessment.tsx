@@ -20,6 +20,7 @@ import {
 
 interface CapabilityAssessmentProps {
   userId: string;
+  profileId: string;
   clinicalProfile?: any;
   onComplete: (result: AssessmentResult) => void;
   onExit: () => void;
@@ -37,11 +38,12 @@ interface MatchingTrial {
 
 export const CapabilityAssessment = ({
   userId,
+  profileId,
   clinicalProfile,
   onComplete,
   onExit,
 }: CapabilityAssessmentProps) => {
-  const { saveAssessment } = useCapabilityAssessment(userId);
+  const { saveAssessment } = useCapabilityAssessment(userId, profileId);
   const { speak } = useTextToSpeech();
   
   const [showIntro, setShowIntro] = useState(true);

@@ -11,6 +11,7 @@ type Trend = "up" | "down" | "stable";
 
 interface ClinicianCapabilityCardProps {
   userId: string;
+  profileId: string;
   clinicalProfile: ClinicalProfile | null;
 }
 
@@ -28,9 +29,10 @@ interface DomainRow {
 
 export const ClinicianCapabilityCard: React.FC<ClinicianCapabilityCardProps> = ({
   userId,
+  profileId,
   clinicalProfile,
 }) => {
-  const { currentAssessment } = useCapabilityAssessment(userId);
+  const { currentAssessment } = useCapabilityAssessment(userId, profileId);
   const { getTrend, hasMultipleAssessments } = useCapabilityProgression(userId);
 
   if (!currentAssessment) {
