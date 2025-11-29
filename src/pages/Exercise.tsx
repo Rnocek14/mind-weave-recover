@@ -63,7 +63,7 @@ const Exercise = () => {
   const totalRounds = 10;
   const { doseCap, refresh: refreshDoseCap } = useDoseCap(user?.id);
   
-  const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming");
+  const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, exerciseId || "photo-naming", undefined);
   const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
     sessionId,
     exerciseId || "photo-naming"

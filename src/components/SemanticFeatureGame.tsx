@@ -41,7 +41,8 @@ export const SemanticFeatureGame = ({
 }: SemanticFeatureGameProps) => {
   const { saveLevel } = useExerciseDifficulty(
     userId,
-    'semantic-features'
+    'semantic-features',
+    undefined
   );
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(
     sessionId || null,

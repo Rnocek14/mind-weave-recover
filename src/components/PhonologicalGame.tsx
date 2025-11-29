@@ -41,7 +41,8 @@ export const PhonologicalGame = ({
 }: PhonologicalGameProps) => {
   const { saveLevel } = useExerciseDifficulty(
     userId,
-    'phonological-awareness'
+    'phonological-awareness',
+    undefined
   );
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(
     sessionId || null,

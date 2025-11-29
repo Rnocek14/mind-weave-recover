@@ -115,6 +115,7 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
           <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
             <ClinicianCapabilityCard
               userId={userId}
+              profileId={undefined}
               clinicalProfile={clinicalProfile}
             />
           </div>
