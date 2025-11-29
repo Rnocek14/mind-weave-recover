@@ -16,7 +16,7 @@ import { classifySpeechError, type ErrorClassificationResult } from '@/lib/error
 import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedbackGenerator';
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
-import { normalizeASROutput } from '@/lib/speechNormalizer';
+import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 
@@ -147,6 +147,15 @@ export const PhotoNamingGame = ({
     if (directMatch) {
       console.log('✅ Direct match found:', directMatch);
       return directMatch;
+    }
+    
+    // Homophone match (e.g., "I" → "eye")
+    const homophoneMatch = state.choices.find(choice => 
+      areHomophones(choice, normalized)
+    );
+    if (homophoneMatch) {
+      console.log('✅ Homophone match found:', homophoneMatch, 'for spoken:', normalized);
+      return homophoneMatch;
     }
     
     // Fuzzy match with phonetic tolerance
