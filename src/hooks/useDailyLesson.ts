@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useCapabilityAssessment } from './useCapabilityAssessment';
+import { useAssessmentContext } from '@/contexts/AssessmentContext';
 import { useExerciseGating } from './useExerciseGating';
 import { 
   generateDailyLesson, 
@@ -33,8 +33,8 @@ export const useDailyLesson = (
   const [needsReassessment, setNeedsReassessment] = useState(false);
   const [reassessmentReason, setReassessmentReason] = useState<string | null>(null);
 
-  const { currentAssessment } = useCapabilityAssessment(userId, profileId);
-  const { capabilityScores, accessibleExercises } = useExerciseGating(userId, profileId);
+  const { currentAssessment } = useAssessmentContext();
+  const { capabilityScores, accessibleExercises } = useExerciseGating();
 
   useEffect(() => {
     if (!userId || !capabilityScores) {

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
-import { useCapabilityAssessment } from "@/hooks/useCapabilityAssessment";
+import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
 
@@ -20,7 +20,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
-  const { currentAssessment, loading: assessmentLoading } = useCapabilityAssessment(userId, profileId);
+  const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
 
   const handleStartSession = () => {
     navigate('/lesson', { 

@@ -33,8 +33,23 @@ import Lesson from "./pages/Lesson";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
+import { AssessmentProvider } from "@/contexts/AssessmentContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 
 const queryClient = new QueryClient();
+
+// Wrapper component to access auth and profile context
+function AssessmentProviderWrapper({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const { activeProfile } = useProfile();
+  
+  return (
+    <AssessmentProvider userId={user?.id} profileId={activeProfile?.id}>
+      {children}
+    </AssessmentProvider>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -42,7 +57,8 @@ const App = () => (
       <TooltipProvider>
         <UiModeProvider>
           <ProfileProvider>
-            <BrowserRouter>
+            <AssessmentProviderWrapper>
+              <BrowserRouter>
           <Toaster />
           <Sonner />
           <Routes>
@@ -75,7 +91,8 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
           </Routes>
-            </BrowserRouter>
+              </BrowserRouter>
+            </AssessmentProviderWrapper>
           </ProfileProvider>
         </UiModeProvider>
       </TooltipProvider>
