@@ -39,6 +39,7 @@ import { useUiMode } from "@/hooks/useUiMode";
 import { PatientModeView } from "@/components/PatientModeView";
 import { UiModeToggle } from "@/components/UiModeToggle";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
+import { useProfile } from "@/hooks/useProfile";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -65,21 +66,7 @@ const Dashboard = () => {
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
   
   // Get active profile from ProfileContext
-  const [activeProfile, setActiveProfile] = useState<any>(null);
-  
-  useEffect(() => {
-    const fetchActiveProfile = async () => {
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-      setActiveProfile(data);
-    };
-    fetchActiveProfile();
-  }, [user?.id]);
+  const { activeProfile } = useProfile();
   
   const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id, activeProfile?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id, activeProfile?.id);
@@ -482,15 +469,15 @@ const Dashboard = () => {
             
             // Await fresh assessment data (context will auto-update)
             console.log('[Dashboard] Waiting for assessment context to refresh...');
-            await fetchLatestAssessment();
-            console.log('[Dashboard] Assessment data refreshed in context');
+            const freshAssessment = await fetchLatestAssessment();
+            console.log('[Dashboard] Assessment data refreshed:', !!freshAssessment);
             
             // If assessment started from patient mode, navigate directly to lesson with flags
             if (origin === 'patient') {
               console.log('[Dashboard] Patient mode origin - regenerating lesson with fresh scores');
               
-              // Deterministic: explicitly regenerate lesson with new scores
-              const freshLesson = await regenerateLesson();
+              // Pass fresh assessment directly to bypass stale hook state
+              const freshLesson = await regenerateLesson(freshAssessment);
               console.log('[Dashboard] Lesson regeneration result:', !!freshLesson);
               
               if (freshLesson) {

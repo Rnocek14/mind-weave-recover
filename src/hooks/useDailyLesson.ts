@@ -19,7 +19,7 @@ interface UseDailyLessonResult {
   error: string | null;
   needsReassessment: boolean;
   reassessmentReason: string | null;
-  regenerateLesson: () => Promise<DailyLesson | null>;
+  regenerateLesson: (freshAssessment?: any) => Promise<DailyLesson | null>;
 }
 
 export const useDailyLesson = (
@@ -38,9 +38,19 @@ export const useDailyLesson = (
   const { capabilityScores, accessibleExercises } = useExerciseGating();
 
   // Extract lesson generation into reusable function
-  const buildLessonFromState = async (): Promise<DailyLesson | null> => {
-    if (!userId || !capabilityScores) {
-      console.log('[useDailyLesson] Cannot build lesson: missing userId or capabilityScores');
+  const buildLessonFromState = async (freshAssessment?: any): Promise<DailyLesson | null> => {
+    // Derive scores directly from fresh assessment if provided, otherwise use hook state
+    const assessmentToUse = freshAssessment || currentAssessment;
+    
+    const scores = assessmentToUse?.completed ? {
+      vision: assessmentToUse.vision_score || 0,
+      motor: assessmentToUse.motor_score || 0,
+      attention: assessmentToUse.attention_score || 0,
+      confidence: assessmentToUse.confidence_score || 0,
+    } : capabilityScores;
+
+    if (!userId || !scores) {
+      console.log('[useDailyLesson] Cannot build lesson: missing userId or scores', { userId, scores });
       setLoading(false);
       return null;
     }
@@ -50,8 +60,9 @@ export const useDailyLesson = (
       setError(null);
 
       console.log('[DailyLesson] Building lesson', {
-        hasCapability: !!capabilityScores,
+        hasCapability: !!scores,
         accessibleCount: accessibleExercises.length,
+        usingFreshAssessment: !!freshAssessment,
       });
 
       // Fetch recent trials (last 7 days)
@@ -75,11 +86,11 @@ export const useDailyLesson = (
         setPerformanceSignals(defaultSignals);
         
         // Get suggested mode from current assessment
-        const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+        const caregiverObs = assessmentToUse?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
         const mode = suggestInteractionMode(caregiverObs);
         
         const defaultLesson = generateDailyLesson(
-          capabilityScores,
+          scores,
           clinicalProfile,
           accessibleExercises,
           defaultSignals,
@@ -114,7 +125,7 @@ export const useDailyLesson = (
 
       // Check if reassessment is needed
       const { needs, reason } = checkReassessmentNeeded(
-        currentAssessment,
+        assessmentToUse,
         signals,
         recentTrials || []
       );
@@ -137,13 +148,13 @@ export const useDailyLesson = (
         trialCount: lr.trial_count || 0,
       }));
 
-      // Get suggested mode from current assessment
-      const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+      // Get suggested mode from assessment
+      const caregiverObs = assessmentToUse?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
       const mode = suggestInteractionMode(caregiverObs);
 
       // Generate daily lesson
       const dailyLesson = generateDailyLesson(
-        capabilityScores,
+        scores,
         clinicalProfile,
         accessibleExercises,
         signals,
