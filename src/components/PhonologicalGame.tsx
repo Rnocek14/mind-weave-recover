@@ -87,6 +87,13 @@ export const PhonologicalGame = ({
     }
   }, [game.currentTrial, game.completed]);
 
+  // Handle game completion (like PhotoNamingGame pattern)
+  useEffect(() => {
+    if (game.completed && onGameComplete) {
+      onGameComplete(game.score, totalTrials);
+    }
+  }, [game.completed, game.score, totalTrials, onGameComplete]);
+
   const handlePlayAudio = async () => {
     const trial = game.getCurrentTrial();
     if (!trial || isSpeaking) return;
@@ -155,13 +162,6 @@ export const PhonologicalGame = ({
     checkAndAdjust();
     
     game.nextTrial();
-    
-    // Check if game is complete
-    if (game.currentTrial + 1 >= totalTrials) {
-      if (onGameComplete) {
-        onGameComplete(game.score, totalTrials);
-      }
-    }
   };
 
   const trial = game.getCurrentTrial();
@@ -208,6 +208,16 @@ export const PhonologicalGame = ({
               </div>
             </div>
           )}
+
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('exercise-complete'));
+            }}
+          >
+            Continue
+          </Button>
         </CardContent>
       </Card>
     );
