@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useCapabilityAssessment } from './useCapabilityAssessment';
+import { useAssessmentContext } from '@/contexts/AssessmentContext';
 import { 
   isExerciseAccessible, 
   getAccessibleExercises, 
@@ -8,8 +8,8 @@ import {
 } from '@/lib/exerciseGating';
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
-export const useExerciseGating = (userId: string | undefined, profileId: string | undefined) => {
-  const { currentAssessment } = useCapabilityAssessment(userId, profileId);
+export const useExerciseGating = (_userId?: string, _profileId?: string) => {
+  const { currentAssessment } = useAssessmentContext();
 
   const capabilityScores: CapabilityScores | null = useMemo(() => {
     if (!currentAssessment || !currentAssessment.completed) {

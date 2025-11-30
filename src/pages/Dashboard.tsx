@@ -477,19 +477,35 @@ const Dashboard = () => {
             console.log('[Dashboard] Assessment completed:', result);
             const origin = assessmentOrigin;
             
-            // Close modal first
+            // Close modal
             setShowCapabilityAssessment(false);
             
-            // Await fresh assessment data to ensure capability scores are updated
-            console.log('[Dashboard] Fetching latest assessment data...');
+            // Await fresh assessment data (context will auto-update)
+            console.log('[Dashboard] Waiting for assessment context to refresh...');
             await fetchLatestAssessment();
-            console.log('[Dashboard] Assessment data refreshed');
+            console.log('[Dashboard] Assessment data refreshed in context');
             
-            // If assessment started from patient mode, navigate back to patient mode and to lesson
+            // If assessment started from patient mode, navigate directly to lesson with flags
             if (origin === 'patient') {
-              console.log('[Dashboard] Assessment origin was patient mode, switching back and navigating to lesson');
-              setUiMode('patient');
-              setPendingLessonNavigation(true);
+              console.log('[Dashboard] Patient mode origin - generating lesson and navigating');
+              
+              // Wait briefly for lesson hook to regenerate with fresh data
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              if (lesson) {
+                console.log('[Dashboard] Navigating to lesson with skipDailyCheck and autoStart flags');
+                navigate('/lesson', {
+                  state: {
+                    lesson,
+                    clinicalProfile,
+                    skipDailyCheck: true,  // Skip daily check (just did full assessment)
+                    autoStart: true,       // Skip lesson overview (patient mode)
+                  }
+                });
+              } else {
+                console.warn('[Dashboard] Lesson not generated yet, switching to patient mode to retry');
+                setUiMode('patient');
+              }
               setAssessmentOrigin(null);
             } else {
               // Caregiver mode: just show success toast

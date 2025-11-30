@@ -27,14 +27,26 @@ interface LessonFlowProps {
 }
 
 export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
-  const [phase, setPhase] = useState<FlowPhase>("daily-check");
-  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [checkResults, setCheckResults] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+
+  // Check navigation state for flags
+  const skipDailyCheck = location.state?.skipDailyCheck ?? false;
+  const autoStart = location.state?.autoStart ?? false;
+
+  // Determine initial phase based on flags
+  const getInitialPhase = (): FlowPhase => {
+    if (autoStart) return "exercise"; // Patient mode: skip everything
+    if (skipDailyCheck) return "lesson-overview"; // Skip daily check only
+    return "daily-check"; // Normal flow
+  };
+
+  const [phase, setPhase] = useState<FlowPhase>(getInitialPhase);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [checkResults, setCheckResults] = useState<any>(null);
 
   const currentBlock = lesson.blocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
