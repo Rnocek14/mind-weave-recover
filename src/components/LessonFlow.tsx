@@ -206,7 +206,11 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   // Listen for exercise completion
   useEffect(() => {
     const handleExerciseComplete = () => {
-      console.log('[LessonFlow] Exercise completed, moving to next block');
+      console.log('[LessonFlow] ✅ exercise-complete event received', {
+        currentBlockIndex,
+        isLastBlock,
+        nextPhase: isLastBlock ? 'summary' : 'transition'
+      });
       handleNextBlock();
     };
 

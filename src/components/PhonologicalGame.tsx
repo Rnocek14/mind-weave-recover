@@ -90,6 +90,11 @@ export const PhonologicalGame = ({
   // Handle game completion (like PhotoNamingGame pattern)
   useEffect(() => {
     if (game.completed && onGameComplete) {
+      console.log('[PhonologicalGame] ✅ onGameComplete firing', {
+        score: game.score,
+        totalTrials,
+        gameType: 'PhonologicalAwareness'
+      });
       onGameComplete(game.score, totalTrials);
     }
   }, [game.completed, game.score, totalTrials, onGameComplete]);
@@ -213,6 +218,9 @@ export const PhonologicalGame = ({
             size="lg" 
             className="w-full" 
             onClick={() => {
+              console.log('[PhonologicalGame] ✅ Continue button clicked, dispatching exercise-complete', {
+                gameType: 'PhonologicalAwareness'
+              });
               window.dispatchEvent(new CustomEvent('exercise-complete'));
             }}
           >

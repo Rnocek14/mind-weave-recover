@@ -19,6 +19,7 @@ interface UseDailyLessonResult {
   error: string | null;
   needsReassessment: boolean;
   reassessmentReason: string | null;
+  regenerateLesson: () => Promise<DailyLesson | null>;
 }
 
 export const useDailyLesson = (
@@ -36,129 +37,135 @@ export const useDailyLesson = (
   const { currentAssessment } = useAssessmentContext();
   const { capabilityScores, accessibleExercises } = useExerciseGating();
 
-  useEffect(() => {
+  // Extract lesson generation into reusable function
+  const buildLessonFromState = async (): Promise<DailyLesson | null> => {
     if (!userId || !capabilityScores) {
+      console.log('[useDailyLesson] Cannot build lesson: missing userId or capabilityScores');
       setLoading(false);
-      return;
+      return null;
     }
 
-    const generateLesson = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        console.log('[DailyLesson]', {
-          hasCapability: !!capabilityScores,
-          accessibleCount: accessibleExercises.length,
-        });
+      console.log('[DailyLesson] Building lesson', {
+        hasCapability: !!capabilityScores,
+        accessibleCount: accessibleExercises.length,
+      });
 
-        // Fetch recent trials (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      // Fetch recent trials (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        // First get user's sessions
-        const { data: recentSessions, error: sessionsError } = await supabase
-          .from('sessions')
-          .select('id, started_at, ended_at, engagement_summary')
-          .eq('user_id', userId)
-          .gte('started_at', sevenDaysAgo.toISOString())
-          .order('started_at', { ascending: false })
-          .limit(20);
+      // First get user's sessions
+      const { data: recentSessions, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('id, started_at, ended_at, engagement_summary')
+        .eq('user_id', userId)
+        .gte('started_at', sevenDaysAgo.toISOString())
+        .order('started_at', { ascending: false })
+        .limit(20);
 
-        if (sessionsError) throw sessionsError;
+      if (sessionsError) throw sessionsError;
 
-        if (!recentSessions || recentSessions.length === 0) {
-          // No recent activity - use defaults
-          const defaultSignals = aggregatePerformanceSignals([], []);
-          setPerformanceSignals(defaultSignals);
-          
-          // Get suggested mode from current assessment
-          const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
-          const mode = suggestInteractionMode(caregiverObs);
-          
-          const defaultLesson = generateDailyLesson(
-            capabilityScores,
-            clinicalProfile,
-            accessibleExercises,
-            defaultSignals,
-            [],
-            mode
-          );
-          setLesson(defaultLesson);
-          setLoading(false);
-          return;
-        }
-
-        const sessionIds = recentSessions.map(s => s.id);
-
-        // Then get trials from those sessions
-        let recentTrials: any[] = [];
-
-        if (sessionIds.length > 0) {
-          const { data, error: trialsError } = await supabase
-            .from('exercise_events')
-            .select('*')
-            .in('session_id', sessionIds)
-            .order('created_at', { ascending: false })
-            .limit(200);
-
-          if (trialsError) throw trialsError;
-          recentTrials = data || [];
-        }
-
-        // Aggregate performance signals
-        const signals = aggregatePerformanceSignals(recentTrials || [], recentSessions || []);
-        setPerformanceSignals(signals);
-
-        // Check if reassessment is needed
-        const { needs, reason } = checkReassessmentNeeded(
-          currentAssessment,
-          signals,
-          recentTrials || []
-        );
-        setNeedsReassessment(needs);
-        setReassessmentReason(reason);
-
-        // Fetch learning rates
-        const { data: learningRates } = await supabase
-          .from('learning_rates')
-          .select('*')
-          .eq('user_id', userId)
-          .gte('calculated_at', sevenDaysAgo.toISOString())
-          .order('calculated_at', { ascending: false });
-
-        const formattedLearningRates: LearningRateData[] = (learningRates || []).map(lr => ({
-          domain: lr.domain,
-          accuracySlope: lr.accuracy_slope || 0,
-          rtSlope: lr.rt_slope || 0,
-          confidenceScore: lr.confidence_score || 0.5,
-          trialCount: lr.trial_count || 0,
-        }));
-
+      if (!recentSessions || recentSessions.length === 0) {
+        // No recent activity - use defaults
+        const defaultSignals = aggregatePerformanceSignals([], []);
+        setPerformanceSignals(defaultSignals);
+        
         // Get suggested mode from current assessment
         const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
         const mode = suggestInteractionMode(caregiverObs);
-
-        // Generate daily lesson
-        const dailyLesson = generateDailyLesson(
+        
+        const defaultLesson = generateDailyLesson(
           capabilityScores,
           clinicalProfile,
           accessibleExercises,
-          signals,
-          formattedLearningRates,
+          defaultSignals,
+          [],
           mode
         );
-
-        setLesson(dailyLesson);
-      } catch (err) {
-        console.error('[useDailyLesson] Error generating lesson:', err);
-        setError(err instanceof Error ? err.message : 'Failed to generate lesson');
-      } finally {
+        setLesson(defaultLesson);
         setLoading(false);
+        return defaultLesson;
       }
-    };
 
-    generateLesson();
+      const sessionIds = recentSessions.map(s => s.id);
+
+      // Then get trials from those sessions
+      let recentTrials: any[] = [];
+
+      if (sessionIds.length > 0) {
+        const { data, error: trialsError } = await supabase
+          .from('exercise_events')
+          .select('*')
+          .in('session_id', sessionIds)
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (trialsError) throw trialsError;
+        recentTrials = data || [];
+      }
+
+      // Aggregate performance signals
+      const signals = aggregatePerformanceSignals(recentTrials || [], recentSessions || []);
+      setPerformanceSignals(signals);
+
+      // Check if reassessment is needed
+      const { needs, reason } = checkReassessmentNeeded(
+        currentAssessment,
+        signals,
+        recentTrials || []
+      );
+      setNeedsReassessment(needs);
+      setReassessmentReason(reason);
+
+      // Fetch learning rates
+      const { data: learningRates } = await supabase
+        .from('learning_rates')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('calculated_at', sevenDaysAgo.toISOString())
+        .order('calculated_at', { ascending: false });
+
+      const formattedLearningRates: LearningRateData[] = (learningRates || []).map(lr => ({
+        domain: lr.domain,
+        accuracySlope: lr.accuracy_slope || 0,
+        rtSlope: lr.rt_slope || 0,
+        confidenceScore: lr.confidence_score || 0.5,
+        trialCount: lr.trial_count || 0,
+      }));
+
+      // Get suggested mode from current assessment
+      const caregiverObs = currentAssessment?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
+      const mode = suggestInteractionMode(caregiverObs);
+
+      // Generate daily lesson
+      const dailyLesson = generateDailyLesson(
+        capabilityScores,
+        clinicalProfile,
+        accessibleExercises,
+        signals,
+        formattedLearningRates,
+        mode
+      );
+
+      setLesson(dailyLesson);
+      console.log('[useDailyLesson] Lesson built successfully:', !!dailyLesson);
+      return dailyLesson;
+    } catch (err) {
+      console.error('[useDailyLesson] Error generating lesson:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate lesson');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-generate lesson when dependencies change
+  useEffect(() => {
+    buildLessonFromState();
   }, [userId, capabilityScores, accessibleExercises, clinicalProfile, currentAssessment]);
 
   return {
@@ -168,6 +175,7 @@ export const useDailyLesson = (
     error,
     needsReassessment,
     reassessmentReason,
+    regenerateLesson: buildLessonFromState,
   };
 };
 

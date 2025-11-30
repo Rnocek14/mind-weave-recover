@@ -82,6 +82,11 @@ export const SemanticFeatureGame = ({
   // Handle game completion (like PhotoNamingGame pattern)
   useEffect(() => {
     if (game.completed && onGameComplete) {
+      console.log('[SemanticFeatureGame] ✅ onGameComplete firing', {
+        score: game.score,
+        totalTrials,
+        gameType: 'SemanticFeatures'
+      });
       onGameComplete(game.score, totalTrials);
     }
   }, [game.completed, game.score, totalTrials, onGameComplete]);
@@ -206,6 +211,9 @@ export const SemanticFeatureGame = ({
             size="lg" 
             className="w-full" 
             onClick={() => {
+              console.log('[SemanticFeatureGame] ✅ Continue button clicked, dispatching exercise-complete', {
+                gameType: 'SemanticFeatures'
+              });
               window.dispatchEvent(new CustomEvent('exercise-complete'));
             }}
           >
