@@ -79,6 +79,13 @@ export const SemanticFeatureGame = ({
     }
   }, [game.currentTrial, game.completed]);
 
+  // Handle game completion (like PhotoNamingGame pattern)
+  useEffect(() => {
+    if (game.completed && onGameComplete) {
+      onGameComplete(game.score, totalTrials);
+    }
+  }, [game.completed, game.score, totalTrials, onGameComplete]);
+
   const handleSubmit = async () => {
     if (hasSubmitted || game.selectedFeatures.size === 0) return;
     
@@ -134,13 +141,6 @@ export const SemanticFeatureGame = ({
     const { adjusted, newLevel } = checkAndAdjust();
     
     game.nextTrial(newLevel);
-    
-    // Check if game is complete
-    if (game.currentTrial + 1 >= totalTrials) {
-      if (onGameComplete) {
-        onGameComplete(game.score, totalTrials);
-      }
-    }
   };
 
   const trial = game.getCurrentTrial();
@@ -201,6 +201,16 @@ export const SemanticFeatureGame = ({
               Great work strengthening semantic networks! Continue practicing to improve word retrieval.
             </p>
           </div>
+
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('exercise-complete'));
+            }}
+          >
+            Continue
+          </Button>
         </CardContent>
       </Card>
     );
