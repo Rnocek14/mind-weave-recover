@@ -83,7 +83,7 @@ const Dashboard = () => {
   
   const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id, activeProfile?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id, activeProfile?.id);
-  const { lesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
+  const { lesson, regenerateLesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
   const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
   const recoverySummary = getLatestSummary('progress');
   const isMobile = useIsMobile();
@@ -487,23 +487,24 @@ const Dashboard = () => {
             
             // If assessment started from patient mode, navigate directly to lesson with flags
             if (origin === 'patient') {
-              console.log('[Dashboard] Patient mode origin - generating lesson and navigating');
+              console.log('[Dashboard] Patient mode origin - regenerating lesson with fresh scores');
               
-              // Wait briefly for lesson hook to regenerate with fresh data
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // Deterministic: explicitly regenerate lesson with new scores
+              const freshLesson = await regenerateLesson();
+              console.log('[Dashboard] Lesson regeneration result:', !!freshLesson);
               
-              if (lesson) {
+              if (freshLesson) {
                 console.log('[Dashboard] Navigating to lesson with skipDailyCheck and autoStart flags');
                 navigate('/lesson', {
                   state: {
-                    lesson,
+                    lesson: freshLesson,
                     clinicalProfile,
                     skipDailyCheck: true,  // Skip daily check (just did full assessment)
                     autoStart: true,       // Skip lesson overview (patient mode)
                   }
                 });
               } else {
-                console.warn('[Dashboard] Lesson not generated yet, switching to patient mode to retry');
+                console.warn('[Dashboard] No lesson generated after assessment; falling back to patient mode');
                 setUiMode('patient');
               }
               setAssessmentOrigin(null);

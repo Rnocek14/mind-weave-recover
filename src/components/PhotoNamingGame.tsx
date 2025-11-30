@@ -428,6 +428,10 @@ export const PhotoNamingGame = ({
   // Handle game completion
   useEffect(() => {
     if (state.isComplete) {
+      console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
+        score: state.score,
+        gameType: 'PhotoNaming'
+      });
       onGameComplete(state.score);
     }
   }, [state.isComplete, state.score, onGameComplete]);

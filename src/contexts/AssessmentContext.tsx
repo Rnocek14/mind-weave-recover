@@ -31,10 +31,12 @@ export function AssessmentProvider({
 
   const fetchLatestAssessment = useCallback(async () => {
     if (!userId || !profileId) {
+      console.log('[AssessmentContext] Cannot fetch: missing userId or profileId', { userId, profileId });
       setLoading(false);
       return null;
     }
 
+    console.log('[AssessmentContext] 🔄 Fetching latest assessment', { userId, profileId });
     setLoading(true);
     try {
       const { data, error } = await (supabase as any)
@@ -50,9 +52,15 @@ export function AssessmentProvider({
       setCurrentAssessment(data?.[0] ?? null);
       setPreviousAssessment(data?.[1] ?? null);
       
+      console.log('[AssessmentContext] ✅ Assessment fetched', {
+        hasCurrent: !!data?.[0],
+        hasPrevious: !!data?.[1],
+        currentId: data?.[0]?.id
+      });
+      
       return data?.[0] ?? null;
     } catch (error) {
-      console.error('[AssessmentContext] Error fetching assessment:', error);
+      console.error('[AssessmentContext] ❌ Error fetching assessment:', error);
       return null;
     } finally {
       setLoading(false);
