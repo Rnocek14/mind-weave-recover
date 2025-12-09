@@ -163,6 +163,7 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       phase: 'exercise',
       currentBlockIndex,
       sessionId,
+      sessionStartTime: Date.now(),
       lesson,
       clinicalProfile,
     }));

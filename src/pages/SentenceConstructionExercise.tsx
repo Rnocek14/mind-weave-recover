@@ -23,6 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { DifficultyInfoBadge } from "@/components/DifficultyInfoBadge";
+import { SessionProgressBubble } from "@/components/SessionProgressBubble";
 
 const SentenceConstructionExercise = () => {
   const navigate = useNavigate();
@@ -199,6 +200,7 @@ const SentenceConstructionExercise = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {fromLesson && <SessionProgressBubble />}
       <div className="container max-w-4xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="mb-8">
