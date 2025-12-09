@@ -312,8 +312,9 @@ export function generateDailyLesson(
   const usedExerciseIds = new Set<string>();
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
-  // 1. WARMUP (1-2 min) - simple motor task
-  const warmup = scoredExercises.find(e => e!.domains.includes('motor_control'));
+  // 1. WARMUP (1-2 min) - simple motor task (prefer reach-tap, but allow left-side-hunt)
+  const motorExercises = scoredExercises.filter(e => e!.domains.includes('motor_control'));
+  const warmup = motorExercises[0];
   if (warmup && remainingTime >= 1) {
     const duration = Math.min(2, remainingTime);
     blocks.push({
@@ -326,7 +327,7 @@ export function generateDailyLesson(
         timeout: 5000,
         visualSupport: true,
       },
-      reasoning: 'Light motor warmup to engage attention and reduce anxiety',
+      reasoning: `Light motor warmup: ${warmup.id}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(warmup.id);
@@ -334,13 +335,27 @@ export function generateDailyLesson(
     reasoning.push(`Starting with ${warmup.id} as warmup (${duration}m)`);
   }
 
-  // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises (avoid same component)
+  // Also mark same-component siblings as "avoid" for primary selection
+  // This ensures primary picks a DIFFERENT component type
+  const warmupComponent = warmup?.baseComponent;
+
+  // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises (avoid same component as warmup)
   const primaryCount = Math.min(2, scoredExercises.length);
   const primaryTime = Math.floor(remainingTime * 0.45);
   
   for (let i = 0; i < primaryCount && remainingTime > 0; i++) {
     // Get next exercise that doesn't share base component with last added
-    const ex = getNextNonRepetitiveExercise(scoredExercises, lastAddedExercise, usedExerciseIds);
+    let ex = getNextNonRepetitiveExercise(scoredExercises, lastAddedExercise, usedExerciseIds);
+    
+    // Extra check: first primary should NOT share component with warmup
+    if (i === 0 && ex && warmupComponent && ex.baseComponent === warmupComponent) {
+      // Find alternative that doesn't share warmup component
+      const alternative = scoredExercises.find(e => 
+        e && !usedExerciseIds.has(e.id) && e.baseComponent !== warmupComponent
+      );
+      if (alternative) ex = alternative;
+    }
+    
     if (!ex) continue;
     
     const duration = Math.min(
@@ -361,7 +376,7 @@ export function generateDailyLesson(
         timeout: performanceSignals.avgReactionTime * 2,
         visualSupport: capabilityScores.vision < 5,
       },
-      reasoning: `High priority based on ${ex.domains.join(', ')}`,
+      reasoning: `Primary: ${ex.domains.join(', ')}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(ex.id);
@@ -403,12 +418,23 @@ export function generateDailyLesson(
     addedSecondary++;
   }
 
-  // 4. CONSOLIDATION (1-2 min) - easy success (pick one that doesn't repeat last)
+  // 4. CONSOLIDATION (1-2 min) - easy success (pick one that doesn't repeat last component)
   if (remainingTime >= 1) {
-    // For consolidation, prefer warmup if it doesn't share component with last
-    const consolidationExercise = warmup && !sharesBaseComponent(warmup, lastAddedExercise)
-      ? warmup
-      : scoredExercises.find(e => e && !sharesBaseComponent(e, lastAddedExercise));
+    // For consolidation, prefer a different component than the last block
+    let consolidationExercise: typeof scoredExercises[0] = null;
+    
+    // First try: motor exercise that doesn't share component with last
+    const motorForConsolidation = motorExercises.find(e => 
+      e && !sharesBaseComponent(e, lastAddedExercise)
+    );
+    if (motorForConsolidation) {
+      consolidationExercise = motorForConsolidation;
+    } else {
+      // Fallback: any exercise that doesn't share component with last
+      consolidationExercise = scoredExercises.find(e => 
+        e && !sharesBaseComponent(e, lastAddedExercise)
+      ) || warmup; // Last resort: repeat warmup
+    }
     
     if (consolidationExercise) {
       blocks.push({
@@ -421,10 +447,15 @@ export function generateDailyLesson(
           timeout: 6000,
           visualSupport: true,
         },
-        reasoning: 'End on success to boost confidence and dopamine',
+        reasoning: `Consolidation: ${consolidationExercise.id}`,
       });
     }
   }
+
+  // Log lesson structure for QA verification
+  console.log('[DailyLessonEngine] Generated lesson blocks:', 
+    blocks.map(b => `${b.priority}: ${b.exerciseId}`).join(' → ')
+  );
 
   const targetDomains = Array.from(
     new Set(blocks.flatMap(b => exerciseMetadata[b.exerciseId]?.domains || []))
