@@ -30,6 +30,7 @@ import PhotoNamingExercise from "./pages/PhotoNamingExercise";
 import ClinicalDocuments from "./pages/ClinicalDocuments";
 import ProfileVersionHistory from "./pages/ProfileVersionHistory";
 import Lesson from "./pages/Lesson";
+import PatternMatchExercise from "./pages/PatternMatchExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -88,6 +89,7 @@ const App = () => (
           <Route path="/clinical-documents" element={<ClinicalDocuments />} />
           <Route path="/profile-history" element={<ProfileVersionHistory />} />
           <Route path="/lesson" element={<Lesson />} />
+          <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
           </Routes>
