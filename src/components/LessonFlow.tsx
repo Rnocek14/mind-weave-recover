@@ -95,13 +95,13 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
 
   // Create session when needed - now also handles autoStart scenario
   useEffect(() => {
-    const needsSession = (phase === "lesson-overview" || phase === "exercise") && !sessionId && user && activeProfile;
+    const needsSession = (phase === "lesson-overview" || phase === "exercise") && !sessionId && user;
     
     if (needsSession) {
-      console.log('[LessonFlow] Creating session for phase:', phase);
+      console.log('[LessonFlow] Creating session for phase:', phase, { userId: user?.id, profileId: activeProfile?.id });
       createSession();
     }
-  }, [phase, sessionId, user, activeProfile]);
+  }, [phase, sessionId, user?.id, activeProfile?.id]);
 
   // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
@@ -393,7 +393,9 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
             <Play className="w-8 h-8 text-primary" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Loading Exercise...</h2>
+            <h2 className="text-2xl font-bold">
+              {!sessionId ? "Preparing session..." : "Loading Exercise..."}
+            </h2>
             <p className="text-muted-foreground capitalize">
               {currentBlock?.exerciseId.replace(/-/g, ' ')}
             </p>
