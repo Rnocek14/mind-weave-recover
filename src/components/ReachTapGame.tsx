@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle, Star, Eye } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
@@ -322,7 +322,11 @@ export const ReachTapGame = ({
       {/* Game Area */}
       <div 
         ref={containerRef}
-        className="relative w-full aspect-[4/3] bg-muted rounded-xl border-4 border-primary shadow-glow overflow-hidden"
+        className={`relative w-full aspect-[4/3] rounded-xl border-4 shadow-glow overflow-hidden ${
+          variant === 'left-side-hunt' 
+            ? 'bg-gradient-to-r from-amber-100/30 via-muted to-muted dark:from-amber-900/20 border-amber-500' 
+            : 'bg-muted border-primary'
+        }`}
         onClick={(e) => {
           // If clicking outside target, count as miss
           if (target && !showFeedback) {
@@ -344,27 +348,53 @@ export const ReachTapGame = ({
           }
         }}
       >
-        {/* Instructions when no target */}
-        {!target && !showFeedback && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <Target className="w-16 h-16 mx-auto text-muted-foreground animate-pulse" />
-              <p className="text-lg font-medium text-muted-foreground">
-                Get ready...
-              </p>
+        {/* Left-side hunt zone indicator */}
+        {variant === 'left-side-hunt' && (
+          <div className="absolute left-0 top-0 bottom-0 w-1/3 border-r-2 border-dashed border-amber-400/40 pointer-events-none">
+            <div className="absolute top-2 left-2 flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-medium bg-amber-100/80 dark:bg-amber-900/50 px-2 py-1 rounded">
+              <Eye className="w-3 h-3" />
+              Look here!
             </div>
           </div>
         )}
 
-        {/* Target */}
+        {/* Instructions when no target */}
+        {!target && !showFeedback && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center space-y-2">
+              {variant === 'left-side-hunt' ? (
+                <>
+                  <Eye className="w-16 h-16 mx-auto text-amber-500 animate-pulse" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Watch the left side...
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Target className="w-16 h-16 mx-auto text-muted-foreground animate-pulse" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Get ready...
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Target - different appearance for left-side-hunt */}
         {target && !showFeedback && (
           <button
-            className="absolute rounded-full bg-primary hover:bg-primary/90 transition-all shadow-glow animate-scale-in cursor-pointer border-4 border-white"
+            className={`absolute transition-all animate-scale-in cursor-pointer ${
+              variant === 'left-side-hunt'
+                ? 'bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 border-4 border-amber-200 shadow-lg shadow-amber-500/30'
+                : 'rounded-full bg-primary hover:bg-primary/90 border-4 border-white shadow-glow'
+            }`}
             style={{
               left: `${target.x}px`,
               top: `${target.y}px`,
               width: `${target.size}px`,
               height: `${target.size}px`,
+              borderRadius: variant === 'left-side-hunt' ? '20%' : '50%',
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -372,7 +402,11 @@ export const ReachTapGame = ({
             }}
           >
             <div className="w-full h-full flex items-center justify-center">
-              <div className="w-1/3 h-1/3 bg-white rounded-full" />
+              {variant === 'left-side-hunt' ? (
+                <Star className="w-1/2 h-1/2 text-white fill-white" />
+              ) : (
+                <div className="w-1/3 h-1/3 bg-white rounded-full" />
+              )}
             </div>
           </button>
         )}
@@ -382,13 +416,19 @@ export const ReachTapGame = ({
           <div className="absolute inset-0 flex items-center justify-center">
             <div className={`
               text-center space-y-2 p-6 rounded-lg animate-scale-in
-              ${feedbackType === 'success' ? 'bg-success/20' : 'bg-destructive/20'}
+              ${feedbackType === 'success' 
+                ? variant === 'left-side-hunt' ? 'bg-amber-500/20' : 'bg-success/20' 
+                : 'bg-destructive/20'}
             `}>
               {feedbackType === 'success' ? (
                 <>
-                  <Award className="w-16 h-16 mx-auto text-success" />
-                  <p className="text-2xl font-bold text-success">
-                    Great hit!
+                  {variant === 'left-side-hunt' ? (
+                    <Eye className="w-16 h-16 mx-auto text-amber-500" />
+                  ) : (
+                    <Award className="w-16 h-16 mx-auto text-success" />
+                  )}
+                  <p className={`text-2xl font-bold ${variant === 'left-side-hunt' ? 'text-amber-600 dark:text-amber-400' : 'text-success'}`}>
+                    {variant === 'left-side-hunt' ? 'Great awareness!' : 'Great hit!'}
                   </p>
                 </>
               ) : (
@@ -406,11 +446,17 @@ export const ReachTapGame = ({
 
       {/* Instructions */}
       <div className="text-center space-y-2">
-        <h3 className="text-xl font-semibold">Tap the targets as they appear!</h3>
+        <h3 className="text-xl font-semibold">
+          {variant === 'left-side-hunt' 
+            ? '👀 Hunt for stars on the left side!' 
+            : 'Tap the targets as they appear!'}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          {slowMode 
-            ? '🕒 Gentle Mode: Take your time - no rush!' 
-            : 'React quickly - targets disappear after a few seconds'}
+          {variant === 'left-side-hunt' 
+            ? '🔍 Scan carefully - targets love to hide on the left!'
+            : slowMode 
+              ? '🕒 Gentle Mode: Take your time - no rush!' 
+              : 'React quickly - targets disappear after a few seconds'}
         </p>
       </div>
     </div>
