@@ -48,13 +48,16 @@ export const useDailyLesson = (
   
   const hasBuiltRef = useRef(false);
 
-  const { currentAssessment } = useAssessmentContext();
+  const { currentAssessment, previousAssessment } = useAssessmentContext();
   const { capabilityScores, accessibleExercises } = useExerciseGating();
+  
+  // Get the best available completed assessment
+  const effectiveAssessment = currentAssessment?.completed ? currentAssessment : previousAssessment?.completed ? previousAssessment : null;
 
   // Extract lesson generation into reusable function
   const buildLessonFromState = async (freshAssessment?: any): Promise<DailyLesson | null> => {
-    // Derive scores directly from fresh assessment if provided, otherwise use hook state
-    const assessmentToUse = freshAssessment || currentAssessment;
+    // Derive scores directly from fresh assessment if provided, otherwise use best available
+    const assessmentToUse = freshAssessment || effectiveAssessment;
     
     const scores = assessmentToUse?.completed ? {
       vision: assessmentToUse.vision_score || 0,
@@ -238,11 +241,11 @@ export const useDailyLesson = (
       return;
     }
     
-    // Only build if we have the required data
-    if (userId && (capabilityScores || currentAssessment?.completed)) {
+    // Only build if we have the required data (use effective assessment which handles fallback)
+    if (userId && (capabilityScores || effectiveAssessment?.completed)) {
       buildLessonFromState();
     }
-  }, [userId, profileId, currentAssessment?.id]);
+  }, [userId, profileId, effectiveAssessment?.id]);
 
   return {
     lesson,
