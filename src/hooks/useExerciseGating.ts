@@ -9,20 +9,33 @@ import {
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
 export const useExerciseGating = (_userId?: string, _profileId?: string) => {
-  const { currentAssessment } = useAssessmentContext();
+  const { currentAssessment, previousAssessment } = useAssessmentContext();
 
+  // Use current assessment if complete, otherwise fall back to previous completed assessment
   const capabilityScores: CapabilityScores | null = useMemo(() => {
-    if (!currentAssessment || !currentAssessment.completed) {
-      return null;
+    // First try current assessment
+    if (currentAssessment?.completed) {
+      return {
+        vision: currentAssessment.vision_score || 0,
+        motor: currentAssessment.motor_score || 0,
+        attention: currentAssessment.attention_score || 0,
+        confidence: currentAssessment.confidence_score || 0,
+      };
     }
-
-    return {
-      vision: currentAssessment.vision_score || 0,
-      motor: currentAssessment.motor_score || 0,
-      attention: currentAssessment.attention_score || 0,
-      confidence: currentAssessment.confidence_score || 0,
-    };
-  }, [currentAssessment]);
+    
+    // Fall back to previous completed assessment
+    if (previousAssessment?.completed) {
+      console.log('[useExerciseGating] Using previous completed assessment for scores');
+      return {
+        vision: previousAssessment.vision_score || 0,
+        motor: previousAssessment.motor_score || 0,
+        attention: previousAssessment.attention_score || 0,
+        confidence: previousAssessment.confidence_score || 0,
+      };
+    }
+    
+    return null;
+  }, [currentAssessment, previousAssessment]);
 
   const accessibleExercises = useMemo(() => {
     if (!capabilityScores) {
