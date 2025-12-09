@@ -16,15 +16,39 @@ interface PatientModeViewProps {
   onStartAssessment?: () => void;
 }
 
+// Explicit state machine for patient view
+type PatientViewState = 'loading' | 'needs-assessment' | 'generating-lesson' | 'ready';
+
+function getPatientViewState(
+  assessmentLoading: boolean,
+  lessonLoading: boolean,
+  currentAssessment: any,
+  lesson: DailyLesson | null
+): PatientViewState {
+  if (assessmentLoading) return 'loading';
+  if (!currentAssessment) return 'needs-assessment';
+  if (lessonLoading || !lesson) return 'generating-lesson';
+  return 'ready';
+}
+
 export function PatientModeView({ userId, profileId, clinicalProfile, onStartAssessment }: PatientModeViewProps) {
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
 
+  const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
+
   const handleStartSession = () => {
+    if (!lesson) return;
+    
     navigate('/lesson', { 
-      state: { lesson, clinicalProfile }
+      state: { 
+        lesson, 
+        clinicalProfile,
+        skipDailyCheck: true,
+        autoStart: true,
+      }
     });
   };
 
@@ -47,8 +71,8 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     }, 100);
   };
 
-  // Loading state
-  if (lessonLoading || assessmentLoading) {
+  // Loading state (initial load)
+  if (viewState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute top-4 right-4 z-10">
@@ -67,8 +91,8 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
-  // No assessment state
-  if (!currentAssessment) {
+  // No assessment state - need to do initial assessment
+  if (viewState === 'needs-assessment') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute top-4 right-4 z-10">
@@ -97,6 +121,28 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
+  // Generating lesson state - assessment done, building lesson
+  if (viewState === 'generating-lesson') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
+        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
+          <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
+          <div className="space-y-4">
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+              Preparing your session...
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground">
+              Creating a personalized lesson plan
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   // Error state
   if (lessonError) {
     return (
@@ -115,7 +161,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             </p>
           </div>
           <Button
-            onClick={handleStartAssessment}
+            onClick={() => navigate('/dashboard')}
             variant="outline"
             size="lg"
             className="min-h-[80px] text-xl md:text-2xl font-semibold px-8 py-4 rounded-xl"
@@ -127,7 +173,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
-  // Main Patient Mode view
+  // Main Patient Mode view - ready state
   return (
     <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
       <div className="absolute top-4 right-4 z-10">
@@ -149,10 +195,9 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
           <Button
             onClick={handleStartSession}
             size="lg"
-            disabled={!lesson}
             aria-label="Start today's therapy session"
             aria-describedby="session-help-text"
-            className="w-full min-h-[140px] md:min-h-[180px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed px-8 py-6 rounded-2xl"
+            className="w-full min-h-[140px] md:min-h-[180px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-8 py-6 rounded-2xl"
           >
             <Play className="w-12 h-12 md:w-16 md:h-16 mr-4 shrink-0" />
             <span>Start Today's Session</span>
@@ -175,13 +220,6 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             I need to rest
           </Button>
         </div>
-
-        {/* Lesson status indicator */}
-        {!lesson && !lessonLoading && (
-          <p className="text-base md:text-lg text-muted-foreground pt-4 animate-pulse">
-            Preparing your session...
-          </p>
-        )}
       </Card>
     </div>
   );

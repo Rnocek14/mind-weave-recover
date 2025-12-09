@@ -259,12 +259,13 @@ export default function PhotoNamingExercise() {
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
-            <Link to="/dashboard">
-              <Button variant="ghost">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            </Link>
+            <Button 
+              variant="ghost"
+              onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {fromLesson ? 'Back to Lesson' : 'Back'}
+            </Button>
             
             {fromLesson && (
               <Button

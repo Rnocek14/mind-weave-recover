@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
@@ -47,51 +47,66 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [checkResults, setCheckResults] = useState<any>(null);
+  
+  // Track if we've processed the resuming state to avoid race conditions
+  const hasProcessedResumeRef = useRef(false);
 
   const currentBlock = lesson.blocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
   
   // Restore state if returning from exercise
   useEffect(() => {
-    const savedState = sessionStorage.getItem('lessonFlowState');
-    if (savedState) {
-      try {
-        const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
-        console.log('[LessonFlow] Restoring state:', { savedPhase, savedIndex, savedSessionId, resuming: location.state?.resuming });
-        
-        // If returning from exercise (resuming), move to next phase
-        if (location.state?.resuming && savedPhase === 'exercise') {
+    // Only process resuming once
+    if (location.state?.resuming && !hasProcessedResumeRef.current) {
+      hasProcessedResumeRef.current = true;
+      
+      const savedState = sessionStorage.getItem('lessonFlowState');
+      if (savedState) {
+        try {
+          const { currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
           const nextIndex = savedIndex + 1;
-          setCurrentBlockIndex(nextIndex);
-          setSessionId(savedSessionId);
-          
-          // Move to transition or summary based on next block index
           const isLast = nextIndex >= lesson.blocks.length;
+          
+          console.log('[LessonFlow] Processing resume:', { savedIndex, nextIndex, isLast });
+          
+          setSessionId(savedSessionId);
+          setCurrentBlockIndex(nextIndex);
           setPhase(isLast ? 'summary' : 'transition');
-          console.log('[LessonFlow] Advancing from exercise to next:', { nextIndex, isLast, phase: isLast ? 'summary' : 'transition' });
-        } else {
-          // Normal restore
+        } catch (error) {
+          console.error('[LessonFlow] Error processing resume:', error);
+        }
+      }
+    } else if (!location.state?.resuming) {
+      // Normal restore (not resuming)
+      const savedState = sessionStorage.getItem('lessonFlowState');
+      if (savedState && !hasProcessedResumeRef.current) {
+        try {
+          const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
+          console.log('[LessonFlow] Restoring state (non-resuming):', { savedPhase, savedIndex, savedSessionId });
           setPhase(savedPhase);
           setCurrentBlockIndex(savedIndex);
           setSessionId(savedSessionId);
+        } catch (error) {
+          console.error('[LessonFlow] Error restoring state:', error);
         }
-      } catch (error) {
-        console.error('[LessonFlow] Error restoring state:', error);
       }
     }
   }, [lesson.blocks.length, location.state?.resuming]);
 
+  // Create session when needed - now also handles autoStart scenario
   useEffect(() => {
-    // Create session when lesson overview starts
-    if (phase === "lesson-overview" && !sessionId && user && activeProfile) {
+    const needsSession = (phase === "lesson-overview" || phase === "exercise") && !sessionId && user && activeProfile;
+    
+    if (needsSession) {
+      console.log('[LessonFlow] Creating session for phase:', phase);
       createSession();
     }
-  }, [phase, user, activeProfile]);
+  }, [phase, sessionId, user, activeProfile]);
 
-  // Ensure navigation happens when phase is exercise
+  // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
     if (phase === "exercise" && currentBlock && sessionId) {
-      console.log('[LessonFlow] Phase is exercise, ensuring navigation happens:', currentBlock.exerciseId);
+      console.log('[LessonFlow] Phase is exercise, sessionId ready, navigating:', currentBlock.exerciseId);
       navigateToExercise(currentBlock.exerciseId);
     }
   }, [phase, currentBlock, sessionId]);
@@ -116,6 +131,7 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       return;
     }
 
+    console.log('[LessonFlow] Session created:', data.id);
     setSessionId(data.id);
   };
 
