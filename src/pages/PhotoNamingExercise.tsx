@@ -13,6 +13,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
 import { toast } from 'sonner';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
@@ -256,6 +257,7 @@ export default function PhotoNamingExercise() {
 
   return (
     <div className="min-h-screen bg-background">
+      {fromLesson && <SessionProgressBubble />}
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
