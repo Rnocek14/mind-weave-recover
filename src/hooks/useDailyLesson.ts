@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAssessmentContext } from '@/contexts/AssessmentContext';
 import { useExerciseGating } from './useExerciseGating';
@@ -22,6 +22,18 @@ interface UseDailyLessonResult {
   regenerateLesson: (freshAssessment?: any) => Promise<DailyLesson | null>;
 }
 
+// Cache key for session storage
+const LESSON_CACHE_KEY = 'dailyLessonCache';
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+interface LessonCache {
+  lesson: DailyLesson;
+  performanceSignals: PerformanceSignals;
+  assessmentId: string | null;
+  profileId: string | undefined;
+  timestamp: number;
+}
+
 export const useDailyLesson = (
   userId: string | undefined,
   profileId: string | undefined,
@@ -33,6 +45,8 @@ export const useDailyLesson = (
   const [error, setError] = useState<string | null>(null);
   const [needsReassessment, setNeedsReassessment] = useState(false);
   const [reassessmentReason, setReassessmentReason] = useState<string | null>(null);
+  
+  const hasBuiltRef = useRef(false);
 
   const { currentAssessment } = useAssessmentContext();
   const { capabilityScores, accessibleExercises } = useExerciseGating();
@@ -53,6 +67,31 @@ export const useDailyLesson = (
       console.log('[useDailyLesson] Cannot build lesson: missing userId or scores', { userId, scores });
       setLoading(false);
       return null;
+    }
+    
+    // Check cache first (skip if force regenerate via freshAssessment)
+    if (!freshAssessment) {
+      try {
+        const cached = sessionStorage.getItem(LESSON_CACHE_KEY);
+        if (cached) {
+          const cache: LessonCache = JSON.parse(cached);
+          const isValid = 
+            cache.profileId === profileId &&
+            cache.assessmentId === assessmentToUse?.id &&
+            Date.now() - cache.timestamp < CACHE_TTL_MS;
+          
+          if (isValid) {
+            console.log('[useDailyLesson] Using cached lesson');
+            setLesson(cache.lesson);
+            setPerformanceSignals(cache.performanceSignals);
+            setLoading(false);
+            hasBuiltRef.current = true;
+            return cache.lesson;
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
     }
 
     try {
@@ -163,6 +202,23 @@ export const useDailyLesson = (
       );
 
       setLesson(dailyLesson);
+      setPerformanceSignals(signals);
+      hasBuiltRef.current = true;
+      
+      // Cache the lesson
+      try {
+        const cache: LessonCache = {
+          lesson: dailyLesson,
+          performanceSignals: signals,
+          assessmentId: assessmentToUse?.id || null,
+          profileId,
+          timestamp: Date.now(),
+        };
+        sessionStorage.setItem(LESSON_CACHE_KEY, JSON.stringify(cache));
+      } catch (e) {
+        // Ignore cache errors
+      }
+      
       console.log('[useDailyLesson] Lesson built successfully:', !!dailyLesson);
       return dailyLesson;
     } catch (err) {
@@ -174,10 +230,19 @@ export const useDailyLesson = (
     }
   };
 
-  // Auto-generate lesson when dependencies change
+  // Auto-generate lesson only once on mount (use cache thereafter)
   useEffect(() => {
-    buildLessonFromState();
-  }, [userId, capabilityScores, accessibleExercises, clinicalProfile, currentAssessment]);
+    // Skip if already built this mount
+    if (hasBuiltRef.current && lesson) {
+      setLoading(false);
+      return;
+    }
+    
+    // Only build if we have the required data
+    if (userId && (capabilityScores || currentAssessment?.completed)) {
+      buildLessonFromState();
+    }
+  }, [userId, profileId, currentAssessment?.id]);
 
   return {
     lesson,
