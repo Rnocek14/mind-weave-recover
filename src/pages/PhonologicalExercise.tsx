@@ -12,6 +12,7 @@ import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
@@ -137,6 +138,7 @@ export default function PhonologicalExercise() {
 
   return (
     <div className="min-h-screen bg-background p-4">
+      {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
