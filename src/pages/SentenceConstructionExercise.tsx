@@ -205,10 +205,10 @@ const SentenceConstructionExercise = () => {
           <div className="flex items-center gap-2 mb-4">
             <Button
               variant="ghost"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              {fromLesson ? 'Back to Lesson' : 'Back to Dashboard'}
             </Button>
             
             {fromLesson && (

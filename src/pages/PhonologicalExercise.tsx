@@ -143,7 +143,8 @@ export default function PhonologicalExercise() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
+              aria-label={fromLesson ? 'Back to Lesson' : 'Back to Dashboard'}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
