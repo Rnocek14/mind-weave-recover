@@ -252,14 +252,15 @@ export function generateDailyLesson(
     reasoning.push('Using light session length due to low engagement signals');
   }
 
-  // Exercise metadata (extend this with your actual exercise catalog)
-  const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number }> = {
-    'reach-tap': { domains: ['motor_control', 'attention'], baseMinutes: 2 },
-    'photo-naming': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4 },
-    'phonological': { domains: ['phonology', 'expressive_language'], baseMinutes: 3 },
-    'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3 },
-    'phrase-practice': { domains: ['expressive_language', 'phonology'], baseMinutes: 4 },
-    'sentence-construction': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4 },
+  // Exercise metadata with baseComponent to prevent back-to-back similar games
+  const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number; baseComponent?: string }> = {
+    'reach-tap': { domains: ['motor_control', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
+    'left-side-hunt': { domains: ['visual_processing', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
+    'photo-naming': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'photo-naming-game' },
+    'phonological': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
+    'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'semantic-game' },
+    'phrase-practice': { domains: ['expressive_language', 'phonology'], baseMinutes: 4, baseComponent: 'phrase-game' },
+    'sentence-construction': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
   };
 
   // Score each accessible exercise
@@ -278,13 +279,38 @@ export function generateDailyLesson(
         ),
         domains: meta.domains,
         baseMinutes: meta.baseMinutes,
+        baseComponent: meta.baseComponent,
       };
     })
     .filter(Boolean)
     .sort((a, b) => b!.score - a!.score);
 
+  // Helper to check if two exercises share the same base component
+  const sharesBaseComponent = (ex1: typeof scoredExercises[0], ex2: typeof scoredExercises[0]): boolean => {
+    if (!ex1 || !ex2) return false;
+    return !!(ex1.baseComponent && ex1.baseComponent === ex2.baseComponent);
+  };
+
+  // Helper to get next best exercise that doesn't share component with previous
+  const getNextNonRepetitiveExercise = (
+    candidates: typeof scoredExercises,
+    previousExercise: typeof scoredExercises[0],
+    usedIds: Set<string>
+  ): typeof scoredExercises[0] => {
+    for (const ex of candidates) {
+      if (!ex || usedIds.has(ex.id)) continue;
+      if (!sharesBaseComponent(ex, previousExercise)) {
+        return ex;
+      }
+    }
+    // If all share component, just return first unused (fallback)
+    return candidates.find(ex => ex && !usedIds.has(ex.id)) || null;
+  };
+
   const blocks: ExerciseBlock[] = [];
   let remainingTime = totalDuration;
+  const usedExerciseIds = new Set<string>();
+  let lastAddedExercise: typeof scoredExercises[0] = null;
 
   // 1. WARMUP (1-2 min) - simple motor task
   const warmup = scoredExercises.find(e => e!.domains.includes('motor_control'));
@@ -303,15 +329,18 @@ export function generateDailyLesson(
       reasoning: 'Light motor warmup to engage attention and reduce anxiety',
     });
     remainingTime -= duration;
+    usedExerciseIds.add(warmup.id);
+    lastAddedExercise = warmup;
     reasoning.push(`Starting with ${warmup.id} as warmup (${duration}m)`);
   }
 
-  // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises
+  // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises (avoid same component)
   const primaryCount = Math.min(2, scoredExercises.length);
   const primaryTime = Math.floor(remainingTime * 0.45);
   
   for (let i = 0; i < primaryCount && remainingTime > 0; i++) {
-    const ex = scoredExercises[i];
+    // Get next exercise that doesn't share base component with last added
+    const ex = getNextNonRepetitiveExercise(scoredExercises, lastAddedExercise, usedExerciseIds);
     if (!ex) continue;
     
     const duration = Math.min(
@@ -335,18 +364,21 @@ export function generateDailyLesson(
       reasoning: `High priority based on ${ex.domains.join(', ')}`,
     });
     remainingTime -= duration;
+    usedExerciseIds.add(ex.id);
+    lastAddedExercise = ex;
     reasoning.push(`${ex.id} prioritized: targets ${ex.domains.join(', ')} (${duration}m)`);
   }
 
-  // 3. SECONDARY BLOCK (30% of time) - cross-domain support
+  // 3. SECONDARY BLOCK (30% of time) - cross-domain support (avoid same component)
   const secondaryTime = Math.floor(totalDuration * 0.3);
-  const secondaryExercises = scoredExercises.slice(primaryCount, primaryCount + 2);
+  let addedSecondary = 0;
 
-  for (const ex of secondaryExercises) {
-    if (!ex || remainingTime < 2) break;
+  for (let i = 0; i < scoredExercises.length && addedSecondary < 2 && remainingTime >= 2; i++) {
+    const ex = getNextNonRepetitiveExercise(scoredExercises, lastAddedExercise, usedExerciseIds);
+    if (!ex) break;
 
     const duration = Math.min(
-      Math.floor(secondaryTime / secondaryExercises.length),
+      Math.floor(secondaryTime / 2),
       ex.baseMinutes,
       remainingTime
     );
@@ -366,22 +398,32 @@ export function generateDailyLesson(
       reasoning: `Supporting domain: ${ex.domains.join(', ')}`,
     });
     remainingTime -= duration;
+    usedExerciseIds.add(ex.id);
+    lastAddedExercise = ex;
+    addedSecondary++;
   }
 
-  // 4. CONSOLIDATION (1-2 min) - easy success
-  if (remainingTime >= 1 && warmup) {
-    blocks.push({
-      exerciseId: warmup.id,
-      duration: Math.min(2, remainingTime),
-      priority: 'consolidation',
-      adaptations: {
-        startDifficulty: 1,
-        cueLevel: 0,
-        timeout: 6000,
-        visualSupport: true,
-      },
-      reasoning: 'End on success to boost confidence and dopamine',
-    });
+  // 4. CONSOLIDATION (1-2 min) - easy success (pick one that doesn't repeat last)
+  if (remainingTime >= 1) {
+    // For consolidation, prefer warmup if it doesn't share component with last
+    const consolidationExercise = warmup && !sharesBaseComponent(warmup, lastAddedExercise)
+      ? warmup
+      : scoredExercises.find(e => e && !sharesBaseComponent(e, lastAddedExercise));
+    
+    if (consolidationExercise) {
+      blocks.push({
+        exerciseId: consolidationExercise.id,
+        duration: Math.min(2, remainingTime),
+        priority: 'consolidation',
+        adaptations: {
+          startDifficulty: 1,
+          cueLevel: 0,
+          timeout: 6000,
+          visualSupport: true,
+        },
+        reasoning: 'End on success to boost confidence and dopamine',
+      });
+    }
   }
 
   const targetDomains = Array.from(
