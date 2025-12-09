@@ -256,6 +256,7 @@ export function generateDailyLesson(
   const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number; baseComponent?: string }> = {
     'reach-tap': { domains: ['motor_control', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
     'left-side-hunt': { domains: ['visual_processing', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
+    'pattern-match': { domains: ['attention', 'visual_processing'], baseMinutes: 2, baseComponent: 'pattern-match-game' },
     'photo-naming': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'photo-naming-game' },
     'phonological': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
     'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'semantic-game' },

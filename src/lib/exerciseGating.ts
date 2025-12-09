@@ -52,6 +52,12 @@ export const EXERCISE_GATING_RULES: ExerciseGatingRule[] = [
     reason: 'Requires sustained attention and spatial awareness',
     alternativeSuggestion: 'reach-tap',
   },
+  {
+    exerciseId: 'pattern-match',
+    minRequirements: { vision: 5, motor: 3, attention: 5 },
+    reason: 'Requires visual memory and pattern recognition',
+    alternativeSuggestion: 'reach-tap',
+  },
 
   // === SPEECH/LANGUAGE EXERCISES ===
   {
@@ -268,6 +274,21 @@ export function getExerciseAdaptations(
           breakFrequency: scores.attention < 6 ? 'high' : 'medium',
         },
         reason: 'Adapted for spatial attention and visual scanning',
+      };
+
+    case 'pattern-match':
+      return {
+        exerciseId,
+        adaptations: {
+          ...baseAdaptations,
+          startDifficulty: scores.attention < 6 ? 2 : 3,
+          timeout: scores.attention < 6 ? 8000 : 6000,
+          cueLevel: scores.attention < 6 ? 2 : 1,
+          visualCues: true,
+          sessionLength: scores.attention < 6 ? 'short' : 'medium',
+          breakFrequency: scores.attention < 6 ? 'high' : 'medium',
+        },
+        reason: 'Adapted for visual memory and attention demands',
       };
 
     default:
