@@ -39,10 +39,10 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'reach-tap': '/exercise/reach-tap',
   'left-side-hunt': '/exercise/left-side-hunt',
   'pattern-match': '/exercise/pattern-match',
-  'phonological': '/exercise/phonological',
+  'phonological': '/exercise/phonological-awareness',
   'semantic-features': '/exercise/semantic-features',
   'sentence-construction': '/exercise/sentence-construction',
-  'phrase-practice': '/exercise/phrase-practice',
+  'phrase-practice': '/exercise/word-practice',
 };
 
 function getPatientViewState(
