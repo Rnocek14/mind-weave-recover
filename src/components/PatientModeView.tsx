@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, LogOut, Loader2, AlertCircle } from "lucide-react";
+import { Play, LogOut, Loader2, AlertCircle, Gamepad2, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
@@ -8,6 +9,8 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
+import { useExerciseGating } from "@/hooks/useExerciseGating";
+import { toast } from "sonner";
 
 interface PatientModeViewProps {
   userId: string;
@@ -18,6 +21,30 @@ interface PatientModeViewProps {
 
 // Explicit state machine for patient view
 type PatientViewState = 'loading' | 'needs-assessment' | 'generating-lesson' | 'ready';
+
+// Patient-friendly game info with emojis and simple descriptions
+const PATIENT_GAME_INFO: Record<string, { emoji: string; name: string; desc: string }> = {
+  'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture' },
+  'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear' },
+  'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side' },
+  'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes' },
+  'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds' },
+  'semantic-features': { emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are' },
+  'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order' },
+  'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases' },
+};
+
+// Route map for exercises
+const EXERCISE_ROUTES: Record<string, string> = {
+  'photo-naming': '/exercise/photo-naming',
+  'reach-tap': '/exercise/reach-tap',
+  'left-side-hunt': '/exercise/left-side-hunt',
+  'pattern-match': '/exercise/pattern-match',
+  'phonological': '/exercise/phonological',
+  'semantic-features': '/exercise/semantic-features',
+  'sentence-construction': '/exercise/sentence-construction',
+  'phrase-practice': '/exercise/phrase-practice',
+};
 
 function getPatientViewState(
   assessmentLoading: boolean,
@@ -36,6 +63,8 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
+  const { accessibleExercises } = useExerciseGating(userId, profileId);
+  const [showGamePicker, setShowGamePicker] = useState(false);
 
   const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
 
@@ -53,16 +82,15 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   };
 
   const handleRest = () => {
-    // User chooses to rest - stay in patient mode on current screen
-    // Could show a friendly toast message
+    toast("Take all the time you need. Come back when you're ready! 💛", {
+      duration: 4000,
+    });
   };
 
   const handleStartAssessment = () => {
     console.log('[PatientMode] Starting assessment - switching to caregiver mode');
-    // Switch to caregiver mode and trigger assessment
     setUiMode('caregiver');
     
-    // Small delay to let the mode switch render, then trigger assessment
     setTimeout(() => {
       console.log('[PatientMode] Triggering assessment modal');
       if (onStartAssessment) {
@@ -70,6 +98,27 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
       }
     }, 100);
   };
+
+  const handleSelectGame = (exerciseId: string) => {
+    const route = EXERCISE_ROUTES[exerciseId];
+    if (route) {
+      navigate(route, { 
+        state: { 
+          fromLesson: false,
+          userId,
+          profileId,
+        }
+      });
+    }
+  };
+
+  // Get accessible games for picker
+  const availableGames = accessibleExercises
+    .filter(exerciseId => PATIENT_GAME_INFO[exerciseId])
+    .map(exerciseId => ({
+      id: exerciseId,
+      ...PATIENT_GAME_INFO[exerciseId],
+    }));
 
   // Loading state (initial load)
   if (viewState === 'loading') {
@@ -173,13 +222,71 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
+  // Game Picker View
+  if (showGamePicker) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
+        <div className="max-w-2xl mx-auto">
+          {/* Back button */}
+          <Button
+            variant="ghost"
+            onClick={() => setShowGamePicker(false)}
+            className="mb-4 min-h-[48px] text-lg"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-6 md:p-8 shadow-xl border-2">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                Choose a Game
+              </h1>
+              <p className="text-muted-foreground">
+                Pick any exercise you'd like to practice
+              </p>
+            </div>
+
+            {/* Game grid - 1 column on mobile, 2 on larger */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {availableGames.map((game) => (
+                <button
+                  key={game.id}
+                  onClick={() => handleSelectGame(game.id)}
+                  className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
+                    hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
+                    min-h-[80px] touch-manipulation"
+                >
+                  <span className="text-3xl">{game.emoji}</span>
+                  <div className="flex-1">
+                    <span className="font-semibold text-foreground block">{game.name}</span>
+                    <span className="text-sm text-muted-foreground">{game.desc}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {availableGames.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                Complete the initial assessment to unlock games.
+              </p>
+            )}
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   // Main Patient Mode view - ready state
   return (
     <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
       <div className="absolute top-4 right-4 z-10">
         <UiModeToggle />
       </div>
-      <Card className="max-w-3xl w-full p-8 md:p-16 space-y-12 text-center shadow-2xl border-2">
+      <Card className="max-w-3xl w-full p-8 md:p-16 space-y-10 text-center shadow-2xl border-2">
         {/* Friendly greeting */}
         <div className="space-y-4">
           <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
@@ -191,7 +298,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
         </div>
 
         {/* Big primary button - Extra large touch target */}
-        <div className="pt-8">
+        <div className="space-y-4">
           <Button
             onClick={handleStartSession}
             size="lg"
@@ -205,10 +312,21 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
           <p id="session-help-text" className="sr-only">
             This button will start your personalized therapy exercises for today
           </p>
+
+          {/* Secondary: Choose a game */}
+          <Button
+            onClick={() => setShowGamePicker(true)}
+            variant="outline"
+            size="lg"
+            className="w-full min-h-[72px] text-xl md:text-2xl font-semibold px-6 py-4 rounded-xl border-2"
+          >
+            <Gamepad2 className="w-7 h-7 mr-3 shrink-0" />
+            Choose a game I like
+          </Button>
         </div>
 
-        {/* Small secondary option - Still accessible */}
-        <div className="pt-6">
+        {/* Small rest option */}
+        <div>
           <Button
             onClick={handleRest}
             variant="ghost"

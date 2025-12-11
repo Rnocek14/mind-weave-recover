@@ -88,6 +88,8 @@ const Dashboard = () => {
   const tabs = ['overview', 'analytics', 'clinical'];
   const currentTabIndex = tabs.indexOf(activeTab);
 
+  // Disable swipe gestures on mobile to prevent conflicts with game carousels
+  // Tab switching is tap-only for better accessibility and UX
   useSwipeGesture({
     onSwipeLeft: () => {
       if (currentTabIndex < tabs.length - 1) {
@@ -99,7 +101,7 @@ const Dashboard = () => {
         handleTabChange(tabs[currentTabIndex - 1]);
       }
     },
-    enabled: isMobile,
+    enabled: false, // Disabled on all devices - tap-only navigation
   });
 
   useEffect(() => {
