@@ -136,7 +136,6 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
-  // No assessment state - need to do initial assessment
   if (viewState === 'needs-assessment') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
@@ -150,17 +149,28 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
               Let's get started!
             </h2>
             <p className="text-xl md:text-2xl text-muted-foreground font-medium">
-              We need to do a quick check first to personalize your exercises.
+              Do a quick check to personalize your exercises, or just try a game!
             </p>
           </div>
-          <Button
-            onClick={handleStartAssessment}
-            size="lg"
-            className="w-full min-h-[140px] md:min-h-[160px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl px-8 py-6 rounded-2xl"
-          >
-            <Play className="w-12 h-12 md:w-14 md:h-14 mr-4 shrink-0" />
-            <span>Start Setup</span>
-          </Button>
+          <div className="space-y-4">
+            <Button
+              onClick={handleStartAssessment}
+              size="lg"
+              className="w-full min-h-[120px] md:min-h-[140px] text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl px-8 py-6 rounded-2xl"
+            >
+              <Play className="w-10 h-10 md:w-12 md:h-12 mr-4 shrink-0" />
+              <span>Start Setup</span>
+            </Button>
+            <Button
+              onClick={() => setShowGamePicker(true)}
+              variant="outline"
+              size="lg"
+              className="w-full min-h-[72px] text-xl md:text-2xl font-semibold px-6 py-4 rounded-xl border-2"
+            >
+              <Gamepad2 className="w-7 h-7 mr-3 shrink-0" />
+              Just try a game
+            </Button>
+          </div>
         </Card>
       </div>
     );
