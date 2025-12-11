@@ -333,7 +333,7 @@ const Exercise = () => {
     return () => clearInterval(interval);
   }, [isPlaying, sessionStartTime]);
 
-  const startExercise = async () => {
+  const startExercise = async (moodOverride?: number) => {
     // Check dose cap before allowing start
     if (doseCap.enforceCaps && !doseCap.canStartSession) {
       toast({
@@ -345,8 +345,11 @@ const Exercise = () => {
       return;
     }
 
+    // Use override or existing mood value
+    const effectiveMood = moodOverride ?? preMood;
+
     // Skip mood check-in when in lesson mode
-    if (!preMood && !fromLesson) {
+    if (!effectiveMood && !fromLesson) {
       setShowMoodCheckIn(true);
       return;
     }
@@ -404,8 +407,8 @@ const Exercise = () => {
   const handleMoodSelect = (mood: number) => {
     setPreMood(mood);
     setShowMoodCheckIn(false);
-    // Continue to exercise start
-    setTimeout(() => startExercise(), 100);
+    // Pass mood directly to avoid stale closure
+    setTimeout(() => startExercise(mood), 100);
   };
 
   const handleSessionEnd = async () => {
@@ -786,7 +789,7 @@ const Exercise = () => {
               <Button 
                 size="lg" 
                 className="bg-gradient-healing text-lg px-12 py-6"
-                onClick={startExercise}
+                onClick={() => startExercise()}
               >
                 <Play className="w-6 h-6 mr-2" />
                 Start Exercise
