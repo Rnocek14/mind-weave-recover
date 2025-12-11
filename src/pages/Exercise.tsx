@@ -238,36 +238,9 @@ const Exercise = () => {
     const roundScore = Math.floor(Math.random() * 20) + 80; // 80-100
     setScore(prev => prev + roundScore);
     
-    // Check engagement state and trigger interventions
-    if (engagementState.recommendedAction === 'confidence_boost') {
-      await logIntervention('frustration', 'confidence_boost');
-      setShowConfidenceBoost(true);
-      setIsPlaying(false);
-      return;
-    } else if (engagementState.recommendedAction === 'break_prompt') {
-      await logIntervention('fatigue', 'break_prompt');
-      setShowBreakPrompt(true);
-      setIsPlaying(false);
-      return;
-    } else if (engagementState.recommendedAction === 'difficulty_down') {
-      await logIntervention('frustration', 'difficulty_down');
-      const newLevel = Math.max(1, level - 2);
-      await saveLevel(newLevel);
-      toast({
-        title: "Adjusting Difficulty",
-        description: "We've made things a bit easier to help you succeed",
-      });
-    } else if (engagementState.recommendedAction === 'session_end') {
-      await logIntervention('critical_state', 'session_end');
-      setIsPlaying(false);
-      setShowResult(true);
-      toast({
-        title: "Time to Rest",
-        description: "You've worked really hard today. Let's take a break.",
-        variant: "default"
-      });
-      return;
-    }
+    // Engagement interventions disabled - were interrupting sessions
+    // Keeping engagement tracking for analytics but not triggering UI interruptions
+    // Users can end session voluntarily via the End button
     
     if (currentRound >= totalRounds) {
       setIsPlaying(false);
