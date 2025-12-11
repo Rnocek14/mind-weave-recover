@@ -82,12 +82,21 @@ export const ReachTapGame = ({
     },
   });
 
-  // Calculate target size based on difficulty (level 1-10)
-  const getTargetSize = (difficulty: number): number => {
-    const baseSize = slowMode 
-      ? Math.max(70, 130 - (difficulty * 6))  // Slow mode: 130px -> 70px (+30px boost)
-      : Math.max(40, 100 - (difficulty * 6)); // Normal: 100px -> 40px
-    return baseSize;
+  // Calculate target size as percentage of container with min/max clamps
+  const getTargetSize = (difficulty: number, containerWidth: number): number => {
+    // Base percentage: higher difficulty = smaller target
+    // Slow mode: 18% -> 10% of container, Normal: 14% -> 6%
+    const basePercent = slowMode 
+      ? Math.max(10, 18 - (difficulty * 0.8))  
+      : Math.max(6, 14 - (difficulty * 0.8));
+    
+    const calculatedSize = (containerWidth * basePercent) / 100;
+    
+    // Clamp between min (accessible touch target) and max (not ridiculously large)
+    const minSize = slowMode ? 48 : 40;  // Minimum 48px for accessibility
+    const maxSize = slowMode ? 90 : 70;  // Maximum reasonable size
+    
+    return Math.max(minSize, Math.min(maxSize, calculatedSize));
   };
 
   // Calculate timeout based on difficulty
@@ -107,10 +116,10 @@ export const ReachTapGame = ({
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
-    const size = getTargetSize(currentDifficulty);
+    const size = getTargetSize(currentDifficulty, containerRect.width);
     
     // Ensure target stays within bounds with padding
-    const padding = 20;
+    const padding = Math.max(10, containerRect.width * 0.03); // Responsive padding
     const maxX = containerRect.width - size - padding;
     const maxY = containerRect.height - size - padding;
     

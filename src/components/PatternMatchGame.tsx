@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Sparkles, Check, X, Star, Award } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface PatternMatchGameProps {
@@ -58,6 +59,17 @@ export const PatternMatchGame = ({
   const [feedbackType, setFeedbackType] = useState<'success' | 'incorrect'>('success');
   const [trialStartTime, setTrialStartTime] = useState(0);
   const [showingProgress, setShowingProgress] = useState(100);
+  
+  const isMobile = useIsMobile();
+  
+  // Responsive shape sizes based on device
+  const getShapeSize = (context: 'display' | 'option'): number => {
+    if (context === 'display') {
+      return isMobile ? 36 : 50;
+    }
+    // Options need slightly smaller shapes
+    return isMobile ? 28 : 36;
+  };
 
   const { playSuccess, playError, playLevelUp, playLevelDown, playStreak } = useGameSounds();
 
@@ -319,28 +331,32 @@ export const PatternMatchGame = ({
       </div>
 
       {/* Pattern display area */}
-      <div className="bg-card border rounded-xl p-6 min-h-[120px] flex items-center justify-center">
+      <div className="bg-card border rounded-xl p-4 md:p-6 min-h-[100px] md:min-h-[120px] flex items-center justify-center">
         {phase === 'showing' && (
-          <div className="flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center animate-in fade-in zoom-in duration-300">
             {pattern.map((item, idx) => (
-              <div key={idx} className="p-2 bg-background rounded-lg shadow-sm">
-                {renderShape(item, 50)}
+              <div key={idx} className="p-1.5 md:p-2 bg-background rounded-lg shadow-sm">
+                {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
           </div>
         )}
         {phase === 'matching' && (
-          <div className="flex items-center gap-4 opacity-30">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center opacity-30">
             {pattern.map((_, idx) => (
-              <div key={idx} className="w-[50px] h-[50px] border-2 border-dashed border-muted-foreground/30 rounded-lg" />
+              <div 
+                key={idx} 
+                className="border-2 border-dashed border-muted-foreground/30 rounded-lg"
+                style={{ width: getShapeSize('display'), height: getShapeSize('display') }}
+              />
             ))}
           </div>
         )}
         {phase === 'feedback' && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center">
             {pattern.map((item, idx) => (
-              <div key={idx} className={`p-2 rounded-lg ${feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background'}`}>
-                {renderShape(item, 50)}
+              <div key={idx} className={`p-1.5 md:p-2 rounded-lg ${feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background'}`}>
+                {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
           </div>
@@ -349,17 +365,17 @@ export const PatternMatchGame = ({
 
       {/* Options grid */}
       {phase === 'matching' && (
-        <div className={`grid gap-4 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+        <div className={`grid gap-2 md:gap-4 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
           {options.map((option, optIdx) => (
             <button
               key={optIdx}
               onClick={() => handleSelect(optIdx)}
-              className="p-4 bg-card border-2 border-muted hover:border-primary rounded-xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary"
+              className="p-3 md:p-4 bg-card border-2 border-muted hover:border-primary rounded-xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] md:min-h-[80px]"
             >
-              <div className="flex items-center justify-center gap-2 flex-wrap">
+              <div className="flex items-center justify-center gap-1.5 md:gap-2 flex-wrap">
                 {option.map((item, itemIdx) => (
                   <div key={itemIdx}>
-                    {renderShape(item, 36)}
+                    {renderShape(item, getShapeSize('option'))}
                   </div>
                 ))}
               </div>
