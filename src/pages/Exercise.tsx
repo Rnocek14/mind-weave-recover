@@ -669,7 +669,7 @@ const Exercise = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-screen bg-gradient-calm flex flex-col">
       {/* Intervention Modals */}
       <ConfidenceBoost
         open={showConfidenceBoost}
@@ -695,41 +695,45 @@ const Exercise = () => {
         }}
       />
 
-      <div className="container mx-auto max-w-4xl">
-        <div className="flex items-center gap-2 mb-6">
+      <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col">
+        {/* Compact navigation */}
+        <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-4">
           <Button 
-            variant="ghost" 
+            variant="ghost"
+            size="sm"
             onClick={() => {
               trackBehavior('end_attempt');
               navigate("/dashboard");
             }}
+            className="px-2 sm:px-3"
           >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            <ChevronLeft className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
           </Button>
           
           {fromLesson && (
             <Button
               variant="outline"
+              size="sm"
               onClick={handleSkipExercise}
-              className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+              className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950 px-2 sm:px-3"
             >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Skip - Too Difficult
+              <SkipForward className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Skip</span>
             </Button>
           )}
         </div>
 
-        {/* Clinical Profile Widget */}
+        {/* Clinical Profile Widget - hidden on mobile */}
         {clinicalProfile && (
-          <div className="mb-6">
+          <div className="hidden md:block mb-4">
             <StrokeProfileWidget profile={clinicalProfile} />
           </div>
         )}
 
         {/* Dose Cap Warning */}
         {isPlaying && doseCap.enforceCaps && (doseCap.warningLevel === 'warning' || doseCap.warningLevel === 'limit') && (
-          <div className="mb-6">
+          <div className="mb-2 sm:mb-4">
             <DoseCapWarning
               minutesPracticed={doseCap.todayMinutes + sessionDurationMinutes}
               dailyCapMinutes={doseCap.dailyCapMinutes}
@@ -742,26 +746,26 @@ const Exercise = () => {
           </div>
         )}
 
-        {/* Header */}
-        <Card className="p-6 mb-6 shadow-card">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">
+        {/* Compact Header */}
+        <Card className="p-3 sm:p-4 md:p-6 mb-2 sm:mb-4 shadow-card">
+          <div className="flex justify-between items-start mb-2 sm:mb-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 truncate">
                 {exercise.title}
               </h1>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Volume2 className="w-4 h-4" />
-                <p>{exercise.instruction}</p>
+              <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
+                <Volume2 className="w-4 h-4 shrink-0 hidden sm:block" />
+                <p className="truncate">{exercise.instruction}</p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-primary">{score}</div>
-              <div className="text-sm text-muted-foreground">Score</div>
+            <div className="text-right shrink-0 ml-2">
+              <div className="text-xl sm:text-2xl font-bold text-primary">{score}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">Score</div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="space-y-1 sm:space-y-2">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground">
                 Round {currentRound} of {totalRounds}
               </span>
@@ -769,12 +773,12 @@ const Exercise = () => {
                 {Math.round((currentRound / totalRounds) * 100)}%
               </span>
             </div>
-            <Progress value={(currentRound / totalRounds) * 100} className="h-2" />
+            <Progress value={(currentRound / totalRounds) * 100} className="h-1.5 sm:h-2" />
           </div>
         </Card>
 
-        {/* Exercise Area */}
-        <Card className="p-8 md:p-12 mb-6 shadow-card min-h-[400px] flex flex-col items-center justify-center">
+        {/* Exercise Area - fills remaining space */}
+        <Card className="p-4 sm:p-8 md:p-12 mb-2 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center">
           {!isPlaying ? (
             <div className="text-center space-y-6">
               <div className="w-32 h-32 mx-auto rounded-full bg-gradient-healing flex items-center justify-center animate-pulse-glow">

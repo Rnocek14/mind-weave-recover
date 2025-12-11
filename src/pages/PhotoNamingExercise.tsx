@@ -257,35 +257,40 @@ export default function PhotoNamingExercise() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
+      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 max-w-4xl flex-1 flex flex-col">
+        {/* Compact header on mobile */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button 
               variant="ghost"
+              size="sm"
               onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
+              className="px-2 sm:px-3"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {fromLesson ? 'Back to Lesson' : 'Back'}
+              <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">{fromLesson ? 'Back to Lesson' : 'Back'}</span>
             </Button>
             
             {fromLesson && (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleSkipExercise}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950 px-2 sm:px-3"
               >
-                <SkipForward className="w-4 h-4 mr-2" />
-                Skip - Too Difficult
+                <SkipForward className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Skip</span>
               </Button>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          {/* Controls - hidden on mobile, visible on sm+ */}
+          <div className="hidden sm:flex items-center gap-2">
             <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -296,7 +301,7 @@ export default function PhotoNamingExercise() {
             </Select>
 
             <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -316,8 +321,8 @@ export default function PhotoNamingExercise() {
           </div>
         </div>
 
-        {/* Optional caregiver notes */}
-        <Card className="p-4 bg-muted/50 mb-6">
+        {/* Optional caregiver notes - hidden on mobile */}
+        <Card className="hidden md:block p-4 bg-muted/50 mb-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">
@@ -336,6 +341,8 @@ export default function PhotoNamingExercise() {
           </div>
         </Card>
 
+        {/* Game area - fills remaining space */}
+        <div className="flex-1 min-h-0">
         {trials.length > 0 ? (
           <PhotoNamingGame
             key={gameKey}
@@ -350,22 +357,23 @@ export default function PhotoNamingExercise() {
             customTrials={trials}
           />
         ) : (
-          <Card className="p-8 text-center">
-            <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No photos available</h3>
-            <p className="text-muted-foreground mb-4">
+          <Card className="p-4 sm:p-8 text-center">
+            <Camera className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">No photos available</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4">
               {photoSource === 'custom' 
                 ? "You haven't added any photos yet. Add some family photos to get started!"
                 : "No photos available for this selection."}
             </p>
             <Link to="/photo-library">
-              <Button>
+              <Button size="sm">
                 <Camera className="mr-2 h-4 w-4" />
                 Add Your First Photo
               </Button>
             </Link>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );
