@@ -179,19 +179,19 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             <Button
               onClick={handleStartAssessment}
               size="lg"
-              className="w-full min-h-[120px] md:min-h-[140px] text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl px-8 py-6 rounded-2xl"
+              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
             >
-              <Play className="w-10 h-10 md:w-12 md:h-12 mr-4 shrink-0" />
+              <Play className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 shrink-0" />
               <span>Start Setup</span>
             </Button>
             <Button
               onClick={() => setShowGamePicker(true)}
               variant="outline"
               size="lg"
-              className="w-full min-h-[72px] text-xl md:text-2xl font-semibold px-6 py-4 rounded-xl border-2"
+              className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
             >
-              <Gamepad2 className="w-7 h-7 mr-3 shrink-0" />
-              Just try a game
+              <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
+              <span>Just try a game</span>
             </Button>
           </div>
         </Card>
@@ -342,10 +342,10 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             size="lg"
             aria-label="Start today's therapy session"
             aria-describedby="session-help-text"
-            className="w-full min-h-[140px] md:min-h-[180px] text-3xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-8 py-6 rounded-2xl"
+            className="w-full min-h-[120px] sm:min-h-[140px] md:min-h-[180px] text-xl sm:text-2xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
           >
-            <Play className="w-12 h-12 md:w-16 md:h-16 mr-4 shrink-0" />
-            <span>Start Today's Session</span>
+            <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 shrink-0" />
+            <span className="text-center leading-tight">Start Today's Session</span>
           </Button>
           <p id="session-help-text" className="sr-only">
             This button will start your personalized therapy exercises for today
@@ -356,10 +356,10 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             onClick={() => setShowGamePicker(true)}
             variant="outline"
             size="lg"
-            className="w-full min-h-[72px] text-xl md:text-2xl font-semibold px-6 py-4 rounded-xl border-2"
+            className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
           >
-            <Gamepad2 className="w-7 h-7 mr-3 shrink-0" />
-            Choose a game I like
+            <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
+            <span>Choose a game I like</span>
           </Button>
         </div>
 
