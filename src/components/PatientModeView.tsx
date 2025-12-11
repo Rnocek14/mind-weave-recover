@@ -9,7 +9,6 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
-import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { toast } from "sonner";
 
 interface PatientModeViewProps {
@@ -63,7 +62,6 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
-  const { accessibleExercises } = useExerciseGating(userId, profileId);
   const [showGamePicker, setShowGamePicker] = useState(false);
 
   const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
@@ -112,13 +110,11 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     }
   };
 
-  // Get accessible games for picker
-  const availableGames = accessibleExercises
-    .filter(exerciseId => PATIENT_GAME_INFO[exerciseId])
-    .map(exerciseId => ({
-      id: exerciseId,
-      ...PATIENT_GAME_INFO[exerciseId],
-    }));
+  // Show ALL games in free play mode - gating is for guided lessons only
+  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
+    id,
+    ...info,
+  }));
 
   // Loading state (initial load)
   if (viewState === 'loading') {
