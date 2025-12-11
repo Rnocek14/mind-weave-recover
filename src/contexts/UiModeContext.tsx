@@ -17,11 +17,8 @@ interface UiModeProviderProps {
 const UI_MODE_KEY = 'therapyPlatform_uiMode';
 
 export function UiModeProvider({ children }: UiModeProviderProps) {
-  const [uiMode, setUiModeState] = useState<UiMode>(() => {
-    // Load from localStorage, default to patient mode
-    const stored = localStorage.getItem(UI_MODE_KEY);
-    return (stored === 'patient' || stored === 'caregiver') ? stored : 'patient';
-  });
+  // Always start in patient mode - caregiver can toggle when needed
+  const [uiMode, setUiModeState] = useState<UiMode>('patient');
 
   useEffect(() => {
     // Persist to localStorage whenever mode changes
