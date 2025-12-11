@@ -21,16 +21,39 @@ interface PatientModeViewProps {
 // Explicit state machine for patient view
 type PatientViewState = 'loading' | 'needs-assessment' | 'generating-lesson' | 'ready';
 
-// Patient-friendly game info with emojis and simple descriptions
-const PATIENT_GAME_INFO: Record<string, { emoji: string; name: string; desc: string }> = {
-  'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture' },
-  'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear' },
-  'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side' },
-  'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes' },
-  'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds' },
-  'semantic-features': { emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are' },
-  'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order' },
-  'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases' },
+// Patient-friendly game info with emojis, descriptions, and difficulty labels
+type GameDifficulty = 'easy' | 'medium' | 'challenge';
+type GameCategory = 'motor' | 'speech' | 'thinking';
+
+interface GameInfo {
+  emoji: string;
+  name: string;
+  desc: string;
+  difficulty: GameDifficulty;
+  category: GameCategory;
+}
+
+const DIFFICULTY_LABELS: Record<GameDifficulty, { text: string; className: string }> = {
+  'easy': { text: 'Good start', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  'medium': { text: 'Try me', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  'challenge': { text: 'Challenge', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+};
+
+const CATEGORY_LABELS: Record<GameCategory, string> = {
+  'motor': '🖐️ Motor',
+  'speech': '🗣️ Speech',
+  'thinking': '🧠 Thinking',
+};
+
+const PATIENT_GAME_INFO: Record<string, GameInfo> = {
+  'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear', difficulty: 'easy', category: 'motor' },
+  'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases', difficulty: 'easy', category: 'speech' },
+  'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech' },
+  'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side', difficulty: 'medium', category: 'motor' },
+  'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds', difficulty: 'medium', category: 'speech' },
+  'semantic-features': { emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are', difficulty: 'medium', category: 'thinking' },
+  'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes', difficulty: 'challenge', category: 'thinking' },
+  'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech' },
 };
 
 // Route map for exercises
@@ -258,21 +281,30 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
 
             {/* Game grid - 1 column on mobile, 2 on larger */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {availableGames.map((game) => (
-                <button
-                  key={game.id}
-                  onClick={() => handleSelectGame(game.id)}
-                  className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
-                    hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
-                    min-h-[80px] touch-manipulation"
-                >
-                  <span className="text-3xl">{game.emoji}</span>
-                  <div className="flex-1">
-                    <span className="font-semibold text-foreground block">{game.name}</span>
-                    <span className="text-sm text-muted-foreground">{game.desc}</span>
-                  </div>
-                </button>
-              ))}
+              {availableGames.map((game) => {
+                const difficultyInfo = DIFFICULTY_LABELS[game.difficulty];
+                return (
+                  <button
+                    key={game.id}
+                    onClick={() => handleSelectGame(game.id)}
+                    className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
+                      hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
+                      min-h-[90px] touch-manipulation"
+                  >
+                    <span className="text-3xl">{game.emoji}</span>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground">{game.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyInfo.className}`}>
+                          {difficultyInfo.text}
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground block">{game.desc}</span>
+                      <span className="text-xs text-muted-foreground/70">{CATEGORY_LABELS[game.category]}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {availableGames.length === 0 && (
