@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
   Play, Pause, RotateCcw, CheckCircle2, 
-  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle, SkipForward 
+  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle, SkipForward, XCircle 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
@@ -998,32 +998,31 @@ const Exercise = () => {
 
         {/* Fixed Safety Controls - Always visible during exercise */}
         {isPlaying && (
-          <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-4 z-50">
-            <div className="container mx-auto max-w-4xl flex flex-wrap justify-center gap-3">
+          <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-2 sm:p-4 z-50">
+            <div className="container mx-auto max-w-4xl flex justify-center gap-2 sm:gap-3">
               <Button
                 variant="outline"
-                size="lg"
-                className="min-w-[120px] min-h-[60px] text-lg"
+                size="sm"
+                className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={() => setIsPlaying(false)}
               >
-                <Pause className="w-6 h-6 mr-2" />
-                Pause
+                <Pause className="w-5 h-5 sm:mr-2" />
+                <span className="hidden sm:inline">Pause</span>
               </Button>
               <Button
-                className="bg-success min-w-[160px] min-h-[60px] text-lg"
-                size="lg"
+                className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
+                size="sm"
                 onClick={() => handleRoundComplete(true)}
               >
-                <CheckCircle2 className="w-6 h-6 mr-2" />
-                I Said It!
+                <CheckCircle2 className="w-5 h-5 sm:mr-2" />
+                <span className="hidden sm:inline">I Said It!</span>
               </Button>
               <Button
                 variant="secondary"
-                size="lg"
-                className="min-w-[140px] min-h-[60px] text-lg"
+                size="sm"
+                className="min-w-[60px] sm:min-w-[120px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={async () => {
                   const newLevel = await stepDown(sessionId ?? undefined);
-                  // Optionally adjust current round difficulty based on newLevel
                   toast({
                     title: "Adjusted!",
                     description: `Difficulty lowered to level ${newLevel}`,
@@ -1031,19 +1030,20 @@ const Exercise = () => {
                 }}
                 title="We'll make the next step easier"
               >
-                <HelpCircle className="w-6 h-6 mr-2" />
-                Too Hard
+                <HelpCircle className="w-5 h-5 sm:mr-2" />
+                <span className="hidden sm:inline">Too Hard</span>
               </Button>
               <Button
                 variant="destructive"
-                size="lg"
-                className="min-w-[120px] min-h-[60px] text-lg"
+                size="sm"
+                className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={() => {
                   setIsPlaying(false);
                   navigate("/dashboard");
                 }}
               >
-                End Session
+                <span className="hidden sm:inline">End</span>
+                <XCircle className="w-5 h-5 sm:hidden" />
               </Button>
             </div>
           </div>
