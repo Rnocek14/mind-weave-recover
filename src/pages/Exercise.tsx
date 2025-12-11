@@ -511,20 +511,8 @@ const Exercise = () => {
     startExercise();
   };
 
-  // Check for rest prompt every minute
-  useEffect(() => {
-    if (!isPlaying || !sessionStartTime) return;
-
-    const checkInterval = setInterval(() => {
-      const elapsed = (Date.now() - sessionStartTime) / 1000 / 60; // minutes
-      if (elapsed >= 10 && !showRestPrompt) {
-        setIsPlaying(false);
-        setShowRestPrompt(true);
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(checkInterval);
-  }, [isPlaying, sessionStartTime, showRestPrompt]);
+  // Rest prompt disabled - was interrupting sessions after 10 minutes
+  // Users can end session voluntarily via the End button
 
   const resetExercise = () => {
     setIsPlaying(false);
