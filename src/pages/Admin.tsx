@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, ChevronLeft, Image as ImageIcon, Loader2, Database, Brain } from "lucide-react";
+import { Upload, Trash2, ChevronLeft, Image as ImageIcon, Loader2, Database, Brain, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import ClinicalReviewDashboard from "@/components/ClinicalReviewDashboard";
 
 interface Photo {
   id: string;
@@ -239,185 +241,209 @@ const Admin = () => {
           </Button>
         </div>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
           <p className="text-muted-foreground">
-            Upload and manage custom photos for therapy exercises
+            Manage photos, review utterances, and compute speech profiles
           </p>
         </div>
 
-        {/* Speech Profile Computation Section */}
-        <Card className="p-6 mb-8 shadow-card">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Brain className="w-5 h-5" />
-            User Speech Profile
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Compute personalized cue efficacy profile from exercise trial data. This analyzes which cue types work best for the current user.
-          </p>
-          <Button
-            onClick={async () => {
-              if (!user) return;
-              setComputingProfile(true);
-              try {
-                const { data, error } = await supabase.functions.invoke('compute-speech-profile', {
-                  body: { user_id: user.id }
-                });
+        <Tabs defaultValue="review" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="review" className="flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4" />
+              Clinical Review
+            </TabsTrigger>
+            <TabsTrigger value="photos" className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4" />
+              Photo Library
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              Tools
+            </TabsTrigger>
+          </TabsList>
 
-                if (error) throw error;
+          <TabsContent value="review">
+            <ClinicalReviewDashboard />
+          </TabsContent>
 
-                console.log('Speech profile computed:', data);
-                toast({
-                  title: "Profile Computed",
-                  description: `Processed ${data.eventsProcessed} exercise events successfully.`,
-                });
-              } catch (error) {
-                console.error('Error computing profile:', error);
-                toast({
-                  title: "Error",
-                  description: error instanceof Error ? error.message : "Failed to compute speech profile",
-                  variant: "destructive",
-                });
-              } finally {
-                setComputingProfile(false);
-              }
-            }}
-            disabled={computingProfile || !user}
-            className="bg-gradient-healing"
-          >
-            {computingProfile ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Computing...
-              </>
-            ) : (
-              <>
-                <Brain className="w-4 h-4 mr-2" />
-                Recompute Speech Profile
-              </>
-            )}
-          </Button>
-        </Card>
+          <TabsContent value="photos" className="space-y-6">
+            {/* Upload Section */}
+            <Card className="p-6 shadow-card">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Upload New Photo
+              </h2>
 
-        {/* Upload Section */}
-        <Card className="p-6 mb-8 shadow-card">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Upload New Photo
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="file">Photo File</Label>
-              <Input
-                id="file"
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                disabled={uploading}
-              />
-              {selectedFile && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)}KB)
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="name">Photo Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g., red apple, blue car, etc."
-                value={photoName}
-                onChange={(e) => setPhotoName(e.target.value)}
-                disabled={uploading}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="labels">Labels (comma-separated)</Label>
-              <Input
-                id="labels"
-                placeholder="e.g., apple, fruit, food"
-                value={labels}
-                onChange={(e) => setLabels(e.target.value)}
-                disabled={uploading}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Add labels to help categorize and search photos
-              </p>
-            </div>
-
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || !photoName || uploading}
-              className="bg-gradient-healing"
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Photo
-                </>
-              )}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Photo Library */}
-        <Card className="p-6 shadow-card">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <ImageIcon className="w-5 h-5" />
-            Photo Library ({photos.length})
-          </h2>
-
-          {photos.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p>No photos uploaded yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {photos.map((photo) => (
-                <Card key={photo.id} className="overflow-hidden">
-                  <div className="aspect-square bg-muted relative">
-                    <img
-                      src={getPhotoUrl(photo.storage_path)}
-                      alt={photo.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold mb-2">{photo.name}</h3>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {photo.labels.map((label, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Uploaded {new Date(photo.created_at).toLocaleDateString()}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="file">Photo File</Label>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    disabled={uploading}
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)}KB)
                     </p>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleDelete(photo)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </Card>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="name">Photo Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., red apple, blue car, etc."
+                    value={photoName}
+                    onChange={(e) => setPhotoName(e.target.value)}
+                    disabled={uploading}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="labels">Labels (comma-separated)</Label>
+                  <Input
+                    id="labels"
+                    placeholder="e.g., apple, fruit, food"
+                    value={labels}
+                    onChange={(e) => setLabels(e.target.value)}
+                    disabled={uploading}
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add labels to help categorize and search photos
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || !photoName || uploading}
+                  className="bg-gradient-healing"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Photo
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+
+            {/* Photo Library */}
+            <Card className="p-6 shadow-card">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5" />
+                Photo Library ({photos.length})
+              </h2>
+
+              {photos.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>No photos uploaded yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {photos.map((photo) => (
+                    <Card key={photo.id} className="overflow-hidden">
+                      <div className="aspect-square bg-muted relative">
+                        <img
+                          src={getPhotoUrl(photo.storage_path)}
+                          alt={photo.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold mb-2">{photo.name}</h3>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {photo.labels.map((label, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Uploaded {new Date(photo.created_at).toLocaleDateString()}
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleDelete(photo)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tools">
+            <Card className="p-6 shadow-card">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                User Speech Profile
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Compute personalized cue efficacy profile from exercise trial data. This analyzes which cue types work best for the current user.
+              </p>
+              <Button
+                onClick={async () => {
+                  if (!user) return;
+                  setComputingProfile(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('compute-speech-profile', {
+                      body: { user_id: user.id }
+                    });
+
+                    if (error) throw error;
+
+                    console.log('Speech profile computed:', data);
+                    toast({
+                      title: "Profile Computed",
+                      description: `Processed ${data.eventsProcessed} exercise events successfully.`,
+                    });
+                  } catch (error) {
+                    console.error('Error computing profile:', error);
+                    toast({
+                      title: "Error",
+                      description: error instanceof Error ? error.message : "Failed to compute speech profile",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setComputingProfile(false);
+                  }
+                }}
+                disabled={computingProfile || !user}
+                className="bg-gradient-healing"
+              >
+                {computingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Computing...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    Recompute Speech Profile
+                  </>
+                )}
+              </Button>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
