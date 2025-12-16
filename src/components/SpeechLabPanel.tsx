@@ -33,6 +33,7 @@ interface PipelineStats {
   withAlignment: number;
   withGop: number;
   withAudio: number;
+  withAzure: number; // Azure pronunciation assessment data
 }
 
 interface FluencyStats {
@@ -177,7 +178,8 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           failed: 0,
           withAlignment: 0,
           withGop: 0,
-          withAudio: 0
+          withAudio: 0,
+          withAzure: 0
         };
 
         const fluencySamples: { wpm: number; pauses: number; duration: number; effortful: boolean }[] = [];
@@ -193,7 +195,14 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           }
           
           if (u.alignment_data) pipeline.withAlignment++;
-          if (u.gop_data) pipeline.withGop++;
+          if (u.gop_data) {
+            pipeline.withGop++;
+            // Check if this is Azure data
+            const gopData = u.gop_data as any;
+            if (gopData?.source === 'azure') {
+              pipeline.withAzure++;
+            }
+          }
           if (u.audio_storage_path) pipeline.withAudio++;
 
           // Fluency samples (from Whisper/browser estimates)
@@ -206,14 +215,24 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             });
           }
 
-          // Alignment samples (from MFA worker)
-          if (u.alignment_data && u.gop_data) {
+          // Alignment samples (from MFA worker OR Azure)
+          if (u.gop_data) {
             const gopData = u.gop_data as any;
-            alignmentSamples.push({
-              articulationRate: gopData?.metrics?.articulation_rate_phonemes_per_sec || 0,
-              speechRatio: u.speech_ratio || gopData?.metrics?.speech_ratio || 0,
-              gopScore: gopData?.overall_score || 0
-            });
+            if (gopData?.source === 'azure') {
+              // Azure pronunciation data
+              alignmentSamples.push({
+                articulationRate: 0, // Azure doesn't provide this
+                speechRatio: 0, // Azure doesn't provide this
+                gopScore: gopData.pronunciationScore || gopData.accuracyScore || 0
+              });
+            } else if (u.alignment_data) {
+              // MFA worker data
+              alignmentSamples.push({
+                articulationRate: gopData?.metrics?.articulation_rate_phonemes_per_sec || 0,
+                speechRatio: u.speech_ratio || gopData?.metrics?.speech_ratio || 0,
+                gopScore: gopData?.overall_score || 0
+              });
+            }
           }
         });
 
@@ -302,9 +321,24 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Worker Status */}
+        {/* Pronunciation Analysis Source */}
         <div className="flex items-center gap-3 p-3 rounded bg-muted/30">
-          {workerStatus ? (
+          {pipelineStats.withAzure > 0 ? (
+            <>
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">Azure Pronunciation Assessment: Active</span>
+                  <Badge variant="default" className="text-xs">
+                    {pipelineStats.withAzure} analyzed
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Real-time pronunciation scoring enabled (MFA worker not required)
+                </p>
+              </div>
+            </>
+          ) : workerStatus ? (
             <>
               {workerStatus.status === 'active' ? (
                 <Wifi className="w-5 h-5 text-green-500" />
@@ -331,23 +365,25 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             <>
               <WifiOff className="w-5 h-5 text-muted-foreground" />
               <div className="flex-1">
-                <span className="font-medium text-sm text-muted-foreground">MFA Worker: No heartbeat</span>
-                <p className="text-xs text-muted-foreground">Worker has not reported in yet</p>
+                <span className="font-medium text-sm text-muted-foreground">No pronunciation analysis active</span>
+                <p className="text-xs text-muted-foreground">Azure or MFA worker will analyze pronunciation when available</p>
               </div>
             </>
           )}
         </div>
 
-        {/* Worker Offline Alert - shown when jobs queued but no active worker */}
-        {pipelineStats && pipelineStats.pending > 0 && (!workerStatus || workerStatus.status !== 'active') && (
+        {/* Worker Offline Alert - only show when there are pending MFA jobs AND Azure is NOT handling them */}
+        {pipelineStats.pending > 0 && 
+         pipelineStats.withAzure === 0 && 
+         (!workerStatus || workerStatus.status !== 'active') && (
           <div className="p-4 rounded-lg border-2 border-destructive/50 bg-destructive/10">
             <div className="flex items-start gap-3">
               <WifiOff className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h4 className="font-semibold text-destructive">Worker Offline</h4>
+                <h4 className="font-semibold text-destructive">MFA Worker Offline</h4>
                 <p className="text-sm text-destructive/80 mt-1">
                   {pipelineStats.pending} job(s) are queued but no worker heartbeat is present. 
-                  Deploy/start the Fly.io worker to process MFA alignment.
+                  Azure Pronunciation Assessment is now the recommended alternative.
                 </p>
                 {queueHealth?.oldestPendingAgeMin !== null && (
                   <p className="text-xs text-muted-foreground mt-2">
@@ -440,27 +476,27 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             {pipelineStats.withAudio} utterances have audio | {pipelineStats.withAlignment} have alignment data | {pipelineStats.withGop} have GOP scores
           </div>
           
-          {pipelineStats.pending > 0 && pipelineStats.withAlignment === 0 && (
+          {pipelineStats.pending > 0 && pipelineStats.withAlignment === 0 && pipelineStats.withAzure === 0 && (
             <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded text-sm">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <span className="font-medium text-yellow-700 dark:text-yellow-300">
-                    MFA Worker Not Active
+                    No Pronunciation Analysis Active
                   </span>
                   <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
-                    {pipelineStats.pending} utterances with audio are queued but no alignment data has been produced. 
-                    The Fly.io speech worker needs to be deployed and running.
+                    {pipelineStats.pending} utterances with audio are queued. 
+                    Azure Pronunciation Assessment is now the recommended analysis method.
                   </p>
                 </div>
               </div>
             </div>
           )}
           
-          {pipelineStats.pending > 0 && pipelineStats.withAlignment > 0 && (
+          {pipelineStats.pending > 0 && (pipelineStats.withAlignment > 0 || pipelineStats.withAzure > 0) && (
             <div className="mt-2 p-2 bg-blue-500/10 rounded text-sm text-blue-700 dark:text-blue-300">
               <Clock className="w-4 h-4 inline mr-1" />
-              {pipelineStats.pending} more utterances awaiting MFA alignment
+              {pipelineStats.pending} more utterances awaiting analysis
             </div>
           )}
         </div>
@@ -499,48 +535,61 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           </div>
         )}
 
-        {/* Alignment Metrics (from MFA worker) */}
+        {/* Pronunciation Metrics (from Azure or MFA) */}
         {alignmentStats ? (
           <div>
             <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              Phoneme-Level Alignment
+              {pipelineStats.withAzure > 0 ? 'Azure Pronunciation Scores' : 'Phoneme-Level Alignment'}
               <InsightEvidenceBadge
                 windowLabel={`Last ${daysBack} days`}
                 n={alignmentStats.sampleCount}
                 confidence={alignmentStats.sampleCount >= 10 ? 'high' : alignmentStats.sampleCount >= 5 ? 'medium' : 'low'}
-                evidencePoints={['Computed from MFA forced alignment', 'GOP v1 proxy scoring']}
+                evidencePoints={pipelineStats.withAzure > 0 
+                  ? ['Azure Pronunciation Assessment API', 'Accuracy + Fluency + Completeness'] 
+                  : ['Computed from MFA forced alignment', 'GOP v1 proxy scoring']}
               />
             </h4>
             <div className="grid grid-cols-3 gap-4">
-              <div className="p-3 bg-muted/50 rounded">
-                <div className="text-2xl font-bold">{alignmentStats.avgArticulationRate}</div>
-                <div className="text-xs text-muted-foreground">Phones/sec</div>
-              </div>
-              <div className="p-3 bg-muted/50 rounded">
-                <div className="text-2xl font-bold">{alignmentStats.avgSpeechRatio}%</div>
-                <div className="text-xs text-muted-foreground">Speech Ratio</div>
-              </div>
-              <div className="p-3 bg-muted/50 rounded">
-                <div className="text-2xl font-bold">{alignmentStats.avgGopScore}%</div>
-                <div className="text-xs text-muted-foreground">GOP Score</div>
-              </div>
+              {pipelineStats.withAzure > 0 ? (
+                // Azure metrics
+                <div className="col-span-3 p-3 bg-muted/50 rounded text-center">
+                  <div className="text-3xl font-bold">{alignmentStats.avgGopScore}%</div>
+                  <div className="text-xs text-muted-foreground">Avg Pronunciation Score</div>
+                </div>
+              ) : (
+                // MFA metrics
+                <>
+                  <div className="p-3 bg-muted/50 rounded">
+                    <div className="text-2xl font-bold">{alignmentStats.avgArticulationRate}</div>
+                    <div className="text-xs text-muted-foreground">Phones/sec</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded">
+                    <div className="text-2xl font-bold">{alignmentStats.avgSpeechRatio}%</div>
+                    <div className="text-xs text-muted-foreground">Speech Ratio</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded">
+                    <div className="text-2xl font-bold">{alignmentStats.avgGopScore}%</div>
+                    <div className="text-xs text-muted-foreground">GOP Score</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : (
           <div>
             <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              Phoneme-Level Alignment
+              Pronunciation Analysis
             </h4>
             <div className="p-4 bg-muted/30 rounded text-sm text-muted-foreground">
               <AlertCircle className="w-4 h-4 inline mr-2" />
-              No alignment data available yet. 
+              No pronunciation data available yet. 
               {pipelineStats.pending > 0 
-                ? ` ${pipelineStats.pending} utterances are queued for MFA analysis.`
+                ? ` ${pipelineStats.pending} utterances are queued for analysis.`
                 : pipelineStats.withAudio === 0 
                   ? ' No audio recordings found.'
-                  : ' The MFA worker may not be running.'}
+                  : ' Enable Azure Pronunciation Assessment for real-time scoring.'}
             </div>
           </div>
         )}
