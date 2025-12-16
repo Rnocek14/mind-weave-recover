@@ -32,9 +32,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Health check endpoint - only gate on path, not method
+  // Health check endpoint - explicitly require GET + /health path
   const url = new URL(req.url);
-  if (url.pathname.endsWith('/health')) {
+  if (req.method === 'GET' && url.pathname.endsWith('/health')) {
     const hasKey = !!Deno.env.get('AZURE_SPEECH_KEY');
     const hasRegion = !!Deno.env.get('AZURE_SPEECH_REGION');
     return new Response(
