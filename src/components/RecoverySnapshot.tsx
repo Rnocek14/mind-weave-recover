@@ -12,6 +12,7 @@
 import { memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { RecoveryMotivationCards } from '@/components/RecoveryMotivationCards';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -129,6 +130,7 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   return (
     <div className="space-y-6">
       {/* Section 1: Recovery Trend - "Am I improving?" */}
+      <RecoveryMotivationCards userId={userId} />
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
           <CardDescription className="text-xs uppercase tracking-wide">Your Recovery</CardDescription>
