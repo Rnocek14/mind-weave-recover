@@ -182,6 +182,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       errorType: analysis.errorType,
       sessionId: ctx.sessionId,
       hasAudio: !!analysis.audioStoragePath,
+      pipelineStatus: analysis.audioStoragePath ? 'pending_alignment' : 'complete_no_audio',
       phonologicalSim: analysis.phonologicalSimilarity,
       semanticSim: analysis.semanticSimilarity,
       cueTypeGiven: analysis.cueTypeGiven,
@@ -190,6 +191,10 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     });
 
     try {
+      // Determine analysis status: 'pending' if audio available (for MFA worker), else 'complete'
+      const hasAudioForAnalysis = !!analysis.audioStoragePath;
+      const analysisStatus = hasAudioForAnalysis ? 'pending' : 'complete';
+      
       // Upsert to utterance_analyses (clean analytics table)
       const { error: uaError } = await supabase
         .from('utterance_analyses')
@@ -223,7 +228,11 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           recording_duration_ms: analysis.recordingDurationMs,
           audio_storage_path: analysis.audioStoragePath,
           fluency_available: analysis.fluencyAvailable,
-          fluency_unavailable_reason: analysis.fluencyUnavailableReason
+          fluency_unavailable_reason: analysis.fluencyUnavailableReason,
+          // Pipeline status: 'pending' enables MFA worker to claim job
+          analysis_status: analysisStatus,
+          next_retry_at: hasAudioForAnalysis ? new Date().toISOString() : null,
+          analysis_priority: hasAudioForAnalysis ? 1 : 0
         }, {
           onConflict: 'attempt_id'
         });
