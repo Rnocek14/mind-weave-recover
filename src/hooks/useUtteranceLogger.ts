@@ -63,6 +63,13 @@ interface UtteranceLoggerReturn {
     timeToSuccessAfterCueMs?: number;
     audioStoragePath?: string;
     recordingDurationMs?: number;
+    // Azure Pronunciation Assessment scores
+    pronunciationScore?: number;
+    accuracyScore?: number;
+    fluencyScore?: number;
+    completenessScore?: number;
+    prosodyScore?: number;
+    gopData?: any; // Full Azure response with word/phoneme-level data
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -152,6 +159,13 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     timeToSuccessAfterCueMs?: number;
     audioStoragePath?: string;
     recordingDurationMs?: number;
+    // Azure Pronunciation Assessment
+    pronunciationScore?: number;
+    accuracyScore?: number;
+    fluencyScore?: number;
+    completenessScore?: number;
+    prosodyScore?: number;
+    gopData?: any;
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -229,9 +243,19 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           audio_storage_path: analysis.audioStoragePath,
           fluency_available: analysis.fluencyAvailable,
           fluency_unavailable_reason: analysis.fluencyUnavailableReason,
-          // Pipeline status: 'pending' enables MFA worker to claim job
-          analysis_status: analysisStatus,
-          next_retry_at: hasAudioForAnalysis ? new Date().toISOString() : null,
+          // Azure Pronunciation Assessment scores stored in gop_data
+          gop_data: analysis.gopData ? {
+            pronunciationScore: analysis.pronunciationScore,
+            accuracyScore: analysis.accuracyScore,
+            fluencyScore: analysis.fluencyScore,
+            completenessScore: analysis.completenessScore,
+            prosodyScore: analysis.prosodyScore,
+            words: analysis.gopData.words || [],
+            source: 'azure'
+          } : null,
+          // Pipeline status: skip MFA worker if Azure already analyzed (mark complete immediately)
+          analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
+          next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
           analysis_priority: hasAudioForAnalysis ? 1 : 0
         }, {
           onConflict: 'attempt_id'

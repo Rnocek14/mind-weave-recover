@@ -352,7 +352,7 @@ export const PhotoNamingGame = ({
   const timeLimit = 5; // seconds for hard mode
   const allowManualHints = currentDifficulty >= 6;
 
-  // Async speech analysis (doesn't block trial logging)
+  // Async speech analysis with Whisper (transcript + acoustic metrics)
   const analyzeSpeechAsync = async (
     audioBlob: Blob,
     mimeType: string
@@ -396,6 +396,72 @@ export const PhotoNamingGame = ({
       return null;
     }
   };
+
+  // Azure Pronunciation Assessment (real pronunciation scores)
+  const analyzePronunciationAsync = async (
+    audioBlob: Blob,
+    mimeType: string,
+    targetWord: string
+  ): Promise<{
+    pronunciationScore: number;
+    accuracyScore: number;
+    fluencyScore: number;
+    completenessScore: number;
+    prosodyScore?: number;
+    transcript: string;
+    words: any[];
+  } | null> => {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          const base64Audio = result.split(',')[1];
+          resolve(base64Audio);
+        };
+      });
+      
+      reader.readAsDataURL(audioBlob);
+      const base64Audio = await base64Promise;
+
+      console.log('🎯 [PhotoNaming] Calling Azure Pronunciation Assessment for:', targetWord);
+
+      const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
+        body: { 
+          audioBlob: base64Audio, 
+          mimeType,
+          referenceText: targetWord 
+        },
+      });
+
+      if (error) {
+        console.error('Pronunciation analysis error:', error);
+        return null;
+      }
+
+      console.log('🎯 Azure Pronunciation result:', {
+        pronunciationScore: data.pronunciationScore,
+        accuracyScore: data.accuracyScore,
+        fluencyScore: data.fluencyScore,
+        transcript: data.transcript,
+      });
+
+      return {
+        pronunciationScore: data.pronunciationScore || 0,
+        accuracyScore: data.accuracyScore || 0,
+        fluencyScore: data.fluencyScore || 0,
+        completenessScore: data.completenessScore || 0,
+        prosodyScore: data.prosodyScore,
+        transcript: data.transcript || '',
+        words: data.words || [],
+      };
+    } catch (error) {
+      console.error('Failed to analyze pronunciation:', error);
+      return null;
+    }
+  };
+
 
   // Start timing new trial and reset state
   useEffect(() => {
@@ -843,6 +909,15 @@ export const PhotoNamingGame = ({
     let whisperTranscript: string | undefined;
     let whisperConfidence: number | undefined;
     let acousticMetrics: any | undefined;
+    let pronunciationResult: {
+      pronunciationScore: number;
+      accuracyScore: number;
+      fluencyScore: number;
+      completenessScore: number;
+      prosodyScore?: number;
+      transcript: string;
+      words: any[];
+    } | null = null;
     
     if (isRecording && user && activeSessionId) {
       setIsAnalyzing(true);
@@ -863,16 +938,30 @@ export const PhotoNamingGame = ({
           uploadedPath = path;
         }
 
-        // Analyze speech with Whisper (async, but we await to include in telemetry)
-        const analysisResult = await analyzeSpeechAsync(
-          recordingResult.audioBlob,
-          recordingResult.mimeType
-        );
+        // Run Whisper transcription and Azure Pronunciation Assessment in parallel
+        const [analysisResult, pronResult] = await Promise.all([
+          analyzeSpeechAsync(recordingResult.audioBlob, recordingResult.mimeType),
+          analyzePronunciationAsync(
+            recordingResult.audioBlob, 
+            recordingResult.mimeType,
+            state.currentTrial.target
+          )
+        ]);
         
         if (analysisResult) {
           whisperTranscript = analysisResult.transcript;
           whisperConfidence = analysisResult.confidence;
           acousticMetrics = analysisResult.acousticMetrics;
+        }
+        
+        if (pronResult) {
+          pronunciationResult = pronResult;
+          console.log('🎯 Azure Pronunciation scores:', {
+            overall: pronResult.pronunciationScore,
+            accuracy: pronResult.accuracyScore,
+            fluency: pronResult.fluencyScore,
+            completeness: pronResult.completenessScore
+          });
         }
       }
       setIsAnalyzing(false);
@@ -1070,11 +1159,21 @@ export const PhotoNamingGame = ({
       effortfulSpeech: utteranceAnalysis.effortfulSpeech,
       fluencyAvailable,
       fluencyUnavailableReason,
-      cueTypeGiven: cueTypeGiven, // FIX: Always log, even 'none' (distinguishes "no cue" from "logging broken")
+      cueTypeGiven: cueTypeGiven,
       cueWasEffective: cueWasEffective ?? undefined,
       timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
       audioStoragePath: uploadedPath,
-      recordingDurationMs: duration
+      recordingDurationMs: duration,
+      // Azure Pronunciation Assessment scores
+      pronunciationScore: pronunciationResult?.pronunciationScore,
+      accuracyScore: pronunciationResult?.accuracyScore,
+      fluencyScore: pronunciationResult?.fluencyScore,
+      completenessScore: pronunciationResult?.completenessScore,
+      prosodyScore: pronunciationResult?.prosodyScore,
+      gopData: pronunciationResult ? {
+        words: pronunciationResult.words,
+        transcript: pronunciationResult.transcript
+      } : undefined
     });
 
     // Reset cue state for next trial
