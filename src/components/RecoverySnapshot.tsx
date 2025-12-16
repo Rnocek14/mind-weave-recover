@@ -33,6 +33,7 @@ import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
 import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useProfile } from '@/hooks/useProfile';
+import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
 import { 
   narrateRecoveryTrend, 
   narrateChallenges, 
@@ -78,6 +79,10 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   // Generate narratives
   const recoveryNarrative = narrateRecoveryTrend(learningRates, trends);
   
+  // Calculate sample sizes for evidence badges
+  const totalTrials = trends.reduce((sum, t) => sum + t.totalTrials, 0);
+  const totalSessions = trends.filter(t => t.totalTrials > 0).length;
+  
   const challenges = narrateChallenges(
     errorAnalytics?.challengingTargets || [],
     errorAnalytics?.fluencyMetrics || null,
@@ -97,6 +102,19 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
 
   // Filter critical alerts (red = high severity)
   const criticalFlags = redFlags.filter(f => f.severity === 'red');
+
+  // Build evidence points for recovery section
+  const recoveryEvidencePoints: string[] = [];
+  if (learningRates.length > 0) {
+    const namingRate = learningRates.find(r => r.domain === 'naming');
+    if (namingRate?.accuracySlope) {
+      recoveryEvidencePoints.push(`Naming accuracy trend: ${namingRate.accuracySlope > 0 ? '+' : ''}${(namingRate.accuracySlope * 100).toFixed(1)}% per week`);
+    }
+  }
+  if (trends.length >= 3) {
+    const recentAccuracy = trends.slice(-3).reduce((s, t) => s + t.accuracy, 0) / 3;
+    recoveryEvidencePoints.push(`Recent 3-day accuracy: ${Math.round(recentAccuracy)}%`);
+  }
 
   return (
     <div className="space-y-6">
@@ -123,6 +141,16 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
                   High confidence
                 </Badge>
               )}
+              
+              {/* Clinician evidence badge */}
+              <InsightEvidenceBadge
+                windowLabel="Last 7 days"
+                n={totalTrials}
+                confidence={calculateConfidence(totalTrials, { low: 10, medium: 30 })}
+                evidencePoints={recoveryEvidencePoints}
+                minNForHighConfidence={50}
+                patientFriendlyMessage={totalTrials < 10 ? "Building your baseline—complete a few more sessions" : undefined}
+              />
             </div>
           </div>
         </CardContent>
@@ -172,6 +200,24 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
               <div className="flex-1">
                 <p className="text-lg font-semibold text-success">{strategy.strategy}</p>
                 <p className="text-sm text-muted-foreground">{strategy.context}</p>
+                
+                {/* Cue efficacy evidence badge */}
+                {errorAnalytics?.cueEfficacy && errorAnalytics.cueEfficacy.length > 0 && (
+                  <InsightEvidenceBadge
+                    windowLabel="Last 4 weeks"
+                    n={errorAnalytics.cueEfficacy.reduce((sum, c) => sum + c.totalGiven, 0)}
+                    confidence={calculateConfidence(
+                      errorAnalytics.cueEfficacy.find(c => c.cueType === (strategy.strategy === 'Category hints' ? 'semantic' : 'phonemic'))?.totalGiven || 0,
+                      { low: 3, medium: 10 }
+                    )}
+                    evidencePoints={errorAnalytics.cueEfficacy
+                      .filter(c => c.totalGiven >= 3)
+                      .map(c => `${c.cueType}: ${Math.round(c.efficacyRate * 100)}% effective (n=${c.totalGiven})`)
+                    }
+                    minNForHighConfidence={20}
+                    patientFriendlyMessage={undefined}
+                  />
+                )}
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-success">
