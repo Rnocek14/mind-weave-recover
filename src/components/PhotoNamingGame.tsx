@@ -90,6 +90,7 @@ export const PhotoNamingGame = ({
   const isPlayingChoicesRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
+  const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -478,16 +479,19 @@ export const PhotoNamingGame = ({
   }, [state.isComplete, state.score, onGameComplete]);
 
   // FIX: Unmount cleanup - log abandoned trials as best-effort
+  // BUT: Don't log abandoned if we're actively processing a result (race condition fix)
   useEffect(() => {
     return () => {
-      // If there's an active attempt that wasn't finalized, log it as abandoned
-      if (currentAttemptId && !isFinalized && state.currentTrial) {
+      // If there's an active attempt that wasn't finalized AND we're not processing a result
+      if (currentAttemptId && !isFinalized && !processingResultRef.current && state.currentTrial) {
         console.log('⚠️ Unmount with active attempt - logging as abandoned');
         logFinalAnalysis({
           transcriptSource: 'browser',
           isCorrect: false,
           errorType: 'abandoned',
         });
+      } else if (processingResultRef.current) {
+        console.log('⏭️ Unmount during result processing - skipping abandoned log');
       }
     };
   }, [currentAttemptId, isFinalized, state.currentTrial, logFinalAnalysis]);
@@ -505,6 +509,9 @@ export const PhotoNamingGame = ({
 
   const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
+    
+    // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
+    processingResultRef.current = true;
     
     setTimedOut(true);
     const reactionTime = Date.now() - trialStartTime;
@@ -627,6 +634,7 @@ export const PhotoNamingGame = ({
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
+      processingResultRef.current = false; // Allow abandoned logging again
       resetAttempt(); // Reset for next trial
       nextTrial(currentDifficulty);
     }, 2000);
@@ -805,6 +813,9 @@ export const PhotoNamingGame = ({
 
   const handleAnswerSelect = async (word: string) => {
     if (showFeedback || selectedAnswer || timedOut) return;
+
+    // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
+    processingResultRef.current = true;
 
     // Stop listening when answer is selected
     if (isListening) {
@@ -1043,6 +1054,7 @@ export const PhotoNamingGame = ({
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
+      processingResultRef.current = false; // Allow abandoned logging again
       resetAttempt(); // Reset for next trial
       nextTrial(currentDifficulty);
     }, 1500);
