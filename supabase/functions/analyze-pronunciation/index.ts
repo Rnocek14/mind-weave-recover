@@ -16,6 +16,12 @@ interface PronunciationWord {
   }[];
 }
 
+// Alignment data format compatible with micro-fluency analyzer
+interface AlignmentData {
+  word_segments: { word: string; start: number; end: number }[];
+  phone_segments: { phone: string; start: number; end: number }[];
+}
+
 interface PronunciationResult {
   transcript: string;
   pronunciationScore: number;
@@ -25,6 +31,7 @@ interface PronunciationResult {
   prosodyScore?: number;
   words: PronunciationWord[];
   duration: number;
+  alignmentData?: AlignmentData;
 }
 
 serve(async (req) => {
@@ -186,17 +193,40 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
   // Extract word-level data - scores are directly on word objects
   const words: PronunciationWord[] = [];
   const azureWords = nBest?.Words || [];
+  
+  // Build alignment data from Azure timing (Offset/Duration in 100-nanosecond units)
+  const wordSegments: { word: string; start: number; end: number }[] = [];
+  const phoneSegments: { phone: string; start: number; end: number }[] = [];
 
   for (const w of azureWords) {
     const phonemes: { phoneme: string; accuracyScore: number; duration: number }[] = [];
+    
+    // Convert Azure timing to seconds for alignment
+    const wordStart = (w.Offset || 0) / 10000000;
+    const wordEnd = wordStart + ((w.Duration || 0) / 10000000);
+    
+    wordSegments.push({
+      word: w.Word || '',
+      start: wordStart,
+      end: wordEnd
+    });
 
     // Extract phoneme data - scores are directly on phoneme objects
     if (w.Phonemes) {
       for (const p of w.Phonemes) {
+        const phoneStart = (p.Offset || 0) / 10000000;
+        const phoneEnd = phoneStart + ((p.Duration || 0) / 10000000);
+        
         phonemes.push({
           phoneme: p.Phoneme || '',
           accuracyScore: p.AccuracyScore || 0,
-          duration: (p.Duration || 0) / 10000000, // Convert to seconds
+          duration: (p.Duration || 0) / 10000000,
+        });
+        
+        phoneSegments.push({
+          phone: p.Phoneme || '',
+          start: phoneStart,
+          end: phoneEnd
         });
       }
     }
@@ -208,12 +238,18 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
       phonemes,
     });
   }
+  
+  // Build alignment data if we have timing info
+  const alignmentData: AlignmentData | undefined = wordSegments.length > 0 
+    ? { word_segments: wordSegments, phone_segments: phoneSegments }
+    : undefined;
 
   console.log('[analyze-pronunciation] Parsed scores:', {
     pronunciationScore: nBest.PronScore,
     accuracyScore: nBest.AccuracyScore,
     fluencyScore: nBest.FluencyScore,
-    wordCount: words.length
+    wordCount: words.length,
+    hasAlignment: !!alignmentData
   });
 
   return {
@@ -224,6 +260,7 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
     completenessScore: nBest.CompletenessScore || 0,
     prosodyScore: nBest.ProsodyScore,
     words,
-    duration
+    duration,
+    alignmentData
   };
 }

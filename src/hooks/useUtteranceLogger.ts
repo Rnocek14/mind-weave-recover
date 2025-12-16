@@ -70,6 +70,10 @@ interface UtteranceLoggerReturn {
     completenessScore?: number;
     prosodyScore?: number;
     gopData?: any; // Full Azure response with word/phoneme-level data
+    alignmentData?: { // Word/phone timing for micro-fluency analysis
+      word_segments: { word: string; start: number; end: number }[];
+      phone_segments: { phone: string; start: number; end: number }[];
+    };
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -166,6 +170,10 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     completenessScore?: number;
     prosodyScore?: number;
     gopData?: any;
+    alignmentData?: {
+      word_segments: { word: string; start: number; end: number }[];
+      phone_segments: { phone: string; start: number; end: number }[];
+    };
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -255,6 +263,11 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
             transcript: analysis.gopData.transcript ?? '',
             duration: analysis.gopData.duration ?? 0,
           } : null,
+          // Azure alignment data for micro-fluency analysis
+          alignment_data: analysis.alignmentData ?? (analysis.gopData?.alignmentData ? {
+            word_segments: analysis.gopData.alignmentData.word_segments,
+            phone_segments: analysis.gopData.alignmentData.phone_segments
+          } : null),
           // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
           analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
           // Clear worker queue fields when Azure provides data
