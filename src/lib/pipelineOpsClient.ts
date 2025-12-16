@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Supabase project URL for edge functions
-const FUNCTIONS_URL = "https://wjedbpjaiqdxhmjzkcxo.supabase.co/functions/v1";
+// Correct Supabase Edge Functions URL format
+const PROJECT_REF = "wjedbpjaiqdxhmjzkcxo";
+const FUNCTIONS_URL = `https://${PROJECT_REF}.supabase.co/functions/v1`;
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA";
 
 export type PipelineOpsStats = {
   ok: boolean;
@@ -26,7 +28,7 @@ async function getAuthHeaders(): Promise<Headers> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers = new Headers({
     'Content-Type': 'application/json',
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA',
+    'apikey': ANON_KEY,
   });
   
   if (session?.access_token) {

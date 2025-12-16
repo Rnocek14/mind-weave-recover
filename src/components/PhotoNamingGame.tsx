@@ -923,6 +923,12 @@ export const PhotoNamingGame = ({
       setIsAnalyzing(true);
       const recordingResult = await stopRecording();
       if (recordingResult) {
+        console.log('🎙️ [PhotoNaming] Recording blob ready:', { 
+          size: recordingResult.audioBlob.size, 
+          type: recordingResult.mimeType, 
+          targetWord: state.currentTrial.target 
+        });
+        
         duration = recordingResult.duration;
         mimeType = recordingResult.mimeType;
         
@@ -939,6 +945,7 @@ export const PhotoNamingGame = ({
         }
 
         // Run Whisper transcription and Azure Pronunciation Assessment in parallel
+        console.log('➡️ [PhotoNaming] Invoking analyze-speech + analyze-pronunciation in parallel');
         const [analysisResult, pronResult] = await Promise.all([
           analyzeSpeechAsync(recordingResult.audioBlob, recordingResult.mimeType),
           analyzePronunciationAsync(
@@ -952,19 +959,33 @@ export const PhotoNamingGame = ({
           whisperTranscript = analysisResult.transcript;
           whisperConfidence = analysisResult.confidence;
           acousticMetrics = analysisResult.acousticMetrics;
+          console.log('✅ [PhotoNaming] Whisper returned:', { 
+            transcript: whisperTranscript, 
+            confidence: whisperConfidence 
+          });
+        } else {
+          console.log('❌ [PhotoNaming] Whisper returned null');
         }
         
         if (pronResult) {
           pronunciationResult = pronResult;
-          console.log('🎯 Azure Pronunciation scores:', {
+          console.log('✅ [PhotoNaming] Azure Pronunciation returned:', {
             overall: pronResult.pronunciationScore,
             accuracy: pronResult.accuracyScore,
             fluency: pronResult.fluencyScore,
             completeness: pronResult.completenessScore
           });
+        } else {
+          console.log('❌ [PhotoNaming] Azure Pronunciation returned null');
         }
       }
       setIsAnalyzing(false);
+    } else {
+      console.log('⚠️ [PhotoNaming] Skipping speech analysis:', { 
+        isRecording, 
+        hasUser: !!user, 
+        hasSession: !!activeSessionId 
+      });
     }
     
     // Advanced error classification with acoustic metrics
