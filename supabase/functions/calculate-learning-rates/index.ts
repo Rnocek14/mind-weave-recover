@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
     }
 
     const results = [];
-    const domains = ['phonological', 'semantic', 'grammar', 'motor', 'visuospatial'];
+    // Added speech and language domains for full coverage
+    const domains = ['phonological', 'semantic', 'grammar', 'motor', 'visuospatial', 'speech', 'language'];
     const windows = [7, 14, 30];
 
     for (const uid of userIds) {
@@ -207,14 +208,17 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
 }
 
 function getDomainExerciseSlug(domain: string): string {
+  // Use normalized slugs (underscores, lowercase) for consistent analytics
   const mapping: Record<string, string> = {
-    'phonological': 'phonological-game',
-    'semantic': 'semantic-feature-game',
-    'grammar': 'sentence-construction',
-    'motor': 'reach-tap',
-    'visuospatial': 'left-side-hunt'
+    'phonological': 'phonological_awareness',
+    'semantic': 'semantic_features',
+    'grammar': 'sentence_construction',
+    'motor': 'reach_tap',
+    'visuospatial': 'left_side_hunt',
+    'speech': 'photo_naming',      // NEW: speech domain
+    'language': 'phrase_practice', // NEW: language domain
   };
-  return mapping[domain] || 'photo-naming';
+  return mapping[domain] || 'photo_naming';
 }
 
 interface DailyDataPoint {

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio } from 'lucide-react';
+import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -12,10 +12,14 @@ interface ErrorPatternDashboardProps {
 }
 
 const ERROR_COLORS = {
-  semantic: 'hsl(var(--destructive))',
-  phonemic: 'hsl(var(--warning))',
-  unrelated: 'hsl(var(--muted))',
-  timeout: 'hsl(var(--muted-foreground))',
+  correct: 'hsl(var(--success))',
+  attempted: 'hsl(142.1 76.2% 36.3%)',
+  semantic_paraphasia: 'hsl(var(--destructive))',
+  phonemic_paraphasia: 'hsl(var(--warning))',
+  circumlocution: 'hsl(221.2 83.2% 53.3%)',
+  neologism: 'hsl(var(--muted))',
+  no_response: 'hsl(var(--muted-foreground))',
+  timeout: 'hsl(0 0% 45.1%)',
 };
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
@@ -23,13 +27,10 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [showUpdateBadge, setShowUpdateBadge] = useState(false);
 
-  // Monitor for analytics updates
   useEffect(() => {
     if (analytics && !isLoading) {
       setLastUpdate(new Date());
       setShowUpdateBadge(true);
-      
-      // Hide the update badge after 3 seconds
       const timer = setTimeout(() => setShowUpdateBadge(false), 3000);
       return () => clearTimeout(timer);
     }
@@ -54,24 +55,38 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
 
   if (!analytics) return null;
 
+  // Build error distribution data
   const errorData = [
-    { name: 'Semantic', value: analytics.errorBreakdown.semantic, color: ERROR_COLORS.semantic },
-    { name: 'Phonemic', value: analytics.errorBreakdown.phonemic, color: ERROR_COLORS.phonemic },
-    { name: 'Unrelated', value: analytics.errorBreakdown.unrelated, color: ERROR_COLORS.unrelated },
+    { name: 'Correct', value: analytics.errorBreakdown.correct, color: ERROR_COLORS.correct },
+    { name: 'Attempted', value: analytics.errorBreakdown.attempted, color: ERROR_COLORS.attempted },
+    { name: 'Semantic', value: analytics.errorBreakdown.semantic_paraphasia, color: ERROR_COLORS.semantic_paraphasia },
+    { name: 'Phonemic', value: analytics.errorBreakdown.phonemic_paraphasia, color: ERROR_COLORS.phonemic_paraphasia },
+    { name: 'Circumlocution', value: analytics.errorBreakdown.circumlocution, color: ERROR_COLORS.circumlocution },
+    { name: 'Neologism', value: analytics.errorBreakdown.neologism, color: ERROR_COLORS.neologism },
+    { name: 'No Response', value: analytics.errorBreakdown.no_response, color: ERROR_COLORS.no_response },
     { name: 'Timeout', value: analytics.errorBreakdown.timeout, color: ERROR_COLORS.timeout },
   ].filter(d => d.value > 0);
 
-  const totalErrors = errorData.reduce((sum, d) => sum + d.value, 0);
+  const totalErrors = errorData.filter(d => d.name !== 'Correct').reduce((sum, d) => sum + d.value, 0);
 
   // Calculate cue reduction trend
   const cueTrend = analytics.cueTrends.length >= 2
     ? analytics.cueTrends[analytics.cueTrends.length - 1].avgCues - analytics.cueTrends[0].avgCues
     : 0;
 
-  // Calculate probe accuracy trend
-  const probeTrend = analytics.probeProgress.length >= 2
-    ? analytics.probeProgress[analytics.probeProgress.length - 1].accuracy - analytics.probeProgress[0].accuracy
-    : 0;
+  // Cue efficacy data for bar chart
+  const cueEfficacyData = analytics.cueEfficacy.map(ce => ({
+    name: ce.cueType.charAt(0).toUpperCase() + ce.cueType.slice(1),
+    efficacy: Math.round(ce.efficacyRate * 100),
+    count: ce.totalGiven,
+  }));
+
+  // Category performance for bar chart
+  const categoryData = analytics.categoryPerformance.slice(0, 8).map(cp => ({
+    name: cp.category.charAt(0).toUpperCase() + cp.category.slice(1),
+    accuracy: Math.round(cp.accuracy * 100),
+    attempts: cp.attempts,
+  }));
 
   return (
     <div className="space-y-6">
@@ -90,7 +105,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Overall Accuracy</CardTitle>
@@ -114,36 +129,53 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
               </div>
               {cueTrend < 0 ? (
                 <TrendingDown className="h-4 w-4 text-success" />
-              ) : (
+              ) : cueTrend > 0 ? (
                 <TrendingUp className="h-4 w-4 text-destructive" />
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              {cueTrend < 0 ? 'Decreasing' : 'Increasing'} ({Math.abs(cueTrend).toFixed(2)})
+              {cueTrend < 0 ? 'Decreasing' : cueTrend > 0 ? 'Increasing' : 'Stable'} ({Math.abs(cueTrend).toFixed(2)})
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Probe Performance</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Clock className="h-4 w-4" /> Speech Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold">
-                {analytics.probeProgress.length > 0
-                  ? analytics.probeProgress[analytics.probeProgress.length - 1].accuracy.toFixed(1)
-                  : '0.0'}%
-              </div>
-              {probeTrend > 0 ? (
-                <TrendingUp className="h-4 w-4 text-success" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-destructive" />
-              )}
+            <div className="text-2xl font-bold">
+              {analytics.fluencyMetrics.avgSpeechRateWpm?.toFixed(0) || '—'} <span className="text-sm font-normal">WPM</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {probeTrend > 0 ? 'Improving' : 'Declining'} ({Math.abs(probeTrend).toFixed(1)}%)
+              {analytics.fluencyMetrics.effortfulSpeechRate > 0.3 
+                ? 'Effortful speech detected' 
+                : 'Fluent speech pattern'}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Zap className="h-4 w-4" /> Best Cue Type
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {analytics.cueEfficacy.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold capitalize">
+                  {analytics.cueEfficacy.sort((a, b) => b.efficacyRate - a.efficacyRate)[0].cueType}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {Math.round(analytics.cueEfficacy[0].efficacyRate * 100)}% effective
+                </p>
+              </>
+            ) : (
+              <div className="text-muted-foreground">No cue data</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -151,9 +183,9 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
       {/* Error Breakdown Pie Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Error Type Distribution</CardTitle>
+          <CardTitle>Response Distribution</CardTitle>
           <CardDescription>
-            Breakdown of {totalErrors} errors across semantic, phonemic, and other categories
+            Breakdown of {analytics.totalTrials} responses including {totalErrors} errors
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -179,18 +211,112 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No error data available
+              No data available
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Two-column layout for cue efficacy and category performance */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Cue Efficacy */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" /> Cue Efficacy
+            </CardTitle>
+            <CardDescription>How well each cue type helps</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cueEfficacyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={cueEfficacyData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                    }}
+                    formatter={(value: number) => [`${value}%`, 'Efficacy']}
+                  />
+                  <Bar dataKey="efficacy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                No cue data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Category Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" /> Category Performance
+            </CardTitle>
+            <CardDescription>Accuracy by word category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={categoryData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                    }}
+                    formatter={(value: number) => [`${value}%`, 'Accuracy']}
+                  />
+                  <Bar dataKey="accuracy" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                No category data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Challenging Targets */}
+      {analytics.challengingTargets.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Most Challenging Words</CardTitle>
+            <CardDescription>Words with highest error rates (min 3 attempts)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {analytics.challengingTargets.slice(0, 10).map((target, i) => (
+                <Badge 
+                  key={target.target}
+                  variant={target.errorRate > 0.5 ? "destructive" : "secondary"}
+                  className="text-sm"
+                >
+                  {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cue Dependency Trend */}
       <Card>
         <CardHeader>
           <CardTitle>Cue Dependency Over Time</CardTitle>
           <CardDescription>
-            Average number of cues needed per trial (lower is better)
+            Percentage of trials needing cues (lower is better)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -231,51 +357,41 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
         </CardContent>
       </Card>
 
-      {/* Generalization Probe Progress */}
+      {/* Fluency Metrics */}
       <Card>
         <CardHeader>
-          <CardTitle>Generalization Probe Performance</CardTitle>
-          <CardDescription>
-            Accuracy on untrained probe items measuring true learning
-          </CardDescription>
+          <CardTitle>Fluency Metrics</CardTitle>
+          <CardDescription>Speech rate and pause patterns</CardDescription>
         </CardHeader>
         <CardContent>
-          {analytics.probeProgress.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analytics.probeProgress}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))"
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                  domain={[0, 100]}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="accuracy" 
-                  stroke="hsl(var(--success))" 
-                  strokeWidth={2}
-                  dot={{ fill: 'hsl(var(--success))' }}
-                  name="Accuracy %"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No probe data available yet. Complete probe assessments to see progress.
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">
+                {analytics.fluencyMetrics.avgSpeechRateWpm?.toFixed(0) || '—'}
+              </div>
+              <div className="text-xs text-muted-foreground">Avg WPM</div>
             </div>
-          )}
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">
+                {analytics.fluencyMetrics.avgPauseCount?.toFixed(1) || '—'}
+              </div>
+              <div className="text-xs text-muted-foreground">Avg Pauses</div>
+            </div>
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">
+                {analytics.fluencyMetrics.avgPauseDurationMs 
+                  ? (analytics.fluencyMetrics.avgPauseDurationMs / 1000).toFixed(1) + 's'
+                  : '—'}
+              </div>
+              <div className="text-xs text-muted-foreground">Avg Pause Duration</div>
+            </div>
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-2xl font-bold">
+                {Math.round(analytics.fluencyMetrics.effortfulSpeechRate * 100)}%
+              </div>
+              <div className="text-xs text-muted-foreground">Effortful Speech</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
