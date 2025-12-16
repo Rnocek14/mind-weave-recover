@@ -1391,6 +1391,27 @@ export type Database = {
           },
         ]
       }
+      worker_heartbeats: {
+        Row: {
+          last_seen: string
+          meta: Json
+          status: string
+          worker_id: string
+        }
+        Insert: {
+          last_seen?: string
+          meta?: Json
+          status?: string
+          worker_id: string
+        }
+        Update: {
+          last_seen?: string
+          meta?: Json
+          status?: string
+          worker_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       cluster_learning_rates: {
@@ -1594,6 +1615,10 @@ export type Database = {
       }
       switch_active_profile: {
         Args: { p_profile_id: string }
+        Returns: undefined
+      }
+      upsert_worker_heartbeat: {
+        Args: { p_meta?: Json; p_status?: string; p_worker_id: string }
         Returns: undefined
       }
     }

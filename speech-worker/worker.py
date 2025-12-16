@@ -619,6 +619,19 @@ def process_job(
             log(f"❌ submit failure for {attempt_id}: {e2}")
 
 
+def write_heartbeat(conn: psycopg.Connection, worker_id: str, status: str = "ok", meta: Optional[Dict[str, Any]] = None) -> None:
+    """Write worker heartbeat to database."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT public.upsert_worker_heartbeat(%s, %s, %s::jsonb);",
+                (worker_id, status, json.dumps(meta or {}))
+            )
+            conn.commit()
+    except Exception as e:
+        log(f"⚠️ Failed to write heartbeat: {e}")
+
+
 def main() -> None:
     """Main worker loop."""
     worker_id = env_required("WORKER_ID")
@@ -635,9 +648,26 @@ def main() -> None:
 
     log("🔄 Entering main loop...")
 
+    last_heartbeat = 0.0
+    heartbeat_interval = 30.0  # Write heartbeat every 30 seconds
+    jobs_processed = 0
+    jobs_failed = 0
+
     while True:
         try:
             with db_connect() as conn:
+                # Write heartbeat periodically
+                now = time.time()
+                if now - last_heartbeat >= heartbeat_interval:
+                    write_heartbeat(conn, worker_id, "ok", {
+                        "version": "mfa-worker@2025-12-16",
+                        "batch_size": batch_size,
+                        "poll_interval": poll_interval,
+                        "jobs_processed_session": jobs_processed,
+                        "jobs_failed_session": jobs_failed
+                    })
+                    last_heartbeat = now
+
                 jobs = claim_jobs(conn, worker_id, batch_size)
 
                 if not jobs:
@@ -647,7 +677,12 @@ def main() -> None:
                 log(f"📥 Claimed {len(jobs)} job(s)")
 
                 for job in jobs:
-                    process_job(job, conn, worker_id, edge_base_url, worker_secret)
+                    try:
+                        process_job(job, conn, worker_id, edge_base_url, worker_secret)
+                        jobs_processed += 1
+                    except Exception as job_err:
+                        jobs_failed += 1
+                        log(f"🔥 Job processing error: {job_err}")
 
         except Exception as outer:
             log(f"🔥 Worker loop error: {outer}")
