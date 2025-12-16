@@ -25,10 +25,18 @@ const MODE_LEVELS: Record<UiMode, number> = {
   admin: 3,
 };
 
-export function UiModeProvider({ children }: UiModeProviderProps) {
-  // Always start in patient mode
-  const [uiMode, setUiModeState] = useState<UiMode>('patient');
+// Read from localStorage on init, validate, default to patient
+const getInitialMode = (): UiMode => {
+  if (typeof window === 'undefined') return 'patient';
+  const stored = localStorage.getItem(UI_MODE_KEY) as UiMode | null;
+  if (stored && stored in MODE_LEVELS) return stored;
+  return 'patient';
+};
 
+export function UiModeProvider({ children }: UiModeProviderProps) {
+  const [uiMode, setUiModeState] = useState<UiMode>(getInitialMode);
+
+  // Persist to localStorage when mode changes
   useEffect(() => {
     localStorage.setItem(UI_MODE_KEY, uiMode);
   }, [uiMode]);
@@ -41,7 +49,7 @@ export function UiModeProvider({ children }: UiModeProviderProps) {
     setUiModeState(prev => prev === 'patient' ? 'caregiver' : 'patient');
   };
 
-  // Check if current mode is at least the specified level
+  // Check if current mode is at least the specified level (for UI gating only)
   const isAtLeast = (mode: UiMode) => {
     return MODE_LEVELS[uiMode] >= MODE_LEVELS[mode];
   };
