@@ -414,8 +414,11 @@ export type Database = {
         Row: {
           acoustic_metrics: Json | null
           adaptations_active: Json | null
+          attempt_id: string | null
+          attempt_number: number | null
           audio_mime_type: string | null
           audio_storage_path: string | null
+          browser_transcript: string | null
           classification_confidence: number | null
           created_at: string | null
           cue_level: number | null
@@ -438,14 +441,18 @@ export type Database = {
           session_id: string
           task_parameters: Json | null
           time_to_success_after_cue_ms: number | null
+          trial_index: number | null
           whisper_confidence: number | null
           whisper_transcript: string | null
         }
         Insert: {
           acoustic_metrics?: Json | null
           adaptations_active?: Json | null
+          attempt_id?: string | null
+          attempt_number?: number | null
           audio_mime_type?: string | null
           audio_storage_path?: string | null
+          browser_transcript?: string | null
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
@@ -468,14 +475,18 @@ export type Database = {
           session_id: string
           task_parameters?: Json | null
           time_to_success_after_cue_ms?: number | null
+          trial_index?: number | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
         Update: {
           acoustic_metrics?: Json | null
           adaptations_active?: Json | null
+          attempt_id?: string | null
+          attempt_number?: number | null
           audio_mime_type?: string | null
           audio_storage_path?: string | null
+          browser_transcript?: string | null
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
@@ -498,6 +509,7 @@ export type Database = {
           session_id?: string
           task_parameters?: Json | null
           time_to_success_after_cue_ms?: number | null
+          trial_index?: number | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
@@ -1217,6 +1229,116 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utterance_analyses: {
+        Row: {
+          asr_confidence: number | null
+          attempt_id: string
+          attempt_number: number | null
+          audio_storage_path: string | null
+          avg_pause_duration_ms: number | null
+          category: string | null
+          classification_confidence: number | null
+          created_at: string | null
+          cue_type_given: string | null
+          cue_was_effective: boolean | null
+          effortful_speech: boolean | null
+          error_type: string | null
+          exercise_slug: string | null
+          id: string
+          is_correct: boolean | null
+          latency_ms: number | null
+          pause_count: number | null
+          phonological_similarity: number | null
+          reasoning: string | null
+          recording_duration_ms: number | null
+          semantic_similarity: number | null
+          session_id: string | null
+          speech_rate_wpm: number | null
+          target_word: string
+          time_to_success_after_cue_ms: number | null
+          total_pause_ms: number | null
+          transcript: string | null
+          transcript_source: string | null
+          trial_index: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          asr_confidence?: number | null
+          attempt_id: string
+          attempt_number?: number | null
+          audio_storage_path?: string | null
+          avg_pause_duration_ms?: number | null
+          category?: string | null
+          classification_confidence?: number | null
+          created_at?: string | null
+          cue_type_given?: string | null
+          cue_was_effective?: boolean | null
+          effortful_speech?: boolean | null
+          error_type?: string | null
+          exercise_slug?: string | null
+          id?: string
+          is_correct?: boolean | null
+          latency_ms?: number | null
+          pause_count?: number | null
+          phonological_similarity?: number | null
+          reasoning?: string | null
+          recording_duration_ms?: number | null
+          semantic_similarity?: number | null
+          session_id?: string | null
+          speech_rate_wpm?: number | null
+          target_word: string
+          time_to_success_after_cue_ms?: number | null
+          total_pause_ms?: number | null
+          transcript?: string | null
+          transcript_source?: string | null
+          trial_index?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          asr_confidence?: number | null
+          attempt_id?: string
+          attempt_number?: number | null
+          audio_storage_path?: string | null
+          avg_pause_duration_ms?: number | null
+          category?: string | null
+          classification_confidence?: number | null
+          created_at?: string | null
+          cue_type_given?: string | null
+          cue_was_effective?: boolean | null
+          effortful_speech?: boolean | null
+          error_type?: string | null
+          exercise_slug?: string | null
+          id?: string
+          is_correct?: boolean | null
+          latency_ms?: number | null
+          pause_count?: number | null
+          phonological_similarity?: number | null
+          reasoning?: string | null
+          recording_duration_ms?: number | null
+          semantic_similarity?: number | null
+          session_id?: string | null
+          speech_rate_wpm?: number | null
+          target_word?: string
+          time_to_success_after_cue_ms?: number | null
+          total_pause_ms?: number | null
+          transcript?: string | null
+          transcript_source?: string | null
+          trial_index?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utterance_analyses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
