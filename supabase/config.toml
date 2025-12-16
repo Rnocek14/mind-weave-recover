@@ -23,3 +23,9 @@ verify_jwt = true
 
 [functions.get-embedding]
 verify_jwt = false
+
+[functions.get-audio-signed-url]
+verify_jwt = false
+
+[functions.compute-speech-profile]
+verify_jwt = false
