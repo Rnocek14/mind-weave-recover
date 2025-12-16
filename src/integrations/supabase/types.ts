@@ -1254,6 +1254,8 @@ export type Database = {
           error_message: string | null
           error_type: string | null
           exercise_slug: string | null
+          fluency_available: boolean | null
+          fluency_unavailable_reason: string | null
           gop_data: Json | null
           human_labels: Json | null
           id: string
@@ -1301,6 +1303,8 @@ export type Database = {
           error_message?: string | null
           error_type?: string | null
           exercise_slug?: string | null
+          fluency_available?: boolean | null
+          fluency_unavailable_reason?: string | null
           gop_data?: Json | null
           human_labels?: Json | null
           id?: string
@@ -1348,6 +1352,8 @@ export type Database = {
           error_message?: string | null
           error_type?: string | null
           exercise_slug?: string | null
+          fluency_available?: boolean | null
+          fluency_unavailable_reason?: string | null
           gop_data?: Json | null
           human_labels?: Json | null
           id?: string
