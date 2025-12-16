@@ -11,6 +11,7 @@ interface PipelineMetrics {
   hasCueTracking: number;
   hasFluencyMetrics: number;
   hasPhonologicalSimilarity: number;
+  fluencyReasons: Record<string, number>;
   lastUpdated: string;
 }
 
@@ -75,30 +76,33 @@ export const PipelineHealthDashboard = () => {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        // Optimized: Use limited query + client-side aggregation
-        // Only fetch the columns we need, limit to 500 rows to avoid heavy queries
         const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
         const { data, error: queryError, count } = await supabase
           .from('utterance_analyses')
-          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity', { count: 'exact' })
+          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity, fluency_available, fluency_unavailable_reason', { count: 'exact' })
           .gte('created_at', last24h)
           .limit(500);
 
         if (queryError) throw queryError;
 
-        // Use count for total if available, otherwise use data length
         const total = count ?? data?.length ?? 0;
-        
-        // If we hit the limit (500), these metrics are estimates from the sample
-        const hasSemanticSimilarity = data?.filter(r => r.semantic_similarity !== null).length || 0;
-        const hasCueTracking = data?.filter(r => r.cue_type_given !== null).length || 0;
-        const hasFluencyMetrics = data?.filter(r => r.speech_rate_wpm !== null).length || 0;
-        const hasPhonologicalSimilarity = data?.filter(r => r.phonological_similarity !== null).length || 0;
-        
-        // Scale metrics if we sampled (count > 500)
         const sampleSize = data?.length || 0;
         const scale = sampleSize > 0 && total > sampleSize ? total / sampleSize : 1;
+
+        const hasSemanticSimilarity = data?.filter(r => r.semantic_similarity !== null).length || 0;
+        const hasCueTracking = data?.filter(r => r.cue_type_given !== null).length || 0;
+        // Fluency: count where fluency_available=true OR speech_rate_wpm is not null (backward compat)
+        const hasFluencyMetrics = data?.filter(r => r.fluency_available === true || r.speech_rate_wpm !== null).length || 0;
+        const hasPhonologicalSimilarity = data?.filter(r => r.phonological_similarity !== null).length || 0;
+        
+        // Count fluency unavailable reasons for breakdown
+        const fluencyReasons: Record<string, number> = {};
+        data?.forEach(r => {
+          if (r.fluency_unavailable_reason) {
+            fluencyReasons[r.fluency_unavailable_reason] = (fluencyReasons[r.fluency_unavailable_reason] || 0) + 1;
+          }
+        });
 
         setMetrics({
           total,
@@ -106,6 +110,7 @@ export const PipelineHealthDashboard = () => {
           hasCueTracking: Math.round(hasCueTracking * scale),
           hasFluencyMetrics: Math.round(hasFluencyMetrics * scale),
           hasPhonologicalSimilarity: Math.round(hasPhonologicalSimilarity * scale),
+          fluencyReasons,
           lastUpdated: new Date().toISOString()
         });
       } catch (err) {
@@ -117,8 +122,6 @@ export const PipelineHealthDashboard = () => {
     };
 
     fetchMetrics();
-    
-    // Refresh every 60 seconds
     const interval = setInterval(fetchMetrics, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -239,8 +242,17 @@ export const PipelineHealthDashboard = () => {
             <p>• Semantic similarity: computed via OpenAI embeddings (null = no_response)</p>
             <p>• Cue tracking: 'none' = no cue given, null = logging broken</p>
             <p>• Fluency: requires active audio recording during exercises</p>
-            <p>• Fluency unavailable reasons: no_recording | no_session | not_authed | analysis_error</p>
           </div>
+          {Object.keys(metrics.fluencyReasons).length > 0 && (
+            <div className="mt-2 pt-2 border-t border-border/50">
+              <p className="font-medium text-foreground mb-1">Fluency unavailable reasons:</p>
+              {Object.entries(metrics.fluencyReasons)
+                .sort(([, a], [, b]) => b - a)
+                .map(([reason, count]) => (
+                  <p key={reason}>• {reason}: {count} utterances</p>
+                ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
