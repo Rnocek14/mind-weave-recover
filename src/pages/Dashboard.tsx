@@ -323,6 +323,15 @@ const Dashboard = () => {
             
             <Button
               variant="outline"
+              onClick={() => navigate("/insights")}
+              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
+            >
+              <LineChart className="w-4 h-4" />
+              <span className="hidden sm:inline">Insights</span>
+            </Button>
+
+            <Button
+              variant="outline"
               onClick={() => navigate("/clinical-documents")}
               className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
             >
