@@ -1,0 +1,5 @@
+psycopg[binary]==3.2.3
+requests==2.32.3
+pydub==0.25.1
+praatio==6.1.0
+python-dotenv==1.0.1

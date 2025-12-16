@@ -1,0 +1,35 @@
+# fly.toml - Fly.io configuration for Speech Analysis Worker
+# Deploy: fly launch --no-deploy && fly secrets set DATABASE_URL=... && fly deploy
+
+app = "speech-worker"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  WORKER_ID = "worker-1"
+  BATCH_SIZE = "5"
+  POLL_INTERVAL_SECONDS = "3"
+  # MFA model names (downloaded or baked in)
+  MFA_ACOUSTIC_MODEL = "english_mfa"
+  MFA_DICTIONARY = "english_mfa"
+  # Set true only if you want to download models on boot (slower cold starts)
+  MFA_DOWNLOAD_MODELS = "false"
+
+# Secrets (set via fly secrets):
+# - DATABASE_URL: Postgres connection string
+# - EDGE_BASE_URL: https://wjedbpjaiqdxhmjzkcxo.supabase.co
+# - SPEECH_WORKER_SECRET: (same as Supabase secret)
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 2048
