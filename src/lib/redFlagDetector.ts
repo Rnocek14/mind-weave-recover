@@ -447,26 +447,36 @@ export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
   const processing = queueStats?.filter(r => r.analysis_status === 'processing') || [];
   const failed = queueStats?.filter(r => r.analysis_status === 'failed') || [];
 
-  // Check if Azure Pronunciation Assessment is active (recent Azure-completed jobs)
+  // Check if Azure Pronunciation Assessment is configured/active
+  // Either: recent Azure-completed jobs exist OR we have gop_data with source='azure' anywhere
   const { data: recentAzure } = await supabase
     .from('utterance_analyses')
-    .select('id')
+    .select('id, gop_data')
     .eq('analysis_status', 'complete')
     .not('gop_data', 'is', null)
     .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
-    .limit(1);
+    .limit(5);
 
-  const azureActive = (recentAzure?.length ?? 0) > 0;
+  // Azure is active if any recent gop_data exists (Azure is now the default path)
+  const azureConfigured = (recentAzure?.length ?? 0) > 0 || 
+    recentAzure?.some(r => (r.gop_data as any)?.source === 'azure');
 
-  // Worker offline with pending jobs - only warn if Azure is NOT handling pronunciation
-  if (pending.length > 0 && !azureActive && (!lastHeartbeat || heartbeatAge! > 5)) {
+  // Only warn about RECENT pending jobs (< 2 hours old) that aren't being handled
+  const recentPending = pending.filter(r => {
+    const age = (now.getTime() - new Date(r.created_at!).getTime()) / 3600000; // hours
+    return age < 2;
+  });
+
+  // Worker offline - only warn if recent jobs pending AND Azure not configured AND worker offline
+  // Legacy pending jobs from before Azure migration don't trigger warning
+  if (recentPending.length > 0 && !azureConfigured && (!lastHeartbeat || heartbeatAge! > 5)) {
     flags.push({
       type: 'worker_offline',
       severity: 'red',
       message: 'Speech Worker Offline',
-      details: `${pending.length} job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. Consider enabling Azure Pronunciation Assessment.`,
+      details: `${recentPending.length} recent job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. Consider enabling Azure Pronunciation Assessment.`,
       detectedAt: now.toISOString(),
-      evidence: { n: pending.length, window: '48 hours' }
+      evidence: { n: recentPending.length, window: '2 hours' }
     });
   }
 
