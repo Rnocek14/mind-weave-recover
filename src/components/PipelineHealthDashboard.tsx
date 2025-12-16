@@ -75,27 +75,37 @@ export const PipelineHealthDashboard = () => {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        // Query last 24 hours of utterance analyses
-        const { data, error: queryError } = await supabase
+        // Optimized: Use limited query + client-side aggregation
+        // Only fetch the columns we need, limit to 500 rows to avoid heavy queries
+        const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        
+        const { data, error: queryError, count } = await supabase
           .from('utterance_analyses')
-          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity, created_at')
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .order('created_at', { ascending: false });
+          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity', { count: 'exact' })
+          .gte('created_at', last24h)
+          .limit(500);
 
         if (queryError) throw queryError;
 
-        const total = data?.length || 0;
+        // Use count for total if available, otherwise use data length
+        const total = count ?? data?.length ?? 0;
+        
+        // If we hit the limit (500), these metrics are estimates from the sample
         const hasSemanticSimilarity = data?.filter(r => r.semantic_similarity !== null).length || 0;
         const hasCueTracking = data?.filter(r => r.cue_type_given !== null).length || 0;
         const hasFluencyMetrics = data?.filter(r => r.speech_rate_wpm !== null).length || 0;
         const hasPhonologicalSimilarity = data?.filter(r => r.phonological_similarity !== null).length || 0;
+        
+        // Scale metrics if we sampled (count > 500)
+        const sampleSize = data?.length || 0;
+        const scale = sampleSize > 0 && total > sampleSize ? total / sampleSize : 1;
 
         setMetrics({
           total,
-          hasSemanticSimilarity,
-          hasCueTracking,
-          hasFluencyMetrics,
-          hasPhonologicalSimilarity,
+          hasSemanticSimilarity: Math.round(hasSemanticSimilarity * scale),
+          hasCueTracking: Math.round(hasCueTracking * scale),
+          hasFluencyMetrics: Math.round(hasFluencyMetrics * scale),
+          hasPhonologicalSimilarity: Math.round(hasPhonologicalSimilarity * scale),
           lastUpdated: new Date().toISOString()
         });
       } catch (err) {
@@ -221,9 +231,16 @@ export const PipelineHealthDashboard = () => {
         <CardContent className="text-xs text-muted-foreground space-y-1">
           <p>Last updated: {new Date(metrics.lastUpdated).toLocaleTimeString()}</p>
           <p>Time window: Last 24 hours</p>
-          <p>• Semantic similarity: computed via OpenAI embeddings</p>
-          <p>• Cue tracking: 'none' means no cue given, null means logging broken</p>
-          <p>• Fluency: requires active audio recording during exercises</p>
+          {metrics.total > 500 && (
+            <p className="text-yellow-600">⚠️ Metrics estimated from 500-row sample (total: {metrics.total})</p>
+          )}
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <p className="font-medium text-foreground mb-1">Data flow checklist:</p>
+            <p>• Semantic similarity: computed via OpenAI embeddings (null = no_response)</p>
+            <p>• Cue tracking: 'none' = no cue given, null = logging broken</p>
+            <p>• Fluency: requires active audio recording during exercises</p>
+            <p>• Fluency unavailable reasons: no_recording | no_session | not_authed | analysis_error</p>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1043,6 +1043,16 @@ export const PhotoNamingGame = ({
       semanticSimilarity: errorClassification.semantic_similarity
     });
     
+    // Determine fluency availability and reason
+    const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
+    let fluencyUnavailableReason: 'no_recording' | 'no_session' | 'not_authed' | 'analysis_error' | undefined;
+    if (!fluencyAvailable) {
+      if (!user) fluencyUnavailableReason = 'not_authed';
+      else if (!activeSessionId) fluencyUnavailableReason = 'no_session';
+      else if (!isRecording) fluencyUnavailableReason = 'no_recording';
+      else fluencyUnavailableReason = 'analysis_error';
+    }
+
     logFinalAnalysis({
       transcript: whisperTranscript,
       transcriptSource: whisperTranscript ? 'whisper' : 'browser',
@@ -1058,6 +1068,8 @@ export const PhotoNamingGame = ({
       totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
       avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: utteranceAnalysis.effortfulSpeech,
+      fluencyAvailable,
+      fluencyUnavailableReason,
       cueTypeGiven: cueTypeGiven, // FIX: Always log, even 'none' (distinguishes "no cue" from "logging broken")
       cueWasEffective: cueWasEffective ?? undefined,
       timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,

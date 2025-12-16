@@ -25,6 +25,15 @@ interface AttemptContext {
   startedAt: number;
 }
 
+// Fluency diagnostic: why fluency might not be available
+export type FluencyUnavailableReason = 
+  | 'no_recording' 
+  | 'no_session' 
+  | 'not_authed' 
+  | 'permission_denied' 
+  | 'recorder_error'
+  | 'analysis_error';
+
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   isFinalized: boolean;
@@ -37,7 +46,7 @@ interface UtteranceLoggerReturn {
     isCorrect: boolean;
     errorType: string;
     phonologicalSimilarity?: number;
-    semanticSimilarity?: number;
+    semanticSimilarity?: number | null; // null = intentionally skipped (no_response)
     classificationConfidence?: number;
     reasoning?: string;
     speechRateWpm?: number;
@@ -45,6 +54,10 @@ interface UtteranceLoggerReturn {
     totalPauseMs?: number;
     avgPauseDurationMs?: number;
     effortfulSpeech?: boolean;
+    // Fluency diagnostics
+    fluencyAvailable?: boolean;
+    fluencyUnavailableReason?: FluencyUnavailableReason;
+    // Cue tracking
     cueTypeGiven?: string;
     cueWasEffective?: boolean;
     timeToSuccessAfterCueMs?: number;
@@ -124,7 +137,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     isCorrect: boolean;
     errorType: string;
     phonologicalSimilarity?: number;
-    semanticSimilarity?: number;
+    semanticSimilarity?: number | null;
     classificationConfidence?: number;
     reasoning?: string;
     speechRateWpm?: number;
@@ -132,6 +145,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     totalPauseMs?: number;
     avgPauseDurationMs?: number;
     effortfulSpeech?: boolean;
+    fluencyAvailable?: boolean;
+    fluencyUnavailableReason?: FluencyUnavailableReason;
     cueTypeGiven?: string;
     cueWasEffective?: boolean;
     timeToSuccessAfterCueMs?: number;

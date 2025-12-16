@@ -92,7 +92,8 @@ export const classifySpeechError = async (
       errorType: 'no_response',
       confidence: 1.0,
       reasoning: 'No intelligible output or very low ASR confidence',
-      needs_review: asrConfidence > 0 && asrConfidence < 0.3
+      needs_review: asrConfidence > 0 && asrConfidence < 0.3,
+      semantic_similarity: null // Intentionally null - no speech to compare
     };
   }
   
