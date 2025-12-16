@@ -5,25 +5,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft, Activity, MessageSquare, Brain, Stethoscope, 
-  Loader2, AlertCircle, Zap, HeartPulse
+  ArrowLeft, Activity, Brain, Stethoscope, 
+  Loader2, AlertCircle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-// Overview tab components
-import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
-import { LearningRateCard } from "@/components/LearningRateCard";
-import { WeeklyTrendsChart } from "@/components/WeeklyTrendsChart";
-import { TodaysSessionStats } from "@/components/TodaysSessionStats";
-import { RedFlagAlerts } from "@/components/RedFlagAlerts";
-import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
+// Recovery Snapshot (primary intelligence view)
+import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 
-// Speech Analysis tab components
+// Speech Analysis components (for Deep Dive)
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 
-// Cross-Domain Intelligence tab
+// Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
 import { ClusterComparisonDashboard } from "@/components/ClusterComparisonDashboard";
 
@@ -32,13 +28,8 @@ import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 
-// Pipeline Health (admin/debug)
-import { PipelineHealthDashboard } from "@/components/PipelineHealthDashboard";
-
 // Hooks
-import { useLearningRate } from "@/hooks/useLearningRate";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
-import { calculateStreak } from "@/hooks/useStreakCalculation";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 export default function Insights() {
@@ -46,13 +37,13 @@ export default function Insights() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('insights-active-tab') || 'overview';
+    return localStorage.getItem('insights-active-tab') || 'snapshot';
   });
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
-  const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [speechExpanded, setSpeechExpanded] = useState(false);
+  const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
 
-  const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
 
   useEffect(() => {
@@ -70,18 +61,14 @@ export default function Insights() {
     if (!user) return;
     
     try {
-      const [streakVal, profileData] = await Promise.all([
-        calculateStreak(user.id),
-        supabase
-          .from('profiles')
-          .select('clinical_profile')
-          .eq('user_id', user.id)
-          .single()
-      ]);
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('clinical_profile')
+        .eq('user_id', user.id)
+        .single();
 
-      setStreak(streakVal);
-      if (profileData.data?.clinical_profile) {
-        setClinicalProfile(profileData.data.clinical_profile as unknown as ClinicalProfile);
+      if (profileData?.clinical_profile) {
+        setClinicalProfile(profileData.clinical_profile as unknown as ClinicalProfile);
       }
     } catch (error) {
       console.error('Failed to load insights data:', error);
@@ -120,10 +107,10 @@ export default function Insights() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                Insights & Analytics
+                Your Recovery
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                Comprehensive view of your recovery progress and patterns
+                Understand your progress and what's working for you
               </p>
             </div>
             
@@ -136,120 +123,110 @@ export default function Insights() {
           </div>
         </div>
 
-        {/* Tabbed Content */}
+        {/* Tabbed Content - Simplified to 3 tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="overview" className="gap-2 text-xs md:text-sm">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="snapshot" className="gap-2 text-xs md:text-sm">
               <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">Overview</span>
+              <span className="hidden sm:inline">Snapshot</span>
             </TabsTrigger>
-            <TabsTrigger value="speech" className="gap-2 text-xs md:text-sm">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Speech</span>
-            </TabsTrigger>
-            <TabsTrigger value="intelligence" className="gap-2 text-xs md:text-sm">
+            <TabsTrigger value="deep-dive" className="gap-2 text-xs md:text-sm">
               <Brain className="w-4 h-4" />
-              <span className="hidden sm:inline">Intelligence</span>
+              <span className="hidden sm:inline">Deep Dive</span>
             </TabsTrigger>
             <TabsTrigger value="clinical" className="gap-2 text-xs md:text-sm">
               <Stethoscope className="w-4 h-4" />
               <span className="hidden sm:inline">Clinical</span>
             </TabsTrigger>
-            <TabsTrigger value="pipeline" className="gap-2 text-xs md:text-sm">
-              <HeartPulse className="w-4 h-4" />
-              <span className="hidden sm:inline">Pipeline</span>
-            </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Red Flags at top if any */}
-            {!flagsLoading && redFlags.length > 0 && (
-              <RedFlagAlerts flags={redFlags} />
-            )}
-
-            {/* Today's Stats + Streak */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <TodaysSessionStats />
-              <SessionAdherenceTracker userId={user!.id} currentStreak={streak} />
-            </div>
-
-            {/* Weekly Trends */}
-            <WeeklyTrendsChart />
-
-            {/* Learning Rates */}
-            {!learningRatesLoading && learningRates.length > 0 && (
-              <LearningRateCard 
-                learningRates={learningRates}
-                clusterComparisons={clusterComparisons}
-                timeWindow={14}
-              />
-            )}
-
-            {/* Recovery Summary */}
-            {user && (
-              <RecoverySummaryCard
-                userId={user.id}
-                summaryType="progress"
-                title="Recovery Progress Summary"
-                description="AI-generated summary of your therapy progress"
-              />
-            )}
+          {/* Recovery Snapshot Tab (Primary) */}
+          <TabsContent value="snapshot" className="space-y-6">
+            <RecoverySnapshot userId={user!.id} />
           </TabsContent>
 
-          {/* Speech Analysis Tab */}
-          <TabsContent value="speech" className="space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <MessageSquare className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="text-xl font-semibold">Speech Analysis</h2>
-                <p className="text-sm text-muted-foreground">
-                  Error patterns, cue efficacy, and fluency metrics
-                </p>
-              </div>
-            </div>
-
-            <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
-          </TabsContent>
-
-          {/* Cross-Domain Intelligence Tab */}
-          <TabsContent value="intelligence" className="space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Zap className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="text-xl font-semibold">Cross-Domain Intelligence</h2>
-                <p className="text-sm text-muted-foreground">
-                  Smart correlations between capability, speech, and learning patterns
-                </p>
-              </div>
-            </div>
-
-            {/* Cross-Domain Insights */}
-            <CrossDomainInsightsDashboard 
-              userId={user!.id} 
-              profileId={activeProfile?.id}
-            />
-
-            {/* Cluster Comparison */}
-            {clinicalProfile && (
-              <ClusterComparisonDashboard
-                userId={user!.id}
-                clinicalProfile={clinicalProfile}
-              />
-            )}
-
-            {!clinicalProfile && (
-              <Card className="p-8 text-center">
-                <Brain className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Complete Your Clinical Profile</h3>
-                <p className="text-muted-foreground mb-4">
-                  Set up your clinical profile to unlock outcome predictions and cluster comparisons.
-                </p>
-                <Button onClick={() => navigate('/dashboard')}>
-                  Go to Dashboard
-                </Button>
+          {/* Deep Dive Tab (Merged Speech + Intelligence) */}
+          <TabsContent value="deep-dive" className="space-y-6">
+            {/* Speech Analysis Section */}
+            <Collapsible open={speechExpanded} onOpenChange={setSpeechExpanded}>
+              <Card className="overflow-hidden">
+                <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <Activity className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold">Speech Analysis</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Error patterns, cue efficacy, and fluency metrics
+                      </p>
+                    </div>
+                  </div>
+                  {speechExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-4 pt-0 border-t">
+                    <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
+                  </div>
+                </CollapsibleContent>
               </Card>
-            )}
+            </Collapsible>
+
+            {/* Cross-Domain Intelligence Section */}
+            <Collapsible open={intelligenceExpanded} onOpenChange={setIntelligenceExpanded}>
+              <Card className="overflow-hidden">
+                <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <Brain className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold">Cross-Domain Intelligence</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Correlations between capabilities and speech patterns
+                      </p>
+                    </div>
+                  </div>
+                  {intelligenceExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-4 pt-0 border-t space-y-6">
+                    <CrossDomainInsightsDashboard 
+                      userId={user!.id} 
+                      profileId={activeProfile?.id}
+                    />
+                    
+                    {clinicalProfile && (
+                      <ClusterComparisonDashboard
+                        userId={user!.id}
+                        clinicalProfile={clinicalProfile}
+                      />
+                    )}
+
+                    {!clinicalProfile && (
+                      <Card className="p-6 text-center border-dashed">
+                        <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                        <h4 className="font-medium mb-1">Clinical Profile Required</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Set up your profile to unlock cluster comparisons.
+                        </p>
+                        <Button size="sm" variant="outline" onClick={() => navigate('/dashboard')}>
+                          Go to Dashboard
+                        </Button>
+                      </Card>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </TabsContent>
 
           {/* Clinical Tab */}
@@ -292,21 +269,6 @@ export default function Insights() {
                 </Card>
               </>
             )}
-          </TabsContent>
-
-          {/* Pipeline Health Tab */}
-          <TabsContent value="pipeline" className="space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <HeartPulse className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="text-xl font-semibold">Pipeline Health</h2>
-                <p className="text-sm text-muted-foreground">
-                  Monitor data flow completeness for personalization features
-                </p>
-              </div>
-            </div>
-
-            <PipelineHealthDashboard />
           </TabsContent>
         </Tabs>
       </div>

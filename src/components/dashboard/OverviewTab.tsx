@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Volume2, List, MessageSquare } from "lucide-react";
+import { Play, Brain, Lightbulb, Volume2, List, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
 import { StrokeEducationPanel } from "@/components/StrokeEducationPanel";
@@ -15,9 +15,11 @@ import { ExerciseCarousel } from "@/components/ExerciseCarousel";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { TodaysSessionStats } from "@/components/TodaysSessionStats";
 import { WeeklyTrendsChart } from "@/components/WeeklyTrendsChart";
+import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   ProgressCardSkeleton, 
   RecoverySummarySkeleton, 
@@ -107,66 +109,10 @@ export const OverviewTab = memo(function OverviewTab() {
         </>
       )}
 
-      {/* AI Recovery Intelligence */}
-      {!showRecoveryIntel ? (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
-            <Badge variant="secondary" className="gap-1">
-              <Lightbulb className="w-3 h-3" />
-              AI-Powered
-            </Badge>
-          </div>
-          <div className="grid lg:grid-cols-2 gap-6">
-            <RecoverySummarySkeleton delay={0} />
-            <RecoverySummarySkeleton delay={100} />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 animate-fade-in">
-            <h2 className="text-2xl font-semibold">Recovery Intelligence</h2>
-            <Badge variant="secondary" className="gap-1">
-              <Lightbulb className="w-3 h-3" />
-              AI-Powered
-            </Badge>
-          </div>
-          
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
-              <RecoverySummaryCard
-                userId={userId}
-                summaryType="progress"
-                title="Your Progress Journey"
-                description="AI analysis of your recovery trajectory, what's working, and areas of focus"
-                autoGenerate={true}
-              />
-            </div>
-            
-            <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <RecoverySummaryCard
-                userId={userId}
-                summaryType="education"
-                title="Understanding Your Stroke"
-                description="Plain-language explanation of your stroke and its effects"
-                autoGenerate={true}
-              />
-            </div>
-          </div>
-
-          {clinicalProfile && (
-            <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <StrokeEducationPanel
-                strokeLocation={
-                  Array.isArray(clinicalProfile.stroke_location)
-                    ? clinicalProfile.stroke_location.join(', ')
-                    : clinicalProfile.stroke_location || undefined
-                }
-                affectedSide={clinicalProfile.affected_side || undefined}
-                impairments={clinicalProfile.impairments}
-              />
-            </div>
-          )}
+      {/* Recovery Snapshot - Primary Intelligence View */}
+      {showRecoveryIntel && (
+        <div className="animate-fade-in">
+          <RecoverySnapshot userId={userId} />
         </div>
       )}
 

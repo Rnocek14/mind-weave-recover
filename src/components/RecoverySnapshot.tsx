@@ -1,0 +1,276 @@
+/**
+ * Recovery Snapshot - Primary Intelligence View
+ * 
+ * Answers the 5 key user questions in one screen:
+ * 1. Am I improving? → Recovery trend verdict
+ * 2. What's hard for me? → Current challenges
+ * 3. What's helping? → Effective strategies
+ * 4. What should I focus on? → Today's recommendation
+ * 5. Is anything wrong? → Alerts (only if needed)
+ */
+
+import { memo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  Lightbulb, 
+  Target, 
+  AlertTriangle,
+  Sparkles,
+  CheckCircle2,
+  ArrowRight,
+  Brain,
+  Zap
+} from 'lucide-react';
+import { useLearningRate } from '@/hooks/useLearningRate';
+import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
+import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
+import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
+import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
+import { useProfile } from '@/hooks/useProfile';
+import { 
+  narrateRecoveryTrend, 
+  narrateChallenges, 
+  narrateStrategies, 
+  narrateFocus,
+  getVerdictEmoji,
+  getVerdictColor,
+  getSeverityVariant,
+  type TrendVerdict
+} from '@/lib/insightNarrator';
+
+interface RecoverySnapshotProps {
+  userId: string;
+}
+
+const TrendIcon = ({ verdict }: { verdict: TrendVerdict }) => {
+  switch (verdict) {
+    case 'improving':
+      return <TrendingUp className="h-8 w-8 text-success" />;
+    case 'declining':
+      return <TrendingDown className="h-8 w-8 text-warning" />;
+    case 'steady':
+      return <Minus className="h-8 w-8 text-primary" />;
+    default:
+      return <Sparkles className="h-8 w-8 text-muted-foreground" />;
+  }
+};
+
+export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
+  const { activeProfile } = useProfile();
+  const { learningRates, isLoading: learningLoading } = useLearningRate(userId);
+  const { trends, loading: trendsLoading } = useWeeklyTrends();
+  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, 4);
+  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId, activeProfile?.id);
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId);
+
+  const isLoading = learningLoading || trendsLoading || errorLoading || crossLoading || flagsLoading;
+
+  if (isLoading) {
+    return <RecoverySnapshotSkeleton />;
+  }
+
+  // Generate narratives
+  const recoveryNarrative = narrateRecoveryTrend(learningRates, trends);
+  
+  const challenges = narrateChallenges(
+    errorAnalytics?.challengingTargets || [],
+    errorAnalytics?.fluencyMetrics || null,
+    errorAnalytics?.errorBreakdown || null
+  );
+
+  const strategy = narrateStrategies(
+    errorAnalytics?.cueEfficacy || null,
+    crossDomain?.optimalConditions?.bestCueType || null
+  );
+
+  const focuses = narrateFocus(
+    crossDomain?.recommendations || [],
+    challenges,
+    learningRates
+  );
+
+  // Filter critical alerts (red = high severity)
+  const criticalFlags = redFlags.filter(f => f.severity === 'red');
+
+  return (
+    <div className="space-y-6">
+      {/* Section 1: Recovery Trend - "Am I improving?" */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardDescription className="text-xs uppercase tracking-wide">Your Recovery</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 p-3 rounded-full bg-muted">
+              <TrendIcon verdict={recoveryNarrative.verdict} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className={`text-2xl font-bold ${getVerdictColor(recoveryNarrative.verdict)}`}>
+                {recoveryNarrative.headline}
+              </h2>
+              <p className="text-muted-foreground mt-1">
+                {recoveryNarrative.detail}
+              </p>
+              {recoveryNarrative.confidence === 'high' && (
+                <Badge variant="outline" className="mt-2 text-xs">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  High confidence
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 2: Current Challenges - "What's hard for me?" */}
+      {challenges.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Current Challenges
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {challenges.map((challenge, i) => (
+              <div 
+                key={i} 
+                className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+              >
+                <Badge variant={getSeverityVariant(challenge.severity)} className="mt-0.5">
+                  {challenge.severity}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{challenge.challenge}</p>
+                  {challenge.context && (
+                    <p className="text-sm text-muted-foreground mt-0.5">{challenge.context}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Section 3: What's Working - "What's helping?" */}
+      {strategy && (
+        <Card className="border-success/30 bg-success/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-success" />
+              What's Working
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-lg font-semibold text-success">{strategy.strategy}</p>
+                <p className="text-sm text-muted-foreground">{strategy.context}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-success">
+                  {Math.round(strategy.effectiveness * 100)}%
+                </div>
+                <div className="text-xs text-muted-foreground">effective</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Section 4: Today's Focus - "What should I do next?" */}
+      {focuses.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Today's Focus
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {focuses.map((focus, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className={`p-1.5 rounded-full ${focus.priority === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  <ArrowRight className="h-3 w-3" />
+                </div>
+                <div className="flex-1">
+                  <p className={focus.priority === 'primary' ? 'font-medium' : 'text-muted-foreground'}>
+                    {focus.recommendation}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{focus.reason}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Section 5: Alerts - "Is anything wrong?" (only if needed) */}
+      {criticalFlags.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Attention Needed</AlertTitle>
+          <AlertDescription>
+            {criticalFlags[0].message}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Empty state when no data */}
+      {challenges.length === 0 && !strategy && focuses.length === 0 && recoveryNarrative.verdict === 'insufficient_data' && (
+        <Card className="border-dashed">
+          <CardContent className="py-8 text-center">
+            <Brain className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="font-semibold text-lg mb-2">Your insights are building</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Complete a few therapy sessions and the AI will start learning what works best for you.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+});
+
+RecoverySnapshot.displayName = 'RecoverySnapshot';
+
+const RecoverySnapshotSkeleton = () => (
+  <div className="space-y-6">
+    <Card>
+      <CardHeader className="pb-2">
+        <Skeleton className="h-4 w-24" />
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start gap-4">
+          <Skeleton className="h-14 w-14 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    <Card>
+      <CardHeader className="pb-2">
+        <Skeleton className="h-5 w-36" />
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </CardContent>
+    </Card>
+    <Card>
+      <CardContent className="py-6">
+        <Skeleton className="h-20 w-full" />
+      </CardContent>
+    </Card>
+  </div>
+);
+
+export default RecoverySnapshot;
