@@ -233,10 +233,27 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             {pipelineStats.withAudio} utterances have audio | {pipelineStats.withAlignment} have alignment data | {pipelineStats.withGop} have GOP scores
           </div>
           
-          {pipelineStats.pending > 0 && (
-            <div className="mt-2 p-2 bg-yellow-500/10 rounded text-sm text-yellow-700 dark:text-yellow-300">
+          {pipelineStats.pending > 0 && pipelineStats.withAlignment === 0 && (
+            <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="font-medium text-yellow-700 dark:text-yellow-300">
+                    MFA Worker Not Active
+                  </span>
+                  <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
+                    {pipelineStats.pending} utterances with audio are queued but no alignment data has been produced. 
+                    The Fly.io speech worker needs to be deployed and running.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {pipelineStats.pending > 0 && pipelineStats.withAlignment > 0 && (
+            <div className="mt-2 p-2 bg-blue-500/10 rounded text-sm text-blue-700 dark:text-blue-300">
               <Clock className="w-4 h-4 inline mr-1" />
-              {pipelineStats.pending} utterances awaiting MFA alignment analysis
+              {pipelineStats.pending} more utterances awaiting MFA alignment
             </div>
           )}
         </div>
