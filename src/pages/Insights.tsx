@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Activity, Brain, Stethoscope, 
-  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform
+  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -145,12 +145,23 @@ export default function Insights() {
               </p>
             </div>
             
-            {!flagsLoading && redFlags.length > 0 && isAtLeast('caregiver') && (
-              <Badge variant="destructive" className="gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {redFlags.length} Alert{redFlags.length > 1 ? 's' : ''}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {isAtLeast('clinician') && (
+                <Button variant="outline" size="sm" asChild className="gap-2">
+                  <Link to="/clinician/report">
+                    <FileText className="w-4 h-4" />
+                    <span className="hidden sm:inline">Export Report</span>
+                  </Link>
+                </Button>
+              )}
+              
+              {!flagsLoading && redFlags.length > 0 && isAtLeast('caregiver') && (
+                <Badge variant="destructive" className="gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {redFlags.length} Alert{redFlags.length > 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -324,13 +335,19 @@ export default function Insights() {
 
                   {/* Quick links */}
                   <Card className="p-4">
-                    <h3 className="font-medium mb-3">Clinical Documents</h3>
+                    <h3 className="font-medium mb-3">Clinical Documents & Reports</h3>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => navigate('/clinical-documents')}>
                         View Documents
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => navigate('/profile-history')}>
                         Profile History
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to="/clinician/report" className="gap-2">
+                          <FileText className="w-4 h-4" />
+                          Export Report
+                        </Link>
                       </Button>
                     </div>
                   </Card>
