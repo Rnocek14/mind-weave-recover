@@ -13,17 +13,36 @@ export interface SessionSummary {
   reps: number;
 }
 
-export const startSession = async (userId: string, plan: SessionPlan) => {
+export const startSession = async (userId: string, plan: SessionPlan, profileId?: string) => {
+  // Get active profile if not provided
+  let actualProfileId = profileId;
+  if (!actualProfileId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    actualProfileId = profile?.id;
+  }
+  
   const { data, error } = await supabase
     .from('sessions')
     .insert({
       user_id: userId,
+      profile_id: actualProfileId,
       plan: plan as any
     })
     .select()
     .single();
   
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Failed to create session:', error);
+    throw error;
+  }
+  
+  console.log('✅ Session created:', data.id, 'profile:', actualProfileId);
   return data;
 };
 

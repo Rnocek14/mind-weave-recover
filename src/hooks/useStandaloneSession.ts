@@ -24,16 +24,17 @@ export const useStandaloneSession = (
     // Only create a session if:
     // 1. No sessionId was provided (standalone mode)
     // 2. We have a user
-    // 3. We haven't already created one
-    // 4. We're not currently creating one
-    if (!providedSessionId && userId && !localSessionId && !isCreatingSession) {
+    // 3. We have a profile (required for RLS)
+    // 4. We haven't already created one
+    // 5. We're not currently creating one
+    if (!providedSessionId && userId && activeProfile?.id && !localSessionId && !isCreatingSession) {
       setIsCreatingSession(true);
       
-      console.log('📝 Creating standalone session for', exerciseSlug);
+      console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id);
       
       startSession(userId, {
         blocks: [{ exercise: exerciseSlug, duration: 10 }]
-      })
+      }, activeProfile.id)
         .then((session) => {
           if (session?.id) {
             console.log('✅ Standalone session created:', session.id);
@@ -47,7 +48,7 @@ export const useStandaloneSession = (
           setIsCreatingSession(false);
         });
     }
-  }, [providedSessionId, userId, localSessionId, isCreatingSession, exerciseSlug]);
+  }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug]);
 
   return {
     activeSessionId,
