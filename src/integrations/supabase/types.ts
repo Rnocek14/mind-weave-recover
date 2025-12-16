@@ -1235,7 +1235,10 @@ export type Database = {
       }
       utterance_analyses: {
         Row: {
+          alignment_data: Json | null
+          analysis_status: string | null
           asr_confidence: number | null
+          asr_warning_flags: string[] | null
           attempt_id: string
           attempt_number: number | null
           audio_storage_path: string | null
@@ -1248,6 +1251,8 @@ export type Database = {
           effortful_speech: boolean | null
           error_type: string | null
           exercise_slug: string | null
+          gop_data: Json | null
+          human_labels: Json | null
           id: string
           is_correct: boolean | null
           latency_ms: number | null
@@ -1255,9 +1260,11 @@ export type Database = {
           phonological_similarity: number | null
           reasoning: string | null
           recording_duration_ms: number | null
+          review_status: string | null
           semantic_similarity: number | null
           session_id: string | null
           speech_rate_wpm: number | null
+          speech_ratio: number | null
           target_word: string
           time_to_success_after_cue_ms: number | null
           total_pause_ms: number | null
@@ -1268,7 +1275,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alignment_data?: Json | null
+          analysis_status?: string | null
           asr_confidence?: number | null
+          asr_warning_flags?: string[] | null
           attempt_id: string
           attempt_number?: number | null
           audio_storage_path?: string | null
@@ -1281,6 +1291,8 @@ export type Database = {
           effortful_speech?: boolean | null
           error_type?: string | null
           exercise_slug?: string | null
+          gop_data?: Json | null
+          human_labels?: Json | null
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
@@ -1288,9 +1300,11 @@ export type Database = {
           phonological_similarity?: number | null
           reasoning?: string | null
           recording_duration_ms?: number | null
+          review_status?: string | null
           semantic_similarity?: number | null
           session_id?: string | null
           speech_rate_wpm?: number | null
+          speech_ratio?: number | null
           target_word: string
           time_to_success_after_cue_ms?: number | null
           total_pause_ms?: number | null
@@ -1301,7 +1315,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alignment_data?: Json | null
+          analysis_status?: string | null
           asr_confidence?: number | null
+          asr_warning_flags?: string[] | null
           attempt_id?: string
           attempt_number?: number | null
           audio_storage_path?: string | null
@@ -1314,6 +1331,8 @@ export type Database = {
           effortful_speech?: boolean | null
           error_type?: string | null
           exercise_slug?: string | null
+          gop_data?: Json | null
+          human_labels?: Json | null
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
@@ -1321,9 +1340,11 @@ export type Database = {
           phonological_similarity?: number | null
           reasoning?: string | null
           recording_duration_ms?: number | null
+          review_status?: string | null
           semantic_similarity?: number | null
           session_id?: string | null
           speech_rate_wpm?: number | null
+          speech_ratio?: number | null
           target_word?: string
           time_to_success_after_cue_ms?: number | null
           total_pause_ms?: number | null
