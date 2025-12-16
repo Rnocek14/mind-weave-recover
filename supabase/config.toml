@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.get-review-audio-signed-url]
 verify_jwt = true
+
+[functions.pipeline-ops]
+verify_jwt = true
