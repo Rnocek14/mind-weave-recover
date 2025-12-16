@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface PipelineMetrics {
   total: number;
+  sampleSize: number;
   hasSemanticSimilarity: number;
   hasCueTracking: number;
   hasFluencyMetrics: number;
@@ -109,6 +110,7 @@ export const PipelineHealthDashboard = () => {
 
         setMetrics({
           total,
+          sampleSize,
           hasSemanticSimilarity: Math.round(hasSemanticSimilarity * scale),
           hasCueTracking: Math.round(hasCueTracking * scale),
           hasFluencyMetrics: Math.round(hasFluencyMetrics * scale),
@@ -250,7 +252,7 @@ export const PipelineHealthDashboard = () => {
             <div className="mt-2 pt-2 border-t border-border/50">
               <p className="font-medium text-foreground mb-1">
                 Fluency unavailable reasons 
-                <span className="font-normal text-muted-foreground"> (from last {Math.min(500, metrics.total)} sampled)</span>:
+                <span className="font-normal text-muted-foreground"> (from {metrics.sampleSize} sampled)</span>:
               </p>
               {Object.entries(metrics.fluencyReasons)
                 .sort(([, a], [, b]) => b - a)
