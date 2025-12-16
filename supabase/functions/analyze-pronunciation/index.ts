@@ -32,6 +32,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Health check endpoint
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/health') || req.method === 'GET') {
+    const hasKey = !!Deno.env.get('AZURE_SPEECH_KEY');
+    const hasRegion = !!Deno.env.get('AZURE_SPEECH_REGION');
+    return new Response(
+      JSON.stringify({ 
+        ok: true, 
+        configured: hasKey && hasRegion,
+        hasKey,
+        hasRegion,
+        timestamp: new Date().toISOString()
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const { audioBlob, mimeType, referenceText } = await req.json();
     
