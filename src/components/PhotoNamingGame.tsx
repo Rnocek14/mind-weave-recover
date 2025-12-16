@@ -921,6 +921,10 @@ export const PhotoNamingGame = ({
       prosodyScore?: number;
       transcript: string;
       words: any[];
+      alignmentData?: {
+        word_segments: { word: string; start: number; end: number }[];
+        phone_segments: { phone: string; start: number; end: number }[];
+      };
     } | null = null;
     
     if (isRecording && user && activeSessionId) {
@@ -1197,8 +1201,10 @@ export const PhotoNamingGame = ({
       prosodyScore: pronunciationResult?.prosodyScore,
       gopData: pronunciationResult ? {
         words: pronunciationResult.words,
-        transcript: pronunciationResult.transcript
-      } : undefined
+        transcript: pronunciationResult.transcript,
+        alignmentData: pronunciationResult.alignmentData
+      } : undefined,
+      alignmentData: pronunciationResult?.alignmentData
     });
 
     // Reset cue state for next trial
