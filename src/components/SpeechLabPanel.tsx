@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { InsightEvidenceBadge } from './InsightEvidenceBadge';
+import { StaffPipelineControls } from './StaffPipelineControls';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface SpeechLabPanelProps {
   userId: string;
@@ -71,6 +73,9 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
   const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { isAdmin, isModerator } = useUserPermissions(userId);
+  const isStaff = isAdmin || isModerator;
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -248,7 +253,9 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
     };
 
     if (userId) fetchStats();
-  }, [userId, daysBack]);
+  }, [userId, daysBack, refreshKey]);
+
+  const handleRefresh = () => setRefreshKey(k => k + 1);
 
   if (isLoading) {
     return (
@@ -514,6 +521,9 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             </div>
           </div>
         )}
+
+        {/* Staff Pipeline Controls */}
+        {isStaff && <StaffPipelineControls userId={userId} onRefresh={handleRefresh} />}
       </CardContent>
     </Card>
   );
