@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Volume2, Mic, MicOff, Lightbulb, RotateCcw, MessageSquare } from 'lucide-react';
+import { Volume2, Mic, MicOff, Lightbulb, RotateCcw, MessageSquare, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
@@ -16,12 +16,17 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { buildShadowEvent, toUtteranceAnalysis, type UtteranceAnalysis, type ShadowEvent } from '@/types/utteranceAnalysis';
 import { classifySpeechError } from '@/lib/errorClassifier';
 import { calculateEncouragementScore } from '@/lib/feedbackGenerator';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
   initialDifficulty: number;
   autoListen?: boolean;
   listenDelayMs?: number;
+  sessionId?: string | null;
   onTrialComplete?: (data: {
     correct: boolean;
     timeMs: number;
@@ -36,6 +41,7 @@ interface PhrasePracticeGameProps {
     effortfulSpeech?: boolean;
     utteranceAnalysis?: UtteranceAnalysis;
     shadowEvent?: ShadowEvent;
+    audioStoragePath?: string;
   }) => void;
   onGameComplete?: (finalScore: number, finalLevel: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -46,6 +52,7 @@ export const PhrasePracticeGame = ({
   initialDifficulty,
   autoListen = true, // Default ON for stroke survivors
   listenDelayMs = 800, // 800ms warmup before mic opens
+  sessionId,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange
@@ -65,6 +72,33 @@ export const PhrasePracticeGame = ({
   const [isListeningMode, setIsListeningMode] = useState(true);
   const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
   const [voicePreference, setVoicePreference] = useState<string>('alloy');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Auto-create session for standalone games
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+    user?.id,
+    sessionId,
+    CANONICAL_SLUGS.PHRASE_PRACTICE
+  );
+  
+  // Proper attempt-based utterance logging (no duplicates)
+  const { 
+    currentAttemptId, 
+    isFinalized,
+    startAttempt, 
+    logBrowserTranscript, 
+    logFinalAnalysis, 
+    resetAttempt 
+  } = useUtteranceLogger();
+  
+  // Audio recording
+  const { 
+    isRecording, 
+    isSupported: isRecordingSupported,
+    startRecording, 
+    stopRecording, 
+    uploadRecording 
+  } = useAudioRecorder();
   
   const {
     currentDifficulty,
@@ -117,11 +151,50 @@ export const PhrasePracticeGame = ({
 
   const currentTrial = trials[currentTrialIndex] || null;
 
+  // Start attempt and recording when trial becomes active
+  useEffect(() => {
+    if (currentTrial && !showFeedback && activeSessionId && user?.id) {
+      // Start a new attempt for utterance logging
+      startAttempt({
+        sessionId: activeSessionId,
+        userId: user.id,
+        exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
+        trialIndex: currentTrialIndex + 1,
+        attemptNumber: attempts + 1,
+        targetWord: currentTrial.phrase,
+        category: currentTrial.category
+      });
+      
+      // Start audio recording if supported
+      if (isRecordingSupported) {
+        startRecording();
+        console.log('🎙️ Recording started for phrase practice');
+      }
+    }
+  }, [currentTrial?.id, showFeedback, activeSessionId, user?.id]);
+
+  // Unmount cleanup - log abandoned trials
+  useEffect(() => {
+    return () => {
+      if (currentAttemptId && !isFinalized && currentTrial) {
+        console.log('⚠️ Unmount with active attempt - logging as abandoned');
+        logFinalAnalysis({
+          transcriptSource: 'browser',
+          isCorrect: false,
+          errorType: 'abandoned',
+        });
+      }
+    };
+  }, [currentAttemptId, isFinalized, currentTrial, logFinalAnalysis]);
+
   // Speech recognition
   const handleSpeechResult = (transcript: string) => {
     if (!currentTrial || showFeedback) return;
 
     console.log('Speech recognized:', transcript);
+    
+    // Log browser transcript (interim - no duplicates)
+    logBrowserTranscript(transcript);
     
     const evaluation = evaluatePhraseMatch(transcript, currentTrial);
     setCurrentWordAccuracy(evaluation.wordAccuracy);
@@ -129,7 +202,7 @@ export const PhrasePracticeGame = ({
     if (evaluation.match) {
       handleCorrectAnswer(evaluation.wordAccuracy);
     } else if (evaluation.wordAccuracy > 0.3) {
-      // Partial match - give feedback
+      // Partial match - give feedback (NOT a terminal outcome - don't finalize)
       toast({
         title: "Almost there!",
         description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
@@ -230,6 +303,31 @@ export const PhrasePracticeGame = ({
     setFeedbackCorrect(true);
     setShowFeedback(true);
     
+    // Stop recording and upload audio
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    
+    if (isRecording && user && activeSessionId) {
+      setIsAnalyzing(true);
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          activeSessionId,
+          currentTrialIndex + 1,
+          recordingResult.mimeType
+        );
+        
+        if (path) {
+          uploadedPath = path;
+        }
+      }
+      setIsAnalyzing(false);
+    }
+    
     // Update adaptive difficulty tracking
     updateTrial(true);
     
@@ -262,7 +360,7 @@ export const PhrasePracticeGame = ({
     
     const shadowEvent: ShadowEvent | undefined = user?.id ? buildShadowEvent(
       user.id,
-      null,
+      activeSessionId,
       {
         taskType: 'phrase_practice',
         domain: currentTrial!.category as any,
@@ -286,6 +384,21 @@ export const PhrasePracticeGame = ({
       effortfulSpeech: false,
       utteranceAnalysis,
       shadowEvent,
+      audioStoragePath: uploadedPath,
+    });
+
+    // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
+    logFinalAnalysis({
+      transcript: transcript,
+      transcriptSource: 'browser',
+      isCorrect: true,
+      errorType: 'correct',
+      phonologicalSimilarity: errorClassification.phonological_similarity,
+      semanticSimilarity: errorClassification.semantic_similarity,
+      classificationConfidence: errorClassification.confidence,
+      reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
     });
 
     setTimeout(() => {
@@ -293,14 +406,47 @@ export const PhrasePracticeGame = ({
     }, 1500);
   };
 
-  const handleIncorrectAnswer = () => {
+  const handleIncorrectAnswer = async () => {
     playError();
     setFeedbackCorrect(false);
     setShowFeedback(true);
     setAttempts(prev => prev + 1);
     
+    // Stop recording and upload audio
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    
+    if (isRecording && user && activeSessionId) {
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          activeSessionId,
+          currentTrialIndex + 1,
+          recordingResult.mimeType
+        );
+        
+        if (path) {
+          uploadedPath = path;
+        }
+      }
+    }
+    
     // Update adaptive difficulty tracking
     updateTrial(false);
+    
+    // Log final analysis (TERMINAL OUTCOME: incorrect)
+    logFinalAnalysis({
+      transcript: transcript,
+      transcriptSource: 'browser',
+      isCorrect: false,
+      errorType: 'incorrect',
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+    });
     
     setTimeout(() => {
       setShowFeedback(false);
@@ -308,6 +454,9 @@ export const PhrasePracticeGame = ({
   };
 
   const nextTrial = () => {
+    // Reset attempt for next trial
+    resetAttempt();
+    
     if (currentTrialIndex + 1 >= trials.length) {
       // Game complete
       onGameComplete?.(score, currentDifficulty);

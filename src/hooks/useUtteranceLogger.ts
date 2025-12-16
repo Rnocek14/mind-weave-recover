@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { UtteranceAnalysis } from '@/types/utteranceAnalysis';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 /**
  * Proper attempt-based logging for speech exercises.
@@ -10,6 +10,7 @@ import type { UtteranceAnalysis } from '@/types/utteranceAnalysis';
  * 2. Browser transcript logged immediately as interim
  * 3. Final analysis upserted to utterance_analyses (clean table for analytics)
  * 4. Every attempt gets analyzed, even failures
+ * 5. Idempotent finalization - logFinalAnalysis can only be called once per attempt
  */
 
 interface AttemptContext {
@@ -26,6 +27,7 @@ interface AttemptContext {
 
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
+  isFinalized: boolean;
   startAttempt: (context: Omit<AttemptContext, 'attemptId' | 'startedAt'>) => string;
   logBrowserTranscript: (transcript: string) => void;
   logFinalAnalysis: (analysis: {
@@ -54,8 +56,10 @@ interface UtteranceLoggerReturn {
 
 export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
+  const [isFinalized, setIsFinalized] = useState(false);
   const attemptContextRef = useRef<AttemptContext | null>(null);
   const browserTranscriptRef = useRef<string | null>(null);
+  const finalizedRef = useRef(false); // Prevents double-finalization
 
   /**
    * Start a new attempt - call this when a new trial begins
@@ -63,16 +67,22 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   const startAttempt = useCallback((context: Omit<AttemptContext, 'attemptId' | 'startedAt'>): string => {
     const attemptId = crypto.randomUUID();
     
+    // Normalize the exercise slug for consistent analytics
+    const normalizedSlug = normalizeExerciseSlug(context.exerciseSlug);
+    
     attemptContextRef.current = {
       ...context,
+      exerciseSlug: normalizedSlug,
       attemptId,
       startedAt: Date.now()
     };
     
     browserTranscriptRef.current = null;
+    finalizedRef.current = false; // Reset finalized flag for new attempt
+    setIsFinalized(false);
     setCurrentAttemptId(attemptId);
     
-    console.log('📝 New attempt started:', attemptId, 'target:', context.targetWord);
+    console.log('📝 New attempt started:', attemptId, 'target:', context.targetWord, 'slug:', normalizedSlug);
     
     return attemptId;
   }, []);
@@ -97,6 +107,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   /**
    * Log final analysis - this is the REAL logging that goes to utterance_analyses
    * Call this when the trial completes (success, failure, timeout, or abandon)
+   * 
+   * IDEMPOTENT: Can only be called once per attempt - subsequent calls are ignored
    */
   const logFinalAnalysis = useCallback(async (analysis: {
     transcript?: string;
@@ -119,11 +131,21 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     audioStoragePath?: string;
     recordingDurationMs?: number;
   }): Promise<void> => {
+    // IDEMPOTENT GUARD: Prevent double-finalization
+    if (finalizedRef.current) {
+      console.log('⏭️ Attempt already finalized, skipping duplicate logFinalAnalysis');
+      return;
+    }
+    
     const ctx = attemptContextRef.current;
     if (!ctx) {
       console.error('❌ No active attempt context for final analysis');
       return;
     }
+
+    // Mark as finalized BEFORE async operations to prevent race conditions
+    finalizedRef.current = true;
+    setIsFinalized(true);
 
     const latencyMs = Date.now() - ctx.startedAt;
     
@@ -145,7 +167,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           attempt_id: ctx.attemptId,
           user_id: ctx.userId,
           session_id: ctx.sessionId,
-          exercise_slug: ctx.exerciseSlug,
+          exercise_slug: ctx.exerciseSlug, // Already normalized in startAttempt
           trial_index: ctx.trialIndex,
           attempt_number: ctx.attemptNumber,
           target_word: ctx.targetWord,
@@ -191,11 +213,14 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   const resetAttempt = useCallback((): void => {
     attemptContextRef.current = null;
     browserTranscriptRef.current = null;
+    finalizedRef.current = false;
+    setIsFinalized(false);
     setCurrentAttemptId(null);
   }, []);
 
   return {
     currentAttemptId,
+    isFinalized,
     startAttempt,
     logBrowserTranscript,
     logFinalAnalysis,

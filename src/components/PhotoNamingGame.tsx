@@ -21,6 +21,7 @@ import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -96,16 +97,17 @@ export const PhotoNamingGame = ({
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id);
   
-  // FIX 1: Auto-create session for standalone games
+  // FIX 1: Auto-create session for standalone games (use canonical slug)
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
     sessionId,
-    'photo_naming'
+    CANONICAL_SLUGS.PHOTO_NAMING
   );
   
   // Proper attempt-based utterance logging (no duplicates)
   const { 
     currentAttemptId, 
+    isFinalized,
     startAttempt, 
     logBrowserTranscript, 
     logFinalAnalysis, 
@@ -409,7 +411,7 @@ export const PhotoNamingGame = ({
         startAttempt({
           sessionId: activeSessionId,
           userId: user.id,
-          exerciseSlug: 'photo_naming',
+          exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
           trialIndex: state.trialNumber,
           attemptNumber: 1,
           targetWord: state.currentTrial.target,
@@ -474,6 +476,21 @@ export const PhotoNamingGame = ({
       onGameComplete(state.score);
     }
   }, [state.isComplete, state.score, onGameComplete]);
+
+  // FIX: Unmount cleanup - log abandoned trials as best-effort
+  useEffect(() => {
+    return () => {
+      // If there's an active attempt that wasn't finalized, log it as abandoned
+      if (currentAttemptId && !isFinalized && state.currentTrial) {
+        console.log('⚠️ Unmount with active attempt - logging as abandoned');
+        logFinalAnalysis({
+          transcriptSource: 'browser',
+          isCorrect: false,
+          errorType: 'abandoned',
+        });
+      }
+    };
+  }, [currentAttemptId, isFinalized, state.currentTrial, logFinalAnalysis]);
   
   // Phase 1 Fix: Restart voice after no-match toast
   useEffect(() => {
@@ -1031,7 +1048,7 @@ export const PhotoNamingGame = ({
     }, 1500);
   };
 
-  const handleCaregiverResponse = (responseType: 'looked' | 'tried' | 'said_roughly' | 'no_response') => {
+  const handleCaregiverResponse = async (responseType: 'looked' | 'tried' | 'said_roughly' | 'no_response') => {
     if (!state.currentTrial) return;
 
     const reactionTime = Date.now() - trialStartTime;
@@ -1057,6 +1074,31 @@ export const PhotoNamingGame = ({
         score = 0;
         errorType = 'no_response';
         break;
+    }
+
+    // FIX: Stop recording and upload audio for caregiver mode too
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    let mimeType: string | undefined;
+    
+    if (isRecording && user && activeSessionId) {
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        mimeType = recordingResult.mimeType;
+        
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          activeSessionId,
+          state.trialNumber,
+          recordingResult.mimeType
+        );
+        
+        if (path) {
+          uploadedPath = path;
+        }
+      }
     }
 
     setFeedbackData({ 
@@ -1102,11 +1144,25 @@ export const PhotoNamingGame = ({
       cueLevel: cueLevel,
       encouragementScore: caregiverEncouragementScore,
       effortfulSpeech: false, // Not applicable in caregiver assist mode
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+      audioMimeType: mimeType,
     }, state.currentTrial);
+
+    // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
+    logFinalAnalysis({
+      transcriptSource: 'manual',
+      isCorrect: correct,
+      errorType: errorType || 'correct',
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : undefined,
+    });
 
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
+      resetAttempt(); // Reset for next trial
       nextTrial(currentDifficulty);
     }, 2000);
   };
