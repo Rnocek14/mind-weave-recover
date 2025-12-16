@@ -76,13 +76,20 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
     return <RecoverySnapshotSkeleton />;
   }
 
-  // Generate narratives
-  const recoveryNarrative = narrateRecoveryTrend(learningRates, trends);
+  // Define consistent reporting window (last 7 days)
+  const WINDOW_DAYS = 7;
+  const windowLabel = "Last 7 days";
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
   
-  // Calculate sample sizes for evidence badges
-  const totalTrials = trends.reduce((sum, t) => sum + t.totalTrials, 0);
-  const totalSessions = trends.filter(t => t.totalTrials > 0).length;
+  // Filter trends to exact window
+  const windowTrends = trends.filter(t => new Date(t.date) >= windowStart);
+  const totalTrials = windowTrends.reduce((sum, t) => sum + t.totalTrials, 0);
+  const totalSessions = windowTrends.filter(t => t.totalTrials > 0).length;
   
+  // Generate narratives using window-filtered data
+  const recoveryNarrative = narrateRecoveryTrend(learningRates, windowTrends);
+
   const challenges = narrateChallenges(
     errorAnalytics?.challengingTargets || [],
     errorAnalytics?.fluencyMetrics || null,
@@ -103,17 +110,20 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   // Filter critical alerts (red = high severity)
   const criticalFlags = redFlags.filter(f => f.severity === 'red');
 
-  // Build evidence points for recovery section
+  // Build evidence points with full context (clinician-grade)
   const recoveryEvidencePoints: string[] = [];
+  recoveryEvidencePoints.push(`${totalTrials} trials across ${totalSessions} sessions`);
+  
   if (learningRates.length > 0) {
     const namingRate = learningRates.find(r => r.domain === 'naming');
     if (namingRate?.accuracySlope) {
-      recoveryEvidencePoints.push(`Naming accuracy trend: ${namingRate.accuracySlope > 0 ? '+' : ''}${(namingRate.accuracySlope * 100).toFixed(1)}% per week`);
+      recoveryEvidencePoints.push(`Naming trend: ${namingRate.accuracySlope > 0 ? '+' : ''}${(namingRate.accuracySlope * 100).toFixed(1)}%/week (${namingRate.trialCount} samples)`);
     }
   }
-  if (trends.length >= 3) {
-    const recentAccuracy = trends.slice(-3).reduce((s, t) => s + t.accuracy, 0) / 3;
-    recoveryEvidencePoints.push(`Recent 3-day accuracy: ${Math.round(recentAccuracy)}%`);
+  
+  if (windowTrends.length >= 3) {
+    const recentAccuracy = windowTrends.slice(-3).reduce((s, t) => s + t.accuracy, 0) / 3;
+    recoveryEvidencePoints.push(`Recent 3-day avg: ${Math.round(recentAccuracy)}%`);
   }
 
   return (
@@ -201,23 +211,19 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
                 <p className="text-lg font-semibold text-success">{strategy.strategy}</p>
                 <p className="text-sm text-muted-foreground">{strategy.context}</p>
                 
-                {/* Cue efficacy evidence badge */}
-                {errorAnalytics?.cueEfficacy && errorAnalytics.cueEfficacy.length > 0 && (
-                  <InsightEvidenceBadge
-                    windowLabel="Last 4 weeks"
-                    n={errorAnalytics.cueEfficacy.reduce((sum, c) => sum + c.totalGiven, 0)}
-                    confidence={calculateConfidence(
-                      errorAnalytics.cueEfficacy.find(c => c.cueType === (strategy.strategy === 'Category hints' ? 'semantic' : 'phonemic'))?.totalGiven || 0,
-                      { low: 3, medium: 10 }
-                    )}
-                    evidencePoints={errorAnalytics.cueEfficacy
-                      .filter(c => c.totalGiven >= 3)
-                      .map(c => `${c.cueType}: ${Math.round(c.efficacyRate * 100)}% effective (n=${c.totalGiven})`)
-                    }
-                    minNForHighConfidence={20}
-                    patientFriendlyMessage={undefined}
-                  />
-                )}
+                {/* Cue efficacy evidence badge - uses raw cueType from strategy */}
+                <InsightEvidenceBadge
+                  windowLabel="Last 4 weeks"
+                  n={strategy.totalGiven}
+                  confidence={calculateConfidence(strategy.totalGiven, { low: 3, medium: 10 })}
+                  evidencePoints={
+                    errorAnalytics?.cueEfficacy
+                      ?.filter(c => c.totalGiven >= 3)
+                      .map(c => `${c.cueType}: ${Math.round(c.efficacyRate * 100)}% effective (n=${c.totalGiven})`) || []
+                  }
+                  minNForHighConfidence={20}
+                  patientFriendlyMessage={undefined}
+                />
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-success">
