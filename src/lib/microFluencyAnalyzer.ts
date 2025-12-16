@@ -13,16 +13,23 @@ export type AlignmentWord = {
   word: string; 
   start: number; 
   end: number; 
-  duration: number;
+  duration?: number;  // Optional - computed if not provided
 };
 
 export type AlignmentPhone = { 
   phone: string; 
   start: number; 
   end: number; 
-  duration: number; 
-  is_silence: boolean;
+  duration?: number;  // Optional - computed if not provided
+  is_silence?: boolean;  // Optional - inferred from phone name if not provided
 };
+
+// Azure marks silence with these phone symbols
+const SILENCE_PHONES = new Set(['sil', 'sp', 'spn', '<sil>', 'pau', 'SIL', 'SP']);
+
+function isSilencePhone(phone: string): boolean {
+  return SILENCE_PHONES.has(phone) || SILENCE_PHONES.has(phone.toLowerCase());
+}
 
 export interface AlignmentData {
   word_segments: AlignmentWord[];
@@ -220,7 +227,9 @@ export function deriveMicroFluency(
     let j = pIdx;
     while (j < phones.length && phones[j].start < wEnd) {
       const ph = phones[j];
-      if (ph.is_silence) {
+      // Check is_silence flag OR infer from phone name
+      const phoneIsSilence = ph.is_silence ?? isSilencePhone(ph.phone);
+      if (phoneIsSilence) {
         const overlapStart = Math.max(ph.start, wStart);
         const overlapEnd = Math.min(ph.end, wEnd);
         const overlapMs = (overlapEnd - overlapStart) * 1000;
@@ -258,11 +267,23 @@ export function deriveMicroFluency(
     notes.push("Filled pauses present; track changes over time alongside silent pause burden.");
   }
 
-  // Quality gates
-  const alignmentOk = words.length >= 2 && phones.length >= 10 && speechDur / totalSpan >= 0.2;
-  const qualityReason = alignmentOk
-    ? undefined
-    : "Alignment sparse/low speech ratio; micro-fluency metrics may be unreliable.";
+  // Quality gates - adjusted for single-word exercises (Photo Naming)
+  // For single words: require fewer phones, focus on intra-word analysis
+  const isSingleWord = words.length === 1;
+  const minPhones = isSingleWord ? 2 : 10;
+  const minWords = isSingleWord ? 1 : 2;
+  const alignmentOk = words.length >= minWords && phones.length >= minPhones && speechDur / totalSpan >= 0.2;
+  
+  let qualityReason: string | undefined;
+  if (!alignmentOk) {
+    if (phones.length < minPhones) {
+      qualityReason = `Need at least ${minPhones} phonemes for analysis (got ${phones.length}).`;
+    } else if (speechDur / totalSpan < 0.2) {
+      qualityReason = "Speech ratio too low; mostly silence in recording.";
+    } else {
+      qualityReason = "Alignment sparse; micro-fluency metrics may be unreliable.";
+    }
+  }
 
   return {
     silentPauses: {

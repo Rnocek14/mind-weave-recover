@@ -46,7 +46,7 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
   }, [userId, daysBack]);
 
   // Check if we have Azure data (pronunciation assessment) vs MFA alignment data
-  const { aggregate, sampleCount, validCount, notesPreview, hasAzureData, azureOnlyCount } = useMemo(() => {
+  const { aggregate, sampleCount, validCount, notesPreview, hasAzureData, azureWithAlignment, isSingleWordContext } = useMemo(() => {
     const analyses = rows.map((r) => deriveMicroFluency(r.alignment_data, r.transcript));
     const agg = aggregateMicroFluency(analyses);
 
@@ -55,8 +55,16 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       .filter(Boolean)
       .slice(0, 3);
 
-    // Count rows with Azure data but no MFA alignment
-    const azureOnly = rows.filter(r => r.gop_data?.source === 'azure' && !r.alignment_data?.word_segments?.length);
+    // Count rows with Azure data that have alignment
+    const withAlignment = rows.filter(r => 
+      r.gop_data?.source === 'azure' && 
+      r.alignment_data?.word_segments?.length > 0
+    );
+    
+    // Check if most utterances are single-word (Photo Naming context)
+    const singleWordCount = rows.filter(r => 
+      r.alignment_data?.word_segments?.length === 1
+    ).length;
 
     return {
       aggregate: agg,
@@ -64,7 +72,8 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       validCount: agg.validSampleCount,
       notesPreview: notes,
       hasAzureData: rows.some(r => r.gop_data?.source === 'azure'),
-      azureOnlyCount: azureOnly.length,
+      azureWithAlignment: withAlignment.length,
+      isSingleWordContext: singleWordCount > rows.length / 2,
     };
   }, [rows]);
 
@@ -101,35 +110,55 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       <CardContent>
         {validCount === 0 ? (
           <div className="text-sm text-muted-foreground">
-            {hasAzureData ? (
+            {hasAzureData && azureWithAlignment > 0 ? (
               <>
                 <p className="mb-2">
-                  <strong>Azure Pronunciation Assessment active</strong> — {azureOnlyCount} utterances analyzed for pronunciation scores.
+                  <strong>Azure alignment data available</strong> — {azureWithAlignment} utterances have phoneme timing.
                 </p>
                 <p>
-                  Micro-fluency analysis (silent/filled pauses, intra-word timing) requires MFA word/phone alignment data, 
-                  which Azure does not provide. This card will populate if MFA alignment is enabled alongside Azure.
+                  {isSingleWordContext 
+                    ? "Single-word exercises (Photo Naming) have limited inter-word pause data. Intra-word and phoneme timing metrics will show once enough samples accumulate."
+                    : "Micro-fluency metrics will populate once quality checks pass (minimum phoneme count, speech ratio)."}
+                </p>
+              </>
+            ) : hasAzureData ? (
+              <>
+                <p className="mb-2">
+                  <strong>Azure Pronunciation Assessment active</strong> — collecting phoneme timing data.
+                </p>
+                <p>
+                  Complete a few more voice trials to accumulate alignment data for micro-fluency analysis.
                 </p>
               </>
             ) : (
               <>
-                No valid alignment data yet. Once MFA produces alignment_data, this card will populate with 
-                silent/filled pause topology and intra-word silence signals.
+                No alignment data yet. Complete voice trials with pronunciation assessment enabled 
+                to populate micro-fluency metrics.
               </>
             )}
           </div>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-4">
-              <Metric label="Avg silent pauses" value={`${aggregate.avgSilentPauseCount}`} />
-              <Metric label="Avg pause length" value={`${aggregate.avgSilentPauseMs} ms`} />
-              <Metric label="Avg pre-word pause" value={`${aggregate.avgPreWordPauseMs} ms`} />
-              <Metric label="Avg longest pause" value={`${aggregate.avgLongestPauseMs} ms`} />
-              <Metric label="Burst count" value={`${aggregate.avgBurstCount}`} />
-              <Metric label="Filled pauses" value={`${aggregate.totalFilledPauses}`} />
-              <Metric label="Intra-word pauses" value={`${aggregate.totalIntraWordPauses}`} />
-              <Metric label="Valid rate" value={`${validRatePct}%`} />
-            </div>
+            {isSingleWordContext ? (
+              // Single-word context: Focus on intra-word metrics
+              <div className="grid gap-3 md:grid-cols-3">
+                <Metric label="Intra-word pauses" value={`${aggregate.totalIntraWordPauses}`} hint="Silence within word (apraxia signal)" />
+                <Metric label="Filled pauses" value={`${aggregate.totalFilledPauses}`} hint="um, uh, etc." />
+                <Metric label="Valid samples" value={`${validCount}/${sampleCount}`} hint={`${validRatePct}% pass quality check`} />
+              </div>
+            ) : (
+              // Multi-word context: Full micro-fluency metrics
+              <div className="grid gap-3 md:grid-cols-4">
+                <Metric label="Avg silent pauses" value={`${aggregate.avgSilentPauseCount}`} />
+                <Metric label="Avg pause length" value={`${aggregate.avgSilentPauseMs} ms`} />
+                <Metric label="Avg pre-word pause" value={`${aggregate.avgPreWordPauseMs} ms`} />
+                <Metric label="Avg longest pause" value={`${aggregate.avgLongestPauseMs} ms`} />
+                <Metric label="Burst count" value={`${aggregate.avgBurstCount}`} />
+                <Metric label="Filled pauses" value={`${aggregate.totalFilledPauses}`} />
+                <Metric label="Intra-word pauses" value={`${aggregate.totalIntraWordPauses}`} />
+                <Metric label="Valid rate" value={`${validRatePct}%`} />
+              </div>
+            )}
 
             {notesPreview.length > 0 && (
               <div className="mt-4">
@@ -148,11 +177,12 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
+      {hint && <div className="text-xs text-muted-foreground/70 mt-0.5">{hint}</div>}
     </div>
   );
 }
