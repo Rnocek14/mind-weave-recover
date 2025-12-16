@@ -163,14 +163,14 @@ serve(async (req) => {
 });
 
 function parseAzureResponse(azureData: any, referenceText: string): PronunciationResult {
-  // Handle different Azure response structures
+  // Handle Azure response - scores are directly on NBest[0], not under PronunciationAssessment
   const nBest = azureData.NBest?.[0];
-  const pronAssessment = nBest?.PronunciationAssessment || azureData.PronunciationAssessment;
   const displayText = nBest?.Display || azureData.DisplayText || '';
   const duration = (azureData.Duration || 0) / 10000000; // Convert from 100-nanosecond units to seconds
 
-  if (!pronAssessment) {
-    console.warn('[analyze-pronunciation] No pronunciation assessment in response');
+  // Azure returns scores directly on nBest: AccuracyScore, FluencyScore, PronScore, etc.
+  if (!nBest || (nBest.AccuracyScore === undefined && nBest.PronScore === undefined)) {
+    console.warn('[analyze-pronunciation] No pronunciation scores in response');
     return {
       transcript: displayText || referenceText,
       pronunciationScore: 0,
@@ -183,21 +183,19 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
     };
   }
 
-  // Extract word-level data
+  // Extract word-level data - scores are directly on word objects
   const words: PronunciationWord[] = [];
-  const azureWords = nBest?.Words || azureData.Words || [];
+  const azureWords = nBest?.Words || [];
 
   for (const w of azureWords) {
-    const wordAssessment = w.PronunciationAssessment || {};
     const phonemes: { phoneme: string; accuracyScore: number; duration: number }[] = [];
 
-    // Extract phoneme data if available
+    // Extract phoneme data - scores are directly on phoneme objects
     if (w.Phonemes) {
       for (const p of w.Phonemes) {
-        const phonemeAssessment = p.PronunciationAssessment || {};
         phonemes.push({
           phoneme: p.Phoneme || '',
-          accuracyScore: phonemeAssessment.AccuracyScore || 0,
+          accuracyScore: p.AccuracyScore || 0,
           duration: (p.Duration || 0) / 10000000, // Convert to seconds
         });
       }
@@ -205,19 +203,26 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
 
     words.push({
       word: w.Word || '',
-      accuracyScore: wordAssessment.AccuracyScore || 0,
-      errorType: wordAssessment.ErrorType || 'None',
+      accuracyScore: w.AccuracyScore || 0,
+      errorType: w.ErrorType || 'None',
       phonemes,
     });
   }
 
+  console.log('[analyze-pronunciation] Parsed scores:', {
+    pronunciationScore: nBest.PronScore,
+    accuracyScore: nBest.AccuracyScore,
+    fluencyScore: nBest.FluencyScore,
+    wordCount: words.length
+  });
+
   return {
     transcript: displayText,
-    pronunciationScore: pronAssessment.PronScore || pronAssessment.PronunciationScore || 0,
-    accuracyScore: pronAssessment.AccuracyScore || 0,
-    fluencyScore: pronAssessment.FluencyScore || 0,
-    completenessScore: pronAssessment.CompletenessScore || 0,
-    prosodyScore: pronAssessment.ProsodyScore,
+    pronunciationScore: nBest.PronScore || 0,
+    accuracyScore: nBest.AccuracyScore || 0,
+    fluencyScore: nBest.FluencyScore || 0,
+    completenessScore: nBest.CompletenessScore || 0,
+    prosodyScore: nBest.ProsodyScore,
     words,
     duration
   };
