@@ -19,6 +19,9 @@ serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
 
+  // Log request for debugging
+  console.log("➡️ pipeline-ops", req.method, path);
+
   // Verify staff role via JWT using user-scoped client
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
