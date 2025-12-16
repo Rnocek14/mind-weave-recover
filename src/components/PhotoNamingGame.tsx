@@ -1058,7 +1058,7 @@ export const PhotoNamingGame = ({
       totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
       avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: utteranceAnalysis.effortfulSpeech,
-      cueTypeGiven: cueTypeGiven === 'none' ? undefined : cueTypeGiven,
+      cueTypeGiven: cueTypeGiven, // FIX: Always log, even 'none' (distinguishes "no cue" from "logging broken")
       cueWasEffective: cueWasEffective ?? undefined,
       timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
       audioStoragePath: uploadedPath,

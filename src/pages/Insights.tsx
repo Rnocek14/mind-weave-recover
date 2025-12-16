@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Activity, MessageSquare, Brain, Stethoscope, 
-  Loader2, AlertCircle, Zap
+  Loader2, AlertCircle, Zap, HeartPulse
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -31,6 +31,9 @@ import { ClusterComparisonDashboard } from "@/components/ClusterComparisonDashbo
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
+
+// Pipeline Health (admin/debug)
+import { PipelineHealthDashboard } from "@/components/PipelineHealthDashboard";
 
 // Hooks
 import { useLearningRate } from "@/hooks/useLearningRate";
@@ -135,7 +138,7 @@ export default function Insights() {
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="overview" className="gap-2 text-xs md:text-sm">
               <Activity className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -151,6 +154,10 @@ export default function Insights() {
             <TabsTrigger value="clinical" className="gap-2 text-xs md:text-sm">
               <Stethoscope className="w-4 h-4" />
               <span className="hidden sm:inline">Clinical</span>
+            </TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-2 text-xs md:text-sm">
+              <HeartPulse className="w-4 h-4" />
+              <span className="hidden sm:inline">Pipeline</span>
             </TabsTrigger>
           </TabsList>
 
@@ -285,6 +292,21 @@ export default function Insights() {
                 </Card>
               </>
             )}
+          </TabsContent>
+
+          {/* Pipeline Health Tab */}
+          <TabsContent value="pipeline" className="space-y-6">
+            <div className="flex items-center gap-3 mb-4">
+              <HeartPulse className="w-6 h-6 text-primary" />
+              <div>
+                <h2 className="text-xl font-semibold">Pipeline Health</h2>
+                <p className="text-sm text-muted-foreground">
+                  Monitor data flow completeness for personalization features
+                </p>
+              </div>
+            </div>
+
+            <PipelineHealthDashboard />
           </TabsContent>
         </Tabs>
       </div>
