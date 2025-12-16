@@ -20,7 +20,7 @@ import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
-import { trackRound } from '@/lib/sessionTracking';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -103,9 +103,17 @@ export const PhotoNamingGame = ({
     'photo_naming'
   );
   
+  // Proper attempt-based utterance logging (no duplicates)
+  const { 
+    currentAttemptId, 
+    startAttempt, 
+    logBrowserTranscript, 
+    logFinalAnalysis, 
+    resetAttempt 
+  } = useUtteranceLogger();
+  
   // Track analysis state for UI feedback
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastSavedTranscript, setLastSavedTranscript] = useState<string | null>(null);
   
   // Audio recording
   const { 
@@ -252,29 +260,8 @@ export const PhotoNamingGame = ({
     
     console.log('Speech result:', transcript);
     
-    // FIX 2: Log browser transcript as fallback (even before matching)
-    // This ensures we capture SOMETHING even if Whisper analysis fails
-    if (activeSessionId && user?.id && state.currentTrial) {
-      try {
-        await trackRound(
-          activeSessionId,
-          'photo_naming',
-          state.trialNumber,
-          0, // Score will be updated on actual answer
-          { target: state.currentTrial.target, category: state.currentTrial.category },
-          { 
-            transcript, 
-            transcript_source: 'browser',
-            is_interim: true, // Mark as interim - final answer will have full analysis
-            timestamp: new Date().toISOString()
-          }
-        );
-        console.log('📝 Browser transcript logged:', transcript);
-        setLastSavedTranscript(transcript);
-      } catch (err) {
-        console.error('Failed to log browser transcript:', err);
-      }
-    }
+    // Log browser transcript (no duplicates - just updates the attempt context)
+    logBrowserTranscript(transcript);
     
     const matchedChoice = findMatchingChoice(transcript);
     
@@ -293,7 +280,7 @@ export const PhotoNamingGame = ({
       // Phase 1 Fix: Flag for voice restart after no-match
       needsVoiceRestartRef.current = true;
     }
-  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, state.trialNumber, toast, activeSessionId, user?.id]);
+  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, toast, logBrowserTranscript]);
   
   // Speech recognition hook - uses handleSpeechResult callback
   const { 
@@ -417,6 +404,19 @@ export const PhotoNamingGame = ({
       setShowCue(false);
       setCurrentCueText('');
       
+      // Start a new attempt for utterance logging (no duplicates!)
+      if (activeSessionId && user?.id) {
+        startAttempt({
+          sessionId: activeSessionId,
+          userId: user.id,
+          exerciseSlug: 'photo_naming',
+          trialIndex: state.trialNumber,
+          attemptNumber: 1,
+          targetWord: state.currentTrial.target,
+          category: state.currentTrial.category
+        });
+      }
+      
       // Start audio recording if supported - USE activeSessionId for standalone mode
       if (isRecordingSupported && user && activeSessionId) {
         startRecording();
@@ -462,7 +462,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, currentDifficulty]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, currentDifficulty, startAttempt]);
 
   // Handle game completion
   useEffect(() => {
@@ -589,10 +589,28 @@ export const PhotoNamingGame = ({
       effortfulSpeech: timeoutEffortfulSpeech,
     }, state.currentTrial);
 
+    // Log final analysis for timeout (critical for pattern analysis!)
+    logFinalAnalysis({
+      transcript: whisperTranscript,
+      transcriptSource: whisperTranscript ? 'whisper' : 'browser',
+      asrConfidence: whisperConfidence,
+      isCorrect: false,
+      errorType: 'timeout',
+      speechRateWpm: acousticMetrics?.speechRateWPM,
+      pauseCount: acousticMetrics?.pauseCount,
+      totalPauseMs: acousticMetrics?.totalPauseMs,
+      avgPauseDurationMs: acousticMetrics?.averagePauseDuration,
+      effortfulSpeech: timeoutEffortfulSpeech,
+      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : undefined,
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration
+    });
+
     // Auto-advance after 2 seconds
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
+      resetAttempt(); // Reset for next trial
       nextTrial(currentDifficulty);
     }, 2000);
   };
@@ -978,6 +996,29 @@ export const PhotoNamingGame = ({
       timeToSuccessAfterCueMs, // NEW: cue efficacy tracking
     }, state.currentTrial);
 
+    // Log final analysis to utterance_analyses table (clean analytics)
+    logFinalAnalysis({
+      transcript: whisperTranscript,
+      transcriptSource: whisperTranscript ? 'whisper' : 'browser',
+      asrConfidence: whisperConfidence,
+      isCorrect: correct,
+      errorType: errorClassification.errorType,
+      phonologicalSimilarity: errorClassification.phonemeAccuracy,
+      semanticSimilarity: errorClassification.semantic_similarity,
+      classificationConfidence: errorClassification.confidence,
+      reasoning: errorClassification.reasoning,
+      speechRateWpm: acousticMetrics?.speechRateWPM,
+      pauseCount: acousticMetrics?.pauseCount,
+      totalPauseMs: acousticMetrics?.totalPauseMs,
+      avgPauseDurationMs: acousticMetrics?.averagePauseDuration,
+      effortfulSpeech: utteranceAnalysis.effortfulSpeech,
+      cueTypeGiven: cueTypeGiven === 'none' ? undefined : cueTypeGiven,
+      cueWasEffective: cueWasEffective ?? undefined,
+      timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration
+    });
+
     // Reset cue state for next trial
     setCueState(null);
 
@@ -985,6 +1026,7 @@ export const PhotoNamingGame = ({
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
+      resetAttempt(); // Reset for next trial
       nextTrial(currentDifficulty);
     }, 1500);
   };
