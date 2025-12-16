@@ -408,8 +408,17 @@ export const PhotoNamingGame = ({
       setCurrentCueText('');
       
       // Start a new attempt for utterance logging (no duplicates!)
+      console.log('🎯 [PhotoNaming] New trial starting:', {
+        target: state.currentTrial.target,
+        trialNumber: state.trialNumber,
+        activeSessionId,
+        userId: user?.id,
+        hasSession: !!activeSessionId,
+        hasUser: !!user?.id
+      });
+      
       if (activeSessionId && user?.id) {
-        startAttempt({
+        const attemptId = startAttempt({
           sessionId: activeSessionId,
           userId: user.id,
           exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
@@ -417,6 +426,12 @@ export const PhotoNamingGame = ({
           attemptNumber: 1,
           targetWord: state.currentTrial.target,
           category: state.currentTrial.category
+        });
+        console.log('✅ [PhotoNaming] Attempt started:', attemptId);
+      } else {
+        console.warn('⚠️ [PhotoNaming] Cannot start attempt - missing session or user:', {
+          activeSessionId,
+          userId: user?.id
         });
       }
       
@@ -1014,6 +1029,15 @@ export const PhotoNamingGame = ({
     }, state.currentTrial);
 
     // Log final analysis to utterance_analyses table (clean analytics)
+    console.log('📊 [PhotoNaming] Logging final analysis:', {
+      target: state.currentTrial.target,
+      isCorrect: correct,
+      errorType: errorClassification.errorType,
+      hasTranscript: !!whisperTranscript,
+      phonemeAccuracy: errorClassification.phonemeAccuracy,
+      semanticSimilarity: errorClassification.semantic_similarity
+    });
+    
     logFinalAnalysis({
       transcript: whisperTranscript,
       transcriptSource: whisperTranscript ? 'whisper' : 'browser',
