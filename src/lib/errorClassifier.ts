@@ -64,6 +64,13 @@ export const classifySpeechError = async (
   );
   
   if (circumlocutionCheck.detected) {
+    // Get semantic similarity even for circumlocution (for analytics completeness)
+    const semantic_sim = await getSemanticSimilarity(
+      spokenWord.toLowerCase().trim(),
+      targetWord.toLowerCase().trim(),
+      context.category
+    );
+    
     return {
       errorType: 'circumlocution',
       confidence: 0.8,
@@ -71,6 +78,7 @@ export const classifySpeechError = async (
       needs_review: false,
       circumlocutionDetected: true,
       meaningAccuracy: 0.9,
+      semantic_similarity: semantic_sim, // FIX: Always populate
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
         effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
@@ -100,6 +108,7 @@ export const classifySpeechError = async (
       needs_review: false,
       phonemeAccuracy: 1.0,
       phonological_similarity: 1.0,
+      semantic_similarity: 1.0, // FIX: Always populate (exact match = 1.0)
       meaningAccuracy: 1.0,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -116,7 +125,9 @@ export const classifySpeechError = async (
       errorType: 'self_corrected',
       confidence: Math.max(0.7, asrConfidence),
       reasoning: 'Target word present in multi-word utterance, likely self-correction',
-      needs_review: false
+      needs_review: false,
+      semantic_similarity: 1.0, // FIX: Always populate (self-corrected to target = 1.0)
+      phonological_similarity: 1.0
     };
   }
   
@@ -148,6 +159,7 @@ export const classifySpeechError = async (
       needs_review: false,
       phonological_similarity: phonological_sim,
       phonemeAccuracy,
+      semantic_similarity: semantic_sim, // FIX: Always populate
       meaningAccuracy: 0.7,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -203,7 +215,8 @@ export const classifySpeechError = async (
         reasoning: `Non-word with partial phonological overlap (${phonological_sim.toFixed(2)}, phoneme: ${phonemeAccuracy.toFixed(2)})`,
         needs_review: true,
         phonological_similarity: phonological_sim,
-        phonemeAccuracy
+        phonemeAccuracy,
+        semantic_similarity: semantic_sim // FIX: Always populate
       };
     }
   }
