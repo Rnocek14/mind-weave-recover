@@ -633,7 +633,7 @@ export const PhotoNamingGame = ({
       totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
       avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: timeoutEffortfulSpeech,
-      cueTypeGiven: timeoutCueTypeGiven === 'none' ? undefined : timeoutCueTypeGiven,
+      cueTypeGiven: timeoutCueTypeGiven, // Always log, even 'none'
       cueWasEffective: timeoutCueWasEffective ?? undefined,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration
@@ -1198,7 +1198,7 @@ export const PhotoNamingGame = ({
       errorType: errorType || 'correct',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
-      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : undefined,
+      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : 'none', // Always log, even 'none'
     });
 
     setTimeout(() => {
