@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,7 +69,6 @@ const ClinicalReviewDashboard = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [reviewForm, setReviewForm] = useState<ReviewFormData>({
     is_correct: null,
@@ -79,10 +77,15 @@ const ClinicalReviewDashboard = () => {
     notes: "",
   });
 
-  // Fetch queue
+  // Use ref for audio element to avoid state sync issues
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Fetch queue with SQL-based ordering
   const fetchQueue = useCallback(async () => {
     setLoading(true);
     try {
+      // Use RPC or raw query for proper ordering
+      // Order by: flagged items first, then lowest GOP, then most recent
       const { data, error } = await supabase
         .from("utterance_analyses")
         .select("*")
@@ -93,18 +96,18 @@ const ClinicalReviewDashboard = () => {
 
       if (error) throw error;
 
-      // Sort by GOP score (lowest first) and presence of flags
+      // Client-side sort as backup (SQL ordering preferred via view/RPC)
       const sorted = (data || []).sort((a, b) => {
+        // Prioritize flagged items
+        const aFlags = a.asr_warning_flags?.length ?? 0;
+        const bFlags = b.asr_warning_flags?.length ?? 0;
+        if (aFlags !== bFlags) return bFlags - aFlags;
+        
+        // Then by lowest GOP score
         const aGopData = a.gop_data as Record<string, unknown> | null;
         const bGopData = b.gop_data as Record<string, unknown> | null;
         const aGop = (aGopData?.overall_score as number) ?? 1;
         const bGop = (bGopData?.overall_score as number) ?? 1;
-        const aFlags = a.asr_warning_flags?.length ?? 0;
-        const bFlags = b.asr_warning_flags?.length ?? 0;
-        
-        // Prioritize items with warning flags
-        if (aFlags !== bFlags) return bFlags - aFlags;
-        // Then by lowest GOP score
         return aGop - bGop;
       });
 
@@ -125,10 +128,21 @@ const ClinicalReviewDashboard = () => {
     fetchQueue();
   }, [fetchQueue]);
 
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+    };
+  }, []);
+
   // Load audio for selected analysis
   const loadAudio = async (attemptId: string) => {
     setAudioLoading(true);
     setAudioUrl(null);
+    setIsPlaying(false);
     
     try {
       const { data, error } = await supabase.functions.invoke("get-review-audio-signed-url", {
@@ -153,6 +167,11 @@ const ClinicalReviewDashboard = () => {
 
   // Handle analysis selection
   const handleSelect = (analysis: UtteranceAnalysis) => {
+    // Stop any playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    
     setSelectedAnalysis(analysis);
     setIsPlaying(false);
     
@@ -168,29 +187,26 @@ const ClinicalReviewDashboard = () => {
     loadAudio(analysis.attempt_id);
   };
 
-  // Audio controls
+  // Audio controls using ref
   const togglePlayback = () => {
-    if (!audioElement) return;
+    if (!audioRef.current) return;
     
     if (isPlaying) {
-      audioElement.pause();
+      audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioElement.play();
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((err) => {
+        console.error("Playback failed:", err);
+        toast({
+          title: "Playback Error",
+          description: "Could not play audio",
+          variant: "destructive",
+        });
+      });
     }
-    setIsPlaying(!isPlaying);
   };
-
-  useEffect(() => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audio.onended = () => setIsPlaying(false);
-      setAudioElement(audio);
-      return () => {
-        audio.pause();
-        audio.src = "";
-      };
-    }
-  }, [audioUrl]);
 
   // Submit review
   const submitReview = async (status: "reviewed" | "needs_followup" | "escalated") => {
@@ -222,10 +238,16 @@ const ClinicalReviewDashboard = () => {
         description: `Marked as ${status}`,
       });
 
+      // Stop audio and clear selection
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
       // Remove from queue and clear selection
       setAnalyses(prev => prev.filter(a => a.attempt_id !== selectedAnalysis.attempt_id));
       setSelectedAnalysis(null);
       setAudioUrl(null);
+      setIsPlaying(false);
     } catch (error) {
       console.error("Error submitting review:", error);
       toast({
@@ -255,8 +277,21 @@ const ClinicalReviewDashboard = () => {
     return "Poor";
   };
 
+  const gopData = selectedAnalysis?.gop_data as Record<string, unknown> | null;
+  const alignmentData = selectedAnalysis?.alignment_data as Record<string, unknown> | null;
+
   return (
     <div className="flex h-[calc(100vh-200px)] gap-4">
+      {/* Hidden audio element */}
+      <audio
+        ref={audioRef}
+        src={audioUrl ?? undefined}
+        onEnded={() => setIsPlaying(false)}
+        onPause={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+        className="hidden"
+      />
+
       {/* Queue Panel */}
       <Card className="w-1/2 flex flex-col">
         <div className="p-4 border-b flex items-center justify-between">
@@ -284,48 +319,51 @@ const ClinicalReviewDashboard = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {analyses.map((analysis) => (
-                <button
-                  key={analysis.attempt_id}
-                  onClick={() => handleSelect(analysis)}
-                  className={`w-full p-4 text-left hover:bg-muted/50 transition-colors ${
-                    selectedAnalysis?.attempt_id === analysis.attempt_id ? "bg-muted" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Target className="w-4 h-4 text-primary" />
-                        <span className="font-medium truncate">
-                          {analysis.target_word || "Unknown"}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        "{analysis.transcript || "No transcript"}"
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge 
-                          variant="secondary" 
-                          className={`text-xs text-white ${getGopColor(analysis.gop_data?.overall_score)}`}
-                        >
-                          GOP: {analysis.gop_data?.overall_score?.toFixed(2) ?? "N/A"}
-                        </Badge>
-                        {analysis.asr_warning_flags?.map((flag, i) => (
-                          <Badge key={i} variant="destructive" className="text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            {flag.replace(/_/g, " ")}
+              {analyses.map((analysis) => {
+                const itemGopData = analysis.gop_data as Record<string, unknown> | null;
+                return (
+                  <button
+                    key={analysis.attempt_id}
+                    onClick={() => handleSelect(analysis)}
+                    className={`w-full p-4 text-left hover:bg-muted/50 transition-colors ${
+                      selectedAnalysis?.attempt_id === analysis.attempt_id ? "bg-muted" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="font-medium truncate">
+                            {analysis.target_word || "Unknown"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          "{analysis.transcript || "No transcript"}"
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs text-white ${getGopColor(itemGopData?.overall_score as number | null)}`}
+                          >
+                            GOP: {(itemGopData?.overall_score as number)?.toFixed(2) ?? "N/A"}
                           </Badge>
-                        ))}
+                          {analysis.asr_warning_flags?.map((flag, i) => (
+                            <Badge key={i} variant="destructive" className="text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              {flag.replace(/_/g, " ")}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <Clock className="w-3 h-3 inline mr-1" />
-                    {new Date(analysis.created_at).toLocaleString()}
-                  </p>
-                </button>
-              ))}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      {new Date(analysis.created_at).toLocaleString()}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
@@ -349,7 +387,12 @@ const ClinicalReviewDashboard = () => {
                   {selectedAnalysis.exercise_slug || "Exercise"} • Trial
                 </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedAnalysis(null)}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                if (audioRef.current) audioRef.current.pause();
+                setSelectedAnalysis(null);
+                setAudioUrl(null);
+                setIsPlaying(false);
+              }}>
                 <X className="w-4 h-4" />
               </Button>
             </div>
@@ -369,7 +412,7 @@ const ClinicalReviewDashboard = () => {
                     <Volume2 className="w-5 h-5 text-muted-foreground" />
                   )}
                   <span className="text-sm">
-                    {audioLoading ? "Loading audio..." : audioUrl ? "Audio ready" : "No audio available"}
+                    {audioLoading ? "Loading audio..." : audioUrl ? (isPlaying ? "Playing..." : "Audio ready") : "No audio available"}
                   </span>
                 </div>
               </div>
@@ -389,37 +432,37 @@ const ClinicalReviewDashboard = () => {
               <Separator className="my-4" />
 
               {/* GOP Scores */}
-              {selectedAnalysis.gop_data && (
+              {gopData && (
                 <div className="mb-6">
                   <Label className="text-sm font-medium mb-2 block">Proxy GOP Analysis</Label>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 bg-muted rounded-lg">
                       <p className="text-xs text-muted-foreground">Overall Score</p>
                       <p className="text-xl font-bold">
-                        {(selectedAnalysis.gop_data.overall_score * 100).toFixed(0)}%
+                        {((gopData.overall_score as number) * 100).toFixed(0)}%
                       </p>
-                      <Badge className={`text-xs text-white ${getGopColor(selectedAnalysis.gop_data.overall_score)}`}>
-                        {getGopLabel(selectedAnalysis.gop_data.overall_score)}
+                      <Badge className={`text-xs text-white ${getGopColor(gopData.overall_score as number)}`}>
+                        {getGopLabel(gopData.overall_score as number)}
                       </Badge>
                     </div>
-                    {selectedAnalysis.gop_data.subscores && (
+                    {gopData.subscores && (
                       <>
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-xs text-muted-foreground">Duration Accuracy</p>
                           <p className="text-lg font-semibold">
-                            {(selectedAnalysis.gop_data.subscores.duration_accuracy * 100).toFixed(0)}%
+                            {(((gopData.subscores as Record<string, number>).duration_accuracy) * 100).toFixed(0)}%
                           </p>
                         </div>
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-xs text-muted-foreground">Fluency</p>
                           <p className="text-lg font-semibold">
-                            {(selectedAnalysis.gop_data.subscores.fluency * 100).toFixed(0)}%
+                            {(((gopData.subscores as Record<string, number>).fluency) * 100).toFixed(0)}%
                           </p>
                         </div>
                         <div className="p-3 bg-muted rounded-lg">
                           <p className="text-xs text-muted-foreground">Articulation</p>
                           <p className="text-lg font-semibold">
-                            {(selectedAnalysis.gop_data.subscores.articulation_rate * 100).toFixed(0)}%
+                            {(((gopData.subscores as Record<string, number>).articulation_rate) * 100).toFixed(0)}%
                           </p>
                         </div>
                       </>
@@ -429,11 +472,11 @@ const ClinicalReviewDashboard = () => {
               )}
 
               {/* Alignment Data */}
-              {selectedAnalysis.alignment_data?.word_segments && (
+              {alignmentData?.word_segments && (
                 <div className="mb-6">
                   <Label className="text-sm font-medium mb-2 block">Word Alignment</Label>
                   <div className="flex flex-wrap gap-2">
-                    {selectedAnalysis.alignment_data.word_segments.map((seg: any, i: number) => (
+                    {(alignmentData.word_segments as any[]).map((seg: any, i: number) => (
                       <Badge key={i} variant="outline" className="font-mono text-xs">
                         {seg.word} ({seg.start.toFixed(2)}s - {seg.end.toFixed(2)}s)
                       </Badge>
