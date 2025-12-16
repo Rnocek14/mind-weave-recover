@@ -79,37 +79,33 @@ export default function SpeechTrendsAnalytics() {
 
     try {
       setLoading(true);
+      console.log('📊 [SpeechTrendsAnalytics] Loading analytics for user:', user.id);
 
       // Get last 14 days of data
       const startDate = startOfDay(subDays(new Date(), 14)).toISOString();
 
-      // First get user's sessions
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('sessions')
-        .select('id')
+      // Query utterance_analyses directly (the canonical speech analysis table)
+      const { data: analyses, error } = await supabase
+        .from('utterance_analyses')
+        .select('*')
         .eq('user_id', user.id)
-        .gte('started_at', startDate);
+        .gte('created_at', startDate)
+        .order('created_at', { ascending: true });
 
-      if (sessionsError) throw sessionsError;
+      if (error) {
+        console.error('❌ [SpeechTrendsAnalytics] Query error:', error);
+        throw error;
+      }
 
-      const sessionIds = sessions?.map(s => s.id) || [];
-      if (sessionIds.length === 0) {
+      console.log('📊 [SpeechTrendsAnalytics] Found', analyses?.length || 0, 'utterance analyses');
+
+      if (!analyses || analyses.length === 0) {
         setLoading(false);
         return;
       }
 
-      // Get events for user's sessions
-      const { data: events, error } = await supabase
-        .from('exercise_events')
-        .select('*')
-        .in('session_id', sessionIds)
-        .gte('created_at', startDate)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      // Process daily metrics
-      const dailyMap = new Map<string, { scoreSum: number; effortfulCount: number; total: number }>();
+      // Process daily metrics from utterance_analyses
+      const dailyMap = new Map<string, { scoreSum: number; effortfulCount: number; total: number; correctCount: number }>();
       const errorTypeMap = new Map<string, number>();
       const categoryErrorMap = new Map<string, { errors: Map<string, number>; total: number }>();
       const wordDifficultyMap = new Map<string, {
@@ -117,6 +113,7 @@ export default function SpeechTrendsAnalytics() {
         trials: number;
         effortfulCount: number;
         errors: Map<string, number>;
+        correctCount: number;
       }>();
       let totalSpeechRate = 0;
       let totalPauseCount = 0;
@@ -128,31 +125,37 @@ export default function SpeechTrendsAnalytics() {
       let semanticCount = 0;
       let circumlocutions = 0;
 
-      events?.forEach((event) => {
-        const date = format(new Date(event.created_at || ''), 'MM/dd');
-        const taskParams = event.task_parameters as any;
-        const utteranceAnalysis = taskParams?.utterance_analysis;
+      analyses.forEach((analysis) => {
+        const date = format(new Date(analysis.created_at || ''), 'MM/dd');
 
         // Daily metrics
         if (!dailyMap.has(date)) {
-          dailyMap.set(date, { scoreSum: 0, effortfulCount: 0, total: 0 });
+          dailyMap.set(date, { scoreSum: 0, effortfulCount: 0, total: 0, correctCount: 0 });
         }
         const dayData = dailyMap.get(date)!;
         dayData.total += 1;
 
-        if (taskParams?.encouragement_score) {
-          dayData.scoreSum += taskParams.encouragement_score;
+        // Calculate encouragement score from is_correct and error_type
+        const encouragementScore = analysis.is_correct ? 100 : 
+          analysis.error_type === 'attempted' ? 70 :
+          analysis.error_type === 'circumlocution' ? 80 :
+          analysis.error_type === 'phonemic_paraphasia' ? 66 :
+          analysis.error_type === 'semantic_paraphasia' ? 50 : 30;
+        dayData.scoreSum += encouragementScore;
+
+        if (analysis.is_correct) {
+          dayData.correctCount += 1;
         }
-        if (taskParams?.effortful_speech === true) {
+        if (analysis.effortful_speech === true) {
           dayData.effortfulCount += 1;
         }
 
         // Error type distribution
-        const errorType = utteranceAnalysis?.errorType || event.error_type || 'unknown';
+        const errorType = analysis.error_type || 'unknown';
         errorTypeMap.set(errorType, (errorTypeMap.get(errorType) || 0) + 1);
 
         // Category-level patterns
-        const category = taskParams?.category || utteranceAnalysis?.context?.domain || 'general';
+        const category = analysis.category || 'general';
         if (!categoryErrorMap.has(category)) {
           categoryErrorMap.set(category, { errors: new Map(), total: 0 });
         }
@@ -161,7 +164,7 @@ export default function SpeechTrendsAnalytics() {
         categoryData.errors.set(errorType, (categoryData.errors.get(errorType) || 0) + 1);
 
         // Word-level difficulty tracking
-        const targetWord = taskParams?.target_word || utteranceAnalysis?.context?.targetWord;
+        const targetWord = analysis.target_word;
         if (targetWord) {
           if (!wordDifficultyMap.has(targetWord)) {
             wordDifficultyMap.set(targetWord, {
@@ -169,44 +172,45 @@ export default function SpeechTrendsAnalytics() {
               trials: 0,
               effortfulCount: 0,
               errors: new Map(),
+              correctCount: 0,
             });
           }
           const wordData = wordDifficultyMap.get(targetWord)!;
           wordData.trials += 1;
-          if (taskParams?.encouragement_score) {
-            wordData.scoreSum += taskParams.encouragement_score;
+          wordData.scoreSum += encouragementScore;
+          if (analysis.is_correct) {
+            wordData.correctCount += 1;
           }
-          if (taskParams?.effortful_speech === true) {
+          if (analysis.effortful_speech === true) {
             wordData.effortfulCount += 1;
           }
           wordData.errors.set(errorType, (wordData.errors.get(errorType) || 0) + 1);
         }
 
-        // Acoustic metrics
-        const acousticMetrics = event.acoustic_metrics as any;
-        if (acousticMetrics?.speechRateWpm) {
-          totalSpeechRate += acousticMetrics.speechRateWpm;
+        // Acoustic metrics from utterance_analyses columns
+        if (analysis.speech_rate_wpm) {
+          totalSpeechRate += analysis.speech_rate_wpm;
           speechRateCount += 1;
         }
-        if (acousticMetrics?.pauseCount !== undefined) {
-          totalPauseCount += acousticMetrics.pauseCount;
+        if (analysis.pause_count !== null && analysis.pause_count !== undefined) {
+          totalPauseCount += analysis.pause_count;
           pauseCountCount += 1;
         }
 
-        // Phoneme accuracy
-        if (utteranceAnalysis?.phonemeAccuracy !== undefined) {
-          totalPhonemeAcc += utteranceAnalysis.phonemeAccuracy;
+        // Phonological similarity (used as phoneme accuracy proxy)
+        if (analysis.phonological_similarity !== null && analysis.phonological_similarity !== undefined) {
+          totalPhonemeAcc += analysis.phonological_similarity;
           phonemeCount += 1;
         }
 
         // Semantic similarity
-        if (utteranceAnalysis?.semanticSimilarity !== undefined) {
-          totalSemanticSim += utteranceAnalysis.semanticSimilarity;
+        if (analysis.semantic_similarity !== null && analysis.semantic_similarity !== undefined) {
+          totalSemanticSim += analysis.semantic_similarity;
           semanticCount += 1;
         }
 
         // Circumlocution count
-        if (utteranceAnalysis?.circumlocutionDetected === true) {
+        if (analysis.error_type === 'circumlocution') {
           circumlocutions += 1;
         }
       });
@@ -277,7 +281,7 @@ export default function SpeechTrendsAnalytics() {
       setClinicalSnapshot({
         mostCommonError,
         strongestCategory: strongestCategory?.category || 'none',
-        totalTrials: events?.length || 0,
+        totalTrials: analyses?.length || 0,
       });
       setKeyMetrics({
         avgSpeechRateWpm: speechRateCount > 0 ? Math.round(totalSpeechRate / speechRateCount) : 0,
@@ -285,7 +289,7 @@ export default function SpeechTrendsAnalytics() {
         avgPhonemeAccuracy: phonemeCount > 0 ? Math.round((totalPhonemeAcc / phonemeCount) * 100) : 0,
         avgSemanticSimilarity: semanticCount > 0 ? Math.round((totalSemanticSim / semanticCount) * 100) : 0,
         circumlocutionCount: circumlocutions,
-        totalTrials: events?.length || 0,
+        totalTrials: analyses?.length || 0,
       });
     } catch (error) {
       console.error('Error loading analytics:', error);

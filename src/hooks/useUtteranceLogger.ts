@@ -82,7 +82,14 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     setIsFinalized(false);
     setCurrentAttemptId(attemptId);
     
-    console.log('📝 New attempt started:', attemptId, 'target:', context.targetWord, 'slug:', normalizedSlug);
+    console.log('📝 [UtteranceLogger] New attempt started:', {
+      attemptId,
+      target: context.targetWord,
+      slug: normalizedSlug,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      trialIndex: context.trialIndex
+    });
     
     return attemptId;
   }, []);
@@ -152,11 +159,16 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     // Use Whisper transcript if available, fall back to browser transcript
     const finalTranscript = analysis.transcript || browserTranscriptRef.current;
 
-    console.log('📊 Logging final analysis for attempt:', ctx.attemptId, {
+    console.log('📊 [UtteranceLogger] Logging final analysis:', {
+      attemptId: ctx.attemptId,
       target: ctx.targetWord,
       transcript: finalTranscript,
       isCorrect: analysis.isCorrect,
-      errorType: analysis.errorType
+      errorType: analysis.errorType,
+      sessionId: ctx.sessionId,
+      hasAudio: !!analysis.audioStoragePath,
+      phonologicalSim: analysis.phonologicalSimilarity,
+      semanticSim: analysis.semanticSimilarity
     });
 
     try {

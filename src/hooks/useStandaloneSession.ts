@@ -52,12 +52,24 @@ export const useStandaloneSession = (
       }, activeProfile.id)
         .then((session) => {
           if (session?.id) {
-            console.log('✅ Standalone session created:', session.id);
+            console.log('✅ [useStandaloneSession] Session created successfully:', {
+              sessionId: session.id,
+              profileId: activeProfile?.id,
+              userId,
+              exerciseSlug
+            });
             setLocalSessionId(session.id);
+          } else {
+            console.warn('⚠️ [useStandaloneSession] startSession returned no session:', session);
           }
         })
         .catch((error) => {
-          console.error('❌ Failed to create standalone session:', error);
+          console.error('❌ [useStandaloneSession] Failed to create session:', {
+            error,
+            userId,
+            profileId: activeProfile?.id,
+            exerciseSlug
+          });
         })
         .finally(() => {
           setIsCreatingSession(false);
