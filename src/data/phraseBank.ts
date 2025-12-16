@@ -111,6 +111,125 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['hungry', 'food'],
     semanticAlternatives: ["I want food", "I need to eat"]
   },
+  {
+    id: 'yes_please',
+    phrase: "Yes please",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 2,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 30,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['yes', 'please'],
+    semanticAlternatives: ["Yes", "Okay"]
+  },
+  {
+    id: 'no_thanks',
+    phrase: "No thanks",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 2,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 40,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['no', 'thanks'],
+    semanticAlternatives: ["No thank you", "I'm good"]
+  },
+  {
+    id: 'im_cold',
+    phrase: "I'm cold",
+    category: 'daily_needs',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 2,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 160,
+      emotional_valence: 'neutral',
+      social_context: 'self_care'
+    },
+    cueWords: ['cold', 'blanket'],
+    semanticAlternatives: ["I need a blanket", "It's cold"]
+  },
+  {
+    id: 'im_hot',
+    phrase: "I'm hot",
+    category: 'daily_needs',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 2,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 170,
+      emotional_valence: 'neutral',
+      social_context: 'self_care'
+    },
+    cueWords: ['hot', 'warm'],
+    semanticAlternatives: ["Too warm", "I'm warm"]
+  },
+  {
+    id: 'im_okay',
+    phrase: "I'm okay",
+    category: 'emotional',
+    difficulty: 1,
+    features: {
+      syllable_count: 3,
+      word_count: 2,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 80,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['okay', 'fine'],
+    semanticAlternatives: ["I'm fine", "I'm good"]
+  },
+  {
+    id: 'hello',
+    phrase: "Hello",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 10,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['hello', 'hi'],
+    semanticAlternatives: ["Hi", "Hey"]
+  },
+  {
+    id: 'goodbye',
+    phrase: "Goodbye",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 2,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 60,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['bye', 'later'],
+    semanticAlternatives: ["Bye", "See you"]
+  },
 
   // LEVEL 2: Common requests (3-4 words, moderate frequency)
   {
@@ -197,6 +316,108 @@ export const PHRASE_BANK: PhraseTrial[] = [
     },
     cueWords: ['better', 'feel'],
     semanticAlternatives: ["I'm better", "Feeling good"]
+  },
+  {
+    id: 'more_water',
+    phrase: "More water please",
+    category: 'daily_needs',
+    difficulty: 2,
+    features: {
+      syllable_count: 4,
+      word_count: 3,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 220,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['water', 'more'],
+    semanticAlternatives: ["I want water", "Water please"]
+  },
+  {
+    id: 'im_sorry',
+    phrase: "I'm sorry",
+    category: 'social',
+    difficulty: 2,
+    features: {
+      syllable_count: 3,
+      word_count: 2,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 90,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['sorry', 'apologize'],
+    semanticAlternatives: ["Sorry", "My apologies"]
+  },
+  {
+    id: 'how_are_you',
+    phrase: "How are you",
+    category: 'social',
+    difficulty: 2,
+    features: {
+      syllable_count: 3,
+      word_count: 3,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 50,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['how', 'you'],
+    semanticAlternatives: ["How's it going", "How do you feel"]
+  },
+  {
+    id: 'see_you_later',
+    phrase: "See you later",
+    category: 'social',
+    difficulty: 2,
+    features: {
+      syllable_count: 4,
+      word_count: 3,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 120,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['see', 'later'],
+    semanticAlternatives: ["Goodbye", "Bye for now"]
+  },
+  {
+    id: 'im_frustrated',
+    phrase: "I'm frustrated",
+    category: 'emotional',
+    difficulty: 2,
+    features: {
+      syllable_count: 4,
+      word_count: 2,
+      contains_pronouns: true,
+      motor_complexity: 'moderate',
+      frequency_rank: 450,
+      emotional_valence: 'negative',
+      social_context: 'caregiver'
+    },
+    cueWords: ['frustrated', 'upset'],
+    semanticAlternatives: ["I'm upset", "This is hard"]
+  },
+  {
+    id: 'need_rest',
+    phrase: "I need to rest",
+    category: 'daily_needs',
+    difficulty: 2,
+    features: {
+      syllable_count: 4,
+      word_count: 4,
+      contains_pronouns: true,
+      motor_complexity: 'simple',
+      frequency_rank: 280,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['rest', 'tired'],
+    semanticAlternatives: ["I'm tired", "Need a break"]
   },
 
   // LEVEL 3: Longer functional phrases (4-5 words)
@@ -285,6 +506,108 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['blanket', 'cold'],
     semanticAlternatives: ["I'm cold", "Blanket please"]
   },
+  {
+    id: 'wheres_phone',
+    phrase: "Where is my phone",
+    category: 'daily_needs',
+    difficulty: 3,
+    features: {
+      syllable_count: 5,
+      word_count: 4,
+      contains_pronouns: true,
+      motor_complexity: 'moderate',
+      frequency_rank: 380,
+      emotional_valence: 'neutral',
+      social_context: 'self_care'
+    },
+    cueWords: ['phone', 'where'],
+    semanticAlternatives: ["Find my phone", "I need my phone"]
+  },
+  {
+    id: 'open_window',
+    phrase: "Open the window please",
+    category: 'daily_needs',
+    difficulty: 3,
+    features: {
+      syllable_count: 6,
+      word_count: 4,
+      contains_pronouns: false,
+      motor_complexity: 'moderate',
+      frequency_rank: 520,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['window', 'open'],
+    semanticAlternatives: ["I need air", "Window please"]
+  },
+  {
+    id: 'close_door',
+    phrase: "Close the door please",
+    category: 'daily_needs',
+    difficulty: 3,
+    features: {
+      syllable_count: 5,
+      word_count: 4,
+      contains_pronouns: false,
+      motor_complexity: 'moderate',
+      frequency_rank: 480,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['door', 'close'],
+    semanticAlternatives: ["Shut the door", "Door please"]
+  },
+  {
+    id: 'turn_off_light',
+    phrase: "Turn off the light",
+    category: 'daily_needs',
+    difficulty: 3,
+    features: {
+      syllable_count: 5,
+      word_count: 4,
+      contains_pronouns: false,
+      motor_complexity: 'moderate',
+      frequency_rank: 440,
+      emotional_valence: 'neutral',
+      social_context: 'self_care'
+    },
+    cueWords: ['light', 'off'],
+    semanticAlternatives: ["Light off please", "Too bright"]
+  },
+  {
+    id: 'need_glasses',
+    phrase: "I need my glasses",
+    category: 'daily_needs',
+    difficulty: 3,
+    features: {
+      syllable_count: 5,
+      word_count: 4,
+      contains_pronouns: true,
+      motor_complexity: 'moderate',
+      frequency_rank: 550,
+      emotional_valence: 'neutral',
+      social_context: 'self_care'
+    },
+    cueWords: ['glasses', 'see'],
+    semanticAlternatives: ["Where are my glasses", "Can't see"]
+  },
+  {
+    id: 'what_day_is_it',
+    phrase: "What day is it",
+    category: 'social',
+    difficulty: 3,
+    features: {
+      syllable_count: 4,
+      word_count: 4,
+      contains_pronouns: false,
+      motor_complexity: 'moderate',
+      frequency_rank: 320,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['day', 'what'],
+    semanticAlternatives: ["What's the day", "Today is"]
+  },
 
   // LEVEL 4: Complex functional phrases (5-6 words, harder motor planning)
   {
@@ -372,6 +695,91 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['thank', 'help'],
     semanticAlternatives: ["Thanks for the help", "Appreciate it"]
   },
+  {
+    id: 'speak_slower',
+    phrase: "Can you speak slower please",
+    category: 'social',
+    difficulty: 4,
+    features: {
+      syllable_count: 7,
+      word_count: 5,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 650,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['slower', 'speak'],
+    semanticAlternatives: ["Slow down please", "Too fast"]
+  },
+  {
+    id: 'repeat_please',
+    phrase: "Can you repeat that please",
+    category: 'social',
+    difficulty: 4,
+    features: {
+      syllable_count: 7,
+      word_count: 5,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 580,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['repeat', 'again'],
+    semanticAlternatives: ["Say that again", "What did you say"]
+  },
+  {
+    id: 'need_more_time',
+    phrase: "I need a little more time",
+    category: 'social',
+    difficulty: 4,
+    features: {
+      syllable_count: 8,
+      word_count: 6,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 620,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['time', 'need'],
+    semanticAlternatives: ["Wait please", "Give me a moment"]
+  },
+  {
+    id: 'feel_nauseous',
+    phrase: "I'm feeling a little nauseous",
+    category: 'medical',
+    difficulty: 4,
+    features: {
+      syllable_count: 9,
+      word_count: 5,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 900,
+      emotional_valence: 'negative',
+      social_context: 'medical'
+    },
+    cueWords: ['nauseous', 'sick'],
+    semanticAlternatives: ["I feel sick", "Stomach upset"]
+  },
+  {
+    id: 'want_go_outside',
+    phrase: "I want to go outside",
+    category: 'daily_needs',
+    difficulty: 4,
+    features: {
+      syllable_count: 7,
+      word_count: 5,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 550,
+      emotional_valence: 'positive',
+      social_context: 'caregiver'
+    },
+    cueWords: ['outside', 'go'],
+    semanticAlternatives: ["Take me outside", "Fresh air please"]
+  },
 
   // LEVEL 5: Complex social/emotional phrases (harder motor planning, abstract concepts)
   {
@@ -424,7 +832,109 @@ export const PHRASE_BANK: PhraseTrial[] = [
     },
     cueWords: ['talk', 'important'],
     semanticAlternatives: ["Need to discuss", "Important conversation"]
-  }
+  },
+  {
+    id: 'hard_find_words',
+    phrase: "It's hard to find the right words",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 8,
+      word_count: 7,
+      contains_pronouns: false,
+      motor_complexity: 'complex',
+      frequency_rank: 1000,
+      emotional_valence: 'negative',
+      social_context: 'social'
+    },
+    cueWords: ['words', 'hard'],
+    semanticAlternatives: ["Hard to speak", "Can't find words"]
+  },
+  {
+    id: 'appreciate_patience',
+    phrase: "I appreciate your patience with me",
+    category: 'social',
+    difficulty: 5,
+    features: {
+      syllable_count: 10,
+      word_count: 6,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 880,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['patience', 'appreciate'],
+    semanticAlternatives: ["Thank you for waiting", "Thanks for understanding"]
+  },
+  {
+    id: 'getting_better_everyday',
+    phrase: "I'm getting better every day",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 8,
+      word_count: 5,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 750,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['better', 'day'],
+    semanticAlternatives: ["Improving daily", "Making progress"]
+  },
+  {
+    id: 'want_do_myself',
+    phrase: "I want to try doing it myself",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 9,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 820,
+      emotional_valence: 'positive',
+      social_context: 'caregiver'
+    },
+    cueWords: ['myself', 'try'],
+    semanticAlternatives: ["Let me try", "I can do it"]
+  },
+  {
+    id: 'miss_way_things',
+    phrase: "I miss the way things used to be",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 9,
+      word_count: 8,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 920,
+      emotional_valence: 'negative',
+      social_context: 'social'
+    },
+    cueWords: ['miss', 'before'],
+    semanticAlternatives: ["Things were different", "I miss before"]
+  },
+  {
+    id: 'proud_myself_today',
+    phrase: "I'm proud of myself for trying today",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 10,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 870,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['proud', 'trying'],
+    semanticAlternatives: ["I did well", "Good effort today"]
+  },
 ];
 
 // Get phrases for a specific difficulty level
