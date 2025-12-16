@@ -27,7 +27,7 @@ interface AttemptContext {
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   startAttempt: (context: Omit<AttemptContext, 'attemptId' | 'startedAt'>) => string;
-  logBrowserTranscript: (transcript: string) => Promise<void>;
+  logBrowserTranscript: (transcript: string) => void;
   logFinalAnalysis: (analysis: {
     transcript?: string;
     transcriptSource: 'browser' | 'whisper' | 'manual';
@@ -78,41 +78,20 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   }, []);
 
   /**
-   * Log browser transcript (interim) - updates existing, doesn't create duplicates
+   * Log browser transcript (interim) - stores locally only, no DB writes
    * This is called on every speech recognition result but only stores the latest
+   * DB write happens once in logFinalAnalysis to avoid duplicates
    */
-  const logBrowserTranscript = useCallback(async (transcript: string): Promise<void> => {
+  const logBrowserTranscript = useCallback((transcript: string): void => {
     const ctx = attemptContextRef.current;
     if (!ctx) {
       console.warn('⚠️ No active attempt context for transcript');
       return;
     }
 
-    // Store locally (will be included in final analysis)
+    // Store locally only - will be included in final analysis
     browserTranscriptRef.current = transcript;
-    
-    console.log('🎤 Browser transcript updated for attempt:', ctx.attemptId, transcript);
-    
-    // Optional: Update exercise_events with browser_transcript (lightweight, no analysis)
-    // This gives us the raw data even if final analysis fails
-    try {
-      const { error } = await supabase
-        .from('exercise_events')
-        .update({
-          browser_transcript: transcript,
-          attempt_id: ctx.attemptId
-        })
-        .eq('session_id', ctx.sessionId)
-        .eq('round', ctx.trialIndex);
-      
-      if (error) {
-        // If no row exists yet, that's fine - final analysis will create it
-        console.log('📝 Browser transcript stored (or row pending)');
-      }
-    } catch (err) {
-      // Non-critical - final analysis will have this data anyway
-      console.debug('Browser transcript update skipped');
-    }
+    console.log('🎤 Browser transcript captured for attempt:', ctx.attemptId, transcript);
   }, []);
 
   /**
