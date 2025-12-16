@@ -49,6 +49,23 @@ serve(async (req) => {
     );
   }
 
+  // Require POST for analysis
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+      status: 405, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+
+  // Manual auth check - require Bearer token to prevent anonymous Azure API abuse
+  const auth = req.headers.get('authorization') || '';
+  if (!auth.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Unauthorized - Bearer token required' }), { 
+      status: 401, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+
   try {
     const { audioBlob, mimeType, referenceText } = await req.json();
     
