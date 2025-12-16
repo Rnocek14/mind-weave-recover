@@ -14,6 +14,16 @@ import handImg from '@/assets/photos/hand.jpg';
 import eyeImg from '@/assets/photos/eye.jpg';
 import catImg from '@/assets/photos/cat.jpg';
 import bikeImg from '@/assets/photos/bike.jpg';
+import ballImg from '@/assets/photos/ball.jpg';
+import bookImg from '@/assets/photos/book.jpg';
+import doorImg from '@/assets/photos/door.jpg';
+import flowerImg from '@/assets/photos/flower.jpg';
+import keyImg from '@/assets/photos/key.jpg';
+import noseImg from '@/assets/photos/nose.jpg';
+import shoeImg from '@/assets/photos/shoe.jpg';
+import spoonImg from '@/assets/photos/spoon.jpg';
+import treeImg from '@/assets/photos/tree.jpg';
+import watchImg from '@/assets/photos/watch.jpg';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
@@ -397,6 +407,254 @@ export const PHOTO_BANK: PhotoTrial[] = [
       first_phoneme: '/b/',
       semantic_category: 'vehicle',
       typicality_rating: 3,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 4,
+    minLevel: 7,
+    maxLevel: 10,
+  },
+  
+  // NEW EASY TRIALS
+  {
+    id: 'ball_1',
+    imageUrl: ballImg,
+    target: 'ball',
+    semanticFoils: ['cup', 'car', 'book'],
+    category: 'toys',
+    features: {
+      frequency_rank: 2100,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 2,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'toy',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  {
+    id: 'book_1',
+    imageUrl: bookImg,
+    target: 'book',
+    semanticFoils: ['cup', 'chair', 'ball'],
+    category: 'objects',
+    features: {
+      frequency_rank: 800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'reading_material',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  {
+    id: 'tree_1',
+    imageUrl: treeImg,
+    target: 'tree',
+    semanticFoils: ['house', 'car', 'dog'],
+    category: 'nature',
+    features: {
+      frequency_rank: 1500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/t/',
+      semantic_category: 'plant',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  
+  // NEW MEDIUM TRIALS
+  {
+    id: 'shoe_2',
+    imageUrl: shoeImg,
+    target: 'shoe',
+    semanticFoils: ['sock', 'hat', 'shirt'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 3200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 2,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/ʃ/',
+      semantic_category: 'footwear',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'door_2',
+    imageUrl: doorImg,
+    target: 'door',
+    semanticFoils: ['window', 'wall', 'gate'],
+    category: 'home',
+    features: {
+      frequency_rank: 1100,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/d/',
+      semantic_category: 'building_part',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'flower_2',
+    imageUrl: flowerImg,
+    target: 'flower',
+    semanticFoils: ['tree', 'leaf', 'grass'],
+    category: 'nature',
+    features: {
+      frequency_rank: 2800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/f/',
+      semantic_category: 'plant',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'spoon_2',
+    imageUrl: spoonImg,
+    target: 'spoon',
+    semanticFoils: ['fork', 'knife', 'cup'],
+    category: 'kitchenware',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/sp/',
+      semantic_category: 'utensil',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'key_2',
+    imageUrl: keyImg,
+    target: 'key',
+    semanticFoils: ['lock', 'ring', 'coin'],
+    category: 'objects',
+    features: {
+      frequency_rank: 1800,
+      imageability: 6,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 2,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/k/',
+      semantic_category: 'tool',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  
+  // NEW HARD TRIALS
+  {
+    id: 'watch_3',
+    imageUrl: watchImg,
+    target: 'watch',
+    semanticFoils: ['clock', 'ring', 'bracelet'],
+    phonologicalFoils: ['catch', 'match', 'patch'],
+    category: 'accessories',
+    features: {
+      frequency_rank: 2500,
+      imageability: 6,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'dense',
+      first_phoneme: '/w/',
+      semantic_category: 'timepiece',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 4,
+    minLevel: 7,
+    maxLevel: 10,
+  },
+  {
+    id: 'nose_3',
+    imageUrl: noseImg,
+    target: 'nose',
+    semanticFoils: ['ear', 'mouth', 'chin'],
+    phonologicalFoils: ['rose', 'hose', 'toes'],
+    category: 'body',
+    features: {
+      frequency_rank: 2200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/n/',
+      semantic_category: 'body_part',
+      typicality_rating: 1,
       part_of_speech: 'noun'
     },
     computed_difficulty: 4,

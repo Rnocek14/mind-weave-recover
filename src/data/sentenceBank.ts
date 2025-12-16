@@ -76,6 +76,54 @@ const level1Trials: SentenceTrial[] = [
     distractors: [],
     grammarFocus: "SVO",
     modelAudio: "The man drives a car"
+  },
+  {
+    id: "svo_5",
+    taskType: "word_order",
+    difficulty: 1,
+    targetSentence: "The baby drinks milk",
+    scrambledWords: ["milk", "drinks", "baby", "the"],
+    options: ["milk", "drinks", "baby", "the"],
+    correctAnswer: ["The", "baby", "drinks", "milk"],
+    distractors: [],
+    grammarFocus: "SVO",
+    modelAudio: "The baby drinks milk"
+  },
+  {
+    id: "svo_6",
+    taskType: "word_order",
+    difficulty: 1,
+    targetSentence: "The bird flies high",
+    scrambledWords: ["high", "flies", "bird", "the"],
+    options: ["high", "flies", "bird", "the"],
+    correctAnswer: ["The", "bird", "flies", "high"],
+    distractors: [],
+    grammarFocus: "SVO",
+    modelAudio: "The bird flies high"
+  },
+  {
+    id: "svo_7",
+    taskType: "word_order",
+    difficulty: 1,
+    targetSentence: "The woman cooks food",
+    scrambledWords: ["food", "cooks", "woman", "the"],
+    options: ["food", "cooks", "woman", "the"],
+    correctAnswer: ["The", "woman", "cooks", "food"],
+    distractors: [],
+    grammarFocus: "SVO",
+    modelAudio: "The woman cooks food"
+  },
+  {
+    id: "svo_8",
+    taskType: "word_order",
+    difficulty: 1,
+    targetSentence: "The fish swims fast",
+    scrambledWords: ["fast", "swims", "fish", "the"],
+    options: ["fast", "swims", "fish", "the"],
+    correctAnswer: ["The", "fish", "swims", "fast"],
+    distractors: [],
+    grammarFocus: "SVO",
+    modelAudio: "The fish swims fast"
   }
 ];
 
@@ -128,6 +176,54 @@ const level2Trials: SentenceTrial[] = [
     distractors: ["in", "at", "to"],
     grammarFocus: "prepositions",
     modelAudio: "The cat is on the table"
+  },
+  {
+    id: "func_5",
+    taskType: "fill_function",
+    difficulty: 2,
+    targetSentence: "We live in a house",
+    sentenceTemplate: "We live ___ a house",
+    options: ["in", "on", "at", "to"],
+    correctAnswer: "in",
+    distractors: ["on", "at", "to"],
+    grammarFocus: "prepositions",
+    modelAudio: "We live in a house"
+  },
+  {
+    id: "func_6",
+    taskType: "fill_function",
+    difficulty: 2,
+    targetSentence: "The dog barks loud",
+    sentenceTemplate: "___ dog barks loud",
+    options: ["The", "A", "An", "He"],
+    correctAnswer: "The",
+    distractors: ["A", "An", "He"],
+    grammarFocus: "articles",
+    modelAudio: "The dog barks loud"
+  },
+  {
+    id: "func_7",
+    taskType: "fill_function",
+    difficulty: 2,
+    targetSentence: "He sits in the chair",
+    sentenceTemplate: "He sits ___ the chair",
+    options: ["in", "on", "at", "to"],
+    correctAnswer: "in",
+    distractors: ["on", "at", "to"],
+    grammarFocus: "prepositions",
+    modelAudio: "He sits in the chair"
+  },
+  {
+    id: "func_8",
+    taskType: "fill_function",
+    difficulty: 2,
+    targetSentence: "I have an apple",
+    sentenceTemplate: "I have ___ apple",
+    options: ["an", "a", "the", "one"],
+    correctAnswer: "an",
+    distractors: ["a", "the", "one"],
+    grammarFocus: "articles",
+    modelAudio: "I have an apple"
   }
 ];
 
@@ -180,6 +276,54 @@ const level3Trials: SentenceTrial[] = [
     distractors: ["were", "is", "am"],
     grammarFocus: "past_progressive",
     modelAudio: "I was playing outside"
+  },
+  {
+    id: "verb_5",
+    taskType: "verb_agreement",
+    difficulty: 3,
+    targetSentence: "The baby cries loudly",
+    sentenceTemplate: "The baby ___ loudly",
+    options: ["cries", "cry", "crying", "cried"],
+    correctAnswer: "cries",
+    distractors: ["cry", "crying", "cried"],
+    grammarFocus: "third_person_singular",
+    modelAudio: "The baby cries loudly"
+  },
+  {
+    id: "verb_6",
+    taskType: "verb_agreement",
+    difficulty: 3,
+    targetSentence: "The birds fly south",
+    sentenceTemplate: "The birds ___ south",
+    options: ["fly", "flies", "flying", "flew"],
+    correctAnswer: "fly",
+    distractors: ["flies", "flying", "flew"],
+    grammarFocus: "plural_agreement",
+    modelAudio: "The birds fly south"
+  },
+  {
+    id: "verb_7",
+    taskType: "verb_agreement",
+    difficulty: 3,
+    targetSentence: "He goes to work",
+    sentenceTemplate: "He ___ to work",
+    options: ["goes", "go", "going", "went"],
+    correctAnswer: "goes",
+    distractors: ["go", "going", "went"],
+    grammarFocus: "third_person_singular",
+    modelAudio: "He goes to work"
+  },
+  {
+    id: "verb_8",
+    taskType: "verb_agreement",
+    difficulty: 3,
+    targetSentence: "We eat dinner together",
+    sentenceTemplate: "We ___ dinner together",
+    options: ["eat", "eats", "eating", "ate"],
+    correctAnswer: "eat",
+    distractors: ["eats", "eating", "ate"],
+    grammarFocus: "plural_agreement",
+    modelAudio: "We eat dinner together"
   }
 ];
 
@@ -220,6 +364,42 @@ const level4Trials: SentenceTrial[] = [
     distractors: [],
     grammarFocus: "prepositional_phrase",
     modelAudio: "The dog is sleeping under the bed"
+  },
+  {
+    id: "reorder_4",
+    taskType: "sentence_reorder",
+    difficulty: 4,
+    targetSentence: "My mother bakes cookies",
+    scrambledWords: ["cookies", "bakes", "mother", "my"],
+    options: ["cookies", "bakes", "mother", "my"],
+    correctAnswer: ["My", "mother", "bakes", "cookies"],
+    distractors: [],
+    grammarFocus: "word_order_complex",
+    modelAudio: "My mother bakes cookies"
+  },
+  {
+    id: "reorder_5",
+    taskType: "sentence_reorder",
+    difficulty: 4,
+    targetSentence: "The baby sleeps in the crib",
+    scrambledWords: ["crib", "the", "sleeps", "baby", "in", "the"],
+    options: ["crib", "the", "sleeps", "baby", "in", "the"],
+    correctAnswer: ["The", "baby", "sleeps", "in", "the", "crib"],
+    distractors: [],
+    grammarFocus: "prepositional_phrase",
+    modelAudio: "The baby sleeps in the crib"
+  },
+  {
+    id: "reorder_6",
+    taskType: "sentence_reorder",
+    difficulty: 4,
+    targetSentence: "We eat breakfast every morning",
+    scrambledWords: ["morning", "breakfast", "eat", "every", "we"],
+    options: ["morning", "breakfast", "eat", "every", "we"],
+    correctAnswer: ["We", "eat", "breakfast", "every", "morning"],
+    distractors: [],
+    grammarFocus: "word_order_complex",
+    modelAudio: "We eat breakfast every morning"
   }
 ];
 
@@ -272,6 +452,54 @@ const level5Trials: SentenceTrial[] = [
     distractors: ["is", "was", "were"],
     grammarFocus: "plural_present_progressive",
     modelAudio: "The children are playing together"
+  },
+  {
+    id: "cloze_5",
+    taskType: "cloze_picture",
+    difficulty: 5,
+    targetSentence: "I read the book yesterday",
+    sentenceTemplate: "I ___ the book yesterday",
+    options: ["read", "reads", "reading", "readed"],
+    correctAnswer: "read",
+    distractors: ["reads", "reading", "readed"],
+    grammarFocus: "past_tense",
+    modelAudio: "I read the book yesterday"
+  },
+  {
+    id: "cloze_6",
+    taskType: "cloze_picture",
+    difficulty: 5,
+    targetSentence: "She was crying when I arrived",
+    sentenceTemplate: "She ___ crying when I arrived",
+    options: ["was", "were", "is", "are"],
+    correctAnswer: "was",
+    distractors: ["were", "is", "are"],
+    grammarFocus: "past_progressive",
+    modelAudio: "She was crying when I arrived"
+  },
+  {
+    id: "cloze_7",
+    taskType: "cloze_picture",
+    difficulty: 5,
+    targetSentence: "They have already left",
+    sentenceTemplate: "They ___ already left",
+    options: ["have", "has", "had", "are"],
+    correctAnswer: "have",
+    distractors: ["has", "had", "are"],
+    grammarFocus: "present_perfect",
+    modelAudio: "They have already left"
+  },
+  {
+    id: "cloze_8",
+    taskType: "cloze_picture",
+    difficulty: 5,
+    targetSentence: "We went to the park last week",
+    sentenceTemplate: "We ___ to the park last week",
+    options: ["went", "go", "goes", "going"],
+    correctAnswer: "went",
+    distractors: ["go", "goes", "going"],
+    grammarFocus: "past_tense",
+    modelAudio: "We went to the park last week"
   }
 ];
 
