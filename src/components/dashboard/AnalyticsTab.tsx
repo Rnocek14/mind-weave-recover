@@ -190,15 +190,14 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
             </div>
             <Button
               variant="outline"
-              onClick={() => navigate('/analytics/speech-trends')}
+              onClick={() => navigate('/insights?tab=speech')}
               className="gap-2"
             >
               <History className="w-4 h-4" />
-              Speech Trends
+              View All Speech Analytics
             </Button>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
-          <div className="space-y-2">
             <ExerciseProgressCard
               userId={userId}
               exerciseSlug="semantic-features"
@@ -206,26 +205,6 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={Lightbulb}
               targets="word-finding, semantic errors"
             />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/analytics/semantic")}
-                    className="w-full min-h-[44px] md:min-h-[40px]"
-                    aria-label="View detailed semantic feature analytics"
-                  >
-                    View Detailed Analytics
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>View category-by-category analysis, abstractness patterns, and semantic error trends</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="space-y-2">
             <ExerciseProgressCard
               userId={userId}
               exerciseSlug="phonological-awareness"
@@ -233,26 +212,6 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={Volume2}
               targets="phonemic paraphasias, sound discrimination"
             />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/analytics/phoneme")}
-                    className="w-full min-h-[44px] md:min-h-[40px]"
-                    aria-label="View detailed phoneme analytics"
-                  >
-                    View Detailed Analytics
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>View phoneme-by-phoneme accuracy, sound confusion patterns, and discrimination trends</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="space-y-2">
             <ExerciseProgressCard
               userId={userId}
               exerciseSlug="sentence-construction"
@@ -260,26 +219,7 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={List}
               targets="syntax, grammar, word order"
             />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/analytics/grammar")}
-                    className="w-full min-h-[44px] md:min-h-[40px]"
-                    aria-label="View detailed grammar analytics"
-                  >
-                    View Detailed Analytics
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>View grammar error patterns, syntax accuracy, word order analysis, and sentence complexity trends</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
-        </div>
         </div>
       )}
 

@@ -203,25 +203,6 @@ export default function Insights() {
             </div>
 
             <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
-
-            {/* Quick links to detailed analytics */}
-            <Card className="p-4">
-              <h3 className="font-medium mb-3">Detailed Exercise Analytics</h3>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate('/analytics/semantic')}>
-                  Semantic Features
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/analytics/phoneme')}>
-                  Phoneme Analysis
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/analytics/grammar')}>
-                  Grammar Patterns
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/analytics/speech-trends')}>
-                  Speech Trends
-                </Button>
-              </div>
-            </Card>
           </TabsContent>
 
           {/* Cross-Domain Intelligence Tab */}

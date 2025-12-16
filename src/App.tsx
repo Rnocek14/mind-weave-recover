@@ -11,12 +11,7 @@ import Exercise from "./pages/Exercise";
 import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
 import PhonologicalExercise from "./pages/PhonologicalExercise";
 import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
-import PhonemeAnalytics from "./pages/PhonemeAnalytics";
 import SessionHistory from "./pages/SessionHistory";
-import SemanticAnalytics from "./pages/SemanticAnalytics";
-import GrammarAnalytics from "./pages/GrammarAnalytics";
-import PronunciationAnalytics from "./pages/PronunciationAnalytics";
-import SpeechTrendsAnalytics from "./pages/SpeechTrendsAnalytics";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -72,19 +67,13 @@ const App = () => (
           <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
           <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
           <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
-          <Route path="/analytics/phoneme" element={<PhonemeAnalytics />} />
           <Route path="/history" element={<SessionHistory />} />
-          <Route path="/analytics/semantic" element={<SemanticAnalytics />} />
-          <Route path="/analytics/grammar" element={<GrammarAnalytics />} />
-          <Route path="/analytics/pronunciation" element={<PronunciationAnalytics />} />
-          <Route path="/analytics/speech-trends" element={<SpeechTrendsAnalytics />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
           <Route path="/admin/research-export" element={<ResearchExport />} />
           <Route path="/analytics/cluster" element={<ClusterAnalytics />} />
           <Route path="/settings/privacy" element={<PrivacySettings />} />
-          <Route path="/history" element={<History />} />
           <Route path="/photo-library" element={<PhotoLibrary />} />
           <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
           <Route path="/clinical-documents" element={<ClinicalDocuments />} />
