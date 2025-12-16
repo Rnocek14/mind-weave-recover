@@ -410,6 +410,10 @@ export const PhotoNamingGame = ({
     prosodyScore?: number;
     transcript: string;
     words: any[];
+    alignmentData?: {
+      word_segments: { word: string; start: number; end: number }[];
+      phone_segments: { phone: string; start: number; end: number }[];
+    };
   } | null> => {
     try {
       // Convert to WAV format for Azure (WebM/Opus has poor phoneme support)
@@ -459,6 +463,7 @@ export const PhotoNamingGame = ({
         prosodyScore: data.prosodyScore,
         transcript: data.transcript || '',
         words: data.words || [],
+        alignmentData: data.alignmentData,
       };
     } catch (error) {
       console.error('Failed to analyze pronunciation:', error);
