@@ -205,13 +205,13 @@ const level2Trials: SentenceTrial[] = [
     id: "func_7",
     taskType: "fill_function",
     difficulty: 2,
-    targetSentence: "He sits in the chair",
+    targetSentence: "He sits on the chair",
     sentenceTemplate: "He sits ___ the chair",
-    options: ["in", "on", "at", "to"],
-    correctAnswer: "in",
-    distractors: ["on", "at", "to"],
+    options: ["on", "in", "at", "to"],
+    correctAnswer: "on",
+    distractors: ["in", "at", "to"],
     grammarFocus: "prepositions",
-    modelAudio: "He sits in the chair"
+    modelAudio: "He sits on the chair"
   },
   {
     id: "func_8",
