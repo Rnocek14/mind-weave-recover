@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { InsightEvidenceBadge } from './InsightEvidenceBadge';
 import { StaffPipelineControls } from './StaffPipelineControls';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { pronunciationHealth, type PronunciationHealthStatus } from '@/lib/pipelineOpsClient';
 
 interface SpeechLabPanelProps {
   userId: string;
@@ -73,10 +74,29 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
   const [alignmentStats, setAlignmentStats] = useState<AlignmentStats | null>(null);
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
   const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
+  const [azureHealth, setAzureHealth] = useState<{ status: 'loading' | 'ready' | 'misconfigured' | 'offline'; details?: PronunciationHealthStatus }>({ status: 'loading' });
   const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const { isAdmin, isModerator } = useUserPermissions(userId);
   const isStaff = isAdmin || isModerator;
+
+  // Check Azure health on mount and refresh
+  useEffect(() => {
+    const checkAzureHealth = async () => {
+      try {
+        const health = await pronunciationHealth();
+        if (health.configured) {
+          setAzureHealth({ status: 'ready', details: health });
+        } else {
+          setAzureHealth({ status: 'misconfigured', details: health });
+        }
+      } catch (error) {
+        console.error('Azure health check failed:', error);
+        setAzureHealth({ status: 'offline' });
+      }
+    };
+    checkAzureHealth();
+  }, [refreshKey]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -321,7 +341,7 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Pronunciation Analysis Source */}
+        {/* Pronunciation Analysis Source - Real Azure health check */}
         <div className="flex items-center gap-3 p-3 rounded bg-muted/30">
           {pipelineStats.withAzure > 0 ? (
             <>
@@ -338,19 +358,56 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
                 </p>
               </div>
             </>
-          ) : (
+          ) : azureHealth.status === 'ready' ? (
             <>
               <CheckCircle2 className="w-5 h-5 text-blue-500" />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">Azure Pronunciation Assessment: Ready</span>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs text-green-600 border-green-600">
                     Configured
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Will analyze pronunciation when voice exercises are used with recording enabled
                 </p>
+              </div>
+            </>
+          ) : azureHealth.status === 'misconfigured' ? (
+            <>
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">Azure Pronunciation Assessment: Misconfigured</span>
+                  <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                    Missing {!azureHealth.details?.hasKey && 'API Key'}{!azureHealth.details?.hasKey && !azureHealth.details?.hasRegion && ' & '}{!azureHealth.details?.hasRegion && 'Region'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Add AZURE_SPEECH_KEY and AZURE_SPEECH_REGION to Supabase secrets
+                </p>
+              </div>
+            </>
+          ) : azureHealth.status === 'offline' ? (
+            <>
+              <WifiOff className="w-5 h-5 text-destructive" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">Azure Pronunciation Assessment: Offline</span>
+                  <Badge variant="destructive" className="text-xs">
+                    Unreachable
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Could not connect to Azure health endpoint
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <div className="flex-1">
+                <span className="font-medium text-sm text-muted-foreground">Checking Azure status...</span>
               </div>
             </>
           )}

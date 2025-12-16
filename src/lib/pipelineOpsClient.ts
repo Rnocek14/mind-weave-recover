@@ -1,9 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Correct Supabase Edge Functions URL format
-const PROJECT_REF = "wjedbpjaiqdxhmjzkcxo";
-const FUNCTIONS_URL = `https://${PROJECT_REF}.supabase.co/functions/v1`;
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA";
+// Use environment variables for Supabase config
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 export type PipelineOpsStats = {
   ok: boolean;
@@ -103,6 +103,29 @@ export async function pipelineOpsBumpPriority(params: {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Bump priority failed: ${response.status} - ${errorText}`);
+  }
+  
+  return response.json();
+}
+
+export type PronunciationHealthStatus = {
+  ok: boolean;
+  configured: boolean;
+  hasKey: boolean;
+  hasRegion: boolean;
+  timestamp: string;
+};
+
+export async function pronunciationHealth(): Promise<PronunciationHealthStatus> {
+  const headers = await getAuthHeaders();
+  
+  const response = await fetch(`${FUNCTIONS_URL}/analyze-pronunciation/health`, {
+    method: 'GET',
+    headers,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Pronunciation health check failed: ${response.status}`);
   }
   
   return response.json();
