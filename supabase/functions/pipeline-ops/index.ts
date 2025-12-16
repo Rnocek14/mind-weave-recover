@@ -13,13 +13,13 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
 
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
 
-  // Verify staff role via JWT
+  // Verify staff role via JWT using user-scoped client
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Missing authorization' }), { 
@@ -28,8 +28,12 @@ serve(async (req) => {
     });
   }
 
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  // Create user-scoped client for auth verification
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: authError } = await userClient.auth.getUser();
   
   if (authError || !user) {
     return new Response(JSON.stringify({ error: 'Invalid token' }), { 
@@ -38,7 +42,10 @@ serve(async (req) => {
     });
   }
 
-  // Check if user has admin or moderator role
+  // Create service client for privileged operations
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Check if user has admin or moderator role using service client
   const { data: roles } = await supabase
     .from('user_roles')
     .select('role')

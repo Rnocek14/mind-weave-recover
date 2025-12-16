@@ -143,7 +143,8 @@ export function deriveMicroFluency(
     const fillerList = Array.from(fillers).sort((a, b) => b.length - a.length);
     for (const f of fillerList) {
       if (!f) continue;
-      const re = new RegExp(`\\b${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+      const escaped = f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escaped}\\b`, "gi");
       const matches = transcript.match(re);
       if (matches?.length) {
         for (let i = 0; i < matches.length; i++) filledTokens.push(f);
@@ -294,46 +295,74 @@ export function deriveMicroFluency(
 }
 
 /**
- * Aggregate micro-fluency across multiple utterances
+ * Aggregated micro-fluency metrics across multiple utterances
  */
-export function aggregateMicroFluency(
-  analyses: MicroFluencyAnalysis[]
-): {
+export interface AggregatedMicroFluency {
   avgSilentPauseCount: number;
   avgSilentPauseMs: number;
-  totalFilledPauses: number;
   avgPreWordPauseMs: number;
   totalIntraWordPauses: number;
+  intraWordPauseRate: number;
+  totalFilledPauses: number;
   avgBurstCount: number;
   avgLongestPauseMs: number;
-  sampleCount: number;
   validSampleCount: number;
-} {
+  sampleCount: number;
+  validRate: number; // validSampleCount / sampleCount for confidence badge
+}
+
+/**
+ * Aggregate micro-fluency across multiple utterances
+ */
+export function aggregateMicroFluency(analyses: MicroFluencyAnalysis[]): AggregatedMicroFluency {
   const valid = analyses.filter(a => a.quality.alignmentOk);
+  const validCount = valid.length;
   
-  if (valid.length === 0) {
+  if (validCount === 0) {
     return {
       avgSilentPauseCount: 0,
       avgSilentPauseMs: 0,
-      totalFilledPauses: 0,
       avgPreWordPauseMs: 0,
       totalIntraWordPauses: 0,
+      intraWordPauseRate: 0,
+      totalFilledPauses: analyses.reduce((s, a) => s + a.filledPauses.count, 0), // can still count from transcript
       avgBurstCount: 0,
       avgLongestPauseMs: 0,
+      validSampleCount: 0,
       sampleCount: analyses.length,
-      validSampleCount: 0
+      validRate: 0
     };
   }
 
+  const totals = valid.reduce((acc, a) => ({
+    silentPauseCount: acc.silentPauseCount + a.silentPauses.count,
+    silentPauseMs: acc.silentPauseMs + a.silentPauses.avgMs,
+    preWordPauseMs: acc.preWordPauseMs + a.preWordPauses.avgMs,
+    intraWordPauses: acc.intraWordPauses + a.intraWordPauses.count,
+    filledPauses: acc.filledPauses + a.filledPauses.count,
+    burstCount: acc.burstCount + a.burstCount,
+    longestPauseMs: acc.longestPauseMs + a.longestPauseMs,
+  }), {
+    silentPauseCount: 0,
+    silentPauseMs: 0,
+    preWordPauseMs: 0,
+    intraWordPauses: 0,
+    filledPauses: 0,
+    burstCount: 0,
+    longestPauseMs: 0,
+  });
+
   return {
-    avgSilentPauseCount: Math.round(valid.reduce((s, a) => s + a.silentPauses.count, 0) / valid.length * 10) / 10,
-    avgSilentPauseMs: Math.round(valid.reduce((s, a) => s + a.silentPauses.avgMs, 0) / valid.length),
-    totalFilledPauses: valid.reduce((s, a) => s + a.filledPauses.count, 0),
-    avgPreWordPauseMs: Math.round(valid.reduce((s, a) => s + a.preWordPauses.avgMs, 0) / valid.length),
-    totalIntraWordPauses: valid.reduce((s, a) => s + a.intraWordPauses.count, 0),
-    avgBurstCount: Math.round(valid.reduce((s, a) => s + a.burstCount, 0) / valid.length * 10) / 10,
-    avgLongestPauseMs: Math.round(valid.reduce((s, a) => s + a.longestPauseMs, 0) / valid.length),
+    avgSilentPauseCount: Math.round((totals.silentPauseCount / validCount) * 10) / 10,
+    avgSilentPauseMs: Math.round(totals.silentPauseMs / validCount),
+    avgPreWordPauseMs: Math.round(totals.preWordPauseMs / validCount),
+    totalIntraWordPauses: totals.intraWordPauses,
+    intraWordPauseRate: Math.round((totals.intraWordPauses / validCount) * 100) / 100,
+    totalFilledPauses: totals.filledPauses,
+    avgBurstCount: Math.round((totals.burstCount / validCount) * 10) / 10,
+    avgLongestPauseMs: Math.round(totals.longestPauseMs / validCount),
+    validSampleCount: validCount,
     sampleCount: analyses.length,
-    validSampleCount: valid.length
+    validRate: analyses.length > 0 ? validCount / analyses.length : 0,
   };
 }
