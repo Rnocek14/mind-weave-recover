@@ -117,11 +117,13 @@ export type PronunciationHealthStatus = {
 };
 
 export async function pronunciationHealth(): Promise<PronunciationHealthStatus> {
-  const headers = await getAuthHeaders();
-  
+  // Health check uses apikey only - no auth required for simple deployment/config probe
   const response = await fetch(`${FUNCTIONS_URL}/analyze-pronunciation/health`, {
     method: 'GET',
-    headers,
+    headers: {
+      'apikey': ANON_KEY,
+      'Content-Type': 'application/json',
+    },
   });
   
   if (!response.ok) {
