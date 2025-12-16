@@ -43,45 +43,43 @@ serve(async (req) => {
       console.error('Error fetching existing profile:', profileError);
     }
 
-    // Get sessions for this user
-    const { data: userSessions, error: sessionsError } = await supabase
-      .from('sessions')
-      .select('id')
-      .eq('user_id', user_id);
-
-    if (sessionsError) {
-      console.error('Error fetching user sessions:', sessionsError);
-      throw sessionsError;
-    }
-
-    if (!userSessions || userSessions.length === 0) {
-      return new Response(
-        JSON.stringify({ message: 'No sessions found for this user', profile: null }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const sessionIds = userSessions.map(s => s.id);
-
-    // Fetch all exercise events for these sessions
-    const { data: events, error: fetchError } = await supabase
-      .from('exercise_events')
-      .select('error_type, cue_type_given, cue_was_effective, time_to_success_after_cue_ms, task_parameters')
-      .in('session_id', sessionIds);
+    // CRITICAL: Read from utterance_analyses table (has accurate error classification)
+    // instead of exercise_events (which had abandoned/incomplete data)
+    const { data: analyses, error: fetchError } = await supabase
+      .from('utterance_analyses')
+      .select(`
+        error_type,
+        is_correct,
+        cue_type_given,
+        cue_was_effective,
+        time_to_success_after_cue_ms,
+        category,
+        speech_rate_wpm,
+        pause_count,
+        total_pause_ms,
+        avg_pause_duration_ms,
+        effortful_speech,
+        phonological_similarity,
+        semantic_similarity,
+        target_word
+      `)
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: false });
 
     if (fetchError) {
-      console.error('Error fetching exercise events:', fetchError);
+      console.error('Error fetching utterance analyses:', fetchError);
       throw fetchError;
     }
 
-    if (!events || events.length === 0) {
+    if (!analyses || analyses.length === 0) {
+      console.log(`No utterance analyses found for user ${user_id}`);
       return new Response(
-        JSON.stringify({ message: 'No exercise events found for this user', profile: null }),
+        JSON.stringify({ message: 'No utterance analyses found for this user', profile: null }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const totalTrials = events.length;
+    const totalTrials = analyses.length;
     const previousCount = existingProfile?.trial_count_at_computation ?? 0;
     const newTrials = totalTrials - previousCount;
 
@@ -103,54 +101,89 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${totalTrials} exercise events (${newTrials} new since last computation)...`);
+    console.log(`Processing ${totalTrials} utterance analyses (${newTrials} new since last computation)...`);
 
     // Initialize aggregation structures
     const errorTypeCounts: Record<string, number> = {};
     const cueStats: Record<string, { success: number; total: number; avgTimeMs: number; totalTimeMs: number }> = {};
     const categoryStats: Record<string, { success: number; total: number }> = {};
+    
+    // Fluency aggregation
     let totalWpm = 0;
     let wpmCount = 0;
     let totalPauseCount = 0;
     let totalPauseDuration = 0;
     let pauseMetricCount = 0;
     let effortfulCount = 0;
+    
+    // Similarity aggregation for insight generation
+    let totalSemanticSimilarity = 0;
+    let semanticCount = 0;
+    let totalPhonologicalSimilarity = 0;
+    let phonologicalCount = 0;
 
-    // Process each event
-    for (const event of events) {
-      // Error type distribution
-      const errorType = event.error_type ?? 'unknown';
+    // Process each analysis
+    for (const analysis of analyses) {
+      // Error type distribution (from accurate classification)
+      const errorType = analysis.error_type ?? 'unknown';
       errorTypeCounts[errorType] = (errorTypeCounts[errorType] || 0) + 1;
 
       // Cue efficacy by type
-      if (event.cue_type_given && event.cue_type_given !== 'none') {
-        const cueType = event.cue_type_given;
+      if (analysis.cue_type_given && analysis.cue_type_given !== 'none') {
+        const cueType = analysis.cue_type_given;
         if (!cueStats[cueType]) {
           cueStats[cueType] = { success: 0, total: 0, avgTimeMs: 0, totalTimeMs: 0 };
         }
         cueStats[cueType].total += 1;
-        if (event.cue_was_effective === true) {
+        if (analysis.cue_was_effective === true) {
           cueStats[cueType].success += 1;
-          if (event.time_to_success_after_cue_ms) {
-            cueStats[cueType].totalTimeMs += event.time_to_success_after_cue_ms;
+          if (analysis.time_to_success_after_cue_ms) {
+            cueStats[cueType].totalTimeMs += analysis.time_to_success_after_cue_ms;
           }
         }
       }
 
-      // Category-based stats (from task_parameters)
-      const category = event.task_parameters?.category;
+      // Category-based stats
+      const category = analysis.category;
       if (category) {
         if (!categoryStats[category]) {
           categoryStats[category] = { success: 0, total: 0 };
         }
         categoryStats[category].total += 1;
-        if (errorType === 'correct') {
+        if (analysis.is_correct === true || errorType === 'correct') {
           categoryStats[category].success += 1;
         }
       }
 
-      // Fluency metrics - not available yet in this version
-      // Will be added when utterance_analysis column exists
+      // Fluency metrics (from utterance_analyses)
+      if (analysis.speech_rate_wpm != null && analysis.speech_rate_wpm > 0) {
+        totalWpm += analysis.speech_rate_wpm;
+        wpmCount += 1;
+      }
+      
+      if (analysis.pause_count != null) {
+        totalPauseCount += analysis.pause_count;
+        pauseMetricCount += 1;
+      }
+      
+      if (analysis.total_pause_ms != null) {
+        totalPauseDuration += analysis.total_pause_ms;
+      }
+      
+      if (analysis.effortful_speech === true) {
+        effortfulCount += 1;
+      }
+      
+      // Similarity metrics for advanced insights
+      if (analysis.semantic_similarity != null) {
+        totalSemanticSimilarity += analysis.semantic_similarity;
+        semanticCount += 1;
+      }
+      
+      if (analysis.phonological_similarity != null) {
+        totalPhonologicalSimilarity += analysis.phonological_similarity;
+        phonologicalCount += 1;
+      }
     }
 
     // Compute cue efficacy with success rates and average times
@@ -159,18 +192,18 @@ serve(async (req) => {
       const successRate = stats.total > 0 ? stats.success / stats.total : 0;
       const avgTimeMs = stats.success > 0 ? stats.totalTimeMs / stats.success : 0;
       cueEfficacyByType[type] = {
-        successRate,
+        successRate: Math.round(successRate * 100) / 100,
         success: stats.success,
         total: stats.total,
         avgTimeToSuccessMs: Math.round(avgTimeMs)
       };
     }
 
-    // Compute category-based cue efficacy
+    // Compute category-based stats
     const cueEfficacyByCategory: Record<string, { successRate: number; success: number; total: number }> = {};
     for (const [category, stats] of Object.entries(categoryStats)) {
       cueEfficacyByCategory[category] = {
-        successRate: stats.total > 0 ? stats.success / stats.total : 0,
+        successRate: Math.round((stats.total > 0 ? stats.success / stats.total : 0) * 100) / 100,
         success: stats.success,
         total: stats.total
       };
@@ -181,7 +214,19 @@ serve(async (req) => {
       .filter(([_, stats]) => stats.total >= 3)
       .sort((a, b) => a[1].successRate - b[1].successRate)
       .slice(0, 5)
-      .map(([category, stats]) => ({ category, successRate: stats.successRate, trials: stats.total }));
+      .map(([category, stats]) => ({ 
+        category, 
+        successRate: stats.successRate, 
+        trials: stats.total 
+      }));
+
+    // Compute average similarities for insight generation
+    const avgSemanticSimilarity = semanticCount > 0 
+      ? Math.round((totalSemanticSimilarity / semanticCount) * 100) / 100 
+      : null;
+    const avgPhonologicalSimilarity = phonologicalCount > 0 
+      ? Math.round((totalPhonologicalSimilarity / phonologicalCount) * 100) / 100 
+      : null;
 
     // Build the profile object
     const profile = {
@@ -191,19 +236,29 @@ serve(async (req) => {
       cue_efficacy_by_type: cueEfficacyByType,
       cue_efficacy_by_category: cueEfficacyByCategory,
       most_challenging_categories: challengingCategories,
-      baseline_wpm: wpmCount > 0 ? Math.round((totalWpm / wpmCount) * 100) / 100 : null,
+      baseline_wpm: wpmCount > 0 ? Math.round((totalWpm / wpmCount) * 10) / 10 : null,
       baseline_pause_frequency: pauseMetricCount > 0 ? Math.round((totalPauseCount / pauseMetricCount) * 100) / 100 : null,
-      avg_stall_duration_ms: pauseMetricCount > 0 ? Math.round(totalPauseDuration / pauseMetricCount) : null,
-      effortful_speech_rate: events.length > 0 ? Math.round((effortfulCount / events.length) * 100) / 100 : null,
+      avg_stall_duration_ms: pauseMetricCount > 0 && totalPauseDuration > 0 
+        ? Math.round(totalPauseDuration / pauseMetricCount) 
+        : null,
+      effortful_speech_rate: totalTrials > 0 ? Math.round((effortfulCount / totalTrials) * 100) / 100 : null,
       last_computed_at: new Date().toISOString(),
-      trial_count_at_computation: events.length,
+      trial_count_at_computation: totalTrials,
       updated_at: new Date().toISOString()
     };
 
-    console.log('Profile computed:', JSON.stringify(profile, null, 2));
+    console.log('Profile computed:', JSON.stringify({
+      ...profile,
+      _meta: {
+        avgSemanticSimilarity,
+        avgPhonologicalSimilarity,
+        wpmSampleSize: wpmCount,
+        pauseSampleSize: pauseMetricCount,
+        effortfulTrials: effortfulCount,
+      }
+    }, null, 2));
 
     // Upsert into user_speech_profiles
-    // The unique constraint is on (user_id, profile_id), so we specify both in onConflict
     const { data: upsertedProfile, error: upsertError } = await supabase
       .from('user_speech_profiles')
       .upsert(profile, { onConflict: 'user_id,profile_id' })
@@ -221,9 +276,15 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         profile: upsertedProfile,
-        eventsProcessed: events.length,
+        analysesProcessed: totalTrials,
         newTrials,
-        previousTrialCount: previousCount
+        previousTrialCount: previousCount,
+        insights: {
+          avgSemanticSimilarity,
+          avgPhonologicalSimilarity,
+          effortfulRate: profile.effortful_speech_rate,
+          baselineWpm: profile.baseline_wpm,
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

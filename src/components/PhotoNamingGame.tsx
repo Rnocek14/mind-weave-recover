@@ -624,10 +624,10 @@ export const PhotoNamingGame = ({
       asrConfidence: whisperConfidence,
       isCorrect: false,
       errorType: 'timeout',
-      speechRateWpm: acousticMetrics?.speechRateWPM,
+      speechRateWpm: acousticMetrics?.speechRateWpm,
       pauseCount: acousticMetrics?.pauseCount,
-      totalPauseMs: acousticMetrics?.totalPauseMs,
-      avgPauseDurationMs: acousticMetrics?.averagePauseDuration,
+      totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
+      avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: timeoutEffortfulSpeech,
       cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : undefined,
       audioStoragePath: uploadedPath,
@@ -885,9 +885,9 @@ export const PhotoNamingGame = ({
         features: state.currentTrial.features
       },
       acousticMetrics ? {
-        speechRateWpm: acousticMetrics.speechRateWPM,
+        speechRateWpm: acousticMetrics.speechRateWpm,
         pauseCount: acousticMetrics.pauseCount,
-        avgPauseDurationMs: acousticMetrics.averagePauseDuration
+        avgPauseDurationMs: acousticMetrics.avgPauseDurationMs
       } : undefined
     );
     
@@ -1048,10 +1048,10 @@ export const PhotoNamingGame = ({
       semanticSimilarity: errorClassification.semantic_similarity,
       classificationConfidence: errorClassification.confidence,
       reasoning: errorClassification.reasoning,
-      speechRateWpm: acousticMetrics?.speechRateWPM,
+      speechRateWpm: acousticMetrics?.speechRateWpm,
       pauseCount: acousticMetrics?.pauseCount,
-      totalPauseMs: acousticMetrics?.totalPauseMs,
-      avgPauseDurationMs: acousticMetrics?.averagePauseDuration,
+      totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
+      avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: utteranceAnalysis.effortfulSpeech,
       cueTypeGiven: cueTypeGiven === 'none' ? undefined : cueTypeGiven,
       cueWasEffective: cueWasEffective ?? undefined,
