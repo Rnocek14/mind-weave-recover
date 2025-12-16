@@ -338,6 +338,29 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           )}
         </div>
 
+        {/* Worker Offline Alert - shown when jobs queued but no active worker */}
+        {pipelineStats && pipelineStats.pending > 0 && (!workerStatus || workerStatus.status !== 'active') && (
+          <div className="p-4 rounded-lg border-2 border-destructive/50 bg-destructive/10">
+            <div className="flex items-start gap-3">
+              <WifiOff className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-destructive">Worker Offline</h4>
+                <p className="text-sm text-destructive/80 mt-1">
+                  {pipelineStats.pending} job(s) are queued but no worker heartbeat is present. 
+                  Deploy/start the Fly.io worker to process MFA alignment.
+                </p>
+                {queueHealth?.oldestPendingAgeMin !== null && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Oldest pending: {queueHealth.oldestPendingAgeMin < 60 
+                      ? `${queueHealth.oldestPendingAgeMin}m` 
+                      : `${Math.round(queueHealth.oldestPendingAgeMin / 60)}h ${queueHealth.oldestPendingAgeMin % 60}m`}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Queue Health */}
         {queueHealth && (pipelineStats.pending > 0 || queueHealth.stuckProcessingCount > 0 || queueHealth.failedRetryCapped > 0) && (
           <div className="p-3 rounded border border-border bg-muted/20">
