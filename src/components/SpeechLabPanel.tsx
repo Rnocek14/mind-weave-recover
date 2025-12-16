@@ -55,11 +55,21 @@ interface WorkerStatus {
   meta?: Record<string, unknown>;
 }
 
+interface QueueHealth {
+  oldestPendingAgeMin: number | null;
+  p50PendingAgeMin: number | null;
+  p90PendingAgeMin: number | null;
+  stuckProcessingCount: number;
+  completedLast60Min: number;
+  failedRetryCapped: number;
+}
+
 export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) => {
   const [pipelineStats, setPipelineStats] = useState<PipelineStats | null>(null);
   const [fluencyStats, setFluencyStats] = useState<FluencyStats | null>(null);
   const [alignmentStats, setAlignmentStats] = useState<AlignmentStats | null>(null);
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
+  const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -69,16 +79,16 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
       startDate.setDate(startDate.getDate() - daysBack);
 
       try {
-        // Fetch pipeline status distribution
+        // Fetch all utterances for detailed queue analysis
         const { data: utterances, error } = await supabase
           .from('utterance_analyses')
-          .select('analysis_status, alignment_data, gop_data, audio_storage_path, speech_rate_wpm, pause_count, avg_pause_duration_ms, effortful_speech, speech_ratio')
+          .select('analysis_status, alignment_data, gop_data, audio_storage_path, speech_rate_wpm, pause_count, avg_pause_duration_ms, effortful_speech, speech_ratio, created_at, locked_at, retry_count, updated_at')
           .eq('user_id', userId)
           .gte('created_at', startDate.toISOString());
 
         if (error) throw error;
 
-        // Fetch worker heartbeat (admin only - will fail silently for non-admins)
+        // Fetch worker heartbeat (staff only)
         const { data: heartbeats } = await supabase
           .from('worker_heartbeats')
           .select('worker_id, last_seen, status, meta')
@@ -103,6 +113,55 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             meta: hb.meta as Record<string, unknown>
           });
         }
+
+        // Calculate queue health metrics
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000;
+        const tenMinutesAgo = now - 10 * 60 * 1000;
+        
+        const pendingAges: number[] = [];
+        let stuckProcessingCount = 0;
+        let completedLast60Min = 0;
+        let failedRetryCapped = 0;
+
+        utterances?.forEach(u => {
+          if (u.analysis_status === 'pending' && u.created_at) {
+            const ageMin = (now - new Date(u.created_at).getTime()) / 1000 / 60;
+            pendingAges.push(ageMin);
+          }
+          
+          if (u.analysis_status === 'processing' && u.locked_at) {
+            const lockedAt = new Date(u.locked_at).getTime();
+            if (lockedAt < tenMinutesAgo) {
+              stuckProcessingCount++;
+            }
+          }
+          
+          if (u.analysis_status === 'complete' && u.updated_at) {
+            const completedAt = new Date(u.updated_at).getTime();
+            if (completedAt > oneHourAgo) {
+              completedLast60Min++;
+            }
+          }
+          
+          if (u.analysis_status === 'failed' && (u.retry_count ?? 0) >= 5) {
+            failedRetryCapped++;
+          }
+        });
+
+        // Calculate percentiles
+        pendingAges.sort((a, b) => a - b);
+        const p50Index = Math.floor(pendingAges.length * 0.5);
+        const p90Index = Math.floor(pendingAges.length * 0.9);
+        
+        setQueueHealth({
+          oldestPendingAgeMin: pendingAges.length > 0 ? Math.round(pendingAges[pendingAges.length - 1]) : null,
+          p50PendingAgeMin: pendingAges.length > 0 ? Math.round(pendingAges[p50Index]) : null,
+          p90PendingAgeMin: pendingAges.length > 0 ? Math.round(pendingAges[p90Index]) : null,
+          stuckProcessingCount,
+          completedLast60Min,
+          failedRetryCapped
+        });
 
         // Calculate pipeline stats
         const pipeline: PipelineStats = {
@@ -271,6 +330,52 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
             </>
           )}
         </div>
+
+        {/* Queue Health */}
+        {queueHealth && (pipelineStats.pending > 0 || queueHealth.stuckProcessingCount > 0 || queueHealth.failedRetryCapped > 0) && (
+          <div className="p-3 rounded border border-border bg-muted/20">
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Queue Health
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              {queueHealth.oldestPendingAgeMin !== null && (
+                <div>
+                  <span className="text-muted-foreground">Oldest pending:</span>
+                  <span className={`ml-2 font-medium ${queueHealth.oldestPendingAgeMin > 60 ? 'text-red-500' : queueHealth.oldestPendingAgeMin > 30 ? 'text-yellow-500' : ''}`}>
+                    {queueHealth.oldestPendingAgeMin < 60 
+                      ? `${queueHealth.oldestPendingAgeMin}m` 
+                      : `${Math.round(queueHealth.oldestPendingAgeMin / 60)}h`}
+                  </span>
+                </div>
+              )}
+              {queueHealth.p50PendingAgeMin !== null && (
+                <div>
+                  <span className="text-muted-foreground">p50 age:</span>
+                  <span className="ml-2 font-medium">{queueHealth.p50PendingAgeMin}m</span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted-foreground">Completed (1h):</span>
+                <span className="ml-2 font-medium text-green-600">{queueHealth.completedLast60Min}</span>
+              </div>
+            </div>
+            
+            {queueHealth.stuckProcessingCount > 0 && (
+              <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-sm text-red-700 dark:text-red-300">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                {queueHealth.stuckProcessingCount} job(s) stuck in processing &gt;10min (will auto-reclaim)
+              </div>
+            )}
+            
+            {queueHealth.failedRetryCapped > 0 && (
+              <div className="mt-2 p-2 bg-orange-500/10 border border-orange-500/20 rounded text-sm text-orange-700 dark:text-orange-300">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                {queueHealth.failedRetryCapped} job(s) permanently failed (retry cap reached)
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Pipeline Status */}
         <div>
