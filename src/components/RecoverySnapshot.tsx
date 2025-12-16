@@ -112,7 +112,7 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
 
   // Build evidence points with full context (clinician-grade)
   const recoveryEvidencePoints: string[] = [];
-  recoveryEvidencePoints.push(`${totalTrials} trials across ${totalSessions} sessions`);
+  recoveryEvidencePoints.push(`${totalTrials} trials across ${totalSessions} practice days`);
   
   if (learningRates.length > 0) {
     const namingRate = learningRates.find(r => r.domain === 'naming');
