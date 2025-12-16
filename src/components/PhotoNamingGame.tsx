@@ -478,23 +478,12 @@ export const PhotoNamingGame = ({
     }
   }, [state.isComplete, state.score, onGameComplete]);
 
-  // FIX: Unmount cleanup - log abandoned trials as best-effort
-  // BUT: Don't log abandoned if we're actively processing a result (race condition fix)
-  useEffect(() => {
-    return () => {
-      // If there's an active attempt that wasn't finalized AND we're not processing a result
-      if (currentAttemptId && !isFinalized && !processingResultRef.current && state.currentTrial) {
-        console.log('⚠️ Unmount with active attempt - logging as abandoned');
-        logFinalAnalysis({
-          transcriptSource: 'browser',
-          isCorrect: false,
-          errorType: 'abandoned',
-        });
-      } else if (processingResultRef.current) {
-        console.log('⏭️ Unmount during result processing - skipping abandoned log');
-      }
-    };
-  }, [currentAttemptId, isFinalized, state.currentTrial, logFinalAnalysis]);
+  // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
+  // where the cleanup would fire before handleAnswerSelect could complete.
+  // Abandoned trials are properly logged via:
+  // 1. handleTimeout - logs timeout/no_response errors
+  // 2. Game completion - no logging needed for unfinished trials on game end
+  // The unmount was seeing stale isFinalized state from the closure.
   
   // Phase 1 Fix: Restart voice after no-match toast
   useEffect(() => {
