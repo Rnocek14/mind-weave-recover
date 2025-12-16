@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   Loader2,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { InsightEvidenceBadge } from './InsightEvidenceBadge';
@@ -46,10 +48,18 @@ interface AlignmentStats {
   sampleCount: number;
 }
 
+interface WorkerStatus {
+  workerId: string;
+  lastSeen: Date;
+  status: 'active' | 'stale' | 'offline';
+  meta?: Record<string, unknown>;
+}
+
 export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) => {
   const [pipelineStats, setPipelineStats] = useState<PipelineStats | null>(null);
   const [fluencyStats, setFluencyStats] = useState<FluencyStats | null>(null);
   const [alignmentStats, setAlignmentStats] = useState<AlignmentStats | null>(null);
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -67,6 +77,32 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           .gte('created_at', startDate.toISOString());
 
         if (error) throw error;
+
+        // Fetch worker heartbeat (admin only - will fail silently for non-admins)
+        const { data: heartbeats } = await supabase
+          .from('worker_heartbeats')
+          .select('worker_id, last_seen, status, meta')
+          .order('last_seen', { ascending: false })
+          .limit(1);
+
+        if (heartbeats && heartbeats.length > 0) {
+          const hb = heartbeats[0];
+          const lastSeen = new Date(hb.last_seen);
+          const ageMs = Date.now() - lastSeen.getTime();
+          const ageMinutes = ageMs / 1000 / 60;
+          
+          let status: 'active' | 'stale' | 'offline';
+          if (ageMinutes < 1) status = 'active';
+          else if (ageMinutes < 5) status = 'stale';
+          else status = 'offline';
+
+          setWorkerStatus({
+            workerId: hb.worker_id,
+            lastSeen,
+            status,
+            meta: hb.meta as Record<string, unknown>
+          });
+        }
 
         // Calculate pipeline stats
         const pipeline: PipelineStats = {
@@ -200,6 +236,42 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Worker Status */}
+        <div className="flex items-center gap-3 p-3 rounded bg-muted/30">
+          {workerStatus ? (
+            <>
+              {workerStatus.status === 'active' ? (
+                <Wifi className="w-5 h-5 text-green-500" />
+              ) : workerStatus.status === 'stale' ? (
+                <Wifi className="w-5 h-5 text-yellow-500" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-red-500" />
+              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">
+                    MFA Worker: {workerStatus.status === 'active' ? 'Active' : workerStatus.status === 'stale' ? 'Stale' : 'Offline'}
+                  </span>
+                  <Badge variant={workerStatus.status === 'active' ? 'default' : workerStatus.status === 'stale' ? 'secondary' : 'destructive'} className="text-xs">
+                    {workerStatus.workerId}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Last seen: {workerStatus.lastSeen.toLocaleTimeString()}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-5 h-5 text-muted-foreground" />
+              <div className="flex-1">
+                <span className="font-medium text-sm text-muted-foreground">MFA Worker: No heartbeat</span>
+                <p className="text-xs text-muted-foreground">Worker has not reported in yet</p>
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Pipeline Status */}
         <div>
           <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
