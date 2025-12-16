@@ -32,6 +32,8 @@ export interface StrategyNarrative {
   strategy: string;
   effectiveness: number; // 0-1
   context: string;
+  cueType: 'semantic' | 'phonemic' | 'full_word' | 'none';
+  totalGiven: number;
 }
 
 export interface FocusNarrative {
@@ -219,7 +221,9 @@ export function narrateStrategies(
   return {
     strategy: friendlyName,
     effectiveness: best.efficacyRate,
-    context
+    context,
+    cueType: best.cueType as 'semantic' | 'phonemic' | 'full_word' | 'none',
+    totalGiven: best.totalGiven
   };
 }
 
