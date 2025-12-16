@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { UiModeContext, UiModeContextValue } from "@/contexts/UiModeContext";
+import { UiModeContext, UiModeContextValue, UiMode } from "@/contexts/UiModeContext";
 
 export function useUiMode(): UiModeContextValue {
   const context = useContext(UiModeContext);
@@ -10,3 +10,6 @@ export function useUiMode(): UiModeContextValue {
   
   return context;
 }
+
+// Re-export UiMode type for convenience
+export type { UiMode };

@@ -37,7 +37,7 @@ import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardQuickTour } from "@/components/DashboardQuickTour";
 import { useUiMode } from "@/hooks/useUiMode";
 import { PatientModeView } from "@/components/PatientModeView";
-import { UiModeToggle } from "@/components/UiModeToggle";
+import { ViewModeSelector } from "@/components/ViewModeSelector";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -318,7 +318,7 @@ const Dashboard = () => {
           </div>
           
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <UiModeToggle />
+            <ViewModeSelector />
             <ProfileSwitcher />
             
             <Button
