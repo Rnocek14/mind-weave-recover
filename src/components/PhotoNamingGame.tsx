@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2 } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -19,6 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { trackRound } from '@/lib/sessionTracking';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -93,6 +95,17 @@ export const PhotoNamingGame = ({
   const { user } = useAuth();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id);
+  
+  // FIX 1: Auto-create session for standalone games
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+    user?.id,
+    sessionId,
+    'photo_naming'
+  );
+  
+  // Track analysis state for UI feedback
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastSavedTranscript, setLastSavedTranscript] = useState<string | null>(null);
   
   // Audio recording
   const { 
@@ -222,7 +235,7 @@ export const PhotoNamingGame = ({
   };
   
   // Handle speech recognition results - MUST be declared before hook
-  const handleSpeechResult = useCallback((transcript: string) => {
+  const handleSpeechResult = useCallback(async (transcript: string) => {
     // Use REF to avoid stale closure bug!
     if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) return;
     
@@ -238,6 +251,31 @@ export const PhotoNamingGame = ({
     }
     
     console.log('Speech result:', transcript);
+    
+    // FIX 2: Log browser transcript as fallback (even before matching)
+    // This ensures we capture SOMETHING even if Whisper analysis fails
+    if (activeSessionId && user?.id && state.currentTrial) {
+      try {
+        await trackRound(
+          activeSessionId,
+          'photo_naming',
+          state.trialNumber,
+          0, // Score will be updated on actual answer
+          { target: state.currentTrial.target, category: state.currentTrial.category },
+          { 
+            transcript, 
+            transcript_source: 'browser',
+            is_interim: true, // Mark as interim - final answer will have full analysis
+            timestamp: new Date().toISOString()
+          }
+        );
+        console.log('📝 Browser transcript logged:', transcript);
+        setLastSavedTranscript(transcript);
+      } catch (err) {
+        console.error('Failed to log browser transcript:', err);
+      }
+    }
+    
     const matchedChoice = findMatchingChoice(transcript);
     
     if (matchedChoice) {
@@ -255,7 +293,7 @@ export const PhotoNamingGame = ({
       // Phase 1 Fix: Flag for voice restart after no-match
       needsVoiceRestartRef.current = true;
     }
-  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, toast]);
+  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, state.trialNumber, toast, activeSessionId, user?.id]);
   
   // Speech recognition hook - uses handleSpeechResult callback
   const { 
@@ -379,9 +417,10 @@ export const PhotoNamingGame = ({
       setShowCue(false);
       setCurrentCueText('');
       
-      // Start audio recording if supported
-      if (isRecordingSupported && user && sessionId) {
+      // Start audio recording if supported - USE activeSessionId for standalone mode
+      if (isRecordingSupported && user && activeSessionId) {
         startRecording();
+        console.log('🎙️ Recording started for session:', activeSessionId);
       }
       
       // Auto-show cue after 2 consecutive errors
@@ -423,7 +462,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, sessionId, startRecording, consecutiveErrors, currentDifficulty]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, currentDifficulty]);
 
   // Handle game completion
   useEffect(() => {
@@ -461,7 +500,8 @@ export const PhotoNamingGame = ({
     let whisperConfidence: number | undefined;
     let acousticMetrics: any | undefined;
     
-    if (isRecording && user && sessionId) {
+    if (isRecording && user && activeSessionId) {
+      setIsAnalyzing(true);
       const recordingResult = await stopRecording();
       if (recordingResult) {
         duration = recordingResult.duration;
@@ -470,7 +510,7 @@ export const PhotoNamingGame = ({
         const path = await uploadRecording(
           recordingResult.audioBlob,
           user.id,
-          sessionId,
+          activeSessionId,
           state.trialNumber,
           recordingResult.mimeType
         );
@@ -491,6 +531,7 @@ export const PhotoNamingGame = ({
           acousticMetrics = analysisResult.acousticMetrics;
         }
       }
+      setIsAnalyzing(false);
     }
     
     // Treat timeout as incorrect answer
@@ -748,7 +789,8 @@ export const PhotoNamingGame = ({
     let whisperConfidence: number | undefined;
     let acousticMetrics: any | undefined;
     
-    if (isRecording && user && sessionId) {
+    if (isRecording && user && activeSessionId) {
+      setIsAnalyzing(true);
       const recordingResult = await stopRecording();
       if (recordingResult) {
         duration = recordingResult.duration;
@@ -757,7 +799,7 @@ export const PhotoNamingGame = ({
         const path = await uploadRecording(
           recordingResult.audioBlob,
           user.id,
-          sessionId,
+          activeSessionId,
           state.trialNumber,
           recordingResult.mimeType
         );
@@ -778,6 +820,7 @@ export const PhotoNamingGame = ({
           acousticMetrics = analysisResult.acousticMetrics;
         }
       }
+      setIsAnalyzing(false);
     }
     
     // Advanced error classification with acoustic metrics
@@ -1067,11 +1110,27 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Recording indicator */}
-      {isRecording && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-          Recording
+      {/* Recording/Analyzing indicator */}
+      {(isRecording || isAnalyzing || isCreatingSession) && (
+        <div className="flex items-center gap-2 text-sm">
+          {isCreatingSession && (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+              <span className="text-muted-foreground">Setting up session...</span>
+            </>
+          )}
+          {isRecording && !isAnalyzing && (
+            <>
+              <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+              <span className="text-destructive">🎙️ Recording</span>
+            </>
+          )}
+          {isAnalyzing && (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span className="text-primary">🧠 Analyzing speech...</span>
+            </>
+          )}
         </div>
       )}
 
