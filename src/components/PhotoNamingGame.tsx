@@ -617,6 +617,10 @@ export const PhotoNamingGame = ({
       effortfulSpeech: timeoutEffortfulSpeech,
     }, state.currentTrial);
 
+    // Compute cue efficacy for timeout (cue was NOT effective since user didn't respond)
+    const timeoutCueTypeGiven = cueState ? cueState.type : 'none';
+    const timeoutCueWasEffective = cueState ? false : null; // Had a cue but didn't help
+
     // Log final analysis for timeout (critical for pattern analysis!)
     logFinalAnalysis({
       transcript: whisperTranscript,
@@ -629,7 +633,8 @@ export const PhotoNamingGame = ({
       totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
       avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: timeoutEffortfulSpeech,
-      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : undefined,
+      cueTypeGiven: timeoutCueTypeGiven === 'none' ? undefined : timeoutCueTypeGiven,
+      cueWasEffective: timeoutCueWasEffective ?? undefined,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration
     });

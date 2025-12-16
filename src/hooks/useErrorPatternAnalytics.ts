@@ -2,9 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ErrorBreakdown {
-  semantic: number;
-  phonemic: number;
-  unrelated: number;
+  correct: number;
+  attempted: number;
+  semantic_paraphasia: number;
+  phonemic_paraphasia: number;
+  circumlocution: number;
+  neologism: number;
+  no_response: number;
   timeout: number;
 }
 
@@ -14,19 +18,32 @@ interface CueTrend {
   trialCount: number;
 }
 
-interface ProbeProgress {
-  date: string;
-  accuracy: number;
-  avgCues: number;
-  totalProbes: number;
+interface CueEfficacy {
+  cueType: string;
+  totalGiven: number;
+  effectiveCount: number;
+  efficacyRate: number;
+  avgTimeToSuccessMs: number | null;
+}
+
+interface FluencyMetrics {
+  avgSpeechRateWpm: number | null;
+  avgPauseCount: number | null;
+  avgPauseDurationMs: number | null;
+  effortfulSpeechRate: number;
 }
 
 interface ErrorPatternAnalytics {
   errorBreakdown: ErrorBreakdown;
   cueTrends: CueTrend[];
-  probeProgress: ProbeProgress[];
+  cueEfficacy: CueEfficacy[];
+  fluencyMetrics: FluencyMetrics;
   totalTrials: number;
   overallAccuracy: number;
+  // New: top challenging targets
+  challengingTargets: { target: string; errorRate: number; attempts: number }[];
+  // New: category performance
+  categoryPerformance: { category: string; accuracy: number; attempts: number }[];
 }
 
 export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12) => {
@@ -42,51 +59,70 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - (weeksBack * 7));
 
-      // Fetch exercise events for error breakdown and cue trends
-      const { data: exerciseData, error: exerciseError } = await supabase
-        .from('exercise_events')
-        .select('error_type, cue_level, score, created_at, session_id')
+      // Fetch from utterance_analyses for accurate error classification
+      const { data: utteranceData, error: utteranceError } = await supabase
+        .from('utterance_analyses')
+        .select(`
+          error_type,
+          is_correct,
+          target_word,
+          category,
+          cue_type_given,
+          cue_was_effective,
+          time_to_success_after_cue_ms,
+          speech_rate_wpm,
+          pause_count,
+          avg_pause_duration_ms,
+          effortful_speech,
+          phonological_similarity,
+          semantic_similarity,
+          created_at
+        `)
+        .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
-      if (exerciseError) throw exerciseError;
+      if (utteranceError) throw utteranceError;
 
-      // Filter by user_id through sessions
-      const { data: sessions } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('user_id', userId);
+      const data = utteranceData || [];
 
-      const sessionIds = sessions?.map(s => s.id) || [];
-      const userExerciseData = exerciseData?.filter(e => sessionIds.includes(e.session_id)) || [];
-
-      // Calculate error breakdown
+      // Calculate error breakdown using proper error types
       const errorBreakdown: ErrorBreakdown = {
-        semantic: 0,
-        phonemic: 0,
-        unrelated: 0,
+        correct: 0,
+        attempted: 0,
+        semantic_paraphasia: 0,
+        phonemic_paraphasia: 0,
+        circumlocution: 0,
+        neologism: 0,
+        no_response: 0,
         timeout: 0,
       };
 
-      userExerciseData.forEach(event => {
-        if (event.score === 0 && event.error_type) {
-          const errorType = event.error_type.toLowerCase();
-          if (errorType.includes('semantic')) {
-            errorBreakdown.semantic++;
-          } else if (errorType.includes('phonemic') || errorType.includes('phonological')) {
-            errorBreakdown.phonemic++;
-          } else if (errorType.includes('timeout')) {
-            errorBreakdown.timeout++;
-          } else {
-            errorBreakdown.unrelated++;
-          }
+      data.forEach(event => {
+        const errorType = event.error_type?.toLowerCase() || '';
+        if (event.is_correct) {
+          errorBreakdown.correct++;
+        } else if (errorType === 'attempted') {
+          errorBreakdown.attempted++;
+        } else if (errorType === 'semantic_paraphasia' || errorType.includes('semantic')) {
+          errorBreakdown.semantic_paraphasia++;
+        } else if (errorType === 'phonemic_paraphasia' || errorType.includes('phonemic') || errorType.includes('phonological')) {
+          errorBreakdown.phonemic_paraphasia++;
+        } else if (errorType === 'circumlocution') {
+          errorBreakdown.circumlocution++;
+        } else if (errorType === 'neologism') {
+          errorBreakdown.neologism++;
+        } else if (errorType === 'no_response') {
+          errorBreakdown.no_response++;
+        } else if (errorType === 'timeout') {
+          errorBreakdown.timeout++;
         }
       });
 
       // Calculate cue trends (weekly)
       const cueTrendsMap = new Map<string, { totalCues: number; count: number }>();
       
-      userExerciseData.forEach(event => {
+      data.forEach(event => {
         const date = new Date(event.created_at!);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
@@ -97,69 +133,120 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
         }
 
         const weekData = cueTrendsMap.get(weekKey)!;
-        weekData.totalCues += event.cue_level || 0;
+        weekData.totalCues += event.cue_type_given ? 1 : 0;
         weekData.count++;
       });
 
       const cueTrends: CueTrend[] = Array.from(cueTrendsMap.entries())
-        .map(([date, data]) => ({
+        .map(([date, d]) => ({
           date,
-          avgCues: data.count > 0 ? data.totalCues / data.count : 0,
-          trialCount: data.count,
+          avgCues: d.count > 0 ? d.totalCues / d.count : 0,
+          trialCount: d.count,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      // Fetch probe results for generalization tracking
-      let probeData: any[] = [];
-      try {
-        const result = await (supabase as any)
-          .from('probe_results')
-          .select('*')
-          .eq('user_id', userId)
-          .gte('created_at', startDate.toISOString())
-          .order('created_at', { ascending: true });
-        
-        probeData = result.data || [];
-      } catch (probeError) {
-        console.warn('Probe results table may not exist yet:', probeError);
-      }
-
-      // Calculate probe progress (by session)
-      const probeProgressMap = new Map<string, { correct: number; total: number; totalCues: number }>();
+      // Calculate cue efficacy by type
+      const cueEfficacyMap = new Map<string, { given: number; effective: number; totalTimeMs: number; countWithTime: number }>();
       
-      (probeData || []).forEach((probe: any) => {
-        const date = new Date(probe.created_at!).toISOString().split('T')[0];
-
-        if (!probeProgressMap.has(date)) {
-          probeProgressMap.set(date, { correct: 0, total: 0, totalCues: 0 });
+      data.forEach(event => {
+        if (event.cue_type_given) {
+          const cueType = event.cue_type_given;
+          const existing = cueEfficacyMap.get(cueType) || { given: 0, effective: 0, totalTimeMs: 0, countWithTime: 0 };
+          existing.given++;
+          if (event.cue_was_effective) {
+            existing.effective++;
+            if (event.time_to_success_after_cue_ms) {
+              existing.totalTimeMs += event.time_to_success_after_cue_ms;
+              existing.countWithTime++;
+            }
+          }
+          cueEfficacyMap.set(cueType, existing);
         }
-
-        const sessionData = probeProgressMap.get(date)!;
-        sessionData.total++;
-        if (probe.correct) sessionData.correct++;
-        sessionData.totalCues += probe.cues_needed || 0;
       });
 
-      const probeProgress: ProbeProgress[] = Array.from(probeProgressMap.entries())
-        .map(([date, data]) => ({
-          date,
-          accuracy: data.total > 0 ? (data.correct / data.total) * 100 : 0,
-          avgCues: data.total > 0 ? data.totalCues / data.total : 0,
-          totalProbes: data.total,
+      const cueEfficacy: CueEfficacy[] = Array.from(cueEfficacyMap.entries())
+        .map(([cueType, d]) => ({
+          cueType,
+          totalGiven: d.given,
+          effectiveCount: d.effective,
+          efficacyRate: d.given > 0 ? d.effective / d.given : 0,
+          avgTimeToSuccessMs: d.countWithTime > 0 ? d.totalTimeMs / d.countWithTime : null,
+        }));
+
+      // Calculate fluency metrics
+      const withSpeechRate = data.filter(e => e.speech_rate_wpm !== null);
+      const withPauseCount = data.filter(e => e.pause_count !== null);
+      const withPauseDuration = data.filter(e => e.avg_pause_duration_ms !== null);
+      const withEffortful = data.filter(e => e.effortful_speech !== null);
+
+      const fluencyMetrics: FluencyMetrics = {
+        avgSpeechRateWpm: withSpeechRate.length > 0 
+          ? withSpeechRate.reduce((sum, e) => sum + (e.speech_rate_wpm || 0), 0) / withSpeechRate.length 
+          : null,
+        avgPauseCount: withPauseCount.length > 0 
+          ? withPauseCount.reduce((sum, e) => sum + (e.pause_count || 0), 0) / withPauseCount.length 
+          : null,
+        avgPauseDurationMs: withPauseDuration.length > 0 
+          ? withPauseDuration.reduce((sum, e) => sum + (e.avg_pause_duration_ms || 0), 0) / withPauseDuration.length 
+          : null,
+        effortfulSpeechRate: withEffortful.length > 0 
+          ? withEffortful.filter(e => e.effortful_speech).length / withEffortful.length 
+          : 0,
+      };
+
+      // Calculate challenging targets (highest error rate with min 3 attempts)
+      const targetStatsMap = new Map<string, { errors: number; total: number }>();
+      data.forEach(event => {
+        if (event.target_word) {
+          const existing = targetStatsMap.get(event.target_word) || { errors: 0, total: 0 };
+          existing.total++;
+          if (!event.is_correct) existing.errors++;
+          targetStatsMap.set(event.target_word, existing);
+        }
+      });
+
+      const challengingTargets = Array.from(targetStatsMap.entries())
+        .filter(([_, d]) => d.total >= 3)
+        .map(([target, d]) => ({
+          target,
+          errorRate: d.total > 0 ? d.errors / d.total : 0,
+          attempts: d.total,
         }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+        .sort((a, b) => b.errorRate - a.errorRate)
+        .slice(0, 10);
+
+      // Calculate category performance
+      const categoryStatsMap = new Map<string, { correct: number; total: number }>();
+      data.forEach(event => {
+        const category = event.category || 'unknown';
+        const existing = categoryStatsMap.get(category) || { correct: 0, total: 0 };
+        existing.total++;
+        if (event.is_correct) existing.correct++;
+        categoryStatsMap.set(category, existing);
+      });
+
+      const categoryPerformance = Array.from(categoryStatsMap.entries())
+        .map(([category, d]) => ({
+          category,
+          accuracy: d.total > 0 ? d.correct / d.total : 0,
+          attempts: d.total,
+        }))
+        .sort((a, b) => b.attempts - a.attempts);
 
       // Calculate overall stats
-      const totalTrials = userExerciseData.length;
-      const correctTrials = userExerciseData.filter(e => e.score && e.score > 0).length;
+      const totalTrials = data.length;
+      const correctTrials = data.filter(e => e.is_correct).length;
       const overallAccuracy = totalTrials > 0 ? (correctTrials / totalTrials) * 100 : 0;
 
       setAnalytics({
         errorBreakdown,
         cueTrends,
-        probeProgress,
+        cueEfficacy,
+        fluencyMetrics,
         totalTrials,
         overallAccuracy,
+        challengingTargets,
+        categoryPerformance,
       });
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -175,48 +262,28 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
     }
   }, [userId, weeksBack]);
 
-  // Set up real-time subscriptions
+  // Set up real-time subscription to utterance_analyses
   useEffect(() => {
     if (!userId) return;
 
-    // Subscribe to exercise_events changes
-    const exerciseChannel = supabase
-      .channel('exercise-events-analytics')
+    const channel = supabase
+      .channel('utterance-analytics')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'exercise_events',
+          table: 'utterance_analyses',
         },
-        (payload) => {
-          console.log('New exercise event detected, refreshing analytics...');
+        () => {
+          console.log('New utterance analysis detected, refreshing analytics...');
           fetchAnalytics();
         }
       )
       .subscribe();
 
-    // Subscribe to probe_results changes
-    const probeChannel = supabase
-      .channel('probe-results-analytics')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'probe_results',
-        },
-        (payload) => {
-          console.log('New probe result detected, refreshing analytics...');
-          fetchAnalytics();
-        }
-      )
-      .subscribe();
-
-    // Cleanup subscriptions
     return () => {
-      supabase.removeChannel(exerciseChannel);
-      supabase.removeChannel(probeChannel);
+      supabase.removeChannel(channel);
     };
   }, [userId, fetchAnalytics]);
 
