@@ -31,6 +31,7 @@ serve(async (req) => {
     // Get current user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
+      console.error('Auth error:', userError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -78,7 +79,7 @@ serve(async (req) => {
     // Get the utterance analysis to verify it exists and get audio path
     const { data: analysis, error: analysisError } = await supabaseAdmin
       .from('utterance_analyses')
-      .select('attempt_id, audio_storage_path, target_word, transcript, analysis_status')
+      .select('attempt_id, audio_storage_path, analysis_status')
       .eq('attempt_id', attempt_id)
       .single();
 
@@ -90,6 +91,14 @@ serve(async (req) => {
       );
     }
 
+    // Verify analysis is in a reviewable state
+    if (analysis.analysis_status !== 'complete') {
+      return new Response(
+        JSON.stringify({ error: 'Analysis not ready for review' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!analysis.audio_storage_path) {
       return new Response(
         JSON.stringify({ error: 'No audio file associated with this analysis' }),
@@ -98,10 +107,11 @@ serve(async (req) => {
     }
 
     // Generate signed URL (valid for 5 minutes for review)
+    const expiresInSeconds = 300;
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin
       .storage
       .from('session-recordings')
-      .createSignedUrl(analysis.audio_storage_path, 300);
+      .createSignedUrl(analysis.audio_storage_path, expiresInSeconds);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('Failed to create signed URL:', signedUrlError);
@@ -113,13 +123,11 @@ serve(async (req) => {
 
     console.log(`✅ Review audio URL generated for attempt ${attempt_id} by admin ${user.id}`);
 
+    // Return only signed_url and expiry - minimal payload
     return new Response(
       JSON.stringify({ 
         signed_url: signedUrlData.signedUrl,
-        expires_in_seconds: 300,
-        audio_path: analysis.audio_storage_path,
-        target_word: analysis.target_word,
-        transcript: analysis.transcript
+        expires_in_seconds: expiresInSeconds
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
