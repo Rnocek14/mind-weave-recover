@@ -243,18 +243,23 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           audio_storage_path: analysis.audioStoragePath,
           fluency_available: analysis.fluencyAvailable,
           fluency_unavailable_reason: analysis.fluencyUnavailableReason,
-          // Azure Pronunciation Assessment scores stored in gop_data
+          // Azure Pronunciation Assessment: store normalized gop_data with source marker
           gop_data: analysis.gopData ? {
-            pronunciationScore: analysis.pronunciationScore,
-            accuracyScore: analysis.accuracyScore,
-            fluencyScore: analysis.fluencyScore,
-            completenessScore: analysis.completenessScore,
-            prosodyScore: analysis.prosodyScore,
-            words: analysis.gopData.words || [],
-            source: 'azure'
+            source: 'azure',
+            pronunciationScore: analysis.gopData.pronunciationScore ?? analysis.pronunciationScore ?? 0,
+            accuracyScore: analysis.gopData.accuracyScore ?? analysis.accuracyScore ?? 0,
+            fluencyScore: analysis.gopData.fluencyScore ?? analysis.fluencyScore ?? 0,
+            completenessScore: analysis.gopData.completenessScore ?? analysis.completenessScore ?? 0,
+            prosodyScore: analysis.gopData.prosodyScore ?? analysis.prosodyScore ?? 0,
+            words: analysis.gopData.words ?? [],
+            transcript: analysis.gopData.transcript ?? '',
+            duration: analysis.gopData.duration ?? 0,
           } : null,
-          // Pipeline status: skip MFA worker if Azure already analyzed (mark complete immediately)
+          // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
           analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
+          // Clear worker queue fields when Azure provides data
+          locked_at: analysis.gopData ? null : undefined,
+          locked_by: analysis.gopData ? null : undefined,
           next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
           analysis_priority: hasAudioForAnalysis ? 1 : 0
         }, {

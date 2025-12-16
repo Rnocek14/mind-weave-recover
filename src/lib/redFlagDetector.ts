@@ -439,7 +439,7 @@ export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
   // Check queue status
   const { data: queueStats } = await supabase
     .from('utterance_analyses')
-    .select('analysis_status, created_at')
+    .select('analysis_status, created_at, gop_data')
     .in('analysis_status', ['pending', 'processing', 'failed'])
     .gte('created_at', new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString());
 
@@ -447,13 +447,24 @@ export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
   const processing = queueStats?.filter(r => r.analysis_status === 'processing') || [];
   const failed = queueStats?.filter(r => r.analysis_status === 'failed') || [];
 
-  // Worker offline with pending jobs
-  if (pending.length > 0 && (!lastHeartbeat || heartbeatAge! > 5)) {
+  // Check if Azure Pronunciation Assessment is active (recent Azure-completed jobs)
+  const { data: recentAzure } = await supabase
+    .from('utterance_analyses')
+    .select('id')
+    .eq('analysis_status', 'complete')
+    .not('gop_data', 'is', null)
+    .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+    .limit(1);
+
+  const azureActive = (recentAzure?.length ?? 0) > 0;
+
+  // Worker offline with pending jobs - only warn if Azure is NOT handling pronunciation
+  if (pending.length > 0 && !azureActive && (!lastHeartbeat || heartbeatAge! > 5)) {
     flags.push({
       type: 'worker_offline',
       severity: 'red',
       message: 'Speech Worker Offline',
-      details: `${pending.length} job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. MFA alignment paused.`,
+      details: `${pending.length} job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. Consider enabling Azure Pronunciation Assessment.`,
       detectedAt: now.toISOString(),
       evidence: { n: pending.length, window: '48 hours' }
     });

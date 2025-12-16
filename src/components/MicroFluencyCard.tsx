@@ -8,6 +8,7 @@ import { InsightEvidenceBadge } from "@/components/InsightEvidenceBadge";
 
 type Row = {
   alignment_data: any;
+  gop_data: any;
   transcript: string | null;
   created_at: string;
 };
@@ -25,7 +26,7 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
 
         const { data, error } = await supabase
           .from("utterance_analyses")
-          .select("alignment_data, transcript, created_at")
+          .select("alignment_data, gop_data, transcript, created_at")
           .eq("user_id", userId)
           .gte("created_at", startDate.toISOString())
           .order("created_at", { ascending: false })
@@ -44,7 +45,8 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
     if (userId) run();
   }, [userId, daysBack]);
 
-  const { aggregate, sampleCount, validCount, notesPreview } = useMemo(() => {
+  // Check if we have Azure data (pronunciation assessment) vs MFA alignment data
+  const { aggregate, sampleCount, validCount, notesPreview, hasAzureData, azureOnlyCount } = useMemo(() => {
     const analyses = rows.map((r) => deriveMicroFluency(r.alignment_data, r.transcript));
     const agg = aggregateMicroFluency(analyses);
 
@@ -53,11 +55,16 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       .filter(Boolean)
       .slice(0, 3);
 
+    // Count rows with Azure data but no MFA alignment
+    const azureOnly = rows.filter(r => r.gop_data?.source === 'azure' && !r.alignment_data?.word_segments?.length);
+
     return {
       aggregate: agg,
       sampleCount: analyses.length,
       validCount: agg.validSampleCount,
       notesPreview: notes,
+      hasAzureData: rows.some(r => r.gop_data?.source === 'azure'),
+      azureOnlyCount: azureOnly.length,
     };
   }, [rows]);
 
@@ -94,8 +101,22 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       <CardContent>
         {validCount === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No valid alignment data yet. Once MFA produces alignment_data, this card will populate with 
-            silent/filled pause topology and intra-word silence signals.
+            {hasAzureData ? (
+              <>
+                <p className="mb-2">
+                  <strong>Azure Pronunciation Assessment active</strong> — {azureOnlyCount} utterances analyzed for pronunciation scores.
+                </p>
+                <p>
+                  Micro-fluency analysis (silent/filled pauses, intra-word timing) requires MFA word/phone alignment data, 
+                  which Azure does not provide. This card will populate if MFA alignment is enabled alongside Azure.
+                </p>
+              </>
+            ) : (
+              <>
+                No valid alignment data yet. Once MFA produces alignment_data, this card will populate with 
+                silent/filled pause topology and intra-word silence signals.
+              </>
+            )}
           </div>
         ) : (
           <>
