@@ -400,7 +400,7 @@ export const PhotoNamingGame = ({
   // Azure Pronunciation Assessment (real pronunciation scores)
   const analyzePronunciationAsync = async (
     audioBlob: Blob,
-    mimeType: string,
+    _mimeType: string, // Original mimeType ignored - we convert to WAV
     targetWord: string
   ): Promise<{
     pronunciationScore: number;
@@ -412,7 +412,11 @@ export const PhotoNamingGame = ({
     words: any[];
   } | null> => {
     try {
-      // Convert blob to base64
+      // Convert to WAV format for Azure (WebM/Opus has poor phoneme support)
+      const { convertBlobToWav } = await import('@/lib/convertToWav');
+      const wavBlob = await convertBlobToWav(audioBlob);
+      
+      // Convert WAV blob to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
         reader.onloadend = () => {
@@ -422,7 +426,7 @@ export const PhotoNamingGame = ({
         };
       });
       
-      reader.readAsDataURL(audioBlob);
+      reader.readAsDataURL(wavBlob);
       const base64Audio = await base64Promise;
 
       console.log('🎯 [PhotoNaming] Calling Azure Pronunciation Assessment for:', targetWord);
@@ -430,7 +434,7 @@ export const PhotoNamingGame = ({
       const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
         body: { 
           audioBlob: base64Audio, 
-          mimeType,
+          mimeType: 'audio/wav', // Always send as WAV now
           referenceText: targetWord 
         },
       });
