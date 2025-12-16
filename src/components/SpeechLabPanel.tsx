@@ -372,10 +372,13 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
           )}
         </div>
 
-        {/* Worker Offline Alert - only show when there are pending MFA jobs AND Azure is NOT handling them */}
+        {/* Worker Offline Alert - only show when there are RECENT pending MFA jobs AND Azure is NOT handling them */}
+        {/* Legacy pending jobs (> 2 hours old) are ignored since Azure is now the primary path */}
         {pipelineStats.pending > 0 && 
          pipelineStats.withAzure === 0 && 
-         (!workerStatus || workerStatus.status !== 'active') && (
+         (!workerStatus || workerStatus.status !== 'active') &&
+         queueHealth?.oldestPendingAgeMin !== null && 
+         queueHealth.oldestPendingAgeMin < 120 && (
           <div className="p-4 rounded-lg border-2 border-destructive/50 bg-destructive/10">
             <div className="flex items-start gap-3">
               <WifiOff className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
@@ -385,13 +388,11 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
                   {pipelineStats.pending} job(s) are queued but no worker heartbeat is present. 
                   Azure Pronunciation Assessment is now the recommended alternative.
                 </p>
-                {queueHealth?.oldestPendingAgeMin !== null && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Oldest pending: {queueHealth.oldestPendingAgeMin < 60 
-                      ? `${queueHealth.oldestPendingAgeMin}m` 
-                      : `${Math.round(queueHealth.oldestPendingAgeMin / 60)}h ${queueHealth.oldestPendingAgeMin % 60}m`}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Oldest pending: {queueHealth.oldestPendingAgeMin < 60 
+                    ? `${queueHealth.oldestPendingAgeMin}m` 
+                    : `${Math.round(queueHealth.oldestPendingAgeMin / 60)}h ${queueHealth.oldestPendingAgeMin % 60}m`}
+                </p>
               </div>
             </div>
           </div>
