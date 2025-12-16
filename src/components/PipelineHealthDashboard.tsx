@@ -80,7 +80,7 @@ export const PipelineHealthDashboard = () => {
         
         const { data, error: queryError, count } = await supabase
           .from('utterance_analyses')
-          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity, fluency_available, fluency_unavailable_reason', { count: 'exact' })
+          .select('semantic_similarity, cue_type_given, speech_rate_wpm, phonological_similarity, fluency_available, fluency_unavailable_reason, error_type', { count: 'exact' })
           .gte('created_at', last24h)
           .limit(500);
 
@@ -90,13 +90,16 @@ export const PipelineHealthDashboard = () => {
         const sampleSize = data?.length || 0;
         const scale = sampleSize > 0 && total > sampleSize ? total / sampleSize : 1;
 
-        const hasSemanticSimilarity = data?.filter(r => r.semantic_similarity !== null).length || 0;
+        // Semantic similarity: count as "present" if not null OR error_type is no_response (null is expected)
+        const hasSemanticSimilarity = data?.filter(r => 
+          r.semantic_similarity !== null || r.error_type === 'no_response'
+        ).length || 0;
         const hasCueTracking = data?.filter(r => r.cue_type_given !== null).length || 0;
         // Fluency: count where fluency_available=true OR speech_rate_wpm is not null (backward compat)
         const hasFluencyMetrics = data?.filter(r => r.fluency_available === true || r.speech_rate_wpm !== null).length || 0;
         const hasPhonologicalSimilarity = data?.filter(r => r.phonological_similarity !== null).length || 0;
         
-        // Count fluency unavailable reasons for breakdown
+        // Count fluency unavailable reasons for breakdown (NOT scaled - raw sample counts)
         const fluencyReasons: Record<string, number> = {};
         data?.forEach(r => {
           if (r.fluency_unavailable_reason) {
@@ -245,11 +248,15 @@ export const PipelineHealthDashboard = () => {
           </div>
           {Object.keys(metrics.fluencyReasons).length > 0 && (
             <div className="mt-2 pt-2 border-t border-border/50">
-              <p className="font-medium text-foreground mb-1">Fluency unavailable reasons:</p>
+              <p className="font-medium text-foreground mb-1">
+                Fluency unavailable reasons 
+                <span className="font-normal text-muted-foreground"> (from last {Math.min(500, metrics.total)} sampled)</span>:
+              </p>
               {Object.entries(metrics.fluencyReasons)
                 .sort(([, a], [, b]) => b - a)
+                .slice(0, 5) // Top 5 reasons only
                 .map(([reason, count]) => (
-                  <p key={reason}>• {reason}: {count} utterances</p>
+                  <p key={reason}>• {reason}: {count}</p>
                 ))}
             </div>
           )}
