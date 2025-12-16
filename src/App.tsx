@@ -15,6 +15,7 @@ import SessionHistory from "./pages/SessionHistory";
 import Caregiver from "./pages/Caregiver";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
+import AdminPipeline from "./pages/AdminPipeline";
 import ParserAnalytics from "./pages/ParserAnalytics";
 import PrivacySettings from "./pages/PrivacySettings";
 import History from "./pages/History";
@@ -70,6 +71,7 @@ const App = () => (
           <Route path="/history" element={<SessionHistory />} />
           <Route path="/caregiver" element={<Caregiver />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/pipeline" element={<AdminPipeline />} />
           <Route path="/admin/analytics" element={<ParserAnalytics />} />
           <Route path="/admin/research-export" element={<ResearchExport />} />
           <Route path="/analytics/cluster" element={<ClusterAnalytics />} />
