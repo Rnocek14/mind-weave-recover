@@ -21,6 +21,7 @@ import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 // Speech Analysis components (for Deep Dive)
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { SpeechLabPanel } from "@/components/SpeechLabPanel";
+import { MicroFluencyCard } from "@/components/MicroFluencyCard";
 
 // Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
@@ -245,8 +246,9 @@ export default function Insights() {
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="p-4 pt-0 border-t">
+                    <div className="p-4 pt-0 border-t space-y-4">
                       <SpeechLabPanel userId={user!.id} daysBack={7} />
+                      <MicroFluencyCard userId={user!.id} daysBack={7} />
                     </div>
                   </CollapsibleContent>
                 </Card>
