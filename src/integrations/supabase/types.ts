@@ -1236,7 +1236,9 @@ export type Database = {
       utterance_analyses: {
         Row: {
           alignment_data: Json | null
+          analysis_priority: number | null
           analysis_status: string | null
+          analysis_version: string | null
           asr_confidence: number | null
           asr_warning_flags: string[] | null
           attempt_id: string
@@ -1249,6 +1251,7 @@ export type Database = {
           cue_type_given: string | null
           cue_was_effective: boolean | null
           effortful_speech: boolean | null
+          error_message: string | null
           error_type: string | null
           exercise_slug: string | null
           gop_data: Json | null
@@ -1256,10 +1259,14 @@ export type Database = {
           id: string
           is_correct: boolean | null
           latency_ms: number | null
+          locked_at: string | null
+          locked_by: string | null
+          next_retry_at: string | null
           pause_count: number | null
           phonological_similarity: number | null
           reasoning: string | null
           recording_duration_ms: number | null
+          retry_count: number | null
           review_status: string | null
           semantic_similarity: number | null
           session_id: string | null
@@ -1276,7 +1283,9 @@ export type Database = {
         }
         Insert: {
           alignment_data?: Json | null
+          analysis_priority?: number | null
           analysis_status?: string | null
+          analysis_version?: string | null
           asr_confidence?: number | null
           asr_warning_flags?: string[] | null
           attempt_id: string
@@ -1289,6 +1298,7 @@ export type Database = {
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           effortful_speech?: boolean | null
+          error_message?: string | null
           error_type?: string | null
           exercise_slug?: string | null
           gop_data?: Json | null
@@ -1296,10 +1306,14 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
           reasoning?: string | null
           recording_duration_ms?: number | null
+          retry_count?: number | null
           review_status?: string | null
           semantic_similarity?: number | null
           session_id?: string | null
@@ -1316,7 +1330,9 @@ export type Database = {
         }
         Update: {
           alignment_data?: Json | null
+          analysis_priority?: number | null
           analysis_status?: string | null
+          analysis_version?: string | null
           asr_confidence?: number | null
           asr_warning_flags?: string[] | null
           attempt_id?: string
@@ -1329,6 +1345,7 @@ export type Database = {
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           effortful_speech?: boolean | null
+          error_message?: string | null
           error_type?: string | null
           exercise_slug?: string | null
           gop_data?: Json | null
@@ -1336,10 +1353,14 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
+          locked_at?: string | null
+          locked_by?: string | null
+          next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
           reasoning?: string | null
           recording_duration_ms?: number | null
+          retry_count?: number | null
           review_status?: string | null
           semantic_similarity?: number | null
           session_id?: string | null
@@ -1405,6 +1426,16 @@ export type Database = {
     }
     Functions: {
       can_view_cluster_analytics: { Args: never; Returns: boolean }
+      claim_speech_analysis_jobs: {
+        Args: { p_batch_size?: number; p_worker_id: string }
+        Returns: {
+          analysis_version: string
+          attempt_id: string
+          audio_storage_path: string
+          target_word: string
+          transcript: string
+        }[]
+      }
       create_profile_version: {
         Args: {
           p_change_reason?: string
@@ -1540,7 +1571,21 @@ export type Database = {
         Returns: undefined
       }
       refresh_cluster_assignments: { Args: never; Returns: undefined }
+      release_stale_speech_locks: { Args: never; Returns: number }
       setup_admin_user: { Args: { admin_email: string }; Returns: boolean }
+      submit_speech_analysis_result: {
+        Args: {
+          p_alignment_data?: Json
+          p_asr_warning_flags?: string[]
+          p_attempt_id: string
+          p_error_message?: string
+          p_gop_data?: Json
+          p_speech_ratio?: number
+          p_success: boolean
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
       switch_active_profile: {
         Args: { p_profile_id: string }
         Returns: undefined
