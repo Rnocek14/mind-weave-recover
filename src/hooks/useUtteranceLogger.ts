@@ -183,7 +183,10 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       sessionId: ctx.sessionId,
       hasAudio: !!analysis.audioStoragePath,
       phonologicalSim: analysis.phonologicalSimilarity,
-      semanticSim: analysis.semanticSimilarity
+      semanticSim: analysis.semanticSimilarity,
+      cueTypeGiven: analysis.cueTypeGiven,
+      fluencyAvailable: analysis.fluencyAvailable,
+      fluencyUnavailableReason: analysis.fluencyUnavailableReason
     });
 
     try {
@@ -218,7 +221,9 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           time_to_success_after_cue_ms: analysis.timeToSuccessAfterCueMs,
           latency_ms: latencyMs,
           recording_duration_ms: analysis.recordingDurationMs,
-          audio_storage_path: analysis.audioStoragePath
+          audio_storage_path: analysis.audioStoragePath,
+          fluency_available: analysis.fluencyAvailable,
+          fluency_unavailable_reason: analysis.fluencyUnavailableReason
         }, {
           onConflict: 'attempt_id'
         });
