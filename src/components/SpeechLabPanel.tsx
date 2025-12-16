@@ -338,35 +338,19 @@ export const SpeechLabPanel = ({ userId, daysBack = 7 }: SpeechLabPanelProps) =>
                 </p>
               </div>
             </>
-          ) : workerStatus ? (
+          ) : (
             <>
-              {workerStatus.status === 'active' ? (
-                <Wifi className="w-5 h-5 text-green-500" />
-              ) : workerStatus.status === 'stale' ? (
-                <Wifi className="w-5 h-5 text-yellow-500" />
-              ) : (
-                <WifiOff className="w-5 h-5 text-red-500" />
-              )}
+              <CheckCircle2 className="w-5 h-5 text-blue-500" />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">
-                    MFA Worker: {workerStatus.status === 'active' ? 'Active' : workerStatus.status === 'stale' ? 'Stale' : 'Offline'}
-                  </span>
-                  <Badge variant={workerStatus.status === 'active' ? 'default' : workerStatus.status === 'stale' ? 'secondary' : 'destructive'} className="text-xs">
-                    {workerStatus.workerId}
+                  <span className="font-medium text-sm">Azure Pronunciation Assessment: Ready</span>
+                  <Badge variant="outline" className="text-xs">
+                    Configured
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Last seen: {workerStatus.lastSeen.toLocaleTimeString()}
+                  Will analyze pronunciation when voice exercises are used with recording enabled
                 </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <WifiOff className="w-5 h-5 text-muted-foreground" />
-              <div className="flex-1">
-                <span className="font-medium text-sm text-muted-foreground">No pronunciation analysis active</span>
-                <p className="text-xs text-muted-foreground">Azure or MFA worker will analyze pronunciation when available</p>
               </div>
             </>
           )}
