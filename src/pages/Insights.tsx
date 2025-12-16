@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Activity, Brain, Stethoscope, 
-  Loader2, AlertCircle, ChevronDown, ChevronUp
+  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -20,6 +20,7 @@ import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 
 // Speech Analysis components (for Deep Dive)
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
+import { SpeechLabPanel } from "@/components/SpeechLabPanel";
 
 // Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
@@ -45,6 +46,7 @@ export default function Insights() {
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [speechExpanded, setSpeechExpanded] = useState(false);
+  const [speechLabExpanded, setSpeechLabExpanded] = useState(false);
   const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
 
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
@@ -205,6 +207,35 @@ export default function Insights() {
                   <CollapsibleContent>
                     <div className="p-4 pt-0 border-t">
                       <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
+                    </div>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
+              {/* Speech Lab Panel (Phoneme-level analysis) */}
+              <Collapsible open={speechLabExpanded} onOpenChange={setSpeechLabExpanded}>
+                <Card className="overflow-hidden">
+                  <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <AudioWaveform className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold">Speech Lab</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Pipeline status, alignment metrics, and phoneme analysis
+                        </p>
+                      </div>
+                    </div>
+                    {speechLabExpanded ? (
+                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 border-t">
+                      <SpeechLabPanel userId={user!.id} daysBack={7} />
                     </div>
                   </CollapsibleContent>
                 </Card>
