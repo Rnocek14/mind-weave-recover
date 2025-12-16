@@ -28,6 +28,7 @@ import ProfileVersionHistory from "./pages/ProfileVersionHistory";
 import Lesson from "./pages/Lesson";
 import PatternMatchExercise from "./pages/PatternMatchExercise";
 import Insights from "./pages/Insights";
+import ClinicianReport from "./pages/ClinicianReport";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -83,6 +84,7 @@ const App = () => (
           <Route path="/lesson" element={<Lesson />} />
           <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
           <Route path="/insights" element={<Insights />} />
+          <Route path="/clinician/report" element={<ClinicianReport />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
           </Routes>
