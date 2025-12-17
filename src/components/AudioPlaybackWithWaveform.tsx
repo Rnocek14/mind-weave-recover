@@ -4,17 +4,20 @@ import { Play, Pause, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AudioWaveform } from './AudioWaveform';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AudioPlaybackWithWaveformProps {
   storagePath: string;
   className?: string;
   showWaveform?: boolean;
+  listenForHint?: string;
 }
 
 export const AudioPlaybackWithWaveform = ({ 
   storagePath, 
   className = '',
-  showWaveform = true
+  showWaveform = true,
+  listenForHint
 }: AudioPlaybackWithWaveformProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -128,7 +131,7 @@ export const AudioPlaybackWithWaveform = ({
   };
 
   if (!showWaveform) {
-    return (
+    const button = (
       <Button
         variant="ghost"
         size="icon"
@@ -146,26 +149,42 @@ export const AudioPlaybackWithWaveform = ({
         )}
       </Button>
     );
+
+    return listenForHint ? (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent>Listen for: {listenForHint}</TooltipContent>
+      </Tooltip>
+    ) : button;
   }
+
+  const playButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={togglePlayback}
+      disabled={isLoading}
+      className="h-8 w-8 shrink-0"
+      title={isPlaying ? 'Pause audio' : 'Play audio'}
+    >
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : isPlaying ? (
+        <Pause className="h-4 w-4" />
+      ) : (
+        <Play className="h-4 w-4" />
+      )}
+    </Button>
+  );
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={togglePlayback}
-        disabled={isLoading}
-        className="h-8 w-8 shrink-0"
-        title={isPlaying ? 'Pause audio' : 'Play audio'}
-      >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isPlaying ? (
-          <Pause className="h-4 w-4" />
-        ) : (
-          <Play className="h-4 w-4" />
-        )}
-      </Button>
+      {listenForHint ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{playButton}</TooltipTrigger>
+          <TooltipContent>Listen for: {listenForHint}</TooltipContent>
+        </Tooltip>
+      ) : playButton}
       <AudioWaveform 
         audioUrl={audioUrl} 
         isPlaying={isPlaying} 

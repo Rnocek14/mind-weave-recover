@@ -9,12 +9,13 @@
  * 5. Is anything wrong? → Alerts (only if needed)
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RecoveryMotivationCards } from '@/components/RecoveryMotivationCards';
 import { CaregiverCoachingCard } from '@/components/CaregiverCoachingCard';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   TrendingUp, 
@@ -28,7 +29,8 @@ import {
   ArrowRight,
   Brain,
   Zap,
-  Activity
+  Activity,
+  ChevronDown
 } from 'lucide-react';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
@@ -93,6 +95,10 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   // Phase 2: Role-based content density
   const showDetailedSections = isAtLeast('caregiver');
   const showClinicianEvidence = isAtLeast('clinician');
+  const isPatientMode = uiMode === 'patient';
+  
+  // Progressive disclosure state for patient mode
+  const [patientDetailsOpen, setPatientDetailsOpen] = useState(false);
 
   const isLoading = learningLoading || trendsLoading || errorLoading || crossLoading || flagsLoading;
 
@@ -170,6 +176,22 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
     ? Math.round((windowTrends.reduce((sum, t) => sum + t.accuracy * t.totalTrials, 0) / totalTrials))
     : 0;
 
+  // Generate encouraging headline based on trend
+  const getEncouragingHeadline = () => {
+    switch (recoveryNarrative.verdict) {
+      case 'improving':
+        return { text: "You're improving week over week.", emoji: "🎉" };
+      case 'steady':
+        return { text: "You're building consistency — keep going.", emoji: "💪" };
+      case 'declining':
+        return { text: "This week was harder — that happens. Let's focus on one small win today.", emoji: "🌱" };
+      default:
+        return { text: "Complete a few more sessions to see your progress.", emoji: "✨" };
+    }
+  };
+
+  const headline = getEncouragingHeadline();
+
   return (
     <div className="space-y-6">
       {/* KPI Row - 10-second read */}
@@ -215,6 +237,13 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
         </Card>
       </div>
 
+      {/* Encouraging headline - the "10-second story" */}
+      <div className="text-center py-2">
+        <p className="text-lg font-medium text-foreground">
+          {headline.emoji} {headline.text}
+        </p>
+      </div>
+
       {/* Section 1: Recovery Trend - "Am I improving?" */}
       <RecoveryMotivationCards userId={userId} />
       <Card className="overflow-hidden">
@@ -255,6 +284,55 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Patient Mode: Progressive disclosure for curious patients */}
+      {isPatientMode && (challenges.length > 0 || focuses.length > 0) && (
+        <Collapsible open={patientDetailsOpen} onOpenChange={setPatientDetailsOpen}>
+          <CollapsibleTrigger className="w-full">
+            <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {patientDetailsOpen ? 'Hide details' : 'More details'}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${patientDetailsOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </Card>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 mt-4">
+            {/* Simplified challenges for patient */}
+            {challenges.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    What to practice
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {challenges.slice(0, 2).map((challenge, i) => (
+                    <p key={i} className="text-sm">{challenge.challenge}</p>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Simplified focus for patient */}
+            {focuses.length > 0 && (
+              <Card className="border-primary/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    Today's tip
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm">{focuses[0]?.recommendation}</p>
+                </CardContent>
+              </Card>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Section 2: Current Challenges - "What's hard for me?" (caregiver+) */}
       {showDetailedSections && challenges.length > 0 && (
