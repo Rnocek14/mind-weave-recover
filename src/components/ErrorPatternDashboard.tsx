@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock, ChevronDown, BarChart3, Headphones } from 'lucide-react';
+import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock, ChevronDown, BarChart3, Headphones, Play } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { useUiMode } from '@/hooks/useUiMode';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
@@ -12,6 +13,7 @@ import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
 import { ClinicalTerm } from './ClinicalTerm';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getErrorLabel, getCueLabel, getErrorTermInfo, getListenForHint } from '@/lib/insightLanguageMap';
+import { getExerciseForErrorType } from '@/lib/recommendationRouter';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -30,6 +32,7 @@ const ERROR_COLORS: Record<string, string> = {
 };
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
+  const navigate = useNavigate();
   const { analytics, isLoading, error } = useErrorPatternAnalytics(userId, weeksBack);
   const { uiMode } = useUiMode();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -552,14 +555,30 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                 <div className="space-y-4">
                   {Object.entries(analytics.errorTypeExamples).map(([errorType, examples]) => (
                     <div key={errorType} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge 
-                          style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
-                          className="text-white"
-                        >
-                          <ClinicalTerm type="error" value={errorType} />
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
+                            className="text-white"
+                          >
+                            <ClinicalTerm type="error" value={errorType} />
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
+                        </div>
+                        {(() => {
+                          const exerciseRoute = getExerciseForErrorType(errorType);
+                          return exerciseRoute && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs"
+                              onClick={() => navigate(exerciseRoute.route)}
+                            >
+                              <Play className="h-3 w-3" />
+                              {exerciseRoute.label}
+                            </Button>
+                          );
+                        })()}
                       </div>
                       <div className="grid gap-2 ml-2">
                         {examples.map((example, idx) => (
