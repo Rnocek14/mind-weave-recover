@@ -346,17 +346,24 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
                     <span className="font-medium">{Math.round(lastSession.durationSec / 60)} min</span>
                   </div>
                 )}
-                {lastSession.exercises.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 text-amber-500" />
-                    <span className="font-medium">
-                      {Math.round(lastSession.exercises.reduce((sum, ex) => sum + ex.accuracy, 0) / lastSession.exercises.length)}% accuracy
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  // Guard against NaN: filter valid accuracies
+                  const accuracies = lastSession.exercises
+                    .map(ex => ex.accuracy)
+                    .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+                  const avgAccuracy = accuracies.length
+                    ? Math.round(accuracies.reduce((a, b) => a + b, 0) / accuracies.length)
+                    : null;
+                  return avgAccuracy !== null && (
+                    <div className="flex items-center gap-1.5">
+                      <Trophy className="h-4 w-4 text-amber-500" />
+                      <span className="font-medium">{avgAccuracy}% accuracy</span>
+                    </div>
+                  );
+                })()}
               </div>
               <span className="text-xs text-muted-foreground">
-                {lastSession.exercises.reduce((sum, ex) => sum + ex.totalTrials, 0)} exercises
+                {lastSession.exercises.reduce((sum, ex) => sum + ex.totalTrials, 0)} trials
               </span>
             </div>
           </div>
