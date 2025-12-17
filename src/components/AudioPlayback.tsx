@@ -88,19 +88,19 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
   return (
     <Button
       variant="ghost"
-      size="sm"
+      size="icon"
       onClick={togglePlayback}
       disabled={isLoading}
-      className={className}
+      className={`h-8 w-8 ${className}`}
+      title={isPlaying ? 'Pause audio' : 'Play audio'}
     >
       {isLoading ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" />
       ) : isPlaying ? (
-        <Pause className="w-4 h-4" />
+        <Pause className="h-4 w-4" />
       ) : (
-        <Play className="w-4 h-4" />
+        <Play className="h-4 w-4" />
       )}
-      <Volume2 className="w-3 h-3 ml-1" />
     </Button>
   );
 };
