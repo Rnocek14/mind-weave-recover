@@ -4,13 +4,19 @@ import { Play, Pause, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { audioManager } from '@/lib/audioManager';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AudioPlaybackProps {
   storagePath: string;
   className?: string;
+  listenForHint?: string;
 }
 
-export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProps) => {
+export const AudioPlayback = ({ storagePath, className = '', listenForHint }: AudioPlaybackProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   // Use ref for URL to avoid unnecessary re-renders; store with timestamp for expiry check
@@ -100,7 +106,7 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
     }
   };
 
-  return (
+  const button = (
     <Button
       variant="ghost"
       size="icon"
@@ -118,4 +124,17 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
       )}
     </Button>
   );
+
+  if (listenForHint) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">Listen for: {listenForHint}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return button;
 };
