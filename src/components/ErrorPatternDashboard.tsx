@@ -55,7 +55,18 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
 
   if (!analytics) return null;
 
-  // Build error distribution data
+  // Insufficient data check: need at least 5 trials for reliable patterns
+  if (analytics.totalTrials < 5) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-muted-foreground">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="font-medium">Not enough data yet</p>
+          <p className="text-sm mt-1">Need at least 5 trials for reliable error pattern analysis ({analytics.totalTrials} so far)</p>
+        </div>
+      </Card>
+    );
+  }
   const errorData = [
     { name: 'Correct', value: analytics.errorBreakdown.correct, color: ERROR_COLORS.correct },
     { name: 'Attempted', value: analytics.errorBreakdown.attempted, color: ERROR_COLORS.attempted },
