@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,62 +14,73 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Fetch signed URL (10 min expiry for PHI-adjacent audio)
+  const fetchSignedUrl = async (): Promise<string | null> => {
+    try {
+      const { data } = await supabase.storage
+        .from('session-recordings')
+        .createSignedUrl(storagePath, 600); // 10 minute expiry
+
+      if (data?.signedUrl) {
+        setAudioUrl(data.signedUrl);
+        return data.signedUrl;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to load audio:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
-    // Load signed URL (short-lived, scoped by RLS to current user)
-    const loadAudio = async () => {
-      try {
-        const { data } = await supabase.storage
-          .from('session-recordings')
-          .createSignedUrl(storagePath, 3600); // 1 hour expiry
-
-        if (data?.signedUrl) {
-          setAudioUrl(data.signedUrl);
-        }
-      } catch (error) {
-        console.error('Failed to load audio:', error);
-      }
-    };
-
-    loadAudio();
+    fetchSignedUrl();
   }, [storagePath]);
 
-  // Sync isPlaying state with global audio manager
+  // Subscribe to audio manager state changes (no polling)
   useEffect(() => {
-    const checkPlaying = () => {
-      setIsPlaying(audioManager.isPlaying(audioRef.current));
-    };
-    
-    // Check periodically in case another audio started
-    const interval = setInterval(checkPlaying, 100);
-    return () => clearInterval(interval);
-  }, []);
+    const unsubscribe = audioManager.subscribe(() => {
+      setIsPlaying(audioManager.isPlayingKey(storagePath));
+    });
+    return unsubscribe;
+  }, [storagePath]);
 
   const togglePlayback = async () => {
-    if (!audioUrl) {
-      toast.error('Audio not available');
+    if (isPlaying) {
+      audioManager.stop();
       return;
     }
 
+    setIsLoading(true);
     try {
-      if (isPlaying) {
-        audioManager.stop();
-        setIsPlaying(false);
-      } else {
-        setIsLoading(true);
-        // Global manager stops any other playing audio automatically
-        const audio = await audioManager.play(audioUrl, () => {
-          setIsPlaying(false);
-          audioRef.current = null;
-        });
-        audioRef.current = audio;
-        setIsPlaying(true);
+      // Use cached URL or fetch fresh one
+      let url = audioUrl;
+      if (!url) {
+        url = await fetchSignedUrl();
+      }
+
+      if (!url) {
+        toast.error('Audio not available');
         setIsLoading(false);
+        return;
+      }
+
+      try {
+        await audioManager.play(url, storagePath);
+      } catch (playError) {
+        // Signed URL may have expired - retry with fresh URL
+        console.log('Playback failed, retrying with fresh URL');
+        const freshUrl = await fetchSignedUrl();
+        if (freshUrl) {
+          await audioManager.play(freshUrl, storagePath);
+        } else {
+          throw new Error('Could not fetch fresh URL');
+        }
       }
     } catch (error) {
       console.error('Playback error:', error);
       toast.error('Failed to play audio');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -79,7 +90,7 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
       variant="ghost"
       size="sm"
       onClick={togglePlayback}
-      disabled={!audioUrl || isLoading}
+      disabled={isLoading}
       className={className}
     >
       {isLoading ? (
