@@ -335,6 +335,35 @@ export function getTrialsForLevel(level: number, count: number = 10): SemanticFe
 }
 
 /**
+ * Get trials filtered by target words (for targeted practice)
+ */
+export function getTrialsByTargetWords(targetWords: string[], count: number = 10): SemanticFeatureTrial[] {
+  const lowerTargets = targetWords.map(w => w.toLowerCase());
+  const matchingTrials = SEMANTIC_TRIALS.filter(t => 
+    lowerTargets.includes(t.word.toLowerCase())
+  );
+  
+  if (matchingTrials.length === 0) {
+    // Fallback to level 1 trials if no matches
+    return getTrialsForLevel(1, count);
+  }
+  
+  // Repeat trials if needed to fill count
+  const repeated: SemanticFeatureTrial[] = [];
+  while (repeated.length < count && repeated.length < matchingTrials.length * 3) {
+    repeated.push(...[...matchingTrials].sort(() => Math.random() - 0.5));
+  }
+  return repeated.slice(0, count);
+}
+
+/**
+ * Get all unique image categories available in trials
+ */
+export function getAvailableCategories(): string[] {
+  return [...new Set(SEMANTIC_TRIALS.map(t => t.imageCategory))];
+}
+
+/**
  * Generate feature options for a trial (correct + distractors)
  */
 export function generateFeatureOptions(

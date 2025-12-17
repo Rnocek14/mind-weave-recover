@@ -3,6 +3,7 @@ import {
   SemanticFeature,
   SemanticFeatureTrial,
   getTrialsForLevel,
+  getTrialsByTargetWords,
   generateFeatureOptions,
   analyzeFeatureErrors,
 } from '@/data/semanticFeatureBank';
@@ -25,7 +26,8 @@ interface GameState {
 
 export const useSemanticFeatureGame = (
   totalTrials: number = 10,
-  difficultyLevel: number = 1
+  difficultyLevel: number = 1,
+  customTrials?: SemanticFeatureTrial[]
 ) => {
   const [state, setState] = useState<GameState>({
     currentTrial: 0,
@@ -39,9 +41,11 @@ export const useSemanticFeatureGame = (
     recentErrors: [],
   });
 
-  // Initialize trials
+  // Initialize trials (use customTrials if provided)
   useEffect(() => {
-    const trials = getTrialsForLevel(difficultyLevel, totalTrials);
+    const trials = customTrials && customTrials.length > 0 
+      ? customTrials 
+      : getTrialsForLevel(difficultyLevel, totalTrials);
     if (trials.length === 0) return;
     
     const options = generateFeatureOptions(trials[0], difficultyLevel);
@@ -56,7 +60,7 @@ export const useSemanticFeatureGame = (
       showFeedback: false,
       recentErrors: [],
     }));
-  }, [totalTrials, difficultyLevel]);
+  }, [totalTrials, difficultyLevel, customTrials]);
 
   const toggleFeature = (featureText: string) => {
     if (state.showFeedback) return;

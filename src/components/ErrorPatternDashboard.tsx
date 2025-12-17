@@ -591,16 +591,39 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                         </div>
                         {(() => {
                           const exerciseRoute = getExerciseForErrorType(errorType);
-                          return exerciseRoute && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1.5 text-xs"
-                              onClick={() => navigate(exerciseRoute.route)}
-                            >
-                              <Play className="h-3 w-3" />
-                              {exerciseRoute.label}
-                            </Button>
+                          const isSemanticError = ['semantic_paraphasia', 'circumlocution', 'mixed_error', 'unrelated'].includes(errorType);
+                          const targetWords = examples.map(e => e.target.toLowerCase());
+                          
+                          return (
+                            <div className="flex items-center gap-2">
+                              {/* General practice button */}
+                              {exerciseRoute && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs"
+                                  onClick={() => navigate(exerciseRoute.route)}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  {exerciseRoute.label}
+                                </Button>
+                              )}
+                              {/* Targeted semantic practice for semantic errors */}
+                              {isSemanticError && targetWords.length >= 2 && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="gap-1.5 text-xs"
+                                  onClick={() => {
+                                    const targetsParam = encodeURIComponent(targetWords.slice(0, 5).join(','));
+                                    navigate(`/exercise/semantic-features?targets=${targetsParam}&source=error_pattern_dashboard`);
+                                  }}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  Practice these words (5 min)
+                                </Button>
+                              )}
+                            </div>
                           );
                         })()}
                       </div>
