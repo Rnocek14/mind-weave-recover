@@ -77,8 +77,11 @@ export const RedFlagAlerts = ({ flags, onDismiss }: RedFlagAlertsProps) => {
     }
   };
 
-  const handleDismiss = (flag: RedFlag, index: number) => {
-    const flagKey = `${flag.type}-${index}`;
+  // Generate stable key from flag properties (not array index)
+  const getFlagKey = (flag: RedFlag) => `${flag.type}-${flag.detectedAt}`;
+
+  const handleDismiss = (flag: RedFlag) => {
+    const flagKey = getFlagKey(flag);
     setDismissedFlags(prev => new Set([...prev, flagKey]));
     onDismiss?.(flag, 'Acknowledged by user');
   };
@@ -89,9 +92,7 @@ export const RedFlagAlerts = ({ flags, onDismiss }: RedFlagAlertsProps) => {
     return severityOrder[a.severity] - severityOrder[b.severity];
   });
 
-  const visibleFlags = sortedFlags.filter((_, index) => 
-    !dismissedFlags.has(`${sortedFlags[index].type}-${index}`)
-  );
+  const visibleFlags = sortedFlags.filter(flag => !dismissedFlags.has(getFlagKey(flag)));
 
   if (visibleFlags.length === 0) {
     return (
@@ -173,7 +174,7 @@ export const RedFlagAlerts = ({ flags, onDismiss }: RedFlagAlertsProps) => {
                       size="sm"
                       variant="ghost"
                       className="gap-1.5 text-muted-foreground"
-                      onClick={() => handleDismiss(flag, index)}
+                      onClick={() => handleDismiss(flag)}
                     >
                       <X className="h-3.5 w-3.5" />
                       Dismiss
