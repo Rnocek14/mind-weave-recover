@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { usePronunciationScoreAnalytics } from '@/hooks/usePronunciationScoreAnalytics';
-import { TrendingUp, TrendingDown, Minus, Volume2, Target, Zap, Music } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Volume2, Target, Zap, Music, ChevronDown, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { AudioPlayback } from './AudioPlayback';
+import { format } from 'date-fns';
 
 interface PronunciationScoreCardProps {
   userId?: string;
@@ -229,15 +230,12 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             <p className="text-xs font-medium text-muted-foreground">Words to practice</p>
             <div className="space-y-1">
               {needsPracticeWords.filter(w => w.avgScore < 75).slice(0, 3).map(w => (
-                <div key={w.word} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium capitalize">{w.word}</span>
-                    {w.exampleAudioPath && (
-                      <AudioPlayback storagePath={w.exampleAudioPath} className="h-6 w-6 p-0" />
-                    )}
-                  </div>
-                  <span className={getScoreColor(w.avgScore)}>{w.avgScore}%</span>
-                </div>
+                <ExpandableWordRow 
+                  key={w.word} 
+                  word={w} 
+                  scoreColorFn={getScoreColor}
+                  variant="practice"
+                />
               ))}
             </div>
           </div>
@@ -248,15 +246,12 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             <p className="text-xs font-medium text-muted-foreground">Best words</p>
             <div className="space-y-1">
               {bestWords.filter(w => w.avgScore >= 80).slice(0, 3).map(w => (
-                <div key={w.word} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium capitalize">{w.word}</span>
-                    {w.exampleAudioPath && (
-                      <AudioPlayback storagePath={w.exampleAudioPath} className="h-6 w-6 p-0" />
-                    )}
-                  </div>
-                  <span className="text-green-600">{w.avgScore}%</span>
-                </div>
+                <ExpandableWordRow 
+                  key={w.word} 
+                  word={w} 
+                  scoreColorFn={() => 'text-green-600'}
+                  variant="best"
+                />
               ))}
             </div>
           </div>
@@ -283,6 +278,80 @@ function ScoreItem({ icon: Icon, label, score }: { icon: React.ElementType; labe
           {score > 0 ? `${score}%` : '—'}
         </p>
       </div>
+    </div>
+  );
+}
+
+interface WordExample {
+  score: number;
+  audioPath: string;
+  timestamp: string;
+}
+
+interface WordStats {
+  word: string;
+  avgScore: number;
+  sampleCount: number;
+  exampleAudioPath?: string;
+  examples: WordExample[];
+}
+
+function ExpandableWordRow({ 
+  word, 
+  scoreColorFn, 
+  variant 
+}: { 
+  word: WordStats; 
+  scoreColorFn: (score: number) => string;
+  variant: 'practice' | 'best';
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMultipleExamples = word.examples.length > 1;
+
+  const getExampleScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-amber-600';
+    return 'text-red-500';
+  };
+
+  return (
+    <div className="rounded-md border border-border/50 overflow-hidden">
+      <div 
+        className={`flex items-center justify-between text-sm p-2 ${hasMultipleExamples ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+        onClick={() => hasMultipleExamples && setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2">
+          {hasMultipleExamples && (
+            expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
+          <span className="font-medium capitalize">{word.word}</span>
+          {word.exampleAudioPath && !hasMultipleExamples && (
+            <AudioPlayback storagePath={word.exampleAudioPath} className="h-6 w-6" />
+          )}
+          {hasMultipleExamples && (
+            <Badge variant="outline" className="text-[10px] h-4 px-1">
+              {word.examples.length} clips
+            </Badge>
+          )}
+        </div>
+        <span className={scoreColorFn(word.avgScore)}>{word.avgScore}%</span>
+      </div>
+      
+      {expanded && hasMultipleExamples && (
+        <div className="border-t border-border/50 bg-muted/30 px-2 py-1.5 space-y-1">
+          {word.examples.map((example, idx) => (
+            <div key={idx} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <AudioPlayback storagePath={example.audioPath} className="h-5 w-5" />
+                <span className="text-muted-foreground">
+                  {format(new Date(example.timestamp), 'MMM d, h:mm a')}
+                </span>
+              </div>
+              <span className={getExampleScoreColor(example.score)}>{example.score}%</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
