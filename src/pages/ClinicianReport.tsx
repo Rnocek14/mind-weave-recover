@@ -19,7 +19,8 @@ import {
   Minus,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  Volume2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -29,7 +30,10 @@ import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
 import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useUiMode } from '@/hooks/useUiMode';
+import { useCuratedAudioSamples } from '@/hooks/useCuratedAudioSamples';
 import { buildClinicianReport, type ClinicianReport as ClinicianReportType } from '@/lib/clinicianReportBuilder';
+import { AudioPlayback } from '@/components/AudioPlayback';
+import { format } from 'date-fns';
 
 const ConfidenceBadge = ({ level }: { level: 'low' | 'medium' | 'high' }) => {
   const config = {
@@ -70,8 +74,9 @@ export default function ClinicianReport() {
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(user?.id || '', 1);
   const { analytics: correlations, isLoading: correlationsLoading } = useCapabilitySpeechCorrelation(user?.id || '', activeProfile?.id);
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || '');
+  const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, 7);
   
-  const isLoading = trendsLoading || learningLoading || errorLoading || correlationsLoading || flagsLoading;
+  const isLoading = trendsLoading || learningLoading || errorLoading || correlationsLoading || flagsLoading || audioLoading;
   
   // Require clinician+ mode
   if (!isAtLeast('clinician')) {
@@ -308,6 +313,79 @@ export default function ClinicianReport() {
             )}
           </CardContent>
         </Card>
+        
+        {/* Audio Samples - hidden in print */}
+        {(audioSamples.challenging.length > 0 || audioSamples.best.length > 0) && (
+          <Card className="print:hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Volume2 className="h-4 w-4" />
+                Audio Samples
+              </CardTitle>
+              <CardDescription>Curated examples for clinical review</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {audioSamples.challenging.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2 text-amber-600 dark:text-amber-400">
+                    Challenging Examples
+                  </p>
+                  <div className="space-y-2">
+                    {audioSamples.challenging.map((sample) => (
+                      <div key={sample.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <AudioPlayback storagePath={sample.audioPath} className="h-8 w-8" />
+                          <div>
+                            <p className="font-medium capitalize">{sample.targetWord}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(sample.timestamp), 'MMM d, h:mm a')}
+                              {sample.transcript && ` • Said: "${sample.transcript}"`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${sample.score < 60 ? 'text-red-500' : 'text-amber-600'}`}>
+                            {sample.score}%
+                          </p>
+                          {sample.errorType && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {sample.errorType.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {audioSamples.best.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2 text-green-600 dark:text-green-400">
+                    Best Examples
+                  </p>
+                  <div className="space-y-2">
+                    {audioSamples.best.map((sample) => (
+                      <div key={sample.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <AudioPlayback storagePath={sample.audioPath} className="h-8 w-8" />
+                          <div>
+                            <p className="font-medium capitalize">{sample.targetWord}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(sample.timestamp), 'MMM d, h:mm a')}
+                              {sample.transcript && ` • Said: "${sample.transcript}"`}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-semibold text-green-600">{sample.score}%</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
         
         {/* Cue Efficacy */}
         <Card>
