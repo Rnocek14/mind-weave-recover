@@ -179,16 +179,19 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.cueEfficacy.length > 0 ? (
-              <>
-                <div className="text-2xl font-bold">
-                  {getCueLabel(analytics.cueEfficacy.sort((a, b) => b.efficacyRate - a.efficacyRate)[0].cueType)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {Math.round(analytics.cueEfficacy[0].efficacyRate * 100)}% effective
-                </p>
-              </>
-            ) : (
+            {analytics.cueEfficacy.length > 0 ? (() => {
+              const best = [...analytics.cueEfficacy].sort((a, b) => b.efficacyRate - a.efficacyRate)[0];
+              return (
+                <>
+                  <div className="text-2xl font-bold">
+                    {getCueLabel(best.cueType)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {Math.round(best.efficacyRate * 100)}% effective
+                  </p>
+                </>
+              );
+            })() : (
               <div className="text-muted-foreground">No cue data</div>
             )}
           </CardContent>

@@ -116,8 +116,8 @@ export const challengeCategoryMap: Record<string, TermMapping> = {
 /**
  * Get patient-friendly label for an error type
  */
-export function getErrorLabel(errorType: string | null | undefined): string {
-  if (!errorType || typeof errorType !== 'string') return "Unknown";
+export function getErrorLabel(errorType: unknown): string {
+  if (typeof errorType !== 'string' || !errorType) return "Unknown";
   const mapping = errorTypeMap[errorType.toLowerCase()];
   return mapping?.label || formatFallback(errorType);
 }
@@ -125,8 +125,8 @@ export function getErrorLabel(errorType: string | null | undefined): string {
 /**
  * Get patient-friendly label for a cue type
  */
-export function getCueLabel(cueType: string | null | undefined): string {
-  if (!cueType || typeof cueType !== 'string') return "No hint";
+export function getCueLabel(cueType: unknown): string {
+  if (typeof cueType !== 'string' || !cueType) return "No hint";
   const mapping = cueTypeMap[cueType.toLowerCase()];
   return mapping?.label || formatFallback(cueType);
 }
@@ -134,8 +134,8 @@ export function getCueLabel(cueType: string | null | undefined): string {
 /**
  * Get full term info for displaying with tooltips
  */
-export function getErrorTermInfo(errorType: string | null | undefined): TermMapping {
-  if (!errorType || typeof errorType !== 'string') {
+export function getErrorTermInfo(errorType: unknown): TermMapping {
+  if (typeof errorType !== 'string' || !errorType) {
     return { label: "Unknown", description: "", clinicalTerm: "Unknown" };
   }
   const mapping = errorTypeMap[errorType.toLowerCase()];
@@ -149,8 +149,8 @@ export function getErrorTermInfo(errorType: string | null | undefined): TermMapp
 /**
  * Get full cue term info for displaying with tooltips
  */
-export function getCueTermInfo(cueType: string | null | undefined): TermMapping {
-  if (!cueType || typeof cueType !== 'string') {
+export function getCueTermInfo(cueType: unknown): TermMapping {
+  if (typeof cueType !== 'string' || !cueType) {
     return { label: "No hint", description: "", clinicalTerm: "No cue" };
   }
   const mapping = cueTypeMap[cueType.toLowerCase()];
