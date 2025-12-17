@@ -7,6 +7,8 @@ import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { AudioPlayback } from './AudioPlayback';
 import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
+import { ClinicalTerm } from './ClinicalTerm';
+import { getErrorLabel, getCueLabel } from '@/lib/insightLanguageMap';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -22,16 +24,6 @@ const ERROR_COLORS: Record<string, string> = {
   neologism: 'hsl(var(--muted))',
   no_response: 'hsl(var(--muted-foreground))',
   timeout: 'hsl(0 0% 45.1%)',
-};
-
-const ERROR_LABELS: Record<string, string> = {
-  semantic_paraphasia: 'Semantic',
-  phonemic_paraphasia: 'Phonemic',
-  circumlocution: 'Circumlocution',
-  neologism: 'Neologism',
-  no_response: 'No Response',
-  timeout: 'Timeout',
-  attempted: 'Attempted',
 };
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
@@ -80,17 +72,17 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
     );
   }
   const errorData = [
-    { name: 'Correct', value: analytics.errorBreakdown.correct, color: ERROR_COLORS.correct },
-    { name: 'Attempted', value: analytics.errorBreakdown.attempted, color: ERROR_COLORS.attempted },
-    { name: 'Semantic', value: analytics.errorBreakdown.semantic_paraphasia, color: ERROR_COLORS.semantic_paraphasia },
-    { name: 'Phonemic', value: analytics.errorBreakdown.phonemic_paraphasia, color: ERROR_COLORS.phonemic_paraphasia },
-    { name: 'Circumlocution', value: analytics.errorBreakdown.circumlocution, color: ERROR_COLORS.circumlocution },
-    { name: 'Neologism', value: analytics.errorBreakdown.neologism, color: ERROR_COLORS.neologism },
-    { name: 'No Response', value: analytics.errorBreakdown.no_response, color: ERROR_COLORS.no_response },
-    { name: 'Timeout', value: analytics.errorBreakdown.timeout, color: ERROR_COLORS.timeout },
+    { name: getErrorLabel('correct'), value: analytics.errorBreakdown.correct, color: ERROR_COLORS.correct },
+    { name: getErrorLabel('attempted'), value: analytics.errorBreakdown.attempted, color: ERROR_COLORS.attempted },
+    { name: getErrorLabel('semantic_paraphasia'), value: analytics.errorBreakdown.semantic_paraphasia, color: ERROR_COLORS.semantic_paraphasia },
+    { name: getErrorLabel('phonemic_paraphasia'), value: analytics.errorBreakdown.phonemic_paraphasia, color: ERROR_COLORS.phonemic_paraphasia },
+    { name: getErrorLabel('circumlocution'), value: analytics.errorBreakdown.circumlocution, color: ERROR_COLORS.circumlocution },
+    { name: getErrorLabel('neologism'), value: analytics.errorBreakdown.neologism, color: ERROR_COLORS.neologism },
+    { name: getErrorLabel('no_response'), value: analytics.errorBreakdown.no_response, color: ERROR_COLORS.no_response },
+    { name: getErrorLabel('timeout'), value: analytics.errorBreakdown.timeout, color: ERROR_COLORS.timeout },
   ].filter(d => d.value > 0);
 
-  const totalErrors = errorData.filter(d => d.name !== 'Correct').reduce((sum, d) => sum + d.value, 0);
+  const totalErrors = errorData.filter(d => d.name !== getErrorLabel('correct')).reduce((sum, d) => sum + d.value, 0);
 
   // Calculate cue reduction trend
   const cueTrend = analytics.cueTrends.length >= 2
@@ -99,7 +91,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
 
   // Cue efficacy data for bar chart
   const cueEfficacyData = analytics.cueEfficacy.map(ce => ({
-    name: ce.cueType.charAt(0).toUpperCase() + ce.cueType.slice(1),
+    name: getCueLabel(ce.cueType),
     efficacy: Math.round(ce.efficacyRate * 100),
     count: ce.totalGiven,
   }));
@@ -356,7 +348,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                       style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
                       className="text-white"
                     >
-                      {ERROR_LABELS[errorType] || errorType}
+                      <ClinicalTerm type="error" value={errorType} />
                     </Badge>
                     <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
                   </div>

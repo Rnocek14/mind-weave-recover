@@ -36,6 +36,7 @@ import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorre
 import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useProfile } from '@/hooks/useProfile';
 import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
+import { getCueLabel } from '@/lib/insightLanguageMap';
 import { 
   narrateRecoveryTrend, 
   narrateChallenges, 
@@ -149,13 +150,8 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
       return { label: 'Building baseline', sublabel: 'More sessions needed', rate: null };
     }
     const best = validCues.reduce((a, b) => a.efficacyRate > b.efficacyRate ? a : b);
-    const friendlyNames: Record<string, string> = {
-      'semantic': 'Category hints',
-      'phonemic': 'Sound hints',
-      'full_word': 'Full word cues',
-    };
     return {
-      label: friendlyNames[best.cueType] || best.cueType,
+      label: getCueLabel(best.cueType),
       sublabel: `${Math.round(best.efficacyRate * 100)}% effective`,
       rate: best.efficacyRate,
     };

@@ -8,6 +8,7 @@ import { AlertCircle, AlertTriangle, Clock, Lightbulb, Target, TrendingUp, Zap }
 import { useCueTelemetry } from "@/hooks/useCueTelemetry";
 import { format } from "date-fns";
 import { AudioPlayback } from "./AudioPlayback";
+import { ClinicalTerm } from "./ClinicalTerm";
 
 interface CueTelemetryDashboardProps {
   userId: string;
@@ -374,7 +375,7 @@ export function CueTelemetryDashboard({ userId, daysBack = 7 }: CueTelemetryDash
                       <TableCell className="font-mono">{event.target_word}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {event.cue_type_given || 'none'}
+                          <ClinicalTerm type="cue" value={event.cue_type_given} />
                         </Badge>
                       </TableCell>
                       <TableCell>
