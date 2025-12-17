@@ -11,10 +11,18 @@ import {
 } from '@/lib/dailyLessonEngine';
 import type { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { suggestInteractionMode, type CaregiverObservations } from '@/lib/capabilityScoreSmoothing';
+import { 
+  computeTodayFocus, 
+  type TodayFocus, 
+  type AdaptiveEngineInput,
+  type SignalCounts,
+  type SpeechProfileSummary
+} from '@/lib/adaptiveDecisionEngine';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
   performanceSignals: PerformanceSignals | null;
+  todayFocus: TodayFocus | null;
   loading: boolean;
   error: string | null;
   needsReassessment: boolean;
@@ -41,6 +49,7 @@ export const useDailyLesson = (
 ): UseDailyLessonResult => {
   const [lesson, setLesson] = useState<DailyLesson | null>(null);
   const [performanceSignals, setPerformanceSignals] = useState<PerformanceSignals | null>(null);
+  const [todayFocus, setTodayFocus] = useState<TodayFocus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsReassessment, setNeedsReassessment] = useState(false);
@@ -107,9 +116,11 @@ export const useDailyLesson = (
         usingFreshAssessment: !!freshAssessment,
       });
 
-      // Fetch recent trials (last 7 days)
+      // Fetch recent trials (last 7 days for lesson, 14 days for adaptive engine)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
       // First get user's sessions
       const { data: recentSessions, error: sessionsError } = await supabase
@@ -204,8 +215,59 @@ export const useDailyLesson = (
         mode
       );
 
+      // Compute TodayFocus (Shadow Mode) - fetch additional signal counts
+      let focus: TodayFocus | null = null;
+      try {
+        // Get utterance count with alignment data
+        const { count: utteranceCount } = await supabase
+          .from('utterance_analyses')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .not('alignment_data', 'is', null)
+          .gte('created_at', fourteenDaysAgo.toISOString());
+
+        // Get speech profile for error distribution
+        const { data: speechProfile } = await supabase
+          .from('user_speech_profiles')
+          .select('error_type_distribution, cue_efficacy_by_type, most_challenging_categories')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        const assessmentAgeDays = assessmentToUse?.assessed_at 
+          ? Math.floor((Date.now() - new Date(assessmentToUse.assessed_at).getTime()) / (1000 * 60 * 60 * 24))
+          : 999;
+
+        const signalCounts: SignalCounts = {
+          trialsLast14Days: recentTrials.length,
+          utterancesWithAlignmentLast14Days: utteranceCount || 0,
+          assessmentAgeDays,
+        };
+
+        const speechProfileSummary: SpeechProfileSummary | null = speechProfile ? {
+          errorTypeDistribution: speechProfile.error_type_distribution as Record<string, number> | undefined,
+          cueEfficacyByType: speechProfile.cue_efficacy_by_type as Record<string, { successRate: number; trials: number }> | undefined,
+          mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
+        } : null;
+
+        const engineInput: AdaptiveEngineInput = {
+          capabilityScores: scores,
+          performanceSignals: signals,
+          speechProfile: speechProfileSummary,
+          signalCounts,
+        };
+
+        focus = computeTodayFocus(engineInput);
+        console.log('[useDailyLesson] TodayFocus computed:', {
+          confidence: focus.confidence,
+          rulesApplied: focus.rulesApplied.map(r => r.ruleId),
+        });
+      } catch (focusErr) {
+        console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);
+      }
+
       setLesson(dailyLesson);
       setPerformanceSignals(signals);
+      setTodayFocus(focus);
       hasBuiltRef.current = true;
       
       // Cache the lesson
@@ -250,6 +312,7 @@ export const useDailyLesson = (
   return {
     lesson,
     performanceSignals,
+    todayFocus,
     loading,
     error,
     needsReassessment,

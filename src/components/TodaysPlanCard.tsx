@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Calendar, 
   Clock, 
@@ -11,9 +12,14 @@ import {
   AlertCircle,
   Zap,
   Brain,
-  Play
+  Play,
+  ChevronDown,
+  Sparkles
 } from "lucide-react";
+import { useState } from "react";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
+import { useUiMode } from "@/hooks/useUiMode";
+import { getConfidenceBadgeColor, getConfidenceDescription } from "@/lib/adaptiveDecisionEngine";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 interface TodaysPlanCardProps {
@@ -31,9 +37,13 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
   onStartLesson,
   doseCapReached = false,
 }) => {
+  const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
+  const { isAtLeast } = useUiMode();
+  
   const { 
     lesson, 
     performanceSignals,
+    todayFocus,
     loading, 
     error,
     needsReassessment,
@@ -252,6 +262,84 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
                 </div>
               </div>
             </div>
+          </>
+        )}
+
+        {/* Adaptive Engine Shadow Panel (Clinician+ only) */}
+        {isAtLeast('clinician') && todayFocus && (
+          <>
+            <Separator />
+            <Collapsible open={shadowPanelOpen} onOpenChange={setShadowPanelOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-xs">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Adaptive Engine (Shadow)</span>
+                  <Badge 
+                    variant="secondary" 
+                    className={`text-[10px] ${getConfidenceBadgeColor(todayFocus.confidence)}`}
+                  >
+                    {todayFocus.confidence}
+                  </Badge>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${shadowPanelOpen ? 'rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-2">
+                <p className="text-[10px] text-muted-foreground">
+                  {getConfidenceDescription(todayFocus.confidence)}
+                </p>
+                
+                <div className="text-[10px] text-muted-foreground">
+                  <span className="font-medium">Data:</span> {todayFocus.inputSnapshot.trialCount} trials, {todayFocus.inputSnapshot.utteranceCount} utterances, assessment {todayFocus.inputSnapshot.assessmentAgeDays}d old
+                </div>
+
+                {todayFocus.rulesApplied.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-medium text-muted-foreground">Rules Fired:</div>
+                    {todayFocus.rulesApplied.map((rule, idx) => (
+                      <div key={idx} className="rounded border bg-muted/30 p-2 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium">{rule.ruleId}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{rule.condition}</p>
+                        <p className="text-[10px] text-primary">→ {rule.adaptation}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground italic">No adaptive rules triggered</p>
+                )}
+
+                {Object.keys(todayFocus.adaptations).length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-medium text-muted-foreground">Proposed Adaptations:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {todayFocus.adaptations.startDifficulty && (
+                        <Badge variant="outline" className="text-[10px]">Start Lv {todayFocus.adaptations.startDifficulty}</Badge>
+                      )}
+                      {todayFocus.adaptations.timeoutMultiplier && (
+                        <Badge variant="outline" className="text-[10px]">Timeout ×{todayFocus.adaptations.timeoutMultiplier}</Badge>
+                      )}
+                      {todayFocus.adaptations.sessionDurationCap && (
+                        <Badge variant="outline" className="text-[10px]">Cap {todayFocus.adaptations.sessionDurationCap}m</Badge>
+                      )}
+                      {todayFocus.adaptations.preferredCueType && (
+                        <Badge variant="outline" className="text-[10px]">Prefer {todayFocus.adaptations.preferredCueType} cues</Badge>
+                      )}
+                      {todayFocus.adaptations.slowerTTS && (
+                        <Badge variant="outline" className="text-[10px]">Slower TTS</Badge>
+                      )}
+                      {todayFocus.adaptations.largeTargets && (
+                        <Badge variant="outline" className="text-[10px]">Large Targets</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                  Shadow mode: These adaptations are computed but not yet applied.
+                </p>
+              </CollapsibleContent>
+            </Collapsible>
           </>
         )}
 
