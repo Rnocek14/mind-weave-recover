@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -23,6 +23,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -205,6 +206,81 @@ export const PhotoNamingGame = ({
       }
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
+
+  // Admin permissions for debug features
+  const { isAdmin } = useUserPermissions(user?.id);
+
+  // =============================================================================
+  // CRITICAL FIX: Direct cue trigger function (replaces broken flag-based approach)
+  // This is called DIRECTLY from the stall timer and consecutive errors effect,
+  // eliminating the two-phase state relay that was causing cues to never fire.
+  // =============================================================================
+  const triggerAutoCue = useCallback((trigger: 'stall' | 'consecutive_errors' | 'user_request') => {
+    // Guard: already showing cue or already shown this trial
+    if (showCueRef.current || autoCueShownThisTrialRef.current) {
+      console.log('🚫 triggerAutoCue blocked - already showing or shown this trial');
+      return false;
+    }
+    
+    // Guard: no current trial
+    if (!state.currentTrial) {
+      console.log('🚫 triggerAutoCue blocked - no current trial');
+      return false;
+    }
+    
+    // Guard: feedback or timeout already showing
+    if (showFeedbackRef.current || timedOutRef.current) {
+      console.log('🚫 triggerAutoCue blocked - feedback or timeout showing');
+      return false;
+    }
+
+    console.log('💡 triggerAutoCue FIRING:', trigger);
+    
+    // Select optimal cue using error history and speech profile
+    const autoCueDecision = selectOptimalCue(
+      errorHistory,
+      state.currentTrial.target,
+      state.currentTrial.category,
+      state.currentTrial.features,
+      0 // First cue level - least invasive
+    );
+    
+    // Update UI state
+    setCueLevel(1);
+    setCurrentCueText(autoCueDecision.cueText);
+    setShowCue(true);
+    setStallDetected(false);
+    autoCueShownThisTrialRef.current = true;
+    
+    // Map cueType for logging
+    const cueType: 'semantic' | 'phonemic' | 'full_word' = 
+      autoCueDecision.cueType === 'phonemic' ? 'phonemic' : 
+      autoCueDecision.cueType === 'full' ? 'full_word' : 'semantic';
+    
+    // Set cue state for efficacy tracking
+    setCueState({
+      type: cueType,
+      level: 1,
+      shownAt: Date.now(),
+      trigger
+    });
+    
+    // Play hint sound
+    playHint?.();
+    
+    console.log('✅ Auto-cue delivered:', { trigger, cueType, cueText: autoCueDecision.cueText });
+    return true;
+  }, [state.currentTrial, errorHistory, playHint]);
+
+  // =============================================================================
+  // Watch consecutive errors and trigger cue if >= 2 errors
+  // =============================================================================
+  useEffect(() => {
+    if (consecutiveErrors >= 2 && !autoCueShownThisTrialRef.current && !showFeedback && !timedOut) {
+      console.log('🔥 Consecutive errors threshold reached:', consecutiveErrors);
+      triggerAutoCue('consecutive_errors');
+    }
+  }, [consecutiveErrors, showFeedback, timedOut, triggerAutoCue]);
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -583,38 +659,6 @@ export const PhotoNamingGame = ({
       autoCueShownThisTrialRef.current = false;
       setStallDetected(false);
       
-      // Research-aligned cue trigger: stall detection OR consecutive errors
-      // Primary: stallDetected (hesitation > 3s)
-      // Secondary: consecutiveErrors >= 2 (remove difficulty requirement per research)
-      const shouldShowAutoCue = (stallDetected || consecutiveErrors >= 2) && !autoCueShownThisTrialRef.current;
-      
-      if (shouldShowAutoCue && !showCue) {
-        const trigger = stallDetected ? 'stall' : 'consecutive_errors';
-        const autoCueDecision = selectOptimalCue(
-          errorHistory,
-          state.currentTrial.target,
-          state.currentTrial.category,
-          state.currentTrial.features,
-          0 // First cue level - least invasive
-        );
-        setCueLevel(1);
-        setCurrentCueText(autoCueDecision.cueText);
-        setShowCue(true);
-        setStallDetected(false);
-        autoCueShownThisTrialRef.current = true; // Prevent spam
-        
-        // Track cue state for efficacy logging with trigger
-        setCueState({
-          type: autoCueDecision.cueType === 'phonemic' ? 'phonemic' : 
-                autoCueDecision.cueType === 'full' ? 'full_word' : 'semantic',
-          level: 1,
-          shownAt: Date.now(),
-          trigger: trigger as 'stall' | 'consecutive_errors'
-        });
-        
-        console.log('💡 Auto-cue triggered:', trigger);
-      }
-      
       // Start stall detection timer (3 seconds of hesitation)
       // Only start when trial is ready for user response
       const trialIsReady = state.currentTrial && 
@@ -636,8 +680,10 @@ export const PhotoNamingGame = ({
                          !isPlayingChoicesRef.current; // Don't stall during audio playback
           
           if (isIdle && !autoCueShownThisTrialRef.current) {
-            setStallDetected(true);
-            console.log('🕐 Stall detected - user hesitating > 3s');
+            // CRITICAL FIX: Call triggerAutoCue DIRECTLY instead of setStallDetected
+            // This eliminates the two-phase state relay that was causing cues to never fire
+            console.log('🕐 Stall detected - triggering cue directly');
+            triggerAutoCue('stall');
           }
         }, 3000);
       }
@@ -677,7 +723,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, stallDetected, showCue, startAttempt]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, startAttempt, triggerAutoCue, isPlayingChoices, isCreatingSession]);
 
   // Handle game completion
   useEffect(() => {
@@ -1776,6 +1822,22 @@ export const PhotoNamingGame = ({
           >
             <Lightbulb className="w-4 h-4" />
             Need a hint?
+          </Button>
+        </div>
+      )}
+
+      {/* Admin-only Force Cue buttons for pipeline testing */}
+      {isAdmin && !showFeedback && !timedOut && !showCue && state.currentTrial && (
+        <div className="flex justify-center gap-2 mt-2 p-2 border border-dashed border-amber-500 rounded bg-amber-50 dark:bg-amber-950/30">
+          <span className="text-xs text-amber-700 dark:text-amber-400 self-center">Admin:</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => triggerAutoCue('user_request')}
+            className="gap-1 text-xs"
+          >
+            <Zap className="w-3 h-3" />
+            Force Cue (test)
           </Button>
         </div>
       )}
