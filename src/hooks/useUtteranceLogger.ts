@@ -11,6 +11,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
  * 3. Final analysis upserted to utterance_analyses (clean table for analytics)
  * 4. Every attempt gets analyzed, even failures
  * 5. Idempotent finalization - logFinalAnalysis can only be called once per attempt
+ * 6. Tracks cue_trigger (stall/consecutive_errors/user_request) for learning signal analysis
  */
 
 interface AttemptContext {
@@ -61,6 +62,7 @@ interface UtteranceLoggerReturn {
     cueTypeGiven?: string;
     cueWasEffective?: boolean;
     timeToSuccessAfterCueMs?: number;
+    cueTrigger?: 'stall' | 'consecutive_errors' | 'user_request';
     audioStoragePath?: string;
     recordingDurationMs?: number;
     // Azure Pronunciation Assessment scores
@@ -142,15 +144,18 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
    * IDEMPOTENT: Can only be called once per attempt - subsequent calls are ignored
    */
   const logFinalAnalysis = useCallback(async (analysis: {
+    // Core transcript data
     transcript?: string;
     transcriptSource: 'browser' | 'whisper' | 'manual';
     asrConfidence?: number;
+    // Error classification
     isCorrect: boolean;
     errorType: string;
     phonologicalSimilarity?: number;
     semanticSimilarity?: number | null;
     classificationConfidence?: number;
     reasoning?: string;
+    // Fluency metrics
     speechRateWpm?: number;
     pauseCount?: number;
     totalPauseMs?: number;
@@ -158,9 +163,12 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     effortfulSpeech?: boolean;
     fluencyAvailable?: boolean;
     fluencyUnavailableReason?: FluencyUnavailableReason;
+    // Cue tracking
     cueTypeGiven?: string;
     cueWasEffective?: boolean;
     timeToSuccessAfterCueMs?: number;
+    cueTrigger?: 'stall' | 'consecutive_errors' | 'user_request';
+    // Audio data
     audioStoragePath?: string;
     recordingDurationMs?: number;
     // Azure Pronunciation Assessment
@@ -246,6 +254,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           cue_type_given: analysis.cueTypeGiven,
           cue_was_effective: analysis.cueWasEffective,
           time_to_success_after_cue_ms: analysis.timeToSuccessAfterCueMs,
+          cue_trigger: analysis.cueTrigger,
           latency_ms: latencyMs,
           recording_duration_ms: analysis.recordingDurationMs,
           audio_storage_path: analysis.audioStoragePath,

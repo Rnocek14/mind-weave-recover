@@ -1248,6 +1248,7 @@ export type Database = {
           category: string | null
           classification_confidence: number | null
           created_at: string | null
+          cue_trigger: string | null
           cue_type_given: string | null
           cue_was_effective: boolean | null
           effortful_speech: boolean | null
@@ -1297,6 +1298,7 @@ export type Database = {
           category?: string | null
           classification_confidence?: number | null
           created_at?: string | null
+          cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           effortful_speech?: boolean | null
@@ -1346,6 +1348,7 @@ export type Database = {
           category?: string | null
           classification_confidence?: number | null
           created_at?: string | null
+          cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           effortful_speech?: boolean | null

@@ -160,6 +160,7 @@ export const PhotoNamingGame = ({
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
   // CRITICAL: Clean up stall timer on trial change and unmount
+  // Use trialNumber as dependency (unique per trial, unlike target which may repeat)
   useEffect(() => {
     return () => {
       if (stallTimerRef.current) {
@@ -167,7 +168,7 @@ export const PhotoNamingGame = ({
         stallTimerRef.current = null;
       }
     };
-  }, [state.currentTrial?.target]); // Re-run cleanup when trial changes
+  }, [state.trialNumber]); // Use trialNumber for unique trial identity
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -1192,14 +1193,26 @@ export const PhotoNamingGame = ({
     let cueWasEffective: boolean | null = null;
     let timeToSuccessAfterCueMs: number | null = null;
 
+    // Cue efficacy with 6s attribution window
+    // - Correct within 6s: cue was effective
+    // - Incorrect: cue was ineffective
+    // - Correct but >6s: ambiguous (null) - can't confidently attribute to cue
+    const CUE_ATTRIBUTION_WINDOW_MS = 6000;
+    
     if (cueState) {
       cueTypeGiven = cueState.type;
-      if (correct) {
+      const dt = Date.now() - cueState.shownAt;
+      
+      if (correct && dt <= CUE_ATTRIBUTION_WINDOW_MS) {
         cueWasEffective = true;
-        timeToSuccessAfterCueMs = Date.now() - cueState.shownAt;
-      } else {
+        timeToSuccessAfterCueMs = dt;
+      } else if (!correct) {
         cueWasEffective = false;
         timeToSuccessAfterCueMs = null;
+      } else {
+        // Correct but too late to attribute confidently
+        cueWasEffective = null;
+        timeToSuccessAfterCueMs = dt; // Keep timing for analysis
       }
     }
 
@@ -1296,6 +1309,7 @@ export const PhotoNamingGame = ({
       cueTypeGiven: cueTypeGiven,
       cueWasEffective: cueWasEffective ?? undefined,
       timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
+      cueTrigger: cueState?.trigger,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       // Azure Pronunciation Assessment scores
