@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -43,10 +43,17 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 export default function Insights() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const { uiMode, isAtLeast } = useUiMode();
+  
+  // Read default tab from navigation state or localStorage
   const [activeTab, setActiveTab] = useState(() => {
+    const stateTab = (location.state as any)?.defaultTab;
+    if (stateTab && ['snapshot', 'deep-dive', 'clinical'].includes(stateTab)) {
+      return stateTab;
+    }
     return localStorage.getItem('insights-active-tab') || 'snapshot';
   });
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
