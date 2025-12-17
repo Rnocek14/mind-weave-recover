@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   ArrowLeft, Activity, Brain, Stethoscope, 
-  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText, Lightbulb
+  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText, Lightbulb, CheckCircle2, Wrench
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -37,6 +38,7 @@ import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 
 // Hooks
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { useCapabilitySpeechCorrelation } from "@/hooks/useCapabilitySpeechCorrelation";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 export default function Insights() {
@@ -49,12 +51,20 @@ export default function Insights() {
   });
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  // Auto-expand Speech Analysis for clinician/admin (P1: reduce clicks)
+  
+  // Collapsible states for Deep Dive
   const [speechExpanded, setSpeechExpanded] = useState(() => isAtLeast('clinician'));
   const [speechLabExpanded, setSpeechLabExpanded] = useState(false);
   const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
+  const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
 
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
+  
+  // PHASE 3: Fetch recommendations for top-level display
+  const { analytics: crossDomainAnalytics } = useCapabilitySpeechCorrelation(
+    user?.id || '', 
+    activeProfile?.id
+  );
 
   // Gate tabs based on view mode
   const showDeepDive = isAtLeast('clinician');
@@ -117,6 +127,9 @@ export default function Insights() {
   // Calculate grid columns based on visible tabs
   const tabCount = 1 + (showDeepDive ? 1 : 0) + (showClinical ? 1 : 0);
   const gridCols = tabCount === 1 ? 'grid-cols-1' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-3';
+
+  // PHASE 3: Extract recommendations
+  const recommendations = crossDomainAnalytics?.recommendations || [];
 
   return (
     <div className="min-h-screen bg-gradient-calm">
@@ -206,6 +219,24 @@ export default function Insights() {
               {uiMode === 'admin' && (
                 <CueTelemetryHealth userId={user!.id} daysBack={30} />
               )}
+
+              {/* PHASE 3: Smart Recommendations (Always visible at top) */}
+              {recommendations.length > 0 && (
+                <Card className="p-4 border-primary/50 bg-primary/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lightbulb className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold">Smart Recommendations</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {recommendations.slice(0, 3).map((rec, i) => (
+                      <Alert key={i} className="border-primary/20 py-2">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <AlertDescription className="text-sm">{rec}</AlertDescription>
+                      </Alert>
+                    ))}
+                  </div>
+                </Card>
+              )}
               
               {/* Speech Analysis Section */}
               <Collapsible open={speechExpanded} onOpenChange={setSpeechExpanded}>
@@ -236,7 +267,7 @@ export default function Insights() {
                 </Card>
               </Collapsible>
 
-              {/* Speech Lab Panel (Phoneme-level analysis) */}
+              {/* Pronunciation & Fluency (Secondary, collapsed) */}
               <Collapsible open={speechLabExpanded} onOpenChange={setSpeechLabExpanded}>
                 <Card className="overflow-hidden">
                   <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
@@ -245,9 +276,9 @@ export default function Insights() {
                         <AudioWaveform className="w-5 h-5 text-primary" />
                       </div>
                       <div className="text-left">
-                        <h3 className="font-semibold">Speech Lab</h3>
+                        <h3 className="font-semibold">Pronunciation & Fluency</h3>
                         <p className="text-sm text-muted-foreground">
-                          Pipeline status, alignment metrics, and phoneme analysis
+                          Phoneme accuracy and micro-fluency patterns
                         </p>
                       </div>
                     </div>
@@ -259,7 +290,6 @@ export default function Insights() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="p-4 pt-0 border-t space-y-4">
-                      <SpeechLabPanel userId={user!.id} daysBack={7} />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <PronunciationScoreCard userId={user!.id} daysBack={7} />
                         <MicroFluencyCard userId={user!.id} daysBack={7} />
@@ -269,35 +299,7 @@ export default function Insights() {
                 </Card>
               </Collapsible>
 
-              {/* Cue Telemetry (Admin only) */}
-              {uiMode === 'admin' && (
-                <Collapsible>
-                  <Card className="overflow-hidden">
-                    <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-amber-500/10">
-                          <Lightbulb className="w-5 h-5 text-amber-500" />
-                        </div>
-                        <div className="text-left">
-                          <h3 className="font-semibold">Cue Telemetry</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Cue delivery, triggers, and effectiveness
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="ml-2">Admin</Badge>
-                      </div>
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="p-4 pt-0 border-t">
-                        <CueTelemetryDashboard userId={user!.id} daysBack={7} />
-                      </div>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-              )}
-
-              {/* Cross-Domain Intelligence Section */}
+              {/* Cross-Domain Details (Secondary, collapsed) */}
               <Collapsible open={intelligenceExpanded} onOpenChange={setIntelligenceExpanded}>
                 <Card className="overflow-hidden">
                   <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
@@ -320,9 +322,11 @@ export default function Insights() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="p-4 pt-0 border-t space-y-6">
+                      {/* Hide recommendations from CrossDomain since they're now at top */}
                       <CrossDomainInsightsDashboard 
                         userId={user!.id} 
                         profileId={activeProfile?.id}
+                        hideRecommendations={true}
                       />
                       
                       {clinicalProfile && (
@@ -348,6 +352,39 @@ export default function Insights() {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
+
+              {/* PHASE 4: Diagnostics (Admin only, consolidated) */}
+              {uiMode === 'admin' && (
+                <Collapsible open={diagnosticsExpanded} onOpenChange={setDiagnosticsExpanded}>
+                  <Card className="overflow-hidden">
+                    <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-amber-500/10">
+                          <Wrench className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold">Diagnostics</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Pipeline status, cue telemetry, and debug tools
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="ml-2">Admin</Badge>
+                      </div>
+                      {diagnosticsExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 pt-0 border-t space-y-6">
+                        <SpeechLabPanel userId={user!.id} daysBack={7} />
+                        <CueTelemetryDashboard userId={user!.id} daysBack={7} />
+                      </div>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
             </TabsContent>
           )}
 
