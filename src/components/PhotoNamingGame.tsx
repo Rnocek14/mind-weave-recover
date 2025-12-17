@@ -93,7 +93,9 @@ export const PhotoNamingGame = ({
     return urlParams.get('debug') === 'cue' || localStorage.getItem('cue-debug') === 'true';
   });
 
-  // Keyboard shortcut for debug overlay (Ctrl+Shift+D)
+  const { toast: showToast } = useToast();
+
+  // Keyboard shortcut for debug overlay (Ctrl+Shift+D or Cmd+Shift+D)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
@@ -103,10 +105,15 @@ export const PhotoNamingGame = ({
           const newVal = !prev;
           if (newVal) {
             localStorage.setItem('cue-debug', 'true');
-            console.log('🐛 Cue debug overlay enabled');
+            showToast({
+              title: "🐛 Cue debug overlay enabled",
+              description: "Persisted for this browser",
+            });
           } else {
             localStorage.removeItem('cue-debug');
-            console.log('🐛 Cue debug overlay disabled');
+            showToast({
+              title: "Cue debug overlay disabled",
+            });
           }
           return newVal;
         });
@@ -114,7 +121,7 @@ export const PhotoNamingGame = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showToast]);
   
   // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);
