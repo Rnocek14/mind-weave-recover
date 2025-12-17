@@ -41,7 +41,7 @@ interface ErrorPatternAnalytics {
   totalTrials: number;
   overallAccuracy: number;
   // New: top challenging targets
-  challengingTargets: { target: string; errorRate: number; attempts: number }[];
+  challengingTargets: { target: string; errorRate: number; attempts: number; exampleAudioPath?: string }[];
   // New: category performance
   categoryPerformance: { category: string; accuracy: number; attempts: number }[];
 }
@@ -76,7 +76,8 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
           effortful_speech,
           phonological_similarity,
           semantic_similarity,
-          created_at
+          created_at,
+          audio_storage_path
         `)
         .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())
@@ -195,12 +196,18 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
       };
 
       // Calculate challenging targets (highest error rate with min 3 attempts)
-      const targetStatsMap = new Map<string, { errors: number; total: number }>();
+      const targetStatsMap = new Map<string, { errors: number; total: number; exampleAudioPath?: string }>();
       data.forEach(event => {
         if (event.target_word) {
-          const existing = targetStatsMap.get(event.target_word) || { errors: 0, total: 0 };
+          const existing = targetStatsMap.get(event.target_word) || { errors: 0, total: 0, exampleAudioPath: undefined };
           existing.total++;
-          if (!event.is_correct) existing.errors++;
+          if (!event.is_correct) {
+            existing.errors++;
+            // Keep first error audio example
+            if (!existing.exampleAudioPath && event.audio_storage_path) {
+              existing.exampleAudioPath = event.audio_storage_path;
+            }
+          }
           targetStatsMap.set(event.target_word, existing);
         }
       });
@@ -211,6 +218,7 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
           target,
           errorRate: d.total > 0 ? d.errors / d.total : 0,
           attempts: d.total,
+          exampleAudioPath: d.exampleAudioPath,
         }))
         .sort((a, b) => b.errorRate - a.errorRate)
         .slice(0, 10);
