@@ -3,10 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Volume2, List, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { RecoverySummaryCard } from "@/components/RecoverySummaryCard";
-import { StrokeEducationPanel } from "@/components/StrokeEducationPanel";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
@@ -22,10 +20,55 @@ import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   ProgressCardSkeleton, 
-  RecoverySummarySkeleton, 
   ExerciseCardSkeleton,
   ExerciseStatsTileSkeleton
 } from "./DashboardSkeletons";
+
+// Collapsible section wrapper component
+const CollapsibleSection = ({ 
+  title, 
+  icon: Icon, 
+  defaultOpen = false, 
+  hint,
+  children,
+  badge
+}: { 
+  title: string; 
+  icon: React.ElementType; 
+  defaultOpen?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-card border rounded-lg hover:bg-muted/50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <Icon className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-lg">{title}</span>
+            {badge}
+          </div>
+          <div className="flex items-center gap-2">
+            {hint && !isOpen && (
+              <span className="text-sm text-muted-foreground hidden sm:block">{hint}</span>
+            )}
+            {isOpen ? (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            )}
+          </div>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-4 animate-fade-in">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
 
 export const OverviewTab = memo(function OverviewTab() {
   const {
@@ -78,121 +121,161 @@ export const OverviewTab = memo(function OverviewTab() {
   }, []);
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Red Flag Alerts */}
+    <div className="space-y-6 animate-fade-in">
+      {/* ===== RED FLAGS - Always visible if present ===== */}
       {redFlags.length > 0 && (
         <RedFlagAlerts flags={redFlags} />
       )}
 
-      {/* Dose Cap Warning */}
-      {doseCap.warningLevel !== 'safe' && doseCap.warningLevel !== 'limit' && doseCap.enforceCaps && (
-        <Card className="p-6 border-primary/50 bg-primary/5">
-          <h3 className="font-semibold mb-2">Practice Progress Today</h3>
-          <p className="text-sm text-muted-foreground mb-3">
-            You've practiced for {doseCap.todayMinutes} minutes today. 
-            {doseCap.minutesRemaining > 0 
-              ? ` About ${doseCap.minutesRemaining} minutes remaining before your daily goal.`
-              : ' Great work reaching your goal!'
-            }
-          </p>
-          <Progress value={(doseCap.todayMinutes / doseCap.dailyCapMinutes) * 100} className="h-2" />
-        </Card>
-      )}
+      {/* ===== PRIMARY ACTION AREA - Always at top ===== */}
+      <Card className="p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Ready to Practice?</h2>
+            {doseCap.warningLevel !== 'safe' && doseCap.enforceCaps && (
+              <Badge variant="secondary" className="gap-1">
+                {doseCap.minutesRemaining > 0 ? `${doseCap.minutesRemaining}min left` : 'Goal reached!'}
+              </Badge>
+            )}
+          </div>
+          
+          {/* Main action buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button 
+              size="lg" 
+              className="flex-1 bg-gradient-healing hover:opacity-90 text-lg h-14"
+              onClick={() => {
+                if (lesson) {
+                  navigate("/lesson", { state: { lesson, clinicalProfile } });
+                }
+              }}
+              disabled={!lesson || doseCap.warningLevel === 'limit'}
+            >
+              <Play className="w-6 h-6 mr-2" />
+              Start Today's Session
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="flex-1 h-14"
+              onClick={() => navigate("/exercise/photo-naming")}
+              disabled={doseCap.warningLevel === 'limit'}
+            >
+              <List className="w-5 h-5 mr-2" />
+              Choose a Game
+            </Button>
+          </div>
 
-      {/* Today's Session Stats */}
-      {!showProgress ? (
-        <ProgressCardSkeleton />
-      ) : (
-        <>
-          <TodaysSessionStats />
-          <WeeklyTrendsChart />
-        </>
-      )}
+          {/* Assessment prompt if needed */}
+          {!hasAssessment && (
+            <Button 
+              variant="ghost" 
+              className="w-full text-primary"
+              onClick={onStartAssessment}
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              Complete quick assessment to personalize exercises
+            </Button>
+          )}
 
-      {/* Recovery Snapshot - Primary Intelligence View */}
+          {/* Dose cap progress if relevant */}
+          {doseCap.warningLevel !== 'safe' && doseCap.warningLevel !== 'limit' && doseCap.enforceCaps && (
+            <div className="pt-2 border-t">
+              <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                <span>Today's progress</span>
+                <span>{doseCap.todayMinutes} / {doseCap.dailyCapMinutes} min</span>
+              </div>
+              <Progress value={(doseCap.todayMinutes / doseCap.dailyCapMinutes) * 100} className="h-2" />
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* ===== COLLAPSIBLE SECTIONS ===== */}
+      
+      {/* Insights Section - Key takeaways */}
       {showRecoveryIntel && (
-        <div className="animate-fade-in">
+        <CollapsibleSection 
+          title="Your Recovery Insights" 
+          icon={Lightbulb}
+          defaultOpen={false}
+          hint="See your progress summary"
+          badge={
+            <Badge variant="outline" className="text-xs">AI Summary</Badge>
+          }
+        >
           <RecoverySnapshot userId={userId} />
-        </div>
+        </CollapsibleSection>
       )}
 
-      {/* Today's Personalized Plan */}
-      {!showPlan ? (
-        <ProgressCardSkeleton delay={0} />
-      ) : (
-        <div className="animate-fade-in">
-          <TodaysPlanCard
-            userId={userId}
-            clinicalProfile={clinicalProfile}
-            onStartAssessment={onStartAssessment}
-            onStartLesson={() => {
-              if (lesson) {
-                navigate("/lesson", { state: { lesson, clinicalProfile } });
-              }
-            }}
-            doseCapReached={doseCap.warningLevel === 'limit'}
-          />
-        </div>
-      )}
+      {/* Progress Section - Stats and trends */}
+      <CollapsibleSection 
+        title="Today's Stats & Trends" 
+        icon={TrendingUp}
+        defaultOpen={false}
+        hint="View session data"
+      >
+        {!showProgress ? (
+          <ProgressCardSkeleton />
+        ) : (
+          <div className="space-y-4">
+            <TodaysSessionStats />
+            <WeeklyTrendsChart />
+          </div>
+        )}
+      </CollapsibleSection>
 
-      {/* Language Recovery Quick Stats */}
-      {!showLanguageStats ? (
-        <div>
-          <h2 className="text-xl md:text-2xl font-semibold mb-4">Language Progress at a Glance</h2>
+      {/* Language Progress Section */}
+      <CollapsibleSection 
+        title="Language Progress" 
+        icon={MessageSquare}
+        defaultOpen={false}
+        hint="Track by exercise type"
+      >
+        {!showLanguageStats ? (
           <div className="grid md:grid-cols-3 gap-4">
             <ExerciseStatsTileSkeleton delay={0} />
             <ExerciseStatsTileSkeleton delay={100} />
             <ExerciseStatsTileSkeleton delay={200} />
           </div>
-        </div>
-      ) : (
-        <div className="animate-fade-in">
-          <div className="flex items-center gap-3 mb-4">
-            <MessageSquare className="w-6 h-6 text-primary" />
-            <h2 className="text-xl md:text-2xl font-semibold">Language Progress at a Glance</h2>
-          </div>
+        ) : (
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="animate-fade-in" style={{ animationDelay: '100ms' }}>
-              <ExerciseStatsTile
-                userId={userId}
-                exerciseSlug="semantic-features"
-                exerciseTitle="Semantic Features"
-              />
-            </div>
-            <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <ExerciseStatsTile
-                userId={userId}
-                exerciseSlug="phonological"
-                exerciseTitle="Phonological"
-              />
-            </div>
-            <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <ExerciseStatsTile
-                userId={userId}
-                exerciseSlug="sentence-construction"
-                exerciseTitle="Grammar"
-              />
-            </div>
+            <ExerciseStatsTile
+              userId={userId}
+              exerciseSlug="semantic-features"
+              exerciseTitle="Semantic Features"
+            />
+            <ExerciseStatsTile
+              userId={userId}
+              exerciseSlug="phonological"
+              exerciseTitle="Phonological"
+            />
+            <ExerciseStatsTile
+              userId={userId}
+              exerciseSlug="sentence-construction"
+              exerciseTitle="Grammar"
+            />
           </div>
-        </div>
-      )}
+        )}
+      </CollapsibleSection>
 
-      {/* Recommended Exercises */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl md:text-2xl font-semibold">
-            {clinicalProfile ? 'Recommended Exercises' : "Today's Exercises"}
-          </h2>
-          {clinicalProfile && (
-            <Badge variant="secondary" className="gap-1">
+      {/* All Exercises Section */}
+      <CollapsibleSection 
+        title="All Exercises" 
+        icon={Target}
+        defaultOpen={false}
+        hint={`${recommendedExercises.length} available`}
+        badge={
+          clinicalProfile && (
+            <Badge variant="secondary" className="gap-1 text-xs">
               <Brain className="w-3 h-3" />
               Personalized
             </Badge>
-          )}
-        </div>
-        
+          )
+        }
+      >
         {showExercises && (
-          <div className="animate-fade-in mb-4">
+          <div className="mb-4">
             <CapabilityGatingInfo
               hasAssessment={hasAssessment}
               lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
@@ -214,23 +297,21 @@ export const OverviewTab = memo(function OverviewTab() {
             <ExerciseCardSkeleton delay={200} />
           </div>
         ) : isMobile ? (
-          <div className="animate-fade-in">
-            <ExerciseCarousel
-              exercises={recommendedExercises}
-              onStartExercise={(slug) => navigate(`/exercise/${slug}`)}
-              gatingInfo={Object.fromEntries(
-                recommendedExercises.map((ex) => {
-                  const accessCheck = checkExerciseAccess(ex.id);
-                  return [ex.id, {
-                    blocked: !accessCheck.accessible,
-                    reason: accessCheck.reason,
-                  }];
-                })
-              )}
-            />
-          </div>
+          <ExerciseCarousel
+            exercises={recommendedExercises}
+            onStartExercise={(slug) => navigate(`/exercise/${slug}`)}
+            gatingInfo={Object.fromEntries(
+              recommendedExercises.map((ex) => {
+                const accessCheck = checkExerciseAccess(ex.id);
+                return [ex.id, {
+                  blocked: !accessCheck.accessible,
+                  reason: accessCheck.reason,
+                }];
+              })
+            )}
+          />
         ) : (
-          <div className="grid md:grid-cols-3 gap-4 animate-fade-in">
+          <div className="grid md:grid-cols-3 gap-4">
             {recommendedExercises.map((exercise, index) => {
             const Icon = exercise.icon;
             const recommendation = recommendations.find(r => r.slug === exercise.id);
@@ -317,7 +398,7 @@ export const OverviewTab = memo(function OverviewTab() {
           })}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
     </div>
   );
 });
