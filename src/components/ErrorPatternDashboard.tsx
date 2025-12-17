@@ -8,7 +8,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, L
 import { AudioPlayback } from './AudioPlayback';
 import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
 import { ClinicalTerm } from './ClinicalTerm';
-import { getErrorLabel, getCueLabel } from '@/lib/insightLanguageMap';
+import { getErrorLabel, getCueLabel, getErrorTermInfo } from '@/lib/insightLanguageMap';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -324,7 +324,11 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                     {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
                   </Badge>
                   {target.exampleAudioPath && (
-                    <AudioPlayback storagePath={target.exampleAudioPath} className="h-6 w-6 p-0" />
+                    <AudioPlayback 
+                      storagePath={target.exampleAudioPath} 
+                      className="h-6 w-6 p-0"
+                      listenForHint="Clarity on this word"
+                    />
                   )}
                 </div>
               ))}

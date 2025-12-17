@@ -13,6 +13,7 @@ import { memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RecoveryMotivationCards } from '@/components/RecoveryMotivationCards';
+import { CaregiverCoachingCard } from '@/components/CaregiverCoachingCard';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -316,6 +317,9 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Caregiver Coaching Card - actionable advice based on cue data */}
+      <CaregiverCoachingCard cueEfficacy={errorAnalytics?.cueEfficacy} />
 
       {/* Section 4: Today's Focus - "What should I do next?" */}
       {focuses.length > 0 && (
