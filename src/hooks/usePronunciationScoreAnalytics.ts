@@ -125,8 +125,15 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
     // Phoneme aggregation
     const phonemeMap = new Map<string, { total: number; count: number }>();
     
-    // Word aggregation with example audio
-    const wordMap = new Map<string, { total: number; count: number; exampleAudioPath?: string }>();
+    // Word aggregation with example audio (track min/max score examples)
+    const wordMap = new Map<string, { 
+      total: number; 
+      count: number; 
+      minScore: number;
+      maxScore: number;
+      minScoreAudioPath?: string;
+      maxScoreAudioPath?: string;
+    }>();
 
     // Daily aggregation for trends
     const dailyMap = new Map<string, { total: number; count: number }>();
@@ -145,16 +152,41 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         prosodyCount++;
       }
 
-      // Word-level scores with example audio
+      // Word-level scores with min/max score examples for better representation
       const targetWord = row.target_word?.toLowerCase();
-      if (targetWord && gop.pronunciationScore) {
-        const existing = wordMap.get(targetWord) || { total: 0, count: 0, exampleAudioPath: undefined };
-        wordMap.set(targetWord, {
-          total: existing.total + gop.pronunciationScore,
-          count: existing.count + 1,
-          // Keep first audio example we find for this word
-          exampleAudioPath: existing.exampleAudioPath || row.audio_storage_path || undefined
-        });
+      const score = gop.pronunciationScore;
+      if (targetWord && score) {
+        const existing = wordMap.get(targetWord);
+        if (!existing) {
+          wordMap.set(targetWord, {
+            total: score,
+            count: 1,
+            minScore: score,
+            maxScore: score,
+            minScoreAudioPath: row.audio_storage_path || undefined,
+            maxScoreAudioPath: row.audio_storage_path || undefined
+          });
+        } else {
+          const updated = {
+            total: existing.total + score,
+            count: existing.count + 1,
+            minScore: existing.minScore,
+            maxScore: existing.maxScore,
+            minScoreAudioPath: existing.minScoreAudioPath,
+            maxScoreAudioPath: existing.maxScoreAudioPath
+          };
+          // Update min if this score is lower
+          if (score < existing.minScore) {
+            updated.minScore = score;
+            updated.minScoreAudioPath = row.audio_storage_path || undefined;
+          }
+          // Update max if this score is higher
+          if (score > existing.maxScore) {
+            updated.maxScore = score;
+            updated.maxScoreAudioPath = row.audio_storage_path || undefined;
+          }
+          wordMap.set(targetWord, updated);
+        }
       }
 
       // Phoneme-level scores
@@ -196,16 +228,26 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       }))
       .sort((a, b) => a.avgAccuracy - b.avgAccuracy);
 
-    // Convert word map to sorted array
-    const wordStats: WordStats[] = Array.from(wordMap.entries())
+    // Convert word map to sorted array - use min score audio for practice, max for best
+    const sortedWords = Array.from(wordMap.entries())
       .filter(([_, stats]) => stats.count >= 1)
-      .map(([word, stats]) => ({
-        word,
-        avgScore: Math.round(stats.total / stats.count),
-        sampleCount: stats.count,
-        exampleAudioPath: stats.exampleAudioPath
-      }))
-      .sort((a, b) => a.avgScore - b.avgScore);
+      .sort((a, b) => a[1].total / a[1].count - b[1].total / b[1].count);
+
+    // Words to practice: lowest scores, use minScoreAudioPath (worst example)
+    const needsPracticeWords: WordStats[] = sortedWords.slice(0, 5).map(([word, stats]) => ({
+      word,
+      avgScore: Math.round(stats.total / stats.count),
+      sampleCount: stats.count,
+      exampleAudioPath: stats.minScoreAudioPath  // Show worst attempt
+    }));
+
+    // Best words: highest scores, use maxScoreAudioPath (best example)
+    const bestWords: WordStats[] = sortedWords.slice(-5).reverse().map(([word, stats]) => ({
+      word,
+      avgScore: Math.round(stats.total / stats.count),
+      sampleCount: stats.count,
+      exampleAudioPath: stats.maxScoreAudioPath  // Show best attempt
+    }));
 
     // Convert daily map to trend array
     const weeklyTrend: DailyTrend[] = Array.from(dailyMap.entries())
@@ -238,8 +280,8 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       sampleCount: count,
       hardestPhonemes: phonemeStats.slice(0, 5),
       strongestPhonemes: phonemeStats.slice(-5).reverse(),
-      needsPracticeWords: wordStats.slice(0, 5),
-      bestWords: wordStats.slice(-5).reverse(),
+      needsPracticeWords,
+      bestWords,
       weeklyTrend,
       weekOverWeekChange
     };

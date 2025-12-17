@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { audioManager } from '@/lib/audioManager';
 
 interface AudioPlaybackProps {
   storagePath: string;
@@ -16,7 +17,7 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Load audio URL
+    // Load signed URL (short-lived, scoped by RLS to current user)
     const loadAudio = async () => {
       try {
         const { data } = await supabase.storage
@@ -34,36 +35,35 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
     loadAudio();
   }, [storagePath]);
 
+  // Sync isPlaying state with global audio manager
   useEffect(() => {
-    // Setup audio element
-    if (audioUrl && !audioRef.current) {
-      const audio = new Audio(audioUrl);
-      audio.addEventListener('ended', () => setIsPlaying(false));
-      audio.addEventListener('pause', () => setIsPlaying(false));
-      audioRef.current = audio;
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+    const checkPlaying = () => {
+      setIsPlaying(audioManager.isPlaying(audioRef.current));
     };
-  }, [audioUrl]);
+    
+    // Check periodically in case another audio started
+    const interval = setInterval(checkPlaying, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   const togglePlayback = async () => {
-    if (!audioRef.current) {
+    if (!audioUrl) {
       toast.error('Audio not available');
       return;
     }
 
     try {
       if (isPlaying) {
-        audioRef.current.pause();
+        audioManager.stop();
         setIsPlaying(false);
       } else {
         setIsLoading(true);
-        await audioRef.current.play();
+        // Global manager stops any other playing audio automatically
+        const audio = await audioManager.play(audioUrl, () => {
+          setIsPlaying(false);
+          audioRef.current = null;
+        });
+        audioRef.current = audio;
         setIsPlaying(true);
         setIsLoading(false);
       }
