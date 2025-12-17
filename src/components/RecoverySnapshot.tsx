@@ -12,6 +12,7 @@
 import { memo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { RecoveryMotivationCards } from '@/components/RecoveryMotivationCards';
 import { CaregiverCoachingCard } from '@/components/CaregiverCoachingCard';
 import { Badge } from '@/components/ui/badge';
@@ -30,8 +31,10 @@ import {
   Brain,
   Zap,
   Activity,
-  ChevronDown
+  ChevronDown,
+  Play
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
@@ -84,6 +87,7 @@ const TrendIcon = ({ verdict }: { verdict: TrendVerdict }) => {
 };
 
 export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
+  const navigate = useNavigate();
   const { activeProfile } = useProfile();
   const { uiMode, isAtLeast } = useUiMode();
   const { learningRates, isLoading: learningLoading } = useLearningRate(userId);
@@ -96,6 +100,7 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   const showDetailedSections = isAtLeast('caregiver');
   const showClinicianEvidence = isAtLeast('clinician');
   const isPatientMode = uiMode === 'patient';
+  const showSessionCTA = !isAtLeast('clinician'); // Patient/caregiver only
   
   // Progressive disclosure state for patient mode
   const [patientDetailsOpen, setPatientDetailsOpen] = useState(false);
@@ -243,6 +248,25 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
           {headline.emoji} {headline.text}
         </p>
       </div>
+
+      {/* Session CTA - converts insight to action (patient/caregiver only) */}
+      {showSessionCTA && (
+        <Card className="p-4 border-primary/30 bg-primary/5">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-center sm:text-left">
+              <p className="font-medium">Ready to practice?</p>
+              <p className="text-sm text-muted-foreground">Small daily sessions improve your trends.</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/lesson')} 
+              className="gap-2 shrink-0"
+            >
+              <Play className="h-4 w-4" />
+              Start a 5-minute session
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Section 1: Recovery Trend - "Am I improving?" */}
       <RecoveryMotivationCards userId={userId} />
