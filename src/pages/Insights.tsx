@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Activity, Brain, Stethoscope, 
-  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText
+  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText, Lightbulb
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -26,6 +26,7 @@ import { PronunciationScoreCard } from "@/components/PronunciationScoreCard";
 
 // Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
+import { CueTelemetryDashboard } from "@/components/CueTelemetryDashboard";
 import { ClusterComparisonDashboard } from "@/components/ClusterComparisonDashboard";
 
 // Clinical tab components
@@ -257,6 +258,34 @@ export default function Insights() {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
+
+              {/* Cue Telemetry (Admin only) */}
+              {uiMode === 'admin' && (
+                <Collapsible>
+                  <Card className="overflow-hidden">
+                    <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-amber-500/10">
+                          <Lightbulb className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold">Cue Telemetry</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Cue delivery, triggers, and effectiveness
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="ml-2">Admin</Badge>
+                      </div>
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 pt-0 border-t">
+                        <CueTelemetryDashboard userId={user!.id} daysBack={7} />
+                      </div>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
 
               {/* Cross-Domain Intelligence Section */}
               <Collapsible open={intelligenceExpanded} onOpenChange={setIntelligenceExpanded}>

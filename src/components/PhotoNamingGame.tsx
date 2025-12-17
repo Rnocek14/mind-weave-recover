@@ -22,6 +22,7 @@ import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
+import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -86,6 +87,11 @@ export const PhotoNamingGame = ({
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
+  const [showDebugOverlay, setShowDebugOverlay] = useState(() => {
+    // Enable via URL param ?debug=cue or localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('debug') === 'cue' || localStorage.getItem('cue-debug') === 'true';
+  });
   
   // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);
@@ -1747,6 +1753,19 @@ export const PhotoNamingGame = ({
           </p>
         </div>
       )}
+
+      {/* Debug Overlay (enable via ?debug=cue or localStorage.setItem('cue-debug', 'true')) */}
+      <CueDebugOverlay
+        visible={showDebugOverlay}
+        stallDetected={stallDetected}
+        consecutiveErrors={consecutiveErrors}
+        autoCueShownThisTrial={autoCueShownThisTrialRef.current}
+        cueLevel={cueLevel}
+        cueType={cueState?.type || null}
+        cueTrigger={cueState?.trigger || null}
+        cueShownAt={cueState?.shownAt || null}
+        trialNumber={state.trialNumber}
+      />
     </div>
   );
 };
