@@ -7,9 +7,10 @@ import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorre
 interface CrossDomainInsightsDashboardProps {
   userId: string;
   profileId?: string;
+  hideRecommendations?: boolean; // PHASE 3: Allow hiding recommendations when shown at top level
 }
 
-export const CrossDomainInsightsDashboard = ({ userId, profileId }: CrossDomainInsightsDashboardProps) => {
+export const CrossDomainInsightsDashboard = ({ userId, profileId, hideRecommendations = false }: CrossDomainInsightsDashboardProps) => {
   const { analytics, isLoading, error } = useCapabilitySpeechCorrelation(userId, profileId);
 
   if (isLoading) {
@@ -39,8 +40,8 @@ export const CrossDomainInsightsDashboard = ({ userId, profileId }: CrossDomainI
 
   return (
     <div className="space-y-6">
-      {/* Smart Recommendations */}
-      {analytics.recommendations.length > 0 && (
+      {/* Smart Recommendations - conditionally hidden when elevated to top level */}
+      {!hideRecommendations && analytics.recommendations.length > 0 && (
         <Card className="border-primary/50 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

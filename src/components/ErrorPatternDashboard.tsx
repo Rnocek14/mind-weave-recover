@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock, ChevronDown, BarChart3, Headphones } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
+import { useUiMode } from '@/hooks/useUiMode';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { AudioPlayback } from './AudioPlayback';
 import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
 import { ClinicalTerm } from './ClinicalTerm';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getErrorLabel, getCueLabel, getErrorTermInfo, getListenForHint } from '@/lib/insightLanguageMap';
 
 interface ErrorPatternDashboardProps {
@@ -28,8 +31,13 @@ const ERROR_COLORS: Record<string, string> = {
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
   const { analytics, isLoading, error } = useErrorPatternAnalytics(userId, weeksBack);
+  const { uiMode } = useUiMode();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [showUpdateBadge, setShowUpdateBadge] = useState(false);
+  
+  // Default: admin shows charts, clinician hides; all hide evidence
+  const [showCharts, setShowCharts] = useState(uiMode === 'admin');
+  const [showEvidence, setShowEvidence] = useState(false);
 
   useEffect(() => {
     if (analytics && !isLoading) {
@@ -71,6 +79,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
       </Card>
     );
   }
+
   const errorData = [
     { name: getErrorLabel('correct'), value: analytics.errorBreakdown.correct, color: ERROR_COLORS.correct },
     { name: getErrorLabel('attempted'), value: analytics.errorBreakdown.attempted, color: ERROR_COLORS.attempted },
@@ -103,6 +112,39 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
     attempts: cp.attempts,
   }));
 
+  // ==== PHASE 1: Derive Key Finding headline ====
+  // Find top error type (excluding 'correct')
+  const errorBreakdownEntries = Object.entries(analytics.errorBreakdown)
+    .filter(([key]) => key !== 'correct')
+    .map(([key, val]) => ({ type: key, count: val as number }))
+    .filter(e => e.count > 0)
+    .sort((a, b) => b.count - a.count);
+  
+  const topError = errorBreakdownEntries[0];
+  const topErrorPct = topError ? Math.round((topError.count / analytics.totalTrials) * 100) : 0;
+  
+  // Best cue
+  const bestCue = analytics.cueEfficacy.length > 0
+    ? [...analytics.cueEfficacy].sort((a, b) => b.efficacyRate - a.efficacyRate)[0]
+    : null;
+
+  // Build the key finding sentence
+  let keyFinding = '';
+  if (topError && topErrorPct >= 10) {
+    const errorLabel = getErrorLabel(topError.type);
+    keyFinding = `Main challenge: ${errorLabel.toLowerCase()} (${topErrorPct}% of trials).`;
+    if (bestCue && bestCue.efficacyRate > 0.5) {
+      keyFinding += ` ${getCueLabel(bestCue.cueType)} hints work best (${Math.round(bestCue.efficacyRate * 100)}% effective, n=${bestCue.totalGiven}).`;
+    }
+  } else if (analytics.overallAccuracy >= 80) {
+    keyFinding = `Strong performance: ${analytics.overallAccuracy.toFixed(0)}% accuracy across ${analytics.totalTrials} trials.`;
+    if (cueTrend < 0) {
+      keyFinding += ' Cue dependency is decreasing — great progress!';
+    }
+  } else {
+    keyFinding = `${analytics.totalTrials} trials analyzed. Building your speech profile...`;
+  }
+
   return (
     <div className="space-y-6">
       {/* Real-time Status Badge */}
@@ -119,7 +161,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
         )}
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards (always visible) */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -179,300 +221,343 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.cueEfficacy.length > 0 ? (() => {
-              const best = [...analytics.cueEfficacy].sort((a, b) => b.efficacyRate - a.efficacyRate)[0];
-              return (
-                <>
-                  <div className="text-2xl font-bold">
-                    {getCueLabel(best.cueType)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {Math.round(best.efficacyRate * 100)}% effective
-                  </p>
-                </>
-              );
-            })() : (
+            {bestCue ? (
+              <>
+                <div className="text-2xl font-bold">
+                  {getCueLabel(bestCue.cueType)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {Math.round(bestCue.efficacyRate * 100)}% effective
+                </p>
+              </>
+            ) : (
               <div className="text-muted-foreground">No cue data</div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Error Breakdown Pie Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Response Distribution</CardTitle>
-          <CardDescription>
-            Breakdown of {analytics.totalTrials} responses including {totalErrors} errors
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {errorData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={errorData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {errorData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No data available
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Two-column layout for cue efficacy and category performance */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Cue Efficacy */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" /> Cue Efficacy
-            </CardTitle>
-            <CardDescription>How well each cue type helps</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {cueEfficacyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={cueEfficacyData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                    }}
-                    formatter={(value: number) => [`${value}%`, 'Efficacy']}
-                  />
-                  <Bar dataKey="efficacy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                No cue data available
-              </div>
-            )}
-          </CardContent>
+      {/* PHASE 1: Key Finding Headline (always visible) */}
+      {keyFinding && (
+        <Card className="p-4 bg-primary/5 border-primary/30">
+          <div className="flex items-start gap-3">
+            <Brain className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <p className="text-sm font-medium">{keyFinding}</p>
+          </div>
         </Card>
+      )}
 
-        {/* Category Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" /> Category Performance
-            </CardTitle>
-            <CardDescription>Accuracy by word category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {categoryData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={categoryData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                    }}
-                    formatter={(value: number) => [`${value}%`, 'Accuracy']}
-                  />
-                  <Bar dataKey="accuracy" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                No category data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* PHASE 2: Toggle Buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant={showCharts ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowCharts(!showCharts)}
+          className="gap-2"
+        >
+          <BarChart3 className="h-4 w-4" />
+          {showCharts ? 'Hide charts' : 'Show charts'}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showCharts ? 'rotate-180' : ''}`} />
+        </Button>
+        <Button
+          variant={showEvidence ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowEvidence(!showEvidence)}
+          className="gap-2"
+        >
+          <Headphones className="h-4 w-4" />
+          {showEvidence ? 'Hide evidence' : 'Show evidence'}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showEvidence ? 'rotate-180' : ''}`} />
+        </Button>
       </div>
 
-      {/* Challenging Targets */}
-      {analytics.challengingTargets.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Most Challenging Words</CardTitle>
-            <CardDescription>Words with highest error rates (min 3 attempts)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {analytics.challengingTargets.slice(0, 10).map((target, i) => (
-                <div key={target.target} className="flex items-center gap-1">
-                  <Badge 
-                    variant={target.errorRate > 0.5 ? "destructive" : "secondary"}
-                    className="text-sm"
-                  >
-                    {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
-                  </Badge>
-                  {target.exampleAudioPath && (
-                    <AudioPlayback 
-                      storagePath={target.exampleAudioPath} 
-                      className="h-6 w-6 p-0"
-                      listenForHint="Clarity on this word"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Audio Examples by Error Type */}
-      {Object.keys(analytics.errorTypeExamples).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Radio className="h-5 w-5" /> Audio Examples by Error Type
-            </CardTitle>
-            <CardDescription>Listen to example recordings for each error pattern</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(analytics.errorTypeExamples).map(([errorType, examples]) => (
-                <div key={errorType} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge 
-                      style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
-                      className="text-white"
+      {/* PHASE 2: Charts Section (collapsible) */}
+      <Collapsible open={showCharts}>
+        <CollapsibleContent className="space-y-6">
+          {/* Error Breakdown Pie Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Response Distribution</CardTitle>
+              <CardDescription>
+                Breakdown of {analytics.totalTrials} responses including {totalErrors} errors
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {errorData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={errorData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
-                      <ClinicalTerm type="error" value={errorType} />
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
-                  </div>
-                  <div className="grid gap-2 ml-2">
-                    {examples.map((example, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-md">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">Target: {example.target}</span>
-                            {example.transcript && (
-                              <span className="text-xs text-muted-foreground truncate">
-                                → "{example.transcript}"
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <AudioPlaybackWithWaveform 
-                              storagePath={example.audioPath} 
-                              showWaveform={true}
-                              listenForHint={getListenForHint(errorType)}
-                            />
-                            <span className="text-xs text-muted-foreground shrink-0">
-                              {new Date(example.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      {errorData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No data available
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      <Card>
-        <CardHeader>
-          <CardTitle>Cue Dependency Over Time</CardTitle>
-          <CardDescription>
-            Percentage of trials needing cues (lower is better)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {analytics.cueTrends.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analytics.cueTrends}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))"
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px',
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="avgCues" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  dot={{ fill: 'hsl(var(--primary))' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No cue dependency data available
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Fluency Metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Fluency Metrics</CardTitle>
-          <CardDescription>Speech rate and pause patterns</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-2xl font-bold">
-                {analytics.fluencyMetrics.avgSpeechRateWpm?.toFixed(0) || '—'}
-              </div>
-              <div className="text-xs text-muted-foreground">Avg WPM</div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-2xl font-bold">
-                {analytics.fluencyMetrics.avgPauseCount?.toFixed(1) || '—'}
-              </div>
-              <div className="text-xs text-muted-foreground">Avg Pauses</div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-2xl font-bold">
-                {analytics.fluencyMetrics.avgPauseDurationMs 
-                  ? (analytics.fluencyMetrics.avgPauseDurationMs / 1000).toFixed(1) + 's'
-                  : '—'}
-              </div>
-              <div className="text-xs text-muted-foreground">Avg Pause Duration</div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-2xl font-bold">
-                {Math.round(analytics.fluencyMetrics.effortfulSpeechRate * 100)}%
-              </div>
-              <div className="text-xs text-muted-foreground">Effortful Speech</div>
-            </div>
+          {/* Two-column layout for cue efficacy and category performance */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Cue Efficacy */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5" /> Cue Efficacy
+                </CardTitle>
+                <CardDescription>How well each cue type helps</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {cueEfficacyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={cueEfficacyData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px',
+                        }}
+                        formatter={(value: number) => [`${value}%`, 'Efficacy']}
+                      />
+                      <Bar dataKey="efficacy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No cue data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Category Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" /> Category Performance
+                </CardTitle>
+                <CardDescription>Accuracy by word category</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {categoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={categoryData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px',
+                        }}
+                        formatter={(value: number) => [`${value}%`, 'Accuracy']}
+                      />
+                      <Bar dataKey="accuracy" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No category data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Cue Dependency Over Time */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Cue Dependency Over Time</CardTitle>
+              <CardDescription>
+                Percentage of trials needing cues (lower is better)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {analytics.cueTrends.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={analytics.cueTrends}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="avgCues" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--primary))' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No cue dependency data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Fluency Metrics */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Fluency Metrics</CardTitle>
+              <CardDescription>Speech rate and pause patterns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {analytics.fluencyMetrics.avgSpeechRateWpm?.toFixed(0) || '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg WPM</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {analytics.fluencyMetrics.avgPauseCount?.toFixed(1) || '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg Pauses</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {analytics.fluencyMetrics.avgPauseDurationMs 
+                      ? (analytics.fluencyMetrics.avgPauseDurationMs / 1000).toFixed(1) + 's'
+                      : '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg Pause Duration</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {Math.round(analytics.fluencyMetrics.effortfulSpeechRate * 100)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">Effortful Speech</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* PHASE 2: Evidence Section (collapsible) */}
+      <Collapsible open={showEvidence}>
+        <CollapsibleContent className="space-y-6">
+          {/* Challenging Targets */}
+          {analytics.challengingTargets.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Most Challenging Words</CardTitle>
+                <CardDescription>Words with highest error rates (min 3 attempts)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {analytics.challengingTargets.slice(0, 10).map((target, i) => (
+                    <div key={target.target} className="flex items-center gap-1">
+                      <Badge 
+                        variant={target.errorRate > 0.5 ? "destructive" : "secondary"}
+                        className="text-sm"
+                      >
+                        {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
+                      </Badge>
+                      {target.exampleAudioPath && (
+                        <AudioPlayback 
+                          storagePath={target.exampleAudioPath} 
+                          className="h-6 w-6 p-0"
+                          listenForHint="Clarity on this word"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Audio Examples by Error Type */}
+          {Object.keys(analytics.errorTypeExamples).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Radio className="h-5 w-5" /> Audio Examples by Error Type
+                </CardTitle>
+                <CardDescription>Listen to example recordings for each error pattern</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {Object.entries(analytics.errorTypeExamples).map(([errorType, examples]) => (
+                    <div key={errorType} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge 
+                          style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
+                          className="text-white"
+                        >
+                          <ClinicalTerm type="error" value={errorType} />
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
+                      </div>
+                      <div className="grid gap-2 ml-2">
+                        {examples.map((example, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-md">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm">Target: {example.target}</span>
+                                {example.transcript && (
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    → "{example.transcript}"
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <AudioPlaybackWithWaveform 
+                                  storagePath={example.audioPath} 
+                                  showWaveform={true}
+                                  listenForHint={getListenForHint(errorType)}
+                                />
+                                <span className="text-xs text-muted-foreground shrink-0">
+                                  {new Date(example.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
