@@ -15,12 +15,14 @@ import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import type { ExerciseAdaptation } from '@/lib/exerciseGating';
 import { AdaptationBadges } from '@/components/AdaptationBadges';
+import type { PhonologicalTrial } from '@/data/phonologicalBank';
 
 interface PhonologicalGameProps {
   totalTrials?: number;
   config: ExerciseConfig;
   bounds: DifficultyBounds;
   adaptations?: ExerciseAdaptation | null;
+  customTrials?: PhonologicalTrial[];
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -33,6 +35,7 @@ export const PhonologicalGame = ({
   config,
   bounds,
   adaptations,
+  customTrials,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -68,7 +71,7 @@ export const PhonologicalGame = ({
     },
   });
   
-  const game = usePhonoGame(totalTrials, currentDifficulty);
+  const game = usePhonoGame(totalTrials, currentDifficulty, customTrials);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);

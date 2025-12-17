@@ -592,10 +592,11 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                         {(() => {
                           const exerciseRoute = getExerciseForErrorType(errorType);
                           const isSemanticError = ['semantic_paraphasia', 'circumlocution', 'mixed_error', 'unrelated'].includes(errorType);
+                          const isPhonemicError = errorType === 'phonemic_paraphasia';
                           const targetWords = examples.map(e => e.target.toLowerCase());
                           
                           return (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {/* General practice button */}
                               {exerciseRoute && (
                                 <Button
@@ -621,6 +622,21 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                                 >
                                   <Play className="h-3 w-3" />
                                   Practice these words (5 min)
+                                </Button>
+                              )}
+                              {/* Targeted phonemic practice for sound errors */}
+                              {isPhonemicError && targetWords.length >= 2 && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="gap-1.5 text-xs"
+                                  onClick={() => {
+                                    const targetsParam = encodeURIComponent(targetWords.slice(0, 5).join(','));
+                                    navigate(`/exercise/phonological-awareness?targets=${targetsParam}&source=error_pattern_dashboard`);
+                                  }}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  Practice these sounds (5 min)
                                 </Button>
                               )}
                             </div>
