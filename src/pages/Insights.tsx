@@ -27,6 +27,7 @@ import { PronunciationScoreCard } from "@/components/PronunciationScoreCard";
 // Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
 import { CueTelemetryDashboard } from "@/components/CueTelemetryDashboard";
+import { CueTelemetryHealth } from "@/components/CueTelemetryHealth";
 import { ClusterComparisonDashboard } from "@/components/ClusterComparisonDashboard";
 
 // Clinical tab components
@@ -197,6 +198,11 @@ export default function Insights() {
           {/* Deep Dive Tab (Clinician+) */}
           {showDeepDive && (
             <TabsContent value="deep-dive" className="space-y-6">
+              {/* P0: Cue Telemetry Health Banner (admin-only) */}
+              {uiMode === 'admin' && (
+                <CueTelemetryHealth userId={user!.id} daysBack={30} />
+              )}
+              
               {/* Speech Analysis Section */}
               <Collapsible open={speechExpanded} onOpenChange={setSpeechExpanded}>
                 <Card className="overflow-hidden">
