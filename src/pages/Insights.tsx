@@ -172,24 +172,27 @@ export default function Insights() {
 
         {/* Tabbed Content - Dynamic based on view mode */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${gridCols} mb-8`}>
-            <TabsTrigger value="snapshot" className="gap-2 text-xs md:text-sm">
-              <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">Snapshot</span>
-            </TabsTrigger>
-            {showDeepDive && (
-              <TabsTrigger value="deep-dive" className="gap-2 text-xs md:text-sm">
-                <Brain className="w-4 h-4" />
-                <span className="hidden sm:inline">Deep Dive</span>
+          {/* Phase 1: Hide tab bar when only 1 tab visible (patient/caregiver) */}
+          {tabCount > 1 && (
+            <TabsList className={`grid w-full ${gridCols} mb-8`}>
+              <TabsTrigger value="snapshot" className="gap-2 text-xs md:text-sm">
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">Snapshot</span>
               </TabsTrigger>
-            )}
-            {showClinical && (
-              <TabsTrigger value="clinical" className="gap-2 text-xs md:text-sm">
-                <Stethoscope className="w-4 h-4" />
-                <span className="hidden sm:inline">Clinical</span>
-              </TabsTrigger>
-            )}
-          </TabsList>
+              {showDeepDive && (
+                <TabsTrigger value="deep-dive" className="gap-2 text-xs md:text-sm">
+                  <Brain className="w-4 h-4" />
+                  <span className="hidden sm:inline">Deep Dive</span>
+                </TabsTrigger>
+              )}
+              {showClinical && (
+                <TabsTrigger value="clinical" className="gap-2 text-xs md:text-sm">
+                  <Stethoscope className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clinical</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+          )}
 
           {/* Recovery Snapshot Tab (Primary - Always visible) */}
           <TabsContent value="snapshot" className="space-y-6">

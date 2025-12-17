@@ -36,6 +36,7 @@ import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
 import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useProfile } from '@/hooks/useProfile';
+import { useUiMode } from '@/hooks/useUiMode';
 import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
 import { getCueLabel } from '@/lib/insightLanguageMap';
 import { 
@@ -82,11 +83,16 @@ const TrendIcon = ({ verdict }: { verdict: TrendVerdict }) => {
 
 export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   const { activeProfile } = useProfile();
+  const { uiMode, isAtLeast } = useUiMode();
   const { learningRates, isLoading: learningLoading } = useLearningRate(userId);
   const { trends, loading: trendsLoading } = useWeeklyTrends();
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, 4);
   const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId, activeProfile?.id);
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId);
+  
+  // Phase 2: Role-based content density
+  const showDetailedSections = isAtLeast('caregiver');
+  const showClinicianEvidence = isAtLeast('clinician');
 
   const isLoading = learningLoading || trendsLoading || errorLoading || crossLoading || flagsLoading;
 
@@ -234,22 +240,24 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
                 </Badge>
               )}
               
-              {/* Clinician evidence badge */}
-              <InsightEvidenceBadge
-                windowLabel="Last 7 days"
-                n={totalTrials}
-                confidence={calculateConfidence(totalTrials, { low: 10, medium: 30 })}
-                evidencePoints={recoveryEvidencePoints}
-                minNForHighConfidence={50}
-                patientFriendlyMessage={totalTrials < 10 ? "Building your baseline—complete a few more sessions" : undefined}
-              />
+              {/* Clinician evidence badge - only shown to clinician+ */}
+              {showClinicianEvidence && (
+                <InsightEvidenceBadge
+                  windowLabel="Last 7 days"
+                  n={totalTrials}
+                  confidence={calculateConfidence(totalTrials, { low: 10, medium: 30 })}
+                  evidencePoints={recoveryEvidencePoints}
+                  minNForHighConfidence={50}
+                  patientFriendlyMessage={totalTrials < 10 ? "Building your baseline—complete a few more sessions" : undefined}
+                />
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Section 2: Current Challenges - "What's hard for me?" */}
-      {challenges.length > 0 && (
+      {/* Section 2: Current Challenges - "What's hard for me?" (caregiver+) */}
+      {showDetailedSections && challenges.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -278,8 +286,8 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
         </Card>
       )}
 
-      {/* Section 3: What's Working - "What's helping?" */}
-      {strategy && (
+      {/* Section 3: What's Working - "What's helping?" (caregiver+) */}
+      {showDetailedSections && strategy && (
         <Card className="border-success/30 bg-success/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -293,19 +301,21 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
                 <p className="text-lg font-semibold text-success">{strategy.strategy}</p>
                 <p className="text-sm text-muted-foreground">{strategy.context}</p>
                 
-                {/* Cue efficacy evidence badge - uses raw cueType from strategy */}
-                <InsightEvidenceBadge
-                  windowLabel="Last 4 weeks"
-                  n={strategy.totalGiven}
-                  confidence={calculateConfidence(strategy.totalGiven, { low: 3, medium: 10 })}
-                  evidencePoints={
-                    errorAnalytics?.cueEfficacy
-                      ?.filter(c => c.totalGiven >= 3)
-                      .map(c => `${c.cueType}: ${Math.round(c.efficacyRate * 100)}% effective (n=${c.totalGiven})`) || []
-                  }
-                  minNForHighConfidence={20}
-                  patientFriendlyMessage={undefined}
-                />
+                {/* Cue efficacy evidence badge - clinician+ only */}
+                {showClinicianEvidence && (
+                  <InsightEvidenceBadge
+                    windowLabel="Last 4 weeks"
+                    n={strategy.totalGiven}
+                    confidence={calculateConfidence(strategy.totalGiven, { low: 3, medium: 10 })}
+                    evidencePoints={
+                      errorAnalytics?.cueEfficacy
+                        ?.filter(c => c.totalGiven >= 3)
+                        .map(c => `${c.cueType}: ${Math.round(c.efficacyRate * 100)}% effective (n=${c.totalGiven})`) || []
+                    }
+                    minNForHighConfidence={20}
+                    patientFriendlyMessage={undefined}
+                  />
+                )}
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-success">
@@ -321,8 +331,8 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
       {/* Caregiver Coaching Card - actionable advice based on cue data */}
       <CaregiverCoachingCard cueEfficacy={errorAnalytics?.cueEfficacy} />
 
-      {/* Section 4: Today's Focus - "What should I do next?" */}
-      {focuses.length > 0 && (
+      {/* Section 4: Today's Focus - "What should I do next?" (caregiver+) */}
+      {showDetailedSections && focuses.length > 0 && (
         <Card className="border-primary/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
