@@ -1,8 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Brain, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Brain, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Zap, Play } from 'lucide-react';
 import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
+import { useNavigate } from 'react-router-dom';
+import { getRecommendedExerciseRoute } from '@/lib/recommendationRouter';
 
 interface CrossDomainInsightsDashboardProps {
   userId: string;
@@ -11,6 +14,7 @@ interface CrossDomainInsightsDashboardProps {
 }
 
 export const CrossDomainInsightsDashboard = ({ userId, profileId, hideRecommendations = false }: CrossDomainInsightsDashboardProps) => {
+  const navigate = useNavigate();
   const { analytics, isLoading, error } = useCapabilitySpeechCorrelation(userId, profileId);
 
   if (isLoading) {
@@ -38,6 +42,10 @@ export const CrossDomainInsightsDashboard = ({ userId, profileId, hideRecommenda
     analytics.motorLatencyCorrelation,
   ].filter(Boolean);
 
+  const handlePractice = (route: string) => {
+    navigate(route);
+  };
+
   return (
     <div className="space-y-6">
       {/* Smart Recommendations - conditionally hidden when elevated to top level */}
@@ -51,13 +59,31 @@ export const CrossDomainInsightsDashboard = ({ userId, profileId, hideRecommenda
             <CardDescription>Personalized insights based on your patterns</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {analytics.recommendations.map((rec, i) => (
-                <Alert key={i} className="border-primary/20">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  <AlertDescription>{rec}</AlertDescription>
-                </Alert>
-              ))}
+            <div className="space-y-3">
+              {analytics.recommendations.map((rec, i) => {
+                const exerciseRoute = getRecommendedExerciseRoute(rec);
+                return (
+                  <Alert key={i} className="border-primary/20">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2 flex-1">
+                        <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <AlertDescription className="flex-1">{rec}</AlertDescription>
+                      </div>
+                      {exerciseRoute && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-shrink-0 gap-1.5"
+                          onClick={() => handlePractice(exerciseRoute.route)}
+                        >
+                          <Play className="h-3 w-3" />
+                          {exerciseRoute.label}
+                        </Button>
+                      )}
+                    </div>
+                  </Alert>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
