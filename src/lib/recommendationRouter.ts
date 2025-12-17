@@ -118,8 +118,12 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
     };
   }
   
-  // Default to photo naming as most general exercise
-  return null;
+  // Default fallback - general practice (photo naming is versatile)
+  return {
+    route: '/exercise/photo-naming',
+    label: 'Practice',
+    exerciseType: 'general',
+  };
 }
 
 /**
