@@ -363,7 +363,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
                 })()}
               </div>
               <span className="text-xs text-muted-foreground">
-                {lastSession.exercises.reduce((sum, ex) => sum + ex.totalTrials, 0)} trials
+                {lastSession.exercises.reduce((sum, ex) => sum + (ex.totalTrials ?? 0), 0)} trials
               </span>
             </div>
           </div>
