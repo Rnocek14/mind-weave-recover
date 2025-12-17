@@ -49,7 +49,8 @@ export default function Insights() {
   });
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [speechExpanded, setSpeechExpanded] = useState(false);
+  // Auto-expand Speech Analysis for clinician/admin (P1: reduce clicks)
+  const [speechExpanded, setSpeechExpanded] = useState(() => isAtLeast('clinician'));
   const [speechLabExpanded, setSpeechLabExpanded] = useState(false);
   const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
 

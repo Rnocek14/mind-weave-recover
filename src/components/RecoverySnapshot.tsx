@@ -26,7 +26,8 @@ import {
   CheckCircle2,
   ArrowRight,
   Brain,
-  Zap
+  Zap,
+  Activity
 } from 'lucide-react';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
@@ -45,6 +46,20 @@ import {
   getSeverityVariant,
   type TrendVerdict
 } from '@/lib/insightNarrator';
+
+// Helper to get trend icon for KPI
+const getTrendIcon = (verdict: TrendVerdict) => {
+  switch (verdict) {
+    case 'improving':
+      return { icon: '↑', className: 'text-success' };
+    case 'declining':
+      return { icon: '↓', className: 'text-warning' };
+    case 'steady':
+      return { icon: '→', className: 'text-primary' };
+    default:
+      return { icon: '—', className: 'text-muted-foreground' };
+  }
+};
 
 interface RecoverySnapshotProps {
   userId: string;
@@ -127,8 +142,76 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
     recoveryEvidencePoints.push(`Recent 3-day avg: ${Math.round(recentAccuracy)}%`);
   }
 
+  // Determine best strategy from cue efficacy
+  const getBestStrategy = () => {
+    const validCues = errorAnalytics?.cueEfficacy?.filter(c => c.effectiveCount >= 3) || [];
+    if (validCues.length === 0) {
+      return { label: 'Building baseline', sublabel: 'More sessions needed', rate: null };
+    }
+    const best = validCues.reduce((a, b) => a.efficacyRate > b.efficacyRate ? a : b);
+    const friendlyNames: Record<string, string> = {
+      'semantic': 'Category hints',
+      'phonemic': 'Sound hints',
+      'full_word': 'Full word cues',
+    };
+    return {
+      label: friendlyNames[best.cueType] || best.cueType,
+      sublabel: `${Math.round(best.efficacyRate * 100)}% effective`,
+      rate: best.efficacyRate,
+    };
+  };
+
+  const bestStrategy = getBestStrategy();
+  const trendInfo = getTrendIcon(recoveryNarrative.verdict);
+  const accuracy7d = totalTrials > 0 
+    ? Math.round((windowTrends.reduce((sum, t) => sum + t.accuracy * t.totalTrials, 0) / totalTrials))
+    : 0;
+
   return (
     <div className="space-y-6">
+      {/* KPI Row - 10-second read */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Accuracy */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Activity className="h-4 w-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Accuracy</span>
+          </div>
+          <div className="text-2xl font-bold">{accuracy7d}%</div>
+          <div className="text-xs text-muted-foreground">n={totalTrials} trials</div>
+        </Card>
+
+        {/* Trials */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Trials</span>
+          </div>
+          <div className="text-2xl font-bold">{totalTrials}</div>
+          <div className="text-xs text-muted-foreground">last 7 days</div>
+        </Card>
+
+        {/* Trend */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Trend</span>
+          </div>
+          <div className={`text-2xl font-bold ${trendInfo.className}`}>{trendInfo.icon}</div>
+          <div className="text-xs text-muted-foreground capitalize">{recoveryNarrative.verdict.replace('_', ' ')}</div>
+        </Card>
+
+        {/* Best Strategy */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Lightbulb className="h-4 w-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Best Strategy</span>
+          </div>
+          <div className="text-lg font-bold truncate">{bestStrategy.label}</div>
+          <div className="text-xs text-muted-foreground">{bestStrategy.sublabel}</div>
+        </Card>
+      </div>
+
       {/* Section 1: Recovery Trend - "Am I improving?" */}
       <RecoveryMotivationCards userId={userId} />
       <Card className="overflow-hidden">
