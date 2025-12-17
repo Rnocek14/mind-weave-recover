@@ -12,6 +12,7 @@
 
 import { LearningRate } from '@/hooks/useLearningRate';
 import { DailyTrend } from '@/hooks/useWeeklyTrends';
+import { getCueLabel } from '@/lib/insightLanguageMap';
 
 export type TrendVerdict = 'improving' | 'steady' | 'declining' | 'insufficient_data';
 
@@ -199,15 +200,8 @@ export function narrateStrategies(
 
   const best = effectiveCues[0];
   
-  // Translate cue type to user-friendly language
-  const cueDescriptions: Record<string, string> = {
-    'semantic': 'Category hints',
-    'phonemic': 'First-sound hints',
-    'full_word': 'Hearing the word',
-    'none': 'Working independently'
-  };
-
-  const friendlyName = cueDescriptions[best.cueType] || best.cueType;
+  // Use centralized language mapping for cue type names
+  const friendlyName = getCueLabel(best.cueType);
   
   let context: string;
   if (best.efficacyRate > 0.7) {
