@@ -336,7 +336,10 @@ function ExpandableWordRow({
             </Badge>
           )}
         </div>
-        <span className={scoreColorFn(word.avgScore)}>{word.avgScore}%</span>
+        <div className="flex items-center gap-2">
+          <span className={scoreColorFn(word.avgScore)}>{word.avgScore}%</span>
+          <span className="text-[10px] text-muted-foreground">n={word.sampleCount}</span>
+        </div>
       </div>
       
       {expanded && hasMultipleExamples && (
