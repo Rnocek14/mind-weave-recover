@@ -8,6 +8,7 @@ interface CueEvent {
   cue_trigger: string | null;
   cue_was_effective: boolean | null;
   time_to_success_after_cue_ms: number | null;
+  audio_storage_path: string | null;
 }
 
 interface CueTelemetryStats {
@@ -71,7 +72,7 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
       // Fetch utterances with limit to protect performance
       const { data: utterances, error: fetchError } = await supabase
         .from('utterance_analyses')
-        .select('cue_type_given, cue_trigger, cue_was_effective, time_to_success_after_cue_ms, target_word, category, created_at')
+        .select('cue_type_given, cue_trigger, cue_was_effective, time_to_success_after_cue_ms, target_word, category, created_at, audio_storage_path')
         .eq('user_id', userId)
         .gte('created_at', cutoffDate.toISOString())
         .order('created_at', { ascending: false })
@@ -169,6 +170,7 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
         cue_trigger: u.cue_trigger,
         cue_was_effective: u.cue_was_effective,
         time_to_success_after_cue_ms: u.time_to_success_after_cue_ms,
+        audio_storage_path: u.audio_storage_path,
       }));
 
       setStats({

@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, AlertTriangle, Clock, Lightbulb, Target, TrendingUp, Zap } from "lucide-react";
 import { useCueTelemetry } from "@/hooks/useCueTelemetry";
 import { format } from "date-fns";
+import { AudioPlayback } from "./AudioPlayback";
 
 interface CueTelemetryDashboardProps {
   userId: string;
@@ -361,6 +362,7 @@ export function CueTelemetryDashboard({ userId, daysBack = 7 }: CueTelemetryDash
                     <TableHead className="text-xs">Trigger</TableHead>
                     <TableHead className="text-xs">Effective</TableHead>
                     <TableHead className="text-xs">Response</TableHead>
+                    <TableHead className="text-xs">Audio</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -392,6 +394,13 @@ export function CueTelemetryDashboard({ userId, daysBack = 7 }: CueTelemetryDash
                         {event.time_to_success_after_cue_ms 
                           ? `${(event.time_to_success_after_cue_ms / 1000).toFixed(1)}s`
                           : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {event.audio_storage_path ? (
+                          <AudioPlayback storagePath={event.audio_storage_path} className="h-6 w-6 p-0" />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

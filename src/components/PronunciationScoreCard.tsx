@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { usePronunciationScoreAnalytics } from '@/hooks/usePronunciationScoreAnalytics';
 import { TrendingUp, TrendingDown, Minus, Volume2, Target, Zap, Music } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { AudioPlayback } from './AudioPlayback';
 
 interface PronunciationScoreCardProps {
   userId?: string;
@@ -229,7 +230,12 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             <div className="space-y-1">
               {needsPracticeWords.filter(w => w.avgScore < 75).slice(0, 3).map(w => (
                 <div key={w.word} className="flex items-center justify-between text-sm">
-                  <span className="font-medium capitalize">{w.word}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium capitalize">{w.word}</span>
+                    {w.exampleAudioPath && (
+                      <AudioPlayback storagePath={w.exampleAudioPath} className="h-6 w-6 p-0" />
+                    )}
+                  </div>
                   <span className={getScoreColor(w.avgScore)}>{w.avgScore}%</span>
                 </div>
               ))}
@@ -243,7 +249,12 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             <div className="space-y-1">
               {bestWords.filter(w => w.avgScore >= 80).slice(0, 3).map(w => (
                 <div key={w.word} className="flex items-center justify-between text-sm">
-                  <span className="font-medium capitalize">{w.word}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium capitalize">{w.word}</span>
+                    {w.exampleAudioPath && (
+                      <AudioPlayback storagePath={w.exampleAudioPath} className="h-6 w-6 p-0" />
+                    )}
+                  </div>
                   <span className="text-green-600">{w.avgScore}%</span>
                 </div>
               ))}

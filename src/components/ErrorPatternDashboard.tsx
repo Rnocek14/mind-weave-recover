@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Clock } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
+import { AudioPlayback } from './AudioPlayback';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -309,13 +310,17 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {analytics.challengingTargets.slice(0, 10).map((target, i) => (
-                <Badge 
-                  key={target.target}
-                  variant={target.errorRate > 0.5 ? "destructive" : "secondary"}
-                  className="text-sm"
-                >
-                  {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
-                </Badge>
+                <div key={target.target} className="flex items-center gap-1">
+                  <Badge 
+                    variant={target.errorRate > 0.5 ? "destructive" : "secondary"}
+                    className="text-sm"
+                  >
+                    {target.target} ({Math.round(target.errorRate * 100)}% errors, {target.attempts} tries)
+                  </Badge>
+                  {target.exampleAudioPath && (
+                    <AudioPlayback storagePath={target.exampleAudioPath} className="h-6 w-6 p-0" />
+                  )}
+                </div>
               ))}
             </div>
           </CardContent>

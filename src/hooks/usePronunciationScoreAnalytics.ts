@@ -11,6 +11,7 @@ interface WordStats {
   word: string;
   avgScore: number;
   sampleCount: number;
+  exampleAudioPath?: string;
 }
 
 interface DailyTrend {
@@ -58,6 +59,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
     gop_data: GopData | null;
     target_word: string;
     created_at: string;
+    audio_storage_path: string | null;
   }>>([]);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
 
         const { data, error: fetchError } = await supabase
           .from('utterance_analyses')
-          .select('gop_data, target_word, created_at')
+          .select('gop_data, target_word, created_at, audio_storage_path')
           .eq('user_id', userId)
           .gte('created_at', startDate.toISOString())
           .not('gop_data', 'is', null)
@@ -95,7 +97,8 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         setRawData(azureData.map(row => ({
           gop_data: row.gop_data as GopData,
           target_word: row.target_word,
-          created_at: row.created_at
+          created_at: row.created_at,
+          audio_storage_path: row.audio_storage_path
         })));
       } catch (err) {
         console.error('[PronunciationAnalytics] Fetch error:', err);
@@ -122,8 +125,8 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
     // Phoneme aggregation
     const phonemeMap = new Map<string, { total: number; count: number }>();
     
-    // Word aggregation
-    const wordMap = new Map<string, { total: number; count: number }>();
+    // Word aggregation with example audio
+    const wordMap = new Map<string, { total: number; count: number; exampleAudioPath?: string }>();
 
     // Daily aggregation for trends
     const dailyMap = new Map<string, { total: number; count: number }>();
@@ -142,13 +145,15 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         prosodyCount++;
       }
 
-      // Word-level scores
+      // Word-level scores with example audio
       const targetWord = row.target_word?.toLowerCase();
       if (targetWord && gop.pronunciationScore) {
-        const existing = wordMap.get(targetWord) || { total: 0, count: 0 };
+        const existing = wordMap.get(targetWord) || { total: 0, count: 0, exampleAudioPath: undefined };
         wordMap.set(targetWord, {
           total: existing.total + gop.pronunciationScore,
-          count: existing.count + 1
+          count: existing.count + 1,
+          // Keep first audio example we find for this word
+          exampleAudioPath: existing.exampleAudioPath || row.audio_storage_path || undefined
         });
       }
 
@@ -197,7 +202,8 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       .map(([word, stats]) => ({
         word,
         avgScore: Math.round(stats.total / stats.count),
-        sampleCount: stats.count
+        sampleCount: stats.count,
+        exampleAudioPath: stats.exampleAudioPath
       }))
       .sort((a, b) => a.avgScore - b.avgScore);
 
