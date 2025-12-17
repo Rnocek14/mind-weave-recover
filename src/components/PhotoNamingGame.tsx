@@ -96,7 +96,8 @@ export const PhotoNamingGame = ({
   // Keyboard shortcut for debug overlay (Ctrl+Shift+D)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      const key = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'd') {
         e.preventDefault();
         setShowDebugOverlay(prev => {
           const newVal = !prev;
