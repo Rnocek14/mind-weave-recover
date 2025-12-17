@@ -6,6 +6,7 @@ interface AudioWaveformProps {
   progress: number; // 0-1
   className?: string;
   barCount?: number;
+  onSeek?: (progress: number) => void;
 }
 
 export const AudioWaveform = ({ 
@@ -13,10 +14,13 @@ export const AudioWaveform = ({
   isPlaying, 
   progress, 
   className = '',
-  barCount = 40 
+  barCount = 40,
+  onSeek
 }: AudioWaveformProps) => {
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!audioUrl) {
@@ -73,19 +77,45 @@ export const AudioWaveform = ({
 
   const progressIndex = Math.floor(progress * waveformData.length);
 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onSeek || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const seekProgress = Math.max(0, Math.min(1, clickX / rect.width));
+    onSeek(seekProgress);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const hoverX = e.clientX - rect.left;
+    const idx = Math.floor((hoverX / rect.width) * waveformData.length);
+    setHoverIndex(Math.max(0, Math.min(waveformData.length - 1, idx)));
+  };
+
   return (
-    <div className={`flex items-center gap-[2px] h-8 ${className}`}>
+    <div 
+      ref={containerRef}
+      className={`flex items-center gap-[2px] h-8 ${onSeek ? 'cursor-pointer' : ''} ${className}`}
+      onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverIndex(null)}
+    >
       {waveformData.map((amplitude, index) => {
         const isPlayed = index <= progressIndex;
+        const isHovered = hoverIndex !== null && index <= hoverIndex;
         const height = Math.max(4, amplitude * 28);
         
         return (
           <div
             key={index}
-            className={`w-[3px] rounded-full transition-all duration-150 ${
+            className={`w-[3px] rounded-full transition-all duration-100 ${
               isPlayed 
                 ? 'bg-primary' 
-                : 'bg-muted-foreground/30'
+                : isHovered && onSeek
+                  ? 'bg-primary/50'
+                  : 'bg-muted-foreground/30'
             } ${isPlaying && isPlayed ? 'animate-pulse' : ''}`}
             style={{ 
               height: `${height}px`,

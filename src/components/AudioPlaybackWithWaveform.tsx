@@ -59,9 +59,16 @@ export const AudioPlaybackWithWaveform = ({
       const currentProgress = audioRef.current.currentTime / audioRef.current.duration;
       setProgress(isNaN(currentProgress) ? 0 : currentProgress);
       
-      if (isPlaying && !audioRef.current.paused) {
+      if (!audioRef.current.paused) {
         animationRef.current = requestAnimationFrame(updateProgress);
       }
+    }
+  };
+
+  const handleSeek = (seekProgress: number) => {
+    if (audioRef.current && audioRef.current.duration) {
+      audioRef.current.currentTime = seekProgress * audioRef.current.duration;
+      setProgress(seekProgress);
     }
   };
 
@@ -164,6 +171,7 @@ export const AudioPlaybackWithWaveform = ({
         isPlaying={isPlaying} 
         progress={progress}
         barCount={30}
+        onSeek={handleSeek}
       />
     </div>
   );
