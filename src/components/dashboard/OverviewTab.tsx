@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
@@ -31,7 +31,8 @@ const CollapsibleSection = ({
   defaultOpen = false, 
   hint,
   children,
-  badge
+  badge,
+  alertCount
 }: { 
   title: string; 
   icon: React.ElementType; 
@@ -39,6 +40,7 @@ const CollapsibleSection = ({
   hint?: string;
   children: React.ReactNode;
   badge?: React.ReactNode;
+  alertCount?: number;
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
@@ -49,6 +51,9 @@ const CollapsibleSection = ({
           <div className="flex items-center gap-3">
             <Icon className="w-5 h-5 text-primary" />
             <span className="font-semibold text-lg">{title}</span>
+            {alertCount && alertCount > 0 && (
+              <Badge variant="destructive" className="text-xs">{alertCount}</Badge>
+            )}
             {badge}
           </div>
           <div className="flex items-center gap-2">
@@ -87,7 +92,19 @@ export const OverviewTab = memo(function OverviewTab() {
     onStartAssessment
   } = useDashboardContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
+  
+  // Check if user arrived from error patterns with targeted practice info
+  const targetedPractice = location.state?.targetedPractice as {
+    words?: string[];
+    exerciseType?: string;
+    source?: string;
+  } | undefined;
+  
+  // Split red flags by severity: urgent (red/orange) vs informational (yellow)
+  const urgentFlags = redFlags.filter(f => f.severity === 'red' || f.severity === 'orange');
+  const informationalFlags = redFlags.filter(f => f.severity === 'yellow');
   
   // Progressive loading states
   const [showProgress, setShowProgress] = useState(false);
@@ -120,11 +137,27 @@ export const OverviewTab = memo(function OverviewTab() {
     };
   }, []);
 
+  // Helper to get targeted practice route
+  const getTargetedPracticeRoute = () => {
+    if (!targetedPractice?.words?.length) return null;
+    const wordsParam = targetedPractice.words.join(',');
+    switch (targetedPractice.exerciseType) {
+      case 'photo-naming':
+        return `/exercise/photo-naming?targets=${wordsParam}&source=dashboard_continue`;
+      case 'semantic-features':
+        return `/exercise/semantic-features?targets=${wordsParam}&source=dashboard_continue`;
+      case 'phonological':
+        return `/exercise/phonological-awareness?targets=${wordsParam}&source=dashboard_continue`;
+      default:
+        return `/exercise/photo-naming?targets=${wordsParam}&source=dashboard_continue`;
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* ===== RED FLAGS - Always visible if present ===== */}
-      {redFlags.length > 0 && (
-        <RedFlagAlerts flags={redFlags} />
+      {/* ===== URGENT RED FLAGS (red/orange) - Above actions ===== */}
+      {urgentFlags.length > 0 && (
+        <RedFlagAlerts flags={urgentFlags} />
       )}
 
       {/* ===== PRIMARY ACTION AREA - Always at top ===== */}
@@ -139,6 +172,19 @@ export const OverviewTab = memo(function OverviewTab() {
             )}
           </div>
           
+          {/* Targeted Practice CTA - when arriving from error patterns */}
+          {targetedPractice?.words?.length && getTargetedPracticeRoute() && (
+            <Button 
+              size="lg" 
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white text-lg h-14"
+              onClick={() => navigate(getTargetedPracticeRoute()!)}
+              disabled={doseCap.warningLevel === 'limit'}
+            >
+              <Crosshair className="w-6 h-6 mr-2" />
+              Continue Targeted Practice ({targetedPractice.words.length} words)
+            </Button>
+          )}
+
           {/* Main action buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
@@ -399,6 +445,19 @@ export const OverviewTab = memo(function OverviewTab() {
           </div>
         )}
       </CollapsibleSection>
+
+      {/* Safety Section - Yellow flags (informational, not urgent) */}
+      {informationalFlags.length > 0 && (
+        <CollapsibleSection 
+          title="Safety Notes" 
+          icon={AlertTriangle}
+          defaultOpen={false}
+          hint="View non-urgent observations"
+          alertCount={informationalFlags.length}
+        >
+          <RedFlagAlerts flags={informationalFlags} />
+        </CollapsibleSection>
+      )}
     </div>
   );
 });
