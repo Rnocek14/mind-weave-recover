@@ -514,9 +514,33 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
           {/* Challenging Targets */}
           {analytics.challengingTargets.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle>Most Challenging Words</CardTitle>
-                <CardDescription>Words with highest error rates (min 3 attempts)</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle>Most Challenging Words</CardTitle>
+                  <CardDescription>Words with highest error rates (min 3 attempts)</CardDescription>
+                </div>
+                {(() => {
+                  // Build targets list from top 5 challenging words (filter for ASR quality)
+                  const practiceTargets = analytics.challengingTargets
+                    .slice(0, 5)
+                    .map(t => t.target.toLowerCase());
+                  
+                  if (practiceTargets.length >= 2) {
+                    const targetsParam = encodeURIComponent(practiceTargets.join(','));
+                    return (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="gap-1.5"
+                        onClick={() => navigate(`/exercise/photo-naming?targets=${targetsParam}&source=error_pattern_dashboard`)}
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                        Practice these words
+                      </Button>
+                    );
+                  }
+                  return null;
+                })()}
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">

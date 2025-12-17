@@ -5,7 +5,7 @@ import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, SkipForward } from 'lucide-react';
+import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { Card } from '@/components/ui/card';
@@ -35,6 +35,11 @@ export default function PhotoNamingExercise() {
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  
+  // Extract targeted practice from URL params
+  const searchParams = new URLSearchParams(location.search);
+  const targetedWords = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
+  const practiceSource = searchParams.get('source') || null;
   
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
@@ -75,7 +80,27 @@ export default function PhotoNamingExercise() {
     const totalTrials = 10;
     let selectedTrials: PhotoTrial[] = [];
 
-    if (photoSource === 'stock') {
+    // If targeted practice mode, prioritize those words
+    if (targetedWords.length > 0) {
+      // Find matching trials from PHOTO_BANK
+      const targetedTrials = PHOTO_BANK.filter(trial => 
+        targetedWords.includes(trial.target.toLowerCase())
+      );
+      
+      if (targetedTrials.length > 0) {
+        // Use targeted trials, repeat if needed to fill up to totalTrials
+        const repeated: PhotoTrial[] = [];
+        while (repeated.length < totalTrials && repeated.length < targetedTrials.length * 3) {
+          repeated.push(...shuffleArray(targetedTrials));
+        }
+        selectedTrials = repeated.slice(0, totalTrials);
+        console.log('🎯 Targeted practice mode:', { targetedWords, matchedTrials: targetedTrials.length, source: practiceSource });
+      } else {
+        // Fallback to stock if no matches
+        selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
+        console.warn('⚠️ No matching trials for targets:', targetedWords);
+      }
+    } else if (photoSource === 'stock') {
       selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
     } else if (photoSource === 'custom') {
       if (customPhotos.length === 0) {
@@ -100,7 +125,7 @@ export default function PhotoNamingExercise() {
 
     setTrials(selectedTrials);
     setGameKey(prev => prev + 1);
-  }, [photoSource, customPhotos, isLoading]);
+  }, [photoSource, customPhotos, isLoading, targetedWords.join(',')]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;
@@ -164,7 +189,12 @@ export default function PhotoNamingExercise() {
         encouragement_score: result.encouragementScore,
         effortful_speech: result.effortfulSpeech,
         
-        // NEW: Store unified analysis for future co-pilot
+        // Targeted practice tracking (closed loop measurement)
+        practice_source: practiceSource,     // 'error_pattern_dashboard' | null
+        targeted_words: targetedWords.length > 0 ? targetedWords : null,
+        is_targeted_practice: targetedWords.length > 0,
+        
+        // Store unified analysis for future co-pilot
         utterance_analysis: result.utteranceAnalysis,
         shadow_event: result.shadowEvent,
       },
@@ -320,6 +350,19 @@ export default function PhotoNamingExercise() {
             )}
           </div>
         </div>
+
+        {/* Targeted practice banner */}
+        {targetedWords.length > 0 && (
+          <Card className="p-3 bg-primary/10 border-primary/20 mb-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Target className="h-4 w-4 text-primary" />
+              <span className="font-medium">Targeted Practice:</span>
+              <span className="text-muted-foreground">
+                Focusing on {targetedWords.slice(0, 3).join(', ')}{targetedWords.length > 3 ? ` +${targetedWords.length - 3} more` : ''}
+              </span>
+            </div>
+          </Card>
+        )}
 
         {/* Optional caregiver notes - hidden on mobile */}
         <Card className="hidden md:block p-4 bg-muted/50 mb-4">
