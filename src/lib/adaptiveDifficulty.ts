@@ -4,7 +4,7 @@ import { clampToBounds } from './difficultyBounds';
 /**
  * Adaptive Difficulty Controller
  * 
- * PID-style controller that maintains 75-85% success rate
+ * Rules-based controller that maintains 70-90% success rate (research: ~80% target)
  * by adjusting difficulty level based on rolling performance window.
  * Respects capability-based floor/ceiling bounds to ensure safety.
  */
@@ -19,7 +19,7 @@ export class AdaptiveDifficultyController {
   constructor(
     windowSize: number = 5,
     targetSuccessRate: number = 0.80,
-    adjustmentThreshold: number = 0.15, // ±15% from target
+    adjustmentThreshold: number = 0.10, // ±10% from target (research: 70-90% flow zone)
     initialBounds?: DifficultyBounds
   ) {
     this.bounds = initialBounds ?? { floor: 1, ceiling: 10, suggestedStart: 1 };

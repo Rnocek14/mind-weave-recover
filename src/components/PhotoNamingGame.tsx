@@ -85,12 +85,14 @@ export const PhotoNamingGame = ({
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
+  const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   
   // Refs to avoid stale closures
   const isPlayingChoicesRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -516,19 +518,36 @@ export const PhotoNamingGame = ({
         console.log('🎙️ Recording started for session:', activeSessionId);
       }
       
-      // Auto-show cue after 2 consecutive errors
-      if (consecutiveErrors >= 2 && currentDifficulty >= 4) {
+      // Research-aligned cue trigger: stall detection OR consecutive errors
+      // Primary: stallDetected (hesitation > 3s)
+      // Secondary: consecutiveErrors >= 2 (remove difficulty requirement per research)
+      const shouldShowAutoCue = stallDetected || consecutiveErrors >= 2;
+      
+      if (shouldShowAutoCue && !showCue) {
         const autoCueDecision = selectOptimalCue(
           errorHistory,
           state.currentTrial.target,
           state.currentTrial.category,
           state.currentTrial.features,
-          0 // First cue level
+          0 // First cue level - least invasive
         );
         setCueLevel(1);
         setCurrentCueText(autoCueDecision.cueText);
         setShowCue(true);
+        setStallDetected(false); // Reset stall flag
+        console.log('💡 Auto-cue triggered:', stallDetected ? 'stall detected' : 'consecutive errors');
       }
+      
+      // Start stall detection timer (3 seconds of hesitation)
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+      }
+      stallTimerRef.current = setTimeout(() => {
+        if (!showFeedback && !selectedAnswer && !timedOut && !showCue) {
+          setStallDetected(true);
+          console.log('🕐 Stall detected - user hesitating > 3s');
+        }
+      }, 3000);
       
       // Auto-listen: Only initiate once per trial
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
@@ -547,6 +566,16 @@ export const PhotoNamingGame = ({
         
         return () => {
           clearTimeout(timeoutId);
+          if (stallTimerRef.current) {
+            clearTimeout(stallTimerRef.current);
+          }
+        };
+      } else {
+        // If not auto-listening, still need to cleanup stall timer
+        return () => {
+          if (stallTimerRef.current) {
+            clearTimeout(stallTimerRef.current);
+          }
         };
       }
     }
@@ -555,7 +584,7 @@ export const PhotoNamingGame = ({
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, currentDifficulty, startAttempt]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, consecutiveErrors, stallDetected, showCue, startAttempt]);
 
   // Handle game completion
   useEffect(() => {
@@ -591,6 +620,13 @@ export const PhotoNamingGame = ({
     
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
+    
+    // Clear stall timer on timeout
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    setStallDetected(false);
     
     setTimedOut(true);
     const reactionTime = Date.now() - trialStartTime;
@@ -900,6 +936,13 @@ export const PhotoNamingGame = ({
 
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
+    
+    // Clear stall timer when user answers
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    setStallDetected(false);
 
     // Stop listening when answer is selected
     if (isListening) {
