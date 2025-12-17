@@ -92,6 +92,28 @@ export const PhotoNamingGame = ({
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('debug') === 'cue' || localStorage.getItem('cue-debug') === 'true';
   });
+
+  // Keyboard shortcut for debug overlay (Ctrl+Shift+D)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        setShowDebugOverlay(prev => {
+          const newVal = !prev;
+          if (newVal) {
+            localStorage.setItem('cue-debug', 'true');
+            console.log('🐛 Cue debug overlay enabled');
+          } else {
+            localStorage.removeItem('cue-debug');
+            console.log('🐛 Cue debug overlay disabled');
+          }
+          return newVal;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   
   // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);

@@ -2,8 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Clock, Lightbulb, Target, TrendingUp, Zap } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, AlertTriangle, Clock, Lightbulb, Target, TrendingUp, Zap } from "lucide-react";
 import { useCueTelemetry } from "@/hooks/useCueTelemetry";
+import { format } from "date-fns";
 
 interface CueTelemetryDashboardProps {
   userId: string;
@@ -325,6 +328,75 @@ export function CueTelemetryDashboard({ userId, daysBack = 7 }: CueTelemetryDash
                 </div>
                 <p className="text-sm text-muted-foreground">Average</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Query Limit Warning */}
+      {stats.hitQueryLimit && (
+        <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-sm">
+            Showing last 2,000 utterances only. Older data not included in these stats.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Last 10 Cue Events Table */}
+      {stats.recentCueEvents.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Last 10 Cue Events</CardTitle>
+            <CardDescription>Raw cue delivery for debugging</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Time</TableHead>
+                    <TableHead className="text-xs">Target</TableHead>
+                    <TableHead className="text-xs">Cue Type</TableHead>
+                    <TableHead className="text-xs">Trigger</TableHead>
+                    <TableHead className="text-xs">Effective</TableHead>
+                    <TableHead className="text-xs">Response</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.recentCueEvents.map((event, idx) => (
+                    <TableRow key={idx} className="text-xs">
+                      <TableCell className="font-mono text-muted-foreground">
+                        {format(new Date(event.created_at), 'HH:mm:ss')}
+                      </TableCell>
+                      <TableCell className="font-mono">{event.target_word}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {event.cue_type_given || 'none'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={event.cue_trigger === 'stall' ? 'default' : event.cue_trigger === 'consecutive_errors' ? 'destructive' : 'secondary'} 
+                          className="text-xs"
+                        >
+                          {event.cue_trigger || '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {event.cue_was_effective === true && <Badge className="bg-green-500 text-xs">✓</Badge>}
+                        {event.cue_was_effective === false && <Badge variant="destructive" className="text-xs">✗</Badge>}
+                        {event.cue_was_effective === null && <Badge variant="secondary" className="text-xs">?</Badge>}
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {event.time_to_success_after_cue_ms 
+                          ? `${(event.time_to_success_after_cue_ms / 1000).toFixed(1)}s`
+                          : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

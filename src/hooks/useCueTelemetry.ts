@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+interface CueEvent {
+  created_at: string;
+  target_word: string;
+  cue_type_given: string | null;
+  cue_trigger: string | null;
+  cue_was_effective: boolean | null;
+  time_to_success_after_cue_ms: number | null;
+}
+
 interface CueTelemetryStats {
   // Delivery metrics
   totalUtterances: number;
@@ -31,7 +40,15 @@ interface CueTelemetryStats {
   
   // Top categories where cues fire
   topCuedCategories: { category: string; count: number }[];
+  
+  // Last 10 cue events (for debugging)
+  recentCueEvents: CueEvent[];
+  
+  // Warning if we hit the limit
+  hitQueryLimit: boolean;
 }
+
+const QUERY_LIMIT = 2000;
 
 export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => {
   const [stats, setStats] = useState<CueTelemetryStats | null>(null);
@@ -51,14 +68,18 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
-      // Fetch all utterances in time window
+      // Fetch utterances with limit to protect performance
       const { data: utterances, error: fetchError } = await supabase
         .from('utterance_analyses')
-        .select('cue_type_given, cue_trigger, cue_was_effective, time_to_success_after_cue_ms, target_word, category')
+        .select('cue_type_given, cue_trigger, cue_was_effective, time_to_success_after_cue_ms, target_word, category, created_at')
         .eq('user_id', userId)
-        .gte('created_at', cutoffDate.toISOString());
+        .gte('created_at', cutoffDate.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(QUERY_LIMIT);
 
       if (fetchError) throw fetchError;
+
+      const hitQueryLimit = utterances?.length === QUERY_LIMIT;
 
       if (!utterances || utterances.length === 0) {
         setStats({
@@ -71,6 +92,8 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
           avgTimeToSuccess: null,
           topCuedTargets: [],
           topCuedCategories: [],
+          recentCueEvents: [],
+          hitQueryLimit: false,
         });
         setLoading(false);
         return;
@@ -138,6 +161,16 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
+      // Recent cue events (last 10 where cue was delivered)
+      const recentCueEvents: CueEvent[] = deliveredCues.slice(0, 10).map(u => ({
+        created_at: u.created_at,
+        target_word: u.target_word,
+        cue_type_given: u.cue_type_given,
+        cue_trigger: u.cue_trigger,
+        cue_was_effective: u.cue_was_effective,
+        time_to_success_after_cue_ms: u.time_to_success_after_cue_ms,
+      }));
+
       setStats({
         totalUtterances,
         cuesDelivered,
@@ -148,6 +181,8 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
         avgTimeToSuccess,
         topCuedTargets,
         topCuedCategories,
+        recentCueEvents,
+        hitQueryLimit,
       });
 
     } catch (err) {
