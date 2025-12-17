@@ -50,10 +50,12 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
     const analyses = rows.map((r) => deriveMicroFluency(r.alignment_data, r.transcript));
     const agg = aggregateMicroFluency(analyses);
 
-    const notes = analyses
-      .flatMap((a) => a.notes ?? [])
-      .filter(Boolean)
-      .slice(0, 3);
+    // Only collect notes from VALID analyses (those with proper alignment data)
+    // and deduplicate them
+    const validAnalyses = analyses.filter(a => a.quality.alignmentOk);
+    const uniqueNotes = [...new Set(
+      validAnalyses.flatMap((a) => a.notes ?? []).filter(Boolean)
+    )].slice(0, 3);
 
     // Count rows with Azure data that have alignment
     const withAlignment = rows.filter(r => 
@@ -70,7 +72,7 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       aggregate: agg,
       sampleCount: analyses.length,
       validCount: agg.validSampleCount,
-      notesPreview: notes,
+      notesPreview: uniqueNotes,
       hasAzureData: rows.some(r => r.gop_data?.source === 'azure'),
       azureWithAlignment: withAlignment.length,
       isSingleWordContext: singleWordCount > rows.length / 2,
