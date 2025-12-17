@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   ArrowLeft, Activity, Brain, Stethoscope, 
-  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText, Lightbulb, CheckCircle2, Wrench
+  Loader2, AlertCircle, ChevronDown, ChevronUp, AudioWaveform, FileText, Lightbulb, CheckCircle2, Wrench, Play
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -15,6 +15,7 @@ import { useUiMode } from "@/hooks/useUiMode";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ViewModeSelector } from "@/components/ViewModeSelector";
+import { getRecommendedExerciseRoute } from "@/lib/recommendationRouter";
 
 // Recovery Snapshot (primary intelligence view)
 import { RecoverySnapshot } from "@/components/RecoverySnapshot";
@@ -235,12 +236,30 @@ export default function Insights() {
                     <h3 className="font-semibold">Smart Recommendations</h3>
                   </div>
                   <div className="space-y-2">
-                    {recommendations.slice(0, 3).map((rec, i) => (
-                      <Alert key={i} className="border-primary/20 py-2">
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                        <AlertDescription className="text-sm">{rec}</AlertDescription>
-                      </Alert>
-                    ))}
+                    {recommendations.slice(0, 3).map((rec, i) => {
+                      const exerciseRoute = getRecommendedExerciseRoute(rec);
+                      return (
+                        <Alert key={i} className="border-primary/20 py-2">
+                          <div className="flex items-start justify-between gap-3 w-full">
+                            <div className="flex items-start gap-2 flex-1">
+                              <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                              <AlertDescription className="text-sm flex-1">{rec}</AlertDescription>
+                            </div>
+                            {exerciseRoute && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-shrink-0 gap-1.5"
+                                onClick={() => navigate(exerciseRoute.route)}
+                              >
+                                <Play className="h-3 w-3" />
+                                {exerciseRoute.label}
+                              </Button>
+                            )}
+                          </div>
+                        </Alert>
+                      );
+                    })}
                   </div>
                 </Card>
               )}
