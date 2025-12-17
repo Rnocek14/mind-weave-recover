@@ -16,11 +16,14 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import type { ExerciseAdaptation } from '@/lib/exerciseGating';
 import { AdaptationBadges } from '@/components/AdaptationBadges';
 
+import type { SemanticFeatureTrial } from '@/data/semanticFeatureBank';
+
 interface SemanticFeatureGameProps {
   totalTrials?: number;
   config: ExerciseConfig;
   bounds: DifficultyBounds;
   adaptations?: ExerciseAdaptation | null;
+  customTrials?: SemanticFeatureTrial[];
   onTrialComplete?: (data: any) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
@@ -33,6 +36,7 @@ export const SemanticFeatureGame = ({
   config,
   bounds,
   adaptations,
+  customTrials,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -67,7 +71,7 @@ export const SemanticFeatureGame = ({
     },
   });
   
-  const game = useSemanticFeatureGame(totalTrials, currentDifficulty);
+  const game = useSemanticFeatureGame(totalTrials, currentDifficulty, customTrials);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
 

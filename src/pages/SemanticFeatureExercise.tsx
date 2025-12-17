@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, SkipForward } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { ArrowLeft, SkipForward, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
 import { useExerciseConfig } from '@/hooks/useExerciseConfig';
@@ -13,6 +14,7 @@ import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner'
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { getTrialsByTargetWords } from '@/data/semanticFeatureBank';
 
 export default function SemanticFeatureExercise() {
   const navigate = useNavigate();
@@ -23,9 +25,24 @@ export default function SemanticFeatureExercise() {
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  
+  // Extract targeted practice from URL params
+  const searchParams = new URLSearchParams(location.search);
+  const targetedWords = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
+  const practiceSource = searchParams.get('source') || null;
+  
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+  
+  // Generate custom trials if targeted practice
+  const customTrials = useMemo(() => {
+    if (targetedWords.length > 0) {
+      console.log('🎯 Semantic targeted practice:', { targetedWords, source: practiceSource });
+      return getTrialsByTargetWords(targetedWords, 10);
+    }
+    return undefined;
+  }, [targetedWords.join(',')]);
 
   // Fetch clinical profile
   useEffect(() => {
@@ -173,6 +190,19 @@ export default function SemanticFeatureExercise() {
           <DifficultyInfoBadge level={config.startDifficulty || 1} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
 
+        {/* Targeted practice banner */}
+        {targetedWords.length > 0 && (
+          <Card className="p-3 bg-primary/10 border-primary/20">
+            <div className="flex items-center gap-2 text-sm">
+              <Target className="h-4 w-4 text-primary" />
+              <span className="font-medium">Targeted Practice:</span>
+              <span className="text-muted-foreground">
+                Focusing on {targetedWords.slice(0, 3).join(', ')}{targetedWords.length > 3 ? ` +${targetedWords.length - 3} more` : ''}
+              </span>
+            </div>
+          </Card>
+        )}
+
         {/* Capability Adaptation Banner */}
         {hasCapabilityAdaptations && (
           <ExerciseAdaptationBanner 
@@ -187,6 +217,7 @@ export default function SemanticFeatureExercise() {
           config={config}
           bounds={bounds}
           adaptations={getAdaptations('semantic-features')}
+          customTrials={customTrials}
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}
