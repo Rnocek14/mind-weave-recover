@@ -12,7 +12,7 @@ interface ErrorPatternDashboardProps {
   weeksBack?: number;
 }
 
-const ERROR_COLORS = {
+const ERROR_COLORS: Record<string, string> = {
   correct: 'hsl(var(--success))',
   attempted: 'hsl(142.1 76.2% 36.3%)',
   semantic_paraphasia: 'hsl(var(--destructive))',
@@ -21,6 +21,16 @@ const ERROR_COLORS = {
   neologism: 'hsl(var(--muted))',
   no_response: 'hsl(var(--muted-foreground))',
   timeout: 'hsl(0 0% 45.1%)',
+};
+
+const ERROR_LABELS: Record<string, string> = {
+  semantic_paraphasia: 'Semantic',
+  phonemic_paraphasia: 'Phonemic',
+  circumlocution: 'Circumlocution',
+  neologism: 'Neologism',
+  no_response: 'No Response',
+  timeout: 'Timeout',
+  attempted: 'Attempted',
 };
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
@@ -327,7 +337,54 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
         </Card>
       )}
 
-      {/* Cue Dependency Trend */}
+      {/* Audio Examples by Error Type */}
+      {Object.keys(analytics.errorTypeExamples).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Radio className="h-5 w-5" /> Audio Examples by Error Type
+            </CardTitle>
+            <CardDescription>Listen to example recordings for each error pattern</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(analytics.errorTypeExamples).map(([errorType, examples]) => (
+                <div key={errorType} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge 
+                      style={{ backgroundColor: ERROR_COLORS[errorType] || 'hsl(var(--muted))' }}
+                      className="text-white"
+                    >
+                      {ERROR_LABELS[errorType] || errorType}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">({examples.length} examples)</span>
+                  </div>
+                  <div className="grid gap-2 ml-2">
+                    {examples.map((example, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-md">
+                        <AudioPlayback storagePath={example.audioPath} className="h-8 w-8 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">Target: {example.target}</span>
+                            {example.transcript && (
+                              <span className="text-xs text-muted-foreground truncate">
+                                → "{example.transcript}"
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(example.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Cue Dependency Over Time</CardTitle>

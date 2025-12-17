@@ -33,6 +33,13 @@ interface FluencyMetrics {
   effortfulSpeechRate: number;
 }
 
+interface ErrorTypeExample {
+  target: string;
+  transcript: string | null;
+  audioPath: string;
+  createdAt: string;
+}
+
 interface ErrorPatternAnalytics {
   errorBreakdown: ErrorBreakdown;
   cueTrends: CueTrend[];
@@ -40,10 +47,9 @@ interface ErrorPatternAnalytics {
   fluencyMetrics: FluencyMetrics;
   totalTrials: number;
   overallAccuracy: number;
-  // New: top challenging targets
   challengingTargets: { target: string; errorRate: number; attempts: number; exampleAudioPath?: string }[];
-  // New: category performance
   categoryPerformance: { category: string; accuracy: number; attempts: number }[];
+  errorTypeExamples: Record<string, ErrorTypeExample[]>;
 }
 
 export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12) => {
@@ -77,7 +83,8 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
           phonological_similarity,
           semantic_similarity,
           created_at,
-          audio_storage_path
+          audio_storage_path,
+          transcript
         `)
         .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())
@@ -241,6 +248,37 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
         }))
         .sort((a, b) => b.attempts - a.attempts);
 
+      // Collect audio examples per error type (up to 3 per type)
+      const errorTypeExamplesMap = new Map<string, ErrorTypeExample[]>();
+      const errorTypeKeys = ['semantic_paraphasia', 'phonemic_paraphasia', 'circumlocution', 'neologism', 'no_response', 'timeout', 'attempted'];
+      
+      data.forEach(event => {
+        if (!event.is_correct && event.audio_storage_path && event.error_type) {
+          const errorType = event.error_type.toLowerCase();
+          const matchedType = errorTypeKeys.find(key => 
+            errorType === key || errorType.includes(key.split('_')[0])
+          );
+          
+          if (matchedType) {
+            const existing = errorTypeExamplesMap.get(matchedType) || [];
+            if (existing.length < 3) {
+              existing.push({
+                target: event.target_word,
+                transcript: event.transcript,
+                audioPath: event.audio_storage_path,
+                createdAt: event.created_at!,
+              });
+              errorTypeExamplesMap.set(matchedType, existing);
+            }
+          }
+        }
+      });
+
+      const errorTypeExamples: Record<string, ErrorTypeExample[]> = {};
+      errorTypeExamplesMap.forEach((examples, type) => {
+        errorTypeExamples[type] = examples;
+      });
+
       // Calculate overall stats
       const totalTrials = data.length;
       const correctTrials = data.filter(e => e.is_correct).length;
@@ -255,6 +293,7 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
         overallAccuracy,
         challengingTargets,
         categoryPerformance,
+        errorTypeExamples,
       });
     } catch (err) {
       console.error('Error fetching analytics:', err);
