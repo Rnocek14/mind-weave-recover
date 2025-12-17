@@ -6,6 +6,7 @@ import { Loader2, TrendingDown, TrendingUp, AlertCircle, Radio, Zap, Brain, Cloc
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { AudioPlayback } from './AudioPlayback';
+import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -362,9 +363,8 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                   <div className="grid gap-2 ml-2">
                     {examples.map((example, idx) => (
                       <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-md">
-                        <AudioPlayback storagePath={example.audioPath} className="h-8 w-8 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-sm">Target: {example.target}</span>
                             {example.transcript && (
                               <span className="text-xs text-muted-foreground truncate">
@@ -372,9 +372,15 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(example.createdAt).toLocaleDateString()}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <AudioPlaybackWithWaveform 
+                              storagePath={example.audioPath} 
+                              showWaveform={true}
+                            />
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {new Date(example.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

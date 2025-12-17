@@ -32,7 +32,7 @@ import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useUiMode } from '@/hooks/useUiMode';
 import { useCuratedAudioSamples } from '@/hooks/useCuratedAudioSamples';
 import { buildClinicianReport, type ClinicianReport as ClinicianReportType } from '@/lib/clinicianReportBuilder';
-import { AudioPlayback } from '@/components/AudioPlayback';
+import { AudioPlaybackWithWaveform } from '@/components/AudioPlaybackWithWaveform';
 import { format } from 'date-fns';
 
 const ConfidenceBadge = ({ level }: { level: 'low' | 'medium' | 'high' }) => {
@@ -332,9 +332,8 @@ export default function ClinicianReport() {
                   </p>
                   <div className="space-y-2">
                     {audioSamples.challenging.map((sample) => (
-                      <div key={sample.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <AudioPlayback storagePath={sample.audioPath} className="h-8 w-8" />
+                      <div key={sample.id} className="p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-between mb-2">
                           <div>
                             <p className="font-medium capitalize">{sample.targetWord}</p>
                             <p className="text-xs text-muted-foreground">
@@ -342,17 +341,18 @@ export default function ClinicianReport() {
                               {sample.transcript && ` • Said: "${sample.transcript}"`}
                             </p>
                           </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${sample.score < 60 ? 'text-red-500' : 'text-amber-600'}`}>
+                              {sample.score}%
+                            </p>
+                            {sample.errorType && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {sample.errorType.replace(/_/g, ' ')}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`font-semibold ${sample.score < 60 ? 'text-red-500' : 'text-amber-600'}`}>
-                            {sample.score}%
-                          </p>
-                          {sample.errorType && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {sample.errorType.replace(/_/g, ' ')}
-                            </Badge>
-                          )}
-                        </div>
+                        <AudioPlaybackWithWaveform storagePath={sample.audioPath} showWaveform={true} />
                       </div>
                     ))}
                   </div>
@@ -366,9 +366,8 @@ export default function ClinicianReport() {
                   </p>
                   <div className="space-y-2">
                     {audioSamples.best.map((sample) => (
-                      <div key={sample.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <AudioPlayback storagePath={sample.audioPath} className="h-8 w-8" />
+                      <div key={sample.id} className="p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-between mb-2">
                           <div>
                             <p className="font-medium capitalize">{sample.targetWord}</p>
                             <p className="text-xs text-muted-foreground">
@@ -376,8 +375,9 @@ export default function ClinicianReport() {
                               {sample.transcript && ` • Said: "${sample.transcript}"`}
                             </p>
                           </div>
+                          <p className="font-semibold text-green-600">{sample.score}%</p>
                         </div>
-                        <p className="font-semibold text-green-600">{sample.score}%</p>
+                        <AudioPlaybackWithWaveform storagePath={sample.audioPath} showWaveform={true} />
                       </div>
                     ))}
                   </div>
