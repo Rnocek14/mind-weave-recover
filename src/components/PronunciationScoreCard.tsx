@@ -199,8 +199,9 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
                   key={p.phoneme} 
                   variant="outline"
                   className={`${p.avgAccuracy < 60 ? 'border-red-300 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}
+                  title={`Based on ${p.sampleCount} samples`}
                 >
-                  /{p.phoneme}/ {p.avgAccuracy}%
+                  /{p.phoneme}/ {p.avgAccuracy}% <span className="text-[10px] opacity-70">n={p.sampleCount}</span>
                 </Badge>
               ))}
             </div>
@@ -216,8 +217,9 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
                   key={p.phoneme} 
                   variant="outline"
                   className="border-green-300 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                  title={`Based on ${p.sampleCount} samples`}
                 >
-                  /{p.phoneme}/ {p.avgAccuracy}%
+                  /{p.phoneme}/ {p.avgAccuracy}% <span className="text-[10px] opacity-70">n={p.sampleCount}</span>
                 </Badge>
               ))}
             </div>
