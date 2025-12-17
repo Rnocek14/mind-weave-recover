@@ -180,6 +180,13 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
             )}
           </>
         )}
+
+        {/* Sample size footer */}
+        {sampleCount >= 5 && (
+          <div className="mt-4 pt-3 border-t text-xs text-muted-foreground text-center">
+            Based on {validCount} of {sampleCount} utterances • {validRatePct}% valid
+          </div>
+        )}
       </CardContent>
     </Card>
   );

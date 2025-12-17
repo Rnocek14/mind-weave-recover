@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, LogOut, Loader2, AlertCircle, Gamepad2, ArrowLeft } from "lucide-react";
+import { Play, LogOut, Loader2, AlertCircle, Gamepad2, ArrowLeft, Clock, Trophy, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
@@ -9,7 +9,9 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
+import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 interface PatientModeViewProps {
   userId: string;
@@ -85,7 +87,11 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   const { setUiMode } = useUiMode();
   const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
+  const { sessions } = useSessionHistory(userId);
   const [showGamePicker, setShowGamePicker] = useState(false);
+  
+  // Get last session for "Last time" card
+  const lastSession = sessions[0];
 
   const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
 
@@ -325,6 +331,37 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
         <UiModeToggle />
       </div>
       <Card className="max-w-3xl w-full p-8 md:p-16 space-y-10 text-center shadow-2xl border-2">
+        {/* Last Session Card - only show if there's a previous session */}
+        {lastSession && (
+          <div className="bg-muted/50 rounded-xl p-4 text-left">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Calendar className="h-4 w-4" />
+              <span>Last time ({formatDistanceToNow(new Date(lastSession.endedAt || lastSession.startedAt), { addSuffix: true })})</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {lastSession.durationSec && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{Math.round(lastSession.durationSec / 60)} min</span>
+                  </div>
+                )}
+                {lastSession.exercises.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium">
+                      {Math.round(lastSession.exercises.reduce((sum, ex) => sum + ex.accuracy, 0) / lastSession.exercises.length)}% accuracy
+                    </span>
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {lastSession.exercises.reduce((sum, ex) => sum + ex.totalTrials, 0)} exercises
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Friendly greeting */}
         <div className="space-y-4">
           <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
