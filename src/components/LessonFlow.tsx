@@ -376,9 +376,19 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
             </div>
           </div>
 
-          <Button size="lg" className="w-full" onClick={handleFinish}>
-            Back to Dashboard
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button size="lg" className="w-full" onClick={handleFinish}>
+              Back to Dashboard
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => navigate('/insights', { state: { defaultTab: 'deep-dive' } })}
+            >
+              View detailed analysis
+            </Button>
+          </div>
         </Card>
       </div>
     );
