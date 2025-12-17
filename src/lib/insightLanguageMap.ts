@@ -117,7 +117,7 @@ export const challengeCategoryMap: Record<string, TermMapping> = {
  * Get patient-friendly label for an error type
  */
 export function getErrorLabel(errorType: string | null | undefined): string {
-  if (!errorType) return "Unknown";
+  if (!errorType || typeof errorType !== 'string') return "Unknown";
   const mapping = errorTypeMap[errorType.toLowerCase()];
   return mapping?.label || formatFallback(errorType);
 }
@@ -126,7 +126,7 @@ export function getErrorLabel(errorType: string | null | undefined): string {
  * Get patient-friendly label for a cue type
  */
 export function getCueLabel(cueType: string | null | undefined): string {
-  if (!cueType) return "No hint";
+  if (!cueType || typeof cueType !== 'string') return "No hint";
   const mapping = cueTypeMap[cueType.toLowerCase()];
   return mapping?.label || formatFallback(cueType);
 }
@@ -135,7 +135,7 @@ export function getCueLabel(cueType: string | null | undefined): string {
  * Get full term info for displaying with tooltips
  */
 export function getErrorTermInfo(errorType: string | null | undefined): TermMapping {
-  if (!errorType) {
+  if (!errorType || typeof errorType !== 'string') {
     return { label: "Unknown", description: "", clinicalTerm: "Unknown" };
   }
   const mapping = errorTypeMap[errorType.toLowerCase()];
@@ -150,7 +150,7 @@ export function getErrorTermInfo(errorType: string | null | undefined): TermMapp
  * Get full cue term info for displaying with tooltips
  */
 export function getCueTermInfo(cueType: string | null | undefined): TermMapping {
-  if (!cueType) {
+  if (!cueType || typeof cueType !== 'string') {
     return { label: "No hint", description: "", clinicalTerm: "No cue" };
   }
   const mapping = cueTypeMap[cueType.toLowerCase()];
