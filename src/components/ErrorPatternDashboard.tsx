@@ -145,6 +145,32 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
     keyFinding = `${analytics.totalTrials} trials analyzed. Building your speech profile...`;
   }
 
+  // ==== CONFIDENCE CALCULATION ====
+  // A) Sample size
+  const sampleConfidence = analytics.totalTrials < 10 ? 'low' : analytics.totalTrials < 25 ? 'medium' : 'high';
+  
+  // B) Dominance: top error share among non-correct trials
+  const totalNonCorrect = analytics.totalTrials - (analytics.errorBreakdown.correct || 0);
+  const topErrorShare = topError && totalNonCorrect > 0 ? topError.count / totalNonCorrect : 0;
+  const dominanceConfidence = topErrorShare < 0.25 ? 'low' : topErrorShare < 0.40 ? 'medium' : 'high';
+  
+  // C) Cue evidence: best cue has enough data
+  const cueConfidence = bestCue && bestCue.totalGiven >= 5 && bestCue.effectiveCount >= 3 ? 'high' : 
+                        bestCue && bestCue.totalGiven >= 3 ? 'medium' : 'low';
+  
+  // Combine: take minimum of sample + max(dominance, cue)
+  const confidenceLevels = { low: 0, medium: 1, high: 2 };
+  const signalConfidence = Math.max(confidenceLevels[dominanceConfidence], confidenceLevels[cueConfidence]);
+  const overallConfidenceNum = Math.min(confidenceLevels[sampleConfidence], signalConfidence);
+  const overallConfidence: 'low' | 'medium' | 'high' = 
+    overallConfidenceNum === 0 ? 'low' : overallConfidenceNum === 1 ? 'medium' : 'high';
+  
+  const confidenceConfig = {
+    low: { label: 'Building baseline', color: 'text-muted-foreground', bg: 'bg-muted' },
+    medium: { label: 'Medium confidence', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+    high: { label: 'High confidence', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30' },
+  };
+
   return (
     <div className="space-y-6">
       {/* Real-time Status Badge */}
@@ -242,7 +268,18 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
         <Card className="p-4 bg-primary/5 border-primary/30">
           <div className="flex items-start gap-3">
             <Brain className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-            <p className="text-sm font-medium">{keyFinding}</p>
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium">{keyFinding}</p>
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className={`${confidenceConfig[overallConfidence].bg} ${confidenceConfig[overallConfidence].color} border-0`}>
+                  {confidenceConfig[overallConfidence].label}
+                </Badge>
+                <span className="text-muted-foreground">
+                  N={analytics.totalTrials} trials
+                  {topError && totalNonCorrect > 0 && ` • ${Math.round(topErrorShare * 100)}% dominant pattern`}
+                </span>
+              </div>
+            </div>
           </div>
         </Card>
       )}

@@ -8,7 +8,7 @@ import { TrendingUp, TrendingDown, Minus, Volume2, Target, Zap, Music, ChevronDo
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { AudioPlayback } from './AudioPlayback';
 import { format } from 'date-fns';
-
+import { getPronunciationListenForHint } from '@/lib/insightLanguageMap';
 interface PronunciationScoreCardProps {
   userId?: string;
   daysBack?: number;
@@ -328,7 +328,11 @@ function ExpandableWordRow({
           )}
           <span className="font-medium capitalize">{word.word}</span>
           {word.exampleAudioPath && !hasMultipleExamples && (
-            <AudioPlayback storagePath={word.exampleAudioPath} className="h-6 w-6" />
+            <AudioPlayback 
+              storagePath={word.exampleAudioPath} 
+              className="h-6 w-6" 
+              listenForHint={getPronunciationListenForHint(variant, word.word)}
+            />
           )}
           {hasMultipleExamples && (
             <Badge variant="outline" className="text-[10px] h-4 px-1">
@@ -347,7 +351,11 @@ function ExpandableWordRow({
           {word.examples.map((example, idx) => (
             <div key={idx} className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
-                <AudioPlayback storagePath={example.audioPath} className="h-5 w-5" />
+                <AudioPlayback 
+                  storagePath={example.audioPath} 
+                  className="h-5 w-5" 
+                  listenForHint={getPronunciationListenForHint(variant, word.word)}
+                />
                 <span className="text-muted-foreground">
                   {format(new Date(example.timestamp), 'MMM d, h:mm a')}
                 </span>

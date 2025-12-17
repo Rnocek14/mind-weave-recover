@@ -184,6 +184,17 @@ export function getListenForHint(errorType: unknown): string {
 }
 
 /**
+ * Pronunciation-specific "listen for" hints based on word context
+ */
+export function getPronunciationListenForHint(variant: 'practice' | 'best', word?: string): string {
+  if (variant === 'best') {
+    return "your strongest pronunciation";
+  }
+  // For practice words, give more specific guidance
+  return "clarity on the target word";
+}
+
+/**
  * Format a raw enum value as a fallback label
  */
 function formatFallback(value: string): string {
