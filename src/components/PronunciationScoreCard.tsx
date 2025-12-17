@@ -111,6 +111,14 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
     return 'bg-red-500';
   };
 
+  // Determine confidence level based on sample count
+  const confidenceLevel = sampleCount >= 20 ? 'high' : sampleCount >= 10 ? 'medium' : 'low';
+  const confidenceColors = {
+    high: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    low: 'bg-muted text-muted-foreground',
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -119,9 +127,14 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             <Volume2 className="h-4 w-4" />
             Pronunciation Analysis
           </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            Last {daysBack} days • N={sampleCount}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={`text-xs ${confidenceColors[confidenceLevel]}`}>
+              {confidenceLevel === 'high' ? '✓ ' : confidenceLevel === 'medium' ? '~ ' : ''}{confidenceLevel} confidence
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              N={sampleCount}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
 
