@@ -22,6 +22,7 @@ import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { SpeechLabPanel } from "@/components/SpeechLabPanel";
 import { MicroFluencyCard } from "@/components/MicroFluencyCard";
+import { PronunciationScoreCard } from "@/components/PronunciationScoreCard";
 
 // Cross-Domain Intelligence (for Deep Dive)
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
@@ -248,7 +249,10 @@ export default function Insights() {
                   <CollapsibleContent>
                     <div className="p-4 pt-0 border-t space-y-4">
                       <SpeechLabPanel userId={user!.id} daysBack={7} />
-                      <MicroFluencyCard userId={user!.id} daysBack={7} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <PronunciationScoreCard userId={user!.id} daysBack={7} />
+                        <MicroFluencyCard userId={user!.id} daysBack={7} />
+                      </div>
                     </div>
                   </CollapsibleContent>
                 </Card>
