@@ -162,6 +162,28 @@ export function getCueTermInfo(cueType: unknown): TermMapping {
 }
 
 /**
+ * Audio "listen for" hints by error type - makes evidence self-explanatory
+ */
+const listenForHints: Record<string, string> = {
+  semantic_paraphasia: "a word that's related but not the target",
+  phonemic_paraphasia: "the first sound being changed or missing",
+  circumlocution: "describing instead of naming",
+  neologism: "a made-up or unfamiliar word",
+  no_response: "long pauses or no answer",
+  timeout: "running out of time",
+  attempted: "a close but not quite right attempt",
+  correct: "clear, accurate pronunciation"
+};
+
+/**
+ * Get "listen for" hint for audio playback context
+ */
+export function getListenForHint(errorType: unknown): string {
+  if (typeof errorType !== 'string' || !errorType) return "the response";
+  return listenForHints[errorType.toLowerCase()] || "the response";
+}
+
+/**
  * Format a raw enum value as a fallback label
  */
 function formatFallback(value: string): string {

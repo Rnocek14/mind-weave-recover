@@ -8,7 +8,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, L
 import { AudioPlayback } from './AudioPlayback';
 import { AudioPlaybackWithWaveform } from './AudioPlaybackWithWaveform';
 import { ClinicalTerm } from './ClinicalTerm';
-import { getErrorLabel, getCueLabel, getErrorTermInfo } from '@/lib/insightLanguageMap';
+import { getErrorLabel, getCueLabel, getErrorTermInfo, getListenForHint } from '@/lib/insightLanguageMap';
 
 interface ErrorPatternDashboardProps {
   userId: string;
@@ -375,6 +375,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                             <AudioPlaybackWithWaveform 
                               storagePath={example.audioPath} 
                               showWaveform={true}
+                              listenForHint={getListenForHint(errorType)}
                             />
                             <span className="text-xs text-muted-foreground shrink-0">
                               {new Date(example.createdAt).toLocaleDateString()}
