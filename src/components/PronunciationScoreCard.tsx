@@ -112,11 +112,21 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
   };
 
   // Determine confidence level based on sample count
+  // N<5 already handled above with "Not enough data" message, but guard here too
   const confidenceLevel = sampleCount >= 20 ? 'high' : sampleCount >= 10 ? 'medium' : 'low';
-  const confidenceColors = {
-    high: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    low: 'bg-muted text-muted-foreground',
+  const confidenceConfig = {
+    high: { 
+      text: '✓ high confidence', 
+      className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+    },
+    medium: { 
+      text: '~ medium confidence', 
+      className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+    },
+    low: { 
+      text: 'building baseline', 
+      className: 'bg-muted text-muted-foreground' 
+    },
   };
 
   return (
@@ -128,8 +138,8 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
             Pronunciation Analysis
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={`text-xs ${confidenceColors[confidenceLevel]}`}>
-              {confidenceLevel === 'high' ? '✓ ' : confidenceLevel === 'medium' ? '~ ' : ''}{confidenceLevel} confidence
+            <Badge variant="outline" className={`text-xs ${confidenceConfig[confidenceLevel].className}`}>
+              {confidenceConfig[confidenceLevel].text}
             </Badge>
             <Badge variant="outline" className="text-xs">
               N={sampleCount}
