@@ -839,6 +839,7 @@ export const PhotoNamingGame = ({
       effortfulSpeech: timeoutEffortfulSpeech,
       cueTypeGiven: timeoutCueTypeGiven, // Always log, even 'none'
       cueWasEffective: timeoutCueWasEffective ?? undefined,
+      cueTrigger: cueState?.trigger, // FIX: Was missing - required for cue learning loop
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration
     });
@@ -1477,13 +1478,34 @@ export const PhotoNamingGame = ({
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
+    // Compute cue efficacy for caregiver mode
+    let caregiverCueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
+    let caregiverCueWasEffective: boolean | null = null;
+    
+    const CUE_ATTRIBUTION_WINDOW_MS = 6000;
+    
+    if (cueState) {
+      caregiverCueTypeGiven = cueState.type;
+      const dt = Date.now() - cueState.shownAt;
+      
+      if (correct && dt <= CUE_ATTRIBUTION_WINDOW_MS) {
+        caregiverCueWasEffective = true;
+      } else if (!correct) {
+        caregiverCueWasEffective = false;
+      } else {
+        caregiverCueWasEffective = null; // Too late to attribute
+      }
+    }
+    
     logFinalAnalysis({
       transcriptSource: 'manual',
       isCorrect: correct,
       errorType: errorType || 'correct',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
-      cueTypeGiven: cueLevel > 0 ? (cueState?.type || 'semantic') : 'none', // Always log, even 'none'
+      cueTypeGiven: caregiverCueTypeGiven,
+      cueWasEffective: caregiverCueWasEffective ?? undefined,
+      cueTrigger: cueState?.trigger, // FIX: Was missing
     });
 
     setTimeout(() => {
