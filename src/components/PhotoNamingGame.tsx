@@ -87,12 +87,19 @@ export const PhotoNamingGame = ({
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   
-  // Refs to avoid stale closures
+  // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
+  const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
+  
+  // Refs for stall timer closure safety (avoid reading stale state)
+  const showFeedbackRef = useRef(showFeedback);
+  const selectedAnswerRef = useRef(selectedAnswer);
+  const timedOutRef = useRef(timedOut);
+  const showCueRef = useRef(showCue);
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -144,6 +151,12 @@ export const PhotoNamingGame = ({
   
   // Ref to trigger voice restart after no-match
   const needsVoiceRestartRef = useRef(false);
+  
+  // Keep refs in sync with state for stall timer closure safety
+  useEffect(() => { showFeedbackRef.current = showFeedback; }, [showFeedback]);
+  useEffect(() => { selectedAnswerRef.current = selectedAnswer; }, [selectedAnswer]);
+  useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
+  useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -518,10 +531,14 @@ export const PhotoNamingGame = ({
         console.log('🎙️ Recording started for session:', activeSessionId);
       }
       
+      // Reset per-trial cue tracking on new trial
+      autoCueShownThisTrialRef.current = false;
+      setStallDetected(false);
+      
       // Research-aligned cue trigger: stall detection OR consecutive errors
       // Primary: stallDetected (hesitation > 3s)
       // Secondary: consecutiveErrors >= 2 (remove difficulty requirement per research)
-      const shouldShowAutoCue = stallDetected || consecutiveErrors >= 2;
+      const shouldShowAutoCue = (stallDetected || consecutiveErrors >= 2) && !autoCueShownThisTrialRef.current;
       
       if (shouldShowAutoCue && !showCue) {
         const autoCueDecision = selectOptimalCue(
@@ -534,16 +551,25 @@ export const PhotoNamingGame = ({
         setCueLevel(1);
         setCurrentCueText(autoCueDecision.cueText);
         setShowCue(true);
-        setStallDetected(false); // Reset stall flag
+        setStallDetected(false);
+        autoCueShownThisTrialRef.current = true; // Prevent spam
         console.log('💡 Auto-cue triggered:', stallDetected ? 'stall detected' : 'consecutive errors');
       }
       
       // Start stall detection timer (3 seconds of hesitation)
+      // Uses refs to avoid stale closure issues
       if (stallTimerRef.current) {
         clearTimeout(stallTimerRef.current);
       }
       stallTimerRef.current = setTimeout(() => {
-        if (!showFeedback && !selectedAnswer && !timedOut && !showCue) {
+        // Read from refs to avoid stale closure
+        const isIdle = !showFeedbackRef.current && 
+                       !selectedAnswerRef.current && 
+                       !timedOutRef.current && 
+                       !showCueRef.current &&
+                       !isPlayingChoicesRef.current; // Don't stall during audio playback
+        
+        if (isIdle && !autoCueShownThisTrialRef.current) {
           setStallDetected(true);
           console.log('🕐 Stall detected - user hesitating > 3s');
         }
