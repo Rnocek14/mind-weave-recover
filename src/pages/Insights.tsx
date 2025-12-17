@@ -290,10 +290,8 @@ export default function Insights() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="p-4 pt-0 border-t space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <PronunciationScoreCard userId={user!.id} daysBack={7} />
-                        <MicroFluencyCard userId={user!.id} daysBack={7} />
-                      </div>
+                      <PronunciationScoreCard userId={user!.id} daysBack={7} />
+                      <MicroFluencyCard userId={user!.id} daysBack={7} />
                     </div>
                   </CollapsibleContent>
                 </Card>
