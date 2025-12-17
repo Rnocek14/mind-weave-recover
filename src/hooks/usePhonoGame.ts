@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   PhonologicalTrial,
   getMixedTrials,
+  getTrialsByTargetWords,
   analyzePhonemeErrors,
 } from '@/data/phonologicalBank';
 
@@ -18,7 +19,8 @@ interface GameState {
 
 export const usePhonoGame = (
   totalTrials: number = 10,
-  difficultyLevel: number = 1
+  difficultyLevel: number = 1,
+  customTrials?: PhonologicalTrial[]
 ) => {
   const [state, setState] = useState<GameState>({
     currentTrial: 0,
@@ -31,9 +33,11 @@ export const usePhonoGame = (
     incorrectTrials: [],
   });
 
-  // Initialize trials
+  // Initialize trials (use customTrials if provided)
   useEffect(() => {
-    const trials = getMixedTrials(difficultyLevel, totalTrials);
+    const trials = customTrials && customTrials.length > 0
+      ? customTrials
+      : getMixedTrials(difficultyLevel, totalTrials);
     setState(prev => ({
       ...prev,
       trials,
@@ -44,7 +48,7 @@ export const usePhonoGame = (
       showFeedback: false,
       incorrectTrials: [],
     }));
-  }, [totalTrials, difficultyLevel]);
+  }, [totalTrials, difficultyLevel, customTrials]);
 
   const submitAnswer = (answer: 'same' | 'different'): {
     correct: boolean;

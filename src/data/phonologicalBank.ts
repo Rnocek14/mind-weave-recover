@@ -358,6 +358,29 @@ export function getMixedTrials(
 }
 
 /**
+ * Get trials filtered by target words (for targeted practice)
+ */
+export function getTrialsByTargetWords(targetWords: string[], count: number = 10): PhonologicalTrial[] {
+  const lowerTargets = targetWords.map(w => w.toLowerCase());
+  const matchingTrials = PHONO_TRIALS.filter(t => 
+    lowerTargets.includes(t.word1.toLowerCase()) || 
+    lowerTargets.includes(t.word2.toLowerCase())
+  );
+  
+  if (matchingTrials.length === 0) {
+    // Fallback to level 1 trials if no matches
+    return getMixedTrials(1, count);
+  }
+  
+  // Repeat trials if needed to fill count
+  const repeated: PhonologicalTrial[] = [];
+  while (repeated.length < count && repeated.length < matchingTrials.length * 3) {
+    repeated.push(...[...matchingTrials].sort(() => Math.random() - 0.5));
+  }
+  return repeated.slice(0, count);
+}
+
+/**
  * Analyze phoneme-level error patterns
  */
 export function analyzePhonemeErrors(
