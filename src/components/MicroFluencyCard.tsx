@@ -110,7 +110,13 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       </CardHeader>
 
       <CardContent>
-        {validCount === 0 ? (
+        {/* Insufficient data check: need at least 5 samples for reliable metrics */}
+        {sampleCount < 5 ? (
+          <div className="text-sm text-muted-foreground text-center py-4">
+            <p className="font-medium">Not enough data yet</p>
+            <p className="text-xs mt-1">Need at least 5 utterances for reliable fluency analysis ({sampleCount} so far)</p>
+          </div>
+        ) : validCount === 0 ? (
           <div className="text-sm text-muted-foreground">
             {hasAzureData && azureWithAlignment > 0 ? (
               <>

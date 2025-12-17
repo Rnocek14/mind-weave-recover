@@ -63,6 +63,26 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
     );
   }
 
+  // Insufficient data check: need at least 5 samples for reliable analysis
+  if (analytics.sampleCount < 5) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Volume2 className="h-4 w-4" />
+            Pronunciation Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-4">
+          <p className="text-sm font-medium text-muted-foreground">Not enough data yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Need at least 5 pronunciation samples for reliable analysis ({analytics.sampleCount} so far)
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const { 
     overallScore, accuracyScore, fluencyScore, completenessScore, prosodyScore,
     sampleCount, hardestPhonemes, strongestPhonemes, needsPracticeWords, bestWords,

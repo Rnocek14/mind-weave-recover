@@ -144,6 +144,7 @@ export const PhotoNamingGame = ({
     type: 'semantic' | 'phonemic' | 'full_word';
     level: number;
     shownAt: number;
+    trigger: 'stall' | 'consecutive_errors' | 'user_request';
   } | null>(null);
   
   // Adaptive controller (persists across renders)
@@ -157,6 +158,16 @@ export const PhotoNamingGame = ({
   useEffect(() => { selectedAnswerRef.current = selectedAnswer; }, [selectedAnswer]);
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
+  
+  // CRITICAL: Clean up stall timer on trial change and unmount
+  useEffect(() => {
+    return () => {
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
+    };
+  }, [state.currentTrial?.target]); // Re-run cleanup when trial changes
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -541,6 +552,7 @@ export const PhotoNamingGame = ({
       const shouldShowAutoCue = (stallDetected || consecutiveErrors >= 2) && !autoCueShownThisTrialRef.current;
       
       if (shouldShowAutoCue && !showCue) {
+        const trigger = stallDetected ? 'stall' : 'consecutive_errors';
         const autoCueDecision = selectOptimalCue(
           errorHistory,
           state.currentTrial.target,
@@ -553,27 +565,45 @@ export const PhotoNamingGame = ({
         setShowCue(true);
         setStallDetected(false);
         autoCueShownThisTrialRef.current = true; // Prevent spam
-        console.log('💡 Auto-cue triggered:', stallDetected ? 'stall detected' : 'consecutive errors');
+        
+        // Track cue state for efficacy logging with trigger
+        setCueState({
+          type: autoCueDecision.cueType === 'phonemic' ? 'phonemic' : 
+                autoCueDecision.cueType === 'full' ? 'full_word' : 'semantic',
+          level: 1,
+          shownAt: Date.now(),
+          trigger: trigger as 'stall' | 'consecutive_errors'
+        });
+        
+        console.log('💡 Auto-cue triggered:', trigger);
       }
       
       // Start stall detection timer (3 seconds of hesitation)
-      // Uses refs to avoid stale closure issues
+      // Only start when trial is ready for user response
+      const trialIsReady = state.currentTrial && 
+                           !showFeedback && 
+                           !isPlayingChoices && 
+                           !isCreatingSession;
+      
       if (stallTimerRef.current) {
         clearTimeout(stallTimerRef.current);
       }
-      stallTimerRef.current = setTimeout(() => {
-        // Read from refs to avoid stale closure
-        const isIdle = !showFeedbackRef.current && 
-                       !selectedAnswerRef.current && 
-                       !timedOutRef.current && 
-                       !showCueRef.current &&
-                       !isPlayingChoicesRef.current; // Don't stall during audio playback
-        
-        if (isIdle && !autoCueShownThisTrialRef.current) {
-          setStallDetected(true);
-          console.log('🕐 Stall detected - user hesitating > 3s');
-        }
-      }, 3000);
+      
+      if (trialIsReady) {
+        stallTimerRef.current = setTimeout(() => {
+          // Read from refs to avoid stale closure
+          const isIdle = !showFeedbackRef.current && 
+                         !selectedAnswerRef.current && 
+                         !timedOutRef.current && 
+                         !showCueRef.current &&
+                         !isPlayingChoicesRef.current; // Don't stall during audio playback
+          
+          if (isIdle && !autoCueShownThisTrialRef.current) {
+            setStallDetected(true);
+            console.log('🕐 Stall detected - user hesitating > 3s');
+          }
+        }, 3000);
+      }
       
       // Auto-listen: Only initiate once per trial
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
@@ -857,7 +887,8 @@ export const PhotoNamingGame = ({
     setCueState({
       type: cueType,
       level: newCueLevel,
-      shownAt: Date.now()
+      shownAt: Date.now(),
+      trigger: 'user_request'
     });
     
     // Show reasoning in toast for transparency
