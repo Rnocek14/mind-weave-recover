@@ -535,7 +535,7 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
                         onClick={() => navigate(`/exercise/photo-naming?targets=${targetsParam}&source=error_pattern_dashboard`)}
                       >
                         <Play className="h-3.5 w-3.5" />
-                        Practice these words
+                        Practice these words (5 min)
                       </Button>
                     );
                   }

@@ -27,7 +27,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/semantic-features',
-      label: 'Practice word meanings',
+      label: 'Practice word meanings (5 min)',
       exerciseType: 'semantic',
     };
   }
@@ -42,7 +42,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/phonological-awareness',
-      label: 'Practice sounds',
+      label: 'Practice sounds (5 min)',
       exerciseType: 'phonological',
     };
   }
@@ -56,7 +56,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/photo-naming',
-      label: 'Practice naming',
+      label: 'Practice naming (5 min)',
       exerciseType: 'naming',
     };
   }
@@ -71,7 +71,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/phrase-practice',
-      label: 'Practice phrases',
+      label: 'Practice phrases (5 min)',
       exerciseType: 'sentence',
     };
   }
@@ -85,7 +85,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/reach-tap',
-      label: 'Practice focus',
+      label: 'Practice focus (5 min)',
       exerciseType: 'attention',
     };
   }
@@ -99,7 +99,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/reach-tap',
-      label: 'Practice motor skills',
+      label: 'Practice motor skills (5 min)',
       exerciseType: 'motor',
     };
   }
@@ -113,7 +113,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   ) {
     return {
       route: '/exercise/reach-tap?variant=left-side-hunt',
-      label: 'Practice visual awareness',
+      label: 'Practice visual awareness (5 min)',
       exerciseType: 'visual',
     };
   }
@@ -121,7 +121,7 @@ export function getRecommendedExerciseRoute(recommendationText: string): Recomme
   // Default fallback - general practice (photo naming is versatile)
   return {
     route: '/exercise/photo-naming',
-    label: 'Practice',
+    label: 'Practice (5 min)',
     exerciseType: 'general',
   };
 }
@@ -133,42 +133,42 @@ export function getExerciseForErrorType(errorType: string): RecommendationRoute 
   const errorMap: Record<string, RecommendationRoute> = {
     semantic_paraphasia: {
       route: '/exercise/semantic-features',
-      label: 'Practice word meanings',
+      label: 'Practice word meanings (5 min)',
       exerciseType: 'semantic',
     },
     phonemic_paraphasia: {
       route: '/exercise/phonological-awareness',
-      label: 'Practice sounds',
+      label: 'Practice sounds (5 min)',
       exerciseType: 'phonological',
     },
     neologism: {
       route: '/exercise/photo-naming',
-      label: 'Practice naming',
+      label: 'Practice naming (5 min)',
       exerciseType: 'naming',
     },
     circumlocution: {
       route: '/exercise/semantic-features',
-      label: 'Practice word retrieval',
+      label: 'Practice word retrieval (5 min)',
       exerciseType: 'semantic',
     },
     perseveration: {
       route: '/exercise/photo-naming',
-      label: 'Practice with variety',
+      label: 'Practice with variety (5 min)',
       exerciseType: 'naming',
     },
     no_response: {
       route: '/exercise/reach-tap',
-      label: 'Warm up with motor task',
+      label: 'Warm up with motor task (5 min)',
       exerciseType: 'motor',
     },
     mixed_error: {
       route: '/exercise/semantic-features',
-      label: 'Practice word features',
+      label: 'Practice word features (5 min)',
       exerciseType: 'semantic',
     },
     unrelated: {
       route: '/exercise/semantic-features',
-      label: 'Practice categories',
+      label: 'Practice categories (5 min)',
       exerciseType: 'semantic',
     },
   };
