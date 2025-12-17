@@ -1,67 +1,95 @@
 /**
  * Global audio manager to prevent multiple audio playbacks from overlapping.
  * Only one audio can play at a time - starting a new one stops the previous.
+ * Uses event-based subscription (no polling) for state sync.
  */
 
 let currentAudio: HTMLAudioElement | null = null;
-let currentStopCallback: (() => void) | null = null;
+let currentKey: string | null = null;
+let currentHandlers: { ended: () => void; pause: () => void; error: () => void } | null = null;
+
+// Subscription system for state changes (no polling needed)
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach(fn => fn());
 
 export const audioManager = {
   /**
    * Play audio from a URL. Stops any currently playing audio first.
    * @param url - The audio URL to play
-   * @param onStop - Callback when playback stops (ended, paused, or replaced)
+   * @param key - Unique identifier for this audio (e.g., storagePath)
    * @returns The audio element
    */
-  play: async (url: string, onStop?: () => void): Promise<HTMLAudioElement> => {
+  play: async (url: string, key: string): Promise<HTMLAudioElement> => {
     // Stop any currently playing audio
     audioManager.stop();
 
     const audio = new Audio(url);
     currentAudio = audio;
-    currentStopCallback = onStop || null;
+    currentKey = key;
 
-    const handleStop = () => {
-      if (currentAudio === audio) {
-        currentAudio = null;
-        if (currentStopCallback) {
-          currentStopCallback();
-          currentStopCallback = null;
+    // Create handlers we can remove later
+    const handlers = {
+      ended: () => {
+        if (currentAudio === audio) {
+          audioManager.stop();
+        }
+      },
+      pause: () => {
+        if (currentAudio === audio) {
+          currentAudio = null;
+          currentKey = null;
+          currentHandlers = null;
+          notify();
+        }
+      },
+      error: () => {
+        if (currentAudio === audio) {
+          audioManager.stop();
         }
       }
     };
 
-    audio.addEventListener('ended', handleStop);
-    audio.addEventListener('pause', handleStop);
-    audio.addEventListener('error', handleStop);
+    audio.addEventListener('ended', handlers.ended);
+    audio.addEventListener('pause', handlers.pause);
+    audio.addEventListener('error', handlers.error);
+    currentHandlers = handlers;
 
+    notify();
     await audio.play();
     return audio;
   },
 
   /**
-   * Stop the currently playing audio
+   * Stop the currently playing audio and clean up listeners
    */
   stop: () => {
-    if (currentAudio) {
+    if (currentAudio && currentHandlers) {
+      currentAudio.removeEventListener('ended', currentHandlers.ended);
+      currentAudio.removeEventListener('pause', currentHandlers.pause);
+      currentAudio.removeEventListener('error', currentHandlers.error);
       currentAudio.pause();
-      currentAudio = null;
     }
-    if (currentStopCallback) {
-      currentStopCallback();
-      currentStopCallback = null;
-    }
+    currentAudio = null;
+    currentKey = null;
+    currentHandlers = null;
+    notify();
   },
 
   /**
-   * Check if a specific audio element is currently playing
+   * Get the key of the currently playing audio
    */
-  isPlaying: (audio: HTMLAudioElement | null): boolean => {
-    return audio !== null && currentAudio === audio && !audio.paused;
-  },
+  getCurrentKey: (): string | null => currentKey,
 
   /**
-   * Get the currently playing audio element (if any)
+   * Check if a specific key is currently playing
    */
-  getCurrent: (): HTMLAudioElement | null => currentAudio
+  isPlayingKey: (key: string): boolean => currentKey === key && currentAudio !== null && !currentAudio.paused,
+
+  /**
+   * Subscribe to state changes. Returns unsubscribe function.
+   */
+  subscribe: (fn: () => void): (() => void) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
 };

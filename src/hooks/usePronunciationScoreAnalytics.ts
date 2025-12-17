@@ -126,6 +126,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
     const phonemeMap = new Map<string, { total: number; count: number }>();
     
     // Word aggregation with example audio (track min/max score examples)
+    // Also track best available audio as fallback when min/max has no audio
     const wordMap = new Map<string, { 
       total: number; 
       count: number; 
@@ -133,6 +134,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       maxScore: number;
       minScoreAudioPath?: string;
       maxScoreAudioPath?: string;
+      anyAudioPath?: string;  // Fallback: any sample with audio
     }>();
 
     // Daily aggregation for trends
@@ -155,6 +157,8 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       // Word-level scores with min/max score examples for better representation
       const targetWord = row.target_word?.toLowerCase();
       const score = gop.pronunciationScore;
+      const hasAudio = !!row.audio_storage_path;
+      
       if (targetWord && score) {
         const existing = wordMap.get(targetWord);
         if (!existing) {
@@ -163,8 +167,10 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
             count: 1,
             minScore: score,
             maxScore: score,
-            minScoreAudioPath: row.audio_storage_path || undefined,
-            maxScoreAudioPath: row.audio_storage_path || undefined
+            // Only set audio path if audio exists
+            minScoreAudioPath: hasAudio ? row.audio_storage_path! : undefined,
+            maxScoreAudioPath: hasAudio ? row.audio_storage_path! : undefined,
+            anyAudioPath: hasAudio ? row.audio_storage_path! : undefined
           });
         } else {
           const updated = {
@@ -173,18 +179,32 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
             minScore: existing.minScore,
             maxScore: existing.maxScore,
             minScoreAudioPath: existing.minScoreAudioPath,
-            maxScoreAudioPath: existing.maxScoreAudioPath
+            maxScoreAudioPath: existing.maxScoreAudioPath,
+            anyAudioPath: existing.anyAudioPath || (hasAudio ? row.audio_storage_path! : undefined)
           };
-          // Update min if this score is lower
+          
+          // Update min if this score is lower AND has audio (or if current min has no audio)
           if (score < existing.minScore) {
             updated.minScore = score;
-            updated.minScoreAudioPath = row.audio_storage_path || undefined;
+            if (hasAudio) {
+              updated.minScoreAudioPath = row.audio_storage_path!;
+            }
+          } else if (score === existing.minScore && hasAudio && !existing.minScoreAudioPath) {
+            // Same score but this one has audio
+            updated.minScoreAudioPath = row.audio_storage_path!;
           }
-          // Update max if this score is higher
+          
+          // Update max if this score is higher AND has audio (or if current max has no audio)
           if (score > existing.maxScore) {
             updated.maxScore = score;
-            updated.maxScoreAudioPath = row.audio_storage_path || undefined;
+            if (hasAudio) {
+              updated.maxScoreAudioPath = row.audio_storage_path!;
+            }
+          } else if (score === existing.maxScore && hasAudio && !existing.maxScoreAudioPath) {
+            // Same score but this one has audio
+            updated.maxScoreAudioPath = row.audio_storage_path!;
           }
+          
           wordMap.set(targetWord, updated);
         }
       }
@@ -233,20 +253,20 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       .filter(([_, stats]) => stats.count >= 1)
       .sort((a, b) => a[1].total / a[1].count - b[1].total / b[1].count);
 
-    // Words to practice: lowest scores, use minScoreAudioPath (worst example)
+    // Words to practice: lowest scores, use minScoreAudioPath (worst example), fallback to any audio
     const needsPracticeWords: WordStats[] = sortedWords.slice(0, 5).map(([word, stats]) => ({
       word,
       avgScore: Math.round(stats.total / stats.count),
       sampleCount: stats.count,
-      exampleAudioPath: stats.minScoreAudioPath  // Show worst attempt
+      exampleAudioPath: stats.minScoreAudioPath || stats.anyAudioPath  // Prefer worst, fallback to any
     }));
 
-    // Best words: highest scores, use maxScoreAudioPath (best example)
+    // Best words: highest scores, use maxScoreAudioPath (best example), fallback to any audio
     const bestWords: WordStats[] = sortedWords.slice(-5).reverse().map(([word, stats]) => ({
       word,
       avgScore: Math.round(stats.total / stats.count),
       sampleCount: stats.count,
-      exampleAudioPath: stats.maxScoreAudioPath  // Show best attempt
+      exampleAudioPath: stats.maxScoreAudioPath || stats.anyAudioPath  // Prefer best, fallback to any
     }));
 
     // Convert daily map to trend array
