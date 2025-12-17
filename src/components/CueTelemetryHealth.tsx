@@ -93,21 +93,31 @@ export const CueTelemetryHealth = ({ userId, daysBack = 30 }: CueTelemetryHealth
     return null; // All good, no banner needed
   }
 
-  // Build warning messages
+  // Build warning messages with specific diagnosis
   const warnings: string[] = [];
+  const diagnoses: string[] = [];
   
   if (!cueTypeHealthy) {
     warnings.push(`Only ${Math.round(cueTypeRate * 100)}% of utterances have cue_type_given logged (should be >95%)`);
+    diagnoses.push('Logging pipeline issue: check logFinalAnalysis is receiving cueTypeGiven');
   }
   
   if (noCuesDelivered) {
-    warnings.push(`0 cues delivered in ${daysBack} days (${status.totalUtterances} utterances). Auto-cue may not be triggering.`);
+    warnings.push(`0 cues delivered in ${daysBack} days (${status.totalUtterances} utterances)`);
+    // Diagnose the specific failure mode
+    if (status.withCueType === status.totalUtterances && status.totalUtterances > 0) {
+      diagnoses.push('Auto-cue logic never fires: stall timer or consecutiveErrors threshold not triggering triggerAutoCue()');
+    } else {
+      diagnoses.push('Both logging and triggering appear broken');
+    }
   } else {
     if (triggerMissing) {
       warnings.push(`Only ${Math.round((triggerRate || 0) * 100)}% of delivered cues have trigger logged`);
+      diagnoses.push('cue_trigger not being set in cueState when cue shows');
     }
     if (effectivenessMissing) {
       warnings.push(`Only ${Math.round((effectivenessRate || 0) * 100)}% of delivered cues have effectiveness logged`);
+      diagnoses.push('cue_was_effective not being computed in logFinalAnalysis (check 6s attribution window)');
     }
   }
 
@@ -121,6 +131,16 @@ export const CueTelemetryHealth = ({ userId, daysBack = 30 }: CueTelemetryHealth
             <li key={i} className="text-sm">{w}</li>
           ))}
         </ul>
+        {diagnoses.length > 0 && (
+          <div className="mt-3 p-2 bg-muted rounded text-xs">
+            <strong>Likely cause:</strong>
+            <ul className="list-disc pl-4 mt-1">
+              {diagnoses.map((d, i) => (
+                <li key={i}>{d}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="mt-2 text-xs text-muted-foreground">
           Last {daysBack}d: {status.totalUtterances} utterances, {status.actualCuesDelivered} cues delivered
         </p>
