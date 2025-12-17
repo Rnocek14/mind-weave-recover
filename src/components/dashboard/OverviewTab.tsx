@@ -1,9 +1,9 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, useMemo, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair } from "lucide-react";
+import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
@@ -24,6 +24,24 @@ import {
   ExerciseStatsTileSkeleton
 } from "./DashboardSkeletons";
 
+// Helper hook to check if section has new data since last visit
+const useSectionNewData = (sectionKey: string, latestTimestamp?: string | null) => {
+  const storageKey = `dashboard_section_seen_${sectionKey}`;
+  
+  const hasNewData = useMemo(() => {
+    if (!latestTimestamp) return false;
+    const lastSeen = localStorage.getItem(storageKey);
+    if (!lastSeen) return true; // Never seen = new
+    return new Date(latestTimestamp) > new Date(lastSeen);
+  }, [latestTimestamp, storageKey]);
+  
+  const markSeen = useCallback(() => {
+    localStorage.setItem(storageKey, new Date().toISOString());
+  }, [storageKey]);
+  
+  return { hasNewData, markSeen };
+};
+
 // Collapsible section wrapper component
 const CollapsibleSection = ({ 
   title, 
@@ -32,7 +50,9 @@ const CollapsibleSection = ({
   hint,
   children,
   badge,
-  alertCount
+  alertCount,
+  hasNewData = false,
+  onOpen
 }: { 
   title: string; 
   icon: React.ElementType; 
@@ -41,16 +61,30 @@ const CollapsibleSection = ({
   children: React.ReactNode;
   badge?: React.ReactNode;
   alertCount?: number;
+  hasNewData?: boolean;
+  onOpen?: () => void;
 }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  // Smart default: open if hasNewData OR explicit defaultOpen
+  const [isOpen, setIsOpen] = useState(defaultOpen || hasNewData);
+  
+  // Call onOpen when section is opened (to mark as seen)
+  const handleToggle = (open: boolean) => {
+    setIsOpen(open);
+    if (open && onOpen) {
+      onOpen();
+    }
+  };
   
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible open={isOpen} onOpenChange={handleToggle}>
       <CollapsibleTrigger asChild>
         <button className="w-full flex items-center justify-between p-4 bg-card border rounded-lg hover:bg-muted/50 transition-colors group">
           <div className="flex items-center gap-3">
             <Icon className="w-5 h-5 text-primary" />
             <span className="font-semibold text-lg">{title}</span>
+            {hasNewData && !isOpen && (
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            )}
             {alertCount && alertCount > 0 && (
               <Badge variant="destructive" className="text-xs">{alertCount}</Badge>
             )}
@@ -105,6 +139,20 @@ export const OverviewTab = memo(function OverviewTab() {
   // Split red flags by severity: urgent (red/orange) vs informational (yellow)
   const urgentFlags = redFlags.filter(f => f.severity === 'red' || f.severity === 'orange');
   const informationalFlags = redFlags.filter(f => f.severity === 'yellow');
+  
+  // Smart section tracking - use today's date + progress as proxy for "new data"
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const sessionTimestamp = todayProgress > 0 
+    ? `${todayKey}-${todayProgress}` 
+    : null;
+  
+  // Track new data for each section
+  const statsSection = useSectionNewData('stats', sessionTimestamp);
+  const insightsSection = useSectionNewData('insights', sessionTimestamp);
+  const languageSection = useSectionNewData('language', sessionTimestamp);
+  const safetySection = useSectionNewData('safety', 
+    informationalFlags.length > 0 ? `${todayKey}-${informationalFlags.length}` : null
+  );
   
   // Progressive loading states
   const [showProgress, setShowProgress] = useState(false);
@@ -246,6 +294,8 @@ export const OverviewTab = memo(function OverviewTab() {
           icon={Lightbulb}
           defaultOpen={false}
           hint="See your progress summary"
+          hasNewData={insightsSection.hasNewData}
+          onOpen={insightsSection.markSeen}
           badge={
             <Badge variant="outline" className="text-xs">AI Summary</Badge>
           }
@@ -260,6 +310,8 @@ export const OverviewTab = memo(function OverviewTab() {
         icon={TrendingUp}
         defaultOpen={false}
         hint="View session data"
+        hasNewData={statsSection.hasNewData}
+        onOpen={statsSection.markSeen}
       >
         {!showProgress ? (
           <ProgressCardSkeleton />
@@ -277,6 +329,8 @@ export const OverviewTab = memo(function OverviewTab() {
         icon={MessageSquare}
         defaultOpen={false}
         hint="Track by exercise type"
+        hasNewData={languageSection.hasNewData}
+        onOpen={languageSection.markSeen}
       >
         {!showLanguageStats ? (
           <div className="grid md:grid-cols-3 gap-4">
@@ -454,6 +508,8 @@ export const OverviewTab = memo(function OverviewTab() {
           defaultOpen={false}
           hint="View non-urgent observations"
           alertCount={informationalFlags.length}
+          hasNewData={safetySection.hasNewData}
+          onOpen={safetySection.markSeen}
         >
           <RedFlagAlerts flags={informationalFlags} />
         </CollapsibleSection>
