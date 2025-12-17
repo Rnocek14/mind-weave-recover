@@ -6,7 +6,7 @@
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentKey: string | null = null;
-let currentHandlers: { ended: () => void; pause: () => void; error: () => void } | null = null;
+let currentHandlers: { ended: () => void; error: () => void } | null = null;
 
 // Subscription system for state changes (no polling needed)
 const listeners = new Set<() => void>();
@@ -28,13 +28,10 @@ export const audioManager = {
     currentKey = key;
 
     // Create handlers we can remove later
+    // Note: We only listen for 'ended' and 'error' as terminal events.
+    // 'pause' is NOT treated as terminal - user may pause/resume, or platform may pause.
     const handlers = {
       ended: () => {
-        if (currentAudio === audio) {
-          audioManager.stop();
-        }
-      },
-      pause: () => {
         if (currentAudio === audio) {
           currentAudio = null;
           currentKey = null;
@@ -44,13 +41,15 @@ export const audioManager = {
       },
       error: () => {
         if (currentAudio === audio) {
-          audioManager.stop();
+          currentAudio = null;
+          currentKey = null;
+          currentHandlers = null;
+          notify();
         }
       }
     };
 
     audio.addEventListener('ended', handlers.ended);
-    audio.addEventListener('pause', handlers.pause);
     audio.addEventListener('error', handlers.error);
     currentHandlers = handlers;
 
@@ -65,7 +64,6 @@ export const audioManager = {
   stop: () => {
     if (currentAudio && currentHandlers) {
       currentAudio.removeEventListener('ended', currentHandlers.ended);
-      currentAudio.removeEventListener('pause', currentHandlers.pause);
       currentAudio.removeEventListener('error', currentHandlers.error);
       currentAudio.pause();
     }

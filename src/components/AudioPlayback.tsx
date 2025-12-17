@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
+import { Play, Pause, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { audioManager } from '@/lib/audioManager';
@@ -13,17 +13,18 @@ interface AudioPlaybackProps {
 export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  // Use ref for URL to avoid unnecessary re-renders; store with timestamp for expiry check
+  const audioUrlRef = useRef<{ url: string; fetchedAt: number } | null>(null);
 
   // Fetch signed URL (10 min expiry for PHI-adjacent audio)
-  const fetchSignedUrl = async (): Promise<string | null> => {
+  const fetchSignedUrl = useCallback(async (): Promise<string | null> => {
     try {
       const { data } = await supabase.storage
         .from('session-recordings')
         .createSignedUrl(storagePath, 600); // 10 minute expiry
 
       if (data?.signedUrl) {
-        setAudioUrl(data.signedUrl);
+        audioUrlRef.current = { url: data.signedUrl, fetchedAt: Date.now() };
         return data.signedUrl;
       }
       return null;
@@ -31,14 +32,17 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
       console.error('Failed to load audio:', error);
       return null;
     }
-  };
+  }, [storagePath]);
 
   useEffect(() => {
     fetchSignedUrl();
-  }, [storagePath]);
+  }, [fetchSignedUrl]);
 
-  // Subscribe to audio manager state changes (no polling)
+  // Subscribe to audio manager state changes
   useEffect(() => {
+    // Initial sync - check if this audio is already playing
+    setIsPlaying(audioManager.isPlayingKey(storagePath));
+    
     const unsubscribe = audioManager.subscribe(() => {
       setIsPlaying(audioManager.isPlayingKey(storagePath));
     });
@@ -53,8 +57,11 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
 
     setIsLoading(true);
     try {
-      // Use cached URL or fetch fresh one
-      let url = audioUrl;
+      // Check if cached URL is still likely valid (fetched < 9 min ago)
+      const cached = audioUrlRef.current;
+      const urlAge = cached ? Date.now() - cached.fetchedAt : Infinity;
+      let url = (cached && urlAge < 9 * 60 * 1000) ? cached.url : null;
+      
       if (!url) {
         url = await fetchSignedUrl();
       }
@@ -67,14 +74,22 @@ export const AudioPlayback = ({ storagePath, className = '' }: AudioPlaybackProp
 
       try {
         await audioManager.play(url, storagePath);
-      } catch (playError) {
-        // Signed URL may have expired - retry with fresh URL
-        console.log('Playback failed, retrying with fresh URL');
-        const freshUrl = await fetchSignedUrl();
-        if (freshUrl) {
-          await audioManager.play(freshUrl, storagePath);
+      } catch (playError: any) {
+        // Only retry if likely a 403/expiry error, not a general playback failure
+        const isLikelyExpiry = playError?.message?.includes('403') || 
+                               playError?.name === 'NotAllowedError' ||
+                               playError?.message?.includes('expired');
+        
+        if (isLikelyExpiry) {
+          console.log('Playback failed (likely expired), retrying with fresh URL');
+          const freshUrl = await fetchSignedUrl();
+          if (freshUrl) {
+            await audioManager.play(freshUrl, storagePath);
+          } else {
+            throw new Error('Could not fetch fresh URL');
+          }
         } else {
-          throw new Error('Could not fetch fresh URL');
+          throw playError;
         }
       }
     } catch (error) {
