@@ -181,8 +181,8 @@ export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDa
           <CardContent>
             {analytics.cueEfficacy.length > 0 ? (
               <>
-                <div className="text-2xl font-bold capitalize">
-                  {analytics.cueEfficacy.sort((a, b) => b.efficacyRate - a.efficacyRate)[0].cueType}
+                <div className="text-2xl font-bold">
+                  {getCueLabel(analytics.cueEfficacy.sort((a, b) => b.efficacyRate - a.efficacyRate)[0].cueType)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {Math.round(analytics.cueEfficacy[0].efficacyRate * 100)}% effective
