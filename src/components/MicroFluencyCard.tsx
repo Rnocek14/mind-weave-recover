@@ -46,8 +46,35 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
   }, [userId, daysBack]);
 
   // Check if we have Azure data (pronunciation assessment) vs MFA alignment data
-  const { aggregate, sampleCount, validCount, notesPreview, hasAzureData, azureWithAlignment, isSingleWordContext } = useMemo(() => {
-    const analyses = rows.map((r) => deriveMicroFluency(r.alignment_data, r.transcript));
+  const { aggregate, sampleCount, validCount, notesPreview, hasAzureData, azureWithAlignment, isSingleWordContext, debugInfo } = useMemo(() => {
+    // Debug: Log each row's alignment data
+    const debugRows: Array<{ target: string; words: number; phones: number; alignmentOk: boolean; reason?: string }> = [];
+    
+    const analyses = rows.map((r) => {
+      const analysis = deriveMicroFluency(r.alignment_data, r.transcript);
+      
+      // Collect debug info
+      const wordCount = r.alignment_data?.word_segments?.length ?? 0;
+      const phoneCount = r.alignment_data?.phone_segments?.length ?? 0;
+      debugRows.push({
+        target: r.transcript ?? 'unknown',
+        words: wordCount,
+        phones: phoneCount,
+        alignmentOk: analysis.quality.alignmentOk,
+        reason: analysis.quality.reason,
+      });
+      
+      return analysis;
+    });
+    
+    // Log debug info
+    console.log('[MicroFluency] Analysis results:', debugRows);
+    console.log('[MicroFluency] Summary:', {
+      total: debugRows.length,
+      passing: debugRows.filter(d => d.alignmentOk).length,
+      failing: debugRows.filter(d => !d.alignmentOk).map(d => ({ target: d.target, reason: d.reason })),
+    });
+    
     const agg = aggregateMicroFluency(analyses);
 
     const notes = analyses
@@ -59,6 +86,11 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
     const withAlignment = rows.filter(r => 
       r.gop_data?.source === 'azure' && 
       r.alignment_data?.word_segments?.length > 0
+    );
+    
+    // Count rows with sufficient phonemes (2+ for single word)
+    const withSufficientPhonemes = rows.filter(r => 
+      (r.alignment_data?.phone_segments?.length ?? 0) >= 2
     );
     
     // Check if most utterances are single-word (Photo Naming context)
@@ -74,6 +106,12 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
       hasAzureData: rows.some(r => r.gop_data?.source === 'azure'),
       azureWithAlignment: withAlignment.length,
       isSingleWordContext: singleWordCount > rows.length / 2,
+      debugInfo: {
+        withAlignment: withAlignment.length,
+        withSufficientPhonemes: withSufficientPhonemes.length,
+        singleWordCount,
+        failingRows: debugRows.filter(d => !d.alignmentOk),
+      },
     };
   }, [rows]);
 
@@ -109,10 +147,28 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
 
       <CardContent>
         {validCount === 0 ? (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground space-y-3">
+            {/* Debug info panel */}
+            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+              <div className="font-semibold text-foreground">Debug Info:</div>
+              <div>Total utterances: {sampleCount}</div>
+              <div>With Azure alignment: {debugInfo.withAlignment}</div>
+              <div>With 2+ phonemes: {debugInfo.withSufficientPhonemes}</div>
+              <div>Single-word: {debugInfo.singleWordCount}</div>
+              <div>Passing quality gate: {validCount}</div>
+              {debugInfo.failingRows.length > 0 && (
+                <div className="mt-2">
+                  <div className="font-semibold">Failing rows:</div>
+                  {debugInfo.failingRows.slice(0, 5).map((r, i) => (
+                    <div key={i} className="ml-2">• "{r.target}": {r.words}w/{r.phones}ph - {r.reason}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             {hasAzureData && azureWithAlignment > 0 ? (
               <>
-                <p className="mb-2">
+                <p>
                   <strong>Azure alignment data available</strong> — {azureWithAlignment} utterances have phoneme timing.
                 </p>
                 <p>
@@ -123,7 +179,7 @@ export function MicroFluencyCard({ userId, daysBack = 7 }: { userId: string; day
               </>
             ) : hasAzureData ? (
               <>
-                <p className="mb-2">
+                <p>
                   <strong>Azure Pronunciation Assessment active</strong> — collecting phoneme timing data.
                 </p>
                 <p>
