@@ -287,6 +287,28 @@ export const OverviewTab = memo(function OverviewTab() {
 
       {/* ===== COLLAPSIBLE SECTIONS ===== */}
       
+      {/* Today's Plan Section - shows adaptive engine shadow panel */}
+      {showPlan && lesson && (
+        <CollapsibleSection 
+          title="Today's Plan Details" 
+          icon={Target}
+          defaultOpen={false}
+          hint="View lesson breakdown + adaptive engine"
+        >
+          <TodaysPlanCard 
+            userId={userId}
+            clinicalProfile={clinicalProfile}
+            onStartAssessment={onStartAssessment}
+            onStartLesson={() => {
+              if (lesson) {
+                navigate("/lesson", { state: { lesson, clinicalProfile } });
+              }
+            }}
+            doseCapReached={doseCap.warningLevel === 'limit'}
+          />
+        </CollapsibleSection>
+      )}
+
       {/* Insights Section - Key takeaways */}
       {showRecoveryIntel && (
         <CollapsibleSection 
