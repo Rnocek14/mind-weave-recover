@@ -181,11 +181,7 @@ export function getPhonemeMapCoverage(targetWords: string[]): {
   };
 }
 
-// Dev-only: Log coverage on module load
-if (import.meta.env.DEV) {
-  const mappedWords = Object.keys(WORD_PHONEME_MAP);
-  console.debug(`[PhonemeMap] Coverage: ${mappedWords.length} words mapped`, mappedWords);
-}
+// Note: PHOTO_BANK coverage logging happens in photoBank.ts to avoid circular imports
 
 /**
  * Normalize phoneme notation for comparison

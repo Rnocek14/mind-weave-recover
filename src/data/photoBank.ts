@@ -24,7 +24,7 @@ import shoeImg from '@/assets/photos/shoe.jpg';
 import spoonImg from '@/assets/photos/spoon.jpg';
 import treeImg from '@/assets/photos/tree.jpg';
 import watchImg from '@/assets/photos/watch.jpg';
-import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches } from '@/lib/phonemeWordMap';
+import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
@@ -814,3 +814,13 @@ export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
   const allChoices = [trial.target, ...foils.slice(0, choiceCount - 1)];
   return allChoices.sort(() => Math.random() - 0.5);
 };
+
+// Dev-only: Log phoneme coverage for PHOTO_BANK targets
+if (import.meta.env.DEV) {
+  const targets = PHOTO_BANK.map(t => t.target);
+  const { coverage, mapped, total, unmapped } = getPhonemeMapCoverage(targets);
+  console.debug(`[PhonemeMap] PHOTO_BANK coverage: ${coverage.toFixed(1)}% (${mapped}/${total})`);
+  if (unmapped.length > 0) {
+    console.warn(`[PhonemeMap] Unmapped targets:`, unmapped);
+  }
+}
