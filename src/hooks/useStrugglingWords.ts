@@ -17,6 +17,7 @@ interface UseStrugglingWordsOptions {
   minErrorRate?: number;      // Minimum error rate to flag as struggling (default: 0.4)
   lookbackDays?: number;      // How far back to look (default: 14)
   maxWords?: number;          // Maximum words to return (default: 10)
+  enabled?: boolean;          // Whether to enable the query (default: true)
 }
 
 interface UseStrugglingWordsResult {
@@ -37,13 +38,14 @@ export const useStrugglingWords = ({
   minErrorRate = 0.4,
   lookbackDays = 14,
   maxWords = 10,
+  enabled = true,
 }: UseStrugglingWordsOptions): UseStrugglingWordsResult => {
   const [strugglingWords, setStrugglingWords] = useState<StrugglingWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStrugglingWords = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !enabled) {
       setLoading(false);
       return;
     }
@@ -152,7 +154,7 @@ export const useStrugglingWords = ({
     } finally {
       setLoading(false);
     }
-  }, [userId, minAttempts, minErrorRate, lookbackDays, maxWords]);
+  }, [userId, minAttempts, minErrorRate, lookbackDays, maxWords, enabled]);
 
   useEffect(() => {
     fetchStrugglingWords();
