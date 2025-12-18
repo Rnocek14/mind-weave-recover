@@ -24,7 +24,7 @@ import shoeImg from '@/assets/photos/shoe.jpg';
 import spoonImg from '@/assets/photos/spoon.jpg';
 import treeImg from '@/assets/photos/tree.jpg';
 import watchImg from '@/assets/photos/watch.jpg';
-import { wordContainsPhoneme as checkWordPhoneme } from '@/lib/phonemeWordMap';
+import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
@@ -719,12 +719,6 @@ export const getTrialsForLevel = (
   const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
   const focusPhonemes = filterOptions?.focusPhonemes || [];
   
-  // Use proper phoneme lookup that checks ALL phonemes in a word via WORD_PHONEME_MAP
-  const wordContainsAnyPhoneme = (word: string, phonemes: string[]): boolean => {
-    if (phonemes.length === 0) return false;
-    return phonemes.some(p => checkWordPhoneme(word, p));
-  };
-  
   let filtered = PHOTO_BANK.filter(trial => {
     // Session-level deduplication: skip already-shown targets
     if (excludeSet.has(trial.target)) return false;
@@ -767,7 +761,7 @@ export const getTrialsForLevel = (
     );
   }
   
-  // Sort to prioritize: (1) focus words, (2) phoneme matches, (3) random
+  // Sort to prioritize: (1) focus words, (2) phoneme match count (weighted), (3) random
   const shuffled = [...filtered].sort((a, b) => {
     const aIsFocusWord = focusWordsSet.has(a.target.toLowerCase()) ? 1 : 0;
     const bIsFocusWord = focusWordsSet.has(b.target.toLowerCase()) ? 1 : 0;
@@ -777,12 +771,13 @@ export const getTrialsForLevel = (
       return bIsFocusWord - aIsFocusWord;
     }
     
-    // Then phoneme matches (using proper WORD_PHONEME_MAP lookup)
+    // Then phoneme matches - use weighted count, not boolean
+    // Words with more matching phonemes get higher priority
     if (focusPhonemes.length > 0) {
-      const aHasPhoneme = wordContainsAnyPhoneme(a.target, focusPhonemes) ? 1 : 0;
-      const bHasPhoneme = wordContainsAnyPhoneme(b.target, focusPhonemes) ? 1 : 0;
-      if (aHasPhoneme !== bHasPhoneme) {
-        return bHasPhoneme - aHasPhoneme;
+      const aMatchCount = countPhonemeMatches(a.target, focusPhonemes);
+      const bMatchCount = countPhonemeMatches(b.target, focusPhonemes);
+      if (aMatchCount !== bMatchCount) {
+        return bMatchCount - aMatchCount;
       }
     }
     
