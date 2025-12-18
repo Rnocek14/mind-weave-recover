@@ -24,6 +24,7 @@ import shoeImg from '@/assets/photos/shoe.jpg';
 import spoonImg from '@/assets/photos/spoon.jpg';
 import treeImg from '@/assets/photos/tree.jpg';
 import watchImg from '@/assets/photos/watch.jpg';
+import { wordContainsPhoneme as checkWordPhoneme } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
@@ -718,15 +719,10 @@ export const getTrialsForLevel = (
   const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
   const focusPhonemes = filterOptions?.focusPhonemes || [];
   
-  // Import phoneme checking dynamically to avoid circular dependency
-  const wordContainsPhoneme = (word: string, phonemes: string[]): boolean => {
+  // Use proper phoneme lookup that checks ALL phonemes in a word via WORD_PHONEME_MAP
+  const wordContainsAnyPhoneme = (word: string, phonemes: string[]): boolean => {
     if (phonemes.length === 0) return false;
-    // Simple check using first_phoneme from features
-    const trial = PHOTO_BANK.find(t => t.target.toLowerCase() === word.toLowerCase());
-    if (!trial) return false;
-    return phonemes.some(p => 
-      trial.features.first_phoneme.toLowerCase().includes(p.replace(/\//g, '').toLowerCase())
-    );
+    return phonemes.some(p => checkWordPhoneme(word, p));
   };
   
   let filtered = PHOTO_BANK.filter(trial => {
@@ -781,10 +777,10 @@ export const getTrialsForLevel = (
       return bIsFocusWord - aIsFocusWord;
     }
     
-    // Then phoneme matches
+    // Then phoneme matches (using proper WORD_PHONEME_MAP lookup)
     if (focusPhonemes.length > 0) {
-      const aHasPhoneme = wordContainsPhoneme(a.target, focusPhonemes) ? 1 : 0;
-      const bHasPhoneme = wordContainsPhoneme(b.target, focusPhonemes) ? 1 : 0;
+      const aHasPhoneme = wordContainsAnyPhoneme(a.target, focusPhonemes) ? 1 : 0;
+      const bHasPhoneme = wordContainsAnyPhoneme(b.target, focusPhonemes) ? 1 : 0;
       if (aHasPhoneme !== bHasPhoneme) {
         return bHasPhoneme - aHasPhoneme;
       }
