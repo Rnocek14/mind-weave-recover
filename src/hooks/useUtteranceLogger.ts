@@ -223,68 +223,85 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     try {
       // Determine analysis status: 'pending' if audio available (for MFA worker), else 'complete'
       const hasAudioForAnalysis = !!analysis.audioStoragePath;
-      const analysisStatus = hasAudioForAnalysis ? 'pending' : 'complete';
       
+      // Build payload - CRITICAL: Only include cue_was_effective when explicitly true/false
+      // to avoid overwriting with NULL on subsequent upserts
+      const payload: Record<string, any> = {
+        attempt_id: ctx.attemptId,
+        user_id: ctx.userId,
+        session_id: ctx.sessionId,
+        exercise_slug: ctx.exerciseSlug, // Already normalized in startAttempt
+        trial_index: ctx.trialIndex,
+        attempt_number: ctx.attemptNumber,
+        target_word: ctx.targetWord,
+        category: ctx.category,
+        transcript: finalTranscript,
+        transcript_source: analysis.transcriptSource,
+        asr_confidence: analysis.asrConfidence,
+        is_correct: analysis.isCorrect,
+        error_type: analysis.errorType,
+        phonological_similarity: analysis.phonologicalSimilarity,
+        semantic_similarity: analysis.semanticSimilarity,
+        classification_confidence: analysis.classificationConfidence,
+        reasoning: analysis.reasoning,
+        speech_rate_wpm: analysis.speechRateWpm,
+        pause_count: analysis.pauseCount,
+        total_pause_ms: analysis.totalPauseMs,
+        avg_pause_duration_ms: analysis.avgPauseDurationMs,
+        effortful_speech: analysis.effortfulSpeech,
+        cue_type_given: analysis.cueTypeGiven,
+        time_to_success_after_cue_ms: analysis.timeToSuccessAfterCueMs,
+        cue_trigger: analysis.cueTrigger,
+        latency_ms: latencyMs,
+        recording_duration_ms: analysis.recordingDurationMs,
+        audio_storage_path: analysis.audioStoragePath,
+        fluency_available: analysis.fluencyAvailable,
+        fluency_unavailable_reason: analysis.fluencyUnavailableReason,
+        // Azure Pronunciation Assessment: store normalized gop_data with source marker
+        gop_data: analysis.gopData ? {
+          source: 'azure',
+          pronunciationScore: analysis.gopData.pronunciationScore ?? analysis.pronunciationScore ?? 0,
+          accuracyScore: analysis.gopData.accuracyScore ?? analysis.accuracyScore ?? 0,
+          fluencyScore: analysis.gopData.fluencyScore ?? analysis.fluencyScore ?? 0,
+          completenessScore: analysis.gopData.completenessScore ?? analysis.completenessScore ?? 0,
+          prosodyScore: analysis.gopData.prosodyScore ?? analysis.prosodyScore ?? 0,
+          words: analysis.gopData.words ?? [],
+          transcript: analysis.gopData.transcript ?? '',
+          duration: analysis.gopData.duration ?? 0,
+        } : null,
+        // Azure alignment data for micro-fluency analysis
+        alignment_data: analysis.alignmentData ?? (analysis.gopData?.alignmentData ? {
+          word_segments: analysis.gopData.alignmentData.word_segments,
+          phone_segments: analysis.gopData.alignmentData.phone_segments
+        } : null),
+        // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
+        analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
+        // Clear worker queue fields when Azure provides data
+        locked_at: analysis.gopData ? null : undefined,
+        locked_by: analysis.gopData ? null : undefined,
+        next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
+        analysis_priority: hasAudioForAnalysis ? 1 : 0
+      };
+
+      // CRITICAL: Only include cue_was_effective when explicitly true or false
+      // This prevents NULL overwrites on subsequent upserts
+      if (analysis.cueWasEffective === true || analysis.cueWasEffective === false) {
+        payload.cue_was_effective = analysis.cueWasEffective;
+      }
+
+      console.log('[utterance_analyses write]', {
+        attemptId: ctx.attemptId,
+        cueTypeGiven: analysis.cueTypeGiven,
+        cueTrigger: analysis.cueTrigger,
+        timeToSuccessAfterCueMs: analysis.timeToSuccessAfterCueMs,
+        cueWasEffective: analysis.cueWasEffective,
+        willWriteCueWasEffective: (analysis.cueWasEffective === true || analysis.cueWasEffective === false),
+      });
+
       // Upsert to utterance_analyses (clean analytics table)
       const { error: uaError } = await supabase
         .from('utterance_analyses')
-        .upsert({
-          attempt_id: ctx.attemptId,
-          user_id: ctx.userId,
-          session_id: ctx.sessionId,
-          exercise_slug: ctx.exerciseSlug, // Already normalized in startAttempt
-          trial_index: ctx.trialIndex,
-          attempt_number: ctx.attemptNumber,
-          target_word: ctx.targetWord,
-          category: ctx.category,
-          transcript: finalTranscript,
-          transcript_source: analysis.transcriptSource,
-          asr_confidence: analysis.asrConfidence,
-          is_correct: analysis.isCorrect,
-          error_type: analysis.errorType,
-          phonological_similarity: analysis.phonologicalSimilarity,
-          semantic_similarity: analysis.semanticSimilarity,
-          classification_confidence: analysis.classificationConfidence,
-          reasoning: analysis.reasoning,
-          speech_rate_wpm: analysis.speechRateWpm,
-          pause_count: analysis.pauseCount,
-          total_pause_ms: analysis.totalPauseMs,
-          avg_pause_duration_ms: analysis.avgPauseDurationMs,
-          effortful_speech: analysis.effortfulSpeech,
-          cue_type_given: analysis.cueTypeGiven,
-          cue_was_effective: analysis.cueWasEffective,
-          time_to_success_after_cue_ms: analysis.timeToSuccessAfterCueMs,
-          cue_trigger: analysis.cueTrigger,
-          latency_ms: latencyMs,
-          recording_duration_ms: analysis.recordingDurationMs,
-          audio_storage_path: analysis.audioStoragePath,
-          fluency_available: analysis.fluencyAvailable,
-          fluency_unavailable_reason: analysis.fluencyUnavailableReason,
-          // Azure Pronunciation Assessment: store normalized gop_data with source marker
-          gop_data: analysis.gopData ? {
-            source: 'azure',
-            pronunciationScore: analysis.gopData.pronunciationScore ?? analysis.pronunciationScore ?? 0,
-            accuracyScore: analysis.gopData.accuracyScore ?? analysis.accuracyScore ?? 0,
-            fluencyScore: analysis.gopData.fluencyScore ?? analysis.fluencyScore ?? 0,
-            completenessScore: analysis.gopData.completenessScore ?? analysis.completenessScore ?? 0,
-            prosodyScore: analysis.gopData.prosodyScore ?? analysis.prosodyScore ?? 0,
-            words: analysis.gopData.words ?? [],
-            transcript: analysis.gopData.transcript ?? '',
-            duration: analysis.gopData.duration ?? 0,
-          } : null,
-          // Azure alignment data for micro-fluency analysis
-          alignment_data: analysis.alignmentData ?? (analysis.gopData?.alignmentData ? {
-            word_segments: analysis.gopData.alignmentData.word_segments,
-            phone_segments: analysis.gopData.alignmentData.phone_segments
-          } : null),
-          // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
-          analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
-          // Clear worker queue fields when Azure provides data
-          locked_at: analysis.gopData ? null : undefined,
-          locked_by: analysis.gopData ? null : undefined,
-          next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
-          analysis_priority: hasAudioForAnalysis ? 1 : 0
-        }, {
+        .upsert(payload as any, {
           onConflict: 'attempt_id'
         });
 
