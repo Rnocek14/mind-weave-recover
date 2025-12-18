@@ -264,14 +264,14 @@ export const useDailyLesson = (
           rulesApplied: focus.rulesApplied.map(r => r.ruleId),
         });
         
-        // Log decision idempotently (once per user per day)
+        // Log decision idempotently (once per user per day) - fire and forget with error suppression
         if (userId) {
           logDecision({
             userId,
             profileId,
             todayFocus: focus,
             performanceSignals: signals,
-          });
+          }).catch(() => {}); // Suppress unhandled promise rejection
         }
       } catch (focusErr) {
         console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);

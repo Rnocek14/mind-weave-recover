@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
+import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
@@ -40,12 +42,24 @@ export default function PhotoNamingExercise() {
   
   // Extract targeted practice from URL params or lesson state
   const searchParams = new URLSearchParams(location.search);
-  const targetedWords = lessonFocusWords || searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
+  const urlTargets = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
   const practiceSource = searchParams.get('source') || null;
+  
+  // Fallback to struggling words when not in lesson mode (makes standalone "Choose a Game" feel smart)
+  const { focusWords: strugglingWordsFallback } = useStrugglingWords({ 
+    userId: user?.id, 
+    enabled: !fromLesson && urlTargets.length === 0  // Only fetch when standalone and no URL targets
+  });
+  
+  // Priority: lesson focus words > URL targets > struggling words fallback
+  const targetedWords = lessonFocusWords?.length ? lessonFocusWords 
+    : urlTargets.length ? urlTargets 
+    : strugglingWordsFallback?.slice(0, 5) || [];
   
   // Extract adaptations for game configuration
   const initialDifficulty = lessonAdaptations?.startDifficulty ?? 1;
   const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
+  const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
@@ -357,6 +371,24 @@ export default function PhotoNamingExercise() {
           </div>
         </div>
 
+        {/* Active adaptations debug badges (visible when adaptations applied) */}
+        {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {lessonAdaptations.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1 && (
+              <Badge variant="secondary" className="text-xs">Timeout ×{lessonAdaptations.timeoutMultiplier}</Badge>
+            )}
+            {lessonAdaptations.startDifficulty && (
+              <Badge variant="secondary" className="text-xs">Start Lv {lessonAdaptations.startDifficulty}</Badge>
+            )}
+            {lessonAdaptations.largeTargets && (
+              <Badge variant="secondary" className="text-xs">Large Targets</Badge>
+            )}
+            {lessonAdaptations.sessionDurationCap && (
+              <Badge variant="secondary" className="text-xs">Cap {lessonAdaptations.sessionDurationCap}m</Badge>
+            )}
+          </div>
+        )}
+        
         {/* Targeted practice banner */}
         {targetedWords.length > 0 && (
           <Card className="p-3 bg-primary/10 border-primary/20 mb-3">
