@@ -815,12 +815,15 @@ export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
   return allChoices.sort(() => Math.random() - 0.5);
 };
 
-// Dev-only: Log phoneme coverage for PHOTO_BANK targets
-if (import.meta.env.DEV) {
+// Dev-only: Log phoneme coverage for PHOTO_BANK targets (with HMR guard)
+let _loggedCoverage = false;
+if (import.meta.env.DEV && !_loggedCoverage) {
+  _loggedCoverage = true;
   const targets = PHOTO_BANK.map(t => t.target);
   const { coverage, mapped, total, unmapped } = getPhonemeMapCoverage(targets);
   console.debug(`[PhonemeMap] PHOTO_BANK coverage: ${coverage.toFixed(1)}% (${mapped}/${total})`);
   if (unmapped.length > 0) {
-    console.warn(`[PhonemeMap] Unmapped targets:`, unmapped);
+    const sample = unmapped.slice(0, 10);
+    console.warn(`[PhonemeMap] Unmapped targets (${unmapped.length}):`, sample);
   }
 }
