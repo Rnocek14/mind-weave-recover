@@ -490,6 +490,7 @@ export type Database = {
           classification_confidence: number | null
           created_at: string | null
           cue_level: number | null
+          cue_trigger: string | null
           cue_type_given: string | null
           cue_was_effective: boolean | null
           engagement_flags: Json | null
@@ -524,6 +525,7 @@ export type Database = {
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
+          cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           engagement_flags?: Json | null
@@ -558,6 +560,7 @@ export type Database = {
           classification_confidence?: number | null
           created_at?: string | null
           cue_level?: number | null
+          cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
           engagement_flags?: Json | null
