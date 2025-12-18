@@ -162,6 +162,32 @@ const RHOTIC_EQUIVALENTS: Record<string, string> = {
 const missingWordLog = new Set<string>();
 
 /**
+ * Get phoneme coverage stats for dev monitoring
+ * Returns % of target words that have phoneme mappings
+ */
+export function getPhonemeMapCoverage(targetWords: string[]): {
+  coverage: number;
+  mapped: number;
+  total: number;
+  unmapped: string[];
+} {
+  const mapped = targetWords.filter(w => WORD_PHONEME_MAP[w.toLowerCase()]);
+  const unmapped = targetWords.filter(w => !WORD_PHONEME_MAP[w.toLowerCase()]);
+  return {
+    coverage: targetWords.length > 0 ? (mapped.length / targetWords.length) * 100 : 0,
+    mapped: mapped.length,
+    total: targetWords.length,
+    unmapped,
+  };
+}
+
+// Dev-only: Log coverage on module load
+if (import.meta.env.DEV) {
+  const mappedWords = Object.keys(WORD_PHONEME_MAP);
+  console.debug(`[PhonemeMap] Coverage: ${mappedWords.length} words mapped`, mappedWords);
+}
+
+/**
  * Normalize phoneme notation for comparison
  * Handles Azure ARPABET vs IPA differences
  * Azure uses stress digits (AH0, AE1) that need to be stripped

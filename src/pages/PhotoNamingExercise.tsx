@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
+import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
 import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,11 +39,14 @@ export default function PhotoNamingExercise() {
   const lessonSessionId = location.state?.sessionId as string | undefined;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
+  const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
+  const isTargetedPractice = location.state?.is_targeted_practice === true;
+  const statePracticeSource = location.state?.practice_source as string | undefined;
   
   // Extract targeted practice from URL params or lesson state
   const searchParams = new URLSearchParams(location.search);
   const urlTargets = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
-  const practiceSource = searchParams.get('source') || null;
+  const practiceSource = statePracticeSource || searchParams.get('source') || null;
   
   // Fallback to struggling words when not in lesson mode (makes standalone "Choose a Game" feel smart)
   const { focusWords: strugglingWordsFallback } = useStrugglingWords({ 
@@ -100,8 +103,22 @@ export default function PhotoNamingExercise() {
     const totalTrials = 10;
     let selectedTrials: PhotoTrial[] = [];
 
-    // If targeted practice mode, prioritize those words
-    if (targetedWords.length > 0) {
+    // If phoneme-targeted practice mode (from phoneme practice card)
+    if (lessonFocusPhonemes && lessonFocusPhonemes.length > 0) {
+      // Use getTrialsForLevel with phoneme targeting for proper weighted sorting
+      selectedTrials = getTrialsForLevel(1, totalTrials, {
+        focusPhonemes: lessonFocusPhonemes,
+        focusWords: targetedWords.length > 0 ? targetedWords : undefined,
+      });
+      console.log('🎯 Phoneme-targeted practice:', { 
+        focusPhonemes: lessonFocusPhonemes, 
+        focusWords: targetedWords,
+        matchedTrials: selectedTrials.length, 
+        source: practiceSource 
+      });
+    }
+    // If word-targeted practice mode, prioritize those words
+    else if (targetedWords.length > 0) {
       // Find matching trials from PHOTO_BANK
       const targetedTrials = PHOTO_BANK.filter(trial => 
         targetedWords.includes(trial.target.toLowerCase())
@@ -114,7 +131,7 @@ export default function PhotoNamingExercise() {
           repeated.push(...shuffleArray(targetedTrials));
         }
         selectedTrials = repeated.slice(0, totalTrials);
-        console.log('🎯 Targeted practice mode:', { targetedWords, matchedTrials: targetedTrials.length, source: practiceSource });
+        console.log('🎯 Word-targeted practice:', { targetedWords, matchedTrials: targetedTrials.length, source: practiceSource });
       } else {
         // Fallback to stock if no matches
         selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
@@ -145,7 +162,7 @@ export default function PhotoNamingExercise() {
 
     setTrials(selectedTrials);
     setGameKey(prev => prev + 1);
-  }, [photoSource, customPhotos, isLoading, targetedWords.join(',')]);
+  }, [photoSource, customPhotos, isLoading, targetedWords.join(','), lessonFocusPhonemes?.join(',')]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;
