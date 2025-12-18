@@ -24,6 +24,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useImagePreloader } from '@/hooks/useImagePreloader';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -66,7 +67,10 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, nextTrial } = usePhotoNamingGame(totalTrials, initialDifficulty, customTrials);
+  const { state, nextTrial: nextTrialData, advanceTrial } = usePhotoNamingGame(totalTrials, initialDifficulty, customTrials);
+  
+  // Preload next image to eliminate delay when advancing
+  useImagePreloader(state.currentTrial?.imageUrl, nextTrialData?.imageUrl);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
@@ -905,7 +909,7 @@ export const PhotoNamingGame = ({
       setFeedbackData(null);
       processingResultRef.current = false; // Allow abandoned logging again
       resetAttempt(); // Reset for next trial
-      nextTrial(currentDifficulty);
+      advanceTrial(currentDifficulty);
     }, 2000);
   };
 
@@ -1104,156 +1108,31 @@ export const PhotoNamingGame = ({
     
     if (!state.currentTrial) return;
     
-    // Stop recording and upload
-    let uploadedPath: string | undefined;
-    let duration: number | undefined;
-    let mimeType: string | undefined;
-    let whisperTranscript: string | undefined;
-    let whisperConfidence: number | undefined;
-    let acousticMetrics: any | undefined;
-    let pronunciationResult: {
-      pronunciationScore: number;
-      accuracyScore: number;
-      fluencyScore: number;
-      completenessScore: number;
-      prosodyScore?: number;
-      transcript: string;
-      words: any[];
-      alignmentData?: {
-        word_segments: { word: string; start: number; end: number }[];
-        phone_segments: { phone: string; start: number; end: number }[];
-      };
-    } | null = null;
+    // =====================================================================
+    // INSTANT FEEDBACK: Determine correct/incorrect immediately
+    // =====================================================================
+    const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
     
-    if (isRecording && user && activeSessionId) {
-      setIsAnalyzing(true);
-      const recordingResult = await stopRecording();
-      if (recordingResult) {
-        console.log('🎙️ [PhotoNaming] Recording blob ready:', { 
-          size: recordingResult.audioBlob.size, 
-          type: recordingResult.mimeType, 
-          targetWord: state.currentTrial.target 
-        });
-        
-        duration = recordingResult.duration;
-        mimeType = recordingResult.mimeType;
-        
-        const path = await uploadRecording(
-          recordingResult.audioBlob,
-          user.id,
-          activeSessionId,
-          state.trialNumber,
-          recordingResult.mimeType
-        );
-        
-        if (path) {
-          uploadedPath = path;
-        }
-
-        // Run Whisper transcription and Azure Pronunciation Assessment in parallel
-        console.log('➡️ [PhotoNaming] Invoking analyze-speech + analyze-pronunciation in parallel');
-        const [analysisResult, pronResult] = await Promise.all([
-          analyzeSpeechAsync(recordingResult.audioBlob, recordingResult.mimeType),
-          analyzePronunciationAsync(
-            recordingResult.audioBlob, 
-            recordingResult.mimeType,
-            state.currentTrial.target
-          )
-        ]);
-        
-        if (analysisResult) {
-          whisperTranscript = analysisResult.transcript;
-          whisperConfidence = analysisResult.confidence;
-          acousticMetrics = analysisResult.acousticMetrics;
-          console.log('✅ [PhotoNaming] Whisper returned:', { 
-            transcript: whisperTranscript, 
-            confidence: whisperConfidence 
-          });
-        } else {
-          console.log('❌ [PhotoNaming] Whisper returned null');
-        }
-        
-        if (pronResult) {
-          pronunciationResult = pronResult;
-          console.log('✅ [PhotoNaming] Azure Pronunciation returned:', {
-            overall: pronResult.pronunciationScore,
-            accuracy: pronResult.accuracyScore,
-            fluency: pronResult.fluencyScore,
-            completeness: pronResult.completenessScore
-          });
-        } else {
-          console.log('❌ [PhotoNaming] Azure Pronunciation returned null');
-        }
-      }
-      setIsAnalyzing(false);
-    } else {
-      console.log('⚠️ [PhotoNaming] Skipping speech analysis:', { 
-        isRecording, 
-        hasUser: !!user, 
-        hasSession: !!activeSessionId 
-      });
-    }
-    
-    // Advanced error classification with acoustic metrics
-    const errorClassification = await classifySpeechError(
-      word,
-      state.currentTrial.target,
-      0.8, // TODO: Get actual ASR confidence when using voice
-      {
-        trialNumber: state.trialNumber,
-        previousErrors: errorHistory.map(e => e.errorType),
-        category: state.currentTrial.category,
-        features: state.currentTrial.features
-      },
-      acousticMetrics ? {
-        speechRateWpm: acousticMetrics.speechRateWpm,
-        pauseCount: acousticMetrics.pauseCount,
-        avgPauseDurationMs: acousticMetrics.avgPauseDurationMs
-      } : undefined
-    );
-    
-    const correct = errorClassification.errorType === 'correct' || 
-                    errorClassification.errorType === 'self_corrected';
-    
-    // Calculate encouragement score based on error type
-    const encouragementScore = calculateEncouragementScore(errorClassification.errorType);
-    
-    // Add to error history for adaptive cueing
-    setErrorHistory(prev => [...prev, errorClassification]);
-    
-    // Log detailed classification for debugging
-    console.log('Error classification:', {
-      spoken: word,
-      target: state.currentTrial.target,
-      result: errorClassification
-    });
-    
+    // Show feedback IMMEDIATELY (before any async work)
     setFeedbackData({ 
-      correct, 
-      errorType: errorClassification.errorType,
-      semanticSimilarity: errorClassification.semantic_similarity,
-      phonemeAccuracy: errorClassification.phonemeAccuracy
+      correct: isCorrectAnswer, 
+      errorType: isCorrectAnswer ? 'correct' : 'semantic_related', // Will be refined by background analysis
     });
     setShowFeedback(true);
-    setProcessingAnswer(false); // Clear processing state when showing feedback
+    setProcessingAnswer(false);
     
-    // Play sound based on result
-    if (correct) {
+    // Play sound IMMEDIATELY
+    if (isCorrectAnswer) {
       playSuccess();
-    } else {
-      playError();
-    }
-    
-    // Track consecutive errors
-    if (correct) {
       setConsecutiveErrors(0);
     } else {
+      playError();
       setConsecutiveErrors((prev) => prev + 1);
     }
-
-    // Update adaptive controller
+    
+    // Update adaptive controller IMMEDIATELY  
     const controller = controllerRef.current;
-    controller.update(correct);
+    controller.update(isCorrectAnswer);
     
     // Check if difficulty should adjust
     const newLevel = controller.adjustLevel(currentDifficulty);
@@ -1262,175 +1141,239 @@ export const PhotoNamingGame = ({
       setDifficultyChanged(direction);
       setCurrentDifficulty(newLevel);
       
-      // Play level change sound
       setTimeout(() => {
         if (direction === 'up') {
           playLevelUp();
         } else {
           playLevelDown();
         }
-      }, 500);
+      }, 300);
       
       const reason = direction === 'up' 
         ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
         : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
       
       onDifficultyChange?.(newLevel, reason);
-      
-      // Clear difficulty change indicator after 2 seconds
       setTimeout(() => setDifficultyChanged(null), 2000);
     }
 
-    // Compute cue efficacy before resetting state
+    // Compute cue efficacy immediately (before cueState is reset)
     let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
     let cueWasEffective: boolean | null = null;
     let timeToSuccessAfterCueMs: number | null = null;
-
-    // Cue efficacy with 6s attribution window
-    // - Correct within 6s: cue was effective
-    // - Incorrect: cue was ineffective
-    // - Correct but >6s: ambiguous (null) - can't confidently attribute to cue
-    // EXTENDED: 15 seconds for stroke survivors (was 6s - too short)
     const CUE_ATTRIBUTION_WINDOW_MS = 15000;
+    const capturedCueState = cueState; // Capture for background
     
-    if (cueState) {
-      cueTypeGiven = cueState.type;
-      const dt = Date.now() - cueState.shownAt;
+    if (capturedCueState) {
+      cueTypeGiven = capturedCueState.type;
+      const dt = Date.now() - capturedCueState.shownAt;
       
-      if (correct && dt <= CUE_ATTRIBUTION_WINDOW_MS) {
+      if (isCorrectAnswer && dt <= CUE_ATTRIBUTION_WINDOW_MS) {
         cueWasEffective = true;
         timeToSuccessAfterCueMs = dt;
-      } else if (!correct) {
+      } else if (!isCorrectAnswer) {
         cueWasEffective = false;
-        timeToSuccessAfterCueMs = null;
       } else {
-        // Correct but too late to attribute confidently
         cueWasEffective = null;
-        timeToSuccessAfterCueMs = dt; // Keep timing for analysis
+        timeToSuccessAfterCueMs = dt;
       }
     }
-
-    // Build unified UtteranceAnalysis object
-    const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
-    const utteranceAnalysis = toUtteranceAnalysis(
-      whisperTranscript || '',
-      errorClassification,
-      speechEncouragementScore,
-      acousticMetrics
-    );
-
-    // Build ShadowEvent for future co-pilot integration
-    const shadowEvent = user?.id ? buildShadowEvent(
-      user.id,
-      sessionId,
-      {
-        taskType: 'photo_naming',
-        domain: 'general',
-        interactionMode: assistMode ? 'caregiver_assisted' : 'independent',
-        difficultyLevel: currentDifficulty,
-        cueLevel: cueLevel,
-        targetWord: state.currentTrial?.target,
-        category: state.currentTrial?.category,
-      },
-      utteranceAnalysis,
-      {
-        storagePath: uploadedPath,
-        mimeType: mimeType,
-        durationMs: duration,
-      }
-    ) : null;
-    
-    // Log telemetry with unified analysis
-    onTrialComplete?.({
-      correct,
-      reactionTimeMs: reactionTime,
-      errorType: errorClassification.errorType,
-      difficultyLevel: currentDifficulty,
-      cueLevel: cueLevel,
-      errorClassification,
-      audioStoragePath: uploadedPath,
-      recordingDurationMs: duration,
-      audioMimeType: mimeType,
-      whisperTranscript,
-      whisperConfidence,
-      acousticMetrics,
-      encouragementScore: speechEncouragementScore,
-      effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
-      utteranceAnalysis, // NEW: unified analysis object
-      shadowEvent,       // NEW: for future co-pilot
-      cueTypeGiven,      // NEW: cue efficacy tracking
-      cueWasEffective,   // NEW: cue efficacy tracking
-      timeToSuccessAfterCueMs, // NEW: cue efficacy tracking
-    }, state.currentTrial);
-
-    // Log final analysis to utterance_analyses table (clean analytics)
-    console.log('📊 [PhotoNaming] Logging final analysis:', {
-      target: state.currentTrial.target,
-      isCorrect: correct,
-      errorType: errorClassification.errorType,
-      hasTranscript: !!whisperTranscript,
-      phonemeAccuracy: errorClassification.phonemeAccuracy,
-      semanticSimilarity: errorClassification.semantic_similarity
-    });
-    
-    // Determine fluency availability and reason
-    const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
-    let fluencyUnavailableReason: 'no_recording' | 'no_session' | 'not_authed' | 'analysis_error' | undefined;
-    if (!fluencyAvailable) {
-      if (!user) fluencyUnavailableReason = 'not_authed';
-      else if (!activeSessionId) fluencyUnavailableReason = 'no_session';
-      else if (!isRecording) fluencyUnavailableReason = 'no_recording';
-      else fluencyUnavailableReason = 'analysis_error';
-    }
-
-    logFinalAnalysis({
-      transcript: whisperTranscript,
-      transcriptSource: whisperTranscript ? 'whisper' : 'browser',
-      asrConfidence: whisperConfidence,
-      isCorrect: correct,
-      errorType: errorClassification.errorType,
-      phonologicalSimilarity: errorClassification.phonemeAccuracy,
-      semanticSimilarity: errorClassification.semantic_similarity,
-      classificationConfidence: errorClassification.confidence,
-      reasoning: errorClassification.reasoning,
-      speechRateWpm: acousticMetrics?.speechRateWpm,
-      pauseCount: acousticMetrics?.pauseCount,
-      totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
-      avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
-      effortfulSpeech: utteranceAnalysis.effortfulSpeech,
-      fluencyAvailable,
-      fluencyUnavailableReason,
-      cueTypeGiven: cueTypeGiven,
-      cueWasEffective: cueWasEffective ?? undefined,
-      timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
-      cueTrigger: cueState?.trigger,
-      audioStoragePath: uploadedPath,
-      recordingDurationMs: duration,
-      // Azure Pronunciation Assessment scores
-      pronunciationScore: pronunciationResult?.pronunciationScore,
-      accuracyScore: pronunciationResult?.accuracyScore,
-      fluencyScore: pronunciationResult?.fluencyScore,
-      completenessScore: pronunciationResult?.completenessScore,
-      prosodyScore: pronunciationResult?.prosodyScore,
-      gopData: pronunciationResult ? {
-        words: pronunciationResult.words,
-        transcript: pronunciationResult.transcript,
-        alignmentData: pronunciationResult.alignmentData
-      } : undefined,
-      alignmentData: pronunciationResult?.alignmentData
-    });
 
     // Reset cue state for next trial
     setCueState(null);
 
-    // Auto-advance after 1.5 seconds
+    // Auto-advance after 1.2 seconds (faster since feedback is instant)
     setTimeout(() => {
       setShowFeedback(false);
       setFeedbackData(null);
-      processingResultRef.current = false; // Allow abandoned logging again
-      resetAttempt(); // Reset for next trial
-      nextTrial(currentDifficulty);
-    }, 1500);
+      processingResultRef.current = false;
+      resetAttempt();
+      advanceTrial(currentDifficulty);
+    }, 1200);
+
+    // =====================================================================
+    // BACKGROUND ANALYSIS: Fire-and-forget (doesn't block UI)
+    // =====================================================================
+    const capturedTrial = state.currentTrial;
+    const capturedTrialNumber = state.trialNumber;
+    const capturedDifficulty = currentDifficulty;
+    const capturedCueLevel = cueLevel;
+    const capturedErrorHistory = [...errorHistory];
+    
+    // Run analysis in background without blocking
+    (async () => {
+      try {
+        let uploadedPath: string | undefined;
+        let duration: number | undefined;
+        let mimeType: string | undefined;
+        let whisperTranscript: string | undefined;
+        let whisperConfidence: number | undefined;
+        let acousticMetrics: any | undefined;
+        let pronunciationResult: any = null;
+        
+        // Stop recording and upload
+        if (isRecording && user && activeSessionId) {
+          const recordingResult = await stopRecording();
+          if (recordingResult) {
+            duration = recordingResult.duration;
+            mimeType = recordingResult.mimeType;
+            
+            // Upload in parallel with analysis
+            const [path, analysisResults] = await Promise.all([
+              uploadRecording(
+                recordingResult.audioBlob,
+                user.id,
+                activeSessionId,
+                capturedTrialNumber,
+                recordingResult.mimeType
+              ),
+              Promise.all([
+                analyzeSpeechAsync(recordingResult.audioBlob, recordingResult.mimeType),
+                analyzePronunciationAsync(recordingResult.audioBlob, recordingResult.mimeType, capturedTrial.target)
+              ])
+            ]);
+            
+            if (path) uploadedPath = path;
+            
+            const [analysisResult, pronResult] = analysisResults;
+            if (analysisResult) {
+              whisperTranscript = analysisResult.transcript;
+              whisperConfidence = analysisResult.confidence;
+              acousticMetrics = analysisResult.acousticMetrics;
+            }
+            if (pronResult) {
+              pronunciationResult = pronResult;
+            }
+          }
+        }
+        
+        // Advanced error classification with acoustic metrics
+        const errorClassification = await classifySpeechError(
+          word,
+          capturedTrial.target,
+          0.8,
+          {
+            trialNumber: capturedTrialNumber,
+            previousErrors: capturedErrorHistory.map(e => e.errorType),
+            category: capturedTrial.category,
+            features: capturedTrial.features
+          },
+          acousticMetrics ? {
+            speechRateWpm: acousticMetrics.speechRateWpm,
+            pauseCount: acousticMetrics.pauseCount,
+            avgPauseDurationMs: acousticMetrics.avgPauseDurationMs
+          } : undefined
+        );
+        
+        // Add to error history for adaptive cueing
+        setErrorHistory(prev => [...prev, errorClassification]);
+        
+        const correct = errorClassification.errorType === 'correct' || 
+                        errorClassification.errorType === 'self_corrected';
+        
+        // Build unified UtteranceAnalysis object
+        const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
+        const utteranceAnalysis = toUtteranceAnalysis(
+          whisperTranscript || '',
+          errorClassification,
+          speechEncouragementScore,
+          acousticMetrics
+        );
+
+        // Build ShadowEvent for future co-pilot integration
+        const shadowEvent = user?.id ? buildShadowEvent(
+          user.id,
+          sessionId,
+          {
+            taskType: 'photo_naming',
+            domain: 'general',
+            interactionMode: assistMode ? 'caregiver_assisted' : 'independent',
+            difficultyLevel: capturedDifficulty,
+            cueLevel: capturedCueLevel,
+            targetWord: capturedTrial.target,
+            category: capturedTrial.category,
+          },
+          utteranceAnalysis,
+          {
+            storagePath: uploadedPath,
+            mimeType: mimeType,
+            durationMs: duration,
+          }
+        ) : null;
+        
+        // Log telemetry with unified analysis
+        onTrialComplete?.({
+          correct,
+          reactionTimeMs: reactionTime,
+          errorType: errorClassification.errorType,
+          difficultyLevel: capturedDifficulty,
+          cueLevel: capturedCueLevel,
+          errorClassification,
+          audioStoragePath: uploadedPath,
+          recordingDurationMs: duration,
+          audioMimeType: mimeType,
+          whisperTranscript,
+          whisperConfidence,
+          acousticMetrics,
+          encouragementScore: speechEncouragementScore,
+          effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
+          utteranceAnalysis,
+          shadowEvent,
+          cueTypeGiven,
+          cueWasEffective,
+          timeToSuccessAfterCueMs,
+        }, capturedTrial);
+
+        // Determine fluency availability
+        const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
+        let fluencyUnavailableReason: 'no_recording' | 'no_session' | 'not_authed' | 'analysis_error' | undefined;
+        if (!fluencyAvailable) {
+          if (!user) fluencyUnavailableReason = 'not_authed';
+          else if (!activeSessionId) fluencyUnavailableReason = 'no_session';
+          else fluencyUnavailableReason = 'analysis_error';
+        }
+
+        logFinalAnalysis({
+          transcript: whisperTranscript,
+          transcriptSource: whisperTranscript ? 'whisper' : 'browser',
+          asrConfidence: whisperConfidence,
+          isCorrect: correct,
+          errorType: errorClassification.errorType,
+          phonologicalSimilarity: errorClassification.phonemeAccuracy,
+          semanticSimilarity: errorClassification.semantic_similarity,
+          classificationConfidence: errorClassification.confidence,
+          reasoning: errorClassification.reasoning,
+          speechRateWpm: acousticMetrics?.speechRateWpm,
+          pauseCount: acousticMetrics?.pauseCount,
+          totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
+          avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
+          effortfulSpeech: utteranceAnalysis.effortfulSpeech,
+          fluencyAvailable,
+          fluencyUnavailableReason,
+          cueTypeGiven: cueTypeGiven,
+          cueWasEffective: cueWasEffective ?? undefined,
+          timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
+          cueTrigger: capturedCueState?.trigger,
+          audioStoragePath: uploadedPath,
+          recordingDurationMs: duration,
+          pronunciationScore: pronunciationResult?.pronunciationScore,
+          accuracyScore: pronunciationResult?.accuracyScore,
+          fluencyScore: pronunciationResult?.fluencyScore,
+          completenessScore: pronunciationResult?.completenessScore,
+          prosodyScore: pronunciationResult?.prosodyScore,
+          gopData: pronunciationResult ? {
+            words: pronunciationResult.words,
+            transcript: pronunciationResult.transcript,
+            alignmentData: pronunciationResult.alignmentData
+          } : undefined,
+          alignmentData: pronunciationResult?.alignmentData
+        });
+        
+        console.log('✅ [PhotoNaming] Background analysis complete for:', capturedTrial.target);
+      } catch (error) {
+        console.error('❌ [PhotoNaming] Background analysis error:', error);
+      }
+    })();
   };
 
   const handleCaregiverResponse = async (responseType: 'looked' | 'tried' | 'said_roughly' | 'no_response') => {
@@ -1569,7 +1512,7 @@ export const PhotoNamingGame = ({
       setShowFeedback(false);
       setFeedbackData(null);
       resetAttempt(); // Reset for next trial
-      nextTrial(currentDifficulty);
+      advanceTrial(currentDifficulty);
     }, 2000);
   };
 
