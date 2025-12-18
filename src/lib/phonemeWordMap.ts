@@ -181,6 +181,42 @@ export function getPhonemeMapCoverage(targetWords: string[]): {
   };
 }
 
+/**
+ * Dev-only: Export unmapped targets as JSON for easy bulk completion
+ * Call from console: window.__exportUnmappedPhonemes?.()
+ */
+export function exportUnmappedPhonemes(targetWords: string[]): void {
+  const { coverage, unmapped } = getPhonemeMapCoverage(targetWords);
+  
+  // Generate skeleton map for easy paste-and-fill
+  const skeleton = Object.fromEntries(
+    unmapped.map(w => [w.toLowerCase(), ['/* IPA phonemes here */']])
+  );
+  
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    coveragePercent: coverage.toFixed(1),
+    unmappedCount: unmapped.length,
+    unmapped,
+    skeletonMap: skeleton,
+  };
+  
+  console.log('[PhonemeMap] Unmapped targets export:');
+  console.log(JSON.stringify(payload, null, 2));
+  console.log('[PhonemeMap] Skeleton map (copy & fill):');
+  console.log(JSON.stringify(skeleton, null, 2));
+}
+
+// Expose to window in dev for console access
+if (import.meta.env.DEV) {
+  (window as any).__exportUnmappedPhonemes = () => {
+    // Dynamic import to avoid circular dependency
+    import('@/data/photoBank').then(({ PHOTO_BANK }) => {
+      exportUnmappedPhonemes(PHOTO_BANK.map(p => p.target));
+    });
+  };
+}
+
 // Note: PHOTO_BANK coverage logging happens in photoBank.ts to avoid circular imports
 
 /**
