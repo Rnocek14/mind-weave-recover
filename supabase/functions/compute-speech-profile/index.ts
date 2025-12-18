@@ -134,17 +134,31 @@ serve(async (req) => {
       '/ɹ/': '/r/',
     };
     
-    // Normalize Azure phoneme to IPA key
+    // Normalize Azure phoneme to IPA key (handles ARPABET, plain IPA, or slash-wrapped IPA)
     function toIpaKey(raw: string | null | undefined): string | null {
       if (!raw) return null;
-      const clean = raw.toLowerCase().replace(/[0-9]/g, ''); // strip stress digits
+      
+      // If already slash-wrapped IPA, normalize rhotics and return
+      if (raw.startsWith('/')) {
+        return RHOTIC_EQUIV[raw.toLowerCase()] || raw.toLowerCase();
+      }
+      
+      // If contains IPA characters, wrap with slashes
+      if (/[æɑɔʌəɛɪʊɜʃʒθðŋ]/.test(raw)) {
+        return `/${raw.toLowerCase()}/`;
+      }
+      
+      // ARPABET conversion: strip stress digits and convert
+      const clean = raw.toLowerCase().replace(/[0-9]/g, '');
       const ipa = ARPABET_TO_IPA[clean];
-      const key = ipa ? `/${ipa}/` : `/${clean}/`; // fallback keeps something
+      const key = ipa ? `/${ipa}/` : `/${clean}/`;
       return RHOTIC_EQUIV[key] || key;
     }
     
     // Diagnostic counters for phoneme coverage
+    let trialsWithGopData = 0;
     let trialsWithAnyPhonemes = 0;
+    let trialsWithNonZeroAccuracy = 0;
     let totalPhonemeTokens = 0;
     
     // Fluency aggregation
@@ -238,7 +252,10 @@ serve(async (req) => {
       } | null;
       
       if (gopData?.source === 'azure' && gopData.words) {
+        trialsWithGopData++;
         let trialHasPhonemes = false;
+        let trialHasNonZeroAccuracy = false;
+        
         for (const word of gopData.words) {
           if (word.phonemes && word.phonemes.length > 0) {
             trialHasPhonemes = true;
@@ -246,6 +263,7 @@ serve(async (req) => {
               const key = toIpaKey(phoneme.phoneme);
               if (key && phoneme.accuracyScore != null) {
                 totalPhonemeTokens++;
+                if (phoneme.accuracyScore > 0) trialHasNonZeroAccuracy = true;
                 if (!phonemeStats[key]) {
                   phonemeStats[key] = { totalAccuracy: 0, count: 0 };
                 }
@@ -256,11 +274,12 @@ serve(async (req) => {
           }
         }
         if (trialHasPhonemes) trialsWithAnyPhonemes++;
+        if (trialHasNonZeroAccuracy) trialsWithNonZeroAccuracy++;
       }
     }
     
-    // Log phoneme coverage diagnostic
-    console.log(`[phonemes] trialsWithAnyPhonemes=${trialsWithAnyPhonemes} of ${analyses.length}, totalTokens=${totalPhonemeTokens}`);
+    // Log phoneme coverage diagnostic (3-tier breakdown)
+    console.log(`[phonemes] coverage: gop_data=${trialsWithGopData}, withPhonemes=${trialsWithAnyPhonemes}, nonZeroAccuracy=${trialsWithNonZeroAccuracy} of ${analyses.length} trials, totalTokens=${totalPhonemeTokens}`);
 
     // Compute cue efficacy with success rates and average times
     const cueEfficacyByType: Record<string, { successRate: number; success: number; total: number; avgTimeToSuccessMs: number }> = {};

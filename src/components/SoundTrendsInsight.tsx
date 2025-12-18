@@ -124,10 +124,18 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
               );
             })}
             
-            {topPhonemes.length > 0 && !Object.values(trends).some(t => t.hasEnoughData) && (
-              <p className="text-xs text-muted-foreground mt-2 italic">
-                Trends will appear after a few more sessions
-              </p>
+            {topPhonemes.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/30">
+                {!Object.values(trends).some(t => t.hasEnoughData) ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Trends will appear after a few more sessions
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Phoneme data from {topPhonemes.reduce((sum, p) => sum + p.trials, 0)} trials
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
