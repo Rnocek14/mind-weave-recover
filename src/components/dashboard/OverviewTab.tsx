@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, List, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
+import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
+import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { useNavigate, useLocation } from "react-router-dom";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
@@ -160,6 +161,7 @@ export const OverviewTab = memo(function OverviewTab() {
   const [showPlan, setShowPlan] = useState(false);
   const [showLanguageStats, setShowLanguageStats] = useState(false);
   const [showExercises, setShowExercises] = useState(false);
+  const [showGamePicker, setShowGamePicker] = useState(false);
 
   useEffect(() => {
     // Phase 1: Critical content (immediate)
@@ -252,10 +254,10 @@ export const OverviewTab = memo(function OverviewTab() {
               size="lg" 
               variant="outline"
               className="flex-1 h-14"
-              onClick={() => navigate("/exercise/photo-naming")}
+              onClick={() => setShowGamePicker(true)}
               disabled={doseCap.warningLevel === 'limit'}
             >
-              <List className="w-5 h-5 mr-2" />
+              <Gamepad2 className="w-5 h-5 mr-2" />
               Choose a Game
             </Button>
           </div>
@@ -536,6 +538,13 @@ export const OverviewTab = memo(function OverviewTab() {
           <RedFlagAlerts flags={informationalFlags} />
         </CollapsibleSection>
       )}
+
+      {/* Game Picker Dialog */}
+      <GamePickerDialog 
+        open={showGamePicker} 
+        onOpenChange={setShowGamePicker}
+        userId={userId}
+      />
     </div>
   );
 });
