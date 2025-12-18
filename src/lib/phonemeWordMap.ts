@@ -158,16 +158,23 @@ const RHOTIC_EQUIVALENTS: Record<string, string> = {
   '/ɹ/': '/r/',  // alveolar approximant → simple r
 };
 
+// Dev-only cache to prevent log spam for missing words
+const missingWordLog = new Set<string>();
+
 /**
  * Normalize phoneme notation for comparison
  * Handles Azure ARPABET vs IPA differences
  * Azure uses stress digits (AH0, AE1) that need to be stripped
  */
 export function normalizePhoneme(phoneme: string): string {
-  // Step 1: Remove slashes, lowercase, strip stress digits and non-letters
-  const clean = phoneme.replace(/\//g, '').toLowerCase().replace(/[0-9]/g, '');
+  // Step 1: Remove slashes, lowercase, strip digits AND non-letters
+  const clean = phoneme
+    .replace(/\//g, '')
+    .toLowerCase()
+    .replace(/[0-9]/g, '')
+    .replace(/[^a-zæɑɔʌəɛɪʊɜɚɝʃʒθðŋɹ]/g, ''); // Keep IPA chars
   
-  // Step 2: Map ARPABET to IPA (must happen AFTER digit stripping)
+  // Step 2: Map ARPABET to IPA (must happen AFTER stripping)
   let result: string;
   if (AZURE_TO_IPA[clean]) {
     result = AZURE_TO_IPA[clean];
@@ -188,10 +195,12 @@ export function normalizePhoneme(phoneme: string): string {
  * Returns false (not error) for unmapped words to avoid breaking selection
  */
 export function wordContainsPhoneme(word: string, phoneme: string): boolean {
-  const phonemes = WORD_PHONEME_MAP[word.toLowerCase()];
+  const wordLower = word.toLowerCase();
+  const phonemes = WORD_PHONEME_MAP[wordLower];
   if (!phonemes) {
-    // Dev-only logging to help spot coverage gaps
-    if (import.meta.env.DEV) {
+    // Dev-only logging with spam prevention
+    if (import.meta.env.DEV && !missingWordLog.has(wordLower)) {
+      missingWordLog.add(wordLower);
       console.debug(`[PhonemeMap] Word "${word}" not in WORD_PHONEME_MAP - consider adding`);
     }
     return false;
@@ -202,13 +211,21 @@ export function wordContainsPhoneme(word: string, phoneme: string): boolean {
 }
 
 /**
- * Count how many of the focus phonemes a word contains
+ * Count how many unique focus phonemes a word contains
  * Used for weighted sorting (more matches = higher priority)
  */
 export function countPhonemeMatches(word: string, focusPhonemes: string[]): number {
-  const phonemes = WORD_PHONEME_MAP[word.toLowerCase()];
+  const wordLower = word.toLowerCase();
+  const phonemes = WORD_PHONEME_MAP[wordLower];
   if (!phonemes || focusPhonemes.length === 0) return 0;
   
+  // Use Sets to count unique matches only (no duplicates)
   const normalizedFocus = new Set(focusPhonemes.map(normalizePhoneme));
-  return phonemes.filter(p => normalizedFocus.has(normalizePhoneme(p))).length;
+  const wordNorm = new Set(phonemes.map(normalizePhoneme));
+  
+  let count = 0;
+  for (const p of normalizedFocus) {
+    if (wordNorm.has(p)) count++;
+  }
+  return count;
 }

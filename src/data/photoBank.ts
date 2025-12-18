@@ -761,7 +761,10 @@ export const getTrialsForLevel = (
     );
   }
   
-  // Sort to prioritize: (1) focus words, (2) phoneme match count (weighted), (3) random
+  // Pre-compute random values for stable sorting (avoid Math.random() in comparator)
+  const randomValues = new Map(filtered.map(t => [t.target, Math.random()]));
+  
+  // Sort to prioritize: (1) focus words, (2) phoneme match count (weighted), (3) stable random
   const shuffled = [...filtered].sort((a, b) => {
     const aIsFocusWord = focusWordsSet.has(a.target.toLowerCase()) ? 1 : 0;
     const bIsFocusWord = focusWordsSet.has(b.target.toLowerCase()) ? 1 : 0;
@@ -781,8 +784,8 @@ export const getTrialsForLevel = (
       }
     }
     
-    // Random for equal priority
-    return Math.random() - 0.5;
+    // Stable random for equal priority
+    return (randomValues.get(a.target) || 0) - (randomValues.get(b.target) || 0);
   });
   
   return shuffled.slice(0, Math.min(count, shuffled.length));
