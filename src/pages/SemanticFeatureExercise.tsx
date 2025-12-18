@@ -4,6 +4,7 @@ import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, SkipForward, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +26,7 @@ export default function SemanticFeatureExercise() {
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);
@@ -189,6 +191,21 @@ export default function SemanticFeatureExercise() {
           </div>
           <DifficultyInfoBadge level={config.startDifficulty || 1} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
+
+        {/* Active adaptations debug badges */}
+        {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {lessonAdaptations.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1 && (
+              <Badge variant="secondary" className="text-xs">Timeout ×{lessonAdaptations.timeoutMultiplier}</Badge>
+            )}
+            {lessonAdaptations.startDifficulty && (
+              <Badge variant="secondary" className="text-xs">Start Lv {lessonAdaptations.startDifficulty}</Badge>
+            )}
+            {lessonAdaptations.slowerTTS && (
+              <Badge variant="secondary" className="text-xs">Slower TTS</Badge>
+            )}
+          </div>
+        )}
 
         {/* Targeted practice banner */}
         {targetedWords.length > 0 && (
