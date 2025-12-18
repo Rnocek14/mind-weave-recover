@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface ComputeProfileRequest {
   user_id: string;
+  profile_id?: string; // Optional - will look up active profile if not provided
   force?: boolean; // Skip debounce check for manual recomputes
 }
 
@@ -18,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, force = false }: ComputeProfileRequest = await req.json();
+    const { user_id, profile_id: providedProfileId, force = false }: ComputeProfileRequest = await req.json();
 
     if (!user_id) {
       return new Response(
@@ -33,17 +34,43 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log(`Computing speech profile for user ${user_id}...`);
+    // Get profile_id - either provided or look up user's active profile
+    let profile_id = providedProfileId;
+    if (!profile_id) {
+      const { data: activeProfile, error: profileLookupError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (profileLookupError) {
+        console.error('Error looking up active profile:', profileLookupError);
+        throw new Error('Could not find active profile for user');
+      }
+      
+      if (!activeProfile) {
+        return new Response(
+          JSON.stringify({ error: 'No active profile found for user' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      profile_id = activeProfile.id;
+    }
 
-    // First, check if profile exists and if we have enough new trials to justify recompute
+    console.log(`Using profile_id: ${profile_id}`);
+
+    // First, check if speech profile exists and if we have enough new trials to justify recompute
     const { data: existingProfile, error: profileError } = await supabase
       .from('user_speech_profiles')
       .select('*')
       .eq('user_id', user_id)
+      .eq('profile_id', profile_id)
       .maybeSingle();
 
     if (profileError) {
-      console.error('Error fetching existing profile:', profileError);
+      console.error('Error fetching existing speech profile:', profileError);
     }
 
     // CRITICAL: Read from utterance_analyses table (has accurate error classification)
@@ -340,7 +367,7 @@ serve(async (req) => {
     // Build the profile object
     const profile = {
       user_id,
-      profile_id: null, // TODO: support multi-profile when needed
+      profile_id, // Now required - from lookup or provided
       error_type_distribution: errorTypeCounts,
       cue_efficacy_by_type: cueEfficacyByType,
       cue_efficacy_by_category: cueEfficacyByCategory,
@@ -373,36 +400,21 @@ serve(async (req) => {
       }
     }, null, 2));
 
-    // Upsert into user_speech_profiles
-    // Since we have partial unique indexes, use delete-then-insert pattern for reliability
-    const { error: deleteError } = await supabase
+    // Upsert into user_speech_profiles (now with proper unique constraint)
+    const { data: upsertedProfile, error: upsertError } = await supabase
       .from('user_speech_profiles')
-      .delete()
-      .eq('user_id', user_id)
-      .is('profile_id', null);
-    
-    if (deleteError) {
-      console.error('Delete failed:', {
-        message: deleteError.message,
-        code: (deleteError as any).code,
-      });
-      // Continue anyway - might be first insert
-    }
-    
-    const { data: upsertedProfile, error: insertError } = await supabase
-      .from('user_speech_profiles')
-      .insert(profile)
+      .upsert(profile, { onConflict: 'user_id,profile_id' })
       .select()
       .single();
 
-    if (insertError) {
-      console.error('Insert failed:', {
-        message: insertError.message,
-        details: (insertError as any).details,
-        hint: (insertError as any).hint,
-        code: (insertError as any).code,
+    if (upsertError) {
+      console.error('Upsert failed:', {
+        message: upsertError.message,
+        details: (upsertError as any).details,
+        hint: (upsertError as any).hint,
+        code: (upsertError as any).code,
       });
-      throw insertError;
+      throw upsertError;
     }
 
     console.log(`Speech profile computed successfully for user ${user_id}`);
@@ -427,6 +439,7 @@ serve(async (req) => {
           .from('speech_profile_snapshots')
           .insert({
             user_id,
+            profile_id, // Now required
             computed_at: profile.last_computed_at,
             trial_count_at_computation: totalTrials,
             phoneme_difficulty_map: phonemeDifficultyMap,

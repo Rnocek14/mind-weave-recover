@@ -1171,7 +1171,7 @@ export type Database = {
           id: string
           phoneme_difficulty_map: Json | null
           phoneme_token_count: number | null
-          profile_id: string | null
+          profile_id: string
           trial_count_at_computation: number
           trials_with_gop_data: number | null
           trials_with_nonzero_accuracy: number | null
@@ -1186,7 +1186,7 @@ export type Database = {
           id?: string
           phoneme_difficulty_map?: Json | null
           phoneme_token_count?: number | null
-          profile_id?: string | null
+          profile_id: string
           trial_count_at_computation: number
           trials_with_gop_data?: number | null
           trials_with_nonzero_accuracy?: number | null
@@ -1201,7 +1201,7 @@ export type Database = {
           id?: string
           phoneme_difficulty_map?: Json | null
           phoneme_token_count?: number | null
-          profile_id?: string | null
+          profile_id?: string
           trial_count_at_computation?: number
           trials_with_gop_data?: number | null
           trials_with_nonzero_accuracy?: number | null
@@ -1304,7 +1304,7 @@ export type Database = {
           most_challenging_categories: Json | null
           phoneme_difficulty_map: Json | null
           phoneme_token_count: number | null
-          profile_id: string | null
+          profile_id: string
           trial_count_at_computation: number | null
           trials_with_gop_data: number | null
           trials_with_nonzero_accuracy: number | null
@@ -1329,7 +1329,7 @@ export type Database = {
           most_challenging_categories?: Json | null
           phoneme_difficulty_map?: Json | null
           phoneme_token_count?: number | null
-          profile_id?: string | null
+          profile_id: string
           trial_count_at_computation?: number | null
           trials_with_gop_data?: number | null
           trials_with_nonzero_accuracy?: number | null
@@ -1354,7 +1354,7 @@ export type Database = {
           most_challenging_categories?: Json | null
           phoneme_difficulty_map?: Json | null
           phoneme_token_count?: number | null
-          profile_id?: string | null
+          profile_id?: string
           trial_count_at_computation?: number | null
           trials_with_gop_data?: number | null
           trials_with_nonzero_accuracy?: number | null
