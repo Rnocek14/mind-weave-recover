@@ -139,11 +139,7 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
                   <p className="text-xs text-muted-foreground">
                     Phoneme detail from {trialsWithPhonemes}/{trialsWithGopData} attempts
                   </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Phoneme data from {topPhonemes.reduce((sum, p) => sum + p.trials, 0)} trials
-                  </p>
-                )}
+                ) : null}
               </div>
             )}
           </div>
