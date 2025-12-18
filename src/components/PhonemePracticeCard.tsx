@@ -13,9 +13,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Play, Volume2, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel, getTrendLiteLabel, formatTimeAgo } from '@/hooks/useStrugglingPhonemes';
+import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel, formatTimeAgo } from '@/hooks/useStrugglingPhonemes';
 import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
 import { getWordsByPhonemeOverlap } from '@/lib/phonemeWordMap';
+import { usePhonemeHistory } from '@/hooks/usePhonemeHistory';
+import { PhonemeSparkline } from '@/components/PhonemeSparkline';
 
 interface PhonemePracticeCardProps {
   userId: string;
@@ -36,6 +38,12 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
     minTrials: 3,
     maxPhonemes: 3,
   });
+
+  // Fetch phoneme history for sparklines
+  const { getTrendsForPhonemes, loading: historyLoading } = usePhonemeHistory(userId);
+  const phonemeTrends = strugglingPhonemes.length > 0 
+    ? getTrendsForPhonemes(strugglingPhonemes.map(p => p.phoneme))
+    : {};
 
   const handlePracticePhoneme = (phoneme: string) => {
     // Get words containing this phoneme for targeted practice
@@ -175,7 +183,7 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
         <div className="space-y-3">
           {strugglingPhonemes.map((phoneme) => {
             const { label: accuracyLabel, color: accuracyColor } = getPhonemeAccuracyLabel(phoneme.accuracy);
-            const { label: trendLabel, color: trendColor } = getTrendLiteLabel(phoneme.trials);
+            const trend = phonemeTrends[phoneme.phoneme];
             return (
               <div 
                 key={phoneme.phoneme} 
@@ -191,16 +199,26 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-medium ${accuracyColor}`}>{accuracyLabel}</span>
-                      <span className={`text-xs ${trendColor}`}>• {trendLabel}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {Math.round(phoneme.accuracy)}% • n={phoneme.trials}
                     </span>
                   </div>
-                  <Progress 
-                    value={phoneme.accuracy} 
-                    className="h-2"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Progress 
+                      value={phoneme.accuracy} 
+                      className="h-2 flex-1"
+                    />
+                    {/* Sparkline trend */}
+                    {trend && (
+                      <PhonemeSparkline
+                        points={trend.points}
+                        delta={trend.delta}
+                        width={64}
+                        height={20}
+                      />
+                    )}
+                  </div>
                 </div>
                 
                 {/* Practice button */}
