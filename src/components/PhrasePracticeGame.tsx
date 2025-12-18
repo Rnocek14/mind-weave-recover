@@ -72,7 +72,11 @@ export const PhrasePracticeGame = ({
   const [isListeningMode, setIsListeningMode] = useState(true);
   const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
   const [voicePreference, setVoicePreference] = useState<string>('alloy');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastHeardText, setLastHeardText] = useState<string>('');
+  const [processingAnswer, setProcessingAnswer] = useState(false);
+  
+  // Ref to prevent duplicate processing
+  const processingResultRef = useRef(false);
   
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -189,9 +193,10 @@ export const PhrasePracticeGame = ({
 
   // Speech recognition
   const handleSpeechResult = (transcript: string) => {
-    if (!currentTrial || showFeedback) return;
+    if (!currentTrial || showFeedback || processingResultRef.current) return;
 
     console.log('Speech recognized:', transcript);
+    setLastHeardText(transcript);
     
     // Log browser transcript (interim - no duplicates)
     logBrowserTranscript(transcript);
@@ -200,7 +205,7 @@ export const PhrasePracticeGame = ({
     setCurrentWordAccuracy(evaluation.wordAccuracy);
     
     if (evaluation.match) {
-      handleCorrectAnswer(evaluation.wordAccuracy);
+      handleCorrectAnswer(evaluation.wordAccuracy, transcript);
     } else if (evaluation.wordAccuracy > 0.3) {
       // Partial match - give feedback (NOT a terminal outcome - don't finalize)
       toast({
@@ -209,7 +214,7 @@ export const PhrasePracticeGame = ({
       });
       setAttempts(prev => prev + 1);
     } else {
-      handleIncorrectAnswer();
+      handleIncorrectAnswer(transcript);
     }
   };
 
@@ -295,167 +300,211 @@ export const PhrasePracticeGame = ({
     });
   };
 
-  const handleCorrectAnswer = async (wordAccuracy: number) => {
-    const reactionTime = Date.now() - trialStartTime;
+  const handleCorrectAnswer = async (wordAccuracy: number, spokenTranscript: string) => {
+    // Prevent duplicate processing
+    if (processingResultRef.current) return;
+    processingResultRef.current = true;
     
+    const reactionTime = Date.now() - trialStartTime;
+    const trialData = currentTrial!;
+    const trialIdx = currentTrialIndex;
+    const currentCueLevel = cueLevel;
+    const currentDiff = currentDifficulty;
+    const attemptCount = attempts;
+    
+    // ===== INSTANT FEEDBACK (< 100ms) =====
     playSuccess();
     setScore(prev => prev + 100);
     setFeedbackCorrect(true);
     setShowFeedback(true);
+    setProcessingAnswer(true);
     
-    // Stop recording and upload audio
-    let uploadedPath: string | undefined;
-    let duration: number | undefined;
+    // Stop listening immediately
+    if (isListening) stopListening();
     
-    if (isRecording && user && activeSessionId) {
-      setIsAnalyzing(true);
-      const recordingResult = await stopRecording();
-      if (recordingResult) {
-        duration = recordingResult.duration;
-        
-        const path = await uploadRecording(
-          recordingResult.audioBlob,
-          user.id,
-          activeSessionId,
-          currentTrialIndex + 1,
-          recordingResult.mimeType
-        );
-        
-        if (path) {
-          uploadedPath = path;
-        }
-      }
-      setIsAnalyzing(false);
-    }
-    
-    // Update adaptive difficulty tracking
+    // Update adaptive difficulty tracking (fast, local)
     updateTrial(true);
     
-    // Build UtteranceAnalysis for phrase practice
-    const errorClassification = await classifySpeechError(
-      transcript || currentTrial!.phrase,
-      currentTrial!.phrase,
-      0.9,
-      { 
-        trialNumber: currentTrialIndex + 1,
-        previousErrors: [],
-        category: currentTrial!.category 
+    // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
+    const runBackgroundAnalysis = async () => {
+      try {
+        // Stop recording and upload audio
+        let uploadedPath: string | undefined;
+        let duration: number | undefined;
+        
+        if (isRecording && user && activeSessionId) {
+          const recordingResult = await stopRecording();
+          if (recordingResult) {
+            duration = recordingResult.duration;
+            
+            const path = await uploadRecording(
+              recordingResult.audioBlob,
+              user.id,
+              activeSessionId,
+              trialIdx + 1,
+              recordingResult.mimeType
+            );
+            
+            if (path) {
+              uploadedPath = path;
+            }
+          }
+        }
+        
+        // Build UtteranceAnalysis for phrase practice
+        const errorClassification = await classifySpeechError(
+          spokenTranscript || trialData.phrase,
+          trialData.phrase,
+          0.9,
+          { 
+            trialNumber: trialIdx + 1,
+            previousErrors: [],
+            category: trialData.category 
+          }
+        );
+        
+        const encouragementScore = calculateEncouragementScore(errorClassification.errorType);
+        
+        const utteranceAnalysis: UtteranceAnalysis = {
+          transcript: spokenTranscript || trialData.phrase,
+          asrConfidence: errorClassification.confidence,
+          errorType: 'correct',
+          meaningAccuracy: wordAccuracy,
+          semanticSimilarity: errorClassification.semantic_similarity,
+          phonologicalSimilarity: errorClassification.phonological_similarity,
+          phonemeAccuracy: errorClassification.phonemeAccuracy,
+          encouragementScore,
+          encouragementLevel: errorClassification.errorType === 'correct' ? 'excellent' : 'good',
+          reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
+        };
+        
+        const shadowEvent: ShadowEvent | undefined = user?.id ? buildShadowEvent(
+          user.id,
+          activeSessionId,
+          {
+            taskType: 'phrase_practice',
+            domain: trialData.category as any,
+            interactionMode: 'independent',
+            targetPhrase: trialData.phrase,
+          },
+          utteranceAnalysis
+        ) : undefined;
+        
+        // Log trial
+        onTrialComplete?.({
+          correct: true,
+          timeMs: reactionTime,
+          cueLevel: currentCueLevel,
+          difficulty: currentDiff,
+          phraseId: trialData.id,
+          wordAccuracy,
+          repetitions: attemptCount + 1,
+          whisperTranscript: spokenTranscript,
+          encouragementScore,
+          effortfulSpeech: false,
+          utteranceAnalysis,
+          shadowEvent,
+          audioStoragePath: uploadedPath,
+        });
+
+        // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
+        logFinalAnalysis({
+          transcript: spokenTranscript,
+          transcriptSource: 'browser',
+          isCorrect: true,
+          errorType: 'correct',
+          phonologicalSimilarity: errorClassification.phonological_similarity,
+          semanticSimilarity: errorClassification.semantic_similarity,
+          classificationConfidence: errorClassification.confidence,
+          reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
+          audioStoragePath: uploadedPath,
+          recordingDurationMs: duration,
+        });
+      } catch (err) {
+        console.error('Background analysis error:', err);
+      } finally {
+        setProcessingAnswer(false);
       }
-    );
-    
-    const encouragementScore = calculateEncouragementScore(errorClassification.errorType);
-    
-    const utteranceAnalysis: UtteranceAnalysis = {
-      transcript: transcript || currentTrial!.phrase,
-      asrConfidence: errorClassification.confidence,
-      errorType: 'correct',
-      meaningAccuracy: wordAccuracy,
-      semanticSimilarity: errorClassification.semantic_similarity,
-      phonologicalSimilarity: errorClassification.phonological_similarity,
-      phonemeAccuracy: errorClassification.phonemeAccuracy,
-      encouragementScore,
-      encouragementLevel: errorClassification.errorType === 'correct' ? 'excellent' : 'good',
-      reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
     };
     
-    const shadowEvent: ShadowEvent | undefined = user?.id ? buildShadowEvent(
-      user.id,
-      activeSessionId,
-      {
-        taskType: 'phrase_practice',
-        domain: currentTrial!.category as any,
-        interactionMode: 'independent',
-        targetPhrase: currentTrial!.phrase,
-      },
-      utteranceAnalysis
-    ) : undefined;
-    
-    // Log trial
-    onTrialComplete?.({
-      correct: true,
-      timeMs: reactionTime,
-      cueLevel,
-      difficulty: currentDifficulty,
-      phraseId: currentTrial!.id,
-      wordAccuracy,
-      repetitions: attempts + 1,
-      whisperTranscript: transcript,
-      encouragementScore,
-      effortfulSpeech: false,
-      utteranceAnalysis,
-      shadowEvent,
-      audioStoragePath: uploadedPath,
-    });
+    // Fire and forget - don't block UI
+    runBackgroundAnalysis();
 
-    // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
-    logFinalAnalysis({
-      transcript: transcript,
-      transcriptSource: 'browser',
-      isCorrect: true,
-      errorType: 'correct',
-      phonologicalSimilarity: errorClassification.phonological_similarity,
-      semanticSimilarity: errorClassification.semantic_similarity,
-      classificationConfidence: errorClassification.confidence,
-      reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
-      audioStoragePath: uploadedPath,
-      recordingDurationMs: duration,
-    });
-
+    // Auto-advance after brief feedback display
     setTimeout(() => {
       nextTrial();
-    }, 1500);
+    }, 1200);
   };
 
-  const handleIncorrectAnswer = async () => {
+  const handleIncorrectAnswer = async (spokenTranscript: string) => {
+    // Prevent duplicate processing
+    if (processingResultRef.current) return;
+    processingResultRef.current = true;
+    
+    const trialIdx = currentTrialIndex;
+    
+    // ===== INSTANT FEEDBACK (< 100ms) =====
     playError();
     setFeedbackCorrect(false);
     setShowFeedback(true);
     setAttempts(prev => prev + 1);
     
-    // Stop recording and upload audio
-    let uploadedPath: string | undefined;
-    let duration: number | undefined;
-    
-    if (isRecording && user && activeSessionId) {
-      const recordingResult = await stopRecording();
-      if (recordingResult) {
-        duration = recordingResult.duration;
-        
-        const path = await uploadRecording(
-          recordingResult.audioBlob,
-          user.id,
-          activeSessionId,
-          currentTrialIndex + 1,
-          recordingResult.mimeType
-        );
-        
-        if (path) {
-          uploadedPath = path;
-        }
-      }
-    }
-    
-    // Update adaptive difficulty tracking
+    // Update adaptive difficulty tracking (fast, local)
     updateTrial(false);
     
-    // Log final analysis (TERMINAL OUTCOME: incorrect)
-    logFinalAnalysis({
-      transcript: transcript,
-      transcriptSource: 'browser',
-      isCorrect: false,
-      errorType: 'incorrect',
-      audioStoragePath: uploadedPath,
-      recordingDurationMs: duration,
-    });
+    // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
+    const runBackgroundAnalysis = async () => {
+      try {
+        // Stop recording and upload audio
+        let uploadedPath: string | undefined;
+        let duration: number | undefined;
+        
+        if (isRecording && user && activeSessionId) {
+          const recordingResult = await stopRecording();
+          if (recordingResult) {
+            duration = recordingResult.duration;
+            
+            const path = await uploadRecording(
+              recordingResult.audioBlob,
+              user.id,
+              activeSessionId,
+              trialIdx + 1,
+              recordingResult.mimeType
+            );
+            
+            if (path) {
+              uploadedPath = path;
+            }
+          }
+        }
+        
+        // Log final analysis (TERMINAL OUTCOME: incorrect)
+        logFinalAnalysis({
+          transcript: spokenTranscript,
+          transcriptSource: 'browser',
+          isCorrect: false,
+          errorType: 'incorrect',
+          audioStoragePath: uploadedPath,
+          recordingDurationMs: duration,
+        });
+      } catch (err) {
+        console.error('Background analysis error:', err);
+      }
+    };
+    
+    // Fire and forget
+    runBackgroundAnalysis();
     
     setTimeout(() => {
       setShowFeedback(false);
-    }, 1500);
+      processingResultRef.current = false;
+    }, 1200);
   };
 
   const nextTrial = () => {
     // Reset attempt for next trial
     resetAttempt();
+    processingResultRef.current = false;
     
     if (currentTrialIndex + 1 >= trials.length) {
       // Game complete
@@ -477,6 +526,8 @@ export const PhrasePracticeGame = ({
     setCueLevel(0);
     setAttempts(0);
     setCurrentWordAccuracy(0);
+    setLastHeardText('');
+    setProcessingAnswer(false);
     setTrialStartTime(Date.now());
   };
 
@@ -486,6 +537,9 @@ export const PhrasePracticeGame = ({
     setCueLevel(0);
     setAttempts(0);
     setShowFeedback(false);
+    setLastHeardText('');
+    setProcessingAnswer(false);
+    processingResultRef.current = false;
     const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -575,20 +629,27 @@ export const PhrasePracticeGame = ({
               )}
             </Button>
             
-            {isListening && (
+            {isListening && !processingAnswer && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
                 <div className="w-2 h-2 rounded-full bg-destructive" />
                 Listening...
               </div>
             )}
             
-            {transcript && (
+            {processingAnswer && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing your answer...
+              </div>
+            )}
+            
+            {lastHeardText && !processingAnswer && (
               <div className="text-sm text-muted-foreground mt-2">
-                You said: "{transcript}"
+                You said: "{lastHeardText}"
               </div>
             )}
 
-            {currentWordAccuracy > 0 && currentWordAccuracy < 0.8 && (
+            {currentWordAccuracy > 0 && currentWordAccuracy < 0.8 && !showFeedback && (
               <div className="text-sm text-amber-600 dark:text-amber-400">
                 {Math.round(currentWordAccuracy * 100)}% correct - keep trying!
               </div>
