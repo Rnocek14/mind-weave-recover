@@ -115,6 +115,17 @@ serve(async (req) => {
     // Phoneme-level aggregation from Azure gop_data
     const phonemeStats: Record<string, { totalAccuracy: number; count: number }> = {};
     
+    // ARPABET to IPA conversion map (Azure returns ARPABET, we store IPA)
+    const ARPABET_TO_IPA: Record<string, string> = {
+      'aa': 'ɑ', 'ae': 'æ', 'ah': 'ʌ', 'ao': 'ɔ', 'aw': 'aʊ', 'ay': 'aɪ',
+      'b': 'b', 'ch': 'tʃ', 'd': 'd', 'dh': 'ð', 'eh': 'ɛ', 'er': 'ɜ',
+      'ey': 'eɪ', 'f': 'f', 'g': 'g', 'hh': 'h', 'ih': 'ɪ', 'iy': 'i',
+      'jh': 'dʒ', 'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'ng': 'ŋ',
+      'ow': 'oʊ', 'oy': 'ɔɪ', 'p': 'p', 'r': 'r', 's': 's', 'sh': 'ʃ',
+      't': 't', 'th': 'θ', 'uh': 'ʊ', 'uw': 'u', 'v': 'v', 'w': 'w',
+      'y': 'j', 'z': 'z', 'zh': 'ʒ',
+    };
+    
     // Fluency aggregation
     let totalWpm = 0;
     let wpmCount = 0;
@@ -210,8 +221,11 @@ serve(async (req) => {
           if (word.phonemes) {
             for (const phoneme of word.phonemes) {
               if (phoneme.phoneme && phoneme.accuracyScore != null) {
-                // Normalize phoneme to IPA-like format (lowercase)
-                const normalizedPhoneme = `/${phoneme.phoneme.toLowerCase()}/`;
+                // Convert ARPABET to IPA, strip stress digits, normalize
+                const rawPhoneme = phoneme.phoneme.toLowerCase().replace(/[0-9]/g, '');
+                const ipaChar = ARPABET_TO_IPA[rawPhoneme] || rawPhoneme;
+                const normalizedPhoneme = `/${ipaChar}/`;
+                
                 if (!phonemeStats[normalizedPhoneme]) {
                   phonemeStats[normalizedPhoneme] = { totalAccuracy: 0, count: 0 };
                 }
