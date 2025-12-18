@@ -11,9 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { Play, Volume2, TrendingUp, AlertCircle } from 'lucide-react';
+import { Play, Volume2, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel } from '@/hooks/useStrugglingPhonemes';
+import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel, getTrendLiteLabel, formatTimeAgo } from '@/hooks/useStrugglingPhonemes';
 import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
 import { getWordsByPhonemeOverlap } from '@/lib/phonemeWordMap';
 
@@ -28,7 +28,9 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
     strugglingPhonemes, 
     strongPhonemes,
     loading, 
-    hasEnoughData 
+    hasEnoughData,
+    lastComputedAt,
+    totalTrials: profileTotalTrials,
   } = useStrugglingPhonemes(userId, {
     accuracyThreshold: 70,
     minTrials: 3,
@@ -151,8 +153,14 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
               <Volume2 className="h-5 w-5 text-primary" />
               Today's Sound Focus
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="flex items-center gap-2">
               Sounds that need more practice
+              {lastComputedAt && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Updated {formatTimeAgo(lastComputedAt)}
+                </span>
+              )}
             </CardDescription>
           </div>
           <InsightEvidenceBadge
@@ -166,7 +174,8 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
         {/* Phoneme list with progress bars */}
         <div className="space-y-3">
           {strugglingPhonemes.map((phoneme) => {
-            const { label, color } = getPhonemeAccuracyLabel(phoneme.accuracy);
+            const { label: accuracyLabel, color: accuracyColor } = getPhonemeAccuracyLabel(phoneme.accuracy);
+            const { label: trendLabel, color: trendColor } = getTrendLiteLabel(phoneme.trials);
             return (
               <div 
                 key={phoneme.phoneme} 
@@ -180,7 +189,10 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
                 {/* Progress info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`text-sm font-medium ${color}`}>{label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${accuracyColor}`}>{accuracyLabel}</span>
+                      <span className={`text-xs ${trendColor}`}>• {trendLabel}</span>
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {Math.round(phoneme.accuracy)}% • n={phoneme.trials}
                     </span>
