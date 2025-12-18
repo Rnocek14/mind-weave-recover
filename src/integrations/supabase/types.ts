@@ -49,6 +49,74 @@ export type Database = {
           },
         ]
       }
+      adaptive_decision_logs: {
+        Row: {
+          adaptations: Json
+          assessment_age_days: number | null
+          avg_accuracy: number | null
+          avg_reaction_time_ms: number | null
+          confidence_level: string
+          id: string
+          log_date: string
+          logged_at: string
+          profile_id: string | null
+          reasoning: string[]
+          rules_data: Json
+          rules_fired: string[]
+          semantic_error_rate: number | null
+          timeout_rate: number | null
+          trial_count: number
+          user_id: string
+          utterance_count: number
+        }
+        Insert: {
+          adaptations?: Json
+          assessment_age_days?: number | null
+          avg_accuracy?: number | null
+          avg_reaction_time_ms?: number | null
+          confidence_level: string
+          id?: string
+          log_date?: string
+          logged_at?: string
+          profile_id?: string | null
+          reasoning?: string[]
+          rules_data?: Json
+          rules_fired?: string[]
+          semantic_error_rate?: number | null
+          timeout_rate?: number | null
+          trial_count?: number
+          user_id: string
+          utterance_count?: number
+        }
+        Update: {
+          adaptations?: Json
+          assessment_age_days?: number | null
+          avg_accuracy?: number | null
+          avg_reaction_time_ms?: number | null
+          confidence_level?: string
+          id?: string
+          log_date?: string
+          logged_at?: string
+          profile_id?: string | null
+          reasoning?: string[]
+          rules_data?: Json
+          rules_fired?: string[]
+          semantic_error_rate?: number | null
+          timeout_rate?: number | null
+          trial_count?: number
+          user_id?: string
+          utterance_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptive_decision_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       capability_assessments: {
         Row: {
           assessed_at: string
