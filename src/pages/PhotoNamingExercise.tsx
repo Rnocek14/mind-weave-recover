@@ -284,6 +284,21 @@ export default function PhotoNamingExercise() {
         .eq('id', sessionId);
     }
     
+    // Show post-practice summary for targeted practice
+    const isPhonemeTargeted = lessonFocusPhonemes && lessonFocusPhonemes.length > 0;
+    const isWordTargeted = targetedWords.length > 0 && !isPhonemeTargeted;
+    
+    if (isPhonemeTargeted || isWordTargeted) {
+      const focusLabel = isPhonemeTargeted 
+        ? lessonFocusPhonemes!.map(p => `/${p}/`).join(', ')
+        : targetedWords.slice(0, 3).join(', ') + (targetedWords.length > 3 ? '...' : '');
+      
+      toast.success("Targeted practice complete", {
+        description: `Focus: ${focusLabel} • 10 trials logged\nProfile updates after analysis`,
+        duration: 4000,
+      });
+    }
+    
     // Auto-trigger speech profile recompute (non-blocking)
     if (user?.id) {
       supabase.functions
