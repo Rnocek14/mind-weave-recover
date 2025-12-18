@@ -373,9 +373,10 @@ serve(async (req) => {
     }, null, 2));
 
     // Upsert into user_speech_profiles
+    // Use user_id only for conflict when profile_id is null (single-profile case)
     const { data: upsertedProfile, error: upsertError } = await supabase
       .from('user_speech_profiles')
-      .upsert(profile, { onConflict: 'user_id,profile_id' })
+      .upsert(profile, { onConflict: 'user_id' })
       .select()
       .single();
 
