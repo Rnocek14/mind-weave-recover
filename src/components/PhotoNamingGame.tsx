@@ -1280,7 +1280,8 @@ export const PhotoNamingGame = ({
     // - Correct within 6s: cue was effective
     // - Incorrect: cue was ineffective
     // - Correct but >6s: ambiguous (null) - can't confidently attribute to cue
-    const CUE_ATTRIBUTION_WINDOW_MS = 6000;
+    // EXTENDED: 15 seconds for stroke survivors (was 6s - too short)
+    const CUE_ATTRIBUTION_WINDOW_MS = 15000;
     
     if (cueState) {
       cueTypeGiven = cueState.type;
