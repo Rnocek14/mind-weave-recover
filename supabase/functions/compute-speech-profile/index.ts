@@ -353,7 +353,12 @@ serve(async (req) => {
       effortful_speech_rate: totalTrials > 0 ? Math.round((effortfulCount / totalTrials) * 100) / 100 : null,
       last_computed_at: new Date().toISOString(),
       trial_count_at_computation: totalTrials,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      // Phoneme coverage metadata
+      trials_with_gop_data: trialsWithGopData,
+      trials_with_phonemes: trialsWithAnyPhonemes,
+      trials_with_nonzero_accuracy: trialsWithNonZeroAccuracy,
+      phoneme_token_count: totalPhonemeTokens,
     };
 
     console.log('Profile computed:', JSON.stringify({
@@ -406,6 +411,11 @@ serve(async (req) => {
             phoneme_difficulty_map: phonemeDifficultyMap,
             error_type_distribution: errorTypeCounts,
             cue_efficacy_by_type: cueEfficacyByType,
+            // Phoneme coverage metadata
+            trials_with_gop_data: trialsWithGopData,
+            trials_with_phonemes: trialsWithAnyPhonemes,
+            trials_with_nonzero_accuracy: trialsWithNonZeroAccuracy,
+            phoneme_token_count: totalPhonemeTokens,
           });
 
         if (snapshotError) {

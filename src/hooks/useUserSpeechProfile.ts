@@ -14,6 +14,11 @@ export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_typ
   cue_efficacy_by_category: Record<string, { successRate: number; success: number; total: number }> | null;
   most_challenging_categories: Array<{ category: string; successRate: number; trials: number }> | null;
   phoneme_difficulty_map: Record<string, { accuracy: number; trials: number }> | null;
+  // Phoneme coverage metadata
+  trials_with_gop_data: number | null;
+  trials_with_phonemes: number | null;
+  trials_with_nonzero_accuracy: number | null;
+  phoneme_token_count: number | null;
 }
 
 export const useUserSpeechProfile = (userId: string | undefined) => {
