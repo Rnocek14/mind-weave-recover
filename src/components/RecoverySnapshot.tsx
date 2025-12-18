@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { RecoveryMotivationCards } from '@/components/RecoveryMotivationCards';
 import { CaregiverCoachingCard } from '@/components/CaregiverCoachingCard';
 import { PhonemePracticeCard } from '@/components/PhonemePracticeCard';
+import { SoundTrendsInsight } from '@/components/SoundTrendsInsight';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -271,6 +272,9 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
 
       {/* Phoneme Practice - "Practice these sounds" (patient-friendly targeted practice) */}
       <PhonemePracticeCard userId={userId} />
+
+      {/* Sound Trends - Recent changes in accuracy by sound */}
+      <SoundTrendsInsight userId={userId} />
 
       {/* Section 1: Recovery Trend - "Am I improving?" */}
       <RecoveryMotivationCards userId={userId} />
