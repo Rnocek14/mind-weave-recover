@@ -88,6 +88,8 @@ export const PhotoNamingGame = ({
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
+  const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
+  const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
   const [showDebugOverlay, setShowDebugOverlay] = useState(() => {
     // Enable via URL param ?debug=cue or localStorage
     const urlParams = new URLSearchParams(window.location.search);
@@ -331,9 +333,10 @@ export const PhotoNamingGame = ({
       }
       
       // Levenshtein similarity for phonetic variations (e.g., "dawg" → "dog")
+      // Threshold lowered from 0.7 to 0.6 for better ASR tolerance
       const similarity = calculateSimilarity(normalized, choiceLower);
       console.log(`🔍 Similarity "${normalized}" vs "${choiceLower}": ${similarity}`);
-      return similarity > 0.7;
+      return similarity > 0.6;
     });
     
     if (fuzzyMatch) {
@@ -402,6 +405,9 @@ export const PhotoNamingGame = ({
     
     console.log('Speech result:', transcript);
     
+    // Update lastHeardText for visual feedback
+    setLastHeardText(transcript);
+    
     // Log browser transcript (no duplicates - just updates the attempt context)
     logBrowserTranscript(transcript);
     
@@ -409,6 +415,7 @@ export const PhotoNamingGame = ({
     
     if (matchedChoice) {
       console.log('Matched choice:', matchedChoice);
+      setProcessingAnswer(true); // Show "Processing your answer..." immediately
       handleAnswerSelect(matchedChoice);
     } else {
       console.log('No match found for:', transcript);
@@ -620,6 +627,8 @@ export const PhotoNamingGame = ({
       setCueLevel(0);
       setShowCue(false);
       setCurrentCueText('');
+      setLastHeardText(null); // Reset "last heard" for new trial
+      setProcessingAnswer(false); // Reset processing state
       
       // Start a new attempt for utterance logging (no duplicates!)
       console.log('🎯 [PhotoNaming] New trial starting:', {
@@ -1226,6 +1235,7 @@ export const PhotoNamingGame = ({
       phonemeAccuracy: errorClassification.phonemeAccuracy
     });
     setShowFeedback(true);
+    setProcessingAnswer(false); // Clear processing state when showing feedback
     
     // Play sound based on result
     if (correct) {
@@ -1604,25 +1614,41 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Recording/Analyzing indicator */}
-      {(isRecording || isAnalyzing || isCreatingSession) && (
-        <div className="flex items-center gap-2 text-sm">
+      {/* Recording/Analyzing/Processing indicator - Enhanced */}
+      {(isRecording || isAnalyzing || isCreatingSession || processingAnswer) && (
+        <div className="flex items-center gap-2 text-sm p-3 rounded-lg bg-muted/50 border border-border">
           {isCreatingSession && (
             <>
-              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               <span className="text-muted-foreground">Setting up session...</span>
             </>
           )}
-          {isRecording && !isAnalyzing && (
+          {isRecording && !isAnalyzing && !processingAnswer && (
             <>
-              <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-              <span className="text-destructive">🎙️ Recording</span>
+              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
+              <span className="text-destructive font-medium">🎙️ Listening... say the word!</span>
+            </>
+          )}
+          {processingAnswer && !isAnalyzing && (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <div className="flex flex-col">
+                <span className="text-primary font-medium">Processing your answer...</span>
+                {lastHeardText && (
+                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
+                )}
+              </div>
             </>
           )}
           {isAnalyzing && (
             <>
-              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-              <span className="text-primary">🧠 Analyzing speech...</span>
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <div className="flex flex-col">
+                <span className="text-primary font-medium">🧠 Analyzing pronunciation...</span>
+                {lastHeardText && (
+                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
+                )}
+              </div>
             </>
           )}
         </div>

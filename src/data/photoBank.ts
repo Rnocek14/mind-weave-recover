@@ -706,12 +706,18 @@ export const getTrialsForLevel = (
     categories?: string[];
     excludeAtypical?: boolean;
     requirePhonologicalFoils?: boolean;
+    excludeTargets?: string[]; // Session-level deduplication: exclude already-shown targets
   }
 ): PhotoTrial[] => {
   // Map game level (1-10) to linguistic difficulty (1-5)
   const linguisticDifficulty = Math.ceil(level / 2);
   
+  const excludeSet = new Set(filterOptions?.excludeTargets || []);
+  
   let filtered = PHOTO_BANK.filter(trial => {
+    // Session-level deduplication: skip already-shown targets
+    if (excludeSet.has(trial.target)) return false;
+    
     // Primary filter: difficulty match (±1 tolerance)
     if (Math.abs(trial.computed_difficulty - linguisticDifficulty) > 1) return false;
     
@@ -734,8 +740,17 @@ export const getTrialsForLevel = (
     return true;
   });
   
-  // If no matches, expand tolerance
+  // If no matches, expand tolerance (but still respect excludeTargets)
   if (filtered.length === 0) {
+    filtered = PHOTO_BANK.filter(trial => 
+      !excludeSet.has(trial.target) &&
+      Math.abs(trial.computed_difficulty - linguisticDifficulty) <= 2
+    );
+  }
+  
+  // If STILL no matches (all targets exhausted), allow repeats as last resort
+  if (filtered.length === 0 && excludeSet.size > 0) {
+    console.warn('⚠️ Photo pool exhausted, allowing repeats');
     filtered = PHOTO_BANK.filter(trial => 
       Math.abs(trial.computed_difficulty - linguisticDifficulty) <= 2
     );
