@@ -3,6 +3,7 @@
  * Returns time series data for sparklines and delta calculations
  */
 
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -50,13 +51,21 @@ export function usePhonemeHistory(userId: string, options?: { limit?: number }) 
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Normalize phoneme key to match stored format (e.g., "/k/" → "/k/")
+  const normalizeKey = (phoneme: string): string => {
+    // Strip slashes, lowercase, re-add slashes for consistent lookup
+    const stripped = phoneme.replace(/\//g, '').toLowerCase();
+    return `/${stripped}/`;
+  };
+
   // Extract trend data for a specific phoneme
   const getTrendForPhoneme = (phoneme: string): PhonemeTrend => {
     const snapshots = query.data ?? [];
+    const key = normalizeKey(phoneme);
     
     const points: PhonemePoint[] = snapshots
       .map(s => {
-        const phonemeData = s.phoneme_difficulty_map?.[phoneme];
+        const phonemeData = s.phoneme_difficulty_map?.[key];
         if (!phonemeData) return null;
         return {
           date: s.computed_at,
@@ -82,14 +91,14 @@ export function usePhonemeHistory(userId: string, options?: { limit?: number }) 
     };
   };
 
-  // Get trends for multiple phonemes at once
-  const getTrendsForPhonemes = (phonemes: string[]): Record<string, PhonemeTrend> => {
+  // Get trends for multiple phonemes at once (memoized)
+  const getTrendsForPhonemes = useCallback((phonemes: string[]): Record<string, PhonemeTrend> => {
     const result: Record<string, PhonemeTrend> = {};
     for (const phoneme of phonemes) {
       result[phoneme] = getTrendForPhoneme(phoneme);
     }
     return result;
-  };
+  }, [query.data]);
 
   return {
     snapshots: query.data ?? [],

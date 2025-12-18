@@ -5,7 +5,7 @@
  * Each has a "Start 10-trial set" button that launches targeted practice
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Play, Volume2, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel, formatTimeAgo } from '@/hooks/useStrugglingPhonemes';
+import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel, getTrendLiteLabel, formatTimeAgo } from '@/hooks/useStrugglingPhonemes';
 import { InsightEvidenceBadge, calculateConfidence } from '@/components/InsightEvidenceBadge';
 import { getWordsByPhonemeOverlap } from '@/lib/phonemeWordMap';
 import { usePhonemeHistory } from '@/hooks/usePhonemeHistory';
@@ -41,9 +41,17 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
 
   // Fetch phoneme history for sparklines
   const { getTrendsForPhonemes, loading: historyLoading } = usePhonemeHistory(userId);
-  const phonemeTrends = strugglingPhonemes.length > 0 
-    ? getTrendsForPhonemes(strugglingPhonemes.map(p => p.phoneme))
-    : {};
+  
+  // Memoize phoneme keys and trends to avoid recomputing on every render
+  const phonemeKeys = useMemo(
+    () => strugglingPhonemes.map(p => p.phoneme),
+    [strugglingPhonemes]
+  );
+  
+  const phonemeTrends = useMemo(
+    () => (phonemeKeys.length ? getTrendsForPhonemes(phonemeKeys) : {}),
+    [getTrendsForPhonemes, phonemeKeys]
+  );
 
   const handlePracticePhoneme = (phoneme: string) => {
     // Get words containing this phoneme for targeted practice
@@ -209,14 +217,20 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
                       value={phoneme.accuracy} 
                       className="h-2 flex-1"
                     />
-                    {/* Sparkline trend */}
-                    {trend && (
+                    {/* Sparkline trend or fallback */}
+                    {historyLoading ? (
+                      <span className="text-xs text-muted-foreground italic">Loading...</span>
+                    ) : trend?.hasEnoughData ? (
                       <PhonemeSparkline
                         points={trend.points}
                         delta={trend.delta}
                         width={64}
                         height={20}
                       />
+                    ) : (
+                      <span className={`text-xs ${getTrendLiteLabel(phoneme.trials).color}`}>
+                        {getTrendLiteLabel(phoneme.trials).label}
+                      </span>
                     )}
                   </div>
                 </div>
