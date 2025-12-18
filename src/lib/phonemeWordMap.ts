@@ -154,10 +154,11 @@ export function getWordsByPhonemeOverlap(
 /**
  * Normalize phoneme notation for comparison
  * Handles Azure ARPABET vs IPA differences
+ * Azure uses stress digits (AH0, AE1) that need to be stripped
  */
 export function normalizePhoneme(phoneme: string): string {
-  // Remove slashes and convert to lowercase
-  const clean = phoneme.replace(/\//g, '').toLowerCase();
+  // Remove slashes, convert to lowercase, and strip stress digits (0, 1, 2)
+  const clean = phoneme.replace(/\//g, '').toLowerCase().replace(/[0-9]/g, '');
   
   // Check if it's an Azure ARPABET phoneme
   if (AZURE_TO_IPA[clean]) {
