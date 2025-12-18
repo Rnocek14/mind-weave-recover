@@ -56,23 +56,24 @@ export const PhonemeSparkline = memo(({
     .map((p, i) => `${xScale(i)},${yScale(p.accuracy)}`)
     .join(' ');
 
-  // Determine trend color based on overall direction
+  // Determine trend color class based on overall direction
   const firstPoint = points[0].accuracy;
   const lastPoint = points[points.length - 1].accuracy;
   const overallTrend = lastPoint - firstPoint;
   
-  const strokeColor = overallTrend >= 5 
-    ? 'hsl(var(--success))' 
+  // Use currentColor with text classes for safer theming
+  const colorClass = overallTrend >= 5 
+    ? 'text-success' 
     : overallTrend <= -5 
-      ? 'hsl(var(--destructive))' 
-      : 'hsl(var(--muted-foreground))';
+      ? 'text-destructive' 
+      : 'text-muted-foreground';
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
       <svg 
         width={width} 
         height={height} 
-        className="shrink-0"
+        className={cn("shrink-0", colorClass)}
         aria-label={`Trend: ${points.length} data points`}
       >
         {/* Subtle background line at 70% (threshold) */}
@@ -81,7 +82,7 @@ export const PhonemeSparkline = memo(({
           y1={yScale(70)}
           x2={width - padding}
           y2={yScale(70)}
-          stroke="hsl(var(--muted))"
+          className="stroke-muted"
           strokeWidth={1}
           strokeDasharray="2,2"
         />
@@ -89,7 +90,7 @@ export const PhonemeSparkline = memo(({
         <polyline
           points={polylinePoints}
           fill="none"
-          stroke={strokeColor}
+          stroke="currentColor"
           strokeWidth={1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -99,19 +100,19 @@ export const PhonemeSparkline = memo(({
           cx={xScale(points.length - 1)}
           cy={yScale(lastPoint)}
           r={2}
-          fill={strokeColor}
+          fill="currentColor"
         />
       </svg>
 
       {/* Delta chip */}
-      {showDelta && delta !== null && delta !== 0 && (
+      {showDelta && delta !== null && (
         <span
           className={cn(
             "text-xs font-medium",
-            delta > 0 ? "text-success" : "text-destructive"
+            delta > 0 ? "text-success" : delta < 0 ? "text-destructive" : "text-muted-foreground"
           )}
         >
-          {delta > 0 ? '+' : ''}{delta}%
+          {delta === 0 ? '—' : delta > 0 ? `+${delta}%` : `${delta}%`}
         </span>
       )}
     </div>
