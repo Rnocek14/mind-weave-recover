@@ -120,6 +120,7 @@ export const OverviewTab = memo(function OverviewTab() {
     recommendations,
     recommendedExercises,
     lesson,
+    todayFocus,
     checkExerciseAccess,
     getAdaptations,
     hasAssessment,
@@ -303,7 +304,7 @@ export const OverviewTab = memo(function OverviewTab() {
             onStartAssessment={onStartAssessment}
             onStartLesson={() => {
               if (lesson) {
-                navigate("/lesson", { state: { lesson, clinicalProfile } });
+                navigate("/lesson", { state: { lesson, clinicalProfile, todayFocus } });
               }
             }}
             doseCapReached={doseCap.warningLevel === 'limit'}

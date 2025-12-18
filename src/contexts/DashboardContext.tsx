@@ -2,6 +2,7 @@ import { createContext, ReactNode } from "react";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { AssessmentResult } from "@/lib/capabilityAssessor";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { Exercise } from "@/data/exercises";
 
 export interface DashboardContextValue {
@@ -30,6 +31,7 @@ export interface DashboardContextValue {
   
   // Lesson
   lesson: DailyLesson | null;
+  todayFocus: TodayFocus | null;
   
   // Flags & Caps
   redFlags: any[];

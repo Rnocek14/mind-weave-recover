@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAssessmentContext } from '@/contexts/AssessmentContext';
 import { useExerciseGating } from './useExerciseGating';
+import { useAdaptiveDecisionLog } from './useAdaptiveDecisionLog';
 import { 
   generateDailyLesson, 
   aggregatePerformanceSignals,
@@ -56,6 +57,7 @@ export const useDailyLesson = (
   const [reassessmentReason, setReassessmentReason] = useState<string | null>(null);
   
   const hasBuiltRef = useRef(false);
+  const { logDecision } = useAdaptiveDecisionLog();
 
   const { currentAssessment, previousAssessment } = useAssessmentContext();
   const { capabilityScores, accessibleExercises } = useExerciseGating();
@@ -261,6 +263,16 @@ export const useDailyLesson = (
           confidence: focus.confidence,
           rulesApplied: focus.rulesApplied.map(r => r.ruleId),
         });
+        
+        // Log decision idempotently (once per user per day)
+        if (userId) {
+          logDecision({
+            userId,
+            profileId,
+            todayFocus: focus,
+            performanceSignals: signals,
+          });
+        }
       } catch (focusErr) {
         console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);
       }
