@@ -324,6 +324,44 @@ serve(async (req) => {
 
     console.log(`Speech profile computed successfully for user ${user_id}`);
 
+    // Insert snapshot for trend tracking (only if we have meaningful data)
+    const shouldSnapshot = totalTrials > 0 && Object.keys(phonemeDifficultyMap).length > 0;
+    
+    if (shouldSnapshot) {
+      // Check if we already have a snapshot with the same trial count (avoid force-recompute spam)
+      const { data: lastSnapshot } = await supabase
+        .from('speech_profile_snapshots')
+        .select('trial_count_at_computation')
+        .eq('user_id', user_id)
+        .order('computed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const alreadySnapshotted = lastSnapshot?.trial_count_at_computation === totalTrials;
+
+      if (!alreadySnapshotted) {
+        const { error: snapshotError } = await supabase
+          .from('speech_profile_snapshots')
+          .insert({
+            user_id,
+            computed_at: profile.last_computed_at,
+            trial_count_at_computation: totalTrials,
+            phoneme_difficulty_map: phonemeDifficultyMap,
+            error_type_distribution: errorTypeCounts,
+            cue_efficacy_by_type: cueEfficacyByType,
+          });
+
+        if (snapshotError) {
+          // Non-fatal: log but don't fail the whole operation
+          console.error('Error inserting snapshot (non-fatal):', snapshotError);
+        } else {
+          console.log(`Snapshot inserted for user ${user_id} at ${totalTrials} trials`);
+        }
+      } else {
+        console.log(`Skipping snapshot: already have one at ${totalTrials} trials`);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
