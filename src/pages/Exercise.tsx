@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { 
   Play, Pause, RotateCcw, CheckCircle2, 
   Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle, SkipForward, XCircle 
@@ -40,6 +41,14 @@ const Exercise = () => {
   // Check if we're coming from lesson flow
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  const lessonAdaptations = location.state?.adaptations as {
+    timeoutMultiplier?: number;
+    startDifficulty?: number;
+    largeTargets?: boolean;
+    slowerTTS?: boolean;
+    sessionDurationCap?: number;
+  } | undefined;
+  const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
@@ -684,6 +693,32 @@ const Exercise = () => {
             </Button>
           )}
         </div>
+
+        {/* Debug badges for active adaptations */}
+        {(() => {
+          const badges = [
+            lessonAdaptations?.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1
+              ? `Timeout ×${lessonAdaptations.timeoutMultiplier}` : null,
+            lessonAdaptations?.startDifficulty ? `Start Lv ${lessonAdaptations.startDifficulty}` : null,
+            lessonAdaptations?.largeTargets ? 'Large Targets' : null,
+            lessonAdaptations?.slowerTTS ? 'Slower TTS' : null,
+            lessonAdaptations?.sessionDurationCap ? `Cap ${lessonAdaptations.sessionDurationCap}min` : null,
+          ].filter(Boolean) as string[];
+
+          const targetSource = lessonFocusWords?.length ? 'Lesson' : null;
+          
+          if (lessonFocusWords?.length) {
+            badges.push(`${targetSource} Targets: ${lessonFocusWords.slice(0, 3).join(', ')}${lessonFocusWords.length > 3 ? ` +${lessonFocusWords.length - 3}` : ''}`);
+          }
+
+          return badges.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {badges.map(b => (
+                <Badge key={b} variant="secondary">{b}</Badge>
+              ))}
+            </div>
+          ) : null;
+        })()}
 
         {/* Clinical Profile Widget - hidden on mobile */}
         {clinicalProfile && (
