@@ -35,11 +35,17 @@ export default function PhotoNamingExercise() {
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
-  // Extract targeted practice from URL params
+  // Extract targeted practice from URL params or lesson state
   const searchParams = new URLSearchParams(location.search);
-  const targetedWords = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
+  const targetedWords = lessonFocusWords || searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
   const practiceSource = searchParams.get('source') || null;
+  
+  // Extract adaptations for game configuration
+  const initialDifficulty = lessonAdaptations?.startDifficulty ?? 1;
+  const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
   
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
@@ -390,7 +396,7 @@ export default function PhotoNamingExercise() {
           <PhotoNamingGame
             key={gameKey}
             totalTrials={trials.length}
-            initialDifficulty={1}
+            initialDifficulty={initialDifficulty}
             assistMode={mode === 'caregiver'}
             onTrialComplete={(result, trial) => {
               handleTrialComplete(result, trial);

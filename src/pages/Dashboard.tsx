@@ -70,7 +70,7 @@ const Dashboard = () => {
   
   const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id, activeProfile?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id, activeProfile?.id);
-  const { lesson, regenerateLesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
+  const { lesson, todayFocus, regenerateLesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
   const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
   const recoverySummary = getLatestSummary('progress');
   const isMobile = useIsMobile();
@@ -212,6 +212,7 @@ const Dashboard = () => {
     hasAssessment,
     hasSoftOverride,
     lesson,
+    todayFocus,
     redFlags,
     doseCap,
     learningRates,
@@ -235,6 +236,7 @@ const Dashboard = () => {
     hasAssessment,
     hasSoftOverride,
     lesson,
+    todayFocus,
     redFlags,
     doseCap,
     learningRates,

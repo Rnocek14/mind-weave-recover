@@ -8,10 +8,12 @@ import { Progress } from "@/components/ui/progress";
 import { Play, CheckCircle2, Clock } from "lucide-react";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 
 type FlowPhase = 
   | "daily-check" 
@@ -24,9 +26,11 @@ type FlowPhase =
 interface LessonFlowProps {
   lesson: DailyLesson;
   clinicalProfile: ClinicalProfile | null;
+  todayFocus?: TodayFocus | null;
+  focusWords?: string[];
 }
 
-export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
+export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: LessonFlowProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -193,10 +197,34 @@ export const LessonFlow = ({ lesson, clinicalProfile }: LessonFlowProps) => {
       return;
     }
     
+    // Build adaptations from todayFocus when Phase A is enabled
+    const appliedAdaptations: Record<string, any> = {
+      ...currentBlock?.adaptations,
+    };
+    
+    if (todayFocus?.adaptations) {
+      if (isAdaptationEnabled('timeoutMultiplier') && todayFocus.adaptations.timeoutMultiplier) {
+        appliedAdaptations.timeoutMultiplier = todayFocus.adaptations.timeoutMultiplier;
+      }
+      if (isAdaptationEnabled('startDifficulty') && todayFocus.adaptations.startDifficulty) {
+        appliedAdaptations.startDifficulty = todayFocus.adaptations.startDifficulty;
+      }
+      if (isAdaptationEnabled('largeTargets') && todayFocus.adaptations.largeTargets) {
+        appliedAdaptations.largeTargets = todayFocus.adaptations.largeTargets;
+      }
+      if (isAdaptationEnabled('sessionDurationCap') && todayFocus.adaptations.sessionDurationCap) {
+        appliedAdaptations.sessionDurationCap = todayFocus.adaptations.sessionDurationCap;
+      }
+      if (isAdaptationEnabled('slowerTTS') && todayFocus.adaptations.slowerTTS) {
+        appliedAdaptations.slowerTTS = todayFocus.adaptations.slowerTTS;
+      }
+    }
+    
     navigate(route, { 
       state: { 
         sessionId,
-        adaptations: currentBlock?.adaptations,
+        adaptations: appliedAdaptations,
+        focusWords: focusWords?.slice(0, 5),
         fromLesson: true,
       } 
     });

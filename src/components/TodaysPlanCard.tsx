@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { 
   Calendar, 
   Clock, 
@@ -14,12 +15,15 @@ import {
   Brain,
   Play,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
+import { useStrugglingWords } from "@/hooks/useStrugglingWords";
 import { useUiMode } from "@/hooks/useUiMode";
 import { getConfidenceBadgeColor, getConfidenceDescription } from "@/lib/adaptiveDecisionEngine";
+import { getAdaptiveSettings, setAdaptiveSettings, type AdaptiveEngineSettings } from "@/lib/adaptiveEngineConfig";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 interface TodaysPlanCardProps {
@@ -38,7 +42,15 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
   doseCapReached = false,
 }) => {
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
+  const [adaptiveSettings, setLocalSettings] = useState<AdaptiveEngineSettings>(getAdaptiveSettings);
   const { isAtLeast } = useUiMode();
+  
+  // Listen for localStorage changes (e.g., from other tabs)
+  useEffect(() => {
+    const onStorage = () => setLocalSettings(getAdaptiveSettings());
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   
   const { 
     lesson, 
@@ -49,6 +61,9 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
     needsReassessment,
     reassessmentReason 
   } = useDailyLesson(userId, undefined, clinicalProfile);
+  
+  // Struggling words tracker
+  const { focusWords, loading: swLoading } = useStrugglingWords({ userId });
 
   if (loading) {
     return (
@@ -335,11 +350,55 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
                   </div>
                 )}
 
+                {/* Phase A Toggle */}
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between py-1">
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-medium">Enable Adaptive Engine (Phase A)</div>
+                    <div className="text-[9px] text-muted-foreground">
+                      Safe adaptations: timeouts, session cap, large targets, start easier
+                    </div>
+                  </div>
+                  <Switch
+                    checked={adaptiveSettings.enabled}
+                    onCheckedChange={(checked) => {
+                      setAdaptiveSettings({ enabled: checked });
+                      setLocalSettings(getAdaptiveSettings());
+                    }}
+                    className="scale-75"
+                  />
+                </div>
+
                 <p className="text-[10px] text-amber-600 dark:text-amber-400 italic">
-                  Shadow mode: These adaptations are computed but not yet applied.
+                  {adaptiveSettings.enabled 
+                    ? "Phase A enabled: Safe adaptations will be applied to exercises."
+                    : "Shadow mode: These adaptations are computed but not yet applied."}
                 </p>
               </CollapsibleContent>
             </Collapsible>
+          </>
+        )}
+
+        {/* Focus Words Section (if available) */}
+        {!swLoading && focusWords.length > 0 && (
+          <>
+            <Separator />
+            <div className="pt-2 space-y-1">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BookOpen className="w-4 h-4 text-primary" />
+                <span>Today's Focus Words</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {focusWords.slice(0, 5).map((word) => (
+                  <Badge key={word} variant="secondary" className="text-xs capitalize">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Words that need extra practice based on your recent performance
+              </p>
+            </div>
           </>
         )}
 
