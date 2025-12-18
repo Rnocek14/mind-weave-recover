@@ -24,6 +24,10 @@ export interface StrugglingPhonemesResult {
   hasEnoughData: boolean;
   lastComputedAt: string | null;
   totalTrials: number;
+  // Phoneme coverage metadata
+  trialsWithGopData: number;
+  trialsWithPhonemes: number;
+  trialsWithNonZeroAccuracy: number;
 }
 
 export function useStrugglingPhonemes(
@@ -103,6 +107,9 @@ export function useStrugglingPhonemes(
     loading,
     error,
     lastComputedAt: profile?.last_computed_at || null,
+    trialsWithGopData: profile?.trials_with_gop_data ?? 0,
+    trialsWithPhonemes: profile?.trials_with_phonemes ?? 0,
+    trialsWithNonZeroAccuracy: profile?.trials_with_nonzero_accuracy ?? 0,
   };
 }
 

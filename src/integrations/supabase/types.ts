@@ -1170,8 +1170,12 @@ export type Database = {
           error_type_distribution: Json | null
           id: string
           phoneme_difficulty_map: Json | null
+          phoneme_token_count: number | null
           profile_id: string | null
           trial_count_at_computation: number
+          trials_with_gop_data: number | null
+          trials_with_nonzero_accuracy: number | null
+          trials_with_phonemes: number | null
           user_id: string
         }
         Insert: {
@@ -1181,8 +1185,12 @@ export type Database = {
           error_type_distribution?: Json | null
           id?: string
           phoneme_difficulty_map?: Json | null
+          phoneme_token_count?: number | null
           profile_id?: string | null
           trial_count_at_computation: number
+          trials_with_gop_data?: number | null
+          trials_with_nonzero_accuracy?: number | null
+          trials_with_phonemes?: number | null
           user_id: string
         }
         Update: {
@@ -1192,8 +1200,12 @@ export type Database = {
           error_type_distribution?: Json | null
           id?: string
           phoneme_difficulty_map?: Json | null
+          phoneme_token_count?: number | null
           profile_id?: string | null
           trial_count_at_computation?: number
+          trials_with_gop_data?: number | null
+          trials_with_nonzero_accuracy?: number | null
+          trials_with_phonemes?: number | null
           user_id?: string
         }
         Relationships: [
@@ -1291,8 +1303,12 @@ export type Database = {
           last_computed_at: string | null
           most_challenging_categories: Json | null
           phoneme_difficulty_map: Json | null
+          phoneme_token_count: number | null
           profile_id: string | null
           trial_count_at_computation: number | null
+          trials_with_gop_data: number | null
+          trials_with_nonzero_accuracy: number | null
+          trials_with_phonemes: number | null
           updated_at: string | null
           user_id: string
         }
@@ -1312,8 +1328,12 @@ export type Database = {
           last_computed_at?: string | null
           most_challenging_categories?: Json | null
           phoneme_difficulty_map?: Json | null
+          phoneme_token_count?: number | null
           profile_id?: string | null
           trial_count_at_computation?: number | null
+          trials_with_gop_data?: number | null
+          trials_with_nonzero_accuracy?: number | null
+          trials_with_phonemes?: number | null
           updated_at?: string | null
           user_id: string
         }
@@ -1333,8 +1353,12 @@ export type Database = {
           last_computed_at?: string | null
           most_challenging_categories?: Json | null
           phoneme_difficulty_map?: Json | null
+          phoneme_token_count?: number | null
           profile_id?: string | null
           trial_count_at_computation?: number | null
+          trials_with_gop_data?: number | null
+          trials_with_nonzero_accuracy?: number | null
+          trials_with_phonemes?: number | null
           updated_at?: string | null
           user_id?: string
         }

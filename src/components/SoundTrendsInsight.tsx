@@ -65,7 +65,12 @@ const TrendRow = memo(({ trend, accuracy, trials }: { trend: PhonemeTrend; accur
 TrendRow.displayName = 'TrendRow';
 
 export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsightProps) => {
-  const { strugglingPhonemes, loading: phonemesLoading } = useStrugglingPhonemes(userId);
+  const { 
+    strugglingPhonemes, 
+    loading: phonemesLoading,
+    trialsWithGopData,
+    trialsWithPhonemes,
+  } = useStrugglingPhonemes(userId);
   const { loading: historyLoading, getTrendsForPhonemes } = usePhonemeHistory(userId);
   
   const isLoading = phonemesLoading || historyLoading;
@@ -129,6 +134,10 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
                 {!Object.values(trends).some(t => t.hasEnoughData) ? (
                   <p className="text-xs text-muted-foreground italic">
                     Trends will appear after a few more sessions
+                  </p>
+                ) : trialsWithGopData > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Phoneme detail from {trialsWithPhonemes}/{trialsWithGopData} attempts
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
