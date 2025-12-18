@@ -707,12 +707,27 @@ export const getTrialsForLevel = (
     excludeAtypical?: boolean;
     requirePhonologicalFoils?: boolean;
     excludeTargets?: string[]; // Session-level deduplication: exclude already-shown targets
+    focusPhonemes?: string[]; // Phonemes to prioritize (from struggling phonemes)
+    focusWords?: string[]; // Specific words to prioritize
   }
 ): PhotoTrial[] => {
   // Map game level (1-10) to linguistic difficulty (1-5)
   const linguisticDifficulty = Math.ceil(level / 2);
   
   const excludeSet = new Set(filterOptions?.excludeTargets || []);
+  const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
+  const focusPhonemes = filterOptions?.focusPhonemes || [];
+  
+  // Import phoneme checking dynamically to avoid circular dependency
+  const wordContainsPhoneme = (word: string, phonemes: string[]): boolean => {
+    if (phonemes.length === 0) return false;
+    // Simple check using first_phoneme from features
+    const trial = PHOTO_BANK.find(t => t.target.toLowerCase() === word.toLowerCase());
+    if (!trial) return false;
+    return phonemes.some(p => 
+      trial.features.first_phoneme.toLowerCase().includes(p.replace(/\//g, '').toLowerCase())
+    );
+  };
   
   let filtered = PHOTO_BANK.filter(trial => {
     // Session-level deduplication: skip already-shown targets
@@ -756,8 +771,29 @@ export const getTrialsForLevel = (
     );
   }
   
-  // Shuffle and return
-  const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+  // Sort to prioritize: (1) focus words, (2) phoneme matches, (3) random
+  const shuffled = [...filtered].sort((a, b) => {
+    const aIsFocusWord = focusWordsSet.has(a.target.toLowerCase()) ? 1 : 0;
+    const bIsFocusWord = focusWordsSet.has(b.target.toLowerCase()) ? 1 : 0;
+    
+    // Focus words first
+    if (aIsFocusWord !== bIsFocusWord) {
+      return bIsFocusWord - aIsFocusWord;
+    }
+    
+    // Then phoneme matches
+    if (focusPhonemes.length > 0) {
+      const aHasPhoneme = wordContainsPhoneme(a.target, focusPhonemes) ? 1 : 0;
+      const bHasPhoneme = wordContainsPhoneme(b.target, focusPhonemes) ? 1 : 0;
+      if (aHasPhoneme !== bHasPhoneme) {
+        return bHasPhoneme - aHasPhoneme;
+      }
+    }
+    
+    // Random for equal priority
+    return Math.random() - 0.5;
+  });
+  
   return shuffled.slice(0, Math.min(count, shuffled.length));
 };
 

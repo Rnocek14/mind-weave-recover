@@ -64,7 +64,8 @@ serve(async (req) => {
         effortful_speech,
         phonological_similarity,
         semantic_similarity,
-        target_word
+        target_word,
+        gop_data
       `)
       .eq('user_id', user_id)
       .order('created_at', { ascending: false });
@@ -110,6 +111,9 @@ serve(async (req) => {
     const errorTypeCounts: Record<string, number> = {};
     const cueStats: Record<string, { success: number; total: number; avgTimeMs: number; totalTimeMs: number }> = {};
     const categoryStats: Record<string, { success: number; total: number }> = {};
+    
+    // Phoneme-level aggregation from Azure gop_data
+    const phonemeStats: Record<string, { totalAccuracy: number; count: number }> = {};
     
     // Fluency aggregation
     let totalWpm = 0;
@@ -187,6 +191,37 @@ serve(async (req) => {
         totalPhonologicalSimilarity += analysis.phonological_similarity;
         phonologicalCount += 1;
       }
+      
+      // Extract phoneme-level accuracy from Azure gop_data
+      // gop_data.words[].phonemes[] contains phoneme scores from Azure Pronunciation Assessment
+      const gopData = analysis.gop_data as {
+        source?: string;
+        words?: Array<{
+          word?: string;
+          phonemes?: Array<{
+            phoneme?: string;
+            accuracyScore?: number;
+          }>;
+        }>;
+      } | null;
+      
+      if (gopData?.source === 'azure' && gopData.words) {
+        for (const word of gopData.words) {
+          if (word.phonemes) {
+            for (const phoneme of word.phonemes) {
+              if (phoneme.phoneme && phoneme.accuracyScore != null) {
+                // Normalize phoneme to IPA-like format (lowercase)
+                const normalizedPhoneme = `/${phoneme.phoneme.toLowerCase()}/`;
+                if (!phonemeStats[normalizedPhoneme]) {
+                  phonemeStats[normalizedPhoneme] = { totalAccuracy: 0, count: 0 };
+                }
+                phonemeStats[normalizedPhoneme].totalAccuracy += phoneme.accuracyScore;
+                phonemeStats[normalizedPhoneme].count += 1;
+              }
+            }
+          }
+        }
+      }
     }
 
     // Compute cue efficacy with success rates and average times
@@ -231,6 +266,19 @@ serve(async (req) => {
       ? Math.round((totalPhonologicalSimilarity / phonologicalCount) * 100) / 100 
       : null;
 
+    // Compute phoneme difficulty map (accuracy 0-100, only include phonemes with >= 2 samples)
+    const phonemeDifficultyMap: Record<string, { accuracy: number; trials: number }> = {};
+    for (const [phoneme, stats] of Object.entries(phonemeStats)) {
+      if (stats.count >= 2) {
+        phonemeDifficultyMap[phoneme] = {
+          accuracy: Math.round(stats.totalAccuracy / stats.count),
+          trials: stats.count,
+        };
+      }
+    }
+    
+    console.log('Phoneme difficulty map:', JSON.stringify(phonemeDifficultyMap, null, 2));
+
     // Build the profile object
     const profile = {
       user_id,
@@ -239,6 +287,7 @@ serve(async (req) => {
       cue_efficacy_by_type: cueEfficacyByType,
       cue_efficacy_by_category: cueEfficacyByCategory,
       most_challenging_categories: challengingCategories,
+      phoneme_difficulty_map: phonemeDifficultyMap,
       baseline_wpm: wpmCount > 0 ? Math.round((totalWpm / wpmCount) * 10) / 10 : null,
       baseline_pause_frequency: pauseMetricCount > 0 ? Math.round((totalPauseCount / pauseMetricCount) * 100) / 100 : null,
       avg_stall_duration_ms: pauseMetricCount > 0 && totalPauseDuration > 0 

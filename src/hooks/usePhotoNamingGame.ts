@@ -10,10 +10,19 @@ export interface PhotoNamingGameState {
   score: number;
 }
 
+export interface PhotoNamingGameOptions {
+  totalTrials?: number;
+  difficultyLevel?: number;
+  customTrials?: PhotoTrial[];
+  focusPhonemes?: string[]; // Phonemes to prioritize in word selection
+  focusWords?: string[]; // Specific words to prioritize
+}
+
 export const usePhotoNamingGame = (
   totalTrials: number = 10, 
   difficultyLevel: number = 1,
-  customTrials?: PhotoTrial[]
+  customTrials?: PhotoTrial[],
+  options?: PhotoNamingGameOptions
 ) => {
   const [trials, setTrials] = useState<PhotoTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
@@ -23,6 +32,10 @@ export const usePhotoNamingGame = (
   
   // Session-level deduplication: track shown photo targets across difficulty changes
   const shownTargetsRef = useRef<Set<string>>(new Set());
+  
+  // Extract phoneme/word targeting options
+  const focusPhonemes = options?.focusPhonemes || [];
+  const focusWords = options?.focusWords || [];
 
   // Initialize trials based on difficulty level or use custom trials
   useEffect(() => {
@@ -33,16 +46,18 @@ export const usePhotoNamingGame = (
         setChoices(generateChoices(customTrials[0], difficultyLevel));
       }
     } else {
-      // Get new trials excluding already-shown targets
+      // Get new trials excluding already-shown targets, with phoneme targeting
       const newTrials = getTrialsForLevel(difficultyLevel, totalTrials, {
         excludeTargets: Array.from(shownTargetsRef.current),
+        focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
+        focusWords: focusWords.length > 0 ? focusWords : undefined,
       });
       setTrials(newTrials);
       if (newTrials.length > 0) {
         setChoices(generateChoices(newTrials[0], difficultyLevel));
       }
     }
-  }, [totalTrials, difficultyLevel, customTrials]);
+  }, [totalTrials, difficultyLevel, customTrials, focusPhonemes.join(','), focusWords.join(',')]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 

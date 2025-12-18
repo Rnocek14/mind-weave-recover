@@ -5,7 +5,7 @@ import type { Tables } from '@/integrations/supabase/types';
 // Use the database type and extend with typed versions of JSON fields
 type UserSpeechProfileRow = Tables<'user_speech_profiles'>;
 
-export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_type_distribution' | 'cue_efficacy_by_type' | 'cue_efficacy_by_category' | 'most_challenging_categories'> {
+export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_type_distribution' | 'cue_efficacy_by_type' | 'cue_efficacy_by_category' | 'most_challenging_categories' | 'phoneme_difficulty_map'> {
   error_type_distribution: Record<string, number> | null;
   cue_efficacy_by_type: Record<
     'semantic' | 'phonemic' | 'full_word' | 'none',
@@ -13,6 +13,7 @@ export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_typ
   > | null;
   cue_efficacy_by_category: Record<string, { successRate: number; success: number; total: number }> | null;
   most_challenging_categories: Array<{ category: string; successRate: number; trials: number }> | null;
+  phoneme_difficulty_map: Record<string, { accuracy: number; trials: number }> | null;
 }
 
 export const useUserSpeechProfile = (userId: string | undefined) => {

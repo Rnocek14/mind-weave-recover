@@ -24,6 +24,7 @@ export interface SpeechProfileSummary {
   errorTypeDistribution?: Record<string, number>;
   cueEfficacyByType?: Record<string, { successRate: number; trials: number }>;
   mostChallengingCategories?: string[];
+  phonemeDifficultyMap?: Record<string, { accuracy: number; trials: number }>;
 }
 
 export interface SignalCounts {
@@ -50,6 +51,8 @@ export interface ProposedAdaptations {
   sessionDurationCap?: number;
   slowerTTS?: boolean;
   largeTargets?: boolean;
+  focusPhonemes?: string[]; // Phonemes to target in word selection
+  focusWords?: string[]; // Words to prioritize in exercises
 }
 
 export interface AppliedRule {
@@ -246,6 +249,52 @@ const PHASE_A_RULES: DecisionRule[] = [
       focus.reasoning.push('Larger targets and extended timeouts for motor challenges');
     },
     adaptationDescription: 'Large touch targets, extended timeouts',
+  },
+  {
+    id: 'phoneme_weakness_targeting',
+    description: 'Target struggling phonemes in word selection',
+    minConfidence: 'MEDIUM',
+    phase: 'A',
+    condition: (input) => {
+      const phonemeMap = input.speechProfile?.phonemeDifficultyMap;
+      if (!phonemeMap) return false;
+      
+      // Find phonemes with accuracy < 70% and >= 5 trials
+      const strugglingPhonemes = Object.entries(phonemeMap)
+        .filter(([_, stats]) => stats.accuracy < 70 && stats.trials >= 5);
+      
+      return strugglingPhonemes.length > 0;
+    },
+    conditionDescription: (input) => {
+      const phonemeMap = input.speechProfile?.phonemeDifficultyMap;
+      if (!phonemeMap) return 'No phoneme data';
+      
+      const struggling = Object.entries(phonemeMap)
+        .filter(([_, stats]) => stats.accuracy < 70 && stats.trials >= 5)
+        .map(([phoneme, stats]) => `${phoneme} ${stats.accuracy}%`)
+        .slice(0, 3);
+      
+      return `Struggling phonemes: ${struggling.join(', ')}`;
+    },
+    apply: (focus, input) => {
+      const phonemeMap = input.speechProfile?.phonemeDifficultyMap;
+      if (!phonemeMap) return;
+      
+      // Get top 3 struggling phonemes
+      const strugglingPhonemes = Object.entries(phonemeMap)
+        .filter(([_, stats]) => stats.accuracy < 70 && stats.trials >= 5)
+        .sort((a, b) => a[1].accuracy - b[1].accuracy)
+        .slice(0, 3)
+        .map(([phoneme]) => phoneme);
+      
+      if (strugglingPhonemes.length > 0) {
+        focus.adaptations.focusPhonemes = strugglingPhonemes;
+        focus.reasoning.push(
+          `Targeting words with struggling phonemes: ${strugglingPhonemes.join(', ')}`
+        );
+      }
+    },
+    adaptationDescription: 'Prioritize words containing struggling phonemes',
   },
 ];
 
