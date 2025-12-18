@@ -118,6 +118,7 @@ serve(async (req) => {
     // ARPABET to IPA conversion map (Azure returns ARPABET, we store IPA)
     const ARPABET_TO_IPA: Record<string, string> = {
       'aa': 'ɑ', 'ae': 'æ', 'ah': 'ʌ', 'ao': 'ɔ', 'aw': 'aʊ', 'ay': 'aɪ',
+      'ax': 'ə', // reduced vowel (schwa)
       'b': 'b', 'ch': 'tʃ', 'd': 'd', 'dh': 'ð', 'eh': 'ɛ', 'er': 'ɜ',
       'ey': 'eɪ', 'f': 'f', 'g': 'g', 'hh': 'h', 'ih': 'ɪ', 'iy': 'i',
       'jh': 'dʒ', 'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'ng': 'ŋ',
@@ -125,6 +126,26 @@ serve(async (req) => {
       't': 't', 'th': 'θ', 'uh': 'ʊ', 'uw': 'u', 'v': 'v', 'w': 'w',
       'y': 'j', 'z': 'z', 'zh': 'ʒ',
     };
+    
+    // Rhotic equivalence for consistent lookups
+    const RHOTIC_EQUIV: Record<string, string> = {
+      '/ɚ/': '/ɜ/',
+      '/ɝ/': '/ɜ/',
+      '/ɹ/': '/r/',
+    };
+    
+    // Normalize Azure phoneme to IPA key
+    function toIpaKey(raw: string | null | undefined): string | null {
+      if (!raw) return null;
+      const clean = raw.toLowerCase().replace(/[0-9]/g, ''); // strip stress digits
+      const ipa = ARPABET_TO_IPA[clean];
+      const key = ipa ? `/${ipa}/` : `/${clean}/`; // fallback keeps something
+      return RHOTIC_EQUIV[key] || key;
+    }
+    
+    // Diagnostic counters for phoneme coverage
+    let trialsWithAnyPhonemes = 0;
+    let totalPhonemeTokens = 0;
     
     // Fluency aggregation
     let totalWpm = 0;
@@ -217,26 +238,29 @@ serve(async (req) => {
       } | null;
       
       if (gopData?.source === 'azure' && gopData.words) {
+        let trialHasPhonemes = false;
         for (const word of gopData.words) {
-          if (word.phonemes) {
+          if (word.phonemes && word.phonemes.length > 0) {
+            trialHasPhonemes = true;
             for (const phoneme of word.phonemes) {
-              if (phoneme.phoneme && phoneme.accuracyScore != null) {
-                // Convert ARPABET to IPA, strip stress digits, normalize
-                const rawPhoneme = phoneme.phoneme.toLowerCase().replace(/[0-9]/g, '');
-                const ipaChar = ARPABET_TO_IPA[rawPhoneme] || rawPhoneme;
-                const normalizedPhoneme = `/${ipaChar}/`;
-                
-                if (!phonemeStats[normalizedPhoneme]) {
-                  phonemeStats[normalizedPhoneme] = { totalAccuracy: 0, count: 0 };
+              const key = toIpaKey(phoneme.phoneme);
+              if (key && phoneme.accuracyScore != null) {
+                totalPhonemeTokens++;
+                if (!phonemeStats[key]) {
+                  phonemeStats[key] = { totalAccuracy: 0, count: 0 };
                 }
-                phonemeStats[normalizedPhoneme].totalAccuracy += phoneme.accuracyScore;
-                phonemeStats[normalizedPhoneme].count += 1;
+                phonemeStats[key].totalAccuracy += phoneme.accuracyScore;
+                phonemeStats[key].count += 1;
               }
             }
           }
         }
+        if (trialHasPhonemes) trialsWithAnyPhonemes++;
       }
     }
+    
+    // Log phoneme coverage diagnostic
+    console.log(`[phonemes] trialsWithAnyPhonemes=${trialsWithAnyPhonemes} of ${analyses.length}, totalTokens=${totalPhonemeTokens}`);
 
     // Compute cue efficacy with success rates and average times
     const cueEfficacyByType: Record<string, { successRate: number; success: number; total: number; avgTimeToSuccessMs: number }> = {};

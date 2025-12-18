@@ -46,6 +46,7 @@ export const AZURE_TO_IPA: Record<string, string> = {
   'ah': '/ʌ/',
   'ao': '/ɔ/',
   'aw': '/aʊ/',
+  'ax': '/ə/', // reduced vowel (schwa)
   'ay': '/aɪ/',
   'b': '/b/',
   'ch': '/tʃ/',
@@ -81,7 +82,6 @@ export const AZURE_TO_IPA: Record<string, string> = {
   'z': '/z/',
   'zh': '/ʒ/',
   // Variations with stress markers (Azure sometimes includes these)
-  'ax': '/ə/',
   'ix': '/ɪ/',
 };
 
