@@ -16,7 +16,8 @@ import {
   Play,
   ChevronDown,
   Sparkles,
-  BookOpen
+  BookOpen,
+  RefreshCw
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
@@ -24,6 +25,8 @@ import { useStrugglingWords } from "@/hooks/useStrugglingWords";
 import { useUiMode } from "@/hooks/useUiMode";
 import { getConfidenceBadgeColor, getConfidenceDescription } from "@/lib/adaptiveDecisionEngine";
 import { getAdaptiveSettings, setAdaptiveSettings, type AdaptiveEngineSettings } from "@/lib/adaptiveEngineConfig";
+import { recomputeSpeechProfileNow } from "@/lib/recomputeSpeechProfile";
+import { toast } from "sonner";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 interface TodaysPlanCardProps {
@@ -43,6 +46,8 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
 }) => {
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
   const [adaptiveSettings, setLocalSettings] = useState<AdaptiveEngineSettings>(getAdaptiveSettings);
+  const [recomputeLoading, setRecomputeLoading] = useState(false);
+  const [lastRecomputeAt, setLastRecomputeAt] = useState<string | null>(null);
   const { isAtLeast } = useUiMode();
   
   // Listen for localStorage changes (e.g., from other tabs)
@@ -367,6 +372,59 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
                     }}
                     className="scale-75"
                   />
+                </div>
+
+                {/* Recompute Speech Profile Button */}
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between py-1">
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-medium">Recompute Speech Profile</div>
+                    <div className="text-[9px] text-muted-foreground">
+                      Force update cue efficacy and error patterns
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {lastRecomputeAt && (
+                      <Badge variant="secondary" className="text-[9px]">
+                        {new Date(lastRecomputeAt).toLocaleTimeString()}
+                      </Badge>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={recomputeLoading}
+                      className="h-7 text-[10px]"
+                      onClick={async () => {
+                        setRecomputeLoading(true);
+                        try {
+                          const result = await recomputeSpeechProfileNow(userId, { force: true });
+                          setLastRecomputeAt(new Date().toISOString());
+                          if (result.skipped) {
+                            toast.info(`Skipped: ${result.reason}`);
+                          } else {
+                            toast.success(`Speech profile recomputed (${result.analysesProcessed} utterances)`);
+                          }
+                        } catch (e: any) {
+                          console.error('Recompute failed:', e);
+                          toast.error(e?.message ?? 'Failed to recompute speech profile');
+                        } finally {
+                          setRecomputeLoading(false);
+                        }
+                      }}
+                    >
+                      {recomputeLoading ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          Recomputing…
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Recompute
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-[10px] text-amber-600 dark:text-amber-400 italic">

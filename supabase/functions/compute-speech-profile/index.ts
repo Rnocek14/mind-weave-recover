@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface ComputeProfileRequest {
   user_id: string;
+  force?: boolean; // Skip debounce check for manual recomputes
 }
 
 serve(async (req) => {
@@ -17,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id }: ComputeProfileRequest = await req.json();
+    const { user_id, force = false }: ComputeProfileRequest = await req.json();
 
     if (!user_id) {
       return new Response(
@@ -25,6 +26,8 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`Computing speech profile for user ${user_id} (force: ${force})...`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -83,8 +86,8 @@ serve(async (req) => {
     const previousCount = existingProfile?.trial_count_at_computation ?? 0;
     const newTrials = totalTrials - previousCount;
 
-    // Debounce: skip if we don't have enough new trials (min 10)
-    if (existingProfile && newTrials > 0 && newTrials < 10) {
+    // Debounce: skip if we don't have enough new trials (min 10), unless force=true
+    if (!force && existingProfile && newTrials > 0 && newTrials < 10) {
       console.log(
         `Skipping recompute for user ${user_id}: only ${newTrials} new trials since last computation (${previousCount} → ${totalTrials})`
       );
