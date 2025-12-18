@@ -188,9 +188,9 @@ export function getPhonemeMapCoverage(targetWords: string[]): {
 export function exportUnmappedPhonemes(targetWords: string[]): void {
   const { coverage, unmapped } = getPhonemeMapCoverage(targetWords);
   
-  // Generate skeleton map for easy paste-and-fill
+  // Generate skeleton map for easy paste-and-fill (empty arrays to avoid accidental shipping of placeholders)
   const skeleton = Object.fromEntries(
-    unmapped.map(w => [w.toLowerCase(), ['/* IPA phonemes here */']])
+    unmapped.map(w => [w.toLowerCase(), [] as string[]])
   );
   
   const payload = {
@@ -199,6 +199,7 @@ export function exportUnmappedPhonemes(targetWords: string[]): void {
     unmappedCount: unmapped.length,
     unmapped,
     skeletonMap: skeleton,
+    note: "Fill arrays with IPA like ['/k/', '/æ/', '/t/']",
   };
   
   console.log('[PhonemeMap] Unmapped targets export:');
