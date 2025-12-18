@@ -798,7 +798,8 @@ const Exercise = () => {
           ) : exerciseId === 'reach-tap' ? (
             <ReachTapGame
               totalTrials={totalRounds}
-              initialDifficulty={level}
+              initialDifficulty={lessonAdaptations?.startDifficulty || level}
+              slowMode={lessonAdaptations?.largeTargets || true} // largeTargets → slowMode (larger targets + longer timeouts)
               onTrialComplete={async (result) => {
                 await logTrial({
                   correct: result.correct,
@@ -808,8 +809,10 @@ const Exercise = () => {
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     target_size: result.targetSize,
+                    target_side: result.targetSide,
                     round: currentRound,
                     exercise_type: 'reach-tap',
+                    adaptations_active: lessonAdaptations || {},
                   },
                 });
                 
@@ -920,8 +923,9 @@ const Exercise = () => {
           ) : exerciseId === 'left-side-hunt' ? (
             <ReachTapGame
               totalTrials={totalRounds}
-              initialDifficulty={level}
+              initialDifficulty={lessonAdaptations?.startDifficulty || level}
               variant="left-side-hunt"
+              slowMode={lessonAdaptations?.largeTargets || true}
               onTrialComplete={async (result) => {
                 await logTrial({
                   correct: result.correct,
@@ -934,6 +938,7 @@ const Exercise = () => {
                     target_side: result.targetSide,
                     round: currentRound,
                     exercise_type: 'left-side-hunt',
+                    adaptations_active: lessonAdaptations || {},
                   },
                 });
                 
