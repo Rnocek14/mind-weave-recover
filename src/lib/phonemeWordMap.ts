@@ -174,7 +174,12 @@ export function normalizePhoneme(phoneme: string): string {
     .replace(/[0-9]/g, '')
     .replace(/[^a-zæɑɔʌəɛɪʊɜɚɝʃʒθðŋɹ]/g, ''); // Keep IPA chars
   
-  // Step 2: Map ARPABET to IPA (must happen AFTER stripping)
+  // Step 2: Handle empty result (malformed input) - return safe fallback
+  if (!clean) {
+    return phoneme.startsWith('/') ? phoneme.toLowerCase() : `/${phoneme.toLowerCase()}/`;
+  }
+  
+  // Step 3: Map ARPABET to IPA (must happen AFTER stripping)
   let result: string;
   if (AZURE_TO_IPA[clean]) {
     result = AZURE_TO_IPA[clean];

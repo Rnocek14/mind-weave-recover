@@ -762,7 +762,8 @@ export const getTrialsForLevel = (
   }
   
   // Pre-compute random values for stable sorting (avoid Math.random() in comparator)
-  const randomValues = new Map(filtered.map(t => [t.target, Math.random()]));
+  // Use lowercase keys for consistent lookup regardless of target casing
+  const randomValues = new Map(filtered.map(t => [t.target.toLowerCase(), Math.random()]));
   
   // Sort to prioritize: (1) focus words, (2) phoneme match count (weighted), (3) stable random
   const shuffled = [...filtered].sort((a, b) => {
@@ -784,8 +785,8 @@ export const getTrialsForLevel = (
       }
     }
     
-    // Stable random for equal priority
-    return (randomValues.get(a.target) || 0) - (randomValues.get(b.target) || 0);
+    // Stable random for equal priority (use lowercase for consistent lookup)
+    return (randomValues.get(a.target.toLowerCase()) || 0) - (randomValues.get(b.target.toLowerCase()) || 0);
   });
   
   return shuffled.slice(0, Math.min(count, shuffled.length));
