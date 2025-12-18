@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
+import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,6 @@ import { startSession } from '@/lib/sessionTracking';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
-
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -290,11 +290,12 @@ export default function PhotoNamingExercise() {
     
     if (isPhonemeTargeted || isWordTargeted) {
       const focusLabel = isPhonemeTargeted 
-        ? lessonFocusPhonemes!.map(p => `/${p}/`).join(', ')
+        ? lessonFocusPhonemes!.map(formatPhonemeDisplay).join(', ')
         : targetedWords.slice(0, 3).join(', ') + (targetedWords.length > 3 ? '...' : '');
+      const trialsLogged = trials?.length ?? 10;
       
       toast.success("Targeted practice complete", {
-        description: `Focus: ${focusLabel} • 10 trials logged\nProfile updates after analysis`,
+        description: `Focus: ${focusLabel} • ${trialsLogged} trials logged\nProfile updates after analysis`,
         duration: 4000,
       });
     }
