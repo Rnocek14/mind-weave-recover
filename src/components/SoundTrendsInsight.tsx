@@ -4,7 +4,7 @@
  * Only renders when sufficient history exists
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +17,7 @@ interface SoundTrendsInsightProps {
   className?: string;
 }
 
-const TrendRow = memo(({ trend, accuracy }: { trend: PhonemeTrend; accuracy: number }) => {
+const TrendRow = memo(({ trend, accuracy, trials }: { trend: PhonemeTrend; accuracy: number; trials: number }) => {
   const { delta, points, hasEnoughData } = trend;
   
   // Determine trend direction and color
@@ -37,7 +37,7 @@ const TrendRow = memo(({ trend, accuracy }: { trend: PhonemeTrend; accuracy: num
           {formatPhonemeDisplay(trend.phoneme)}
         </span>
         <span className="text-xs text-muted-foreground">
-          {accuracy}% ({points.length} samples)
+          {accuracy}% <span className="opacity-70">n={trials} • {points.length} updates</span>
         </span>
       </div>
       
@@ -71,12 +71,16 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
   const isLoading = phonemesLoading || historyLoading;
   
   // Get top 3 struggling phonemes
-  const topPhonemes = strugglingPhonemes.slice(0, 3);
+  const topPhonemes = useMemo(() => strugglingPhonemes.slice(0, 3), [strugglingPhonemes]);
   
-  // Get trends for these phonemes
-  const trends = topPhonemes.length > 0 
-    ? getTrendsForPhonemes(topPhonemes.map(p => p.phoneme))
-    : {};
+  // Memoize phoneme keys for stable reference
+  const phonemeKeys = useMemo(() => topPhonemes.map(p => p.phoneme), [topPhonemes]);
+  
+  // Get trends for these phonemes (memoized)
+  const trends = useMemo(
+    () => (phonemeKeys.length > 0 ? getTrendsForPhonemes(phonemeKeys) : {}),
+    [getTrendsForPhonemes, phonemeKeys]
+  );
   
   // Don't render if no struggling phonemes
   if (!isLoading && topPhonemes.length === 0) {
@@ -106,7 +110,7 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
           </div>
         ) : (
           <div>
-            {topPhonemes.map(({ phoneme, accuracy }) => {
+            {topPhonemes.map(({ phoneme, accuracy, trials }) => {
               const trend = trends[phoneme];
               if (!trend) return null;
               
@@ -115,6 +119,7 @@ export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsigh
                   key={phoneme} 
                   trend={trend} 
                   accuracy={accuracy}
+                  trials={trials}
                 />
               );
             })}
