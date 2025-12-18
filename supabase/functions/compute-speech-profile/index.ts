@@ -374,16 +374,35 @@ serve(async (req) => {
     }, null, 2));
 
     // Upsert into user_speech_profiles
-    // Use user_id only for conflict when profile_id is null (single-profile case)
-    const { data: upsertedProfile, error: upsertError } = await supabase
+    // Since we have partial unique indexes, use delete-then-insert pattern for reliability
+    const { error: deleteError } = await supabase
       .from('user_speech_profiles')
-      .upsert(profile, { onConflict: 'user_id' })
+      .delete()
+      .eq('user_id', user_id)
+      .is('profile_id', null);
+    
+    if (deleteError) {
+      console.error('Delete failed:', {
+        message: deleteError.message,
+        code: (deleteError as any).code,
+      });
+      // Continue anyway - might be first insert
+    }
+    
+    const { data: upsertedProfile, error: insertError } = await supabase
+      .from('user_speech_profiles')
+      .insert(profile)
       .select()
       .single();
 
-    if (upsertError) {
-      console.error('Error upserting profile:', upsertError);
-      throw upsertError;
+    if (insertError) {
+      console.error('Insert failed:', {
+        message: insertError.message,
+        details: (insertError as any).details,
+        hint: (insertError as any).hint,
+        code: (insertError as any).code,
+      });
+      throw insertError;
     }
 
     console.log(`Speech profile computed successfully for user ${user_id}`);
