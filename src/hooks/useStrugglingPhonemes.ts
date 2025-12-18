@@ -22,6 +22,8 @@ export interface StrugglingPhonemesResult {
   loading: boolean;
   error: Error | null;
   hasEnoughData: boolean;
+  lastComputedAt: string | null;
+  totalTrials: number;
 }
 
 export function useStrugglingPhonemes(
@@ -54,8 +56,12 @@ export function useStrugglingPhonemes(
         strongPhonemes: [],
         targetWords: [],
         hasEnoughData: false,
+        totalTrials: 0,
       };
     }
+
+    // Calculate total trials across all phonemes
+    const totalTrials = Object.values(phonemeDifficultyMap).reduce((sum, p) => sum + p.trials, 0);
 
     const allPhonemes: StrugglingPhoneme[] = Object.entries(phonemeDifficultyMap)
       .filter(([_, stats]) => stats.trials >= minTrials)
@@ -88,6 +94,7 @@ export function useStrugglingPhonemes(
       strongPhonemes: strong,
       targetWords,
       hasEnoughData: allPhonemes.length >= 3,
+      totalTrials,
     };
   }, [profile, accuracyThreshold, minTrials, maxPhonemes, maxTargetWords]);
 
@@ -95,6 +102,7 @@ export function useStrugglingPhonemes(
     ...result,
     loading,
     error,
+    lastComputedAt: profile?.last_computed_at || null,
   };
 }
 
@@ -122,4 +130,40 @@ export function getPhonemeAccuracyLabel(accuracy: number): {
     return { label: 'Needs practice', color: 'text-amber-600 dark:text-amber-400' };
   }
   return { label: 'Focus area', color: 'text-red-600 dark:text-red-400' };
+}
+
+/**
+ * Get trend-lite label based on trial count (honest about data confidence)
+ */
+export function getTrendLiteLabel(trials: number): {
+  label: string;
+  color: string;
+} {
+  if (trials < 10) {
+    return { label: 'Needs more data', color: 'text-muted-foreground' };
+  }
+  if (trials < 20) {
+    return { label: 'Early estimate', color: 'text-amber-600 dark:text-amber-400' };
+  }
+  return { label: 'Current level', color: 'text-foreground' };
+}
+
+/**
+ * Format relative time for "Updated X ago" display
+ */
+export function formatTimeAgo(date: Date | string | null): string {
+  if (!date) return 'Never';
+  
+  const now = new Date();
+  const then = new Date(date);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return then.toLocaleDateString();
 }
