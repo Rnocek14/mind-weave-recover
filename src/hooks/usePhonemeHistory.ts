@@ -6,6 +6,7 @@
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizePhoneme } from '@/lib/phonemeWordMap';
 
 interface PhonemeSnapshot {
   computed_at: string;
@@ -51,21 +52,17 @@ export function usePhonemeHistory(userId: string, options?: { limit?: number }) 
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Normalize phoneme key to match stored format (e.g., "/k/" → "/k/")
-  const normalizeKey = (phoneme: string): string => {
-    // Strip slashes, lowercase, re-add slashes for consistent lookup
-    const stripped = phoneme.replace(/\//g, '').toLowerCase();
-    return `/${stripped}/`;
-  };
-
   // Extract trend data for a specific phoneme
   const getTrendForPhoneme = (phoneme: string): PhonemeTrend => {
     const snapshots = query.data ?? [];
-    const key = normalizeKey(phoneme);
+    // Use the same normalization as phonemeWordMap for consistent lookups
+    const normalizedKey = normalizePhoneme(phoneme);
     
     const points: PhonemePoint[] = snapshots
       .map(s => {
-        const phonemeData = s.phoneme_difficulty_map?.[key];
+        // Try both the normalized key and the raw phoneme (handles both old/new formats)
+        const phonemeData = s.phoneme_difficulty_map?.[normalizedKey] 
+          || s.phoneme_difficulty_map?.[phoneme];
         if (!phonemeData) return null;
         return {
           date: s.computed_at,
