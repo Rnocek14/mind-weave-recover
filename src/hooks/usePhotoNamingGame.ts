@@ -102,6 +102,9 @@ export const usePhotoNamingGame = (
     }
   }, [totalTrials]);
 
+  // Expose next trial for image preloading
+  const nextTrialData = trials[currentTrialIndex + 1] || null;
+
   const state: PhotoNamingGameState = {
     currentTrial,
     choices,
@@ -113,8 +116,9 @@ export const usePhotoNamingGame = (
 
   return {
     state,
+    nextTrial: nextTrialData, // Expose next trial for preloading
     selectAnswer,
-    nextTrial,
+    advanceTrial: nextTrial, // Renamed for clarity
     reset,
   };
 };
