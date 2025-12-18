@@ -1,0 +1,185 @@
+/**
+ * Phoneme-to-Word Mapping for Targeted Practice
+ * 
+ * Maps each word in the photo bank to its constituent phonemes,
+ * enabling phoneme-targeted word selection for personalized therapy.
+ */
+
+// IPA phoneme sequences for each target word in PHOTO_BANK
+// Using simplified phonemic representation matching Azure output
+export const WORD_PHONEME_MAP: Record<string, string[]> = {
+  // Easy words
+  'house': ['/h/', '/aʊ/', '/s/'],
+  'cup': ['/k/', '/ʌ/', '/p/'],
+  'dog': ['/d/', '/ɔ/', '/g/'],
+  'apple': ['/æ/', '/p/', '/l/'],
+  'ball': ['/b/', '/ɔ/', '/l/'],
+  'book': ['/b/', '/ʊ/', '/k/'],
+  'tree': ['/t/', '/r/', '/i/'],
+  
+  // Medium words
+  'chair': ['/tʃ/', '/ɛ/', '/r/'],
+  'phone': ['/f/', '/oʊ/', '/n/'],
+  'bird': ['/b/', '/ɜ/', '/r/', '/d/'],
+  'bread': ['/b/', '/r/', '/ɛ/', '/d/'],
+  'car': ['/k/', '/ɑ/', '/r/'],
+  'shoe': ['/ʃ/', '/u/'],
+  'door': ['/d/', '/ɔ/', '/r/'],
+  'key': ['/k/', '/i/'],
+  'flower': ['/f/', '/l/', '/aʊ/', '/ɚ/'],
+  'spoon': ['/s/', '/p/', '/u/', '/n/'],
+  'watch': ['/w/', '/ɑ/', '/tʃ/'],
+  
+  // Hard words
+  'hand': ['/h/', '/æ/', '/n/', '/d/'],
+  'eye': ['/aɪ/'],
+  'cat': ['/k/', '/æ/', '/t/'],
+  'bike': ['/b/', '/aɪ/', '/k/'],
+  'nose': ['/n/', '/oʊ/', '/z/'],
+};
+
+// Normalize Azure phoneme output to match our map
+// Azure uses ARPABET-style phonemes, we convert to IPA-like
+export const AZURE_TO_IPA: Record<string, string> = {
+  'aa': '/ɑ/',
+  'ae': '/æ/',
+  'ah': '/ʌ/',
+  'ao': '/ɔ/',
+  'aw': '/aʊ/',
+  'ay': '/aɪ/',
+  'b': '/b/',
+  'ch': '/tʃ/',
+  'd': '/d/',
+  'dh': '/ð/',
+  'eh': '/ɛ/',
+  'er': '/ɜ/',
+  'ey': '/eɪ/',
+  'f': '/f/',
+  'g': '/g/',
+  'hh': '/h/',
+  'ih': '/ɪ/',
+  'iy': '/i/',
+  'jh': '/dʒ/',
+  'k': '/k/',
+  'l': '/l/',
+  'm': '/m/',
+  'n': '/n/',
+  'ng': '/ŋ/',
+  'ow': '/oʊ/',
+  'oy': '/ɔɪ/',
+  'p': '/p/',
+  'r': '/r/',
+  's': '/s/',
+  'sh': '/ʃ/',
+  't': '/t/',
+  'th': '/θ/',
+  'uh': '/ʊ/',
+  'uw': '/u/',
+  'v': '/v/',
+  'w': '/w/',
+  'y': '/j/',
+  'z': '/z/',
+  'zh': '/ʒ/',
+  // Variations with stress markers (Azure sometimes includes these)
+  'ax': '/ə/',
+  'ix': '/ɪ/',
+};
+
+/**
+ * Get all words that contain a specific phoneme
+ */
+export function getWordsContainingPhoneme(phoneme: string): string[] {
+  const normalizedPhoneme = normalizePhoneme(phoneme);
+  return Object.entries(WORD_PHONEME_MAP)
+    .filter(([_, phonemes]) => 
+      phonemes.some(p => normalizePhoneme(p) === normalizedPhoneme)
+    )
+    .map(([word]) => word);
+}
+
+/**
+ * Get all words containing ANY of the specified phonemes
+ */
+export function getWordsContainingPhonemes(phonemes: string[]): string[] {
+  const normalizedPhonemes = new Set(phonemes.map(normalizePhoneme));
+  const wordSet = new Set<string>();
+  
+  for (const [word, wordPhonemes] of Object.entries(WORD_PHONEME_MAP)) {
+    for (const phoneme of wordPhonemes) {
+      if (normalizedPhonemes.has(normalizePhoneme(phoneme))) {
+        wordSet.add(word);
+        break;
+      }
+    }
+  }
+  
+  return Array.from(wordSet);
+}
+
+/**
+ * Get words prioritized by how many struggling phonemes they contain
+ * Returns words sorted by number of struggling phonemes (descending)
+ */
+export function getWordsByPhonemeOverlap(
+  strugglingPhonemes: string[],
+  limit: number = 10
+): { word: string; matchingPhonemes: string[]; matchCount: number }[] {
+  const normalizedStruggling = new Set(strugglingPhonemes.map(normalizePhoneme));
+  
+  const results: { word: string; matchingPhonemes: string[]; matchCount: number }[] = [];
+  
+  for (const [word, wordPhonemes] of Object.entries(WORD_PHONEME_MAP)) {
+    const matching = wordPhonemes.filter(p => 
+      normalizedStruggling.has(normalizePhoneme(p))
+    );
+    
+    if (matching.length > 0) {
+      results.push({
+        word,
+        matchingPhonemes: matching,
+        matchCount: matching.length,
+      });
+    }
+  }
+  
+  // Sort by match count descending, then alphabetically
+  results.sort((a, b) => {
+    if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+    return a.word.localeCompare(b.word);
+  });
+  
+  return results.slice(0, limit);
+}
+
+/**
+ * Normalize phoneme notation for comparison
+ * Handles Azure ARPABET vs IPA differences
+ */
+export function normalizePhoneme(phoneme: string): string {
+  // Remove slashes and convert to lowercase
+  const clean = phoneme.replace(/\//g, '').toLowerCase();
+  
+  // Check if it's an Azure ARPABET phoneme
+  if (AZURE_TO_IPA[clean]) {
+    return AZURE_TO_IPA[clean];
+  }
+  
+  // Already in IPA format (with slashes), return as-is
+  if (phoneme.startsWith('/')) {
+    return phoneme.toLowerCase();
+  }
+  
+  // Wrap in slashes for IPA format
+  return `/${clean}/`;
+}
+
+/**
+ * Check if a word contains a specific phoneme
+ */
+export function wordContainsPhoneme(word: string, phoneme: string): boolean {
+  const phonemes = WORD_PHONEME_MAP[word.toLowerCase()];
+  if (!phonemes) return false;
+  
+  const normalizedPhoneme = normalizePhoneme(phoneme);
+  return phonemes.some(p => normalizePhoneme(p) === normalizedPhoneme);
+}
