@@ -134,24 +134,25 @@ serve(async (req) => {
       '/ɹ/': '/r/',
     };
     
-    // Normalize Azure phoneme to IPA key (handles ARPABET, plain IPA, or slash-wrapped IPA)
+    // Normalize Azure phoneme to IPA key (bulletproof version)
     function toIpaKey(raw: string | null | undefined): string | null {
       if (!raw) return null;
       
-      // If already slash-wrapped IPA, normalize rhotics and return
-      if (raw.startsWith('/')) {
-        return RHOTIC_EQUIV[raw.toLowerCase()] || raw.toLowerCase();
+      // Strip slashes and digits, lowercase
+      const stripped = raw.replace(/\//g, '').toLowerCase().replace(/[0-9]/g, '');
+      if (!stripped) return null;
+      
+      // If it contains obvious IPA characters (non a-z), treat as IPA already
+      const looksLikeIpa = /[^a-z]/.test(stripped);
+      if (looksLikeIpa) {
+        const key = `/${stripped}/`;
+        return RHOTIC_EQUIV[key] || key;
       }
       
-      // If contains IPA characters, wrap with slashes
-      if (/[æɑɔʌəɛɪʊɜʃʒθðŋ]/.test(raw)) {
-        return `/${raw.toLowerCase()}/`;
-      }
+      // ARPABET → IPA (includes ax!)
+      const ipa = ARPABET_TO_IPA[stripped];
+      const key = `/${ipa ?? stripped}/`;
       
-      // ARPABET conversion: strip stress digits and convert
-      const clean = raw.toLowerCase().replace(/[0-9]/g, '');
-      const ipa = ARPABET_TO_IPA[clean];
-      const key = ipa ? `/${ipa}/` : `/${clean}/`;
       return RHOTIC_EQUIV[key] || key;
     }
     
