@@ -1162,6 +1162,50 @@ export type Database = {
           },
         ]
       }
+      speech_profile_snapshots: {
+        Row: {
+          computed_at: string
+          created_at: string
+          cue_efficacy_by_type: Json | null
+          error_type_distribution: Json | null
+          id: string
+          phoneme_difficulty_map: Json | null
+          profile_id: string | null
+          trial_count_at_computation: number
+          user_id: string
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          cue_efficacy_by_type?: Json | null
+          error_type_distribution?: Json | null
+          id?: string
+          phoneme_difficulty_map?: Json | null
+          profile_id?: string | null
+          trial_count_at_computation: number
+          user_id: string
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          cue_efficacy_by_type?: Json | null
+          error_type_distribution?: Json | null
+          id?: string
+          phoneme_difficulty_map?: Json | null
+          profile_id?: string | null
+          trial_count_at_computation?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "speech_profile_snapshots_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standardized_assessments: {
         Row: {
           assessed_by: string | null
