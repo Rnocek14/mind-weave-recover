@@ -151,36 +151,64 @@ export function getWordsByPhonemeOverlap(
   return results.slice(0, limit);
 }
 
+// Rhotic vowel equivalents - treat these as the same sound
+const RHOTIC_EQUIVALENTS: Record<string, string> = {
+  '/ɚ/': '/ɜ/',  // schwa-r → open-mid central
+  '/ɝ/': '/ɜ/',  // stressed schwa-r → open-mid central
+  '/ɹ/': '/r/',  // alveolar approximant → simple r
+};
+
 /**
  * Normalize phoneme notation for comparison
  * Handles Azure ARPABET vs IPA differences
  * Azure uses stress digits (AH0, AE1) that need to be stripped
  */
 export function normalizePhoneme(phoneme: string): string {
-  // Remove slashes, convert to lowercase, and strip stress digits (0, 1, 2)
+  // Step 1: Remove slashes, lowercase, strip stress digits and non-letters
   const clean = phoneme.replace(/\//g, '').toLowerCase().replace(/[0-9]/g, '');
   
-  // Check if it's an Azure ARPABET phoneme
+  // Step 2: Map ARPABET to IPA (must happen AFTER digit stripping)
+  let result: string;
   if (AZURE_TO_IPA[clean]) {
-    return AZURE_TO_IPA[clean];
+    result = AZURE_TO_IPA[clean];
+  } else if (phoneme.startsWith('/')) {
+    // Already in IPA format
+    result = phoneme.toLowerCase();
+  } else {
+    // Wrap in slashes for IPA format
+    result = `/${clean}/`;
   }
   
-  // Already in IPA format (with slashes), return as-is
-  if (phoneme.startsWith('/')) {
-    return phoneme.toLowerCase();
-  }
-  
-  // Wrap in slashes for IPA format
-  return `/${clean}/`;
+  // Step 3: Normalize rhotic variants to single bucket
+  return RHOTIC_EQUIVALENTS[result] || result;
 }
 
 /**
  * Check if a word contains a specific phoneme
+ * Returns false (not error) for unmapped words to avoid breaking selection
  */
 export function wordContainsPhoneme(word: string, phoneme: string): boolean {
   const phonemes = WORD_PHONEME_MAP[word.toLowerCase()];
-  if (!phonemes) return false;
+  if (!phonemes) {
+    // Dev-only logging to help spot coverage gaps
+    if (import.meta.env.DEV) {
+      console.debug(`[PhonemeMap] Word "${word}" not in WORD_PHONEME_MAP - consider adding`);
+    }
+    return false;
+  }
   
   const normalizedPhoneme = normalizePhoneme(phoneme);
   return phonemes.some(p => normalizePhoneme(p) === normalizedPhoneme);
+}
+
+/**
+ * Count how many of the focus phonemes a word contains
+ * Used for weighted sorting (more matches = higher priority)
+ */
+export function countPhonemeMatches(word: string, focusPhonemes: string[]): number {
+  const phonemes = WORD_PHONEME_MAP[word.toLowerCase()];
+  if (!phonemes || focusPhonemes.length === 0) return 0;
+  
+  const normalizedFocus = new Set(focusPhonemes.map(normalizePhoneme));
+  return phonemes.filter(p => normalizedFocus.has(normalizePhoneme(p))).length;
 }
