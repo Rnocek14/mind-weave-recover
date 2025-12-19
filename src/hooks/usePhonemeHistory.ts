@@ -27,16 +27,29 @@ export interface PhonemeTrend {
   hasEnoughData: boolean; // >= 3 points for sparkline
 }
 
-export function usePhonemeHistory(userId: string, options?: { limit?: number }) {
+interface UsePhonemeHistoryOptions {
+  limit?: number;
+  profileId?: string;
+}
+
+export function usePhonemeHistory(userId: string, options?: UsePhonemeHistoryOptions) {
   const limit = options?.limit ?? 20;
+  const profileId = options?.profileId;
 
   const query = useQuery({
-    queryKey: ['phoneme-history', userId, limit],
+    queryKey: ['phoneme-history', userId, profileId, limit],
     queryFn: async (): Promise<PhonemeSnapshot[]> => {
-      const { data, error } = await supabase
+      let dbQuery = supabase
         .from('speech_profile_snapshots')
         .select('computed_at, trial_count_at_computation, phoneme_difficulty_map')
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+
+      // Filter by profile_id if provided for multi-profile support
+      if (profileId) {
+        dbQuery = dbQuery.eq('profile_id', profileId);
+      }
+
+      const { data, error } = await dbQuery
         .order('computed_at', { ascending: false })
         .limit(limit);
 

@@ -30,23 +30,27 @@ export interface StrugglingPhonemesResult {
   trialsWithNonZeroAccuracy: number;
 }
 
+interface UseStrugglingPhonemesOptions {
+  accuracyThreshold?: number; // Default 70
+  minTrials?: number; // Default 3
+  maxPhonemes?: number; // Default 5
+  maxTargetWords?: number; // Default 10
+  profileId?: string; // Filter by specific profile
+}
+
 export function useStrugglingPhonemes(
   userId: string | undefined,
-  options: {
-    accuracyThreshold?: number; // Default 70
-    minTrials?: number; // Default 3
-    maxPhonemes?: number; // Default 5
-    maxTargetWords?: number; // Default 10
-  } = {}
+  options: UseStrugglingPhonemesOptions = {}
 ): StrugglingPhonemesResult {
   const {
     accuracyThreshold = 70,
     minTrials = 3,
     maxPhonemes = 5,
     maxTargetWords = 10,
+    profileId,
   } = options;
 
-  const { profile, loading, error } = useUserSpeechProfile(userId);
+  const { profile, loading, error } = useUserSpeechProfile(userId, { profileId });
 
   const result = useMemo(() => {
     const phonemeDifficultyMap = profile?.phoneme_difficulty_map as Record<

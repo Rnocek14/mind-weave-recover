@@ -21,7 +21,15 @@ export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_typ
   phoneme_token_count: number | null;
 }
 
-export const useUserSpeechProfile = (userId: string | undefined) => {
+interface UseUserSpeechProfileOptions {
+  profileId?: string;
+}
+
+export const useUserSpeechProfile = (
+  userId: string | undefined,
+  options?: UseUserSpeechProfileOptions
+) => {
+  const { profileId } = options ?? {};
   const [profile, setProfile] = useState<UserSpeechProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -36,11 +44,17 @@ export const useUserSpeechProfile = (userId: string | undefined) => {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('user_speech_profiles')
         .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .eq('user_id', userId);
+
+      // Filter by profile_id if provided for multi-profile support
+      if (profileId) {
+        query = query.eq('profile_id', profileId);
+      }
+
+      const { data, error: fetchError } = await query.maybeSingle();
 
       if (fetchError) throw fetchError;
       // Cast the data to our typed interface (JSONB fields are already the right shape)
@@ -52,7 +66,7 @@ export const useUserSpeechProfile = (userId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, profileId]);
 
   const refresh = useCallback(() => {
     return fetchProfile();
