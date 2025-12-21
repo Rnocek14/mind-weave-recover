@@ -30,6 +30,10 @@ import starImg from '@/assets/photos/star.jpg';
 import rainImg from '@/assets/photos/rain.jpg';
 import lampImg from '@/assets/photos/lamp.jpg';
 import shipImg from '@/assets/photos/ship.jpg';
+import thumbImg from '@/assets/photos/thumb.jpg';
+import cheeseImg from '@/assets/photos/cheese.jpg';
+import jarImg from '@/assets/photos/jar.jpg';
+import fishImg from '@/assets/photos/fish.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -806,6 +810,103 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 2,
     minLevel: 3,
     maxLevel: 7,
+  },
+  // New phoneme-targeted photos
+  {
+    id: 'thumb_1',
+    imageUrl: thumbImg,
+    target: 'thumb',
+    semanticFoils: ['finger', 'hand', 'palm'],
+    category: 'body',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/θ/',
+      semantic_category: 'body_part',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'cheese_1',
+    imageUrl: cheeseImg,
+    target: 'cheese',
+    semanticFoils: ['bread', 'butter', 'milk'],
+    category: 'food',
+    features: {
+      frequency_rank: 4200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/tʃ/',
+      semantic_category: 'dairy',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'jar_1',
+    imageUrl: jarImg,
+    target: 'jar',
+    semanticFoils: ['cup', 'bowl', 'bottle'],
+    category: 'kitchenware',
+    features: {
+      frequency_rank: 5800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/dʒ/',
+      semantic_category: 'container',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'fish_1',
+    imageUrl: fishImg,
+    target: 'fish',
+    semanticFoils: ['bird', 'frog', 'duck'],
+    category: 'animals',
+    features: {
+      frequency_rank: 2600,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/f/',
+      semantic_category: 'aquatic_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
   },
 ];
 
