@@ -49,6 +49,13 @@ import penImg from '@/assets/photos/pen.jpg';
 import henImg from '@/assets/photos/hen.jpg';
 import goatImg from '@/assets/photos/goat.jpg';
 import coatImg from '@/assets/photos/coat.jpg';
+// Phoneme gap fills
+import vaseImg from '@/assets/photos/vase.jpg';
+import vestImg from '@/assets/photos/vest.jpg';
+import threeImg from '@/assets/photos/three.jpg';
+import toothImg from '@/assets/photos/tooth.jpg';
+import jugImg from '@/assets/photos/jug.jpg';
+import jetImg from '@/assets/photos/jet.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1266,6 +1273,163 @@ export const PHOTO_BANK: PhotoTrial[] = [
       first_phoneme: '/k/',
       semantic_category: 'outerwear',
       typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // PHONEME GAP FILLS
+  // /v/ sound - vase, vest
+  {
+    id: 'vase_1',
+    imageUrl: vaseImg,
+    target: 'vase',
+    semanticFoils: ['jar', 'pot', 'bowl', 'jug'],
+    phonologicalFoils: ['face', 'base', 'case'],
+    category: 'objects',
+    features: {
+      frequency_rank: 8500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/v/',
+      semantic_category: 'container',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'vest_1',
+    imageUrl: vestImg,
+    target: 'vest',
+    semanticFoils: ['coat', 'jacket', 'shirt', 'sweater'],
+    phonologicalFoils: ['best', 'test', 'rest', 'nest'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 9500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'dense',
+      first_phoneme: '/v/',
+      semantic_category: 'outerwear',
+      typicality_rating: 3,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /θ/ sound (voiceless "th") - three, tooth
+  {
+    id: 'three_1',
+    imageUrl: threeImg,
+    target: 'three',
+    semanticFoils: ['two', 'four', 'five', 'one'],
+    phonologicalFoils: ['tree', 'free', 'flee'],
+    category: 'numbers',
+    features: {
+      frequency_rank: 300,
+      imageability: 5,
+      concreteness: 4,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/θ/',
+      semantic_category: 'number',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'tooth_1',
+    imageUrl: toothImg,
+    target: 'tooth',
+    semanticFoils: ['mouth', 'tongue', 'lip', 'gum'],
+    phonologicalFoils: ['booth', 'youth', 'truth'],
+    category: 'body',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/t/',
+      semantic_category: 'body_part',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /dʒ/ sound - jug, jet
+  {
+    id: 'jug_1',
+    imageUrl: jugImg,
+    target: 'jug',
+    semanticFoils: ['pot', 'jar', 'vase', 'pitcher'],
+    phonologicalFoils: ['mug', 'rug', 'bug', 'hug'],
+    category: 'kitchenware',
+    features: {
+      frequency_rank: 12000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/dʒ/',
+      semantic_category: 'container',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'jet_1',
+    imageUrl: jetImg,
+    target: 'jet',
+    semanticFoils: ['plane', 'ship', 'rocket', 'helicopter'],
+    phonologicalFoils: ['pet', 'net', 'bet', 'set'],
+    category: 'transportation',
+    features: {
+      frequency_rank: 6000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/dʒ/',
+      semantic_category: 'aircraft',
+      typicality_rating: 2,
       part_of_speech: 'noun'
     },
     computed_difficulty: 2,
