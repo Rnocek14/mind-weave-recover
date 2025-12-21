@@ -271,10 +271,10 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
       )}
 
       {/* Phoneme Practice - "Practice these sounds" (patient-friendly targeted practice) */}
-      <PhonemePracticeCard userId={userId} />
+      <PhonemePracticeCard userId={userId} profileId={activeProfile?.id} />
 
       {/* Sound Trends - Recent changes in accuracy by sound */}
-      <SoundTrendsInsight userId={userId} />
+      <SoundTrendsInsight userId={userId} profileId={activeProfile?.id} />
 
       {/* Section 1: Recovery Trend - "Am I improving?" */}
       <RecoveryMotivationCards userId={userId} />

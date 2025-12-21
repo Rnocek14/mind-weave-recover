@@ -54,6 +54,11 @@ export const useUserSpeechProfile = (
         query = query.eq('profile_id', profileId);
       }
 
+      // If no profileId, get most recent to avoid .maybeSingle() failing with multiple rows
+      if (!profileId) {
+        query = query.order('last_computed_at', { ascending: false }).limit(1);
+      }
+
       const { data, error: fetchError } = await query.maybeSingle();
 
       if (fetchError) throw fetchError;
