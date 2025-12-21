@@ -61,6 +61,7 @@ export const usePhotoNamingGame = (
       if (customTrials.length > 0) {
         // generateChoices only uses target and semanticFoils, safe to cast
         setChoices(generateChoices(customTrials[0] as PhotoTrial, difficultyLevel));
+      }
     } else {
       // Get new trials excluding already-shown targets, with phoneme targeting
       // Use initial difficulty for trial selection (difficulty affects choices, not trial pool)
