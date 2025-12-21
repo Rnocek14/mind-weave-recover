@@ -38,6 +38,11 @@ import moonImg from '@/assets/photos/moon.jpg';
 import nailImg from '@/assets/photos/nail.jpg';
 import leafImg from '@/assets/photos/leaf.jpg';
 import ringImg from '@/assets/photos/ring.jpg';
+// Minimal pair photos
+import hatImg from '@/assets/photos/hat.jpg';
+import chipImg from '@/assets/photos/chip.jpg';
+import fanImg from '@/assets/photos/fan.jpg';
+import vanImg from '@/assets/photos/van.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1003,6 +1008,107 @@ export const PHOTO_BANK: PhotoTrial[] = [
       first_phoneme: '/r/',
       semantic_category: 'accessory',
       typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // Minimal pair photos for phoneme discrimination
+  {
+    id: 'hat_1',
+    imageUrl: hatImg,
+    target: 'hat',
+    semanticFoils: ['coat', 'shirt', 'scarf'],
+    phonologicalFoils: ['cat', 'bat', 'mat'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 3100,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/h/',
+      semantic_category: 'headwear',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'chip_1',
+    imageUrl: chipImg,
+    target: 'chip',
+    semanticFoils: ['snack', 'cracker', 'cookie'],
+    phonologicalFoils: ['ship', 'tip', 'dip'],
+    category: 'food',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'dense',
+      first_phoneme: '/tʃ/',
+      semantic_category: 'snack',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'fan_1',
+    imageUrl: fanImg,
+    target: 'fan',
+    semanticFoils: ['lamp', 'heater', 'vent'],
+    phonologicalFoils: ['van', 'can', 'man'],
+    category: 'appliances',
+    features: {
+      frequency_rank: 4200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/f/',
+      semantic_category: 'appliance',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'van_1',
+    imageUrl: vanImg,
+    target: 'van',
+    semanticFoils: ['car', 'truck', 'bus'],
+    phonologicalFoils: ['fan', 'can', 'man'],
+    category: 'transportation',
+    features: {
+      frequency_rank: 4800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/v/',
+      semantic_category: 'vehicle',
+      typicality_rating: 2,
       part_of_speech: 'noun'
     },
     computed_difficulty: 2,
