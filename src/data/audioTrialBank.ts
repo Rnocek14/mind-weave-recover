@@ -24,7 +24,9 @@ const PHOTO_WORDS = new Set([
   'hand', 'eye', 'cat', 'bike', 'nose',
   // New AI-generated photos
   'cake', 'star', 'rain', 'lamp', 'ship', 'thumb', 'cheese', 'jar', 'fish',
-  'moon', 'nail', 'leaf', 'ring'
+  'moon', 'nail', 'leaf', 'ring',
+  // Minimal pair photos
+  'hat', 'chip', 'fan', 'van'
 ]);
 
 // Semantic categories for foil generation
