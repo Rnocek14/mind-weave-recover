@@ -41,7 +41,7 @@ export function usePhonemeHistory(userId: string, options?: UsePhonemeHistoryOpt
     queryFn: async (): Promise<PhonemeSnapshot[]> => {
       let dbQuery = supabase
         .from('speech_profile_snapshots')
-        .select('computed_at, trial_count_at_computation, phoneme_difficulty_map')
+        .select('computed_at, profile_id, trial_count_at_computation, phoneme_difficulty_map')
         .eq('user_id', userId);
 
       // Filter by profile_id if provided for multi-profile support

@@ -22,11 +22,12 @@ export interface RecomputeResult {
  */
 export async function recomputeSpeechProfileNow(
   userId: string,
-  options?: { force?: boolean }
+  options?: { force?: boolean; profileId?: string }
 ): Promise<RecomputeResult> {
   const { data, error } = await supabase.functions.invoke('compute-speech-profile', {
     body: {
       user_id: userId,
+      profile_id: options?.profileId,
       force: options?.force ?? true, // Default to forcing for manual recomputes
     },
   });
