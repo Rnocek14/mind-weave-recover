@@ -26,7 +26,7 @@ const PHOTO_WORDS = new Set([
   'cake', 'star', 'rain', 'lamp', 'ship', 'thumb', 'cheese', 'jar', 'fish',
   'moon', 'nail', 'leaf', 'ring',
   // Minimal pair photos
-  'hat', 'chip', 'fan', 'van'
+  'hat', 'chip', 'fan', 'van', 'bed', 'red', 'pen', 'hen', 'goat', 'coat'
 ]);
 
 // Semantic categories for foil generation
