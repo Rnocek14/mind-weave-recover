@@ -33,12 +33,22 @@ export const usePhotoNamingGame = (
   // Session-level deduplication: track shown photo targets across difficulty changes
   const shownTargetsRef = useRef<Set<string>>(new Set());
   
+  // Track initial difficulty to use for trial selection (don't regenerate on mid-session changes)
+  const initialDifficultyRef = useRef(difficultyLevel);
+  const isInitializedRef = useRef(false);
+  
   // Extract phoneme/word targeting options
   const focusPhonemes = options?.focusPhonemes || [];
   const focusWords = options?.focusWords || [];
 
-  // Initialize trials based on difficulty level or use custom trials
+  // Initialize trials ONCE at mount (or when totalTrials/customTrials change)
+  // Do NOT re-initialize when difficultyLevel changes mid-session to prevent photo repetition
   useEffect(() => {
+    // Skip if already initialized (prevents mid-session trial regeneration)
+    if (isInitializedRef.current && !customTrials) {
+      return;
+    }
+    
     if (customTrials) {
       // Custom trials bypass deduplication (they're intentionally selected)
       setTrials(customTrials);
@@ -47,17 +57,28 @@ export const usePhotoNamingGame = (
       }
     } else {
       // Get new trials excluding already-shown targets, with phoneme targeting
-      const newTrials = getTrialsForLevel(difficultyLevel, totalTrials, {
+      // Use initial difficulty for trial selection (difficulty affects choices, not trial pool)
+      const newTrials = getTrialsForLevel(initialDifficultyRef.current, totalTrials, {
         excludeTargets: Array.from(shownTargetsRef.current),
         focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
         focusWords: focusWords.length > 0 ? focusWords : undefined,
       });
       setTrials(newTrials);
       if (newTrials.length > 0) {
-        setChoices(generateChoices(newTrials[0], difficultyLevel));
+        setChoices(generateChoices(newTrials[0], initialDifficultyRef.current));
       }
     }
-  }, [totalTrials, difficultyLevel, customTrials, focusPhonemes.join(','), focusWords.join(',')]);
+    
+    isInitializedRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalTrials, customTrials, focusPhonemes.join(','), focusWords.join(',')]);
+  
+  // Update choices when difficulty changes mid-session (affects choice generation, not trials)
+  useEffect(() => {
+    if (isInitializedRef.current && trials.length > 0 && trials[currentTrialIndex]) {
+      setChoices(generateChoices(trials[currentTrialIndex], difficultyLevel));
+    }
+  }, [difficultyLevel, currentTrialIndex, trials]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -107,6 +128,8 @@ export const usePhotoNamingGame = (
   const reset = useCallback((level: number = 1) => {
     // Clear shown targets on explicit reset (new session)
     shownTargetsRef.current.clear();
+    isInitializedRef.current = false;
+    initialDifficultyRef.current = level;
     setCurrentTrialIndex(0);
     setScore(0);
     setIsComplete(false);
@@ -115,6 +138,7 @@ export const usePhotoNamingGame = (
     if (newTrials.length > 0) {
       setChoices(generateChoices(newTrials[0], level));
     }
+    isInitializedRef.current = true;
   }, [totalTrials]);
 
   // Expose next trial for image preloading
