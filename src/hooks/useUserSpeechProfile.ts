@@ -40,6 +40,11 @@ export const useUserSpeechProfile = (
       return;
     }
 
+    // Dev warning for missing profileId
+    if (import.meta.env.DEV && !profileId) {
+      console.warn('[useUserSpeechProfile] profileId missing; will use most recent. Pass activeProfile.id for multi-profile safety.');
+    }
+
     setLoading(true);
     setError(null);
 
