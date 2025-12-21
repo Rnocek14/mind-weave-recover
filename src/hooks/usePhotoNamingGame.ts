@@ -1,8 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { PhotoTrial, getTrialsForLevel, generateChoices } from '@/data/photoBank';
 
+// Extended trial type that supports optional imageUrl for audio-only trials
+export interface MixedTrial extends Omit<PhotoTrial, 'imageUrl'> {
+  imageUrl?: string;
+  isAudioOnly?: boolean;
+}
+
 export interface PhotoNamingGameState {
-  currentTrial: PhotoTrial | null;
+  currentTrial: MixedTrial | null;
   choices: string[];
   trialNumber: number;
   totalTrials: number;
@@ -13,7 +19,7 @@ export interface PhotoNamingGameState {
 export interface PhotoNamingGameOptions {
   totalTrials?: number;
   difficultyLevel?: number;
-  customTrials?: PhotoTrial[];
+  customTrials?: MixedTrial[];
   focusPhonemes?: string[]; // Phonemes to prioritize in word selection
   focusWords?: string[]; // Specific words to prioritize
 }
@@ -21,10 +27,10 @@ export interface PhotoNamingGameOptions {
 export const usePhotoNamingGame = (
   totalTrials: number = 10, 
   difficultyLevel: number = 1,
-  customTrials?: PhotoTrial[],
+  customTrials?: MixedTrial[],
   options?: PhotoNamingGameOptions
 ) => {
-  const [trials, setTrials] = useState<PhotoTrial[]>([]);
+  const [trials, setTrials] = useState<MixedTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [choices, setChoices] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -53,8 +59,8 @@ export const usePhotoNamingGame = (
       // Custom trials bypass deduplication (they're intentionally selected)
       setTrials(customTrials);
       if (customTrials.length > 0) {
-        setChoices(generateChoices(customTrials[0], difficultyLevel));
-      }
+        // generateChoices only uses target and semanticFoils, safe to cast
+        setChoices(generateChoices(customTrials[0] as PhotoTrial, difficultyLevel));
     } else {
       // Get new trials excluding already-shown targets, with phoneme targeting
       // Use initial difficulty for trial selection (difficulty affects choices, not trial pool)
@@ -63,7 +69,7 @@ export const usePhotoNamingGame = (
         focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
         focusWords: focusWords.length > 0 ? focusWords : undefined,
       });
-      setTrials(newTrials);
+      setTrials(newTrials as MixedTrial[]);
       if (newTrials.length > 0) {
         setChoices(generateChoices(newTrials[0], initialDifficultyRef.current));
       }
@@ -71,12 +77,12 @@ export const usePhotoNamingGame = (
     
     isInitializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalTrials, customTrials, focusPhonemes.join(','), focusWords.join(',')]);
+  }, [totalTrials, customTrials]);
   
   // Update choices when difficulty changes mid-session (affects choice generation, not trials)
   useEffect(() => {
     if (isInitializedRef.current && trials.length > 0 && trials[currentTrialIndex]) {
-      setChoices(generateChoices(trials[currentTrialIndex], difficultyLevel));
+      setChoices(generateChoices(trials[currentTrialIndex] as PhotoTrial, difficultyLevel));
     }
   }, [difficultyLevel, currentTrialIndex, trials]);
 
@@ -122,7 +128,7 @@ export const usePhotoNamingGame = (
 
     const nextIndex = currentTrialIndex + 1;
     setCurrentTrialIndex(nextIndex);
-    setChoices(generateChoices(trials[nextIndex], currentLevel));
+    setChoices(generateChoices(trials[nextIndex] as PhotoTrial, currentLevel));
   }, [currentTrialIndex, trials, currentTrial]);
 
   const reset = useCallback((level: number = 1) => {
