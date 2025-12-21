@@ -3,21 +3,23 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Brain, Loader2 } from "lucide-react";
 
 const AdminTools = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const [computingProfile, setComputingProfile] = useState(false);
 
   const handleComputeProfile = async () => {
-    if (!user) return;
+    if (!user || !activeProfile) return;
     
     setComputingProfile(true);
     try {
       const { data, error } = await supabase.functions.invoke('compute-speech-profile', {
-        body: { user_id: user.id }
+        body: { user_id: user.id, profile_id: activeProfile.id, force: true }
       });
 
       if (error) throw error;

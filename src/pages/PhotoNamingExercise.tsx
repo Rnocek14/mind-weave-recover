@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
@@ -31,6 +32,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 export default function PhotoNamingExercise() {
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -301,10 +303,10 @@ export default function PhotoNamingExercise() {
     }
     
     // Auto-trigger speech profile recompute (non-blocking)
-    if (user?.id) {
+    if (user?.id && activeProfile?.id) {
       supabase.functions
         .invoke('compute-speech-profile', {
-          body: { user_id: user.id },
+          body: { user_id: user.id, profile_id: activeProfile.id },
         })
         .then((res) => {
           if (res.data?.skipped) {
