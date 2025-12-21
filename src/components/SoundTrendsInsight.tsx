@@ -14,6 +14,7 @@ import { useStrugglingPhonemes, formatPhonemeDisplay } from '@/hooks/useStruggli
 
 interface SoundTrendsInsightProps {
   userId: string;
+  profileId?: string;
   className?: string;
 }
 
@@ -64,14 +65,14 @@ const TrendRow = memo(({ trend, accuracy, trials }: { trend: PhonemeTrend; accur
 
 TrendRow.displayName = 'TrendRow';
 
-export const SoundTrendsInsight = memo(({ userId, className }: SoundTrendsInsightProps) => {
+export const SoundTrendsInsight = memo(({ userId, profileId, className }: SoundTrendsInsightProps) => {
   const { 
     strugglingPhonemes, 
     loading: phonemesLoading,
     trialsWithGopData,
     trialsWithPhonemes,
-  } = useStrugglingPhonemes(userId);
-  const { loading: historyLoading, getTrendsForPhonemes } = usePhonemeHistory(userId);
+  } = useStrugglingPhonemes(userId, { profileId });
+  const { loading: historyLoading, getTrendsForPhonemes } = usePhonemeHistory(userId, { profileId });
   
   const isLoading = phonemesLoading || historyLoading;
   

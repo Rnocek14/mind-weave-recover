@@ -10,6 +10,7 @@ import { selectOptimalCue as selectPersonalizedCue } from '@/lib/cueSelector';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
@@ -147,8 +148,9 @@ export const PhotoNamingGame = ({
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
-  const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id);
+  const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // FIX 1: Auto-create session for standalone games (use canonical slug)
   const { activeSessionId, isCreatingSession } = useStandaloneSession(

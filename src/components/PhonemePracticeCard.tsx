@@ -21,10 +21,11 @@ import { PhonemeSparkline } from '@/components/PhonemeSparkline';
 
 interface PhonemePracticeCardProps {
   userId: string;
+  profileId?: string;
   className?: string;
 }
 
-export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeCardProps) => {
+export const PhonemePracticeCard = memo(({ userId, profileId, className }: PhonemePracticeCardProps) => {
   const navigate = useNavigate();
   const { 
     strugglingPhonemes, 
@@ -37,10 +38,11 @@ export const PhonemePracticeCard = memo(({ userId, className }: PhonemePracticeC
     accuracyThreshold: 70,
     minTrials: 3,
     maxPhonemes: 3,
+    profileId,
   });
 
   // Fetch phoneme history for sparklines
-  const { getTrendsForPhonemes, loading: historyLoading } = usePhonemeHistory(userId);
+  const { getTrendsForPhonemes, loading: historyLoading } = usePhonemeHistory(userId, { profileId });
   
   // Memoize phoneme keys and trends to avoid recomputing on every render
   const phonemeKeys = useMemo(
