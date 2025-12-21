@@ -21,7 +21,9 @@ export interface AudioTrial {
 const PHOTO_WORDS = new Set([
   'house', 'cup', 'dog', 'apple', 'ball', 'book', 'tree', 'chair', 'phone',
   'bird', 'bread', 'car', 'shoe', 'door', 'key', 'flower', 'spoon', 'watch',
-  'hand', 'eye', 'cat', 'bike', 'nose'
+  'hand', 'eye', 'cat', 'bike', 'nose',
+  // New AI-generated photos
+  'cake', 'star', 'rain', 'lamp', 'ship'
 ]);
 
 // Semantic categories for foil generation

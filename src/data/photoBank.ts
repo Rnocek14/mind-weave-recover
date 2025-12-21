@@ -24,6 +24,12 @@ import shoeImg from '@/assets/photos/shoe.jpg';
 import spoonImg from '@/assets/photos/spoon.jpg';
 import treeImg from '@/assets/photos/tree.jpg';
 import watchImg from '@/assets/photos/watch.jpg';
+// New AI-generated photos
+import cakeImg from '@/assets/photos/cake.jpg';
+import starImg from '@/assets/photos/star.jpg';
+import rainImg from '@/assets/photos/rain.jpg';
+import lampImg from '@/assets/photos/lamp.jpg';
+import shipImg from '@/assets/photos/ship.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -661,6 +667,145 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 4,
     minLevel: 7,
     maxLevel: 10,
+  },
+  
+  // ====================
+  // NEW AI-GENERATED PHOTOS (high phoneme coverage value)
+  // ====================
+  
+  // CAKE - /k/ initial (common struggle sound)
+  {
+    id: 'cake_1',
+    imageUrl: cakeImg,
+    target: 'cake',
+    semanticFoils: ['bread', 'pie', 'cookie'],
+    phonologicalFoils: ['lake', 'make', 'wake'],
+    category: 'food',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/k/',
+      semantic_category: 'dessert',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 1,
+    maxLevel: 6,
+  },
+  
+  // STAR - /s/ + /t/ cluster (tests consonant clusters)
+  {
+    id: 'star_1',
+    imageUrl: starImg,
+    target: 'star',
+    semanticFoils: ['moon', 'sun', 'sky'],
+    phonologicalFoils: ['car', 'bar', 'jar'],
+    category: 'nature',
+    features: {
+      frequency_rank: 2800,
+      imageability: 7,
+      concreteness: 6,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/s/',
+      semantic_category: 'celestial',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  
+  // RAIN - /r/ initial (very common struggle sound)
+  {
+    id: 'rain_1',
+    imageUrl: rainImg,
+    target: 'rain',
+    semanticFoils: ['snow', 'storm', 'cloud'],
+    phonologicalFoils: ['train', 'brain', 'grain'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3200,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/r/',
+      semantic_category: 'weather',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // LAMP - /l/ initial (lateral approximant)
+  {
+    id: 'lamp_1',
+    imageUrl: lampImg,
+    target: 'lamp',
+    semanticFoils: ['light', 'candle', 'bulb'],
+    phonologicalFoils: ['camp', 'damp', 'ramp'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/l/',
+      semantic_category: 'lighting',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // SHIP - /ʃ/ initial (postalveolar fricative)
+  {
+    id: 'ship_1',
+    imageUrl: shipImg,
+    target: 'ship',
+    semanticFoils: ['boat', 'yacht', 'ferry'],
+    phonologicalFoils: ['chip', 'tip', 'hip'],
+    category: 'transportation',
+    features: {
+      frequency_rank: 3800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/ʃ/',
+      semantic_category: 'vessel',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
   },
 ];
 
