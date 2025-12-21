@@ -28,7 +28,7 @@ export async function recomputeSpeechProfileNow(
     body: {
       user_id: userId,
       profile_id: options?.profileId,
-      force: options?.force ?? true, // Default to forcing for manual recomputes
+      force: options?.force ?? false, // Default to respecting debounce; pass true for manual recomputes
     },
   });
 

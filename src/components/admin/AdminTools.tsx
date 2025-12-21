@@ -32,11 +32,16 @@ const AdminTools = () => {
       queryClient.invalidateQueries({ queryKey: ['user-speech-profile', user.id, activeProfile.id] });
       queryClient.invalidateQueries({ queryKey: ['phoneme-history', user.id, activeProfile.id] });
       
+      const processed = data.analysesProcessed ?? data.eventsProcessed ?? data.processed ?? null;
+      const label = data.analysesProcessed != null ? 'analyses' : data.eventsProcessed != null ? 'events' : 'items';
+      
       toast({
         title: "Profile Computed",
         description: data.skipped 
           ? `Skipped: ${data.reason}` 
-          : `Processed ${data.analysesProcessed ?? data.eventsProcessed} analyses successfully.`,
+          : processed != null
+            ? `Processed ${processed} ${label} successfully.`
+            : 'Profile recomputed successfully.',
       });
     } catch (error) {
       console.error('Error computing profile:', error);
