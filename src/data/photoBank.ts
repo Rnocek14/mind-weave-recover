@@ -43,6 +43,12 @@ import hatImg from '@/assets/photos/hat.jpg';
 import chipImg from '@/assets/photos/chip.jpg';
 import fanImg from '@/assets/photos/fan.jpg';
 import vanImg from '@/assets/photos/van.jpg';
+import bedImg from '@/assets/photos/bed.jpg';
+import redImg from '@/assets/photos/red.jpg';
+import penImg from '@/assets/photos/pen.jpg';
+import henImg from '@/assets/photos/hen.jpg';
+import goatImg from '@/assets/photos/goat.jpg';
+import coatImg from '@/assets/photos/coat.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1109,6 +1115,157 @@ export const PHOTO_BANK: PhotoTrial[] = [
       first_phoneme: '/v/',
       semantic_category: 'vehicle',
       typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // More minimal pairs: bed/red, pen/hen, goat/coat
+  {
+    id: 'bed_1',
+    imageUrl: bedImg,
+    target: 'bed',
+    semanticFoils: ['couch', 'chair', 'table'],
+    phonologicalFoils: ['red', 'fed', 'wed'],
+    category: 'furniture',
+    features: {
+      frequency_rank: 2200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'furniture',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'red_1',
+    imageUrl: redImg,
+    target: 'red',
+    semanticFoils: ['blue', 'green', 'yellow'],
+    phonologicalFoils: ['bed', 'fed', 'wed'],
+    category: 'colors',
+    features: {
+      frequency_rank: 1800,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/r/',
+      semantic_category: 'color',
+      typicality_rating: 1,
+      part_of_speech: 'adjective'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'pen_1',
+    imageUrl: penImg,
+    target: 'pen',
+    semanticFoils: ['pencil', 'marker', 'crayon'],
+    phonologicalFoils: ['hen', 'ten', 'men'],
+    category: 'objects',
+    features: {
+      frequency_rank: 3500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/p/',
+      semantic_category: 'writing_tool',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'hen_1',
+    imageUrl: henImg,
+    target: 'hen',
+    semanticFoils: ['duck', 'goose', 'turkey'],
+    phonologicalFoils: ['pen', 'ten', 'men'],
+    category: 'animals',
+    features: {
+      frequency_rank: 5200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/h/',
+      semantic_category: 'farm_animal',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'goat_1',
+    imageUrl: goatImg,
+    target: 'goat',
+    semanticFoils: ['sheep', 'cow', 'pig'],
+    phonologicalFoils: ['coat', 'boat', 'note'],
+    category: 'animals',
+    features: {
+      frequency_rank: 4800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/g/',
+      semantic_category: 'farm_animal',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'coat_1',
+    imageUrl: coatImg,
+    target: 'coat',
+    semanticFoils: ['jacket', 'shirt', 'sweater'],
+    phonologicalFoils: ['goat', 'boat', 'note'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 3200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/k/',
+      semantic_category: 'outerwear',
+      typicality_rating: 1,
       part_of_speech: 'noun'
     },
     computed_difficulty: 2,
