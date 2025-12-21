@@ -5,12 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Brain, Loader2 } from "lucide-react";
 
 const AdminTools = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const queryClient = useQueryClient();
   const [computingProfile, setComputingProfile] = useState(false);
 
   const handleComputeProfile = async () => {
@@ -25,9 +27,16 @@ const AdminTools = () => {
       if (error) throw error;
 
       console.log('Speech profile computed:', data);
+      
+      // Invalidate cached profile and history data so UI refreshes
+      queryClient.invalidateQueries({ queryKey: ['user-speech-profile', user.id, activeProfile.id] });
+      queryClient.invalidateQueries({ queryKey: ['phoneme-history', user.id, activeProfile.id] });
+      
       toast({
         title: "Profile Computed",
-        description: `Processed ${data.eventsProcessed} exercise events successfully.`,
+        description: data.skipped 
+          ? `Skipped: ${data.reason}` 
+          : `Processed ${data.analysesProcessed ?? data.eventsProcessed} analyses successfully.`,
       });
     } catch (error) {
       console.error('Error computing profile:', error);

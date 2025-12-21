@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
@@ -33,6 +34,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 export default function PhotoNamingExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -304,15 +306,23 @@ export default function PhotoNamingExercise() {
     
     // Auto-trigger speech profile recompute (non-blocking)
     if (user?.id && activeProfile?.id) {
+      const userId = user.id;
+      const profileId = activeProfile.id;
+      
       supabase.functions
         .invoke('compute-speech-profile', {
-          body: { user_id: user.id, profile_id: activeProfile.id },
+          body: { user_id: userId, profile_id: profileId },
         })
         .then((res) => {
           if (res.data?.skipped) {
             console.log('🔄 Speech profile recompute skipped:', res.data.reason, res.data);
           } else if (res.data?.success) {
             console.log('✅ Speech profile auto-recomputed:', res.data);
+            // Invalidate cached data so dashboard picks up new profile
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['user-speech-profile', userId, profileId] });
+              queryClient.invalidateQueries({ queryKey: ['phoneme-history', userId, profileId] });
+            }, 500);
           }
         })
         .catch((err) => {
