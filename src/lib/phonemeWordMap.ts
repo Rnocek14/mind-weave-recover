@@ -5,10 +5,13 @@
  * enabling phoneme-targeted word selection for personalized therapy.
  */
 
-// IPA phoneme sequences for each target word in PHOTO_BANK
+// IPA phoneme sequences for each target word
 // Using simplified phonemic representation matching Azure output
+// EXPANDED: 80+ words for phoneme-based audio trials
 export const WORD_PHONEME_MAP: Record<string, string[]> = {
-  // Easy words
+  // ====================
+  // PHOTO BANK WORDS (have images)
+  // ====================
   'house': ['/h/', '/aʊ/', '/s/'],
   'cup': ['/k/', '/ʌ/', '/p/'],
   'dog': ['/d/', '/ɔ/', '/g/'],
@@ -16,8 +19,6 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'ball': ['/b/', '/ɔ/', '/l/'],
   'book': ['/b/', '/ʊ/', '/k/'],
   'tree': ['/t/', '/r/', '/i/'],
-  
-  // Medium words
   'chair': ['/tʃ/', '/ɛ/', '/r/'],
   'phone': ['/f/', '/oʊ/', '/n/'],
   'bird': ['/b/', '/ɜ/', '/r/', '/d/'],
@@ -29,13 +30,185 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'flower': ['/f/', '/l/', '/aʊ/', '/ɚ/'],
   'spoon': ['/s/', '/p/', '/u/', '/n/'],
   'watch': ['/w/', '/ɑ/', '/tʃ/'],
-  
-  // Hard words
   'hand': ['/h/', '/æ/', '/n/', '/d/'],
   'eye': ['/aɪ/'],
   'cat': ['/k/', '/æ/', '/t/'],
   'bike': ['/b/', '/aɪ/', '/k/'],
   'nose': ['/n/', '/oʊ/', '/z/'],
+  
+  // ====================
+  // AUDIO-ONLY WORDS (no images - organized by initial phoneme)
+  // ====================
+  
+  // /k/ - velar plosive (common struggle sound)
+  'cake': ['/k/', '/eɪ/', '/k/'],
+  'cart': ['/k/', '/ɑ/', '/r/', '/t/'],
+  'coat': ['/k/', '/oʊ/', '/t/'],
+  'coin': ['/k/', '/ɔɪ/', '/n/'],
+  'cook': ['/k/', '/ʊ/', '/k/'],
+  'corn': ['/k/', '/ɔ/', '/r/', '/n/'],
+  'cow': ['/k/', '/aʊ/'],
+  'king': ['/k/', '/ɪ/', '/ŋ/'],
+  'kite': ['/k/', '/aɪ/', '/t/'],
+  
+  // /k/ final position
+  'back': ['/b/', '/æ/', '/k/'],
+  'duck': ['/d/', '/ʌ/', '/k/'],
+  'rock': ['/r/', '/ɑ/', '/k/'],
+  'sock': ['/s/', '/ɑ/', '/k/'],
+  'milk': ['/m/', '/ɪ/', '/l/', '/k/'],
+  'lock': ['/l/', '/ɑ/', '/k/'],
+  'neck': ['/n/', '/ɛ/', '/k/'],
+  'clock': ['/k/', '/l/', '/ɑ/', '/k/'],
+  
+  // /s/ - alveolar fricative  
+  'sun': ['/s/', '/ʌ/', '/n/'],
+  'star': ['/s/', '/t/', '/ɑ/', '/r/'],
+  'soup': ['/s/', '/u/', '/p/'],
+  'salt': ['/s/', '/ɔ/', '/l/', '/t/'],
+  'sand': ['/s/', '/æ/', '/n/', '/d/'],
+  'sea': ['/s/', '/i/'],
+  'seat': ['/s/', '/i/', '/t/'],
+  'sign': ['/s/', '/aɪ/', '/n/'],
+  'soap': ['/s/', '/oʊ/', '/p/'],
+  
+  // /s/ final position
+  'bus': ['/b/', '/ʌ/', '/s/'],
+  'dress': ['/d/', '/r/', '/ɛ/', '/s/'],
+  'glass': ['/g/', '/l/', '/æ/', '/s/'],
+  'grass': ['/g/', '/r/', '/æ/', '/s/'],
+  'rice': ['/r/', '/aɪ/', '/s/'],
+  'ice': ['/aɪ/', '/s/'],
+  
+  // /r/ - alveolar approximant (very common struggle)
+  'rain': ['/r/', '/eɪ/', '/n/'],
+  'red': ['/r/', '/ɛ/', '/d/'],
+  'ring': ['/r/', '/ɪ/', '/ŋ/'],
+  'road': ['/r/', '/oʊ/', '/d/'],
+  'room': ['/r/', '/u/', '/m/'],
+  'rope': ['/r/', '/oʊ/', '/p/'],
+  'rose': ['/r/', '/oʊ/', '/z/'],
+  'rug': ['/r/', '/ʌ/', '/g/'],
+  'run': ['/r/', '/ʌ/', '/n/'],
+  
+  // /l/ - lateral approximant
+  'lamp': ['/l/', '/æ/', '/m/', '/p/'],
+  'leaf': ['/l/', '/i/', '/f/'],
+  'leg': ['/l/', '/ɛ/', '/g/'],
+  'light': ['/l/', '/aɪ/', '/t/'],
+  'lion': ['/l/', '/aɪ/', '/ə/', '/n/'],
+  'lip': ['/l/', '/ɪ/', '/p/'],
+  'love': ['/l/', '/ʌ/', '/v/'],
+  'lunch': ['/l/', '/ʌ/', '/n/', '/tʃ/'],
+  
+  // /ʃ/ - postalveolar fricative (sh sound)
+  'ship': ['/ʃ/', '/ɪ/', '/p/'],
+  'shop': ['/ʃ/', '/ɑ/', '/p/'],
+  'shirt': ['/ʃ/', '/ɜ/', '/r/', '/t/'],
+  'sheep': ['/ʃ/', '/i/', '/p/'],
+  'shell': ['/ʃ/', '/ɛ/', '/l/'],
+  'shine': ['/ʃ/', '/aɪ/', '/n/'],
+  'shower': ['/ʃ/', '/aʊ/', '/ɚ/'],
+  
+  // /tʃ/ - postalveolar affricate (ch sound)
+  'cheese': ['/tʃ/', '/i/', '/z/'],
+  'check': ['/tʃ/', '/ɛ/', '/k/'],
+  'chest': ['/tʃ/', '/ɛ/', '/s/', '/t/'],
+  'chin': ['/tʃ/', '/ɪ/', '/n/'],
+  'chip': ['/tʃ/', '/ɪ/', '/p/'],
+  'church': ['/tʃ/', '/ɜ/', '/r/', '/tʃ/'],
+  'chicken': ['/tʃ/', '/ɪ/', '/k/', '/ə/', '/n/'],
+  
+  // /dʒ/ - voiced postalveolar affricate (j sound)
+  'jar': ['/dʒ/', '/ɑ/', '/r/'],
+  'juice': ['/dʒ/', '/u/', '/s/'],
+  'jump': ['/dʒ/', '/ʌ/', '/m/', '/p/'],
+  'jacket': ['/dʒ/', '/æ/', '/k/', '/ɪ/', '/t/'],
+  
+  // /θ/ - voiceless dental fricative (th as in "think")
+  'thank': ['/θ/', '/æ/', '/ŋ/', '/k/'],
+  'thin': ['/θ/', '/ɪ/', '/n/'],
+  'think': ['/θ/', '/ɪ/', '/ŋ/', '/k/'],
+  'three': ['/θ/', '/r/', '/i/'],
+  'thumb': ['/θ/', '/ʌ/', '/m/'],
+  'tooth': ['/t/', '/u/', '/θ/'],
+  
+  // /b/ - bilabial plosive
+  'bed': ['/b/', '/ɛ/', '/d/'],
+  'bell': ['/b/', '/ɛ/', '/l/'],
+  'boat': ['/b/', '/oʊ/', '/t/'],
+  'bone': ['/b/', '/oʊ/', '/n/'],
+  'bowl': ['/b/', '/oʊ/', '/l/'],
+  'box': ['/b/', '/ɑ/', '/k/', '/s/'],
+  'boy': ['/b/', '/ɔɪ/'],
+  'bug': ['/b/', '/ʌ/', '/g/'],
+  
+  // /f/ - labiodental fricative
+  'face': ['/f/', '/eɪ/', '/s/'],
+  'fan': ['/f/', '/æ/', '/n/'],
+  'fish': ['/f/', '/ɪ/', '/ʃ/'],
+  'flag': ['/f/', '/l/', '/æ/', '/g/'],
+  'food': ['/f/', '/u/', '/d/'],
+  'foot': ['/f/', '/ʊ/', '/t/'],
+  'fork': ['/f/', '/ɔ/', '/r/', '/k/'],
+  'frog': ['/f/', '/r/', '/ɑ/', '/g/'],
+  
+  // /g/ - velar plosive
+  'game': ['/g/', '/eɪ/', '/m/'],
+  'gate': ['/g/', '/eɪ/', '/t/'],
+  'gift': ['/g/', '/ɪ/', '/f/', '/t/'],
+  'girl': ['/g/', '/ɜ/', '/r/', '/l/'],
+  'goat': ['/g/', '/oʊ/', '/t/'],
+  'gold': ['/g/', '/oʊ/', '/l/', '/d/'],
+  'grape': ['/g/', '/r/', '/eɪ/', '/p/'],
+  'green': ['/g/', '/r/', '/i/', '/n/'],
+  
+  // /m/ - bilabial nasal
+  'man': ['/m/', '/æ/', '/n/'],
+  'map': ['/m/', '/æ/', '/p/'],
+  'meat': ['/m/', '/i/', '/t/'],
+  'moon': ['/m/', '/u/', '/n/'],
+  'mouse': ['/m/', '/aʊ/', '/s/'],
+  'mouth': ['/m/', '/aʊ/', '/θ/'],
+  
+  // /n/ - alveolar nasal
+  'name': ['/n/', '/eɪ/', '/m/'],
+  'net': ['/n/', '/ɛ/', '/t/'],
+  'night': ['/n/', '/aɪ/', '/t/'],
+  'nurse': ['/n/', '/ɜ/', '/r/', '/s/'],
+  'nut': ['/n/', '/ʌ/', '/t/'],
+  
+  // /p/ - bilabial plosive
+  'pan': ['/p/', '/æ/', '/n/'],
+  'park': ['/p/', '/ɑ/', '/r/', '/k/'],
+  'pen': ['/p/', '/ɛ/', '/n/'],
+  'pig': ['/p/', '/ɪ/', '/g/'],
+  'pie': ['/p/', '/aɪ/'],
+  'plant': ['/p/', '/l/', '/æ/', '/n/', '/t/'],
+  'plate': ['/p/', '/l/', '/eɪ/', '/t/'],
+  'pool': ['/p/', '/u/', '/l/'],
+  
+  // /t/ - alveolar plosive
+  'table': ['/t/', '/eɪ/', '/b/', '/l/'],
+  'tail': ['/t/', '/eɪ/', '/l/'],
+  'tea': ['/t/', '/i/'],
+  'tent': ['/t/', '/ɛ/', '/n/', '/t/'],
+  'top': ['/t/', '/ɑ/', '/p/'],
+  'town': ['/t/', '/aʊ/', '/n/'],
+  'train': ['/t/', '/r/', '/eɪ/', '/n/'],
+  'truck': ['/t/', '/r/', '/ʌ/', '/k/'],
+  
+  // /w/ - labial-velar approximant
+  'wall': ['/w/', '/ɔ/', '/l/'],
+  'water': ['/w/', '/ɔ/', '/t/', '/ɚ/'],
+  'wave': ['/w/', '/eɪ/', '/v/'],
+  'web': ['/w/', '/ɛ/', '/b/'],
+  'wheel': ['/w/', '/i/', '/l/'],
+  'wind': ['/w/', '/ɪ/', '/n/', '/d/'],
+  'window': ['/w/', '/ɪ/', '/n/', '/d/', '/oʊ/'],
+  'wing': ['/w/', '/ɪ/', '/ŋ/'],
+  'wood': ['/w/', '/ʊ/', '/d/'],
+  'worm': ['/w/', '/ɜ/', '/r/', '/m/'],
 };
 
 // Normalize Azure phoneme output to match our map

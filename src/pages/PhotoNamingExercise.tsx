@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
+import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +23,12 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
+// Extended trial type that supports both photo and audio-only trials
+export interface MixedTrial extends Omit<PhotoTrial, 'imageUrl'> {
+  imageUrl?: string; // Optional for audio-only trials
+  isAudioOnly?: boolean;
+}
+
 const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -30,6 +37,32 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   }
   return shuffled;
 };
+
+// Convert AudioTrial to MixedTrial format
+const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
+  id: audio.id,
+  target: audio.word,
+  semanticFoils: audio.semanticFoils,
+  category: audio.category,
+  isAudioOnly: true,
+  features: {
+    frequency_rank: 5000,
+    imageability: 5,
+    concreteness: 6,
+    age_of_acquisition: 4,
+    syllable_count: 1,
+    phoneme_count: audio.phonemes.length,
+    phonological_complexity: audio.difficulty > 3 ? 2 : 1,
+    neighborhood_density: 'moderate' as const,
+    first_phoneme: audio.phonemes[0] || '/k/',
+    semantic_category: audio.category,
+    typicality_rating: 3,
+    part_of_speech: 'noun' as const,
+  },
+  computed_difficulty: audio.difficulty,
+  minLevel: 1,
+  maxLevel: 10,
+});
 
 export default function PhotoNamingExercise() {
   const { user } = useAuth();
@@ -69,7 +102,7 @@ export default function PhotoNamingExercise() {
   const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
   const [photoSource, setPhotoSource] = useState<PhotoSource>('mixed');
-  const [trials, setTrials] = useState<PhotoTrial[]>([]);
+  const [trials, setTrials] = useState<MixedTrial[]>([]);
   const [gameKey, setGameKey] = useState(0);
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -105,21 +138,39 @@ export default function PhotoNamingExercise() {
     if (isLoading) return;
 
     const totalTrials = 10;
-    let selectedTrials: PhotoTrial[] = [];
+    let selectedTrials: MixedTrial[] = [];
 
     // If phoneme-targeted practice mode (from phoneme practice card)
     if (lessonFocusPhonemes && lessonFocusPhonemes.length > 0) {
-      // Use getTrialsForLevel with phoneme targeting for proper weighted sorting
-      selectedTrials = getTrialsForLevel(1, totalTrials, {
+      // 1. Get photo trials with phoneme targeting
+      const photoTrials = getTrialsForLevel(1, totalTrials, {
         focusPhonemes: lessonFocusPhonemes,
         focusWords: targetedWords.length > 0 ? targetedWords : undefined,
       });
-      console.log('🎯 Phoneme-targeted practice:', { 
-        focusPhonemes: lessonFocusPhonemes, 
-        focusWords: targetedWords,
-        matchedTrials: selectedTrials.length, 
-        source: practiceSource 
-      });
+      
+      // 2. If not enough photo trials, supplement with audio-only trials
+      if (photoTrials.length < totalTrials) {
+        const usedWords = new Set(photoTrials.map(t => t.target.toLowerCase()));
+        const audioTrials = getAudioTrialsForPhonemes(lessonFocusPhonemes, totalTrials - photoTrials.length, Array.from(usedWords));
+        const mixedAudioTrials = audioTrials.map(audioToMixedTrial);
+        
+        selectedTrials = shuffleArray([...photoTrials, ...mixedAudioTrials]);
+        
+        console.log('🎯 Phoneme-targeted practice (mixed):', { 
+          focusPhonemes: lessonFocusPhonemes, 
+          photoTrials: photoTrials.length,
+          audioTrials: mixedAudioTrials.length,
+          totalTrials: selectedTrials.length,
+          source: practiceSource 
+        });
+      } else {
+        selectedTrials = photoTrials;
+        console.log('🎯 Phoneme-targeted practice (photos only):', { 
+          focusPhonemes: lessonFocusPhonemes, 
+          matchedTrials: selectedTrials.length, 
+          source: practiceSource 
+        });
+      }
     }
     // If word-targeted practice mode, prioritize those words (NO DUPLICATES)
     else if (targetedWords.length > 0) {
