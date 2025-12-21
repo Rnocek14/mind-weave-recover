@@ -23,7 +23,8 @@ const PHOTO_WORDS = new Set([
   'bird', 'bread', 'car', 'shoe', 'door', 'key', 'flower', 'spoon', 'watch',
   'hand', 'eye', 'cat', 'bike', 'nose',
   // New AI-generated photos
-  'cake', 'star', 'rain', 'lamp', 'ship', 'thumb', 'cheese', 'jar', 'fish'
+  'cake', 'star', 'rain', 'lamp', 'ship', 'thumb', 'cheese', 'jar', 'fish',
+  'moon', 'nail', 'leaf', 'ring'
 ]);
 
 // Semantic categories for foil generation

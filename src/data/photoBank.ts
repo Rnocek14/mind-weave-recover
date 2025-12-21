@@ -34,6 +34,10 @@ import thumbImg from '@/assets/photos/thumb.jpg';
 import cheeseImg from '@/assets/photos/cheese.jpg';
 import jarImg from '@/assets/photos/jar.jpg';
 import fishImg from '@/assets/photos/fish.jpg';
+import moonImg from '@/assets/photos/moon.jpg';
+import nailImg from '@/assets/photos/nail.jpg';
+import leafImg from '@/assets/photos/leaf.jpg';
+import ringImg from '@/assets/photos/ring.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -907,6 +911,103 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 1,
     minLevel: 1,
     maxLevel: 5,
+  },
+  // Nasal and liquid phoneme photos
+  {
+    id: 'moon_1',
+    imageUrl: moonImg,
+    target: 'moon',
+    semanticFoils: ['star', 'sun', 'cloud'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/m/',
+      semantic_category: 'celestial',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'nail_1',
+    imageUrl: nailImg,
+    target: 'nail',
+    semanticFoils: ['screw', 'hammer', 'bolt'],
+    category: 'tools',
+    features: {
+      frequency_rank: 4800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/n/',
+      semantic_category: 'fastener',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'leaf_1',
+    imageUrl: leafImg,
+    target: 'leaf',
+    semanticFoils: ['tree', 'flower', 'grass'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/l/',
+      semantic_category: 'plant_part',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'ring_1',
+    imageUrl: ringImg,
+    target: 'ring',
+    semanticFoils: ['watch', 'bracelet', 'necklace'],
+    category: 'jewelry',
+    features: {
+      frequency_rank: 2800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/r/',
+      semantic_category: 'accessory',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
   },
 ];
 
