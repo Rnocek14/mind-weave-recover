@@ -121,21 +121,35 @@ export default function PhotoNamingExercise() {
         source: practiceSource 
       });
     }
-    // If word-targeted practice mode, prioritize those words
+    // If word-targeted practice mode, prioritize those words (NO DUPLICATES)
     else if (targetedWords.length > 0) {
-      // Find matching trials from PHOTO_BANK
+      // Find matching trials from PHOTO_BANK (unique only)
       const targetedTrials = PHOTO_BANK.filter(trial => 
         targetedWords.includes(trial.target.toLowerCase())
       );
       
       if (targetedTrials.length > 0) {
-        // Use targeted trials, repeat if needed to fill up to totalTrials
-        const repeated: PhotoTrial[] = [];
-        while (repeated.length < totalTrials && repeated.length < targetedTrials.length * 3) {
-          repeated.push(...shuffleArray(targetedTrials));
+        // Start with targeted trials - NO REPETITION
+        selectedTrials = shuffleArray([...targetedTrials]);
+        
+        // If not enough targeted trials, pad with OTHER unique photos (never repeat)
+        if (selectedTrials.length < totalTrials) {
+          const targetedTargets = new Set(selectedTrials.map(t => t.target.toLowerCase()));
+          const paddingTrials = PHOTO_BANK
+            .filter(trial => !targetedTargets.has(trial.target.toLowerCase()))
+            .slice(0, totalTrials - selectedTrials.length);
+          
+          // Combine: targeted first, then padding, then shuffle the whole set
+          selectedTrials = shuffleArray([...selectedTrials, ...shuffleArray(paddingTrials)]);
         }
-        selectedTrials = repeated.slice(0, totalTrials);
-        console.log('🎯 Word-targeted practice:', { targetedWords, matchedTrials: targetedTrials.length, source: practiceSource });
+        
+        console.log('🎯 Word-targeted practice:', { 
+          targetedWords, 
+          matchedTrials: targetedTrials.length,
+          paddingTrials: Math.max(0, selectedTrials.length - targetedTrials.length),
+          totalTrials: selectedTrials.length,
+          source: practiceSource 
+        });
       } else {
         // Fallback to stock if no matches
         selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
