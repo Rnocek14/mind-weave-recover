@@ -219,7 +219,7 @@ export const PhrasePracticeGame = ({
   };
 
   const { isListening, transcript, startListening, stopListening, isSupported, error } = 
-    useSpeechRecognition(handleSpeechResult, false);
+    useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening for resilience
   
   // Bulletproof audio playback (declare before useEffect that uses it)
   const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
@@ -633,6 +633,14 @@ export const PhrasePracticeGame = ({
               <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
                 <div className="w-2 h-2 rounded-full bg-destructive" />
                 Listening...
+              </div>
+            )}
+            
+            {/* Mic stopped indicator with recovery hint */}
+            {!isListening && !showFeedback && !isAudioPlaying && !processingAnswer && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <MicOff className="w-4 h-4" />
+                Mic paused – tap above to restart
               </div>
             )}
             
