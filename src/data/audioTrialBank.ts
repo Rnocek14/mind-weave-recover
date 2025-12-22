@@ -44,10 +44,12 @@ const SEMANTIC_CATEGORIES: Record<string, string[]> = {
   body: ['hand', 'eye', 'nose', 'face', 'leg', 'lip', 'chin', 'neck', 'foot', 'thumb', 'mouth', 'tooth'],
   nature: ['tree', 'flower', 'sun', 'star', 'rain', 'leaf', 'sea', 'sand', 'grass', 'wood', 'rose', 'moon'],
   clothing: ['shoe', 'coat', 'shirt', 'dress', 'sock', 'jacket', 'ring'],
-  objects: ['cup', 'ball', 'book', 'key', 'spoon', 'lamp', 'box', 'bowl', 'bell', 'clock', 'rope', 'net', 'flag', 'sign', 'map', 'pen', 'rug', 'jar', 'plate', 'fork', 'soap', 'shell', 'gift', 'wheel', 'web', 'wing', 'tent', 'gate'],
+  objects: ['cup', 'ball', 'book', 'key', 'spoon', 'lamp', 'box', 'bowl', 'bell', 'clock', 'rope', 'net', 'flag', 'sign', 'map', 'pen', 'rug', 'jar', 'plate', 'fork', 'soap', 'shell', 'gift', 'wheel', 'web', 'wing', 'tent', 'gate', 'treasure', 'television', 'garage'],
   transportation: ['car', 'bike', 'bus', 'boat', 'ship', 'train', 'truck', 'cart', 'road'],
-  places: ['house', 'door', 'room', 'shop', 'church', 'park', 'pool', 'town', 'wall', 'window'],
-  people: ['boy', 'girl', 'man', 'nurse', 'king'],
+  places: ['house', 'door', 'room', 'shop', 'church', 'park', 'pool', 'town', 'wall', 'window', 'yard'],
+  people: ['boy', 'girl', 'man', 'nurse', 'king', 'young'],
+  colors: ['yellow', 'beige'],
+  abstract: ['measure', 'vision', 'pleasure', 'yes', 'year', 'yawn', 'yell', 'you'],
 };
 
 // Assign category to words
