@@ -26,12 +26,32 @@ serve(async (req) => {
     // Convert base64 to binary
     const binaryAudio = Uint8Array.from(atob(audioBlob), c => c.charCodeAt(0));
     
+    // Check minimum audio size (rough estimate: 0.1s of audio at typical bitrates is ~1-2KB minimum)
+    const minAudioBytes = 500; // Very conservative minimum
+    if (binaryAudio.length < minAudioBytes) {
+      console.warn(`Audio too short: ${binaryAudio.length} bytes (minimum ${minAudioBytes})`);
+      return new Response(
+        JSON.stringify({
+          transcript: '',
+          confidence: 0,
+          acousticMetrics: null,
+          warning: 'audio_too_short',
+          message: 'Recording was too short to analyze. Please try speaking for at least 1 second.',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    
     // Prepare form data for Whisper
     const formData = new FormData();
     const blob = new Blob([binaryAudio], { type: mimeType || 'audio/webm' });
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
     formData.append('response_format', 'verbose_json'); // Get word-level timestamps
+
+    console.log(`Sending ${binaryAudio.length} bytes to Whisper API...`);
 
     // Call OpenAI Whisper API
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -45,6 +65,23 @@ serve(async (req) => {
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
       console.error('Whisper API error:', errorText);
+      
+      // Handle specific Whisper errors gracefully
+      if (errorText.includes('audio_too_short')) {
+        return new Response(
+          JSON.stringify({
+            transcript: '',
+            confidence: 0,
+            acousticMetrics: null,
+            warning: 'audio_too_short',
+            message: 'Recording was too short to analyze. Please try speaking for at least 1 second.',
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+      
       throw new Error(`Whisper API error: ${whisperResponse.status}`);
     }
 
