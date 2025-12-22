@@ -38,6 +38,17 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+// Deduplicate trials by target word (some targets have multiple difficulty variants)
+const deduplicateByTarget = (trials: PhotoTrial[]): PhotoTrial[] => {
+  const seen = new Set<string>();
+  return trials.filter(t => {
+    const key = t.target.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 // Convert AudioTrial to MixedTrial format
 const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
   id: audio.id,
@@ -212,13 +223,20 @@ export default function PhotoNamingExercise() {
           source: practiceSource 
         });
       } else {
-        // Fallback to stock if no matches
-        selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
+        // Fallback to stock if no matches - deduplicate to ensure variety
+        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+        selectedTrials = uniqueStock.slice(0, totalTrials);
         console.warn('⚠️ No matching trials for targets:', targetedWords);
       }
     } else if (photoSource === 'stock') {
-      selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
-      console.log('📸 Stock photo mode:', { selectedCount: selectedTrials.length });
+      // Deduplicate to ensure each unique photo appears only once
+      const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+      selectedTrials = uniqueStock.slice(0, totalTrials);
+      console.log('📸 Stock photo mode:', { 
+        selectedCount: selectedTrials.length,
+        uniquePhotosAvailable: uniqueStock.length,
+        targets: selectedTrials.map(t => t.target),
+      });
     } else if (photoSource === 'custom') {
       if (customPhotos.length === 0) {
         selectedTrials = [];
@@ -232,15 +250,23 @@ export default function PhotoNamingExercise() {
       if (customPhotos.length > 0) {
         const customCount = Math.min(Math.ceil(totalTrials * 0.6), customPhotos.length);
         const stockCount = totalTrials - customCount;
+        // Deduplicate stock photos
+        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
         selectedTrials = [
           ...shuffleArray(customPhotos).slice(0, customCount),
-          ...shuffleArray(PHOTO_BANK).slice(0, stockCount),
+          ...uniqueStock.slice(0, stockCount),
         ];
         selectedTrials = shuffleArray(selectedTrials);
         console.log('📸 Mixed mode (custom + stock):', { customCount, stockCount });
       } else {
-        selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
-        console.log('📸 Mixed mode (stock fallback):', { selectedCount: selectedTrials.length });
+        // Deduplicate to ensure variety
+        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+        selectedTrials = uniqueStock.slice(0, totalTrials);
+        console.log('📸 Mixed mode (stock fallback):', { 
+          selectedCount: selectedTrials.length,
+          uniquePhotosAvailable: uniqueStock.length,
+          targets: selectedTrials.map(t => t.target),
+        });
       }
     }
 
