@@ -195,8 +195,9 @@ export default function PhotoNamingExercise() {
     }
     // If word-targeted practice mode, prioritize those words (NO DUPLICATES)
     else if (targetedWords.length > 0) {
-      // Find matching trials from PHOTO_BANK (unique only)
-      const targetedTrials = PHOTO_BANK.filter(trial => 
+      // Find matching trials from difficulty-filtered pool (unique only)
+      const levelFilteredTrials = getTrialsForLevel(initialDifficulty, PHOTO_BANK.length);
+      const targetedTrials = levelFilteredTrials.filter(trial => 
         targetedWords.includes(trial.target.toLowerCase())
       );
       
@@ -204,10 +205,10 @@ export default function PhotoNamingExercise() {
         // Start with targeted trials - NO REPETITION
         selectedTrials = shuffleArray([...targetedTrials]);
         
-        // If not enough targeted trials, pad with OTHER unique photos (never repeat)
+        // If not enough targeted trials, pad with OTHER unique photos from level pool (never repeat)
         if (selectedTrials.length < totalTrials) {
           const targetedTargets = new Set(selectedTrials.map(t => t.target.toLowerCase()));
-          const paddingTrials = PHOTO_BANK
+          const paddingTrials = levelFilteredTrials
             .filter(trial => !targetedTargets.has(trial.target.toLowerCase()))
             .slice(0, totalTrials - selectedTrials.length);
           
@@ -220,21 +221,24 @@ export default function PhotoNamingExercise() {
           matchedTrials: targetedTrials.length,
           paddingTrials: Math.max(0, selectedTrials.length - targetedTrials.length),
           totalTrials: selectedTrials.length,
+          difficultyLevel: initialDifficulty,
           source: practiceSource 
         });
       } else {
-        // Fallback to stock if no matches - deduplicate to ensure variety
-        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+        // Fallback to level-filtered stock if no matches - deduplicate to ensure variety
+        const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
         selectedTrials = uniqueStock.slice(0, totalTrials);
         console.warn('⚠️ No matching trials for targets:', targetedWords);
       }
     } else if (photoSource === 'stock') {
-      // Deduplicate to ensure each unique photo appears only once
-      const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+      // Use difficulty-filtered trials for proper variety
+      const levelFilteredTrials = getTrialsForLevel(initialDifficulty, totalTrials);
+      const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
       selectedTrials = uniqueStock.slice(0, totalTrials);
       console.log('📸 Stock photo mode:', { 
         selectedCount: selectedTrials.length,
         uniquePhotosAvailable: uniqueStock.length,
+        difficultyLevel: initialDifficulty,
         targets: selectedTrials.map(t => t.target),
       });
     } else if (photoSource === 'custom') {
@@ -247,24 +251,26 @@ export default function PhotoNamingExercise() {
       }
     } else {
       // Mixed: 60% custom, 40% stock if custom photos exist
+      const levelFilteredTrials = getTrialsForLevel(initialDifficulty, PHOTO_BANK.length);
       if (customPhotos.length > 0) {
         const customCount = Math.min(Math.ceil(totalTrials * 0.6), customPhotos.length);
         const stockCount = totalTrials - customCount;
-        // Deduplicate stock photos
-        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+        // Use difficulty-filtered stock photos
+        const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
         selectedTrials = [
           ...shuffleArray(customPhotos).slice(0, customCount),
           ...uniqueStock.slice(0, stockCount),
         ];
         selectedTrials = shuffleArray(selectedTrials);
-        console.log('📸 Mixed mode (custom + stock):', { customCount, stockCount });
+        console.log('📸 Mixed mode (custom + stock):', { customCount, stockCount, difficultyLevel: initialDifficulty });
       } else {
-        // Deduplicate to ensure variety
-        const uniqueStock = deduplicateByTarget(shuffleArray(PHOTO_BANK));
+        // Use difficulty-filtered trials for variety
+        const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
         selectedTrials = uniqueStock.slice(0, totalTrials);
         console.log('📸 Mixed mode (stock fallback):', { 
           selectedCount: selectedTrials.length,
           uniquePhotosAvailable: uniqueStock.length,
+          difficultyLevel: initialDifficulty,
           targets: selectedTrials.map(t => t.target),
         });
       }
@@ -285,12 +291,14 @@ export default function PhotoNamingExercise() {
       })),
     });
 
-    // If no valid photo trials and not in phoneme-targeted mode, fallback to PHOTO_BANK
+    // If no valid photo trials and not in phoneme-targeted mode, fallback to level-filtered PHOTO_BANK
     if (validPhotoTrials.length === 0 && !(lessonFocusPhonemes && lessonFocusPhonemes.length > 0)) {
-      console.warn('⚠️ No valid photo trials found! Falling back to PHOTO_BANK');
-      selectedTrials = shuffleArray([...PHOTO_BANK]).slice(0, totalTrials);
+      console.warn('⚠️ No valid photo trials found! Falling back to level-filtered PHOTO_BANK');
+      const fallbackTrials = getTrialsForLevel(initialDifficulty, totalTrials);
+      selectedTrials = shuffleArray(fallbackTrials);
       console.log('📸 Fallback applied:', {
         newTrialCount: selectedTrials.length,
+        difficultyLevel: initialDifficulty,
         sampleTargets: selectedTrials.slice(0, 3).map(t => t.target),
       });
     }
