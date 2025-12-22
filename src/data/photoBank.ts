@@ -67,6 +67,11 @@ import capImg from '@/assets/photos/cap.jpg';
 import cabImg from '@/assets/photos/cab.jpg';
 import teethImg from '@/assets/photos/teeth.jpg';
 import teetheImg from '@/assets/photos/teethe.jpg';
+// Consonant cluster photos
+import spiderImg from '@/assets/photos/spider.jpg';
+import stickImg from '@/assets/photos/stick.jpg';
+import blockImg from '@/assets/photos/block.jpg';
+import flagImg from '@/assets/photos/flag.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1673,6 +1678,108 @@ export const PHOTO_BANK: PhotoTrial[] = [
       part_of_speech: 'verb'
     },
     computed_difficulty: 4,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+
+  // CONSONANT CLUSTER WORDS (higher difficulty)
+  {
+    id: 'spider_1',
+    imageUrl: spiderImg,
+    target: 'spider',
+    semanticFoils: ['bug', 'ant', 'beetle', 'fly'],
+    phonologicalFoils: ['spice', 'spike', 'spite'],
+    category: 'animals',
+    features: {
+      frequency_rank: 8000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 6,
+      phonological_complexity: 2,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/sp/',
+      semantic_category: 'insect',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 4,
+    minLevel: 5,
+    maxLevel: 10,
+  },
+  {
+    id: 'stick_1',
+    imageUrl: stickImg,
+    target: 'stick',
+    semanticFoils: ['branch', 'twig', 'log', 'wood'],
+    phonologicalFoils: ['stack', 'stock', 'stuck'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 2,
+      neighborhood_density: 'dense',
+      first_phoneme: '/st/',
+      semantic_category: 'natural_object',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+  {
+    id: 'block_1',
+    imageUrl: blockImg,
+    target: 'block',
+    semanticFoils: ['cube', 'brick', 'box', 'toy'],
+    phonologicalFoils: ['black', 'blank', 'blink'],
+    category: 'toys',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 2,
+      neighborhood_density: 'dense',
+      first_phoneme: '/bl/',
+      semantic_category: 'toy',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+  {
+    id: 'flag_1',
+    imageUrl: flagImg,
+    target: 'flag',
+    semanticFoils: ['banner', 'sign', 'pole', 'symbol'],
+    phonologicalFoils: ['flap', 'flat', 'flab'],
+    category: 'objects',
+    features: {
+      frequency_rank: 3000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 2,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/fl/',
+      semantic_category: 'symbol',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
     minLevel: 4,
     maxLevel: 8,
   },
