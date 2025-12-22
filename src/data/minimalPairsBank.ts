@@ -140,6 +140,32 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     difficulty: 3,
     category: 'th_contrast',
   },
+  
+  // /ʒ/ contrasts (zh sound as in "measure")
+  {
+    id: 'measure_treasure',
+    word1: 'measure',
+    word2: 'treasure',
+    contrastType: 'medial',
+    phoneme1: '/ʒ/',
+    phoneme2: '/ʒ/',
+    contrastDescription: 'Both contain voiced postalveolar fricative (/ʒ/)',
+    difficulty: 2,
+    category: 'zh_sound',
+  },
+  
+  // /j/ contrasts (y sound)
+  {
+    id: 'yawn_yell',
+    word1: 'yawn',
+    word2: 'yell',
+    contrastType: 'initial',
+    phoneme1: '/j/',
+    phoneme2: '/j/',
+    contrastDescription: 'Both begin with palatal approximant (/j/) - different vowels',
+    difficulty: 1,
+    category: 'y_sound',
+  },
 ];
 
 export interface MinimalPairTrial {

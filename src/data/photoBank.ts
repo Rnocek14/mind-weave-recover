@@ -72,6 +72,14 @@ import spiderImg from '@/assets/photos/spider.jpg';
 import stickImg from '@/assets/photos/stick.jpg';
 import blockImg from '@/assets/photos/block.jpg';
 import flagImg from '@/assets/photos/flag.jpg';
+// /ʒ/ (zh) and /j/ (y) phoneme photos
+import yellowImg from '@/assets/photos/yellow.jpg';
+import treasureImg from '@/assets/photos/treasure.jpg';
+import measureImg from '@/assets/photos/measure.jpg';
+import yesImg from '@/assets/photos/yes.jpg';
+import yardImg from '@/assets/photos/yard.jpg';
+import yawnImg from '@/assets/photos/yawn.jpg';
+import yellImg from '@/assets/photos/yell.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1782,6 +1790,183 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 3,
     minLevel: 4,
     maxLevel: 8,
+  },
+  
+  // /ʒ/ (zh sound) and /j/ (y sound) PHONEME TRIALS
+  {
+    id: 'yellow_1',
+    imageUrl: yellowImg,
+    target: 'yellow',
+    semanticFoils: ['red', 'blue', 'green', 'orange'],
+    phonologicalFoils: ['yell', 'mellow', 'fellow'],
+    category: 'colors',
+    features: {
+      frequency_rank: 2500,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/j/',
+      semantic_category: 'color',
+      typicality_rating: 1,
+      part_of_speech: 'adjective'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'treasure_1',
+    imageUrl: treasureImg,
+    target: 'treasure',
+    semanticFoils: ['gold', 'chest', 'jewels', 'money'],
+    phonologicalFoils: ['measure', 'pleasure', 'leisure'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5000,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 5,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/t/',
+      semantic_category: 'valuable',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+  {
+    id: 'measure_1',
+    imageUrl: measureImg,
+    target: 'measure',
+    semanticFoils: ['ruler', 'tape', 'scale', 'length'],
+    phonologicalFoils: ['treasure', 'pleasure', 'leisure'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4000,
+      imageability: 5,
+      concreteness: 4,
+      age_of_acquisition: 6,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/m/',
+      semantic_category: 'tool',
+      typicality_rating: 3,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+  {
+    id: 'yes_1',
+    imageUrl: yesImg,
+    target: 'yes',
+    semanticFoils: ['no', 'maybe', 'okay', 'sure'],
+    phonologicalFoils: ['yell', 'yet', 'yep'],
+    category: 'abstract',
+    features: {
+      frequency_rank: 200,
+      imageability: 4,
+      concreteness: 2,
+      age_of_acquisition: 2,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/j/',
+      semantic_category: 'affirmation',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'yard_1',
+    imageUrl: yardImg,
+    target: 'yard',
+    semanticFoils: ['garden', 'lawn', 'grass', 'patio'],
+    phonologicalFoils: ['hard', 'card', 'guard'],
+    category: 'places',
+    features: {
+      frequency_rank: 3500,
+      imageability: 6,
+      concreteness: 6,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'dense',
+      first_phoneme: '/j/',
+      semantic_category: 'outdoor_space',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'yawn_1',
+    imageUrl: yawnImg,
+    target: 'yawn',
+    semanticFoils: ['sleep', 'tired', 'stretch', 'breath'],
+    phonologicalFoils: ['dawn', 'lawn', 'fawn'],
+    category: 'actions',
+    features: {
+      frequency_rank: 8000,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/j/',
+      semantic_category: 'bodily_action',
+      typicality_rating: 2,
+      part_of_speech: 'verb'
+    },
+    computed_difficulty: 3,
+    minLevel: 4,
+    maxLevel: 8,
+  },
+  {
+    id: 'yell_1',
+    imageUrl: yellImg,
+    target: 'yell',
+    semanticFoils: ['shout', 'scream', 'cry', 'loud'],
+    phonologicalFoils: ['well', 'bell', 'tell'],
+    category: 'actions',
+    features: {
+      frequency_rank: 6000,
+      imageability: 6,
+      concreteness: 4,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/j/',
+      semantic_category: 'vocal_action',
+      typicality_rating: 2,
+      part_of_speech: 'verb'
+    },
+    computed_difficulty: 2,
+    minLevel: 3,
+    maxLevel: 7,
   },
 ];
 
