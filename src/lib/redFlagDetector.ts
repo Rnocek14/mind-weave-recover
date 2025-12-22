@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ExerciseModality } from './exerciseSlugNormalizer';
+import { pronunciationHealth } from './pipelineOpsClient';
 
 export type RedFlagType = 
   | 'plateau' | 'regression' | 'low_adherence' | 'high_fatigue' | 'quit_early' | 'low_mood_streak'
@@ -453,22 +454,35 @@ export const detectMicroFluencyFlags = async (userId: string): Promise<RedFlag[]
 
 /**
  * NEW: Detects pipeline health issues
+ * Now checks Azure health endpoint directly instead of relying on database checks
  */
 export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
   const flags: RedFlag[] = [];
   const now = new Date();
 
-  // Check worker heartbeat
-  const { data: heartbeat } = await supabase
-    .from('worker_heartbeats')
-    .select('last_seen, status')
-    .order('last_seen', { ascending: false })
-    .limit(1);
+  // Check Azure health via endpoint directly
+  let azureConfigured = false;
+  try {
+    const health = await pronunciationHealth();
+    azureConfigured = health.configured && health.hasKey && health.hasRegion;
+  } catch (e) {
+    console.warn('Azure health check failed:', e);
+  }
 
-  const lastHeartbeat = heartbeat?.[0];
-  const heartbeatAge = lastHeartbeat 
-    ? (now.getTime() - new Date(lastHeartbeat.last_seen).getTime()) / 60000
-    : null;
+  // Check worker heartbeat (fallback if Azure not configured)
+  let heartbeatAge: number | null = null;
+  if (!azureConfigured) {
+    const { data: heartbeat } = await supabase
+      .from('worker_heartbeats')
+      .select('last_seen, status')
+      .order('last_seen', { ascending: false })
+      .limit(1);
+
+    const lastHeartbeat = heartbeat?.[0];
+    heartbeatAge = lastHeartbeat 
+      ? (now.getTime() - new Date(lastHeartbeat.last_seen).getTime()) / 60000
+      : null;
+  }
 
   // Check queue status
   const { data: queueStats } = await supabase
@@ -481,34 +495,20 @@ export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
   const processing = queueStats?.filter(r => r.analysis_status === 'processing') || [];
   const failed = queueStats?.filter(r => r.analysis_status === 'failed') || [];
 
-  // Check if Azure Pronunciation Assessment is configured/active
-  // Either: recent Azure-completed jobs exist OR we have gop_data with source='azure' anywhere
-  const { data: recentAzure } = await supabase
-    .from('utterance_analyses')
-    .select('id, gop_data')
-    .eq('analysis_status', 'complete')
-    .not('gop_data', 'is', null)
-    .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
-    .limit(5);
-
-  // Azure is active if any recent gop_data exists (Azure is now the default path)
-  const azureConfigured = (recentAzure?.length ?? 0) > 0 || 
-    recentAzure?.some(r => (r.gop_data as any)?.source === 'azure');
-
   // Only warn about RECENT pending jobs (< 2 hours old) that aren't being handled
   const recentPending = pending.filter(r => {
     const age = (now.getTime() - new Date(r.created_at!).getTime()) / 3600000; // hours
     return age < 2;
   });
 
-  // Worker offline - only warn if recent jobs pending AND Azure not configured AND worker offline
-  // Legacy pending jobs from before Azure migration don't trigger warning
-  if (recentPending.length > 0 && !azureConfigured && (!lastHeartbeat || heartbeatAge! > 5)) {
+  // Worker offline - only warn if Azure NOT configured AND no worker heartbeat
+  // If Azure IS configured, the pipeline is considered healthy
+  if (recentPending.length > 0 && !azureConfigured && (heartbeatAge === null || heartbeatAge > 5)) {
     flags.push({
       type: 'worker_offline',
       severity: 'red',
       message: 'Speech Worker Offline',
-      details: `${recentPending.length} recent job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. Consider enabling Azure Pronunciation Assessment.`,
+      details: `${recentPending.length} recent job(s) waiting but no worker heartbeat in ${heartbeatAge ? Math.round(heartbeatAge) + ' min' : 'unknown time'}. Configure Azure Pronunciation Assessment to process jobs.`,
       detectedAt: now.toISOString(),
       evidence: { n: recentPending.length, window: '2 hours' }
     });

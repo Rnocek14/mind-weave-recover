@@ -207,6 +207,139 @@ serve(async (req) => {
       });
     }
 
+    // POST /process-pending-azure - Process pending jobs via Azure Speech API
+    if (req.method === "POST" && path === "process-pending-azure") {
+      const body = await req.json().catch(() => ({}));
+      const limit = Math.min(Number(body?.limit ?? 20), 100);
+
+      console.log(`🔊 Processing up to ${limit} pending jobs via Azure`);
+
+      // Get pending jobs with audio
+      const { data: pendingJobs, error: fetchError } = await supabase
+        .from("utterance_analyses")
+        .select("attempt_id, audio_storage_path, target_word, transcript")
+        .eq("analysis_status", "pending")
+        .not("audio_storage_path", "is", null)
+        .order("analysis_priority", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(limit);
+
+      if (fetchError) throw fetchError;
+
+      if (!pendingJobs || pendingJobs.length === 0) {
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          processed: 0, 
+          failed: 0,
+          message: "No pending jobs with audio found" 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`📋 Found ${pendingJobs.length} pending jobs`);
+
+      // Mark jobs as processing
+      const attemptIds = pendingJobs.map(j => j.attempt_id);
+      await supabase
+        .from("utterance_analyses")
+        .update({ 
+          analysis_status: "processing", 
+          locked_at: new Date().toISOString(),
+          locked_by: "pipeline-ops-azure"
+        })
+        .in("attempt_id", attemptIds);
+
+      let processed = 0;
+      let failed = 0;
+
+      // Process each job
+      for (const job of pendingJobs) {
+        try {
+          // Download audio from storage
+          const { data: audioData, error: downloadError } = await supabase
+            .storage
+            .from("session-recordings")
+            .download(job.audio_storage_path!);
+
+          if (downloadError) {
+            console.error(`❌ Failed to download audio for ${job.attempt_id}:`, downloadError);
+            await markJobFailed(supabase, job.attempt_id, `Download error: ${downloadError.message}`);
+            failed++;
+            continue;
+          }
+
+          // Convert to base64
+          const arrayBuffer = await audioData.arrayBuffer();
+          const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+          // Call analyze-pronunciation function
+          const azureKey = Deno.env.get("AZURE_SPEECH_KEY");
+          const azureRegion = Deno.env.get("AZURE_SPEECH_REGION");
+
+          if (!azureKey || !azureRegion) {
+            console.error("❌ Azure credentials not configured");
+            await markJobFailed(supabase, job.attempt_id, "Azure credentials not configured");
+            failed++;
+            continue;
+          }
+
+          // Call Azure Speech API directly
+          const referenceText = job.target_word || job.transcript || "";
+          const pronunciationResponse = await callAzurePronunciation(
+            base64Audio,
+            referenceText,
+            azureKey,
+            azureRegion
+          );
+
+          if (!pronunciationResponse.ok) {
+            console.error(`❌ Azure API error for ${job.attempt_id}:`, pronunciationResponse.error);
+            await markJobFailed(supabase, job.attempt_id, pronunciationResponse.error || "Unknown Azure error");
+            failed++;
+            continue;
+          }
+
+          // Update job with results
+          const { error: updateError } = await supabase
+            .from("utterance_analyses")
+            .update({
+              analysis_status: "complete",
+              alignment_data: pronunciationResponse.alignmentData,
+              gop_data: pronunciationResponse.gopData,
+              locked_at: null,
+              locked_by: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("attempt_id", job.attempt_id);
+
+          if (updateError) {
+            console.error(`❌ Failed to update ${job.attempt_id}:`, updateError);
+            failed++;
+          } else {
+            processed++;
+            console.log(`✅ Processed ${job.attempt_id}`);
+          }
+        } catch (e) {
+          console.error(`❌ Error processing ${job.attempt_id}:`, e);
+          await markJobFailed(supabase, job.attempt_id, e instanceof Error ? e.message : "Unknown error");
+          failed++;
+        }
+      }
+
+      console.log(`✅ Finished: ${processed} processed, ${failed} failed`);
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        processed, 
+        failed,
+        message: `Processed ${processed} jobs, ${failed} failed`
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -221,3 +354,101 @@ serve(async (req) => {
     });
   }
 });
+
+// Helper: Mark job as failed with error message
+async function markJobFailed(supabase: any, attemptId: string, errorMessage: string) {
+  await supabase
+    .from("utterance_analyses")
+    .update({
+      analysis_status: "failed",
+      error_message: errorMessage,
+      retry_count: 5, // Mark as permanently failed
+      locked_at: null,
+      locked_by: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("attempt_id", attemptId);
+}
+
+// Helper: Call Azure Pronunciation Assessment API
+async function callAzurePronunciation(
+  base64Audio: string,
+  referenceText: string,
+  azureKey: string,
+  azureRegion: string
+): Promise<{ ok: boolean; alignmentData?: any; gopData?: any; error?: string }> {
+  try {
+    // Decode base64 to binary
+    const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+
+    // Build pronunciation assessment config
+    const assessmentConfig = {
+      referenceText,
+      gradingSystem: "HundredMark",
+      granularity: "Phoneme",
+      dimension: "Comprehensive",
+      enableMiscue: true,
+    };
+
+    const configBase64 = btoa(JSON.stringify(assessmentConfig));
+
+    const response = await fetch(
+      `https://${azureRegion}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
+      {
+        method: "POST",
+        headers: {
+          "Ocp-Apim-Subscription-Key": azureKey,
+          "Content-Type": "audio/wav",
+          "Pronunciation-Assessment": configBase64,
+          "Accept": "application/json",
+        },
+        body: audioBytes,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { ok: false, error: `Azure API ${response.status}: ${errorText}` };
+    }
+
+    const result = await response.json();
+
+    // Parse Azure response into our format
+    const nBest = result.NBest?.[0];
+    if (!nBest) {
+      return { ok: false, error: "No recognition result from Azure" };
+    }
+
+    const alignmentData = {
+      transcript: nBest.Display || nBest.Lexical || "",
+      confidence: nBest.Confidence || 0,
+      word_segments: nBest.Words?.map((w: any) => ({
+        word: w.Word,
+        start_time: w.Offset / 10000000, // Convert 100ns units to seconds
+        end_time: (w.Offset + w.Duration) / 10000000,
+        confidence: w.PronunciationAssessment?.AccuracyScore / 100 || 0,
+      })) || [],
+    };
+
+    const gopData = {
+      source: "azure",
+      overallScore: nBest.PronunciationAssessment?.PronScore || 0,
+      accuracyScore: nBest.PronunciationAssessment?.AccuracyScore || 0,
+      fluencyScore: nBest.PronunciationAssessment?.FluencyScore || 0,
+      completenessScore: nBest.PronunciationAssessment?.CompletenessScore || 0,
+      words: nBest.Words?.map((w: any) => ({
+        word: w.Word,
+        accuracyScore: w.PronunciationAssessment?.AccuracyScore || 0,
+        errorType: w.PronunciationAssessment?.ErrorType || "None",
+        phonemes: w.Phonemes?.map((p: any) => ({
+          phoneme: p.Phoneme,
+          accuracyScore: p.PronunciationAssessment?.AccuracyScore || 0,
+        })) || [],
+      })) || [],
+    };
+
+    return { ok: true, alignmentData, gopData };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
