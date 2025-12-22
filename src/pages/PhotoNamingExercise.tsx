@@ -163,8 +163,8 @@ export default function PhotoNamingExercise() {
 
     // If phoneme-targeted practice mode (from phoneme practice card)
     if (lessonFocusPhonemes && lessonFocusPhonemes.length > 0) {
-      // 1. Get photo trials with phoneme targeting
-      const photoTrials = getTrialsForLevel(1, totalTrials, {
+      // 1. Get photo trials with phoneme targeting - use actual difficulty level
+      const photoTrials = getTrialsForLevel(initialDifficulty, totalTrials, {
         focusPhonemes: lessonFocusPhonemes,
         focusWords: targetedWords.length > 0 ? targetedWords : undefined,
       });
