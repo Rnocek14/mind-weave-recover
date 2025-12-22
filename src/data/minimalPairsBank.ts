@@ -101,6 +101,45 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     difficulty: 1,
     category: 'stop_approximant',
   },
+  
+  // Voicing contrasts (initial)
+  {
+    id: 'pin_bin',
+    word1: 'pin',
+    word2: 'bin',
+    contrastType: 'initial',
+    phoneme1: '/p/',
+    phoneme2: '/b/',
+    contrastDescription: 'Voiceless vs. voiced bilabial stop',
+    difficulty: 2,
+    category: 'voicing',
+  },
+  
+  // Final voicing contrasts
+  {
+    id: 'cap_cab',
+    word1: 'cap',
+    word2: 'cab',
+    contrastType: 'final',
+    phoneme1: '/p/',
+    phoneme2: '/b/',
+    contrastDescription: 'Voiceless vs. voiced bilabial stop (final position)',
+    difficulty: 3,
+    category: 'final_voicing',
+  },
+  
+  // Fricative contrasts (θ vs ð)
+  {
+    id: 'teeth_teethe',
+    word1: 'teeth',
+    word2: 'teethe',
+    contrastType: 'final',
+    phoneme1: '/θ/',
+    phoneme2: '/ð/',
+    contrastDescription: 'Voiceless vs. voiced dental fricative',
+    difficulty: 3,
+    category: 'th_contrast',
+  },
 ];
 
 export interface MinimalPairTrial {

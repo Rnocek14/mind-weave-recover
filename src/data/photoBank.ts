@@ -60,6 +60,13 @@ import jetImg from '@/assets/photos/jet.jpg';
 import featherImg from '@/assets/photos/feather.jpg';
 import motherImg from '@/assets/photos/mother.jpg';
 import weatherImg from '@/assets/photos/weather.jpg';
+// New minimal pair photos
+import pinImg from '@/assets/photos/pin.jpg';
+import binImg from '@/assets/photos/bin.jpg';
+import capImg from '@/assets/photos/cap.jpg';
+import cabImg from '@/assets/photos/cab.jpg';
+import teethImg from '@/assets/photos/teeth.jpg';
+import teetheImg from '@/assets/photos/teethe.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1516,6 +1523,158 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 3,
     minLevel: 3,
     maxLevel: 7,
+  },
+
+  // NEW MINIMAL PAIRS: pin/bin, cap/cab, teeth/teethe
+  {
+    id: 'pin_1',
+    imageUrl: pinImg,
+    target: 'pin',
+    semanticFoils: ['needle', 'nail', 'clip', 'tack'],
+    phonologicalFoils: ['bin', 'tin', 'win', 'fin'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/p/',
+      semantic_category: 'fastener',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'bin_1',
+    imageUrl: binImg,
+    target: 'bin',
+    semanticFoils: ['box', 'basket', 'bucket', 'can'],
+    phonologicalFoils: ['pin', 'tin', 'win', 'fin'],
+    category: 'objects',
+    features: {
+      frequency_rank: 8000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'container',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'cap_1',
+    imageUrl: capImg,
+    target: 'cap',
+    semanticFoils: ['hat', 'hood', 'helmet', 'visor'],
+    phonologicalFoils: ['cab', 'cat', 'can', 'cup'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/k/',
+      semantic_category: 'headwear',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'cab_1',
+    imageUrl: cabImg,
+    target: 'cab',
+    semanticFoils: ['car', 'bus', 'van', 'taxi'],
+    phonologicalFoils: ['cap', 'cat', 'can', 'cub'],
+    category: 'transportation',
+    features: {
+      frequency_rank: 6000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/k/',
+      semantic_category: 'vehicle',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'teeth_1',
+    imageUrl: teethImg,
+    target: 'teeth',
+    semanticFoils: ['mouth', 'tongue', 'lips', 'gums'],
+    phonologicalFoils: ['teethe', 'sheath', 'wreath'],
+    category: 'body',
+    features: {
+      frequency_rank: 3000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/t/',
+      semantic_category: 'body_part',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'teethe_1',
+    imageUrl: teetheImg,
+    target: 'teethe',
+    semanticFoils: ['bite', 'chew', 'gnaw', 'nibble'],
+    phonologicalFoils: ['teeth', 'breathe', 'seethe'],
+    category: 'actions',
+    features: {
+      frequency_rank: 25000,
+      imageability: 5,
+      concreteness: 4,
+      age_of_acquisition: 6,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/t/',
+      semantic_category: 'baby_action',
+      typicality_rating: 4,
+      part_of_speech: 'verb'
+    },
+    computed_difficulty: 4,
+    minLevel: 4,
+    maxLevel: 8,
   },
 ];
 
