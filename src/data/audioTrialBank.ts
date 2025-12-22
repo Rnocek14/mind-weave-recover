@@ -32,7 +32,9 @@ const PHOTO_WORDS = new Set([
   // Voiced 'th' /ð/
   'feather', 'mother', 'weather',
   // New minimal pairs
-  'pin', 'bin', 'cap', 'cab', 'teeth', 'teethe'
+  'pin', 'bin', 'cap', 'cab', 'teeth', 'teethe',
+  // Consonant clusters
+  'spider', 'stick', 'block', 'flag'
 ]);
 
 // Semantic categories for foil generation
