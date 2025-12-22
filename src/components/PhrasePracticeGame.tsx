@@ -47,6 +47,26 @@ interface PhrasePracticeGameProps {
   onDifficultyChange?: (newLevel: number) => void;
 }
 
+// Debounced mic status - only show "mic paused" after 2s of being off
+const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
+  const [showMicPaused, setShowMicPaused] = useState(false);
+  
+  useEffect(() => {
+    if (isListening) {
+      setShowMicPaused(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setShowMicPaused(true);
+    }, delayMs);
+    
+    return () => clearTimeout(timer);
+  }, [isListening, delayMs]);
+  
+  return showMicPaused;
+};
+
 export const PhrasePracticeGame = ({
   totalTrials,
   initialDifficulty,
@@ -220,6 +240,9 @@ export const PhrasePracticeGame = ({
 
   const { isListening, transcript, startListening, stopListening, isSupported, error } = 
     useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening for resilience
+  
+  // Debounce mic status to prevent flickering during auto-restart cycles
+  const showMicPausedHint = useDebouncedMicStatus(isListening, 2000);
   
   // Bulletproof audio playback (declare before useEffect that uses it)
   const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
@@ -636,9 +659,9 @@ export const PhrasePracticeGame = ({
               </div>
             )}
             
-            {/* Mic stopped indicator with recovery hint */}
-            {!isListening && !showFeedback && !isAudioPlaying && !processingAnswer && (
-              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+            {/* Mic stopped indicator with recovery hint - debounced to prevent flickering */}
+            {showMicPausedHint && !showFeedback && !isAudioPlaying && !processingAnswer && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 animate-fade-in">
                 <MicOff className="w-4 h-4" />
                 Mic paused – tap above to restart
               </div>
