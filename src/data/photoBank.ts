@@ -56,6 +56,10 @@ import threeImg from '@/assets/photos/three.jpg';
 import toothImg from '@/assets/photos/tooth.jpg';
 import jugImg from '@/assets/photos/jug.jpg';
 import jetImg from '@/assets/photos/jet.jpg';
+// Voiced 'th' /ð/ photos
+import featherImg from '@/assets/photos/feather.jpg';
+import motherImg from '@/assets/photos/mother.jpg';
+import weatherImg from '@/assets/photos/weather.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1435,6 +1439,83 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 2,
     minLevel: 2,
     maxLevel: 6,
+  },
+
+  // /ð/ sound (voiced "th") - feather, mother, weather
+  {
+    id: 'feather_1',
+    imageUrl: featherImg,
+    target: 'feather',
+    semanticFoils: ['wing', 'bird', 'quill', 'plume'],
+    phonologicalFoils: ['leather', 'weather', 'heather'],
+    category: 'nature',
+    features: {
+      frequency_rank: 7500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/f/',
+      semantic_category: 'bird_part',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+  {
+    id: 'mother_1',
+    imageUrl: motherImg,
+    target: 'mother',
+    semanticFoils: ['father', 'parent', 'sister', 'grandmother'],
+    phonologicalFoils: ['brother', 'other', 'bother'],
+    category: 'people',
+    features: {
+      frequency_rank: 500,
+      imageability: 6,
+      concreteness: 6,
+      age_of_acquisition: 2,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/m/',
+      semantic_category: 'family',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'weather_1',
+    imageUrl: weatherImg,
+    target: 'weather',
+    semanticFoils: ['rain', 'storm', 'climate', 'cloud'],
+    phonologicalFoils: ['feather', 'leather', 'whether'],
+    category: 'nature',
+    features: {
+      frequency_rank: 2500,
+      imageability: 5,
+      concreteness: 4,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/w/',
+      semantic_category: 'atmospheric',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
   },
 ];
 

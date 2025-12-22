@@ -28,7 +28,9 @@ const PHOTO_WORDS = new Set([
   // Minimal pair photos
   'hat', 'chip', 'fan', 'van', 'bed', 'red', 'pen', 'hen', 'goat', 'coat',
   // Phoneme gap fills
-  'vase', 'vest', 'three', 'tooth', 'jug', 'jet'
+  'vase', 'vest', 'three', 'tooth', 'jug', 'jet',
+  // Voiced 'th' /ð/
+  'feather', 'mother', 'weather'
 ]);
 
 // Semantic categories for foil generation
