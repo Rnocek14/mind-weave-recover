@@ -30,14 +30,16 @@ export default function MinimalPairsExercise() {
   // Get stats about available pairs
   const stats = getMinimalPairStats();
   
-  // Initialize session
+  // Initialize session with 'listening' modality to avoid speech-related red flags
   useEffect(() => {
     const initSession = async () => {
       if (!user?.id) return;
       
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: 'minimal_pairs', duration: 10 }]
-      });
+      const session = await startSession(
+        user.id, 
+        { blocks: [{ exercise: 'minimal_pairs', duration: 10 }] },
+        { modality: 'listening' }
+      );
       
       if (session) {
         setSessionId(session.id);

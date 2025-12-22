@@ -1,10 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
+import { ExerciseModality } from './exerciseSlugNormalizer';
 
 export interface SessionPlan {
   blocks: Array<{
     exercise: string;
     duration: number;
   }>;
+  // Optional metadata for filtering
+  modality?: ExerciseModality;
 }
 
 export interface SessionSummary {
@@ -13,9 +16,24 @@ export interface SessionSummary {
   reps: number;
 }
 
-export const startSession = async (userId: string, plan: SessionPlan, profileId?: string) => {
+export interface StartSessionOptions {
+  profileId?: string;
+  /** Exercise modality - used to filter sessions for analytics */
+  modality?: ExerciseModality;
+}
+
+export const startSession = async (
+  userId: string, 
+  plan: SessionPlan, 
+  options?: StartSessionOptions | string // string for backward compatibility (profileId)
+) => {
+  // Handle backward compatibility - string means it's profileId
+  const opts: StartSessionOptions = typeof options === 'string' 
+    ? { profileId: options } 
+    : options || {};
+  
   // Get active profile if not provided
-  let actualProfileId = profileId;
+  let actualProfileId = opts.profileId;
   if (!actualProfileId) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -27,12 +45,18 @@ export const startSession = async (userId: string, plan: SessionPlan, profileId?
     actualProfileId = profile?.id;
   }
   
+  // Store modality in plan for later filtering
+  const planWithModality = {
+    ...plan,
+    modality: opts.modality || plan.modality
+  };
+  
   const { data, error } = await supabase
     .from('sessions')
     .insert({
       user_id: userId,
       profile_id: actualProfileId,
-      plan: plan as any
+      plan: planWithModality as any
     })
     .select()
     .single();
@@ -42,7 +66,7 @@ export const startSession = async (userId: string, plan: SessionPlan, profileId?
     throw error;
   }
   
-  console.log('✅ Session created:', data.id, 'profile:', actualProfileId);
+  console.log('✅ Session created:', data.id, 'profile:', actualProfileId, 'modality:', opts.modality);
   return data;
 };
 

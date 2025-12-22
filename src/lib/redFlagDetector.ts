@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { ExerciseModality } from './exerciseSlugNormalizer';
 
 export type RedFlagType = 
   | 'plateau' | 'regression' | 'low_adherence' | 'high_fatigue' | 'quit_early' | 'low_mood_streak'
@@ -28,8 +29,25 @@ const MIN_SAMPLES = {
   baseline: 10,
 };
 
+// Modalities that should be excluded from speech-related detection
+const NON_SPEECH_MODALITIES: ExerciseModality[] = ['listening', 'motor'];
+
+/**
+ * Check if a session should be included in speech-related analytics
+ */
+const isSpeechSession = (session: { plan?: any }): boolean => {
+  const plan = session.plan;
+  if (!plan) return true; // If no plan, assume it's a speech session (legacy)
+  
+  const modality = plan.modality as ExerciseModality | undefined;
+  if (!modality) return true; // If no modality specified, assume speech
+  
+  return !NON_SPEECH_MODALITIES.includes(modality);
+};
+
 /**
  * Detects if user has plateaued (no improvement for 14+ days)
+ * Only considers speaking sessions
  */
 export const detectPlateau = async (userId: string): Promise<RedFlag | null> => {
   const fourteenDaysAgo = new Date();
@@ -37,7 +55,7 @@ export const detectPlateau = async (userId: string): Promise<RedFlag | null> => 
 
   const { data: sessions, error } = await supabase
     .from('sessions')
-    .select('summary')
+    .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', fourteenDaysAgo.toISOString())
     .order('started_at', { ascending: true });
@@ -46,7 +64,14 @@ export const detectPlateau = async (userId: string): Promise<RedFlag | null> => 
     return null;
   }
 
-  const accuracies = sessions
+  // Filter to only speech sessions
+  const speechSessions = sessions.filter(isSpeechSession);
+  
+  if (speechSessions.length < 5) {
+    return null;
+  }
+
+  const accuracies = speechSessions
     .map(s => (s.summary as any)?.accuracy)
     .filter(a => a !== undefined && a !== null) as number[];
 
@@ -76,6 +101,7 @@ export const detectPlateau = async (userId: string): Promise<RedFlag | null> => 
 
 /**
  * Detects if user's performance is declining (regression)
+ * Only considers speaking sessions
  */
 export const detectRegression = async (userId: string): Promise<RedFlag | null> => {
   const thirtyDaysAgo = new Date();
@@ -86,26 +112,34 @@ export const detectRegression = async (userId: string): Promise<RedFlag | null> 
 
   const { data: baselineSessions } = await supabase
     .from('sessions')
-    .select('summary')
+    .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', thirtyDaysAgo.toISOString())
     .lt('started_at', sevenDaysAgo.toISOString());
 
   const { data: recentSessions } = await supabase
     .from('sessions')
-    .select('summary')
+    .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', sevenDaysAgo.toISOString());
 
-  if (!baselineSessions || !recentSessions || baselineSessions.length < 3 || recentSessions.length < 2) {
+  if (!baselineSessions || !recentSessions) {
     return null;
   }
 
-  const baselineAccuracies = baselineSessions
+  // Filter to only speech sessions
+  const speechBaseline = baselineSessions.filter(isSpeechSession);
+  const speechRecent = recentSessions.filter(isSpeechSession);
+
+  if (speechBaseline.length < 3 || speechRecent.length < 2) {
+    return null;
+  }
+
+  const baselineAccuracies = speechBaseline
     .map(s => (s.summary as any)?.accuracy)
     .filter(a => a !== undefined && a !== null) as number[];
 
-  const recentAccuracies = recentSessions
+  const recentAccuracies = speechRecent
     .map(s => (s.summary as any)?.accuracy)
     .filter(a => a !== undefined && a !== null) as number[];
 
