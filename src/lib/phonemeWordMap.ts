@@ -124,6 +124,27 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'juice': ['/dʒ/', '/u/', '/s/'],
   'jump': ['/dʒ/', '/ʌ/', '/m/', '/p/'],
   'jacket': ['/dʒ/', '/æ/', '/k/', '/ɪ/', '/t/'],
+  'jug': ['/dʒ/', '/ʌ/', '/g/'],
+  'jet': ['/dʒ/', '/ɛ/', '/t/'],
+  
+  // /ʒ/ - voiced postalveolar fricative (zh sound as in "measure")
+  'measure': ['/m/', '/ɛ/', '/ʒ/', '/ɚ/'],
+  'treasure': ['/t/', '/r/', '/ɛ/', '/ʒ/', '/ɚ/'],
+  'beige': ['/b/', '/eɪ/', '/ʒ/'],
+  'garage': ['/g/', '/ə/', '/r/', '/ɑ/', '/ʒ/'],
+  'vision': ['/v/', '/ɪ/', '/ʒ/', '/ə/', '/n/'],
+  'television': ['/t/', '/ɛ/', '/l/', '/ə/', '/v/', '/ɪ/', '/ʒ/', '/ə/', '/n/'],
+  'pleasure': ['/p/', '/l/', '/ɛ/', '/ʒ/', '/ɚ/'],
+  
+  // /j/ - palatal approximant (y sound as in "yes")
+  'yellow': ['/j/', '/ɛ/', '/l/', '/oʊ/'],
+  'yes': ['/j/', '/ɛ/', '/s/'],
+  'yard': ['/j/', '/ɑ/', '/r/', '/d/'],
+  'year': ['/j/', '/ɪ/', '/r/'],
+  'you': ['/j/', '/u/'],
+  'young': ['/j/', '/ʌ/', '/ŋ/'],
+  'yawn': ['/j/', '/ɔ/', '/n/'],
+  'yell': ['/j/', '/ɛ/', '/l/'],
   
   // /θ/ - voiceless dental fricative (th as in "think")
   'thank': ['/θ/', '/æ/', '/ŋ/', '/k/'],
