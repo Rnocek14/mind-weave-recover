@@ -140,6 +140,16 @@ export default function PhotoNamingExercise() {
     const totalTrials = 10;
     let selectedTrials: MixedTrial[] = [];
 
+    console.log('📸 PhotoNaming Trial Selection START:', {
+      fromLesson,
+      lessonFocusPhonemes,
+      targetedWords,
+      photoSource,
+      customPhotosCount: customPhotos.length,
+      strugglingWordsFallbackCount: strugglingWordsFallback?.length,
+      photoBankSize: PHOTO_BANK.length,
+    });
+
     // If phoneme-targeted practice mode (from phoneme practice card)
     if (lessonFocusPhonemes && lessonFocusPhonemes.length > 0) {
       // 1. Get photo trials with phoneme targeting
@@ -208,11 +218,14 @@ export default function PhotoNamingExercise() {
       }
     } else if (photoSource === 'stock') {
       selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
+      console.log('📸 Stock photo mode:', { selectedCount: selectedTrials.length });
     } else if (photoSource === 'custom') {
       if (customPhotos.length === 0) {
         selectedTrials = [];
+        console.log('📸 Custom photo mode (empty)');
       } else {
         selectedTrials = shuffleArray(customPhotos).slice(0, totalTrials);
+        console.log('📸 Custom photo mode:', { selectedCount: selectedTrials.length });
       }
     } else {
       // Mixed: 60% custom, 40% stock if custom photos exist
@@ -224,9 +237,36 @@ export default function PhotoNamingExercise() {
           ...shuffleArray(PHOTO_BANK).slice(0, stockCount),
         ];
         selectedTrials = shuffleArray(selectedTrials);
+        console.log('📸 Mixed mode (custom + stock):', { customCount, stockCount });
       } else {
         selectedTrials = shuffleArray(PHOTO_BANK).slice(0, totalTrials);
+        console.log('📸 Mixed mode (stock fallback):', { selectedCount: selectedTrials.length });
       }
+    }
+
+    // 🛡️ SAFETY FALLBACK: Ensure we always have valid photo trials
+    const validPhotoTrials = selectedTrials.filter(t => !!t.imageUrl && !t.isAudioOnly);
+    console.log('📸 Photo trial validation:', {
+      totalSelected: selectedTrials.length,
+      withImageUrl: validPhotoTrials.length,
+      audioOnly: selectedTrials.filter(t => t.isAudioOnly).length,
+      missingImageUrl: selectedTrials.filter(t => !t.imageUrl && !t.isAudioOnly).length,
+      sampleTrials: selectedTrials.slice(0, 3).map(t => ({
+        target: t.target,
+        hasImageUrl: !!t.imageUrl,
+        isAudioOnly: !!t.isAudioOnly,
+        imageUrlPreview: t.imageUrl?.substring(0, 50),
+      })),
+    });
+
+    // If no valid photo trials and not in phoneme-targeted mode, fallback to PHOTO_BANK
+    if (validPhotoTrials.length === 0 && !(lessonFocusPhonemes && lessonFocusPhonemes.length > 0)) {
+      console.warn('⚠️ No valid photo trials found! Falling back to PHOTO_BANK');
+      selectedTrials = shuffleArray([...PHOTO_BANK]).slice(0, totalTrials);
+      console.log('📸 Fallback applied:', {
+        newTrialCount: selectedTrials.length,
+        sampleTargets: selectedTrials.slice(0, 3).map(t => t.target),
+      });
     }
 
     setTrials(selectedTrials);
