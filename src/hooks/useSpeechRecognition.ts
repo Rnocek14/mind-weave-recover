@@ -105,10 +105,10 @@ export const useSpeechRecognition = (
       }
       
       if (event.error === 'no-speech') {
-        // Auto-restart if continuous listening is enabled
-        if (continuousListening && noSpeechCountRef.current < 5 && !manuallyStoppedRef.current) {
+        // Auto-restart if continuous listening is enabled (increased limit for phrase practice)
+        if (continuousListening && noSpeechCountRef.current < 15 && !manuallyStoppedRef.current) {
           noSpeechCountRef.current += 1;
-          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, ')');
+          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, '/15)');
           
           // Clear any existing restart timeout
           if (restartTimeoutRef.current) {
@@ -162,8 +162,8 @@ export const useSpeechRecognition = (
         pendingTranscriptRef.current = '';
       }
       
-      // Auto-restart for continuous mode if not manually stopped
-      if (continuousListening && !manuallyStoppedRef.current && wasListening && noSpeechCountRef.current < 5) {
+      // Auto-restart for continuous mode if not manually stopped (increased limit)
+      if (continuousListening && !manuallyStoppedRef.current && wasListening && noSpeechCountRef.current < 15) {
         console.log('🎤 Scheduling auto-restart for continuous listening...');
         
         // Use cooldown timeout to prevent race
