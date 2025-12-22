@@ -56,6 +56,7 @@ const PATIENT_GAME_INFO: Record<string, GameInfo> = {
   'semantic-features': { emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are', difficulty: 'medium', category: 'thinking' },
   'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes', difficulty: 'challenge', category: 'thinking' },
   'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech' },
+  'minimal-pairs': { emoji: '👂', name: 'Minimal Pairs', desc: 'Hear and choose the right word', difficulty: 'medium', category: 'speech' },
 };
 
 // Route map for exercises
@@ -68,6 +69,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'semantic-features': '/exercise/semantic-features',
   'sentence-construction': '/exercise/sentence-construction',
   'phrase-practice': '/exercise/word-practice',
+  'minimal-pairs': '/exercise/minimal-pairs',
 };
 
 function getPatientViewState(
