@@ -129,3 +129,27 @@ export async function pronunciationHealth(): Promise<PronunciationHealthStatus> 
   
   return response.json();
 }
+
+export type ProcessPendingResult = {
+  ok: boolean;
+  processed: number;
+  failed: number;
+  message: string;
+};
+
+export async function pipelineOpsProcessPending(limit = 50): Promise<ProcessPendingResult> {
+  const headers = await getAuthHeaders();
+  
+  const response = await fetch(`${FUNCTIONS_URL}/pipeline-ops/process-pending-azure`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ limit }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Process pending failed: ${response.status} - ${errorText}`);
+  }
+  
+  return response.json();
+}
