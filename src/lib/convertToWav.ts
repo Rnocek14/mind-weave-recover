@@ -8,6 +8,8 @@
  * Returns structured errors matching DB diagnostics schema.
  */
 
+const TARGET_SAMPLE_RATE = 16000;
+
 export interface WavConversionResult {
   ok: true;
   wavBlob: Blob;
@@ -24,7 +26,8 @@ export interface WavConversionResult {
 export interface WavConversionError {
   ok: false;
   error: {
-    stage: 'validation' | 'decode' | 'resample' | 'encode' | 'unexpected' | 'timeout';
+    stage: 'wav_conversion';  // Pipeline stage for DB consistency
+    workerStage?: string;     // Internal detail (validation, decode, resample, encode, timeout, unexpected)
     message: string;
     details?: Record<string, unknown>;
   };
@@ -37,7 +40,7 @@ let worker: Worker | null = null;
 let requestId = 0;
 const pendingRequests = new Map<number, { 
   resolve: (result: WavConversionOutcome) => void; 
-  timeoutId: NodeJS.Timeout;
+  timeoutId: ReturnType<typeof setTimeout>;  // Browser-compatible type
 }>();
 
 /**
@@ -48,7 +51,7 @@ function getWorker(): Worker {
     console.log('🎵 [WAV] Initializing Web Worker...');
     worker = new Worker('/wav-converter.worker.js');
     worker.onmessage = (e) => {
-      const { id, success, wavBuffer, error, stats, timingsMs } = e.data;
+      const { id, ok, wavBuffer, error, stats, timingsMs } = e.data;
       const pending = pendingRequests.get(id);
       if (!pending) {
         console.warn('🎵 [WAV] Received message for unknown request:', id);
@@ -58,7 +61,7 @@ function getWorker(): Worker {
       clearTimeout(pending.timeoutId);
       pendingRequests.delete(id);
       
-      if (success) {
+      if (ok) {
         console.log('🎵 [WAV] Worker conversion success:', { stats, timingsMs });
         pending.resolve({
           ok: true,
@@ -70,7 +73,11 @@ function getWorker(): Worker {
         console.error('🎵 [WAV] Worker conversion failed:', error);
         pending.resolve({
           ok: false,
-          error: typeof error === 'object' ? error : { stage: 'unexpected', message: error || 'Unknown error' },
+          error: { 
+            stage: 'wav_conversion',
+            workerStage: typeof error === 'object' ? error.workerStage : 'unexpected',
+            message: typeof error === 'object' ? error.message : (error || 'Unknown error')
+          },
           timingsMs
         });
       }
@@ -83,7 +90,7 @@ function getWorker(): Worker {
         console.error('🎵 [WAV] Rejecting pending request', id);
         pending.resolve({
           ok: false,
-          error: { stage: 'unexpected', message: `Worker crashed: ${e.message || 'Unknown error'}` }
+          error: { stage: 'wav_conversion', workerStage: 'unexpected', message: `Worker crashed: ${e.message || 'Unknown error'}` }
         });
       });
       pendingRequests.clear();
@@ -107,7 +114,7 @@ export async function convertBlobToWavWithDiagnostics(blob: Blob): Promise<WavCo
   if (blob.size === 0) {
     return {
       ok: false,
-      error: { stage: 'validation', message: 'Cannot convert empty audio blob' }
+      error: { stage: 'wav_conversion', workerStage: 'validation', message: 'Cannot convert empty audio blob' }
     };
   }
   
@@ -120,19 +127,23 @@ export async function convertBlobToWavWithDiagnostics(blob: Blob): Promise<WavCo
     return {
       ok: false,
       error: { 
-        stage: 'validation', 
+        stage: 'wav_conversion',
+        workerStage: 'validation', 
         message: `Failed to read audio blob: ${bufferError instanceof Error ? bufferError.message : 'Unknown error'}` 
       }
     };
   }
   
-  // Try worker first for non-blocking conversion
-  const workerResult = await convertWithWorker(arrayBuffer);
+  // CRITICAL: Copy buffer for worker, keep original for fallback
+  // Worker transfer detaches the buffer (byteLength becomes 0)
+  const workerBuffer = arrayBuffer.slice(0);
+  const workerResult = await convertWithWorker(workerBuffer);
+  
   if (workerResult.ok) {
     return workerResult;
   }
   
-  // TypeScript narrowing: workerResult is WavConversionError here
+  // Worker failed - fallback using ORIGINAL buffer (not detached)
   const workerError = workerResult as WavConversionError;
   console.warn('🎵 [WAV] Worker conversion failed, falling back to main thread:', workerError.error);
   return await convertOnMainThread(arrayBuffer);
@@ -144,9 +155,8 @@ export async function convertBlobToWavWithDiagnostics(blob: Blob): Promise<WavCo
 export async function convertBlobToWav(blob: Blob): Promise<Blob> {
   const result = await convertBlobToWavWithDiagnostics(blob);
   if (!result.ok) {
-    // TypeScript narrowing: result is WavConversionError here
     const errorResult = result as WavConversionError;
-    throw new Error(`${errorResult.error.stage}: ${errorResult.error.message}`);
+    throw new Error(`${errorResult.error.workerStage || 'wav_conversion'}: ${errorResult.error.message}`);
   }
   return result.wavBlob;
 }
@@ -166,7 +176,7 @@ function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<WavConversionOutco
         pendingRequests.delete(id);
         const errorResult: WavConversionError = {
           ok: false,
-          error: { stage: 'timeout', message: 'WAV conversion timeout after 15 seconds' },
+          error: { stage: 'wav_conversion', workerStage: 'timeout', message: 'WAV conversion timeout after 15 seconds' },
           timingsMs: { total: 15000 }
         };
         resolve(errorResult);
@@ -177,8 +187,8 @@ function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<WavConversionOutco
     
     try {
       const w = getWorker();
-      // Transfer ownership - worker gets the buffer, we don't need it anymore
-      // This avoids copying and reduces memory usage
+      // Transfer ownership - worker gets the buffer
+      // Caller already made a copy, so this buffer can be transferred
       w.postMessage({ arrayBuffer, id }, [arrayBuffer]);
       console.log('🎵 [WAV] Message posted to worker (transferred)', { id });
     } catch (error) {
@@ -187,7 +197,7 @@ function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<WavConversionOutco
       pendingRequests.delete(id);
       const errorResult: WavConversionError = {
         ok: false,
-        error: { stage: 'unexpected', message: `Worker postMessage failed: ${error instanceof Error ? error.message : 'Unknown error'}` }
+        error: { stage: 'wav_conversion', workerStage: 'unexpected', message: `Worker postMessage failed: ${error instanceof Error ? error.message : 'Unknown error'}` }
       };
       resolve(errorResult);
     }
@@ -196,18 +206,18 @@ function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<WavConversionOutco
 
 /**
  * Fallback: Convert on main thread (blocking but reliable)
+ * CRITICAL: Must resample to 16kHz using OfflineAudioContext
  */
 async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConversionOutcome> {
   console.log('🎵 [WAV] Main thread conversion starting...', { byteLength: arrayBuffer.byteLength });
-  const TARGET_SAMPLE_RATE = 16000;
   const startTime = performance.now();
   const timings = { decode: 0, resample: 0, encode: 0, total: 0 };
   
-  // Use OfflineAudioContext for better compatibility
   let audioContext: AudioContext | null = null;
   
   try {
-    audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+    // Step 1: Decode using standard AudioContext (don't specify sampleRate - it won't resample)
+    audioContext = new AudioContext();
     console.log('🎵 [WAV] AudioContext created', { sampleRate: audioContext.sampleRate });
     
     // Clone buffer since decodeAudioData detaches it
@@ -230,19 +240,42 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
       console.error('🎵 [WAV] decodeAudioData failed:', decodeError);
       return {
         ok: false,
-        error: { stage: 'decode', message: `Failed to decode audio: ${decodeError instanceof Error ? decodeError.message : 'Unknown error'}` },
+        error: { stage: 'wav_conversion', workerStage: 'decode', message: `Failed to decode audio: ${decodeError instanceof Error ? decodeError.message : 'Unknown error'}` },
         timingsMs: timings
       };
     }
     
+    // Step 2: Resample to 16kHz using OfflineAudioContext
+    // This is CRITICAL - AudioContext does NOT resample to its sampleRate
+    const resampleStart = performance.now();
+    const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
+    const offlineCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
+    
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+    
+    const resampledBuffer = await offlineCtx.startRendering();
+    const samples = resampledBuffer.getChannelData(0);
+    timings.resample = Math.round(performance.now() - resampleStart);
+    
+    console.log('🎵 [WAV] Audio resampled', {
+      originalSampleRate: audioBuffer.sampleRate,
+      outputSampleRate: resampledBuffer.sampleRate,
+      outputSamples: samples.length,
+      resampleMs: timings.resample
+    });
+    
+    // Step 3: Encode to WAV
     const encodeStart = performance.now();
-    const wavBuffer = encodeWav(audioBuffer);
+    const wavBuffer = encodeWavFromSamples(samples, TARGET_SAMPLE_RATE);
     timings.encode = Math.round(performance.now() - encodeStart);
     timings.total = Math.round(performance.now() - startTime);
     
     console.log('🎵 [WAV] Main thread conversion success:', {
       wavSize: wavBuffer.byteLength,
-      sampleRate: audioBuffer.sampleRate,
+      sampleRate: TARGET_SAMPLE_RATE,
       duration: audioBuffer.duration.toFixed(2) + 's',
       timingsMs: timings
     });
@@ -263,7 +296,7 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
     timings.total = Math.round(performance.now() - startTime);
     return {
       ok: false,
-      error: { stage: 'unexpected', message: error instanceof Error ? error.message : 'Unknown error' },
+      error: { stage: 'wav_conversion', workerStage: 'unexpected', message: error instanceof Error ? error.message : 'Unknown error' },
       timingsMs: timings
     };
   } finally {
@@ -278,24 +311,11 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
 }
 
 /**
- * Encode AudioBuffer as WAV (16-bit PCM)
+ * Encode Float32Array samples as WAV (16-bit PCM)
  */
-function encodeWav(audioBuffer: AudioBuffer): ArrayBuffer {
+function encodeWavFromSamples(samples: Float32Array, sampleRate: number): ArrayBuffer {
   const numChannels = 1;
-  const sampleRate = audioBuffer.sampleRate;
   const bitsPerSample = 16;
-  
-  let samples: Float32Array;
-  if (audioBuffer.numberOfChannels === 1) {
-    samples = audioBuffer.getChannelData(0);
-  } else {
-    const left = audioBuffer.getChannelData(0);
-    const right = audioBuffer.getChannelData(1);
-    samples = new Float32Array(left.length);
-    for (let i = 0; i < left.length; i++) {
-      samples[i] = (left[i] + right[i]) / 2;
-    }
-  }
   
   const numSamples = samples.length;
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
