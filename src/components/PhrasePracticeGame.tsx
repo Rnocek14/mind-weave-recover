@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -17,8 +17,10 @@ import { buildShadowEvent, toUtteranceAnalysis, type UtteranceAnalysis, type Sha
 import { classifySpeechError } from '@/lib/errorClassifier';
 import { calculateEncouragementScore } from '@/lib/feedbackGenerator';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 
 interface PhrasePracticeGameProps {
@@ -80,6 +82,7 @@ export const PhrasePracticeGame = ({
   const { toast } = useToast();
   const { playSuccess, playError } = useGameSounds();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
@@ -88,6 +91,7 @@ export const PhrasePracticeGame = ({
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(0);
+  const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const [attempts, setAttempts] = useState(0);
   const [isListeningMode, setIsListeningMode] = useState(true);
   const [currentWordAccuracy, setCurrentWordAccuracy] = useState(0);
@@ -99,12 +103,25 @@ export const PhrasePracticeGame = ({
   const processingResultRef = useRef(false);
   
   // Auto-create session for standalone games
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
     user?.id,
     sessionId,
     CANONICAL_SLUGS.PHRASE_PRACTICE
   );
   
+  // Session lifecycle - guaranteed cleanup on unmount, pagehide, visibility timeout
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
+    exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
+    getSessionStats: useCallback(() => ({
+      score,
+      totalTrials: currentTrialIndex + 1,
+      startTime: sessionStartTime,
+    }), [score, currentTrialIndex, sessionStartTime]),
+  });
+
   // Proper attempt-based utterance logging (no duplicates)
   const { 
     currentAttemptId, 
@@ -530,7 +547,8 @@ export const PhrasePracticeGame = ({
     processingResultRef.current = false;
     
     if (currentTrialIndex + 1 >= trials.length) {
-      // Game complete
+      // Game complete - end session properly
+      completeSession();
       onGameComplete?.(score, currentDifficulty);
       return;
     }

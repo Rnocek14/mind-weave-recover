@@ -1,0 +1,193 @@
+import { useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { endSession, SessionSummary } from '@/lib/sessionTracking';
+
+type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
+
+interface SessionLifecycleOptions {
+  /** Session ID to manage */
+  sessionId: string | null | undefined;
+  /** User ID for validation */
+  userId: string | undefined;
+  /** Profile ID for validation */
+  profileId: string | undefined;
+  /** Exercise slug for logging */
+  exerciseSlug: string;
+  /** Get current session stats for summary */
+  getSessionStats: () => { score: number; totalTrials: number; startTime: number };
+  /** Callback when session ends */
+  onSessionEnded?: (reason: EndedReason) => void;
+  /** Visibility hidden timeout (ms) before auto-ending - default 5 minutes */
+  visibilityTimeoutMs?: number;
+}
+
+/**
+ * Hook to manage session lifecycle with guaranteed cleanup.
+ * Handles: unmount, pagehide, visibility change, and manual completion.
+ * 
+ * Key features:
+ * - Idempotent: Safe to call end multiple times
+ * - Captures context at mount time to prevent stale closures
+ * - Works on iOS Safari (pagehide) and all browsers
+ */
+export const useSessionLifecycle = ({
+  sessionId,
+  userId,
+  profileId,
+  exerciseSlug,
+  getSessionStats,
+  onSessionEnded,
+  visibilityTimeoutMs = 5 * 60 * 1000, // 5 minutes
+}: SessionLifecycleOptions) => {
+  // Capture values at mount time to prevent stale closure issues
+  const sessionRef = useRef<string | null>(null);
+  const userRef = useRef<string | undefined>(undefined);
+  const profileRef = useRef<string | undefined>(undefined);
+  const endedRef = useRef(false);
+  const visibilityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const getStatsRef = useRef(getSessionStats);
+  
+  // Update refs when values change
+  useEffect(() => {
+    sessionRef.current = sessionId ?? null;
+    userRef.current = userId;
+    profileRef.current = profileId;
+    getStatsRef.current = getSessionStats;
+  }, [sessionId, userId, profileId, getSessionStats]);
+  
+  /**
+   * End session with reason tracking - idempotent
+   */
+  const endSessionWithReason = useCallback(async (reason: EndedReason) => {
+    const sid = sessionRef.current;
+    
+    // Guard: already ended or no session
+    if (endedRef.current || !sid) {
+      console.log(`[SessionLifecycle] Skip end - already ended: ${endedRef.current}, sessionId: ${sid}`);
+      return;
+    }
+    
+    // Mark as ended immediately to prevent race conditions
+    endedRef.current = true;
+    
+    try {
+      const stats = getStatsRef.current();
+      const durationSec = Math.floor((Date.now() - stats.startTime) / 1000);
+      
+      console.log(`[SessionLifecycle] Ending session`, {
+        sessionId: sid,
+        reason,
+        durationSec,
+        score: stats.score,
+        trials: stats.totalTrials,
+        exerciseSlug,
+      });
+      
+      // Use direct update to include ended_reason (endSession helper doesn't support it)
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          ended_at: new Date().toISOString(),
+          duration_sec: durationSec,
+          summary: {
+            durationSec,
+            scores: { [exerciseSlug]: stats.score },
+            reps: stats.totalTrials,
+          },
+          ended_reason: reason,
+        })
+        .eq('id', sid)
+        .is('ended_at', null); // Only update if not already ended (idempotent)
+      
+      if (error) {
+        console.error(`[SessionLifecycle] Failed to end session:`, error);
+        // Reset flag to allow retry
+        endedRef.current = false;
+      } else {
+        console.log(`[SessionLifecycle] Session ended successfully: ${reason}`);
+        onSessionEnded?.(reason);
+      }
+    } catch (err) {
+      console.error(`[SessionLifecycle] Error ending session:`, err);
+      endedRef.current = false;
+    }
+  }, [exerciseSlug, onSessionEnded]);
+  
+  /**
+   * Complete session normally (user finished all trials)
+   */
+  const completeSession = useCallback(async () => {
+    await endSessionWithReason('completed');
+  }, [endSessionWithReason]);
+  
+  /**
+   * Manually end session (e.g., user clicks "Exit")
+   */
+  const abandonSession = useCallback(async () => {
+    await endSessionWithReason('abandoned');
+  }, [endSessionWithReason]);
+  
+  // Setup cleanup handlers on mount
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    // Reset ended flag for new session
+    endedRef.current = false;
+    
+    // Handle pagehide (works reliably on iOS Safari)
+    const handlePageHide = () => {
+      console.log('[SessionLifecycle] pagehide event');
+      endSessionWithReason('pagehide');
+    };
+    
+    // Handle visibility change (tab switch, minimize)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        console.log('[SessionLifecycle] Page hidden, starting timeout');
+        // Start timer to end session if hidden too long
+        visibilityTimerRef.current = setTimeout(() => {
+          console.log('[SessionLifecycle] Visibility timeout reached');
+          endSessionWithReason('visibility_timeout');
+        }, visibilityTimeoutMs);
+      } else {
+        // Page visible again, clear timer
+        if (visibilityTimerRef.current) {
+          console.log('[SessionLifecycle] Page visible, clearing timeout');
+          clearTimeout(visibilityTimerRef.current);
+          visibilityTimerRef.current = null;
+        }
+      }
+    };
+    
+    // Add event listeners
+    window.addEventListener('pagehide', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
+      if (visibilityTimerRef.current) {
+        clearTimeout(visibilityTimerRef.current);
+      }
+      
+      // End session on unmount if not already ended
+      if (!endedRef.current && sessionRef.current) {
+        console.log('[SessionLifecycle] Unmount cleanup');
+        endSessionWithReason('unmount');
+      }
+    };
+  }, [sessionId, endSessionWithReason, visibilityTimeoutMs]);
+  
+  return {
+    /** Call when user completes all trials */
+    completeSession,
+    /** Call when user explicitly exits/abandons */
+    abandonSession,
+    /** Check if session has been ended */
+    isEnded: () => endedRef.current,
+    /** Force end with custom reason */
+    endWithReason: endSessionWithReason,
+  };
+};

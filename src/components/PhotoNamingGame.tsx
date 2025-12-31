@@ -22,6 +22,7 @@ import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -95,6 +96,7 @@ export const PhotoNamingGame = ({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
+  const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -174,12 +176,25 @@ export const PhotoNamingGame = ({
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // FIX 1: Auto-create session for standalone games (use canonical slug)
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
     user?.id,
     sessionId,
     CANONICAL_SLUGS.PHOTO_NAMING
   );
   
+  // FIX 2: Session lifecycle - guaranteed cleanup on unmount, pagehide, visibility timeout
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
+    exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+    getSessionStats: useCallback(() => ({
+      score: state.score,
+      totalTrials: state.trialNumber,
+      startTime: sessionStartTime,
+    }), [state.score, state.trialNumber, sessionStartTime]),
+  });
+
   // Proper attempt-based utterance logging (no duplicates)
   const { 
     currentAttemptId, 
@@ -782,16 +797,18 @@ export const PhotoNamingGame = ({
     }
   }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, startAttempt, triggerAutoCue, isPlayingChoices, isCreatingSession]);
 
-  // Handle game completion
+  // Handle game completion - end session properly
   useEffect(() => {
     if (state.isComplete) {
       console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
         score: state.score,
         gameType: 'PhotoNaming'
       });
+      // End session with proper reason tracking
+      completeSession();
       onGameComplete(state.score);
     }
-  }, [state.isComplete, state.score, onGameComplete]);
+  }, [state.isComplete, state.score, onGameComplete, completeSession]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
