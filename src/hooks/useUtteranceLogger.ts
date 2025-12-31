@@ -33,7 +33,9 @@ export type FluencyUnavailableReason =
   | 'not_authed' 
   | 'permission_denied' 
   | 'recorder_error'
-  | 'analysis_error';
+  | 'analysis_error'
+  | 'wav_conversion_failed'
+  | 'azure_api_error';
 
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
@@ -76,6 +78,8 @@ interface UtteranceLoggerReturn {
       word_segments: { word: string; start: number; end: number }[];
       phone_segments: { phone: string; start: number; end: number }[];
     };
+    // Pronunciation analysis error tracking
+    pronunciationError?: string;
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -182,6 +186,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       word_segments: { word: string; start: number; end: number }[];
       phone_segments: { phone: string; start: number; end: number }[];
     };
+    // Pronunciation analysis error tracking
+    pronunciationError?: string;
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -276,6 +282,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         } : null),
         // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
         analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
+        // Track pronunciation analysis errors for debugging
+        error_message: analysis.pronunciationError || null,
         // Clear worker queue fields when Azure provides data
         locked_at: analysis.gopData ? null : undefined,
         locked_by: analysis.gopData ? null : undefined,
