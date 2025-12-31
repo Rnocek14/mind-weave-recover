@@ -67,7 +67,8 @@ export const SentenceConstructionGame = ({
     clearAnswer,
     submitAnswer,
     nextTrial,
-    getWeakestGrammarArea
+    getWeakestGrammarArea,
+    getAnswerAsWords
   } = useSentenceGame(10, difficultyLevel);
 
   const { speak, stop, isLoading, error } = useTextToSpeech();
@@ -113,20 +114,26 @@ export const SentenceConstructionGame = ({
     nextTrial(difficultyLevel);
   };
 
-  const getAvailableWords = (): string[] => {
+  // Returns available words with their original indices (handles duplicate words correctly)
+  const getAvailableWords = (): Array<{ word: string; index: number }> => {
     if (!trial) return [];
 
-    // For reordering tasks, show words that haven't been selected
+    // For reordering tasks, show words whose INDEX hasn't been selected
     if (trial.taskType === "word_order" || trial.taskType === "sentence_reorder") {
-      return trial.options.filter(word => !currentAnswer.includes(word));
+      return trial.options
+        .map((word, index) => ({ word, index }))
+        .filter(item => !currentAnswer.includes(item.index));
     }
 
-    // For other tasks, show all options
-    return trial.options;
+    // For other tasks, show all options with indices
+    return trial.options.map((word, index) => ({ word, index }));
   };
 
   const renderSentenceTemplate = () => {
     if (!trial) return null;
+
+    // Get words from indices for display
+    const answerWords = getAnswerAsWords();
 
     if (trial.sentenceTemplate) {
       const parts = trial.sentenceTemplate.split("___");
@@ -137,7 +144,7 @@ export const SentenceConstructionGame = ({
               {part}
               {idx < parts.length - 1 && (
                 <span className="inline-flex items-center justify-center min-w-[120px] h-10 px-4 mx-2 bg-muted border-2 border-dashed border-primary rounded-lg">
-                  {currentAnswer[0] || "___"}
+                  {answerWords[0] || "___"}
                 </span>
               )}
             </span>
@@ -146,13 +153,13 @@ export const SentenceConstructionGame = ({
       );
     }
 
-    // For reordering tasks, show constructed sentence
+    // For reordering tasks, show constructed sentence using actual words
     return (
       <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
-        {currentAnswer.length === 0 ? (
+        {answerWords.length === 0 ? (
           <span className="text-muted-foreground">Tap words below to build your sentence</span>
         ) : (
-          currentAnswer.map((word, idx) => (
+          answerWords.map((word, idx) => (
             <Badge key={idx} variant="secondary" className="text-base px-3 py-1">
               {word}
             </Badge>
@@ -267,22 +274,22 @@ export const SentenceConstructionGame = ({
                 : "Select the correct word:"}
             </p>
             <div className="flex flex-wrap gap-3">
-              {getAvailableWords().map((word, idx) => (
+              {getAvailableWords().map((item) => (
                 <Button
-                  key={`${word}-${idx}`}
-                  variant={currentAnswer.includes(word) ? "default" : "outline"}
+                  key={item.index}
+                  variant={currentAnswer.includes(item.index) ? "default" : "outline"}
                   size="lg"
-                  onClick={() => selectWord(word)}
+                  onClick={() => selectWord(item.index)}
                   disabled={
                     showFeedback ||
-                    (currentAnswer.includes(word) && 
+                    (currentAnswer.includes(item.index) && 
                       (trial.taskType === "fill_function" || 
                        trial.taskType === "verb_agreement" || 
                        trial.taskType === "cloze_picture"))
                   }
                   className="text-base"
                 >
-                  {word}
+                  {item.word}
                 </Button>
               ))}
             </div>
