@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.analyze-pronunciation]
 verify_jwt = false
+
+[functions.sweep-stale-sessions]
+verify_jwt = false

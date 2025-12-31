@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PatternMatchGame } from '@/components/PatternMatchGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, SkipForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -68,7 +69,7 @@ export default function PatternMatchExercise() {
           user_id: user.id,
           profile_id: profile?.id,
           session_id: sessionId,
-          exercise_slug: 'pattern-match',
+          exercise_slug: CANONICAL_SLUGS.PATTERN_MATCH,
           skip_reason: 'too_difficult',
           from_lesson: fromLesson,
           clinical_snapshot: profile?.clinical_profile
