@@ -10,6 +10,7 @@ import { useExerciseConfig } from "@/hooks/useExerciseConfig";
 import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
+import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
 import { ExerciseAdaptationBanner } from "@/components/ExerciseAdaptationBanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -177,7 +178,7 @@ const SentenceConstructionExercise = () => {
           user_id: user.id,
           profile_id: profile?.id,
           session_id: sessionId,
-          exercise_slug: 'sentence-construction',
+          exercise_slug: CANONICAL_SLUGS.SENTENCE_CONSTRUCTION,
           skip_reason: 'too_difficult',
           from_lesson: fromLesson,
           clinical_snapshot: profile?.clinical_profile

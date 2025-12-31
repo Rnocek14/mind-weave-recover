@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -46,8 +47,10 @@ export interface TrialData {
 
 export const useExerciseTelemetry = (
   sessionId: string | null,
-  exerciseSlug: string
+  rawExerciseSlug: string
 ) => {
+  // Normalize slug at entry point
+  const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   const [trialNumber, setTrialNumber] = useState(0);
   const [trialStartTime, setTrialStartTime] = useState<number | null>(null);
 

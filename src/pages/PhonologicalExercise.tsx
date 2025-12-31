@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PhonologicalGame } from '@/components/PhonologicalGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -88,7 +89,7 @@ export default function PhonologicalExercise() {
           user_id: user.id,
           profile_id: profile?.id,
           session_id: sessionId,
-          exercise_slug: 'phonological-awareness',
+          exercise_slug: CANONICAL_SLUGS.PHONOLOGICAL,
           skip_reason: 'too_difficult',
           from_lesson: fromLesson,
           clinical_snapshot: profile?.clinical_profile

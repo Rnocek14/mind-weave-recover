@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -398,7 +399,7 @@ export default function PhotoNamingExercise() {
           user_id: user.id,
           profile_id: profile?.id,
           session_id: sessionId,
-          exercise_slug: 'photo_naming',
+          exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
           skip_reason: 'too_difficult',
           from_lesson: fromLesson,
           clinical_snapshot: profile?.clinical_profile

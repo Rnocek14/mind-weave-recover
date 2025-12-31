@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useExerciseGating } from "./useExerciseGating";
 import { getCapabilityDifficultyBounds, clampToBounds } from "@/lib/difficultyBounds";
+import { normalizeExerciseSlug } from "@/lib/exerciseSlugNormalizer";
 
 type ExerciseDifficulty = {
   level: number;
@@ -78,7 +79,7 @@ export const useExerciseDifficulty = (
     try {
       await supabase.from('exercise_events').insert({
         session_id: sessionId ?? null,
-        exercise_slug: exerciseSlug,
+        exercise_slug: normalizeExerciseSlug(exerciseSlug),
         round: 0,
         score: null,
         inputs: { action: 'step_down', from_level: level, to_level: next },
