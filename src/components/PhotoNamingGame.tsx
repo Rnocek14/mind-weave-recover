@@ -158,6 +158,7 @@ export const PhotoNamingGame = ({
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
+  const cueVisibleRef = useRef(false); // Track if cue should stay visible this trial (sticky cues)
   
   // Refs for stall timer closure safety (avoid reading stale state)
   const showFeedbackRef = useRef(showFeedback);
@@ -279,6 +280,7 @@ export const PhotoNamingGame = ({
     setShowCue(true);
     setStallDetected(false);
     autoCueShownThisTrialRef.current = true;
+    cueVisibleRef.current = true; // Mark cue as sticky - prevents effect from hiding it
     
     // Map cueType for logging
     const cueType: 'semantic' | 'phonemic' | 'full_word' = 
@@ -656,15 +658,27 @@ export const PhotoNamingGame = ({
   };
 
 
-  // Start timing new trial and reset state
+  // =========================================================================
+  // SEPARATE EFFECT: Reset cue state ONLY when trial number changes
+  // This prevents the main trial effect from hiding cues on every re-render
+  // =========================================================================
+  useEffect(() => {
+    console.log('🔄 Trial number changed - resetting cue state for trial:', state.trialNumber);
+    setCueLevel(0);
+    setShowCue(false);
+    setCurrentCueText('');
+    autoCueShownThisTrialRef.current = false;
+    cueVisibleRef.current = false;
+    setStallDetected(false);
+  }, [state.trialNumber]); // ONLY trialNumber - no other dependencies
+
+  // Start timing new trial and reset state (excluding cue state which is handled above)
   useEffect(() => {
     if (state.currentTrial && !showFeedback) {
       setTrialStartTime(Date.now());
       setSelectedAnswer(null);
       setTimedOut(false);
-      setCueLevel(0);
-      setShowCue(false);
-      setCurrentCueText('');
+      // REMOVED: setCueLevel(0), setShowCue(false), setCurrentCueText('') - now in separate effect
       setLastHeardText(null); // Reset "last heard" for new trial
       setProcessingAnswer(false); // Reset processing state
       
@@ -701,10 +715,6 @@ export const PhotoNamingGame = ({
         startRecording();
         console.log('🎙️ Recording started for session:', activeSessionId);
       }
-      
-      // Reset per-trial cue tracking on new trial
-      autoCueShownThisTrialRef.current = false;
-      setStallDetected(false);
       
       // Start stall detection timer (3 seconds of hesitation)
       // Only start when trial is ready for user response
