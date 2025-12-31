@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { ExerciseModality } from './exerciseSlugNormalizer';
+import { ExerciseModality, normalizeExerciseSlug } from './exerciseSlugNormalizer';
 
 export interface SessionPlan {
   blocks: Array<{
@@ -70,6 +70,10 @@ export const startSession = async (
   return data;
 };
 
+/**
+ * Track a round/trial in an exercise session.
+ * IMPORTANT: exerciseSlug is normalized before writing to ensure consistency.
+ */
 export const trackRound = async (
   sessionId: string, 
   exerciseSlug: string, 
@@ -78,11 +82,14 @@ export const trackRound = async (
   inputs?: any,
   outputs?: any
 ) => {
+  // Normalize slug at write boundary
+  const normalizedSlug = normalizeExerciseSlug(exerciseSlug);
+  
   const { error } = await supabase
     .from('exercise_events')
     .insert({
       session_id: sessionId,
-      exercise_slug: exerciseSlug,
+      exercise_slug: normalizedSlug,
       round,
       score,
       inputs: inputs || {},

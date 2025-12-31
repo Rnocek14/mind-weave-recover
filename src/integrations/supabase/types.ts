@@ -1117,6 +1117,7 @@ export type Database = {
           caregiver_notes: string | null
           duration_sec: number | null
           ended_at: string | null
+          ended_reason: string | null
           engagement_summary: Json | null
           id: string
           mood_rating: number | null
@@ -1130,6 +1131,7 @@ export type Database = {
           caregiver_notes?: string | null
           duration_sec?: number | null
           ended_at?: string | null
+          ended_reason?: string | null
           engagement_summary?: Json | null
           id?: string
           mood_rating?: number | null
@@ -1143,6 +1145,7 @@ export type Database = {
           caregiver_notes?: string | null
           duration_sec?: number | null
           ended_at?: string | null
+          ended_reason?: string | null
           engagement_summary?: Json | null
           id?: string
           mood_rating?: number | null
