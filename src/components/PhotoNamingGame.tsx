@@ -58,6 +58,26 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
+// Debounced mic status - only show "mic paused" after 2s of being off
+const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
+  const [showMicPaused, setShowMicPaused] = useState(false);
+  
+  useEffect(() => {
+    if (isListening) {
+      setShowMicPaused(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setShowMicPaused(true);
+    }, delayMs);
+    
+    return () => clearTimeout(timer);
+  }, [isListening, delayMs]);
+  
+  return showMicPaused;
+};
+
 export const PhotoNamingGame = ({
   totalTrials = 10,
   initialDifficulty = 1,
@@ -446,6 +466,18 @@ export const PhotoNamingGame = ({
     isSupported,
     error: speechError 
   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
+  
+  // Debounce mic status to prevent flickering during auto-restart cycles
+  const showMicPausedHint = useDebouncedMicStatus(isListening, 2000);
+  
+  // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
+  useEffect(() => {
+    if (transcript && stallTimerRef.current) {
+      console.log('🎤 Speech activity detected - resetting stall timer');
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+  }, [transcript]);
   
   // Centralized safe startListening to prevent race conditions
   const safeStartListening = useCallback((delayMs: number = 0) => {
@@ -1695,9 +1727,9 @@ export const PhotoNamingGame = ({
         </div>
       )}
       
-      {/* Phase 3: Visual indicator when voice is unexpectedly off */}
-      {useVoice && !isListening && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-warning/10 border border-warning rounded-lg text-sm">
+      {/* Phase 3: Visual indicator when voice is unexpectedly off - debounced to prevent flickering */}
+      {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-warning/10 border border-warning rounded-lg text-sm animate-fade-in">
           <AlertCircle className="w-4 h-4 text-warning" />
           <span className="text-warning">Voice paused - tap the mic to restart</span>
         </div>
