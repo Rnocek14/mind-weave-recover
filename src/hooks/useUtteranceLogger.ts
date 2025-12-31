@@ -16,6 +16,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 interface AttemptContext {
   attemptId: string;
+  pronRequestId: string; // Always generated - correlation ID for all pronunciation tracing
   sessionId: string;
   userId: string;
   exerciseSlug: string;
@@ -49,7 +50,7 @@ export interface PronunciationDiagnostics {
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   isFinalized: boolean;
-  startAttempt: (context: Omit<AttemptContext, 'attemptId' | 'startedAt'>) => string;
+  startAttempt: (context: Omit<AttemptContext, 'attemptId' | 'pronRequestId' | 'startedAt'>) => { attemptId: string; pronRequestId: string };
   logBrowserTranscript: (transcript: string) => void;
   logFinalAnalysis: (analysis: {
     transcript?: string;
@@ -104,9 +105,11 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
 
   /**
    * Start a new attempt - call this when a new trial begins
+   * Returns { attemptId, pronRequestId } for correlation
    */
-  const startAttempt = useCallback((context: Omit<AttemptContext, 'attemptId' | 'startedAt'>): string => {
+  const startAttempt = useCallback((context: Omit<AttemptContext, 'attemptId' | 'pronRequestId' | 'startedAt'>): { attemptId: string; pronRequestId: string } => {
     const attemptId = crypto.randomUUID();
+    const pronRequestId = crypto.randomUUID(); // Always generate - even if pronunciation is skipped
     
     // Normalize the exercise slug for consistent analytics
     const normalizedSlug = normalizeExerciseSlug(context.exerciseSlug);
@@ -115,6 +118,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       ...context,
       exerciseSlug: normalizedSlug,
       attemptId,
+      pronRequestId,
       startedAt: Date.now()
     };
     
@@ -125,6 +129,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     
     console.log('📝 [UtteranceLogger] New attempt started:', {
       attemptId,
+      pronRequestId,
       target: context.targetWord,
       slug: normalizedSlug,
       sessionId: context.sessionId,
@@ -132,7 +137,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       trialIndex: context.trialIndex
     });
     
-    return attemptId;
+    return { attemptId, pronRequestId };
   }, []);
 
   /**
@@ -248,15 +253,17 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       const hasPronSuccess = !!analysis.gopData;
       const hasPronError = !!analysis.pronunciationError || diag?.pronunciationStatus === 'failed';
       
-      // Determine pronunciation status
-      let pronunciationStatus: string | undefined;
+      // Determine pronunciation status - IMPORTANT: Don't use 'pending' unless there's a background processor
+      // Since pronunciation is computed inline, it's either complete, failed, or skipped
+      let pronunciationStatus: string;
       if (hasPronSuccess) {
         pronunciationStatus = 'complete';
       } else if (hasPronError) {
         pronunciationStatus = 'failed';
-      } else if (hasAudioForAnalysis) {
-        pronunciationStatus = 'pending';
+      } else if (!hasAudioForAnalysis) {
+        pronunciationStatus = 'skipped'; // No audio = intentionally didn't run
       } else {
+        // Had audio but no success/error = pronunciation was skipped (not attempted)
         pronunciationStatus = 'skipped';
       }
 
@@ -310,20 +317,23 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
           word_segments: analysis.gopData.alignmentData.word_segments,
           phone_segments: analysis.gopData.alignmentData.phone_segments
         } : null),
-        // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
-        analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
-        // Track pronunciation analysis errors for debugging (legacy field)
-        error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage}: failed` : null),
-        // Clear worker queue fields when Azure provides data
-        locked_at: analysis.gopData ? null : undefined,
-        locked_by: analysis.gopData ? null : undefined,
-        next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
-        analysis_priority: hasAudioForAnalysis ? 1 : 0,
+        // Pipeline status: Since Azure pronunciation is computed inline (not queued), 
+        // analysis_status is 'complete' when we have gop_data, otherwise depends on audio
+        analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'complete' : 'complete'),
+        // Keep error_message for legacy/overall attempt errors only
+        error_message: null, // Don't mix pronunciation errors here
+        // Clear worker queue fields - we don't use background processing for pronunciation anymore
+        locked_at: null,
+        locked_by: null,
+        next_retry_at: null,
+        analysis_priority: 0,
         
         // NEW: Structured pronunciation diagnostics for admin debugging
-        pron_request_id: diag?.pronRequestId,
+        // ALWAYS include pronRequestId from context (even if pronunciation was skipped)
+        pron_request_id: diag?.pronRequestId || ctx.pronRequestId,
         pronunciation_status: pronunciationStatus,
         pronunciation_error_stage: diag?.pronunciationErrorStage,
+        pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
         pronunciation_timings_ms: diag?.pronunciationTimingsMs,
         audio_meta: diag?.audioMeta
       };

@@ -1411,6 +1411,7 @@ export type Database = {
           pause_count: number | null
           phonological_similarity: number | null
           pron_request_id: string | null
+          pronunciation_error_message: string | null
           pronunciation_error_stage: string | null
           pronunciation_status: string | null
           pronunciation_timings_ms: Json | null
@@ -1466,6 +1467,7 @@ export type Database = {
           pause_count?: number | null
           phonological_similarity?: number | null
           pron_request_id?: string | null
+          pronunciation_error_message?: string | null
           pronunciation_error_stage?: string | null
           pronunciation_status?: string | null
           pronunciation_timings_ms?: Json | null
@@ -1521,6 +1523,7 @@ export type Database = {
           pause_count?: number | null
           phonological_similarity?: number | null
           pron_request_id?: string | null
+          pronunciation_error_message?: string | null
           pronunciation_error_stage?: string | null
           pronunciation_status?: string | null
           pronunciation_timings_ms?: Json | null

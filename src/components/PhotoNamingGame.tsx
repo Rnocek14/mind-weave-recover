@@ -205,6 +205,9 @@ export const PhotoNamingGame = ({
     resetAttempt 
   } = useUtteranceLogger();
   
+  // Track current pronRequestId for correlation (persists across async operations)
+  const currentPronRequestIdRef = useRef<string | null>(null);
+  
   // Track analysis state for UI feedback
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
@@ -880,7 +883,7 @@ export const PhotoNamingGame = ({
       });
       
       if (activeSessionId && user?.id) {
-        const attemptId = startAttempt({
+        const { attemptId, pronRequestId } = startAttempt({
           sessionId: activeSessionId,
           userId: user.id,
           exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
@@ -889,8 +892,10 @@ export const PhotoNamingGame = ({
           targetWord: state.currentTrial.target,
           category: state.currentTrial.category
         });
-        console.log('✅ [PhotoNaming] Attempt started:', attemptId);
+        currentPronRequestIdRef.current = pronRequestId; // Store for pronunciation analysis
+        console.log('✅ [PhotoNaming] Attempt started:', { attemptId, pronRequestId });
       } else {
+        currentPronRequestIdRef.current = null;
         console.warn('⚠️ [PhotoNaming] Cannot start attempt - missing session or user:', {
           activeSessionId,
           userId: user?.id

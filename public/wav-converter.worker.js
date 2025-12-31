@@ -3,92 +3,134 @@
  * Runs off main thread to prevent UI blocking during audio processing.
  * 
  * Azure Pronunciation Assessment requires 16kHz mono PCM WAV.
+ * 
+ * Returns structured stats/errors matching DB diagnostics schema.
  */
 
 const TARGET_SAMPLE_RATE = 16000;
 
 self.onmessage = async (e) => {
   const { arrayBuffer, id } = e.data;
+  const startTime = performance.now();
   
   console.log('[WAV Worker] Received request', { id, byteLength: arrayBuffer?.byteLength });
   
-  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+  // Structured error helper
+  const fail = (stage, message, details = {}) => {
+    const elapsed = Math.round(performance.now() - startTime);
+    console.error('[WAV Worker] Failed:', { id, stage, message, elapsed });
     self.postMessage({
       id,
       success: false,
-      error: 'Empty or missing audio data',
+      error: { stage, message, details },
+      timingsMs: { decode: details.decodeMs, resample: details.resampleMs, encode: details.encodeMs, total: elapsed },
     });
+  };
+  
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    fail('validation', 'Empty or missing audio data');
     return;
   }
   
+  // Track timings for diagnostics
+  const timings = { decode: 0, resample: 0, encode: 0, total: 0 };
+  
   try {
-    // Create AudioContext with target sample rate
-    console.log('[WAV Worker] Creating OfflineAudioContext...');
-    const audioContext = new OfflineAudioContext(1, 1, TARGET_SAMPLE_RATE);
+    // =========================================================================
+    // Step 1: DECODE - Use OfflineAudioContext properly
+    // =========================================================================
+    console.log('[WAV Worker] Step 1: Decoding...');
+    const decodeStart = performance.now();
     
-    // Decode the source audio
-    console.log('[WAV Worker] Decoding audio data...');
+    // Check for OfflineAudioContext support
+    if (typeof OfflineAudioContext === 'undefined') {
+      fail('decode', 'OfflineAudioContext not available in this worker context');
+      return;
+    }
+    
     let audioBuffer;
     try {
-      audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      // Create a PROPERLY SIZED context for decoding
+      // We estimate ~10 seconds max for speech samples; the actual buffer will be sized correctly after decode
+      // This avoids the "1 frame" bug that causes issues on Safari/iOS
+      const ESTIMATE_DURATION_SEC = 30; // Conservative upper bound
+      const ESTIMATE_SAMPLE_RATE = 48000; // Common source rate
+      const decodeCtx = new OfflineAudioContext(
+        2, // stereo to handle any input
+        Math.ceil(ESTIMATE_DURATION_SEC * ESTIMATE_SAMPLE_RATE),
+        ESTIMATE_SAMPLE_RATE
+      );
+      
+      audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+      timings.decode = Math.round(performance.now() - decodeStart);
+      
       console.log('[WAV Worker] Decoded:', { 
-        duration: audioBuffer.duration, 
+        duration: audioBuffer.duration.toFixed(2), 
         sampleRate: audioBuffer.sampleRate,
-        channels: audioBuffer.numberOfChannels 
+        channels: audioBuffer.numberOfChannels,
+        decodeMs: timings.decode
       });
     } catch (decodeError) {
-      console.error('[WAV Worker] decodeAudioData failed:', decodeError);
-      self.postMessage({
-        id,
-        success: false,
-        error: `Audio decode failed: ${decodeError.message || 'Unknown format'}`,
+      timings.decode = Math.round(performance.now() - decodeStart);
+      fail('decode', `decodeAudioData failed: ${decodeError.message || 'Unknown format'}`, { 
+        decodeMs: timings.decode,
+        errorType: decodeError.name 
       });
       return;
     }
     
-    // Resample to target rate if needed
+    // =========================================================================
+    // Step 2: RESAMPLE to 16kHz mono
+    // =========================================================================
+    console.log('[WAV Worker] Step 2: Resampling to', TARGET_SAMPLE_RATE);
+    const resampleStart = performance.now();
+    
     let samples;
-    if (audioBuffer.sampleRate !== TARGET_SAMPLE_RATE) {
-      console.log('[WAV Worker] Resampling from', audioBuffer.sampleRate, 'to', TARGET_SAMPLE_RATE);
-      // Need to resample - use OfflineAudioContext for proper resampling
-      const offlineCtx = new OfflineAudioContext(
-        1, // mono
-        Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE),
-        TARGET_SAMPLE_RATE
-      );
+    try {
+      // Always use OfflineAudioContext for resampling - sized correctly to output
+      const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
+      const resampleCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
       
-      const source = offlineCtx.createBufferSource();
+      const source = resampleCtx.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(offlineCtx.destination);
+      source.connect(resampleCtx.destination);
       source.start(0);
       
-      const resampledBuffer = await offlineCtx.startRendering();
+      const resampledBuffer = await resampleCtx.startRendering();
       samples = resampledBuffer.getChannelData(0);
-      console.log('[WAV Worker] Resampling complete:', { samples: samples.length });
-    } else {
-      // Mix to mono if needed
-      if (audioBuffer.numberOfChannels === 1) {
-        samples = audioBuffer.getChannelData(0);
-      } else {
-        console.log('[WAV Worker] Mixing stereo to mono');
-        const left = audioBuffer.getChannelData(0);
-        const right = audioBuffer.getChannelData(1);
-        samples = new Float32Array(left.length);
-        for (let i = 0; i < left.length; i++) {
-          samples[i] = (left[i] + right[i]) / 2;
-        }
-      }
+      timings.resample = Math.round(performance.now() - resampleStart);
+      
+      console.log('[WAV Worker] Resampled:', { 
+        samples: samples.length,
+        resampleMs: timings.resample
+      });
+    } catch (resampleError) {
+      timings.resample = Math.round(performance.now() - resampleStart);
+      fail('resample', `Resampling failed: ${resampleError.message}`, {
+        decodeMs: timings.decode,
+        resampleMs: timings.resample,
+        errorType: resampleError.name
+      });
+      return;
     }
     
-    // Encode as WAV
-    console.log('[WAV Worker] Encoding WAV...');
+    // =========================================================================
+    // Step 3: ENCODE as WAV
+    // =========================================================================
+    console.log('[WAV Worker] Step 3: Encoding WAV...');
+    const encodeStart = performance.now();
+    
     const wavBuffer = encodeWav(samples, TARGET_SAMPLE_RATE);
+    timings.encode = Math.round(performance.now() - encodeStart);
+    timings.total = Math.round(performance.now() - startTime);
     
     console.log('[WAV Worker] Success!', {
       inputSize: arrayBuffer.byteLength,
       outputSize: wavBuffer.byteLength,
+      timingsMs: timings
     });
     
+    // Transfer ownership for zero-copy (caller doesn't need original anymore)
     self.postMessage({
       id,
       success: true,
@@ -100,13 +142,16 @@ self.onmessage = async (e) => {
         originalSampleRate: audioBuffer.sampleRate,
         targetSampleRate: TARGET_SAMPLE_RATE,
       },
-    });
+      timingsMs: timings,
+    }, [wavBuffer]); // Transfer wavBuffer ownership
+    
   } catch (error) {
-    console.error('[WAV Worker] Unexpected error:', error);
-    self.postMessage({
-      id,
-      success: false,
-      error: error.message || 'Unknown error during WAV conversion',
+    timings.total = Math.round(performance.now() - startTime);
+    fail('unexpected', error.message || 'Unknown error during WAV conversion', {
+      decodeMs: timings.decode,
+      resampleMs: timings.resample,
+      encodeMs: timings.encode,
+      errorType: error.name
     });
   }
 };
