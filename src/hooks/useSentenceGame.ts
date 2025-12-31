@@ -11,7 +11,7 @@ import {
 interface GameState {
   currentTrial: number;
   trials: SentenceTrial[];
-  currentAnswer: string[];
+  currentAnswer: number[]; // Stores indices into trial.options, not word values (handles duplicates)
   score: number;
   completed: boolean;
   showFeedback: boolean;
@@ -56,7 +56,8 @@ export const useSentenceGame = (
     return gameState.trials[gameState.currentTrial] || null;
   };
 
-  const selectWord = (word: string) => {
+  // Select a word by its INDEX in trial.options (handles duplicate words correctly)
+  const selectWord = (wordIndex: number) => {
     const trial = getCurrentTrial();
     if (!trial) return;
 
@@ -68,16 +69,23 @@ export const useSentenceGame = (
     ) {
       setGameState(prev => ({
         ...prev,
-        currentAnswer: [word]
+        currentAnswer: [wordIndex]
       }));
     }
-    // For word_order, sentence_reorder: build array
+    // For word_order, sentence_reorder: build array of indices
     else {
       setGameState(prev => ({
         ...prev,
-        currentAnswer: [...prev.currentAnswer, word]
+        currentAnswer: [...prev.currentAnswer, wordIndex]
       }));
     }
+  };
+
+  // Convert current answer indices to word strings (for display and submission)
+  const getAnswerAsWords = (): string[] => {
+    const trial = getCurrentTrial();
+    if (!trial) return [];
+    return gameState.currentAnswer.map(idx => trial.options[idx]);
   };
 
   const removeLastWord = () => {
@@ -98,12 +106,15 @@ export const useSentenceGame = (
     const trial = getCurrentTrial();
     if (!trial) return null;
 
+    // Convert indices to actual words for comparison
+    const answerWords = getAnswerAsWords();
+    
     let isCorrect = false;
     const userAnswer = trial.taskType === "fill_function" ||
                        trial.taskType === "verb_agreement" ||
                        trial.taskType === "cloze_picture"
-      ? gameState.currentAnswer[0]
-      : gameState.currentAnswer;
+      ? answerWords[0]
+      : answerWords;
 
     // Check correctness
     if (Array.isArray(trial.correctAnswer)) {
@@ -217,6 +228,7 @@ export const useSentenceGame = (
     submitAnswer,
     nextTrial,
     reset,
-    getWeakestGrammarArea
+    getWeakestGrammarArea,
+    getAnswerAsWords
   };
 };
