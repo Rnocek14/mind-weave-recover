@@ -5,6 +5,7 @@
  * Azure Pronunciation Assessment requires 16kHz mono PCM WAV.
  * 
  * Returns structured stats/errors matching DB diagnostics schema.
+ * Uses workerStage for internal detail, pipeline uses 'wav_conversion' as stage.
  */
 
 const TARGET_SAMPLE_RATE = 16000;
@@ -15,15 +16,15 @@ self.onmessage = async (e) => {
   
   console.log('[WAV Worker] Received request', { id, byteLength: arrayBuffer?.byteLength });
   
-  // Structured error helper
-  const fail = (stage, message, details = {}) => {
+  // Structured error helper - uses workerStage for internal detail
+  const fail = (workerStage, message, details = {}) => {
     const elapsed = Math.round(performance.now() - startTime);
-    console.error('[WAV Worker] Failed:', { id, stage, message, elapsed });
+    console.error('[WAV Worker] Failed:', { id, workerStage, message, elapsed });
     self.postMessage({
       id,
-      success: false,
-      error: { stage, message, details },
-      timingsMs: { decode: details.decodeMs, resample: details.resampleMs, encode: details.encodeMs, total: elapsed },
+      ok: false,
+      error: { workerStage, message, details },
+      timingsMs: { decode: details.decodeMs || 0, resample: details.resampleMs || 0, encode: details.encodeMs || 0, total: elapsed },
     });
   };
   
@@ -37,7 +38,7 @@ self.onmessage = async (e) => {
   
   try {
     // =========================================================================
-    // Step 1: DECODE - Use OfflineAudioContext properly
+    // Step 1: DECODE - Use OfflineAudioContext with reasonable sizing
     // =========================================================================
     console.log('[WAV Worker] Step 1: Decoding...');
     const decodeStart = performance.now();
@@ -50,15 +51,16 @@ self.onmessage = async (e) => {
     
     let audioBuffer;
     try {
-      // Create a PROPERLY SIZED context for decoding
-      // We estimate ~10 seconds max for speech samples; the actual buffer will be sized correctly after decode
-      // This avoids the "1 frame" bug that causes issues on Safari/iOS
-      const ESTIMATE_DURATION_SEC = 30; // Conservative upper bound
-      const ESTIMATE_SAMPLE_RATE = 48000; // Common source rate
+      // Use a reasonably sized context (~2 seconds at 48kHz) to avoid:
+      // 1. The "1 frame" bug on Safari/iOS
+      // 2. Huge memory allocations (30s was overkill)
+      // The context length doesn't limit decode - just needs to be >1 frame
+      const DECODE_CONTEXT_FRAMES = 96000; // ~2 seconds at 48kHz
+      const DECODE_SAMPLE_RATE = 48000;
       const decodeCtx = new OfflineAudioContext(
         2, // stereo to handle any input
-        Math.ceil(ESTIMATE_DURATION_SEC * ESTIMATE_SAMPLE_RATE),
-        ESTIMATE_SAMPLE_RATE
+        DECODE_CONTEXT_FRAMES,
+        DECODE_SAMPLE_RATE
       );
       
       audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
@@ -124,19 +126,22 @@ self.onmessage = async (e) => {
     timings.encode = Math.round(performance.now() - encodeStart);
     timings.total = Math.round(performance.now() - startTime);
     
+    // Track input size before it might be detached
+    const inputSize = arrayBuffer.byteLength;
+    
     console.log('[WAV Worker] Success!', {
-      inputSize: arrayBuffer.byteLength,
+      inputSize,
       outputSize: wavBuffer.byteLength,
       timingsMs: timings
     });
     
-    // Transfer ownership for zero-copy (caller doesn't need original anymore)
+    // Transfer ownership for zero-copy
     self.postMessage({
       id,
-      success: true,
+      ok: true,
       wavBuffer,
       stats: {
-        inputSize: arrayBuffer.byteLength,
+        inputSize,
         outputSize: wavBuffer.byteLength,
         duration: audioBuffer.duration.toFixed(2),
         originalSampleRate: audioBuffer.sampleRate,
