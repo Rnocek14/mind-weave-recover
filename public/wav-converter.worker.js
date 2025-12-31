@@ -10,16 +10,46 @@ const TARGET_SAMPLE_RATE = 16000;
 self.onmessage = async (e) => {
   const { arrayBuffer, id } = e.data;
   
+  console.log('[WAV Worker] Received request', { id, byteLength: arrayBuffer?.byteLength });
+  
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    self.postMessage({
+      id,
+      success: false,
+      error: 'Empty or missing audio data',
+    });
+    return;
+  }
+  
   try {
     // Create AudioContext with target sample rate
+    console.log('[WAV Worker] Creating OfflineAudioContext...');
     const audioContext = new OfflineAudioContext(1, 1, TARGET_SAMPLE_RATE);
     
     // Decode the source audio
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    console.log('[WAV Worker] Decoding audio data...');
+    let audioBuffer;
+    try {
+      audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      console.log('[WAV Worker] Decoded:', { 
+        duration: audioBuffer.duration, 
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels 
+      });
+    } catch (decodeError) {
+      console.error('[WAV Worker] decodeAudioData failed:', decodeError);
+      self.postMessage({
+        id,
+        success: false,
+        error: `Audio decode failed: ${decodeError.message || 'Unknown format'}`,
+      });
+      return;
+    }
     
     // Resample to target rate if needed
     let samples;
     if (audioBuffer.sampleRate !== TARGET_SAMPLE_RATE) {
+      console.log('[WAV Worker] Resampling from', audioBuffer.sampleRate, 'to', TARGET_SAMPLE_RATE);
       // Need to resample - use OfflineAudioContext for proper resampling
       const offlineCtx = new OfflineAudioContext(
         1, // mono
@@ -34,11 +64,13 @@ self.onmessage = async (e) => {
       
       const resampledBuffer = await offlineCtx.startRendering();
       samples = resampledBuffer.getChannelData(0);
+      console.log('[WAV Worker] Resampling complete:', { samples: samples.length });
     } else {
       // Mix to mono if needed
       if (audioBuffer.numberOfChannels === 1) {
         samples = audioBuffer.getChannelData(0);
       } else {
+        console.log('[WAV Worker] Mixing stereo to mono');
         const left = audioBuffer.getChannelData(0);
         const right = audioBuffer.getChannelData(1);
         samples = new Float32Array(left.length);
@@ -49,7 +81,13 @@ self.onmessage = async (e) => {
     }
     
     // Encode as WAV
+    console.log('[WAV Worker] Encoding WAV...');
     const wavBuffer = encodeWav(samples, TARGET_SAMPLE_RATE);
+    
+    console.log('[WAV Worker] Success!', {
+      inputSize: arrayBuffer.byteLength,
+      outputSize: wavBuffer.byteLength,
+    });
     
     self.postMessage({
       id,
@@ -64,6 +102,7 @@ self.onmessage = async (e) => {
       },
     });
   } catch (error) {
+    console.error('[WAV Worker] Unexpected error:', error);
     self.postMessage({
       id,
       success: false,

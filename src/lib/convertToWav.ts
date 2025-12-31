@@ -16,30 +16,37 @@ const pendingRequests = new Map<number, { resolve: (blob: Blob) => void; reject:
  */
 function getWorker(): Worker {
   if (!worker) {
+    console.log('🎵 [WAV] Initializing Web Worker...');
     worker = new Worker('/wav-converter.worker.js');
     worker.onmessage = (e) => {
       const { id, success, wavBuffer, error, stats } = e.data;
       const pending = pendingRequests.get(id);
-      if (!pending) return;
+      if (!pending) {
+        console.warn('🎵 [WAV] Received message for unknown request:', id);
+        return;
+      }
       
       pendingRequests.delete(id);
       
       if (success) {
-        console.log('🎵 Audio converted to WAV (worker):', stats);
+        console.log('🎵 [WAV] Worker conversion success:', stats);
         pending.resolve(new Blob([wavBuffer], { type: 'audio/wav' }));
       } else {
-        pending.reject(new Error(error || 'WAV conversion failed'));
+        console.error('🎵 [WAV] Worker conversion failed:', error);
+        pending.reject(new Error(error || 'WAV conversion failed in worker'));
       }
     };
     worker.onerror = (e) => {
-      console.error('WAV worker error:', e);
+      console.error('🎵 [WAV] Worker crashed:', e.message, e);
       // Reject all pending requests
-      pendingRequests.forEach((pending) => {
-        pending.reject(new Error('WAV worker crashed'));
+      pendingRequests.forEach((pending, id) => {
+        console.error('🎵 [WAV] Rejecting pending request', id);
+        pending.reject(new Error(`WAV worker crashed: ${e.message || 'Unknown error'}`));
       });
       pendingRequests.clear();
       worker = null; // Reset so we can retry
     };
+    console.log('🎵 [WAV] Web Worker initialized');
   }
   return worker;
 }
@@ -48,14 +55,36 @@ function getWorker(): Worker {
  * Convert an audio Blob to WAV format using Web Worker (non-blocking)
  */
 export async function convertBlobToWav(blob: Blob): Promise<Blob> {
-  const arrayBuffer = await blob.arrayBuffer();
+  console.log('🎵 [WAV] convertBlobToWav called', { 
+    blobSize: blob.size, 
+    blobType: blob.type 
+  });
+  
+  if (blob.size === 0) {
+    throw new Error('Cannot convert empty audio blob');
+  }
+  
+  let arrayBuffer: ArrayBuffer;
+  try {
+    arrayBuffer = await blob.arrayBuffer();
+    console.log('🎵 [WAV] Got ArrayBuffer', { byteLength: arrayBuffer.byteLength });
+  } catch (bufferError) {
+    console.error('🎵 [WAV] Failed to get ArrayBuffer:', bufferError);
+    throw new Error(`Failed to read audio blob: ${bufferError instanceof Error ? bufferError.message : 'Unknown error'}`);
+  }
   
   // Try worker first for non-blocking conversion
   try {
+    console.log('🎵 [WAV] Attempting worker conversion...');
     return await convertWithWorker(arrayBuffer);
   } catch (workerError) {
-    console.warn('Worker conversion failed, falling back to main thread:', workerError);
-    return await convertOnMainThread(arrayBuffer);
+    console.warn('🎵 [WAV] Worker conversion failed, falling back to main thread:', workerError);
+    try {
+      return await convertOnMainThread(arrayBuffer);
+    } catch (mainThreadError) {
+      console.error('🎵 [WAV] Main thread conversion also failed:', mainThreadError);
+      throw new Error(`WAV conversion failed: Worker: ${workerError instanceof Error ? workerError.message : 'Unknown'}, Main: ${mainThreadError instanceof Error ? mainThreadError.message : 'Unknown'}`);
+    }
   }
 }
 
@@ -65,23 +94,30 @@ export async function convertBlobToWav(blob: Blob): Promise<Blob> {
 function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const id = ++requestId;
+    console.log('🎵 [WAV] Worker request', { id, byteLength: arrayBuffer.byteLength });
     pendingRequests.set(id, { resolve, reject });
     
     try {
       const w = getWorker();
-      w.postMessage({ arrayBuffer, id }, [arrayBuffer]); // Transfer ownership for speed
+      // Clone the buffer since we're transferring ownership
+      const bufferCopy = arrayBuffer.slice(0);
+      w.postMessage({ arrayBuffer: bufferCopy, id }, [bufferCopy]);
+      console.log('🎵 [WAV] Message posted to worker', { id });
     } catch (error) {
+      console.error('🎵 [WAV] Failed to post message to worker:', error);
       pendingRequests.delete(id);
-      reject(error);
+      reject(new Error(`Worker postMessage failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      return;
     }
     
-    // Timeout after 30 seconds
+    // Timeout after 15 seconds (reduced from 30 for faster fallback)
     setTimeout(() => {
       if (pendingRequests.has(id)) {
+        console.error('🎵 [WAV] Worker timeout after 15s', { id });
         pendingRequests.delete(id);
-        reject(new Error('WAV conversion timeout'));
+        reject(new Error('WAV conversion timeout after 15 seconds'));
       }
-    }, 30000);
+    }, 15000);
   });
 }
 
@@ -89,14 +125,35 @@ function convertWithWorker(arrayBuffer: ArrayBuffer): Promise<Blob> {
  * Fallback: Convert on main thread (blocking but reliable)
  */
 async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<Blob> {
+  console.log('🎵 [WAV] Main thread conversion starting...', { byteLength: arrayBuffer.byteLength });
   const TARGET_SAMPLE_RATE = 16000;
-  const audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+  
+  // Use OfflineAudioContext for better compatibility
+  let audioContext: AudioContext | null = null;
   
   try {
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+    console.log('🎵 [WAV] AudioContext created', { sampleRate: audioContext.sampleRate });
+    
+    // Clone buffer since decodeAudioData detaches it
+    const bufferCopy = arrayBuffer.slice(0);
+    
+    let audioBuffer: AudioBuffer;
+    try {
+      audioBuffer = await audioContext.decodeAudioData(bufferCopy);
+      console.log('🎵 [WAV] Audio decoded', { 
+        duration: audioBuffer.duration, 
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels 
+      });
+    } catch (decodeError) {
+      console.error('🎵 [WAV] decodeAudioData failed:', decodeError);
+      throw new Error(`Failed to decode audio: ${decodeError instanceof Error ? decodeError.message : 'Unknown error'}`);
+    }
+    
     const wavBuffer = encodeWav(audioBuffer);
     
-    console.log('🎵 Audio converted to WAV (main thread):', {
+    console.log('🎵 [WAV] Main thread conversion success:', {
       wavSize: wavBuffer.byteLength,
       sampleRate: audioBuffer.sampleRate,
       duration: audioBuffer.duration.toFixed(2) + 's',
@@ -104,7 +161,13 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<Blob> {
     
     return new Blob([wavBuffer], { type: 'audio/wav' });
   } finally {
-    await audioContext.close();
+    if (audioContext) {
+      try {
+        await audioContext.close();
+      } catch (closeError) {
+        console.warn('🎵 [WAV] AudioContext close error:', closeError);
+      }
+    }
   }
 }
 
