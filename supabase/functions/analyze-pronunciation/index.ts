@@ -22,7 +22,7 @@ interface AlignmentData {
   phone_segments: { phone: string; start: number; end: number }[];
 }
 
-interface PronunciationResult {
+interface PronunciationData {
   transcript: string;
   pronunciationScore: number;
   accuracyScore: number;
@@ -33,6 +33,23 @@ interface PronunciationResult {
   duration: number;
   alignmentData?: AlignmentData;
 }
+
+// Structured response types - explicit ok/error for bulletproof client handling
+interface SuccessResponse {
+  ok: true;
+  data: PronunciationData;
+}
+
+interface ErrorResponse {
+  ok: false;
+  error: {
+    stage: 'auth' | 'validation' | 'azure_api' | 'parse' | 'unexpected';
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}
+
+type ApiResponse = SuccessResponse | ErrorResponse;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,7 +75,11 @@ serve(async (req) => {
 
   // Require POST for analysis
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+    const response: ErrorResponse = {
+      ok: false,
+      error: { stage: 'validation', message: 'Method not allowed' }
+    };
+    return new Response(JSON.stringify(response), { 
       status: 405, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
@@ -67,31 +88,68 @@ serve(async (req) => {
   // Manual auth check - require Bearer token to prevent anonymous Azure API abuse
   const auth = req.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized - Bearer token required' }), { 
+    const response: ErrorResponse = {
+      ok: false,
+      error: { stage: 'auth', message: 'Unauthorized - Bearer token required' }
+    };
+    return new Response(JSON.stringify(response), { 
       status: 401, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }
 
+  // Extract correlation ID for logging
+  let pronRequestId: string | undefined;
+
   try {
-    const { audioBlob, mimeType, referenceText } = await req.json();
+    const { audioBlob, mimeType, referenceText, pronRequestId: reqId } = await req.json();
+    pronRequestId = reqId;
+    
+    console.log('[analyze-pronunciation] Request received', { 
+      pronRequestId,
+      hasAudio: !!audioBlob, 
+      audioLen: audioBlob?.length,
+      referenceText 
+    });
     
     if (!audioBlob) {
-      throw new Error('No audio data provided');
+      const response: ErrorResponse = {
+        ok: false,
+        error: { stage: 'validation', message: 'No audio data provided' }
+      };
+      return new Response(JSON.stringify(response), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
     
     if (!referenceText) {
-      throw new Error('No reference text provided');
+      const response: ErrorResponse = {
+        ok: false,
+        error: { stage: 'validation', message: 'No reference text provided' }
+      };
+      return new Response(JSON.stringify(response), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
 
     const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');
     const AZURE_SPEECH_REGION = Deno.env.get('AZURE_SPEECH_REGION');
     
     if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
-      throw new Error('Azure Speech credentials not configured');
+      console.error('[analyze-pronunciation] Azure credentials not configured', { pronRequestId });
+      const response: ErrorResponse = {
+        ok: false,
+        error: { stage: 'azure_api', message: 'Azure Speech credentials not configured' }
+      };
+      return new Response(JSON.stringify(response), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
 
-    console.log('[analyze-pronunciation] Starting analysis for:', referenceText);
+    console.log('[analyze-pronunciation] Starting Azure API call', { pronRequestId, referenceText });
 
     // Convert base64 to binary
     const binaryAudio = Uint8Array.from(atob(audioBlob), c => c.charCodeAt(0));
@@ -118,7 +176,11 @@ serve(async (req) => {
     // Call Azure Speech-to-Text with Pronunciation Assessment
     const azureUrl = `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`;
 
-    console.log('[analyze-pronunciation] Calling Azure API:', azureUrl);
+    console.log('[analyze-pronunciation] Calling Azure API', { 
+      pronRequestId, 
+      url: azureUrl,
+      audioSize: binaryAudio.length 
+    });
 
     const response = await fetch(azureUrl, {
       method: 'POST',
@@ -133,34 +195,86 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[analyze-pronunciation] Azure API error:', response.status, errorText);
-      throw new Error(`Azure API error: ${response.status} - ${errorText}`);
+      console.error('[analyze-pronunciation] Azure API error', { 
+        pronRequestId, 
+        status: response.status, 
+        error: errorText 
+      });
+      const errorResponse: ErrorResponse = {
+        ok: false,
+        error: { 
+          stage: 'azure_api', 
+          message: `Azure API error: ${response.status}`,
+          details: { statusCode: response.status, body: errorText }
+        }
+      };
+      return new Response(JSON.stringify(errorResponse), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const azureData = await response.json();
-    console.log('[analyze-pronunciation] Azure response:', JSON.stringify(azureData, null, 2));
+    console.log('[analyze-pronunciation] Azure response received', { 
+      pronRequestId,
+      hasNBest: !!azureData.NBest,
+      recognitionStatus: azureData.RecognitionStatus
+    });
+
+    // Check for recognition failures
+    if (azureData.RecognitionStatus !== 'Success') {
+      console.warn('[analyze-pronunciation] Recognition not successful', { 
+        pronRequestId, 
+        status: azureData.RecognitionStatus 
+      });
+      const errorResponse: ErrorResponse = {
+        ok: false,
+        error: { 
+          stage: 'azure_api', 
+          message: `Recognition failed: ${azureData.RecognitionStatus}`,
+          details: { recognitionStatus: azureData.RecognitionStatus }
+        }
+      };
+      return new Response(JSON.stringify(errorResponse), {
+        status: 200, // Still return 200 since Azure worked, just no speech recognized
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Parse Azure response
     const result = parseAzureResponse(azureData, referenceText);
 
+    console.log('[analyze-pronunciation] Success', { 
+      pronRequestId,
+      pronunciationScore: result.pronunciationScore,
+      accuracyScore: result.accuracyScore,
+      wordCount: result.words.length
+    });
+
+    const successResponse: SuccessResponse = {
+      ok: true,
+      data: result
+    };
+
     return new Response(
-      JSON.stringify(result),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify(successResponse),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[analyze-pronunciation] Error:', error);
+    console.error('[analyze-pronunciation] Unexpected error', { 
+      pronRequestId, 
+      error: error instanceof Error ? error.message : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    const errorResponse: ErrorResponse = {
+      ok: false,
+      error: { 
+        stage: 'unexpected', 
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }
+    };
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        pronunciationScore: 0,
-        accuracyScore: 0,
-        fluencyScore: 0,
-        completenessScore: 0,
-        words: [],
-        transcript: ''
-      }),
+      JSON.stringify(errorResponse),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -169,7 +283,7 @@ serve(async (req) => {
   }
 });
 
-function parseAzureResponse(azureData: any, referenceText: string): PronunciationResult {
+function parseAzureResponse(azureData: any, referenceText: string): PronunciationData {
   // Handle Azure response - scores are directly on NBest[0], not under PronunciationAssessment
   const nBest = azureData.NBest?.[0];
   const displayText = nBest?.Display || azureData.DisplayText || '';
@@ -244,7 +358,7 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
     ? { word_segments: wordSegments, phone_segments: phoneSegments }
     : undefined;
 
-  console.log('[analyze-pronunciation] Parsed scores:', {
+  console.log('[analyze-pronunciation] Parsed scores', {
     pronunciationScore: nBest.PronScore,
     accuracyScore: nBest.AccuracyScore,
     fluencyScore: nBest.FluencyScore,
