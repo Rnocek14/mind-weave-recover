@@ -37,6 +37,15 @@ export type FluencyUnavailableReason =
   | 'wav_conversion_failed'
   | 'azure_api_error';
 
+// Structured pronunciation diagnostics for admin debugging
+export interface PronunciationDiagnostics {
+  pronRequestId?: string;
+  pronunciationStatus?: 'pending' | 'complete' | 'failed' | 'skipped';
+  pronunciationErrorStage?: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'unexpected';
+  pronunciationTimingsMs?: { wav?: number; base64?: number; edge?: number; total: number };
+  audioMeta?: { originalMime: string; originalSize: number; wavSize?: number; base64Len?: number };
+}
+
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   isFinalized: boolean;
@@ -78,8 +87,10 @@ interface UtteranceLoggerReturn {
       word_segments: { word: string; start: number; end: number }[];
       phone_segments: { phone: string; start: number; end: number }[];
     };
-    // Pronunciation analysis error tracking
+    // Pronunciation analysis error tracking (legacy - prefer diagnostics)
     pronunciationError?: string;
+    // NEW: Structured pronunciation diagnostics
+    pronunciationDiagnostics?: PronunciationDiagnostics;
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -186,8 +197,10 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       word_segments: { word: string; start: number; end: number }[];
       phone_segments: { phone: string; start: number; end: number }[];
     };
-    // Pronunciation analysis error tracking
+    // Pronunciation analysis error tracking (legacy)
     pronunciationError?: string;
+    // NEW: Structured pronunciation diagnostics
+    pronunciationDiagnostics?: PronunciationDiagnostics;
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -230,6 +243,23 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       // Determine analysis status: 'pending' if audio available (for MFA worker), else 'complete'
       const hasAudioForAnalysis = !!analysis.audioStoragePath;
       
+      // Extract structured diagnostics (prefer new format, fall back to legacy)
+      const diag = analysis.pronunciationDiagnostics;
+      const hasPronSuccess = !!analysis.gopData;
+      const hasPronError = !!analysis.pronunciationError || diag?.pronunciationStatus === 'failed';
+      
+      // Determine pronunciation status
+      let pronunciationStatus: string | undefined;
+      if (hasPronSuccess) {
+        pronunciationStatus = 'complete';
+      } else if (hasPronError) {
+        pronunciationStatus = 'failed';
+      } else if (hasAudioForAnalysis) {
+        pronunciationStatus = 'pending';
+      } else {
+        pronunciationStatus = 'skipped';
+      }
+
       // Build payload - CRITICAL: Only include cue_was_effective when explicitly true/false
       // to avoid overwriting with NULL on subsequent upserts
       const payload: Record<string, any> = {
@@ -282,13 +312,20 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         } : null),
         // Pipeline status: Azure replaces MFA worker, mark complete immediately when Azure data exists
         analysis_status: analysis.gopData ? 'complete' : (hasAudioForAnalysis ? 'pending' : 'complete'),
-        // Track pronunciation analysis errors for debugging
-        error_message: analysis.pronunciationError || null,
+        // Track pronunciation analysis errors for debugging (legacy field)
+        error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage}: failed` : null),
         // Clear worker queue fields when Azure provides data
         locked_at: analysis.gopData ? null : undefined,
         locked_by: analysis.gopData ? null : undefined,
         next_retry_at: (!analysis.gopData && hasAudioForAnalysis) ? new Date().toISOString() : null,
-        analysis_priority: hasAudioForAnalysis ? 1 : 0
+        analysis_priority: hasAudioForAnalysis ? 1 : 0,
+        
+        // NEW: Structured pronunciation diagnostics for admin debugging
+        pron_request_id: diag?.pronRequestId,
+        pronunciation_status: pronunciationStatus,
+        pronunciation_error_stage: diag?.pronunciationErrorStage,
+        pronunciation_timings_ms: diag?.pronunciationTimingsMs,
+        audio_meta: diag?.audioMeta
       };
 
       // CRITICAL: Only include cue_was_effective when explicitly true or false

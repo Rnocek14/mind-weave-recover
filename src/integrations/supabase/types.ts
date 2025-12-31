@@ -1385,6 +1385,7 @@ export type Database = {
           asr_warning_flags: string[] | null
           attempt_id: string
           attempt_number: number | null
+          audio_meta: Json | null
           audio_storage_path: string | null
           avg_pause_duration_ms: number | null
           category: string | null
@@ -1409,6 +1410,10 @@ export type Database = {
           next_retry_at: string | null
           pause_count: number | null
           phonological_similarity: number | null
+          pron_request_id: string | null
+          pronunciation_error_stage: string | null
+          pronunciation_status: string | null
+          pronunciation_timings_ms: Json | null
           reasoning: string | null
           recording_duration_ms: number | null
           retry_count: number | null
@@ -1435,6 +1440,7 @@ export type Database = {
           asr_warning_flags?: string[] | null
           attempt_id: string
           attempt_number?: number | null
+          audio_meta?: Json | null
           audio_storage_path?: string | null
           avg_pause_duration_ms?: number | null
           category?: string | null
@@ -1459,6 +1465,10 @@ export type Database = {
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          pron_request_id?: string | null
+          pronunciation_error_stage?: string | null
+          pronunciation_status?: string | null
+          pronunciation_timings_ms?: Json | null
           reasoning?: string | null
           recording_duration_ms?: number | null
           retry_count?: number | null
@@ -1485,6 +1495,7 @@ export type Database = {
           asr_warning_flags?: string[] | null
           attempt_id?: string
           attempt_number?: number | null
+          audio_meta?: Json | null
           audio_storage_path?: string | null
           avg_pause_duration_ms?: number | null
           category?: string | null
@@ -1509,6 +1520,10 @@ export type Database = {
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          pron_request_id?: string | null
+          pronunciation_error_stage?: string | null
+          pronunciation_status?: string | null
+          pronunciation_timings_ms?: Json | null
           reasoning?: string | null
           recording_duration_ms?: number | null
           retry_count?: number | null

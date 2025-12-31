@@ -598,27 +598,62 @@ export const PhotoNamingGame = ({
     }
   };
 
+  // =========================================================================
+  // Pronunciation Analysis Types - Explicit success/failure for bulletproof diagnostics
+  // =========================================================================
+  type PronunciationSuccessResult = {
+    ok: true;
+    data: {
+      pronunciationScore: number;
+      accuracyScore: number;
+      fluencyScore: number;
+      completenessScore: number;
+      prosodyScore?: number;
+      transcript: string;
+      words: any[];
+      alignmentData?: {
+        word_segments: { word: string; start: number; end: number }[];
+        phone_segments: { phone: string; start: number; end: number }[];
+      };
+    };
+    // Correlation ID + timings for debugging
+    pronRequestId: string;
+    timingsMs: { wav: number; base64: number; edge: number; total: number };
+    audioMeta: { originalMime: string; originalSize: number; wavSize: number; base64Len: number };
+  };
+
+  type PronunciationErrorResult = {
+    ok: false;
+    error: {
+      stage: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'unexpected';
+      message: string;
+      details?: any;
+    };
+    pronRequestId: string;
+    timingsMs: { wav?: number; base64?: number; edge?: number; total: number };
+    audioMeta: { originalMime: string; originalSize: number; wavSize?: number; base64Len?: number };
+  };
+
+  type PronunciationResult = PronunciationSuccessResult | PronunciationErrorResult;
+
   // Azure Pronunciation Assessment (real pronunciation scores)
   const analyzePronunciationAsync = async (
     audioBlob: Blob,
     _mimeType: string, // Original mimeType ignored - we convert to WAV
     targetWord: string
-  ): Promise<{
-    pronunciationScore: number;
-    accuracyScore: number;
-    fluencyScore: number;
-    completenessScore: number;
-    prosodyScore?: number;
-    transcript: string;
-    words: any[];
-    alignmentData?: {
-      word_segments: { word: string; start: number; end: number }[];
-      phone_segments: { phone: string; start: number; end: number }[];
-    };
-    error?: string;
-  } | null> => {
+  ): Promise<PronunciationResult> => {
+    const pronRequestId = crypto.randomUUID();
     const startTime = Date.now();
+    const audioMeta = { 
+      originalMime: audioBlob.type, 
+      originalSize: audioBlob.size, 
+      wavSize: 0 as number | undefined, 
+      base64Len: 0 as number | undefined 
+    };
+    const timings = { wav: 0, base64: 0, edge: 0, total: 0 };
+    
     console.log('🎯 [Pronunciation] Starting analysis', { 
+      pronRequestId,
       blobSize: audioBlob.size, 
       blobType: audioBlob.type,
       targetWord 
@@ -626,28 +661,38 @@ export const PhotoNamingGame = ({
     
     try {
       // Step 1: Convert to WAV format for Azure (WebM/Opus has poor phoneme support)
-      console.log('🎯 [Pronunciation] Step 1: Converting to WAV...');
+      console.log('🎯 [Pronunciation] Step 1: Converting to WAV...', { pronRequestId });
       const wavStartTime = Date.now();
       
       let wavBlob: Blob;
       try {
         const { convertBlobToWav } = await import('@/lib/convertToWav');
         wavBlob = await convertBlobToWav(audioBlob);
+        timings.wav = Date.now() - wavStartTime;
+        audioMeta.wavSize = wavBlob.size;
         console.log('🎯 [Pronunciation] WAV conversion success', { 
+          pronRequestId,
           wavSize: wavBlob.size, 
-          durationMs: Date.now() - wavStartTime 
+          durationMs: timings.wav 
         });
       } catch (wavError) {
-        console.error('🎯 [Pronunciation] WAV conversion FAILED:', wavError);
+        timings.total = Date.now() - startTime;
+        console.error('🎯 [Pronunciation] WAV conversion FAILED:', { pronRequestId, error: wavError });
         return { 
-          pronunciationScore: 0, accuracyScore: 0, fluencyScore: 0, 
-          completenessScore: 0, transcript: '', words: [],
-          error: `wav_conversion: ${wavError instanceof Error ? wavError.message : 'Unknown error'}`
+          ok: false,
+          error: {
+            stage: 'wav_conversion',
+            message: wavError instanceof Error ? wavError.message : 'Unknown error',
+            details: { errorType: wavError?.constructor?.name }
+          },
+          pronRequestId,
+          timingsMs: { wav: Date.now() - wavStartTime, total: timings.total },
+          audioMeta: { originalMime: audioMeta.originalMime, originalSize: audioMeta.originalSize }
         };
       }
       
       // Step 2: Convert WAV blob to base64
-      console.log('🎯 [Pronunciation] Step 2: Encoding to base64...');
+      console.log('🎯 [Pronunciation] Step 2: Encoding to base64...', { pronRequestId });
       const base64StartTime = Date.now();
       
       let base64Audio: string;
@@ -670,75 +715,131 @@ export const PhotoNamingGame = ({
           reader.onerror = () => reject(new Error(`FileReader error: ${reader.error?.message || 'Unknown'}`));
           reader.readAsDataURL(wavBlob);
         });
+        timings.base64 = Date.now() - base64StartTime;
+        audioMeta.base64Len = base64Audio.length;
         console.log('🎯 [Pronunciation] Base64 encoding success', { 
+          pronRequestId,
           base64Length: base64Audio.length,
-          durationMs: Date.now() - base64StartTime 
+          durationMs: timings.base64 
         });
       } catch (encodeError) {
-        console.error('🎯 [Pronunciation] Base64 encoding FAILED:', encodeError);
+        timings.total = Date.now() - startTime;
+        console.error('🎯 [Pronunciation] Base64 encoding FAILED:', { pronRequestId, error: encodeError });
         return { 
-          pronunciationScore: 0, accuracyScore: 0, fluencyScore: 0, 
-          completenessScore: 0, transcript: '', words: [],
-          error: `base64_encoding: ${encodeError instanceof Error ? encodeError.message : 'Unknown error'}`
+          ok: false,
+          error: {
+            stage: 'base64_encoding',
+            message: encodeError instanceof Error ? encodeError.message : 'Unknown error'
+          },
+          pronRequestId,
+          timingsMs: { wav: timings.wav, base64: Date.now() - base64StartTime, total: timings.total },
+          audioMeta: { originalMime: audioMeta.originalMime, originalSize: audioMeta.originalSize, wavSize: audioMeta.wavSize }
         };
       }
 
       // Step 3: Call edge function
-      console.log('🎯 [Pronunciation] Step 3: Calling Azure edge function for:', targetWord);
+      console.log('🎯 [Pronunciation] Step 3: Calling Azure edge function', { pronRequestId, targetWord });
       const edgeStartTime = Date.now();
 
       const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
         body: { 
           audioBlob: base64Audio, 
           mimeType: 'audio/wav',
-          referenceText: targetWord 
+          referenceText: targetWord,
+          pronRequestId // Pass correlation ID to edge function
         },
       });
 
+      timings.edge = Date.now() - edgeStartTime;
+      timings.total = Date.now() - startTime;
+
       if (error) {
-        console.error('🎯 [Pronunciation] Edge function FAILED:', error);
+        console.error('🎯 [Pronunciation] Edge function FAILED:', { pronRequestId, error });
         return { 
-          pronunciationScore: 0, accuracyScore: 0, fluencyScore: 0, 
-          completenessScore: 0, transcript: '', words: [],
-          error: `edge_function: ${error.message || 'Unknown error'}`
+          ok: false,
+          error: {
+            stage: 'edge_function',
+            message: error.message || 'Unknown error',
+            details: { context: error.context }
+          },
+          pronRequestId,
+          timingsMs: timings,
+          audioMeta: audioMeta as any
         };
       }
 
-      // Check for error in response body (Azure API errors)
-      if (data?.error) {
-        console.error('🎯 [Pronunciation] Azure API returned error:', data.error);
+      // Check for structured error response from edge function
+      if (data?.ok === false) {
+        console.error('🎯 [Pronunciation] Azure API returned error:', { pronRequestId, error: data.error });
         return { 
-          pronunciationScore: 0, accuracyScore: 0, fluencyScore: 0, 
-          completenessScore: 0, transcript: '', words: [],
-          error: `azure_api: ${data.error}`
+          ok: false,
+          error: {
+            stage: data.error?.stage || 'azure_api',
+            message: data.error?.message || 'Unknown Azure error',
+            details: data.error?.details
+          },
+          pronRequestId,
+          timingsMs: timings,
+          audioMeta: audioMeta as any
+        };
+      }
+
+      // Legacy fallback: check for error string (backward compatibility)
+      if (data?.error && typeof data.error === 'string') {
+        console.error('🎯 [Pronunciation] Azure API returned legacy error:', { pronRequestId, error: data.error });
+        return { 
+          ok: false,
+          error: {
+            stage: 'azure_api',
+            message: data.error
+          },
+          pronRequestId,
+          timingsMs: timings,
+          audioMeta: audioMeta as any
         };
       }
 
       console.log('🎯 [Pronunciation] SUCCESS!', {
-        pronunciationScore: data.pronunciationScore,
-        accuracyScore: data.accuracyScore,
-        fluencyScore: data.fluencyScore,
-        transcript: data.transcript,
-        edgeDurationMs: Date.now() - edgeStartTime,
-        totalDurationMs: Date.now() - startTime,
+        pronRequestId,
+        pronunciationScore: data.pronunciationScore ?? data.data?.pronunciationScore,
+        accuracyScore: data.accuracyScore ?? data.data?.accuracyScore,
+        fluencyScore: data.fluencyScore ?? data.data?.fluencyScore,
+        transcript: data.transcript ?? data.data?.transcript,
+        timingsMs: timings,
       });
 
+      // Handle both new structured response and legacy response
+      const responseData = data.data || data;
+
       return {
-        pronunciationScore: data.pronunciationScore || 0,
-        accuracyScore: data.accuracyScore || 0,
-        fluencyScore: data.fluencyScore || 0,
-        completenessScore: data.completenessScore || 0,
-        prosodyScore: data.prosodyScore,
-        transcript: data.transcript || '',
-        words: data.words || [],
-        alignmentData: data.alignmentData,
+        ok: true,
+        data: {
+          pronunciationScore: responseData.pronunciationScore || 0,
+          accuracyScore: responseData.accuracyScore || 0,
+          fluencyScore: responseData.fluencyScore || 0,
+          completenessScore: responseData.completenessScore || 0,
+          prosodyScore: responseData.prosodyScore,
+          transcript: responseData.transcript || '',
+          words: responseData.words || [],
+          alignmentData: responseData.alignmentData,
+        },
+        pronRequestId,
+        timingsMs: timings,
+        audioMeta: audioMeta as any
       };
     } catch (error) {
-      console.error('🎯 [Pronunciation] Unexpected error:', error);
+      timings.total = Date.now() - startTime;
+      console.error('🎯 [Pronunciation] Unexpected error:', { pronRequestId, error });
       return { 
-        pronunciationScore: 0, accuracyScore: 0, fluencyScore: 0, 
-        completenessScore: 0, transcript: '', words: [],
-        error: `unexpected: ${error instanceof Error ? error.message : 'Unknown error'}`
+        ok: false,
+        error: {
+          stage: 'unexpected',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          details: { errorType: error?.constructor?.name }
+        },
+        pronRequestId,
+        timingsMs: timings,
+        audioMeta: audioMeta as any
       };
     }
   };
@@ -1465,14 +1566,26 @@ export const PhotoNamingGame = ({
           else fluencyUnavailableReason = 'analysis_error';
         }
 
-        // Check for pronunciation analysis errors
-        const pronunciationError = pronunciationResult?.error;
-        if (pronunciationError) {
-          console.warn('🎯 [Pronunciation] Analysis returned error:', pronunciationError);
-          // Determine more specific fluency reason based on error type
-          if (pronunciationError.startsWith('wav_conversion:')) {
+        // Extract pronunciation data from new ok/error result format
+        const pronSuccess = pronunciationResult?.ok === true;
+        const pronData = pronSuccess ? pronunciationResult.data : null;
+        const pronError = pronunciationResult?.ok === false ? pronunciationResult.error : null;
+        
+        // Build structured diagnostics for DB persistence
+        const pronunciationDiagnostics = pronunciationResult ? {
+          pronRequestId: pronunciationResult.pronRequestId,
+          pronunciationStatus: pronSuccess ? 'complete' as const : 'failed' as const,
+          pronunciationErrorStage: pronError?.stage,
+          pronunciationTimingsMs: pronunciationResult.timingsMs,
+          audioMeta: pronunciationResult.audioMeta
+        } : undefined;
+
+        // Update fluency reason based on pronunciation error stage
+        if (pronError) {
+          console.warn('🎯 [Pronunciation] Analysis failed:', pronError);
+          if (pronError.stage === 'wav_conversion') {
             fluencyUnavailableReason = 'wav_conversion_failed';
-          } else if (pronunciationError.startsWith('azure_api:') || pronunciationError.startsWith('edge_function:')) {
+          } else if (pronError.stage === 'azure_api' || pronError.stage === 'edge_function') {
             fluencyUnavailableReason = 'azure_api_error';
           }
         }
@@ -1500,18 +1613,19 @@ export const PhotoNamingGame = ({
           cueTrigger: capturedCueState?.trigger,
           audioStoragePath: uploadedPath,
           recordingDurationMs: duration,
-          pronunciationScore: pronunciationResult?.pronunciationScore,
-          accuracyScore: pronunciationResult?.accuracyScore,
-          fluencyScore: pronunciationResult?.fluencyScore,
-          completenessScore: pronunciationResult?.completenessScore,
-          prosodyScore: pronunciationResult?.prosodyScore,
-          gopData: (pronunciationResult && !pronunciationError) ? {
-            words: pronunciationResult.words,
-            transcript: pronunciationResult.transcript,
-            alignmentData: pronunciationResult.alignmentData
+          pronunciationScore: pronData?.pronunciationScore,
+          accuracyScore: pronData?.accuracyScore,
+          fluencyScore: pronData?.fluencyScore,
+          completenessScore: pronData?.completenessScore,
+          prosodyScore: pronData?.prosodyScore,
+          gopData: pronData ? {
+            words: pronData.words,
+            transcript: pronData.transcript,
+            alignmentData: pronData.alignmentData
           } : undefined,
-          alignmentData: pronunciationResult?.alignmentData,
-          pronunciationError: pronunciationError,
+          alignmentData: pronData?.alignmentData,
+          pronunciationError: pronError ? `${pronError.stage}: ${pronError.message}` : undefined,
+          pronunciationDiagnostics,
         });
         
         console.log('✅ [PhotoNaming] Background analysis complete for:', capturedTrial.target);
