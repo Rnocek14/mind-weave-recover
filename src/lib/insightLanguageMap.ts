@@ -52,6 +52,21 @@ export const errorTypeMap: Record<string, TermMapping> = {
     label: "Correct",
     description: "Got it right!",
     clinicalTerm: "Correct response"
+  },
+  uncertain: {
+    label: "Unclear",
+    description: "We weren't sure what was said - try again.",
+    clinicalTerm: "Uncertain/low confidence ASR"
+  },
+  self_corrected: {
+    label: "Self-corrected",
+    description: "Fixed it yourself - great self-monitoring!",
+    clinicalTerm: "Self-correction"
+  },
+  unrelated: {
+    label: "Unrelated",
+    description: "The response didn't match the target.",
+    clinicalTerm: "Unrelated response"
   }
 };
 

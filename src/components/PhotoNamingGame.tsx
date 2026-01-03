@@ -126,6 +126,14 @@ export const PhotoNamingGame = ({
   const [utteranceState, setUtteranceState] = useState<'idle' | 'listening' | 'processing' | 'scored'>('idle');
   const [retryPrompt, setRetryPrompt] = useState<string | null>(null); // Gentle retry message
   
+  // Phase 2 Fix: Debounced transcript scoring
+  // Don't score until transcript is stable (no changes for 750ms)
+  const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingTranscriptRef = useRef<string | null>(null);
+  const lastRetryToastTimeRef = useRef<number>(0);
+  const TRANSCRIPT_STABLE_DELAY_MS = 750; // Wait 750ms of no changes before scoring
+  const RETRY_TOAST_THROTTLE_MS = 3000; // Only show retry toast every 3s
+  
   const [showDebugOverlay, setShowDebugOverlay] = useState(() => {
     // Enable via URL param ?debug=cue or localStorage
     const urlParams = new URLSearchParams(window.location.search);
@@ -252,7 +260,7 @@ export const PhotoNamingGame = ({
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
-  // CRITICAL: Clean up stall timer on trial change and unmount
+  // CRITICAL: Clean up stall timer AND debounce timer on trial change and unmount
   // Use trialNumber as dependency (unique per trial, unlike target which may repeat)
   useEffect(() => {
     return () => {
@@ -260,6 +268,12 @@ export const PhotoNamingGame = ({
         clearTimeout(stallTimerRef.current);
         stallTimerRef.current = null;
       }
+      // Also clear debounce timer on trial change to prevent stale scoring
+      if (transcriptDebounceRef.current) {
+        clearTimeout(transcriptDebounceRef.current);
+        transcriptDebounceRef.current = null;
+      }
+      pendingTranscriptRef.current = null;
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
 
@@ -442,58 +456,128 @@ export const PhotoNamingGame = ({
     return matrix[str2.length][str1.length];
   };
   
-  // Handle speech recognition results - MUST be declared before hook
-  const handleSpeechResult = useCallback(async (transcript: string) => {
-    // Use REF to avoid stale closure bug!
-    if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) return;
+  // =========================================================================
+  // PHASE 2 FIX: True Debounced Scoring
+  // Only score when transcript is STABLE (no changes for 750ms)
+  // This prevents scoring on interim/partial transcripts
+  // =========================================================================
+  
+  // Helper: Check if transcript is high enough quality to score
+  const isTranscriptScoreable = useCallback((transcript: string): boolean => {
+    const normalized = transcript.toLowerCase().trim();
     
-    // Guard: Ensure we have choices before trying to match
-    if (!state.choices || state.choices.length === 0 || !state.currentTrial) {
-      console.warn('⚠️ Speech result received but game not ready:', {
-        hasChoices: !!state.choices,
-        choicesLength: state.choices?.length,
-        hasTrial: !!state.currentTrial,
-        transcript
-      });
+    // Too short - likely incomplete
+    if (normalized.length < 2) return false;
+    
+    // Just noise/filler words
+    const fillerOnly = /^(uh+|um+|ah+|er+|hmm+|the|a|an)$/i.test(normalized);
+    if (fillerOnly) return false;
+    
+    return true;
+  }, []);
+  
+  // Helper: Debounced scoring logic (called after transcript stabilizes)
+  const processStableTranscript = useCallback((transcript: string) => {
+    // Double-check guards at execution time
+    if (showFeedbackRef.current || selectedAnswerRef.current || timedOutRef.current) {
+      console.log('🎤 processStableTranscript blocked - feedback/answer/timeout active');
       return;
     }
     
-    console.log('Speech result:', transcript);
+    if (!state.choices || state.choices.length === 0 || !state.currentTrial) {
+      console.log('🎤 processStableTranscript blocked - game not ready');
+      return;
+    }
     
-    // Update visual feedback state
-    setUtteranceState('listening');
-    setLastHeardText(transcript);
-    setRetryPrompt(null); // Clear any previous retry prompt
-    
-    // Log browser transcript (no duplicates - just updates the attempt context)
-    logBrowserTranscript(transcript);
+    console.log('✅ Transcript stable, scoring:', transcript);
     
     const matchedChoice = findMatchingChoice(transcript);
     
     if (matchedChoice) {
-      console.log('Matched choice:', matchedChoice);
+      console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
-      setProcessingAnswer(true); // Show "Processing your answer..." immediately
+      setProcessingAnswer(true);
       handleAnswerSelect(matchedChoice);
     } else {
-      console.log('No match found for:', transcript);
+      console.log('❌ No match for stable transcript:', transcript);
       
-      // Phase 2: Gentler feedback - use retry prompt, not "wrong" toast
-      // Show what we heard in a non-judgmental way
-      setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
-      setUtteranceState('idle');
+      // Quality heuristic: is this a real attempt or just noise?
+      const isRealAttempt = isTranscriptScoreable(transcript);
       
-      // Use gentle toast instead of destructive variant
-      toast({
-        title: "Keep going!",
-        description: `I heard "${transcript}". Try saying one of the words shown.`,
-        duration: 2500,
-      });
+      if (isRealAttempt) {
+        // Real attempt that didn't match - show gentle retry
+        setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
+        setUtteranceState('idle');
+        
+        // Throttle retry toasts to prevent spam
+        const now = Date.now();
+        if (now - lastRetryToastTimeRef.current > RETRY_TOAST_THROTTLE_MS) {
+          lastRetryToastTimeRef.current = now;
+          toast({
+            title: "Keep going!",
+            description: `I heard "${transcript}". Try saying one of the words shown.`,
+            duration: 2500,
+          });
+        }
+      } else {
+        // Low quality - just update "heard" text silently, don't toast
+        setLastHeardText(transcript);
+        setUtteranceState('listening');
+      }
       
-      // Phase 1 Fix: Flag for voice restart after no-match
       needsVoiceRestartRef.current = true;
     }
-  }, [showFeedback, selectedAnswer, timedOut, state.choices, state.currentTrial, toast, logBrowserTranscript]);
+  }, [state.choices, state.currentTrial, toast, isTranscriptScoreable]);
+  
+  // Handle speech recognition results - DEBOUNCED SCORING
+  const handleSpeechResult = useCallback((transcript: string) => {
+    // Guard: ignore if already processing/scored
+    if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) {
+      console.log('🎤 handleSpeechResult blocked - state guard');
+      return;
+    }
+    
+    if (utteranceState === 'processing' || utteranceState === 'scored') {
+      console.log('🎤 handleSpeechResult blocked - already processing/scored');
+      return;
+    }
+    
+    // Guard: game must be ready
+    if (!state.choices || state.choices.length === 0 || !state.currentTrial) {
+      console.warn('⚠️ Speech result received but game not ready');
+      return;
+    }
+    
+    console.log('🎤 Speech result (will debounce):', transcript);
+    
+    // Update UI immediately to show we're listening
+    setUtteranceState('listening');
+    setLastHeardText(transcript);
+    setRetryPrompt(null);
+    
+    // Log browser transcript
+    logBrowserTranscript(transcript);
+    
+    // Store pending transcript
+    pendingTranscriptRef.current = transcript;
+    
+    // Clear existing debounce timer
+    if (transcriptDebounceRef.current) {
+      clearTimeout(transcriptDebounceRef.current);
+    }
+    
+    // Set new debounce timer - only score if no new transcript for 750ms
+    transcriptDebounceRef.current = setTimeout(() => {
+      const stableTranscript = pendingTranscriptRef.current;
+      transcriptDebounceRef.current = null;
+      pendingTranscriptRef.current = null;
+      
+      if (stableTranscript) {
+        processStableTranscript(stableTranscript);
+      }
+    }, TRANSCRIPT_STABLE_DELAY_MS);
+    
+  }, [showFeedback, selectedAnswer, timedOut, utteranceState, state.choices, state.currentTrial, logBrowserTranscript, processStableTranscript]);
   
   // Speech recognition hook - uses handleSpeechResult callback
   const { 
