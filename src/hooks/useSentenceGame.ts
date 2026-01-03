@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   SentenceTrial,
-  SentenceTaskType,
   GrammarErrorType,
-  getTrialsForDifficulty,
   getMixedTrials,
   analyzeSentenceErrors
 } from "@/data/sentenceBank";
@@ -11,7 +9,7 @@ import {
 interface GameState {
   currentTrial: number;
   trials: SentenceTrial[];
-  currentAnswer: number[]; // Stores indices into trial.options, not word values (handles duplicates)
+  currentAnswer: number[]; // Stores indices into trial.options
   score: number;
   completed: boolean;
   showFeedback: boolean;
@@ -58,27 +56,10 @@ export const useSentenceGame = (
 
   // Select a word by its INDEX in trial.options (handles duplicate words correctly)
   const selectWord = (wordIndex: number) => {
-    const trial = getCurrentTrial();
-    if (!trial) return;
-
-    // For fill_function, verb_agreement, cloze_picture: single selection
-    if (
-      trial.taskType === "fill_function" ||
-      trial.taskType === "verb_agreement" ||
-      trial.taskType === "cloze_picture"
-    ) {
-      setGameState(prev => ({
-        ...prev,
-        currentAnswer: [wordIndex]
-      }));
-    }
-    // For word_order, sentence_reorder: build array of indices
-    else {
-      setGameState(prev => ({
-        ...prev,
-        currentAnswer: [...prev.currentAnswer, wordIndex]
-      }));
-    }
+    setGameState(prev => ({
+      ...prev,
+      currentAnswer: [...prev.currentAnswer, wordIndex]
+    }));
   };
 
   // Convert current answer indices to word strings (for display and submission)
@@ -109,23 +90,15 @@ export const useSentenceGame = (
     // Convert indices to actual words for comparison
     const answerWords = getAnswerAsWords();
     
-    let isCorrect = false;
-    const userAnswer = trial.taskType === "fill_function" ||
-                       trial.taskType === "verb_agreement" ||
-                       trial.taskType === "cloze_picture"
-      ? answerWords[0]
-      : answerWords;
-
-    // Check correctness
-    if (Array.isArray(trial.correctAnswer)) {
-      isCorrect = JSON.stringify(trial.correctAnswer.map(w => w.toLowerCase())) ===
-                  JSON.stringify((userAnswer as string[]).map(w => w.toLowerCase()));
-    } else {
-      isCorrect = trial.correctAnswer.toLowerCase() === (userAnswer as string)?.toLowerCase();
-    }
+    // Check correctness - compare arrays
+    const isCorrect = 
+      answerWords.length === trial.correctAnswer.length &&
+      trial.correctAnswer.every((word, i) => 
+        word.toLowerCase() === answerWords[i]?.toLowerCase()
+      );
 
     // Analyze errors
-    const errorAnalysis = analyzeSentenceErrors(trial, userAnswer);
+    const errorAnalysis = analyzeSentenceErrors(trial, answerWords);
 
     // Update state
     setGameState(prev => {
@@ -154,7 +127,7 @@ export const useSentenceGame = (
       correct: isCorrect,
       trial,
       errorAnalysis,
-      userAnswer
+      userAnswer: answerWords
     };
   };
 

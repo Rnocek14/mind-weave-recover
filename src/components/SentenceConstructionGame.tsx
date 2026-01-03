@@ -72,15 +72,13 @@ export const SentenceConstructionGame = ({
     getAnswerAsWords
   } = useSentenceGame(10, difficultyLevel);
 
-  const { speak, stop, isLoading, error } = useTextToSpeech();
+  const { speak, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
-  const [showHint, setShowHint] = useState(false);
 
   const trial = getCurrentTrial();
 
   useEffect(() => {
     setTrialStartTime(Date.now());
-    setShowHint(false);
   }, [currentTrial]);
 
   useEffect(() => {
@@ -89,6 +87,7 @@ export const SentenceConstructionGame = ({
     }
   }, [completed]);
 
+  // Play audio AFTER submission as feedback (not before as a hint)
   const handlePlayAudio = () => {
     if (trial?.modelAudio) {
       speak(trial.modelAudio);
@@ -100,6 +99,11 @@ export const SentenceConstructionGame = ({
     if (!result) return;
 
     const reactionTime = Date.now() - trialStartTime;
+
+    // Play correct pronunciation after submission
+    if (trial?.modelAudio) {
+      speak(trial.modelAudio);
+    }
 
     if (onTrialComplete) {
       onTrialComplete({
@@ -119,56 +123,14 @@ export const SentenceConstructionGame = ({
   const getAvailableWords = (): Array<{ word: string; index: number }> => {
     if (!trial) return [];
 
-    // For reordering tasks, show words whose INDEX hasn't been selected
-    if (trial.taskType === "word_order" || trial.taskType === "sentence_reorder") {
-      return trial.options
-        .map((word, index) => ({ word, index }))
-        .filter(item => !currentAnswer.includes(item.index));
-    }
-
-    // For other tasks, show all options with indices
-    return trial.options.map((word, index) => ({ word, index }));
+    // Show words whose INDEX hasn't been selected
+    return trial.options
+      .map((word, index) => ({ word, index }))
+      .filter(item => !currentAnswer.includes(item.index));
   };
 
-  const renderSentenceTemplate = () => {
-    if (!trial) return null;
-
-    // Get words from indices for display
-    const answerWords = getAnswerAsWords();
-
-    if (trial.sentenceTemplate) {
-      const parts = trial.sentenceTemplate.split("___");
-      return (
-        <div className="flex flex-wrap items-center gap-2 text-lg md:text-xl font-medium">
-          {parts.map((part, idx) => (
-            <span key={idx}>
-              {part}
-              {idx < parts.length - 1 && (
-                <span className="inline-flex items-center justify-center min-w-[120px] h-10 px-4 mx-2 bg-muted border-2 border-dashed border-primary rounded-lg">
-                  {answerWords[0] || "___"}
-                </span>
-              )}
-            </span>
-          ))}
-        </div>
-      );
-    }
-
-    // For reordering tasks, show constructed sentence using actual words
-    return (
-      <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
-        {answerWords.length === 0 ? (
-          <span className="text-muted-foreground">Tap words below to build your sentence</span>
-        ) : (
-          answerWords.map((word, idx) => (
-            <Badge key={idx} variant="secondary" className="text-base px-3 py-1">
-              {word}
-            </Badge>
-          ))
-        )}
-      </div>
-    );
-  };
+  // Get words from indices for display
+  const answerWords = getAnswerAsWords();
 
   if (!trial) {
     return (
@@ -243,51 +205,65 @@ export const SentenceConstructionGame = ({
         )}
       </div>
 
-      {/* Task Type Badge */}
+      {/* Task Type Badge and Info */}
       <div className="flex items-center justify-between">
-        <Badge variant="outline" className="text-sm">
-          {trial.grammarFocus.replace(/_/g, " ")}
-        </Badge>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handlePlayAudio}
-          disabled={isLoading}
-        >
-          <Volume2 className="w-4 h-4 mr-2" />
-          Play Model
-        </Button>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-sm">
+            {trial.grammarFocus.replace(/_/g, " ")}
+          </Badge>
+          {trial.distractors.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {trial.distractors.length} extra word{trial.distractors.length > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+        {showFeedback && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePlayAudio}
+            disabled={isLoading}
+          >
+            <Volume2 className="w-4 h-4 mr-2" />
+            Hear it
+          </Button>
+        )}
       </div>
 
       {/* Main Task Card */}
       <Card className="p-6 md:p-8">
         <div className="space-y-6">
-          {/* Sentence Template / Answer Area */}
-          <div className="text-center">
-            {renderSentenceTemplate()}
+          {/* Instructions */}
+          <p className="text-sm text-muted-foreground text-center">
+            Tap the words below in order to build the sentence
+          </p>
+
+          {/* Sentence Construction Area */}
+          <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
+            {answerWords.length === 0 ? (
+              <span className="text-muted-foreground">Tap words below to build your sentence</span>
+            ) : (
+              answerWords.map((word, idx) => (
+                <Badge key={idx} variant="secondary" className="text-base px-3 py-1">
+                  {word}
+                </Badge>
+              ))
+            )}
           </div>
 
           {/* Word Options */}
           <div className="space-y-3">
             <p className="text-sm font-medium text-muted-foreground">
-              {trial.taskType === "word_order" || trial.taskType === "sentence_reorder"
-                ? "Select words in order:"
-                : "Select the correct word:"}
+              Available words:
             </p>
             <div className="flex flex-wrap gap-3">
               {getAvailableWords().map((item) => (
                 <Button
                   key={item.index}
-                  variant={currentAnswer.includes(item.index) ? "default" : "outline"}
+                  variant="outline"
                   size="lg"
                   onClick={() => selectWord(item.index)}
-                  disabled={
-                    showFeedback ||
-                    (currentAnswer.includes(item.index) && 
-                      (trial.taskType === "fill_function" || 
-                       trial.taskType === "verb_agreement" || 
-                       trial.taskType === "cloze_picture"))
-                  }
+                  disabled={showFeedback}
                   className="text-base"
                 >
                   {item.word}
@@ -298,26 +274,22 @@ export const SentenceConstructionGame = ({
 
           {/* Controls */}
           <div className="flex gap-3 pt-4">
-            {(trial.taskType === "word_order" || trial.taskType === "sentence_reorder") && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={removeLastWord}
-                  disabled={currentAnswer.length === 0 || showFeedback}
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Undo
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={clearAnswer}
-                  disabled={currentAnswer.length === 0 || showFeedback}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear
-                </Button>
-              </>
-            )}
+            <Button
+              variant="outline"
+              onClick={removeLastWord}
+              disabled={currentAnswer.length === 0 || showFeedback}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Undo
+            </Button>
+            <Button
+              variant="outline"
+              onClick={clearAnswer}
+              disabled={currentAnswer.length === 0 || showFeedback}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear
+            </Button>
             <Button
               className="ml-auto"
               onClick={showFeedback ? handleNext : handleSubmit}
