@@ -15,7 +15,7 @@ import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 export interface ErrorClassificationResult {
   errorType: 'correct' | 'semantic_paraphasia' | 'phonemic_paraphasia' | 
              'neologism' | 'unrelated' | 'no_response' | 'self_corrected' |
-             'attempted' | 'circumlocution';
+             'attempted' | 'circumlocution' | 'uncertain';
   confidence: number;              // 0-1
   reasoning: string;               // For logging/debugging
   needs_review: boolean;           // Flag uncertain cases
@@ -31,6 +31,11 @@ export interface ErrorClassificationResult {
   };
   circumlocutionDetected?: boolean;
   meaningAccuracy?: number;        // 0-1 overall meaning conveyed
+  
+  // Phase 2: Confidence gates
+  needsRetry?: boolean;            // True when ASR uncertain - prompt retry, don't mark wrong
+  isUncertain?: boolean;           // True when we can't confidently judge correctness
+  retryReason?: string;            // User-friendly message for why we need a retry
 }
 
 export interface ErrorContext {
@@ -86,16 +91,36 @@ export const classifySpeechError = async (
     };
   }
   
-  // Step 1: Handle no response or very low confidence
-  if (!spokenWord || spokenWord.trim() === '' || asrConfidence < 0.3) {
+  // Step 1: Handle no response
+  if (!spokenWord || spokenWord.trim() === '') {
     return {
       errorType: 'no_response',
       confidence: 1.0,
-      reasoning: 'No intelligible output or very low ASR confidence',
-      needs_review: asrConfidence > 0 && asrConfidence < 0.3,
-      semantic_similarity: null // Intentionally null - no speech to compare
+      reasoning: 'No speech detected',
+      needs_review: false,
+      needsRetry: false,
+      isUncertain: false,
+      semantic_similarity: undefined
     };
   }
+  
+  // Step 1b: CONFIDENCE GATE - Low ASR confidence triggers retry, not wrong
+  // This prevents "it heard something and marked it wrong" when ASR is uncertain
+  if (asrConfidence < 0.4) {
+    return {
+      errorType: 'uncertain',
+      confidence: asrConfidence,
+      reasoning: `ASR confidence too low (${(asrConfidence * 100).toFixed(0)}%) to judge accurately`,
+      needs_review: false,
+      needsRetry: true,
+      isUncertain: true,
+      retryReason: "I might have missed that. Could you try again?",
+      semantic_similarity: undefined
+    };
+  }
+  
+  // Step 1c: MEDIUM CONFIDENCE GATE - Proceed but flag for leniency
+  const isLowConfidence = asrConfidence < 0.6;
   
   const normalized_spoken = spokenWord.toLowerCase().trim();
   const normalized_target = targetWord.toLowerCase().trim();
@@ -223,11 +248,29 @@ export const classifySpeechError = async (
   }
   
   // Unrelated: Nothing matches
+  // BUT: If confidence is low, give benefit of the doubt with needsRetry
+  if (isLowConfidence) {
+    return {
+      errorType: 'uncertain',
+      confidence: asrConfidence,
+      reasoning: `Low similarity but ASR confidence also low (${(asrConfidence * 100).toFixed(0)}%) - giving benefit of doubt`,
+      needs_review: true,
+      needsRetry: true,
+      isUncertain: true,
+      retryReason: "I'm not sure I heard that correctly. Could you try again?",
+      phonological_similarity: phonological_sim,
+      semantic_similarity: semantic_sim,
+      phonemeAccuracy
+    };
+  }
+  
   return {
     errorType: 'unrelated',
     confidence: 0.6,
     reasoning: `Low phonological (${phonological_sim.toFixed(2)}) and semantic (${semantic_sim.toFixed(2)}) similarity`,
-    needs_review: asrConfidence < 0.6,
+    needs_review: false,
+    needsRetry: false,
+    isUncertain: false,
     phonological_similarity: phonological_sim,
     semantic_similarity: semantic_sim,
     phonemeAccuracy
