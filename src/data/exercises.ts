@@ -94,5 +94,14 @@ export const EXERCISES: Exercise[] = [
     duration: "5-10 min",
     difficulty: "Easy",
     color: "bg-gradient-healing"
+  },
+  {
+    id: "conversation-partner",
+    title: "Free Talk",
+    icon: MessageCircle,
+    category: "Expression",
+    duration: "2-3 min",
+    difficulty: "Easy",
+    color: "bg-gradient-healing"
   }
 ];
