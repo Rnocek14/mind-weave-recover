@@ -78,11 +78,16 @@ export const SentenceConstructionGame = ({
 
   const trial = getCurrentTrial();
 
-  // Reset hint usage when trial changes
+  // Reset and auto-play audio when trial changes
   useEffect(() => {
     setTrialStartTime(Date.now());
     setHintUsed(false);
-  }, [currentTrial]);
+    
+    // Auto-play the sentence when trial starts
+    if (trial?.modelAudio && !completed) {
+      speak(trial.modelAudio);
+    }
+  }, [currentTrial, trial?.modelAudio, completed]);
 
   useEffect(() => {
     if (completed && onGameComplete) {
