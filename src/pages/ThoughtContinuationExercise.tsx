@@ -1,0 +1,212 @@
+/**
+ * Thought Continuation Exercise Page
+ * 
+ * A flow-based exercise for practicing finishing thoughts.
+ * No right or wrong answers - only momentum and continuation.
+ */
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { ThoughtContinuationGame } from '@/components/ThoughtContinuationGame';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
+
+export default function ThoughtContinuationExercise() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { activeProfile } = useProfile();
+  
+  const [gameStarted, setGameStarted] = useState(false);
+  const [sessionId] = useState<string | null>(() => crypto.randomUUID());
+  const [sessionSummary, setSessionSummary] = useState<{
+    totalPrompts: number;
+    promptsSpoken: number;
+    avgMomentumScore: number;
+    completedThoughts: number;
+  } | null>(null);
+
+  const handleStart = () => {
+    setGameStarted(true);
+  };
+
+  const handleComplete = (summary: {
+    totalPrompts: number;
+    promptsSpoken: number;
+    avgMomentumScore: number;
+    completedThoughts: number;
+  }) => {
+    setSessionSummary(summary);
+    setGameStarted(false);
+  };
+
+  const handleExit = () => {
+    navigate(-1);
+  };
+
+  const handlePlayAgain = () => {
+    setSessionSummary(null);
+    setGameStarted(true);
+  };
+
+  // Not logged in
+  if (!user?.id || !activeProfile?.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground">Please log in to continue.</p>
+            <Button onClick={() => navigate('/auth')} className="mt-4">
+              Log In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show summary after completion
+  if (sessionSummary) {
+    const percentSpoken = sessionSummary.totalPrompts > 0
+      ? Math.round((sessionSummary.promptsSpoken / sessionSummary.totalPrompts) * 100)
+      : 0;
+    
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-md mx-auto pt-12">
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="text-center pb-2">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl">Great Session!</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-3xl font-bold text-primary">{sessionSummary.promptsSpoken}</p>
+                  <p className="text-sm text-muted-foreground">Thoughts shared</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-3xl font-bold text-primary">{sessionSummary.completedThoughts}</p>
+                  <p className="text-sm text-muted-foreground">Complete thoughts</p>
+                </div>
+              </div>
+              
+              {sessionSummary.avgMomentumScore > 0.6 && (
+                <div className="flex items-center gap-2 justify-center text-green-600 dark:text-green-400">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="font-medium">Smooth flow today!</span>
+                </div>
+              )}
+              
+              <p className="text-center text-muted-foreground">
+                You kept {percentSpoken}% of your thoughts moving. That's what matters.
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <Button onClick={handlePlayAgain} className="w-full gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Practice More
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/dashboard')} className="w-full">
+                  Back to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Game in progress
+  if (gameStarted) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
+          <div className="flex items-center justify-between max-w-xl mx-auto">
+            <Button variant="ghost" size="sm" onClick={handleExit}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Exit
+            </Button>
+            <h1 className="text-lg font-semibold">Finish the Thought</h1>
+            <div className="w-16" />
+          </div>
+        </header>
+        
+        <main className="pt-6">
+          <ThoughtContinuationGame
+            userId={user.id}
+            profileId={activeProfile.id}
+            sessionId={sessionId}
+            onComplete={handleComplete}
+            onExit={handleExit}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Start screen
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-md mx-auto pt-8">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)} 
+          className="mb-6"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+        
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <MessageSquare className="w-10 h-10 text-primary" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Finish the Thought</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-center text-muted-foreground">
+              Practice completing thoughts at your own pace.
+              There are no wrong answers — just keep it moving.
+            </p>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-primary">1</span>
+                </div>
+                <p className="text-muted-foreground">You'll see a prompt like "Talk about the last thing you ate"</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-primary">2</span>
+                </div>
+                <p className="text-muted-foreground">Say whatever comes to mind — there's no "right" answer</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-primary">3</span>
+                </div>
+                <p className="text-muted-foreground">If you get stuck, tap "Give me a hint" for a gentle nudge</p>
+              </div>
+            </div>
+            
+            <Button onClick={handleStart} className="w-full" size="lg">
+              Start Practice
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
