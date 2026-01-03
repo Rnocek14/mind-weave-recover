@@ -83,11 +83,14 @@ export const SentenceConstructionGame = ({
     setTrialStartTime(Date.now());
     setHintUsed(false);
     
+    // Stop any currently playing audio before starting new one
+    stop();
+    
     // Auto-play the sentence when trial starts
     if (trial?.modelAudio && !completed) {
       speak(trial.modelAudio);
     }
-  }, [currentTrial, trial?.modelAudio, completed]);
+  }, [currentTrial, trial?.modelAudio, completed, stop, speak]);
 
   useEffect(() => {
     if (completed && onGameComplete) {
