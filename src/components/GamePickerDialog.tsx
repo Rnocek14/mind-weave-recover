@@ -27,6 +27,7 @@ const CATEGORY_LABELS: Record<GameCategory, string> = {
 const GAME_INFO: Record<string, GameInfo> = {
   'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear', difficulty: 'easy', category: 'motor' },
   'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases', difficulty: 'easy', category: 'speech' },
+  'thought-continuation': { emoji: '💭', name: 'Finish the Thought', desc: 'Practice finishing thoughts at your own pace', difficulty: 'easy', category: 'speech' },
   'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech' },
   'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side', difficulty: 'medium', category: 'motor' },
   'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds', difficulty: 'medium', category: 'speech' },
@@ -46,6 +47,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'sentence-construction': '/exercise/sentence-construction',
   'phrase-practice': '/exercise/word-practice',
   'minimal-pairs': '/exercise/minimal-pairs',
+  'thought-continuation': '/exercise/thought-continuation',
 };
 
 interface GamePickerDialogProps {

@@ -1,6 +1,6 @@
 import {
   Camera, Hand, MessageSquare, Target,
-  Lightbulb, Volume2, List, Sparkles, type LucideIcon
+  Lightbulb, Volume2, List, Sparkles, MessageCircle, type LucideIcon
 } from "lucide-react";
 
 export interface Exercise {
@@ -85,5 +85,14 @@ export const EXERCISES: Exercise[] = [
     duration: "5-8 min",
     difficulty: "Medium",
     color: "bg-gradient-primary"
+  },
+  {
+    id: "thought-continuation",
+    title: "Finish the Thought",
+    icon: MessageCircle,
+    category: "Expression",
+    duration: "5-10 min",
+    difficulty: "Easy",
+    color: "bg-gradient-healing"
   }
 ];
