@@ -22,6 +22,7 @@ import { AdaptationBadges } from '@/components/AdaptationBadges';
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
   bounds: DifficultyBounds;
+  difficultyLevel: number;
   adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: {
     correct: boolean;
@@ -48,11 +49,11 @@ interface ExerciseAdaptation {
 export const SentenceConstructionGame = ({
   config,
   bounds,
+  difficultyLevel,
   adaptations,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
-  const difficultyLevel = config.startDifficulty || 1;
   const {
     currentTrial,
     trials,
