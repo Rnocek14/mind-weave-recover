@@ -258,13 +258,13 @@ const SentenceConstructionExercise = () => {
                         value={[level]}
                         onValueChange={([val]) => handleDifficultyChange(val)}
                         min={1}
-                        max={5}
+                        max={10}
                         step={1}
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Level 1: Basic SVO</span>
-                        <span>Level 5: Complex Tenses</span>
+                        <span>Level 10: Advanced</span>
                       </div>
                     </div>
                   </div>
