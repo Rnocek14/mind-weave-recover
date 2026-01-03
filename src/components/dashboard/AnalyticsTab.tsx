@@ -14,6 +14,7 @@ import { CapabilityProfileCard } from "@/components/CapabilityProfileCard";
 import { ClinicianCapabilityCard } from "@/components/ClinicianCapabilityCard";
 import { ExerciseProgressCard } from "@/components/ExerciseProgressCard";
 import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
+import { ThoughtProgressCard } from "@/components/ThoughtProgressCard";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { AnalyticsCardSkeleton, ExerciseProgressCardSkeleton, ExerciseStatsTileSkeleton } from "./DashboardSkeletons";
 
@@ -219,6 +220,11 @@ export const AnalyticsTab = memo(function AnalyticsTab() {
               exerciseIcon={List}
               targets="syntax, grammar, word order"
             />
+          </div>
+          
+          {/* Connected Speech Progress */}
+          <div className="mt-6">
+            <ThoughtProgressCard />
           </div>
         </div>
       )}

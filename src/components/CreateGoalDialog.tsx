@@ -22,7 +22,7 @@ interface CreateGoalDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreateGoal: (
     goalText: string,
-    targetDomain: 'communication' | 'motor' | 'cognitive' | 'daily_living',
+    targetDomain: 'communication' | 'motor' | 'cognitive' | 'daily_living' | 'connected_speech',
     baselineStatus: 'not_yet' | 'partial' | 'achieved',
     targetDate?: string
   ) => Promise<any>;
@@ -30,7 +30,7 @@ interface CreateGoalDialogProps {
 
 export const CreateGoalDialog = ({ open, onOpenChange, onCreateGoal }: CreateGoalDialogProps) => {
   const [goalText, setGoalText] = useState('');
-  const [targetDomain, setTargetDomain] = useState<'communication' | 'motor' | 'cognitive' | 'daily_living'>('communication');
+  const [targetDomain, setTargetDomain] = useState<'communication' | 'motor' | 'cognitive' | 'daily_living' | 'connected_speech'>('communication');
   const [baselineStatus, setBaselineStatus] = useState<'not_yet' | 'partial' | 'achieved'>('not_yet');
   const [targetDate, setTargetDate] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -89,6 +89,7 @@ export const CreateGoalDialog = ({ open, onOpenChange, onCreateGoal }: CreateGoa
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="communication">Communication</SelectItem>
+                <SelectItem value="connected_speech">Connected Speech</SelectItem>
                 <SelectItem value="motor">Motor Skills</SelectItem>
                 <SelectItem value="cognitive">Cognitive</SelectItem>
                 <SelectItem value="daily_living">Daily Living</SelectItem>

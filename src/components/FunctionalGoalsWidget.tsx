@@ -46,6 +46,8 @@ export const FunctionalGoalsWidget = ({ userId, compact = false }: FunctionalGoa
     switch (domain) {
       case 'communication':
         return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'connected_speech':
+        return 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20';
       case 'motor':
         return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
       case 'cognitive':

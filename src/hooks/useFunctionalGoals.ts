@@ -6,7 +6,7 @@ export interface FunctionalGoal {
   id: string;
   user_id: string;
   goal_text: string;
-  target_domain: 'communication' | 'motor' | 'cognitive' | 'daily_living';
+  target_domain: 'communication' | 'motor' | 'cognitive' | 'daily_living' | 'connected_speech';
   baseline_status: 'not_yet' | 'partial' | 'achieved';
   target_date?: string;
   created_at: string;
@@ -14,6 +14,15 @@ export interface FunctionalGoal {
   created_by?: string;
   latest_rating?: GoalProgressRating;
 }
+
+// Suggested behavioral goals for connected speech
+export const CONNECTED_SPEECH_GOAL_TEMPLATES = [
+  "Finish 8 out of 10 thoughts without trailing off",
+  "Start speaking within 5 seconds on most prompts",
+  "Need fewer than 2 hints per session",
+  "Recover after a pause at least once per session",
+  "Complete a thought on a personal memory topic",
+] as const;
 
 export interface GoalProgressRating {
   id: string;
