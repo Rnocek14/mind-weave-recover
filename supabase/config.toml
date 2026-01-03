@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.sweep-stale-sessions]
 verify_jwt = false
+
+[functions.conversation-partner]
+verify_jwt = false
