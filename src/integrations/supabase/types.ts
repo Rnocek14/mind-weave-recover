@@ -1268,6 +1268,45 @@ export type Database = {
           },
         ]
       }
+      thought_prompts: {
+        Row: {
+          created_at: string
+          difficulty_tier: number
+          id: string
+          intent_type: string
+          is_active: boolean
+          narrowing_steps: Json
+          prompt_text: string
+          theme: string
+          time_anchor: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty_tier?: number
+          id?: string
+          intent_type: string
+          is_active?: boolean
+          narrowing_steps?: Json
+          prompt_text: string
+          theme: string
+          time_anchor?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          difficulty_tier?: number
+          id?: string
+          intent_type?: string
+          is_active?: boolean
+          narrowing_steps?: Json
+          prompt_text?: string
+          theme?: string
+          time_anchor?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1390,13 +1429,16 @@ export type Database = {
           avg_pause_duration_ms: number | null
           category: string | null
           classification_confidence: number | null
+          coherence_score: number | null
           created_at: string | null
           cue_trigger: string | null
           cue_type_given: string | null
           cue_was_effective: boolean | null
+          did_speak: boolean | null
           effortful_speech: boolean | null
           error_message: string | null
           error_type: string | null
+          evaluation_model: string | null
           exercise_slug: string | null
           fluency_available: boolean | null
           fluency_unavailable_reason: string | null
@@ -1405,11 +1447,18 @@ export type Database = {
           id: string
           is_correct: boolean | null
           latency_ms: number | null
+          latency_to_first_word_ms: number | null
           locked_at: string | null
           locked_by: string | null
+          momentum_components: Json | null
+          momentum_score: number | null
+          narrowing_level_used: number | null
+          narrowing_trigger: string | null
           next_retry_at: string | null
           pause_count: number | null
           phonological_similarity: number | null
+          prompt_intent_type: string | null
+          prompt_theme: string | null
           pron_request_id: string | null
           pronunciation_error_message: string | null
           pronunciation_error_stage: string | null
@@ -1431,6 +1480,7 @@ export type Database = {
           trial_index: number | null
           updated_at: string | null
           user_id: string
+          utterance_complete: boolean | null
         }
         Insert: {
           alignment_data?: Json | null
@@ -1446,13 +1496,16 @@ export type Database = {
           avg_pause_duration_ms?: number | null
           category?: string | null
           classification_confidence?: number | null
+          coherence_score?: number | null
           created_at?: string | null
           cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
+          did_speak?: boolean | null
           effortful_speech?: boolean | null
           error_message?: string | null
           error_type?: string | null
+          evaluation_model?: string | null
           exercise_slug?: string | null
           fluency_available?: boolean | null
           fluency_unavailable_reason?: string | null
@@ -1461,11 +1514,18 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
+          latency_to_first_word_ms?: number | null
           locked_at?: string | null
           locked_by?: string | null
+          momentum_components?: Json | null
+          momentum_score?: number | null
+          narrowing_level_used?: number | null
+          narrowing_trigger?: string | null
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          prompt_intent_type?: string | null
+          prompt_theme?: string | null
           pron_request_id?: string | null
           pronunciation_error_message?: string | null
           pronunciation_error_stage?: string | null
@@ -1487,6 +1547,7 @@ export type Database = {
           trial_index?: number | null
           updated_at?: string | null
           user_id: string
+          utterance_complete?: boolean | null
         }
         Update: {
           alignment_data?: Json | null
@@ -1502,13 +1563,16 @@ export type Database = {
           avg_pause_duration_ms?: number | null
           category?: string | null
           classification_confidence?: number | null
+          coherence_score?: number | null
           created_at?: string | null
           cue_trigger?: string | null
           cue_type_given?: string | null
           cue_was_effective?: boolean | null
+          did_speak?: boolean | null
           effortful_speech?: boolean | null
           error_message?: string | null
           error_type?: string | null
+          evaluation_model?: string | null
           exercise_slug?: string | null
           fluency_available?: boolean | null
           fluency_unavailable_reason?: string | null
@@ -1517,11 +1581,18 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           latency_ms?: number | null
+          latency_to_first_word_ms?: number | null
           locked_at?: string | null
           locked_by?: string | null
+          momentum_components?: Json | null
+          momentum_score?: number | null
+          narrowing_level_used?: number | null
+          narrowing_trigger?: string | null
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          prompt_intent_type?: string | null
+          prompt_theme?: string | null
           pron_request_id?: string | null
           pronunciation_error_message?: string | null
           pronunciation_error_stage?: string | null
@@ -1543,6 +1614,7 @@ export type Database = {
           trial_index?: number | null
           updated_at?: string | null
           user_id?: string
+          utterance_complete?: boolean | null
         }
         Relationships: [
           {

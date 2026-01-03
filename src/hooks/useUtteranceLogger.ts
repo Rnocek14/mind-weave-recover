@@ -47,6 +47,19 @@ export interface PronunciationDiagnostics {
   audioMeta?: { originalMime: string; originalSize: number; wavSize?: number; base64Len?: number };
 }
 
+// Evaluation model discriminator
+export type EvaluationModel = 'test' | 'flow';
+
+// Momentum components for flow evaluation (explainable)
+export interface MomentumComponents {
+  pauseRatio: number;
+  prewordPauseAvgMs: number;
+  filledPauseRate: number;
+  burstCount: number;
+  longestPauseMs: number;
+  trailingOffDetected: boolean;
+}
+
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   isFinalized: boolean;
@@ -56,8 +69,9 @@ interface UtteranceLoggerReturn {
     transcript?: string;
     transcriptSource: 'browser' | 'whisper' | 'manual';
     asrConfidence?: number;
-    isCorrect: boolean;
-    errorType: string;
+    // CHANGED: Optional for flow games (no correctness concept)
+    isCorrect?: boolean | null;
+    errorType?: string;
     phonologicalSimilarity?: number;
     semanticSimilarity?: number | null; // null = intentionally skipped (no_response)
     classificationConfidence?: number;
@@ -92,6 +106,19 @@ interface UtteranceLoggerReturn {
     pronunciationError?: string;
     // NEW: Structured pronunciation diagnostics
     pronunciationDiagnostics?: PronunciationDiagnostics;
+    // NEW: Evaluation model (test = right/wrong, flow = momentum-based)
+    evaluationModel?: EvaluationModel;
+    // NEW: Flow-specific metrics (only used when evaluationModel = 'flow')
+    didSpeak?: boolean;
+    utteranceComplete?: boolean;
+    coherenceScore?: number;
+    momentumScore?: number;
+    latencyToFirstWordMs?: number;
+    narrowingLevelUsed?: number;
+    narrowingTrigger?: 'auto_silence' | 'user_request';
+    momentumComponents?: MomentumComponents;
+    promptIntentType?: string;
+    promptTheme?: string;
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -168,9 +195,9 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     transcript?: string;
     transcriptSource: 'browser' | 'whisper' | 'manual';
     asrConfidence?: number;
-    // Error classification
-    isCorrect: boolean;
-    errorType: string;
+    // Error classification - OPTIONAL for flow games
+    isCorrect?: boolean | null;
+    errorType?: string;
     phonologicalSimilarity?: number;
     semanticSimilarity?: number | null;
     classificationConfidence?: number;
@@ -204,8 +231,21 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     };
     // Pronunciation analysis error tracking (legacy)
     pronunciationError?: string;
-    // NEW: Structured pronunciation diagnostics
+    // Structured pronunciation diagnostics
     pronunciationDiagnostics?: PronunciationDiagnostics;
+    // NEW: Evaluation model (test = right/wrong, flow = momentum-based)
+    evaluationModel?: EvaluationModel;
+    // NEW: Flow-specific metrics (only used when evaluationModel = 'flow')
+    didSpeak?: boolean;
+    utteranceComplete?: boolean;
+    coherenceScore?: number;
+    momentumScore?: number;
+    latencyToFirstWordMs?: number;
+    narrowingLevelUsed?: number;
+    narrowingTrigger?: 'auto_silence' | 'user_request';
+    momentumComponents?: MomentumComponents;
+    promptIntentType?: string;
+    promptTheme?: string;
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -335,7 +375,20 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         pronunciation_error_stage: diag?.pronunciationErrorStage,
         pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
         pronunciation_timings_ms: diag?.pronunciationTimingsMs,
-        audio_meta: diag?.audioMeta
+        audio_meta: diag?.audioMeta,
+        
+        // NEW: Flow evaluation model fields
+        evaluation_model: analysis.evaluationModel ?? 'test',
+        did_speak: analysis.didSpeak,
+        utterance_complete: analysis.utteranceComplete,
+        coherence_score: analysis.coherenceScore,
+        momentum_score: analysis.momentumScore,
+        latency_to_first_word_ms: analysis.latencyToFirstWordMs,
+        narrowing_level_used: analysis.narrowingLevelUsed,
+        narrowing_trigger: analysis.narrowingTrigger,
+        momentum_components: analysis.momentumComponents,
+        prompt_intent_type: analysis.promptIntentType,
+        prompt_theme: analysis.promptTheme,
       };
 
       // CRITICAL: Only include cue_was_effective when explicitly true or false
