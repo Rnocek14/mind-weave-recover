@@ -1268,6 +1268,96 @@ export type Database = {
           },
         ]
       }
+      thought_decision_logs: {
+        Row: {
+          id: string
+          log_date: string
+          logged_at: string
+          narrowing_levels_used: number[] | null
+          outcome_did_speak: boolean | null
+          outcome_latency_ms: number | null
+          outcome_stuck_type: string | null
+          outcome_utterance_complete: boolean | null
+          previous_stuck_type: string | null
+          profile_id: string | null
+          prompt_difficulty_tier: number | null
+          prompt_id: string | null
+          prompt_intent_type: string | null
+          prompt_text: string
+          prompt_theme: string | null
+          selection_reason: string
+          session_attempt_count: number | null
+          session_avg_latency_ms: number | null
+          session_completion_count: number | null
+          session_id: string | null
+          stuck_type_history: string[] | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          log_date?: string
+          logged_at?: string
+          narrowing_levels_used?: number[] | null
+          outcome_did_speak?: boolean | null
+          outcome_latency_ms?: number | null
+          outcome_stuck_type?: string | null
+          outcome_utterance_complete?: boolean | null
+          previous_stuck_type?: string | null
+          profile_id?: string | null
+          prompt_difficulty_tier?: number | null
+          prompt_id?: string | null
+          prompt_intent_type?: string | null
+          prompt_text: string
+          prompt_theme?: string | null
+          selection_reason: string
+          session_attempt_count?: number | null
+          session_avg_latency_ms?: number | null
+          session_completion_count?: number | null
+          session_id?: string | null
+          stuck_type_history?: string[] | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          log_date?: string
+          logged_at?: string
+          narrowing_levels_used?: number[] | null
+          outcome_did_speak?: boolean | null
+          outcome_latency_ms?: number | null
+          outcome_stuck_type?: string | null
+          outcome_utterance_complete?: boolean | null
+          previous_stuck_type?: string | null
+          profile_id?: string | null
+          prompt_difficulty_tier?: number | null
+          prompt_id?: string | null
+          prompt_intent_type?: string | null
+          prompt_text?: string
+          prompt_theme?: string | null
+          selection_reason?: string
+          session_attempt_count?: number | null
+          session_avg_latency_ms?: number | null
+          session_completion_count?: number | null
+          session_id?: string | null
+          stuck_type_history?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thought_decision_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thought_decision_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       thought_prompts: {
         Row: {
           created_at: string
@@ -1472,6 +1562,7 @@ export type Database = {
           session_id: string | null
           speech_rate_wpm: number | null
           speech_ratio: number | null
+          stuck_type: string | null
           target_word: string
           time_to_success_after_cue_ms: number | null
           total_pause_ms: number | null
@@ -1539,6 +1630,7 @@ export type Database = {
           session_id?: string | null
           speech_rate_wpm?: number | null
           speech_ratio?: number | null
+          stuck_type?: string | null
           target_word: string
           time_to_success_after_cue_ms?: number | null
           total_pause_ms?: number | null
@@ -1606,6 +1698,7 @@ export type Database = {
           session_id?: string | null
           speech_rate_wpm?: number | null
           speech_ratio?: number | null
+          stuck_type?: string | null
           target_word?: string
           time_to_success_after_cue_ms?: number | null
           total_pause_ms?: number | null

@@ -1,8 +1,13 @@
 /**
- * Thought Continuation Game
+ * Thought Continuation Game - Closed-Loop Adaptive System
  * 
  * A "flow-shaped" game with NO wrong answers.
  * The goal is to help users finish thoughts, not test vocabulary.
+ * 
+ * Key intelligence features (Tier A - no alignment required):
+ * - Stuck-type classification using local metrics
+ * - Adaptive prompt selection based on previous stuck type
+ * - Decision logging for what prompt was selected and why
  * 
  * Key principles:
  * - Never say "wrong" or "incorrect"
@@ -14,18 +19,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, MicOff, Lightbulb, ArrowRight, Volume2, ChevronRight } from 'lucide-react';
+import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { deriveMicroFluency } from '@/lib/microFluencyAnalyzer';
-import { calculateMomentumScore } from '@/lib/momentumScorer';
+import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
+import { classifyStuckType, getStuckTypeLabel, type StuckType, type TierAMetrics } from '@/lib/stuckTypeClassifier';
 import { 
-  selectRandomPrompts, 
+  selectNextPrompt, 
+  createEmptySessionHistory, 
+  updateSessionHistory,
+  type SessionHistory,
+} from '@/lib/adaptivePromptSelector';
+import { 
   getRandomNudge, 
   getRandomStarterNudge,
-  THOUGHT_PROMPTS 
 } from '@/data/thoughtPromptBank';
 import { 
   ThoughtPrompt, 
@@ -43,6 +52,7 @@ const PROMPTS_PER_SESSION = 8;
 const SILENCE_NUDGE_DELAY_MS = 8000;   // 8 seconds before first nudge
 const SILENCE_NARROW_DELAY_MS = 15000; // 15 seconds before narrowing hint
 const MIN_SPEECH_FOR_COMPLETE_MS = 1500; // Minimum speech duration to count
+const DEV_MODE = import.meta.env.DEV;  // Show debug overlay in dev
 
 // =============================================================================
 // Props
@@ -77,8 +87,8 @@ export function ThoughtContinuationGame({
   // ---------------------------------------------------------------------------
   
   const [phase, setPhase] = useState<ThoughtGamePhase>('idle');
-  const [prompts, setPrompts] = useState<ThoughtPrompt[]>([]);
-  const [promptIndex, setPromptIndex] = useState(0);
+  const [currentPrompt, setCurrentPrompt] = useState<ThoughtPrompt | null>(null);
+  const [promptCount, setPromptCount] = useState(0);
   const [transcript, setTranscript] = useState('');
   const [narrowingLevel, setNarrowingLevel] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -87,13 +97,22 @@ export function ThoughtContinuationGame({
     momentumScore: number;
     complete: boolean;
     hintUsed: boolean;
+    stuckType: StuckType;
   }[]>([]);
+  
+  // Adaptive system state
+  const [sessionHistory, setSessionHistory] = useState<SessionHistory>(createEmptySessionHistory());
+  const [previousStuckType, setPreviousStuckType] = useState<StuckType | null>(null);
+  const [usedPromptIds, setUsedPromptIds] = useState<string[]>([]);
+  const [lastStuckType, setLastStuckType] = useState<StuckType | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   
   // Refs
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechStartTimeRef = useRef<number | null>(null);
   const latencyStartRef = useRef<number | null>(null);
   const latencyToFirstWordRef = useRef<number | null>(null);
+  const narrowingTriggerRef = useRef<'auto_silence' | 'user_request' | null>(null);
   
   // Hooks
   const { speak } = useTextToSpeech();
@@ -101,8 +120,8 @@ export function ThoughtContinuationGame({
     startAttempt, 
     logFinalAnalysis, 
     resetAttempt,
-    currentAttemptId 
   } = useUtteranceLogger();
+  const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
   
   // Speech recognition with callback
   const handleSpeechResult = useCallback((text: string) => {
@@ -117,19 +136,49 @@ export function ThoughtContinuationGame({
     isSupported,
   } = useSpeechRecognition(handleSpeechResult, false, true);
 
-  // Current prompt
-  const currentPrompt = prompts[promptIndex] || null;
+  // ---------------------------------------------------------------------------
+  // Select first/next prompt using adaptive selector
+  // ---------------------------------------------------------------------------
+  
+  const selectAndSetNextPrompt = useCallback(async () => {
+    // Use adaptive selector
+    const selection = selectNextPrompt(previousStuckType, sessionHistory, usedPromptIds);
+    
+    console.log('[ThoughtGame] Prompt selected:', {
+      strategy: selection.strategy,
+      reason: selection.reason,
+      promptTheme: selection.prompt.theme,
+      promptIntent: selection.prompt.intentType,
+      previousStuckType,
+    });
+    
+    // Log the decision
+    await logDecision({
+      userId,
+      profileId,
+      sessionId,
+      prompt: selection.prompt,
+      selectionReason: selection.reason,
+      strategy: selection.strategy,
+      previousStuckType,
+      sessionHistory,
+    });
+    
+    // Update state
+    setCurrentPrompt(selection.prompt);
+    setUsedPromptIds(prev => [...prev, selection.prompt.id]);
+    setPromptCount(prev => prev + 1);
+  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision]);
 
   // ---------------------------------------------------------------------------
-  // Initialize prompts
+  // Initialize first prompt
   // ---------------------------------------------------------------------------
   
   useEffect(() => {
-    const selected = selectRandomPrompts(PROMPTS_PER_SESSION, {
-      maxDifficulty: 2, // Start with easier prompts
-    });
-    setPrompts(selected);
-  }, []);
+    if (!currentPrompt && promptCount === 0) {
+      selectAndSetNextPrompt();
+    }
+  }, [currentPrompt, promptCount, selectAndSetNextPrompt]);
 
   // ---------------------------------------------------------------------------
   // Track live transcript
@@ -180,12 +229,14 @@ export function ThoughtContinuationGame({
           // First nudge: gentle encouragement
           setFeedbackMessage(getRandomStarterNudge());
           setPhase('narrowing');
+          narrowingTriggerRef.current = 'auto_silence';
         } else if (currentPrompt && narrowingLevel <= currentPrompt.narrowingSteps.length) {
           // Progressive narrowing
           const step = currentPrompt.narrowingSteps[narrowingLevel - 1];
           if (step) {
             setFeedbackMessage(step.text);
             setNarrowingLevel(prev => prev + 1);
+            narrowingTriggerRef.current = 'auto_silence';
           }
         }
       }
@@ -197,7 +248,7 @@ export function ThoughtContinuationGame({
   // ---------------------------------------------------------------------------
   
   useEffect(() => {
-    if (currentPrompt && phase === 'idle') {
+    if (currentPrompt && phase === 'idle' && promptCount > 0) {
       // Reset state for new prompt
       setTranscript('');
       setNarrowingLevel(0);
@@ -205,15 +256,16 @@ export function ThoughtContinuationGame({
       speechStartTimeRef.current = null;
       latencyToFirstWordRef.current = null;
       latencyStartRef.current = Date.now();
+      narrowingTriggerRef.current = null;
       
       // Start a new attempt
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
         exerciseSlug: 'thought-continuation',
-        trialIndex: promptIndex,
+        trialIndex: promptCount - 1,
         attemptNumber: 1,
-        targetWord: currentPrompt.promptText.slice(0, 50), // Use prompt as "target"
+        targetWord: currentPrompt.promptText.slice(0, 50),
         category: currentPrompt.theme,
       });
       
@@ -223,10 +275,10 @@ export function ThoughtContinuationGame({
       // Start silence timer
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptIndex, sessionId, userId, startAttempt, startListening, startSilenceTimer]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer]);
 
   // ---------------------------------------------------------------------------
-  // Process completed speech
+  // Process completed speech - Core intelligence loop
   // ---------------------------------------------------------------------------
   
   const processUtterance = useCallback(async () => {
@@ -245,14 +297,48 @@ export function ThoughtContinuationGame({
       ? Date.now() - speechStartTimeRef.current 
       : 0;
     
-    // Calculate flow metrics
-    const didSpeak = transcript.trim().length > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS;
+    // =========================================================================
+    // TIER A METRICS - Locally measurable, no alignment required
+    // =========================================================================
     
-    // For now, use simplified momentum calculation (no Azure alignment data)
+    const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+    const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS;
     const completionResult = detectUtteranceComplete(transcript, null);
+    const latencyToFirstWordMs = latencyToFirstWordRef.current || 
+      (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
     
-    // Simple momentum score based on completion and length
-    const wordCount = transcript.trim().split(/\s+/).length;
+    // Tier A metrics for stuck-type classification
+    const tierAMetrics: TierAMetrics = {
+      didSpeak,
+      latencyToFirstWordMs,
+      utteranceComplete: completionResult.isComplete,
+      wordCount,
+      durationMs: speechDuration,
+      narrowingLevelUsed: narrowingLevel,
+      // Tier B fields (null for now - will come from alignment)
+      trailingOffDetected: !completionResult.isComplete && wordCount > 2,
+    };
+    
+    // =========================================================================
+    // STUCK-TYPE CLASSIFICATION
+    // =========================================================================
+    
+    const stuckResult = classifyStuckType(tierAMetrics);
+    const stuckType = stuckResult.stuckType;
+    
+    console.log('[ThoughtGame] Stuck-type classified:', {
+      stuckType,
+      confidence: stuckResult.confidence,
+      reasoning: stuckResult.reasoning,
+      metrics: stuckResult.metrics,
+    });
+    
+    setLastStuckType(stuckType);
+    
+    // =========================================================================
+    // MOMENTUM SCORE (Tier A simplified)
+    // =========================================================================
+    
     let momentumScore = 0;
     if (didSpeak) {
       momentumScore = 0.4; // Base score for speaking
@@ -265,15 +351,19 @@ export function ThoughtContinuationGame({
       if (wordCount >= 10) {
         momentumScore += 0.15;
       }
+      // Penalize high latency
+      if (latencyToFirstWordMs > 8000) {
+        momentumScore -= 0.1;
+      }
     }
     
     const momentumComponents: MomentumComponents = {
-      pauseRatio: 0,
-      prewordPauseAvgMs: 0,
-      filledPauseRate: 0,
-      burstCount: 1,
-      longestPauseMs: 0,
-      trailingOffDetected: !completionResult.isComplete,
+      pauseRatio: 0, // Tier B
+      prewordPauseAvgMs: 0, // Tier B
+      filledPauseRate: 0, // Tier B
+      burstCount: didSpeak ? 1 : 0,
+      longestPauseMs: 0, // Tier B
+      trailingOffDetected: tierAMetrics.trailingOffDetected || false,
     };
     
     const flowMetrics: FlowMetrics = {
@@ -281,12 +371,15 @@ export function ThoughtContinuationGame({
       utteranceComplete: completionResult.isComplete,
       momentumScore,
       momentumComponents,
-      latencyToFirstWordMs: latencyToFirstWordRef.current || 0,
+      latencyToFirstWordMs,
       narrowingLevelUsed: narrowingLevel,
-      narrowingTrigger: narrowingLevel > 0 ? 'auto_silence' : undefined,
+      narrowingTrigger: narrowingTriggerRef.current || undefined,
     };
     
-    // Log to database
+    // =========================================================================
+    // LOG TO DATABASE
+    // =========================================================================
+    
     await logFinalAnalysis({
       transcript,
       transcriptSource: 'browser',
@@ -303,16 +396,40 @@ export function ThoughtContinuationGame({
       promptIntentType: currentPrompt.intentType,
       promptTheme: currentPrompt.theme,
       recordingDurationMs: speechDuration,
+      stuckType, // NEW: Log stuck type
     });
+    
+    // Log decision outcome
+    await logCurrentOutcome(stuckType, didSpeak, latencyToFirstWordMs, completionResult.isComplete);
+    
+    // =========================================================================
+    // UPDATE SESSION HISTORY (for adaptive selection)
+    // =========================================================================
+    
+    const updatedHistory = updateSessionHistory(
+      sessionHistory,
+      stuckType,
+      latencyToFirstWordMs,
+      narrowingLevel,
+      currentPrompt.theme,
+      currentPrompt.intentType,
+      completionResult.isComplete
+    );
+    setSessionHistory(updatedHistory);
+    setPreviousStuckType(stuckType);
     
     // Store result
     setSessionResults(prev => [...prev, {
       momentumScore: flowMetrics.momentumScore,
       complete: flowMetrics.utteranceComplete,
       hintUsed: narrowingLevel > 0,
+      stuckType,
     }]);
     
-    // Determine and show feedback
+    // =========================================================================
+    // FEEDBACK
+    // =========================================================================
+    
     const feedbackTypes = determineFeedbackTypes(flowMetrics);
     const feedback = selectFeedback(feedbackTypes);
     setFeedbackMessage(feedback);
@@ -328,7 +445,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, logFinalAnalysis, stopListening]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening]);
 
   // ---------------------------------------------------------------------------
   // Handle speech end detection
@@ -356,14 +473,14 @@ export function ThoughtContinuationGame({
   const moveToNextPrompt = useCallback(() => {
     resetAttempt();
     
-    if (promptIndex + 1 >= prompts.length) {
+    if (promptCount >= PROMPTS_PER_SESSION) {
       // Session complete
       const avgMomentum = sessionResults.length > 0
         ? sessionResults.reduce((sum, r) => sum + r.momentumScore, 0) / sessionResults.length
         : 0;
       
       onComplete?.({
-        totalPrompts: prompts.length,
+        totalPrompts: promptCount,
         promptsSpoken: sessionResults.filter(r => r.momentumScore > 0).length,
         avgMomentumScore: avgMomentum,
         completedThoughts: sessionResults.filter(r => r.complete).length,
@@ -371,15 +488,32 @@ export function ThoughtContinuationGame({
       return;
     }
     
-    setPromptIndex(prev => prev + 1);
+    // Clear current prompt, trigger selection of next
     setPhase('idle');
     setTranscript('');
     setFeedbackMessage(null);
     setNarrowingLevel(0);
-  }, [promptIndex, prompts.length, sessionResults, resetAttempt, onComplete]);
+    setLastStuckType(null);
+    setCurrentPrompt(null);
+    
+    // Select next prompt (will be triggered by useEffect)
+    selectAndSetNextPrompt();
+  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt]);
 
   const handleSkipPrompt = useCallback(() => {
-    // Log skip (with didSpeak = false)
+    // Log skip as no_speech
+    const tierAMetrics: TierAMetrics = {
+      didSpeak: false,
+      latencyToFirstWordMs: null,
+      utteranceComplete: false,
+      wordCount: 0,
+      durationMs: 0,
+      narrowingLevelUsed: narrowingLevel,
+    };
+    
+    const stuckResult = classifyStuckType(tierAMetrics);
+    setLastStuckType(stuckResult.stuckType);
+    
     logFinalAnalysis({
       transcript: '',
       transcriptSource: 'browser',
@@ -391,10 +525,26 @@ export function ThoughtContinuationGame({
       narrowingLevelUsed: narrowingLevel,
       promptIntentType: currentPrompt?.intentType,
       promptTheme: currentPrompt?.theme,
+      stuckType: stuckResult.stuckType,
     });
     
+    // Update history with skip
+    if (currentPrompt) {
+      const updatedHistory = updateSessionHistory(
+        sessionHistory,
+        stuckResult.stuckType,
+        null,
+        narrowingLevel,
+        currentPrompt.theme,
+        currentPrompt.intentType,
+        false
+      );
+      setSessionHistory(updatedHistory);
+      setPreviousStuckType(stuckResult.stuckType);
+    }
+    
     moveToNextPrompt();
-  }, [narrowingLevel, currentPrompt, logFinalAnalysis, moveToNextPrompt]);
+  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt]);
 
   const handleHintRequest = useCallback(() => {
     if (!currentPrompt) return;
@@ -405,6 +555,7 @@ export function ThoughtContinuationGame({
       setFeedbackMessage(step.text);
       setNarrowingLevel(nextLevel);
       setPhase('narrowing');
+      narrowingTriggerRef.current = 'user_request';
     } else {
       // No more hints, just encourage
       setFeedbackMessage("Take your time. Any thought is fine.");
@@ -419,7 +570,7 @@ export function ThoughtContinuationGame({
   // Render
   // ---------------------------------------------------------------------------
   
-  if (prompts.length === 0) {
+  if (!currentPrompt) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-pulse text-muted-foreground">Loading prompts...</div>
@@ -431,13 +582,34 @@ export function ThoughtContinuationGame({
     <div className="flex flex-col gap-6 max-w-xl mx-auto p-4">
       {/* Progress indicator */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{promptIndex + 1} of {prompts.length}</span>
+        <span>{promptCount} of {PROMPTS_PER_SESSION}</span>
         {streak > 0 && (
           <span className="text-primary font-medium">
             🔥 {streak} in a row
           </span>
         )}
+        {DEV_MODE && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDebug(!showDebug)}
+            className="h-6 w-6 p-0"
+          >
+            <Bug className="w-4 h-4" />
+          </Button>
+        )}
       </div>
+
+      {/* Debug overlay (dev only) */}
+      {showDebug && DEV_MODE && (
+        <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
+          <div><strong>Session:</strong> {sessionHistory.attemptCount} attempts, {sessionHistory.completionCount} complete</div>
+          <div><strong>Previous stuck:</strong> {previousStuckType || 'none'}</div>
+          <div><strong>Last stuck:</strong> {lastStuckType ? getStuckTypeLabel(lastStuckType) : 'n/a'}</div>
+          <div><strong>Prompt strategy:</strong> tier {currentPrompt.difficultyTier}, {currentPrompt.intentType}</div>
+          <div><strong>History:</strong> {sessionHistory.stuckTypes.slice(-3).join(' → ') || 'none'}</div>
+        </div>
+      )}
 
       {/* Main prompt card */}
       <Card className="border-2 border-primary/20 shadow-lg">
@@ -445,7 +617,7 @@ export function ThoughtContinuationGame({
           {/* Prompt text */}
           <div className="text-center">
             <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
-              {currentPrompt?.promptText}
+              {currentPrompt.promptText}
             </p>
           </div>
 
