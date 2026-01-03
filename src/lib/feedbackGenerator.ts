@@ -113,6 +113,9 @@ export const calculateEncouragementScore = (errorType: ExtendedErrorType): numbe
     case 'unrelated':
       return 10;   // Minimal connection
     
+    case 'uncertain':
+      return 50;   // Neutral - not punished, not rewarded (retry expected)
+    
     case 'no_response':
     case 'timeout':
       return 0;    // No output
