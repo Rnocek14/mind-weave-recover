@@ -19,7 +19,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug } from 'lucide-react';
+import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -49,10 +49,10 @@ import type { FlowMetrics, MomentumComponents } from '@/types/thoughtContinuatio
 // =============================================================================
 
 const PROMPTS_PER_SESSION = 8;
-const SILENCE_NUDGE_DELAY_MS = 8000;   // 8 seconds before first nudge
-const SILENCE_NARROW_DELAY_MS = 15000; // 15 seconds before narrowing hint
-const MIN_SPEECH_FOR_COMPLETE_MS = 1500; // Minimum speech duration to count
-const DEV_MODE = import.meta.env.DEV;  // Show debug overlay in dev
+const SILENCE_NUDGE_DELAY_MS = 20000;   // 20 seconds before first gentle nudge
+const SILENCE_NARROW_DELAY_MS = 45000;  // 45 seconds before narrowing hint
+const MIN_SPEECH_FOR_COMPLETE_MS = 500; // Reduced - any speech counts
+const DEV_MODE = import.meta.env.DEV;   // Show debug overlay in dev
 
 // =============================================================================
 // Props
@@ -123,7 +123,7 @@ export function ThoughtContinuationGame({
   } = useUtteranceLogger();
   const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
   
-  // Speech recognition with callback
+  // Speech recognition with callback - PATIENT MODE enabled
   const handleSpeechResult = useCallback((text: string) => {
     setTranscript(text);
   }, []);
@@ -134,7 +134,12 @@ export function ThoughtContinuationGame({
     startListening,
     stopListening,
     isSupported,
-  } = useSpeechRecognition(handleSpeechResult, false, true);
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    autoStart: false,
+    continuousListening: true,
+    patientMode: true, // Keep mic on continuously - no auto-cutoff
+  });
 
   // ---------------------------------------------------------------------------
   // Select first/next prompt using adaptive selector
@@ -448,23 +453,9 @@ export function ThoughtContinuationGame({
   }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening]);
 
   // ---------------------------------------------------------------------------
-  // Handle speech end detection
+  // Handle speech end detection - REMOVED for patient mode
+  // User must click "Done Speaking" to end - no automatic cutoff
   // ---------------------------------------------------------------------------
-  
-  useEffect(() => {
-    // If we have some transcript and user stopped speaking, process after a delay
-    if (phase === 'listening' && transcript.trim().length > 0) {
-      // Set a timeout for end of speech
-      const endTimer = setTimeout(() => {
-        if (!isListening || liveTranscript === transcript) {
-          // Speech seems to have ended
-          processUtterance();
-        }
-      }, 2000); // 2 second pause = speech ended
-      
-      return () => clearTimeout(endTimer);
-    }
-  }, [phase, transcript, isListening, liveTranscript, processUtterance]);
 
   // ---------------------------------------------------------------------------
   // Navigation
@@ -621,25 +612,34 @@ export function ThoughtContinuationGame({
             </p>
           </div>
 
-          {/* Listening indicator */}
-          <div className="flex justify-center">
+          {/* Always-listening indicator with encouragement */}
+          <div className="flex flex-col items-center gap-2">
             <div className={`
               w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300
-              ${phase === 'listening' 
-                ? 'bg-primary/20 animate-pulse' 
-                : phase === 'processing'
-                  ? 'bg-yellow-500/20'
-                  : 'bg-muted'
+              ${phase === 'processing'
+                ? 'bg-yellow-500/20'
+                : phase === 'celebrated'
+                  ? 'bg-green-500/20'
+                  : 'bg-primary/10'
               }
             `}>
               {phase === 'processing' ? (
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              ) : isListening ? (
-                <Mic className="w-10 h-10 text-primary" />
+              ) : phase === 'celebrated' ? (
+                <Check className="w-10 h-10 text-green-600" />
               ) : (
-                <MicOff className="w-10 h-10 text-muted-foreground" />
+                <div className="relative">
+                  <Mic className="w-10 h-10 text-primary" />
+                  {/* Pulsing ring to show always listening */}
+                  <div className="absolute inset-0 rounded-full border-2 border-primary/50 animate-ping" />
+                </div>
               )}
             </div>
+            {phase !== 'processing' && phase !== 'celebrated' && (
+              <p className="text-sm text-muted-foreground">
+                Take your time...
+              </p>
+            )}
           </div>
 
           {/* Live transcript display */}
@@ -665,7 +665,22 @@ export function ThoughtContinuationGame({
         </CardContent>
       </Card>
 
-      {/* Action buttons */}
+      {/* Primary action: Done Speaking button */}
+      {phase !== 'processing' && phase !== 'celebrated' && (
+        <div className="flex justify-center">
+          <Button 
+            size="lg"
+            onClick={processUtterance}
+            disabled={!transcript.trim()}
+            className="gap-2 px-8"
+          >
+            <Check className="w-5 h-5" />
+            Done Speaking
+          </Button>
+        </div>
+      )}
+
+      {/* Secondary action buttons */}
       <div className="flex gap-3 justify-center">
         <Button
           variant="outline"
@@ -688,7 +703,7 @@ export function ThoughtContinuationGame({
         </Button>
       </div>
 
-      {/* Skip/done button */}
+      {/* Skip/next button */}
       <div className="flex justify-center">
         {phase === 'celebrated' ? (
           <Button onClick={moveToNextPrompt} className="gap-2">

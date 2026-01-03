@@ -11,11 +11,30 @@ interface SpeechRecognitionHook {
   error: string | null;
 }
 
+interface UseSpeechRecognitionOptions {
+  onResult: (transcript: string) => void;
+  autoStart?: boolean;
+  continuousListening?: boolean;
+  /** Patient mode: keeps mic on continuously, no auto-end on silence */
+  patientMode?: boolean;
+}
+
 export const useSpeechRecognition = (
-  onResult: (transcript: string) => void,
+  onResultOrOptions: ((transcript: string) => void) | UseSpeechRecognitionOptions,
   autoStart = false,
   continuousListening = false
 ): SpeechRecognitionHook => {
+  // Support both old signature and new options object
+  const options: UseSpeechRecognitionOptions = typeof onResultOrOptions === 'function'
+    ? { onResult: onResultOrOptions, autoStart, continuousListening, patientMode: false }
+    : onResultOrOptions;
+  
+  const { 
+    onResult, 
+    autoStart: optAutoStart = false, 
+    continuousListening: optContinuous = false,
+    patientMode = false 
+  } = options;
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +73,8 @@ export const useSpeechRecognition = (
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
 
-    recognition.continuous = false;
+    // Patient mode uses continuous recognition to avoid mic flickering
+    recognition.continuous = patientMode;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 5;
@@ -105,10 +125,14 @@ export const useSpeechRecognition = (
       }
       
       if (event.error === 'no-speech') {
-        // Auto-restart if continuous listening is enabled (increased limit for phrase practice)
-        if (continuousListening && noSpeechCountRef.current < 15 && !manuallyStoppedRef.current) {
+        // Patient mode: always restart on no-speech (unlimited restarts)
+        // Standard mode: auto-restart if continuous listening is enabled (increased limit)
+        const maxRestarts = patientMode ? 999 : 15;
+        const shouldRestart = (patientMode || optContinuous) && noSpeechCountRef.current < maxRestarts && !manuallyStoppedRef.current;
+        
+        if (shouldRestart) {
           noSpeechCountRef.current += 1;
-          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, '/15)');
+          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, patientMode ? '/∞)' : '/15)');
           
           // Clear any existing restart timeout
           if (restartTimeoutRef.current) {
@@ -162,9 +186,12 @@ export const useSpeechRecognition = (
         pendingTranscriptRef.current = '';
       }
       
-      // Auto-restart for continuous mode if not manually stopped (increased limit)
-      if (continuousListening && !manuallyStoppedRef.current && wasListening && noSpeechCountRef.current < 15) {
-        console.log('🎤 Scheduling auto-restart for continuous listening...');
+      // Auto-restart for continuous/patient mode if not manually stopped
+      const maxRestarts = patientMode ? 999 : 15;
+      const shouldRestart = (patientMode || optContinuous) && !manuallyStoppedRef.current && wasListening && noSpeechCountRef.current < maxRestarts;
+      
+      if (shouldRestart) {
+        console.log('🎤 Scheduling auto-restart for', patientMode ? 'patient' : 'continuous', 'listening...');
         
         // Use cooldown timeout to prevent race
         if (cooldownTimeoutRef.current) {
@@ -203,7 +230,7 @@ export const useSpeechRecognition = (
         clearTimeout(cooldownTimeoutRef.current);
       }
     };
-  }, [isSupported, continuousListening]);
+  }, [isSupported, optContinuous, patientMode]);
 
   const startListening = useCallback(() => {
     // State machine guard: only start from IDLE
@@ -274,10 +301,10 @@ export const useSpeechRecognition = (
 
   // Auto-start if requested
   useEffect(() => {
-    if (autoStart && isSupported && stateRef.current === 'IDLE') {
+    if (optAutoStart && isSupported && stateRef.current === 'IDLE') {
       startListening();
     }
-  }, [autoStart, isSupported, startListening]);
+  }, [optAutoStart, isSupported, startListening]);
 
   return {
     isListening,
