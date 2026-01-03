@@ -74,11 +74,14 @@ export const SentenceConstructionGame = ({
 
   const { speak, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
+  const [hintUsed, setHintUsed] = useState(false);
 
   const trial = getCurrentTrial();
 
+  // Reset hint usage when trial changes
   useEffect(() => {
     setTrialStartTime(Date.now());
+    setHintUsed(false);
   }, [currentTrial]);
 
   useEffect(() => {
@@ -87,7 +90,15 @@ export const SentenceConstructionGame = ({
     }
   }, [completed]);
 
-  // Play audio AFTER submission as feedback (not before as a hint)
+  // Hint button: play target sentence before submission
+  const handleHint = () => {
+    setHintUsed(true);
+    if (trial?.modelAudio) {
+      speak(trial.modelAudio);
+    }
+  };
+
+  // Play audio after submission as feedback
   const handlePlayAudio = () => {
     if (trial?.modelAudio) {
       speak(trial.modelAudio);
@@ -233,10 +244,24 @@ export const SentenceConstructionGame = ({
       {/* Main Task Card */}
       <Card className="p-6 md:p-8">
         <div className="space-y-6">
-          {/* Instructions */}
-          <p className="text-sm text-muted-foreground text-center">
-            Tap the words below in order to build the sentence
-          </p>
+          {/* Instructions + Hint Button */}
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-sm text-muted-foreground text-center">
+              Tap the words below in order to build the sentence
+            </p>
+            {!showFeedback && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleHint}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <Volume2 className="w-5 h-5" />
+                {hintUsed ? "Hear Again" : "Hear Sentence"}
+              </Button>
+            )}
+          </div>
 
           {/* Sentence Construction Area */}
           <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
