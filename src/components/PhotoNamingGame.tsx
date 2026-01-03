@@ -117,6 +117,7 @@ export const PhotoNamingGame = ({
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
   const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  const [autoHintsEnabled, setAutoHintsEnabled] = useState(true); // Toggle for automatic hints
   
   // Phase 2: Utterance state for delayed scoring
   // 'idle' - waiting for speech
@@ -133,6 +134,8 @@ export const PhotoNamingGame = ({
   const lastRetryToastTimeRef = useRef<number>(0);
   const TRANSCRIPT_STABLE_DELAY_MS = 750; // Wait 750ms of no changes before scoring
   const RETRY_TOAST_THROTTLE_MS = 3000; // Only show retry toast every 3s
+  const STALL_TIMER_DELAY_MS = 7000; // Wait 7s before auto-cue (was 3s - too aggressive)
+  const CONSECUTIVE_ERROR_THRESHOLD = 3; // Errors before auto-cue (was 2 - too aggressive)
   
   const [showDebugOverlay, setShowDebugOverlay] = useState(() => {
     // Enable via URL param ?debug=cue or localStorage
@@ -336,22 +339,24 @@ export const PhotoNamingGame = ({
       trigger
     });
     
-    // Play hint sound
-    playHint?.();
+    // Only play hint sound for user-requested hints (not auto-cues)
+    if (trigger === 'user_request') {
+      playHint?.();
+    }
     
     console.log('✅ Auto-cue delivered:', { trigger, cueType, cueText: autoCueDecision.cueText });
     return true;
   }, [state.currentTrial, errorHistory, playHint]);
 
   // =============================================================================
-  // Watch consecutive errors and trigger cue if >= 2 errors
+  // Watch consecutive errors and trigger cue if threshold reached
   // =============================================================================
   useEffect(() => {
-    if (consecutiveErrors >= 2 && !autoCueShownThisTrialRef.current && !showFeedback && !timedOut) {
+    if (autoHintsEnabled && consecutiveErrors >= CONSECUTIVE_ERROR_THRESHOLD && !autoCueShownThisTrialRef.current && !showFeedback && !timedOut) {
       console.log('🔥 Consecutive errors threshold reached:', consecutiveErrors);
       triggerAutoCue('consecutive_errors');
     }
-  }, [consecutiveErrors, showFeedback, timedOut, triggerAutoCue]);
+  }, [autoHintsEnabled, consecutiveErrors, showFeedback, timedOut, triggerAutoCue]);
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -1025,7 +1030,7 @@ export const PhotoNamingGame = ({
         clearTimeout(stallTimerRef.current);
       }
       
-      if (trialIsReady) {
+      if (trialIsReady && autoHintsEnabled) {
         stallTimerRef.current = setTimeout(() => {
           // Read from refs to avoid stale closure
           const isIdle = !showFeedbackRef.current && 
@@ -1040,7 +1045,7 @@ export const PhotoNamingGame = ({
             console.log('🕐 Stall detected - triggering cue directly');
             triggerAutoCue('stall');
           }
-        }, 3000);
+        }, STALL_TIMER_DELAY_MS);
       }
       
       // Auto-listen: Only initiate once per trial
@@ -2054,6 +2059,17 @@ export const PhotoNamingGame = ({
               {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
             </div>
             {useVoice ? "Voice On" : "Voice Off"}
+          </Button>
+          
+          {/* Auto-hints toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
+            className={`gap-2 ${!autoHintsEnabled ? 'opacity-50' : ''}`}
+          >
+            <Lightbulb className={`w-4 h-4 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+            {autoHintsEnabled ? "Hints On" : "Hints Off"}
           </Button>
         </div>
       </div>
