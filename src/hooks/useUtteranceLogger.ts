@@ -119,6 +119,8 @@ interface UtteranceLoggerReturn {
     momentumComponents?: MomentumComponents;
     promptIntentType?: string;
     promptTheme?: string;
+    // NEW: Stuck-type classification for flow games
+    stuckType?: string;
   }) => Promise<void>;
   resetAttempt: () => void;
 }
@@ -246,6 +248,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     momentumComponents?: MomentumComponents;
     promptIntentType?: string;
     promptTheme?: string;
+    // NEW: Stuck-type classification for flow games
+    stuckType?: string;
   }): Promise<void> => {
     // IDEMPOTENT GUARD: Prevent double-finalization
     if (finalizedRef.current) {
@@ -389,6 +393,8 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         momentum_components: analysis.momentumComponents,
         prompt_intent_type: analysis.promptIntentType,
         prompt_theme: analysis.promptTheme,
+        // NEW: Stuck-type classification
+        stuck_type: analysis.stuckType,
       };
 
       // CRITICAL: Only include cue_was_effective when explicitly true or false
