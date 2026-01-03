@@ -40,6 +40,7 @@ const SentenceConstructionExercise = () => {
   const [sessionStartTime] = useState<number>(Date.now());
   const [showSettings, setShowSettings] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+  const [manualDifficulty, setManualDifficulty] = useState<number | null>(null);
 
   // Fetch clinical profile
   useEffect(() => {
@@ -67,7 +68,7 @@ const SentenceConstructionExercise = () => {
   );
   
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
-  const level = config.startDifficulty || 1;
+  const level = manualDifficulty ?? config.startDifficulty ?? 1;
   
   const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
     sessionId || "temp",
@@ -195,7 +196,8 @@ const SentenceConstructionExercise = () => {
     navigate('/lesson', { state: { resuming: true } });
   };
 
-  const handleDifficultyChange = async (newLevel: number) => {
+  const handleDifficultyChange = (newLevel: number) => {
+    setManualDifficulty(newLevel);
     setShowSettings(false);
     toast.success(`Difficulty set to Level ${newLevel}`);
   };
@@ -293,6 +295,7 @@ const SentenceConstructionExercise = () => {
         <SentenceConstructionGame
           config={config}
           bounds={bounds}
+          difficultyLevel={level}
           adaptations={getAdaptations('sentence-construction')}
           onTrialComplete={handleTrialComplete}
           onGameComplete={handleGameComplete}
