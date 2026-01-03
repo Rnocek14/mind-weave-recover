@@ -24,7 +24,8 @@ export type ExtendedErrorType =
   | 'neologism'              // Non-word or very low similarity
   | 'unrelated'              // No apparent relationship
   | 'no_response'
-  | 'timeout';
+  | 'timeout'
+  | 'uncertain';             // ASR confidence too low to judge - prompt retry
 
 /**
  * Encouragement level for UI display

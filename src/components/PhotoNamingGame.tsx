@@ -117,6 +117,15 @@ export const PhotoNamingGame = ({
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
   const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  
+  // Phase 2: Utterance state for delayed scoring
+  // 'idle' - waiting for speech
+  // 'listening' - actively capturing speech (interim transcripts)
+  // 'processing' - analyzing final utterance
+  // 'scored' - showing feedback
+  const [utteranceState, setUtteranceState] = useState<'idle' | 'listening' | 'processing' | 'scored'>('idle');
+  const [retryPrompt, setRetryPrompt] = useState<string | null>(null); // Gentle retry message
+  
   const [showDebugOverlay, setShowDebugOverlay] = useState(() => {
     // Enable via URL param ?debug=cue or localStorage
     const urlParams = new URLSearchParams(window.location.search);
@@ -451,8 +460,10 @@ export const PhotoNamingGame = ({
     
     console.log('Speech result:', transcript);
     
-    // Update lastHeardText for visual feedback
+    // Update visual feedback state
+    setUtteranceState('listening');
     setLastHeardText(transcript);
+    setRetryPrompt(null); // Clear any previous retry prompt
     
     // Log browser transcript (no duplicates - just updates the attempt context)
     logBrowserTranscript(transcript);
@@ -461,15 +472,22 @@ export const PhotoNamingGame = ({
     
     if (matchedChoice) {
       console.log('Matched choice:', matchedChoice);
+      setUtteranceState('processing');
       setProcessingAnswer(true); // Show "Processing your answer..." immediately
       handleAnswerSelect(matchedChoice);
     } else {
       console.log('No match found for:', transcript);
+      
+      // Phase 2: Gentler feedback - use retry prompt, not "wrong" toast
+      // Show what we heard in a non-judgmental way
+      setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
+      setUtteranceState('idle');
+      
+      // Use gentle toast instead of destructive variant
       toast({
-        title: "Didn't catch that",
-        description: `Heard: "${transcript}". Try saying one of the words shown.`,
-        variant: "destructive",
-        duration: 2000,
+        title: "Keep going!",
+        description: `I heard "${transcript}". Try saying one of the words shown.`,
+        duration: 2500,
       });
       
       // Phase 1 Fix: Flag for voice restart after no-match
@@ -871,6 +889,10 @@ export const PhotoNamingGame = ({
       // REMOVED: setCueLevel(0), setShowCue(false), setCurrentCueText('') - now in separate effect
       setLastHeardText(null); // Reset "last heard" for new trial
       setProcessingAnswer(false); // Reset processing state
+      
+      // Phase 2: Reset utterance state for new trial
+      setUtteranceState('idle');
+      setRetryPrompt(null);
       
       // Start a new attempt for utterance logging (no duplicates!)
       console.log('🎯 [PhotoNaming] New trial starting:', {
@@ -1358,6 +1380,8 @@ export const PhotoNamingGame = ({
     });
     setShowFeedback(true);
     setProcessingAnswer(false);
+    setUtteranceState('scored'); // Phase 2: Mark as scored
+    setRetryPrompt(null); // Clear any retry prompt
     
     // Play sound IMMEDIATELY
     if (isCorrectAnswer) {
@@ -1954,6 +1978,14 @@ export const PhotoNamingGame = ({
       {useVoice && isListening && transcript && (
         <div className="text-sm text-center p-2 bg-muted rounded">
           Heard: "{transcript}"
+        </div>
+      )}
+      
+      {/* Phase 2: Gentle retry prompt when ASR doesn't match */}
+      {retryPrompt && !showFeedback && !timedOut && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm animate-fade-in">
+          <Mic className="w-4 h-4 text-primary animate-pulse" />
+          <span className="text-primary">{retryPrompt}</span>
         </div>
       )}
       
