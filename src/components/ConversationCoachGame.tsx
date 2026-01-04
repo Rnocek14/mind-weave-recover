@@ -221,12 +221,14 @@ export function ConversationCoachGame({
   }, [processTurnAndRespond]);
 
   const startConversationTurn = useCallback(() => {
+    console.log('[Coach] Starting conversation turn - will listen');
     setUserTranscript('');
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
     isProcessingRef.current = false;
     speechEndDetection.onStart();
     setConversationState('listening');
+    console.log('[Coach] Calling startListening()');
     startListening();
   }, [speechEndDetection, startListening]);
   
