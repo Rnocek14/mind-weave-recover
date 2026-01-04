@@ -3,15 +3,19 @@
  * 
  * A unified conversation experience where AI conversation is the spine
  * and mini-exercises appear as inline cards when the user gets stuck.
+ * 
+ * Features smart auto-detection of when user finishes speaking,
+ * distinguishing between pauses/fillers ("um", "and...") and actual completion.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useCoachSession } from '@/hooks/useCoachSession';
+import { useSpeechEndDetection } from '@/hooks/useSpeechEndDetection';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { cn } from '@/lib/utils';
 
@@ -36,9 +40,11 @@ export function ConversationCoachGame({
   onExit,
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
+  const [autoDetectionEnabled, setAutoDetectionEnabled] = useState(true);
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
+  const isProcessingTurnRef = useRef(false);
 
   const { speak, isLoading: ttsLoading } = useTextToSpeech();
   
@@ -61,12 +67,52 @@ export function ConversationCoachGame({
     maxTurns: 5,
   });
 
+  // Process the user's turn (called by auto-detection or manual button)
+  const processTurn = useCallback(async (transcript: string) => {
+    if (isProcessingTurnRef.current || !transcript.trim()) return;
+    isProcessingTurnRef.current = true;
+
+    const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
+      ? firstWordTimeRef.current - speechStartTimeRef.current
+      : null;
+
+    // Process and get the AI response text directly
+    const aiResponse = await processUserTurn(transcript, latencyMs);
+    
+    // Speak the response
+    if (aiResponse) {
+      try {
+        await speak(aiResponse, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        clearPendingAI();
+      } catch (err) {
+        console.warn('TTS failed:', err);
+      }
+    }
+
+    setUserTranscript('');
+    isProcessingTurnRef.current = false;
+  }, [processUserTurn, speak, clearPendingAI]);
+
+  // Smart speech end detection - auto-detects when user is done
+  const speechEndDetection = useSpeechEndDetection({
+    onSpeechEnd: (transcript) => {
+      console.log('🎯 Auto-detected speech end:', transcript.slice(0, 50));
+      stopListening();
+      processTurn(transcript);
+    },
+    incompletesilenceMs: 4000, // 4s patience for "um", trailing "and..."
+    completesilenceMs: 2500,   // 2.5s for natural sentence endings
+    enabled: autoDetectionEnabled && currentPhase === 'user_turn',
+  });
+
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
     }
     setUserTranscript(transcript);
-  }, []);
+    // Feed transcript to end detection
+    speechEndDetection.onTranscriptUpdate(transcript, false);
+  }, [speechEndDetection]);
 
   const { isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
     onResult: handleSpeechResult,
@@ -90,32 +136,24 @@ export function ConversationCoachGame({
     setUserTranscript('');
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
+    isProcessingTurnRef.current = false;
+    speechEndDetection.onStart();
     startListening();
   };
 
-  // Done talking
+  // Manual done talking (fallback)
   const handleDoneTalking = async () => {
+    speechEndDetection.onStop();
     stopListening();
-
-    const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
-      ? firstWordTimeRef.current - speechStartTimeRef.current
-      : null;
-
-    // Process and get the AI response text directly
-    const aiResponse = await processUserTurn(userTranscript, latencyMs);
-    
-    // Speak the response
-    if (aiResponse) {
-      try {
-        await speak(aiResponse, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
-        clearPendingAI();
-      } catch (err) {
-        console.warn('TTS failed:', err);
-      }
-    }
-
-    setUserTranscript('');
+    await processTurn(userTranscript);
   };
+
+  // Cleanup speech end detection when listening stops
+  useEffect(() => {
+    if (!isListening) {
+      speechEndDetection.onStop();
+    }
+  }, [isListening, speechEndDetection]);
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
@@ -226,23 +264,32 @@ export function ConversationCoachGame({
 
             {currentPhase === 'user_turn' && isListening && (
               <div className="text-center space-y-3">
+                {/* Listening indicator */}
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-sm font-medium">Listening...</span>
+                </div>
+                
                 <div className={cn(
-                  "text-lg font-medium min-h-[28px]",
+                  "text-lg font-medium min-h-[28px] px-4",
                   userTranscript ? "text-foreground" : "text-muted-foreground"
                 )}>
-                  {userTranscript || '...'}
+                  {userTranscript || 'Start speaking...'}
                 </div>
+                
+                {/* Manual stop button as fallback */}
                 <Button
-                  size="lg"
-                  variant="secondary"
+                  size="sm"
+                  variant="ghost"
                   onClick={handleDoneTalking}
-                  className="gap-2 min-w-[200px]"
+                  className="gap-2 text-muted-foreground"
                 >
-                  <MicOff className="w-5 h-5" />
-                  Done Talking
+                  <MicOff className="w-4 h-4" />
+                  Tap when done (or just pause)
                 </Button>
-                <p className="text-sm text-muted-foreground">
-                  Take your time. Press when finished.
+                
+                <p className="text-xs text-muted-foreground">
+                  I'll know when you're finished speaking
                 </p>
               </div>
             )}
