@@ -138,8 +138,8 @@ export function ConversationCoachGame({
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
-    incompletesilenceMs: 3500,
-    completesilenceMs: 2000,
+    incompletesilenceMs: 1500, // Reduced from 3500ms
+    completesilenceMs: 800,    // Reduced from 2000ms
     enabled: conversationState === 'listening',
   });
 
@@ -200,12 +200,10 @@ export function ConversationCoachGame({
       
       clearPendingAI();
       
-      // Auto-start listening after AI finishes
+      // Auto-start listening IMMEDIATELY after AI finishes (no delay)
       if (!isComplete) {
-        setTimeout(() => {
-          setConversationState('listening');
-          startConversationTurnRef.current?.();
-        }, 400);
+        setConversationState('listening');
+        startConversationTurnRef.current?.();
       } else {
         setConversationState('idle');
       }
@@ -254,11 +252,9 @@ export function ConversationCoachGame({
     
     clearPendingAI();
     
-    // Auto-start listening after AI finishes
-    setTimeout(() => {
-      setConversationState('listening');
-      startConversationTurn();
-    }, 400);
+    // Auto-start listening IMMEDIATELY after AI finishes (no delay)
+    setConversationState('listening');
+    startConversationTurn();
   };
 
   // Cleanup on stop
@@ -283,12 +279,10 @@ export function ConversationCoachGame({
       
       clearPendingAI();
       
-      // Auto-start listening after card outro
+      // Auto-start listening IMMEDIATELY after card outro (no delay)
       if (!isComplete) {
-        setTimeout(() => {
-          setConversationState('listening');
-          startConversationTurn();
-        }, 400);
+        setConversationState('listening');
+        startConversationTurn();
       } else {
         setConversationState('idle');
       }

@@ -2,9 +2,11 @@
  * Smart Speech End Detection Hook
  * 
  * Detects when a user has finished speaking by analyzing:
- * - Silence duration (no new speech)
+ * - Final transcript from browser (IMMEDIATE processing)
+ * - Silence duration (backup only)
  * - Transcript patterns (trailing "um", "and..." vs natural endings)
- * - Uses adaptive thresholds based on utterance completeness
+ * 
+ * Priority: Final transcript > Silence detection
  */
 
 import { useRef, useCallback, useEffect } from 'react';
@@ -13,9 +15,9 @@ import { detectUtteranceComplete } from '@/lib/completionDetector';
 interface UseSpeechEndDetectionOptions {
   /** Called when we're confident the user is done speaking */
   onSpeechEnd: (transcript: string) => void;
-  /** Minimum silence for incomplete utterances (trailing off) - more patience */
+  /** Minimum silence for incomplete utterances (trailing off) - backup only */
   incompletesilenceMs?: number;
-  /** Silence threshold for complete utterances (natural endings) */
+  /** Silence threshold for complete utterances (natural endings) - backup only */
   completesilenceMs?: number;
   /** Whether detection is active */
   enabled?: boolean;
@@ -34,8 +36,8 @@ interface SpeechEndDetection {
 
 export function useSpeechEndDetection({
   onSpeechEnd,
-  incompletesilenceMs = 4000, // 4s patience for "um", "and..."
-  completesilenceMs = 2000,   // 2s for natural endings
+  incompletesilenceMs = 1500, // 1.5s backup for "um", "and..." (reduced from 4s)
+  completesilenceMs = 800,    // 0.8s backup for natural endings (reduced from 2s)
   enabled = true,
 }: UseSpeechEndDetectionOptions): SpeechEndDetection {
   
