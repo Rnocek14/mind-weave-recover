@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Valid OpenAI TTS voices
+const VALID_VOICES = ['nova', 'shimmer', 'echo', 'onyx', 'fable', 'alloy', 'ash', 'sage', 'coral'];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -22,9 +25,11 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured')
     }
 
-    console.log('Generating speech for text:', text.substring(0, 50))
+    // Validate voice - default to 'nova' (warm, friendly female voice)
+    const selectedVoice = VALID_VOICES.includes(voice) ? voice : 'nova';
+    
+    console.log('Generating speech for text:', text.substring(0, 50), 'with voice:', selectedVoice)
 
-    // Generate speech from text
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -34,7 +39,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'tts-1',
         input: text,
-        voice: voice || 'alloy',
+        voice: selectedVoice,
         response_format: 'mp3',
       }),
     })
@@ -45,7 +50,6 @@ serve(async (req) => {
       throw new Error('Failed to generate speech')
     }
 
-    // Convert audio buffer to base64
     const arrayBuffer = await response.arrayBuffer()
     const base64Audio = btoa(
       String.fromCharCode(...new Uint8Array(arrayBuffer))
