@@ -45,16 +45,16 @@ export interface StuckTypeResult {
 
 // Thresholds for classification (tunable based on user data)
 const THRESHOLDS = {
-  // Latency thresholds (ms)
+  // Latency thresholds (ms) - more tolerant for thinking time
   LATENCY_FAST: 2000,
-  LATENCY_NORMAL: 5000,
-  LATENCY_SLOW: 8000,
-  LATENCY_VERY_SLOW: 15000,
+  LATENCY_NORMAL: 6000,
+  LATENCY_SLOW: 10000,
+  LATENCY_VERY_SLOW: 18000,
   
-  // Word count thresholds
+  // Word count thresholds - consider shorter responses as success
   WORDS_MINIMAL: 2,
-  WORDS_SHORT: 5,
-  WORDS_ADEQUATE: 10,
+  WORDS_SHORT: 4,
+  WORDS_ADEQUATE: 7,
   
   // Duration thresholds (ms)
   DURATION_MINIMAL: 2000,
