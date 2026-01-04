@@ -32,6 +32,7 @@ import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 import ThoughtContinuationExercise from "./pages/ThoughtContinuationExercise";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
+import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -91,6 +92,7 @@ const App = () => (
           <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
           <Route path="/exercise/thought-continuation" element={<ThoughtContinuationExercise />} />
           <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
+          <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
           </Routes>

@@ -103,5 +103,14 @@ export const EXERCISES: Exercise[] = [
     duration: "2-3 min",
     difficulty: "Easy",
     color: "bg-gradient-healing"
+  },
+  {
+    id: "conversation-coach",
+    title: "Smart Coach",
+    icon: Sparkles,
+    category: "Expression",
+    duration: "3-5 min",
+    difficulty: "Easy",
+    color: "bg-gradient-primary"
   }
 ];
