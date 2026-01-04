@@ -1,12 +1,12 @@
 /**
- * CoachChatFeed - Unified chat feed with inline exercise cards
+ * CoachChatFeed - Beautiful chat feed with AI avatar and smooth animations
  * 
  * Renders AI messages, user transcripts, and embedded exercise cards
- * in a scrollable chat-like interface.
+ * in a scrollable chat-like interface with polished styling.
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Volume2, User } from 'lucide-react';
+import { Sparkles, User } from 'lucide-react';
 import { CardType } from '@/lib/coachOrchestrator';
 import { PhotoNamingCard } from './PhotoNamingCard';
 import { SemanticFeaturesCard } from './SemanticFeaturesCard';
@@ -34,43 +34,71 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (feedRef.current) {
-      feedRef.current.scrollTop = feedRef.current.scrollHeight;
+      feedRef.current.scrollTo({
+        top: feedRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
-  }, [messages]);
+  }, [messages, isProcessing]);
 
-  const renderMessage = (message: FeedMessage) => {
+  const renderMessage = (message: FeedMessage, index: number) => {
+    const isLast = index === messages.length - 1;
+    
     switch (message.type) {
       case 'ai':
         return (
-          <div key={message.id} className="flex items-start gap-3 animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Volume2 className="w-5 h-5 text-primary" />
+          <div 
+            key={message.id} 
+            className={cn(
+              "flex items-start gap-4 animate-fade-in",
+              isLast && "mb-2"
+            )}
+          >
+            {/* AI Avatar */}
+            <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
+              <Sparkles className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
-              <p className="text-foreground">{message.text}</p>
+            
+            {/* Message bubble */}
+            <div className="bg-card rounded-3xl rounded-tl-lg px-5 py-4 max-w-[80%] shadow-soft border border-border/50">
+              <p className="text-foreground text-lg leading-relaxed">{message.text}</p>
             </div>
           </div>
         );
 
       case 'user':
         return (
-          <div key={message.id} className="flex items-start gap-3 justify-end animate-in fade-in slide-in-from-right-2 duration-300">
-            <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
-              <p>{message.text}</p>
+          <div 
+            key={message.id} 
+            className={cn(
+              "flex items-start gap-4 justify-end animate-fade-in",
+              isLast && "mb-2"
+            )}
+          >
+            {/* Message bubble */}
+            <div className="bg-primary text-primary-foreground rounded-3xl rounded-tr-lg px-5 py-4 max-w-[80%] shadow-soft">
+              <p className="text-lg leading-relaxed">{message.text}</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <User className="w-5 h-5 text-primary-foreground" />
+            
+            {/* User Avatar */}
+            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center flex-shrink-0 shadow-soft">
+              <User className="w-6 h-6 text-primary-foreground" />
             </div>
           </div>
         );
 
       case 'card':
         return (
-          <div key={message.id} className="py-2 animate-in fade-in zoom-in-95 duration-300">
+          <div key={message.id} className="py-3 animate-fade-in">
             {!message.completed && renderCard(message.cardType, message.difficulty, message.id)}
             {message.completed && (
-              <div className="text-center text-sm text-muted-foreground py-2">
-                Exercise completed ✓
+              <div className="text-center py-3">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-success/10 text-success rounded-full text-sm font-medium">
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Activity completed
+                </span>
               </div>
             )}
           </div>
@@ -104,21 +132,34 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
   return (
     <div 
       ref={feedRef}
-      className="flex flex-col gap-4 overflow-y-auto max-h-[60vh] p-4"
+      className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
     >
-      {messages.map(renderMessage)}
+      {/* Welcome message if empty */}
+      {messages.length === 0 && !isProcessing && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-primary flex items-center justify-center shadow-glow mb-6">
+            <Sparkles className="w-10 h-10 text-primary-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">Ready to Chat</h3>
+          <p className="text-muted-foreground max-w-xs">
+            Press "Start Conversation" below and let's have a friendly chat together.
+          </p>
+        </div>
+      )}
+      
+      {messages.map((msg, i) => renderMessage(msg, i))}
       
       {/* Processing indicator */}
       {isProcessing && (
-        <div className="flex items-start gap-3 animate-in fade-in duration-300">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Volume2 className="w-5 h-5 text-primary animate-pulse" />
+        <div className="flex items-start gap-4 animate-fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
+            <Sparkles className="w-6 h-6 text-primary-foreground animate-pulse" />
           </div>
-          <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
-            <div className="flex gap-1">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="bg-card rounded-3xl rounded-tl-lg px-5 py-4 shadow-soft border border-border/50">
+            <div className="flex gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         </div>

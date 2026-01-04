@@ -2,15 +2,15 @@
  * ConversationCoachGame - Beautiful, fluid conversation coach
  * 
  * Features:
- * - Proper mic permission request upfront
+ * - Proper mic permission handling with retry
  * - AI speaks, then automatically listens
  * - Smart silence detection for natural flow
- * - Beautiful animated UI
+ * - Beautiful animated UI with gradient backgrounds
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useCoachSession } from '@/hooks/useCoachSession';
@@ -31,6 +31,8 @@ interface ConversationCoachGameProps {
   onExit?: () => void;
 }
 
+type ConversationState = 'idle' | 'ai_speaking' | 'listening' | 'processing';
+
 export function ConversationCoachGame({
   userId,
   profileId,
@@ -39,15 +41,14 @@ export function ConversationCoachGame({
   onExit,
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [micPermission, setMicPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
+  const [micPermission, setMicPermission] = useState<'pending' | 'checking' | 'granted' | 'denied'>('pending');
+  const [conversationState, setConversationState] = useState<ConversationState>('idle');
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
-  const shouldAutoListenRef = useRef(false);
 
-  const { speak, isLoading: ttsLoading } = useTextToSpeech();
+  const { speak, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
   
   const {
     messages,
@@ -79,8 +80,30 @@ export function ConversationCoachGame({
     continuousListening: false,
   });
 
-  // Request microphone permission upfront
+  // Check mic permission status on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      try {
+        // Try Permissions API first (doesn't prompt user)
+        if (navigator.permissions) {
+          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          if (result.state === 'granted') {
+            setMicPermission('granted');
+          } else if (result.state === 'denied') {
+            setMicPermission('denied');
+          }
+          // If 'prompt', leave as 'pending' - will request on user action
+        }
+      } catch {
+        // Permissions API not supported, leave as pending
+      }
+    };
+    checkPermission();
+  }, []);
+
+  // Request microphone permission (only call on user gesture)
   const requestMicPermission = useCallback(async () => {
+    setMicPermission('checking');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop()); // Release immediately
@@ -97,6 +120,7 @@ export function ConversationCoachGame({
   const processTurnAndRespond = useCallback(async (transcript: string) => {
     if (isProcessingRef.current || !transcript.trim()) return;
     isProcessingRef.current = true;
+    setConversationState('processing');
 
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
       ? firstWordTimeRef.current - speechStartTimeRef.current
@@ -105,8 +129,7 @@ export function ConversationCoachGame({
     const aiResponse = await processUserTurn(transcript, latencyMs);
     
     if (aiResponse && currentPhase !== 'card_active') {
-      setIsAISpeaking(true);
-      shouldAutoListenRef.current = true;
+      setConversationState('ai_speaking');
       
       try {
         await speak(aiResponse);
@@ -114,13 +137,24 @@ export function ConversationCoachGame({
         console.warn('TTS failed, continuing:', err);
       }
       
-      setIsAISpeaking(false);
       clearPendingAI();
+      
+      // Auto-start listening after AI finishes
+      if (!isComplete) {
+        setTimeout(() => {
+          setConversationState('listening');
+          startConversationTurn();
+        }, 400);
+      } else {
+        setConversationState('idle');
+      }
+    } else {
+      setConversationState('idle');
     }
 
     setUserTranscript('');
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, currentPhase]);
+  }, [processUserTurn, speak, clearPendingAI, currentPhase, isComplete]);
 
   // Smart speech end detection
   const speechEndDetection = useSpeechEndDetection({
@@ -131,29 +165,8 @@ export function ConversationCoachGame({
     },
     incompletesilenceMs: 3500,
     completesilenceMs: 2000,
-    enabled: currentPhase === 'user_turn' && !isAISpeaking,
+    enabled: conversationState === 'listening',
   });
-
-  // Auto-start listening after AI finishes speaking
-  useEffect(() => {
-    if (
-      micPermission === 'granted' &&
-      !isAISpeaking && 
-      !isListening && 
-      !isProcessing && 
-      currentPhase === 'user_turn' && 
-      shouldAutoListenRef.current &&
-      !isComplete
-    ) {
-      const timer = setTimeout(() => {
-        if (currentPhase === 'user_turn' && !isListening) {
-          console.log('🎤 Auto-starting listening after AI spoke');
-          startConversationTurn();
-        }
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [isAISpeaking, isListening, isProcessing, currentPhase, isComplete, micPermission]);
 
   const startConversationTurn = useCallback(() => {
     setUserTranscript('');
@@ -161,17 +174,18 @@ export function ConversationCoachGame({
     speechStartTimeRef.current = Date.now();
     isProcessingRef.current = false;
     speechEndDetection.onStart();
+    setConversationState('listening');
     startListening();
   }, [speechEndDetection, startListening]);
 
   // Start conversation (requests permission first)
   const handleStart = async () => {
+    // Request permission on this user gesture
     const hasPermission = micPermission === 'granted' || await requestMicPermission();
     if (!hasPermission) return;
     
     const opener = startSession();
-    setIsAISpeaking(true);
-    shouldAutoListenRef.current = true;
+    setConversationState('ai_speaking');
     
     try {
       await speak(opener);
@@ -179,24 +193,28 @@ export function ConversationCoachGame({
       console.warn('TTS failed:', err);
     }
     
-    setIsAISpeaking(false);
     clearPendingAI();
+    
+    // Auto-start listening after AI finishes
+    setTimeout(() => {
+      setConversationState('listening');
+      startConversationTurn();
+    }, 400);
   };
 
   // Cleanup on stop
   useEffect(() => {
-    if (!isListening) {
+    if (!isListening && conversationState === 'listening') {
       speechEndDetection.onStop();
     }
-  }, [isListening, speechEndDetection]);
+  }, [isListening, conversationState, speechEndDetection]);
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
     const outroText = handleCardComplete(messageId, result);
     
     if (outroText) {
-      setIsAISpeaking(true);
-      shouldAutoListenRef.current = true;
+      setConversationState('ai_speaking');
       
       try {
         await speak(outroText);
@@ -204,8 +222,17 @@ export function ConversationCoachGame({
         console.warn('TTS failed:', err);
       }
       
-      setIsAISpeaking(false);
       clearPendingAI();
+      
+      // Auto-start listening after card outro
+      if (!isComplete) {
+        setTimeout(() => {
+          setConversationState('listening');
+          startConversationTurn();
+        }, 400);
+      } else {
+        setConversationState('idle');
+      }
     }
   };
 
@@ -223,14 +250,22 @@ export function ConversationCoachGame({
     }
   };
 
+  // Handle retry for denied permission
+  const handleRetryPermission = async () => {
+    setMicPermission('pending');
+    await requestMicPermission();
+  };
+
   if (!isSupported) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-8 max-w-md">
-          <MicOff className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Speech Not Supported</h2>
-          <p className="text-muted-foreground">
-            Your browser doesn't support speech recognition. Please try Chrome or Edge.
+      <div className="min-h-[70vh] flex items-center justify-center bg-gradient-calm">
+        <div className="text-center p-8 max-w-md bg-card rounded-3xl shadow-card">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+            <MicOff className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-semibold mb-3">Speech Not Supported</h2>
+          <p className="text-muted-foreground text-lg">
+            Your browser doesn't support speech recognition. Please try Chrome or Edge on desktop.
           </p>
         </div>
       </div>
@@ -239,46 +274,60 @@ export function ConversationCoachGame({
 
   if (micPermission === 'denied') {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-8 max-w-md">
-          <MicOff className="w-16 h-16 mx-auto text-destructive/50 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Microphone Access Needed</h2>
-          <p className="text-muted-foreground mb-4">
-            Please enable microphone access in your browser settings to use the conversation coach.
+      <div className="min-h-[70vh] flex items-center justify-center bg-gradient-calm">
+        <div className="text-center p-8 max-w-md bg-card rounded-3xl shadow-card">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
+            <MicOff className="w-10 h-10 text-destructive" />
+          </div>
+          <h2 className="text-2xl font-semibold mb-3">Microphone Access Needed</h2>
+          <p className="text-muted-foreground text-lg mb-6">
+            Please enable microphone access in your browser settings, then click the button below.
           </p>
-          <Button onClick={() => setMicPermission('pending')}>Try Again</Button>
+          <Button 
+            size="lg" 
+            onClick={handleRetryPermission}
+            className="gap-2 px-6"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Try Again
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[70vh] flex flex-col">
+    <div className="min-h-[70vh] flex flex-col bg-gradient-calm">
       {/* Header with progress */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-primary/10">
-            <Sparkles className="w-5 h-5 text-primary" />
+      <div className="flex items-center justify-between px-6 py-4 bg-card/80 backdrop-blur-md border-b shadow-soft sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-glow">
+              <Sparkles className="w-6 h-6 text-primary-foreground" />
+            </div>
+            {conversationState === 'ai_speaking' && (
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-card animate-pulse" />
+            )}
           </div>
           <div>
-            <h2 className="font-semibold text-sm">Conversation Coach</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="font-semibold text-lg">Conversation Coach</h2>
+            <p className="text-sm text-muted-foreground">
               Turn {metrics.turnsCompleted + 1} of 5
             </p>
           </div>
         </div>
         
         {/* Progress bar */}
-        <div className="flex items-center gap-2">
-          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+        <div className="flex items-center gap-3">
+          <div className="w-32 h-3 bg-muted rounded-full overflow-hidden">
             <div 
-              className="h-full bg-primary transition-all duration-500 ease-out"
+              className="h-full bg-gradient-primary transition-all duration-500 ease-out rounded-full"
               style={{ width: `${(metrics.turnsCompleted / 5) * 100}%` }}
             />
           </div>
           {onExit && currentPhase !== 'complete' && (
-            <Button variant="ghost" size="icon" onClick={onExit} className="h-8 w-8">
-              <X className="w-4 h-4" />
+            <Button variant="ghost" size="icon" onClick={onExit} className="h-10 w-10 rounded-xl">
+              <X className="w-5 h-5" />
             </Button>
           )}
         </div>
@@ -294,89 +343,94 @@ export function ConversationCoachGame({
       </div>
 
       {/* Control panel */}
-      <div className="border-t bg-gradient-to-t from-background via-background to-background/80 p-4 pb-6">
+      <div className="border-t bg-card/95 backdrop-blur-md p-6 pb-8 shadow-soft">
         {/* Ready state - Start button */}
         {currentPhase === 'ready' && (
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-5">
             <Button
               size="lg"
               onClick={handleStart}
-              disabled={ttsLoading}
-              className="px-8 py-6 text-lg gap-3 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:scale-105"
+              disabled={ttsLoading || micPermission === 'checking'}
+              className="px-10 py-7 text-xl gap-4 rounded-2xl bg-gradient-primary shadow-glow hover:shadow-lg transition-all hover:scale-105 active:scale-100"
             >
-              {ttsLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
+              {(ttsLoading || micPermission === 'checking') ? (
+                <Loader2 className="w-7 h-7 animate-spin" />
               ) : (
-                <MessageCircle className="w-6 h-6" />
+                <MessageCircle className="w-7 h-7" />
               )}
               Start Conversation
             </Button>
-            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              We'll have a friendly chat. Just speak naturally and I'll respond.
+            <p className="text-base text-muted-foreground max-w-sm mx-auto">
+              We'll have a friendly chat. Just speak naturally — I'll listen and respond.
             </p>
           </div>
         )}
 
         {/* AI Speaking state */}
-        {isAISpeaking && (
-          <div className="flex flex-col items-center gap-3">
+        {conversationState === 'ai_speaking' && (
+          <div className="flex flex-col items-center gap-4">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <Volume2 className="w-8 h-8 text-primary animate-pulse" />
+              <div className="w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow">
+                <Volume2 className="w-12 h-12 text-primary-foreground" />
               </div>
               {/* Animated rings */}
-              <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
-              <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" style={{ animationDelay: '0.5s' }} />
+              <div className="absolute inset-0 rounded-full border-4 border-primary/40 animate-ping" />
+              <div className="absolute inset-[-4px] rounded-full border-4 border-primary/20 animate-ping" style={{ animationDelay: '0.3s' }} />
+              <div className="absolute inset-[-8px] rounded-full border-4 border-primary/10 animate-ping" style={{ animationDelay: '0.6s' }} />
             </div>
-            <span className="text-sm font-medium text-primary">Speaking...</span>
+            <span className="text-lg font-medium text-primary">Speaking...</span>
           </div>
         )}
 
-        {/* Waiting for user to speak */}
-        {currentPhase === 'user_turn' && !isAISpeaking && !isListening && !isProcessing && (
-          <div className="text-center space-y-3">
+        {/* Waiting for user to speak (tap to start) */}
+        {currentPhase === 'user_turn' && conversationState === 'idle' && !isProcessing && (
+          <div className="text-center space-y-4">
             <Button
               size="lg"
               onClick={startConversationTurn}
-              className="w-20 h-20 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+              className="w-24 h-24 rounded-full bg-gradient-primary shadow-glow hover:shadow-lg transition-all hover:scale-105 active:scale-95"
             >
-              <Mic className="w-8 h-8" />
+              <Mic className="w-10 h-10 text-primary-foreground" />
             </Button>
-            <p className="text-sm text-muted-foreground">Tap to speak</p>
+            <p className="text-base text-muted-foreground">Tap to speak</p>
           </div>
         )}
 
         {/* Listening state */}
-        {isListening && (
-          <div className="flex flex-col items-center gap-4">
+        {(conversationState === 'listening' || isListening) && (
+          <div className="flex flex-col items-center gap-5">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-red-500/10 flex items-center justify-center border-4 border-red-500/50">
-                <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse" />
+              {/* Main microphone circle */}
+              <div className="w-28 h-28 rounded-full bg-destructive/15 flex items-center justify-center border-4 border-destructive/60 shadow-lg">
+                <div className="w-6 h-6 rounded-full bg-destructive animate-pulse" />
               </div>
-              {/* Sound wave animation */}
-              <div className="absolute -inset-2 flex items-center justify-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-red-500/50 rounded-full animate-pulse"
-                    style={{
-                      height: `${20 + Math.random() * 30}px`,
-                      animationDelay: `${i * 0.1}s`,
-                      animationDuration: '0.5s',
-                    }}
-                  />
-                ))}
+              
+              {/* Animated sound bars */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex items-end gap-1 h-16">
+                  {[...Array(7)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 bg-destructive/70 rounded-full animate-pulse"
+                      style={{
+                        height: `${16 + Math.sin(i * 0.8) * 20 + 10}px`,
+                        animationDelay: `${i * 0.08}s`,
+                        animationDuration: `${0.4 + Math.random() * 0.2}s`,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
             
             <div className="text-center max-w-sm">
               <p className={cn(
-                "text-lg min-h-[28px] transition-colors",
+                "text-xl min-h-[32px] transition-all",
                 userTranscript ? "text-foreground font-medium" : "text-muted-foreground italic"
               )}>
-                {userTranscript || "I'm listening..."}
+                {userTranscript || "Listening..."}
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground mt-3">
                 Pause when you're done — I'll respond automatically
               </p>
             </div>
@@ -386,56 +440,56 @@ export function ConversationCoachGame({
         {/* Card active state */}
         {currentPhase === 'card_active' && (
           <div className="text-center">
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <Sparkles className="w-4 h-4" />
+            <p className="text-base text-muted-foreground flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
               Complete the activity above
             </p>
           </div>
         )}
 
         {/* Processing state */}
-        {isProcessing && !isListening && (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        {conversationState === 'processing' && (
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
             </div>
-            <span className="text-sm text-muted-foreground">Thinking...</span>
+            <span className="text-base text-muted-foreground">Thinking...</span>
           </div>
         )}
 
         {/* Completion state */}
         {currentPhase === 'complete' && (
-          <div className="text-center space-y-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/10">
-              <CheckCircle2 className="w-10 h-10 text-green-500" />
+          <div className="text-center space-y-6 animate-fade-in">
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-success/15 shadow-lg">
+              <CheckCircle2 className="w-14 h-14 text-success" />
             </div>
             
             <div>
-              <h3 className="text-xl font-semibold mb-1">Great conversation!</h3>
-              <p className="text-muted-foreground">You did wonderfully</p>
+              <h3 className="text-2xl font-semibold mb-2">Great conversation!</h3>
+              <p className="text-muted-foreground text-lg">You did wonderfully</p>
             </div>
             
-            <div className="flex justify-center gap-8 py-4">
+            <div className="flex justify-center gap-10 py-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{metrics.turnsCompleted}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Turns</div>
+                <div className="text-4xl font-bold text-primary">{metrics.turnsCompleted}</div>
+                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Turns</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{metrics.totalUserWords}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Your Words</div>
+                <div className="text-4xl font-bold text-primary">{metrics.totalUserWords}</div>
+                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Your Words</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{metrics.cardsCompleted}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Activities</div>
+                <div className="text-4xl font-bold text-primary">{metrics.cardsCompleted}</div>
+                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Activities</div>
               </div>
             </div>
             
-            <div className="flex gap-3 justify-center">
-              <Button size="lg" onClick={() => { reset(); }}>
+            <div className="flex gap-4 justify-center">
+              <Button size="lg" onClick={() => { reset(); setConversationState('idle'); }} className="px-8">
                 Chat Again
               </Button>
               {onExit && (
-                <Button size="lg" variant="outline" onClick={() => { handleFinish(); onExit(); }}>
+                <Button size="lg" variant="outline" onClick={() => { handleFinish(); onExit(); }} className="px-8">
                   Finish
                 </Button>
               )}
