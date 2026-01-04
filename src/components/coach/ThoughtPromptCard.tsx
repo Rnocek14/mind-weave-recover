@@ -1,14 +1,14 @@
 /**
  * ThoughtPromptCard - Inline mini thought continuation exercise
  * 
- * Shows ONE narrowed thought prompt, user speaks their response.
+ * Shows ONE narrowed thought prompt, auto-listens.
  * Returns completion status based on flow.
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Check, MessageCircle } from 'lucide-react';
+import { Check, MessageCircle, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
 
@@ -37,18 +37,12 @@ const QUICK_PROMPTS = [
 ];
 
 export function ThoughtPromptCard({ difficulty, onComplete }: ThoughtPromptCardProps) {
-  const [phase, setPhase] = useState<'ready' | 'listening' | 'complete'>('ready');
+  const [phase, setPhase] = useState<'listening' | 'complete'>('listening');
   const [transcript, setTranscript] = useState('');
-  const [prompt, setPrompt] = useState('');
+  const [prompt] = useState(() => QUICK_PROMPTS[Math.floor(Math.random() * QUICK_PROMPTS.length)]);
   
-  const startTimeRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
   const firstWordTimeRef = useRef<number | null>(null);
-
-  // Select a random prompt on mount
-  useEffect(() => {
-    const randomPrompt = QUICK_PROMPTS[Math.floor(Math.random() * QUICK_PROMPTS.length)];
-    setPrompt(randomPrompt);
-  }, []);
 
   const handleSpeechResult = useCallback((text: string) => {
     if (!firstWordTimeRef.current && text.trim().length > 0) {
@@ -57,30 +51,40 @@ export function ThoughtPromptCard({ difficulty, onComplete }: ThoughtPromptCardP
     setTranscript(text);
   }, []);
 
-  const { isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
+  const { startListening, stopListening, isSupported } = useSpeechRecognition({
     onResult: handleSpeechResult,
     patientMode: true,
     continuousListening: false,
   });
 
-  const handleStart = () => {
-    setTranscript('');
-    startTimeRef.current = Date.now();
-    firstWordTimeRef.current = null;
-    setPhase('listening');
-    startListening();
-  };
+  // Auto-start listening
+  useEffect(() => {
+    if (phase === 'listening') {
+      startListening();
+    }
+    return () => stopListening();
+  }, [phase, startListening, stopListening]);
 
-  const handleDone = () => {
+  // Auto-complete after speech detected
+  useEffect(() => {
+    if (transcript.trim().length >= 3 && phase === 'listening') {
+      const timer = setTimeout(() => {
+        handleDone();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [transcript, phase]);
+
+  const handleDone = useCallback(() => {
     stopListening();
     setPhase('complete');
 
-    const latencyMs = firstWordTimeRef.current && startTimeRef.current
+    const latencyMs = firstWordTimeRef.current 
       ? firstWordTimeRef.current - startTimeRef.current
       : null;
 
     const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
-    const success = wordCount >= 2; // Success if they said anything meaningful
+    const success = wordCount >= 1;
 
     setTimeout(() => {
       onComplete({
@@ -90,7 +94,7 @@ export function ThoughtPromptCard({ difficulty, onComplete }: ThoughtPromptCardP
         latencyMs,
       });
     }, 500);
-  };
+  }, [stopListening, transcript, prompt, onComplete]);
 
   if (!isSupported) {
     return (
@@ -115,18 +119,8 @@ export function ThoughtPromptCard({ difficulty, onComplete }: ThoughtPromptCardP
           </p>
         </div>
 
-        {/* Instructions/Status */}
+        {/* Status */}
         <div className="text-center space-y-3">
-          {phase === 'ready' && (
-            <>
-              <p className="text-sm text-muted-foreground">Just a short answer is fine</p>
-              <Button onClick={handleStart} className="gap-2">
-                <Mic className="w-4 h-4" />
-                Start
-              </Button>
-            </>
-          )}
-
           {phase === 'listening' && (
             <>
               <div className={cn(
@@ -135,14 +129,21 @@ export function ThoughtPromptCard({ difficulty, onComplete }: ThoughtPromptCardP
               )}>
                 {transcript || '...'}
               </div>
-              <Button 
-                variant="secondary" 
-                onClick={handleDone}
-                className="gap-2"
-              >
-                <MicOff className="w-4 h-4" />
-                Done
-              </Button>
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Listening...</span>
+              </div>
+              {transcript.length > 0 && (
+                <Button 
+                  variant="secondary" 
+                  onClick={handleDone}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Done
+                </Button>
+              )}
             </>
           )}
 

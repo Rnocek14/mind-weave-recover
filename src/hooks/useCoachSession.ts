@@ -47,8 +47,10 @@ interface UseCoachSessionReturn {
   metrics: CoachSessionMetrics;
   currentPhase: 'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete';
   pendingAIText: string | null; // Text that needs to be spoken
+  hasPendingCard: boolean; // True if a card needs to be inserted after TTS
   startSession: () => string; // Returns opener text
   processUserTurn: (transcript: string, latencyMs: number | null) => Promise<string | null>; // Returns AI response text
+  insertPendingCard: () => void; // Insert card after TTS completes
   handleCardComplete: (messageId: string, result: unknown) => string; // Returns outro text
   clearPendingAI: () => void;
   reset: () => void;
@@ -65,6 +67,7 @@ export function useCoachSession({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete'>('ready');
   const [pendingAIText, setPendingAIText] = useState<string | null>(null);
+  const [hasPendingCard, setHasPendingCard] = useState(false);
   
   const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns));
   const latenciesRef = useRef<number[]>([]);
@@ -72,6 +75,8 @@ export function useCoachSession({
   const aiWordsRef = useRef(0);
   const cardsCompletedRef = useRef(0);
   const pendingCardIdRef = useRef<string | null>(null);
+  const pendingCardTypeRef = useRef<CardType | null>(null);
+  const pendingCardDifficultyRef = useRef<'easy' | 'medium'>('easy');
 
   const addMessage = useCallback((message: FeedMessage) => {
     setMessages(prev => [...prev, message]);
@@ -126,32 +131,26 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'insert_card') {
-      // Speak intro
+      // Return intro text - let ConversationCoachGame speak it first
       const intro = getCardIntro(action.cardType);
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
       
-      // Add card
-      const cardId = generateId();
-      pendingCardIdRef.current = cardId;
-      addMessage({ 
-        type: 'card', 
-        cardType: action.cardType, 
-        difficulty: action.config.difficulty, 
-        id: cardId,
-        completed: false,
-      });
+      // Store card info for later insertion after TTS
+      pendingCardTypeRef.current = action.cardType;
+      pendingCardDifficultyRef.current = action.config.difficulty;
+      setHasPendingCard(true);
       
-      setCurrentPhase('card_active');
-      
-      // Update orchestrator state (card was inserted)
+      // Update orchestrator state (card will be inserted)
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         stuckType,
         true,
         action.cardType
       );
+      
+      // Don't insert card yet - let caller speak first then call insertPendingCard
     } else {
       // Get contextual response from AI
       try {
@@ -269,18 +268,38 @@ export function useCoachSession({
     setPendingAIText(null);
   }, []);
 
+  // Insert the pending card after TTS completes
+  const insertPendingCard = useCallback(() => {
+    if (pendingCardTypeRef.current) {
+      const cardId = generateId();
+      pendingCardIdRef.current = cardId;
+      addMessage({ 
+        type: 'card', 
+        cardType: pendingCardTypeRef.current, 
+        difficulty: pendingCardDifficultyRef.current, 
+        id: cardId,
+        completed: false,
+      });
+      setCurrentPhase('card_active');
+      pendingCardTypeRef.current = null;
+      setHasPendingCard(false);
+    }
+  }, [addMessage]);
+
   const reset = useCallback(() => {
     setMessages([]);
     setIsComplete(false);
     setIsProcessing(false);
     setCurrentPhase('ready');
     setPendingAIText(null);
+    setHasPendingCard(false);
     orchestratorStateRef.current = createInitialState(maxTurns);
     latenciesRef.current = [];
     userWordsRef.current = 0;
     aiWordsRef.current = 0;
     cardsCompletedRef.current = 0;
     pendingCardIdRef.current = null;
+    pendingCardTypeRef.current = null;
   }, [maxTurns]);
 
   const metrics: CoachSessionMetrics = {
@@ -303,8 +322,10 @@ export function useCoachSession({
     metrics,
     currentPhase,
     pendingAIText,
+    hasPendingCard,
     startSession,
     processUserTurn,
+    insertPendingCard,
     handleCardComplete,
     clearPendingAI,
     reset,
