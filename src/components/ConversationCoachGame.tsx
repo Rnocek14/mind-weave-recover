@@ -204,6 +204,8 @@ export function ConversationCoachGame({
       
       // Check if we need to insert a card (after speaking the intro)
       if (hasPendingCard) {
+        // Add a short delay after speaking intro before showing card
+        await new Promise(resolve => setTimeout(resolve, 600));
         insertPendingCard();
         setConversationState('idle'); // Card will handle listening
       } else if (!isComplete) {

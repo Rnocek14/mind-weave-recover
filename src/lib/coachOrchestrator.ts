@@ -43,9 +43,9 @@ export interface OrchestratorState {
 
 // Thresholds and limits
 const LIMITS = {
-  MIN_TURNS_BETWEEN_CARDS: 2,
+  MIN_TURNS_BETWEEN_CARDS: 3,
   MAX_CARDS_PER_SESSION: 3,
-  SUCCESS_STREAK_TO_AVOID_CARDS: 2,
+  SUCCESS_STREAK_TO_AVOID_CARDS: 3,
 };
 
 /**
@@ -119,18 +119,10 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
       };
 
     case 'word_search_stall':
-      // First try open recall (gentler than semantic features)
-      if (state.lastCardType !== 'recall_prompt') {
-        return {
-          type: 'insert_card',
-          cardType: 'recall_prompt',
-          config: { difficulty: 'easy' },
-        };
-      }
-      // If recall didn't help, try semantic features (circumlocution)
+      // Use recall prompt - gentler and stays in conversation context
       return {
         type: 'insert_card',
-        cardType: 'semantic_features',
+        cardType: 'recall_prompt',
         config: { difficulty: 'easy' },
       };
 
@@ -202,7 +194,7 @@ export function createInitialState(maxTurns: number = 5): OrchestratorState {
     turnNumber: 0,
     maxTurns,
     lastStuckType: null,
-    turnsSinceLastCard: LIMITS.MIN_TURNS_BETWEEN_CARDS, // Allow card on first stall
+    turnsSinceLastCard: 0, // Require MIN_TURNS_BETWEEN_CARDS before first card
     cardsInsertedThisSession: 0,
     recentStuckTypes: [],
     successStreak: 0,
