@@ -2,13 +2,13 @@
  * PhraseStarterCard - Inline starter phrase selection
  * 
  * Offers 2-3 starter phrases to choose from, user picks one and continues.
- * Helps with speech initiation when overwhelmed.
+ * Auto-starts listening after selection.
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
 
@@ -35,17 +35,11 @@ const STARTER_SETS = [
 export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardProps) {
   const [phase, setPhase] = useState<'choosing' | 'listening' | 'complete'>('choosing');
   const [transcript, setTranscript] = useState('');
-  const [starters, setStarters] = useState<string[]>([]);
+  const [starters] = useState(() => STARTER_SETS[Math.floor(Math.random() * STARTER_SETS.length)]);
   const [selectedStarter, setSelectedStarter] = useState<string>('');
   
   const startTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
-
-  // Select a random starter set on mount
-  useEffect(() => {
-    const randomSet = STARTER_SETS[Math.floor(Math.random() * STARTER_SETS.length)];
-    setStarters(randomSet);
-  }, []);
 
   const handleSpeechResult = useCallback((text: string) => {
     if (!firstWordTimeRef.current && text.trim().length > 0) {
@@ -54,7 +48,7 @@ export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardP
     setTranscript(text);
   }, []);
 
-  const { isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
+  const { startListening, stopListening, isSupported } = useSpeechRecognition({
     onResult: handleSpeechResult,
     patientMode: true,
     continuousListening: false,
@@ -66,10 +60,31 @@ export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardP
     startTimeRef.current = Date.now();
     firstWordTimeRef.current = null;
     setPhase('listening');
-    startListening();
   };
 
-  const handleDone = () => {
+  // Auto-start listening when phase changes to listening
+  useEffect(() => {
+    if (phase === 'listening') {
+      startListening();
+    }
+    return () => {
+      if (phase === 'listening') {
+        stopListening();
+      }
+    };
+  }, [phase, startListening, stopListening]);
+
+  // Auto-complete after speech detected
+  useEffect(() => {
+    if (transcript.trim().length >= 3 && phase === 'listening') {
+      const timer = setTimeout(() => {
+        handleDone();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [transcript, phase]);
+
+  const handleDone = useCallback(() => {
     stopListening();
     setPhase('complete');
 
@@ -87,7 +102,7 @@ export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardP
         latencyMs,
       });
     }, 500);
-  };
+  }, [stopListening, transcript, selectedStarter, onComplete]);
 
   if (!isSupported) {
     return (
@@ -115,7 +130,6 @@ export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardP
                   className="w-full justify-start text-left h-auto py-3 px-4"
                   onClick={() => handleSelectStarter(starter)}
                 >
-                  <Mic className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span>{starter}</span>
                 </Button>
               ))}
@@ -134,14 +148,21 @@ export function PhraseStarterCard({ difficulty, onComplete }: PhraseStarterCardP
             )}>
               {transcript || '(continue speaking...)'}
             </div>
-            <Button 
-              variant="secondary" 
-              onClick={handleDone}
-              className="gap-2"
-            >
-              <MicOff className="w-4 h-4" />
-              Done
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Listening...</span>
+            </div>
+            {transcript.length > 0 && (
+              <Button 
+                variant="secondary" 
+                onClick={handleDone}
+                size="sm"
+                className="gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Done
+              </Button>
+            )}
           </div>
         )}
 

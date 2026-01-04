@@ -28,6 +28,15 @@ interface CoachChatFeedProps {
   isProcessing?: boolean;
 }
 
+// Helper to extract conversation context for cards
+function getConversationContext(messages: FeedMessage[]): string {
+  return messages
+    .filter(m => m.type === 'user' || m.type === 'ai')
+    .slice(-4)
+    .map(m => (m.type === 'user' || m.type === 'ai') ? m.text : '')
+    .join(' ');
+}
+
 export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachChatFeedProps) {
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -111,11 +120,13 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
       onCardComplete?.(messageId, result);
     };
 
+    const conversationContext = getConversationContext(messages);
+
     switch (cardType) {
       case 'photo_naming':
         return <PhotoNamingCard difficulty={difficulty} onComplete={handleComplete} />;
       case 'semantic_features':
-        return <SemanticFeaturesCard difficulty={difficulty} onComplete={handleComplete} />;
+        return <SemanticFeaturesCard difficulty={difficulty} onComplete={handleComplete} conversationContext={conversationContext} />;
       case 'thought_prompt':
         return <ThoughtPromptCard difficulty={difficulty} onComplete={handleComplete} />;
       case 'phrase_starter':

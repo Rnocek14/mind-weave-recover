@@ -1,14 +1,14 @@
 /**
  * YesNoCard - Simplest interaction for the Coach
  * 
- * Shows a yes/no question when user can't initiate speech at all.
- * Any answer counts as success - just gets them speaking.
+ * Shows a yes/no question. User can tap buttons or speak.
+ * Auto-listens since conversation is already active.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Check, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { getRandomYesNoQuestion } from '@/data/yesNoBank';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
@@ -19,7 +19,6 @@ interface YesNoCardProps {
 
 export function YesNoCard({ onComplete }: YesNoCardProps) {
   const [question] = useState(() => getRandomYesNoQuestion());
-  const [isListening, setIsListening] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [detectedResponse, setDetectedResponse] = useState<'yes' | 'no' | 'other' | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -37,7 +36,7 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
       if (lower.includes(word)) return 'no';
     }
     
-    // Any speech counts as "other" (they spoke, which is the goal!)
+    // Any speech counts as "other"
     return text.length > 0 ? 'other' : 'other';
   }, []);
 
@@ -48,7 +47,6 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
     const response = analyzeResponse(text);
     setDetectedResponse(response);
     setHasAnswered(true);
-    setIsListening(false);
     
     const latencyMs = Date.now() - startTimeRef.current;
     
@@ -58,11 +56,10 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
         response,
         latencyMs,
       });
-    }, 1000);
+    }, 800);
   }, [hasAnswered, analyzeResponse, onComplete]);
 
   const { 
-    isListening: recognitionActive,
     startListening,
     stopListening,
   } = useSpeechRecognition({
@@ -70,16 +67,11 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
     patientMode: true,
   });
 
-  const handleStartListening = () => {
-    startTimeRef.current = Date.now();
-    setIsListening(true);
+  // Auto-start listening
+  useEffect(() => {
     startListening();
-  };
-
-  const handleStopListening = () => {
-    setIsListening(false);
-    stopListening();
-  };
+    return () => stopListening();
+  }, [startListening, stopListening]);
 
   // Manual button responses as fallback
   const handleManualResponse = (response: 'yes' | 'no') => {
@@ -87,7 +79,6 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
     
     setDetectedResponse(response);
     setHasAnswered(true);
-    setIsListening(false);
     stopListening();
     
     const latencyMs = Date.now() - startTimeRef.current;
@@ -107,7 +98,7 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
         {/* Question */}
         <div className="text-center">
           <p className="text-xl font-medium text-foreground">{question.question}</p>
-          <p className="text-sm text-muted-foreground mt-1">Just say yes or no</p>
+          <p className="text-sm text-muted-foreground mt-1">Say yes or no, or tap below</p>
         </div>
 
         {/* Success state */}
@@ -120,34 +111,14 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
           </div>
         )}
 
-        {/* Voice button */}
+        {/* Buttons (always visible as fallback) */}
         {!hasAnswered && (
           <div className="flex flex-col items-center gap-4">
-            <Button
-              size="lg"
-              variant={isListening || recognitionActive ? "destructive" : "default"}
-              className="h-16 w-16 rounded-full"
-              onMouseDown={handleStartListening}
-              onMouseUp={handleStopListening}
-              onTouchStart={handleStartListening}
-              onTouchEnd={handleStopListening}
-            >
-              {isListening || recognitionActive ? (
-                <MicOff className="w-6 h-6" />
-              ) : (
-                <Mic className="w-6 h-6" />
-              )}
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {isListening ? "Listening..." : "Hold to speak"}
-            </span>
-            
-            {/* Manual buttons as fallback */}
-            <div className="flex gap-4 mt-2">
+            <div className="flex gap-4">
               <Button
                 variant="outline"
                 size="lg"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 min-w-[100px]"
                 onClick={() => handleManualResponse('yes')}
               >
                 <ThumbsUp className="w-4 h-4" />
@@ -156,12 +127,16 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
               <Button
                 variant="outline"
                 size="lg"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 min-w-[100px]"
                 onClick={() => handleManualResponse('no')}
               >
                 <ThumbsDown className="w-4 h-4" />
                 No
               </Button>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Listening...</span>
             </div>
           </div>
         )}

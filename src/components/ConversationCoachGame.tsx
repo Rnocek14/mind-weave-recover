@@ -56,8 +56,10 @@ export function ConversationCoachGame({
     isProcessing,
     metrics,
     currentPhase,
+    hasPendingCard,
     startSession,
     processUserTurn,
+    insertPendingCard,
     handleCardComplete,
     clearPendingAI,
     reset,
@@ -189,7 +191,7 @@ export function ConversationCoachGame({
 
     const aiResponse = await processUserTurn(transcript, latencyMs);
     
-    if (aiResponse && currentPhase !== 'card_active') {
+    if (aiResponse) {
       setConversationState('ai_speaking');
       
       try {
@@ -200,8 +202,12 @@ export function ConversationCoachGame({
       
       clearPendingAI();
       
-      // Auto-start listening IMMEDIATELY after AI finishes (no delay)
-      if (!isComplete) {
+      // Check if we need to insert a card (after speaking the intro)
+      if (hasPendingCard) {
+        insertPendingCard();
+        setConversationState('idle'); // Card will handle listening
+      } else if (!isComplete) {
+        // Auto-start listening after AI finishes
         setConversationState('listening');
         startConversationTurnRef.current?.();
       } else {
@@ -213,7 +219,7 @@ export function ConversationCoachGame({
 
     setUserTranscript('');
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, currentPhase, isComplete, stopListening]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening]);
 
   // Keep the refs updated
   useEffect(() => {
