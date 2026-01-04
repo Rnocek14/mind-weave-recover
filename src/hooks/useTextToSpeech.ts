@@ -194,17 +194,17 @@ export const useTextToSpeech = () => {
     }
   }, [speakBrowser]);
 
-  // Standard non-streaming TTS (fallback)
+  // Standard TTS - go directly to browser TTS (ElevenLabs key is invalid)
   const speak = useCallback(async (
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
     const { voiceId = 'nova', autoPlay = true, useStreaming = true } = options;
 
-    // Use streaming by default for faster response
-    if (useStreaming) {
-      return speakStream(text, options);
-    }
+    // Skip streaming/API calls entirely - go straight to browser TTS
+    // This avoids the 401 ElevenLabs errors
+    console.log('[TTS] Using browser TTS directly (API disabled)');
+    return speakBrowser(text);
 
     setIsLoading(true);
     setIsSpeaking(false);
