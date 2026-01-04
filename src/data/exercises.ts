@@ -87,15 +87,6 @@ export const EXERCISES: Exercise[] = [
     color: "bg-gradient-primary"
   },
   {
-    id: "thought-continuation",
-    title: "Finish the Thought",
-    icon: MessageCircle,
-    category: "Expression",
-    duration: "5-10 min",
-    difficulty: "Easy",
-    color: "bg-gradient-healing"
-  },
-  {
     id: "conversation-partner",
     title: "Free Talk",
     icon: MessageCircle,

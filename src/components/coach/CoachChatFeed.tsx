@@ -12,6 +12,8 @@ import { PhotoNamingCard } from './PhotoNamingCard';
 import { SemanticFeaturesCard } from './SemanticFeaturesCard';
 import { ThoughtPromptCard } from './ThoughtPromptCard';
 import { PhraseStarterCard } from './PhraseStarterCard';
+import { YesNoCard } from './YesNoCard';
+import { RecallPromptCard } from './RecallPromptCard';
 import { cn } from '@/lib/utils';
 
 // Message types in the feed
@@ -90,6 +92,10 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
         return <ThoughtPromptCard difficulty={difficulty} onComplete={handleComplete} />;
       case 'phrase_starter':
         return <PhraseStarterCard difficulty={difficulty} onComplete={handleComplete} />;
+      case 'yes_no':
+        return <YesNoCard difficulty={difficulty} onComplete={handleComplete} />;
+      case 'recall_prompt':
+        return <RecallPromptCard difficulty={difficulty} onComplete={handleComplete} />;
       default:
         return null;
     }

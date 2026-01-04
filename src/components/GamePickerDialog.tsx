@@ -27,7 +27,6 @@ const CATEGORY_LABELS: Record<GameCategory, string> = {
 const GAME_INFO: Record<string, GameInfo> = {
   'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear', difficulty: 'easy', category: 'motor' },
   'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases', difficulty: 'easy', category: 'speech' },
-  'thought-continuation': { emoji: '💭', name: 'Finish the Thought', desc: 'Practice finishing thoughts at your own pace', difficulty: 'easy', category: 'speech' },
   'conversation-partner': { emoji: '🎙️', name: 'Free Talk', desc: 'Have a short conversation with a patient listener', difficulty: 'easy', category: 'speech' },
   'conversation-coach': { emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises when you get stuck', difficulty: 'easy', category: 'speech' },
   'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech' },
@@ -49,7 +48,6 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'sentence-construction': '/exercise/sentence-construction',
   'phrase-practice': '/exercise/word-practice',
   'minimal-pairs': '/exercise/minimal-pairs',
-  'thought-continuation': '/exercise/thought-continuation',
   'conversation-partner': '/exercise/conversation-partner',
   'conversation-coach': '/exercise/conversation-coach',
 };

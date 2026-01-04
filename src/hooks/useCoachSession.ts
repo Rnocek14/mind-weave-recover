@@ -140,7 +140,8 @@ export function useCoachSession({
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         stuckType,
-        true
+        true,
+        action.cardType
       );
     } else {
       // Regular follow-up
@@ -178,8 +179,28 @@ export function useCoachSession({
         : msg
     ));
 
+    // Get the card type from the message
+    const cardMessage = messages.find(msg => msg.id === messageId && msg.type === 'card');
+    const cardType = cardMessage && cardMessage.type === 'card' ? cardMessage.cardType : undefined;
+    
+    // Determine if the card was successful
+    const cardSuccess = result && typeof result === 'object' && 
+      (('success' in result && result.success === true) || 
+       ('answered' in result && result.answered === true));
+
     cardsCompletedRef.current += 1;
     pendingCardIdRef.current = null;
+    
+    // Update orchestrator state to track card success (for escalation logic)
+    if (cardType) {
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current,
+        orchestratorStateRef.current.lastStuckType || 'strong_flow',
+        false, // Not inserting a new card
+        cardType,
+        cardSuccess as boolean
+      );
+    }
 
     // Add outro and return to conversation
     const outro = getCardOutro();
@@ -196,7 +217,7 @@ export function useCoachSession({
     } else {
       setCurrentPhase('user_turn');
     }
-  }, [addMessage, maxTurns]);
+  }, [messages, addMessage, maxTurns]);
 
   const reset = useCallback(() => {
     setMessages([]);

@@ -30,7 +30,7 @@ import PatternMatchExercise from "./pages/PatternMatchExercise";
 import Insights from "./pages/Insights";
 import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
-import ThoughtContinuationExercise from "./pages/ThoughtContinuationExercise";
+
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import NotFound from "./pages/NotFound";
@@ -90,7 +90,7 @@ const App = () => (
           <Route path="/insights" element={<Insights />} />
           <Route path="/clinician/report" element={<ClinicianReport />} />
           <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
-          <Route path="/exercise/thought-continuation" element={<ThoughtContinuationExercise />} />
+          
           <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
           <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

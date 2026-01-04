@@ -14,7 +14,7 @@ import { StuckType } from './stuckTypeClassifier';
 import { FollowupType } from './conversationFollowups';
 
 // Card types that can be inserted inline
-export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter';
+export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
 
 // Configuration for each card type
 export interface CardConfig {
@@ -37,6 +37,8 @@ export interface OrchestratorState {
   cardsInsertedThisSession: number;
   recentStuckTypes: StuckType[];
   successStreak: number;
+  lastCardType: CardType | null;
+  yesNoSucceeded: boolean; // Track if yes/no card was successful (for escalation)
 }
 
 // Thresholds and limits
@@ -82,7 +84,7 @@ export function getNextAction(
 
   // 4. Decide based on stuck type
   if (canInsertCard) {
-    const cardDecision = selectCardForStuckType(stuckType);
+    const cardDecision = selectCardForStuckType(stuckType, state);
     if (cardDecision) {
       return cardDecision;
     }
@@ -96,12 +98,20 @@ export function getNextAction(
 }
 
 /**
- * Select the right card type based on stuck type
+ * Select the right card type based on stuck type and session history
  */
-function selectCardForStuckType(stuckType: StuckType): NextAction | null {
+function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState): NextAction | null {
   switch (stuckType) {
     case 'no_speech':
-      // Easy confidence win - show a simple photo
+      // If they haven't done yes_no yet, start there (easiest)
+      if (!state.yesNoSucceeded) {
+        return {
+          type: 'insert_card',
+          cardType: 'yes_no',
+          config: { difficulty: 'easy' },
+        };
+      }
+      // After yes_no success, try photo naming
       return {
         type: 'insert_card',
         cardType: 'photo_naming',
@@ -109,7 +119,15 @@ function selectCardForStuckType(stuckType: StuckType): NextAction | null {
       };
 
     case 'word_search_stall':
-      // Help with circumlocution - describe-around exercise
+      // First try open recall (gentler than semantic features)
+      if (state.lastCardType !== 'recall_prompt') {
+        return {
+          type: 'insert_card',
+          cardType: 'recall_prompt',
+          config: { difficulty: 'easy' },
+        };
+      }
+      // If recall didn't help, try semantic features (circumlocution)
       return {
         type: 'insert_card',
         cardType: 'semantic_features',
@@ -188,6 +206,8 @@ export function createInitialState(maxTurns: number = 5): OrchestratorState {
     cardsInsertedThisSession: 0,
     recentStuckTypes: [],
     successStreak: 0,
+    lastCardType: null,
+    yesNoSucceeded: false,
   };
 }
 
@@ -197,11 +217,17 @@ export function createInitialState(maxTurns: number = 5): OrchestratorState {
 export function updateState(
   state: OrchestratorState,
   stuckType: StuckType,
-  cardInserted: boolean
+  cardInserted: boolean,
+  cardType?: CardType,
+  cardSuccess?: boolean
 ): OrchestratorState {
   const newSuccessStreak = stuckType === 'strong_flow' 
     ? state.successStreak + 1 
     : 0;
+
+  // Track if yes_no card succeeded (for escalation logic)
+  const yesNoSucceeded = state.yesNoSucceeded || 
+    (cardType === 'yes_no' && cardSuccess === true);
 
   return {
     ...state,
@@ -213,6 +239,8 @@ export function updateState(
       : state.cardsInsertedThisSession,
     recentStuckTypes: [...state.recentStuckTypes.slice(-4), stuckType],
     successStreak: newSuccessStreak,
+    lastCardType: cardInserted && cardType ? cardType : state.lastCardType,
+    yesNoSucceeded,
   };
 }
 
@@ -239,6 +267,16 @@ export const CARD_INTRO_LINES: Record<CardType, string[]> = {
     "Pick one of these to start.",
     "Try one of these phrases.",
     "Use one of these to begin.",
+  ],
+  yes_no: [
+    "Let me ask you something simple.",
+    "Quick question for you.",
+    "Just a yes or no.",
+  ],
+  recall_prompt: [
+    "Think of any word.",
+    "Name anything that comes to mind.",
+    "Just one word is fine.",
   ],
 };
 
