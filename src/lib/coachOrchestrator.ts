@@ -41,6 +41,16 @@ export interface OrchestratorState {
   yesNoSucceeded: boolean; // Track if yes/no card was successful (for escalation)
 }
 
+// Speech analysis data for smarter card selection
+export interface SpeechAnalysisForOrchestrator {
+  effortfulSpeech: boolean;
+  circumlocutionDetected: boolean;
+  fluencyScore: number;
+  pausePattern: 'fluent' | 'hesitant' | 'very_slow';
+  wordCount: number;
+  filledPauseCount: number;
+}
+
 // Thresholds and limits
 const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 3,
@@ -50,10 +60,12 @@ const LIMITS = {
 
 /**
  * Main orchestrator function - decides what to do next
+ * Now accepts optional speech analysis for smarter decisions
  */
 export function getNextAction(
   stuckType: StuckType,
-  state: OrchestratorState
+  state: OrchestratorState,
+  speechAnalysis?: SpeechAnalysisForOrchestrator
 ): NextAction {
   const {
     turnNumber,
@@ -68,8 +80,17 @@ export function getNextAction(
     return { type: 'wrap_up' };
   }
 
-  // 2. If user is flowing well, just continue conversation
+  // 2. If user is flowing well AND speech analysis confirms good fluency, continue
   if (stuckType === 'strong_flow') {
+    // Double-check with speech analysis if available
+    if (speechAnalysis && speechAnalysis.effortfulSpeech) {
+      // User seems stuck but got words out - might need support
+      // Don't insert card, but use gentler followup
+      return {
+        type: 'chat_followup',
+        followupType: 'acknowledge',
+      };
+    }
     return {
       type: 'chat_followup',
       followupType: selectFollowupForFlow(turnNumber),
@@ -82,7 +103,15 @@ export function getNextAction(
     cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
     successStreak < LIMITS.SUCCESS_STREAK_TO_AVOID_CARDS;
 
-  // 4. Decide based on stuck type
+  // 4. Use speech analysis for smarter card selection
+  if (canInsertCard && speechAnalysis) {
+    const cardDecision = selectCardBasedOnSpeechAnalysis(speechAnalysis, state);
+    if (cardDecision) {
+      return cardDecision;
+    }
+  }
+
+  // 5. Fall back to stuck-type based card selection
   if (canInsertCard) {
     const cardDecision = selectCardForStuckType(stuckType, state);
     if (cardDecision) {
@@ -90,11 +119,60 @@ export function getNextAction(
     }
   }
 
-  // 5. Fallback to conversation follow-up
+  // 6. Fallback to conversation follow-up
   return {
     type: 'chat_followup',
     followupType: selectFollowupForStuckType(stuckType, turnNumber),
   };
+}
+
+/**
+ * Select card based on speech analysis data (smarter than stuck type alone)
+ */
+function selectCardBasedOnSpeechAnalysis(
+  speechAnalysis: SpeechAnalysisForOrchestrator, 
+  state: OrchestratorState
+): NextAction | null {
+  const { effortfulSpeech, circumlocutionDetected, pausePattern, wordCount, filledPauseCount } = speechAnalysis;
+  
+  // Very effortful + very slow = reduce cognitive load with simple yes/no
+  if (effortfulSpeech && pausePattern === 'very_slow' && !state.yesNoSucceeded) {
+    return {
+      type: 'insert_card',
+      cardType: 'yes_no',
+      config: { difficulty: 'easy' },
+    };
+  }
+  
+  // Circumlocution detected = practice direct naming
+  if (circumlocutionDetected) {
+    return {
+      type: 'insert_card',
+      cardType: 'photo_naming',
+      config: { difficulty: 'easy' },
+    };
+  }
+  
+  // High filled pause count = needs structure
+  if (filledPauseCount >= 3) {
+    return {
+      type: 'insert_card',
+      cardType: 'phrase_starter',
+      config: { difficulty: 'easy' },
+    };
+  }
+  
+  // Effortful but got some words = recall prompt to reduce load
+  if (effortfulSpeech && wordCount > 2) {
+    return {
+      type: 'insert_card',
+      cardType: 'recall_prompt',
+      config: { difficulty: 'easy' },
+    };
+  }
+  
+  // No clear pattern from analysis - let stuck type decide
+  return null;
 }
 
 /**

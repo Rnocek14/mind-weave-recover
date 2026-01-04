@@ -2,7 +2,10 @@
  * useCoachSession - Manages the Conversation Coach session state
  * 
  * Handles conversation flow, orchestrator decisions, card insertions,
- * and metrics tracking for the unified coach experience.
+ * metrics tracking, and integrates with:
+ * - Real-time speech analysis
+ * - User speech profiles
+ * - Engagement monitoring
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -15,6 +18,7 @@ import {
   CardType,
   getCardIntro,
   getCardOutro,
+  SpeechAnalysisForOrchestrator,
 } from '@/lib/coachOrchestrator';
 import { 
   getFollowupLine, 
@@ -24,6 +28,8 @@ import {
 import { classifyStuckType, StuckType } from '@/lib/stuckTypeClassifier';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
+import { EngagementMonitor, EngagementState as MonitorEngagementState } from '@/lib/engagementMonitor';
+import { useConversationSpeechAnalysis, ConversationUtteranceAnalysis } from './useConversationSpeechAnalysis';
 
 // Store card results for AI context
 interface CardResult {
@@ -32,13 +38,18 @@ interface CardResult {
   success: boolean;
 }
 
-interface CoachSessionMetrics {
+export interface CoachSessionMetrics {
   turnsCompleted: number;
   cardsCompleted: number;
   totalUserWords: number;
   totalAIWords: number;
   avgLatencyMs: number;
   completionRate: number;
+  // Enhanced metrics from speech analysis
+  avgFluency?: number;
+  fluencyTrend?: 'improving' | 'stable' | 'declining';
+  effortfulCount?: number;
+  circumlocutionCount?: number;
 }
 
 interface UseCoachSessionProps {
@@ -46,6 +57,12 @@ interface UseCoachSessionProps {
   profileId: string;
   sessionId: string | null;
   maxTurns?: number;
+  // User speech profile for personalization
+  userSpeechProfile?: {
+    primaryChallenge?: string;
+    bestCueType?: string;
+    typicalPace?: string;
+  } | null;
 }
 
 interface UseCoachSessionReturn {
@@ -54,12 +71,13 @@ interface UseCoachSessionReturn {
   isProcessing: boolean;
   metrics: CoachSessionMetrics;
   currentPhase: 'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete';
-  pendingAIText: string | null; // Text that needs to be spoken
-  hasPendingCard: boolean; // True if a card needs to be inserted after TTS
-  startSession: () => string; // Returns opener text
-  processUserTurn: (transcript: string, latencyMs: number | null) => Promise<string | null>; // Returns AI response text
-  insertPendingCard: () => void; // Insert card after TTS completes
-  handleCardComplete: (messageId: string, result: unknown) => string; // Returns outro text
+  pendingAIText: string | null;
+  hasPendingCard: boolean;
+  engagementState: MonitorEngagementState | null;
+  startSession: () => string;
+  processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null) => Promise<string | null>;
+  insertPendingCard: () => void;
+  handleCardComplete: (messageId: string, result: unknown) => string;
   clearPendingAI: () => void;
   reset: () => void;
 }
@@ -69,6 +87,7 @@ export function useCoachSession({
   profileId,
   sessionId,
   maxTurns = 5,
+  userSpeechProfile,
 }: UseCoachSessionProps): UseCoachSessionReturn {
   const [messages, setMessages] = useState<FeedMessage[]>([]);
   const [isComplete, setIsComplete] = useState(false);
@@ -76,6 +95,7 @@ export function useCoachSession({
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete'>('ready');
   const [pendingAIText, setPendingAIText] = useState<string | null>(null);
   const [hasPendingCard, setHasPendingCard] = useState(false);
+  const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   
   const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns));
   const latenciesRef = useRef<number[]>([]);
@@ -86,6 +106,15 @@ export function useCoachSession({
   const pendingCardTypeRef = useRef<CardType | null>(null);
   const pendingCardDifficultyRef = useRef<'easy' | 'medium'>('easy');
   const lastCardResultRef = useRef<CardResult | null>(null);
+  const engagementMonitorRef = useRef(new EngagementMonitor(5));
+  const analysisHistoryRef = useRef<ConversationUtteranceAnalysis[]>([]);
+  
+  // Speech analysis hook
+  const speechAnalysis = useConversationSpeechAnalysis({
+    userId,
+    profileId,
+    sessionId,
+  });
 
   const addMessage = useCallback((message: FeedMessage) => {
     setMessages(prev => [...prev, message]);
@@ -100,10 +129,18 @@ export function useCoachSession({
     setPendingAIText(opener);
     setCurrentPhase('user_turn');
     
+    // Reset engagement monitor
+    engagementMonitorRef.current.reset();
+    speechAnalysis.reset();
+    
     return opener;
-  }, [addMessage]);
+  }, [addMessage, speechAnalysis]);
 
-  const processUserTurn = useCallback(async (transcript: string, latencyMs: number | null): Promise<string | null> => {
+  const processUserTurn = useCallback(async (
+    transcript: string, 
+    latencyMs: number | null,
+    totalDurationMs?: number | null
+  ): Promise<string | null> => {
     setIsProcessing(true);
     
     // Add user message
@@ -115,8 +152,27 @@ export function useCoachSession({
       latenciesRef.current.push(latencyMs);
     }
 
-    // Use smart completion detection instead of fixed word count
+    // Analyze the utterance with speech analysis
+    const analysis = await speechAnalysis.analyzeUtterance(
+      transcript,
+      latencyMs,
+      totalDurationMs ?? null
+    );
+    analysisHistoryRef.current.push(analysis);
+
+    // Update engagement monitor
     const wordCount = countWords(transcript);
+    engagementMonitorRef.current.addTrial({
+      correct: wordCount > 0 && !analysis.effortfulSpeech,
+      reactionTimeMs: latencyMs ?? 3000,
+      timeout: wordCount === 0,
+      cueLevel: 0,
+      timestamp: Date.now(),
+    });
+    const currentEngagement = engagementMonitorRef.current.assessState();
+    setEngagementState(currentEngagement);
+
+    // Use smart completion detection
     const completion = detectUtteranceComplete(transcript);
     
     const stuckType = classifyStuckType({
@@ -124,12 +180,22 @@ export function useCoachSession({
       latencyToFirstWordMs: latencyMs,
       utteranceComplete: completion.isComplete,
       wordCount,
-      durationMs: 10000,
+      durationMs: totalDurationMs ?? 10000,
       narrowingLevelUsed: 0,
     }).stuckType;
 
-    // Get next action from orchestrator
-    const action = getNextAction(stuckType, orchestratorStateRef.current);
+    // Build speech analysis data for orchestrator
+    const speechAnalysisForOrchestrator: SpeechAnalysisForOrchestrator = {
+      effortfulSpeech: analysis.effortfulSpeech,
+      circumlocutionDetected: analysis.circumlocutionDetected,
+      fluencyScore: analysis.fluencyScore,
+      pausePattern: analysis.pausePattern,
+      wordCount: analysis.wordCount,
+      filledPauseCount: analysis.filledPauseCount,
+    };
+
+    // Get next action from orchestrator (now with speech analysis)
+    const action = getNextAction(stuckType, orchestratorStateRef.current, speechAnalysisForOrchestrator);
 
     let aiResponseText: string | null = null;
 
@@ -142,28 +208,23 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'insert_card') {
-      // Return intro text - let ConversationCoachGame speak it first
       const intro = getCardIntro(action.cardType);
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
       
-      // Store card info for later insertion after TTS
       pendingCardTypeRef.current = action.cardType;
       pendingCardDifficultyRef.current = action.config.difficulty;
       setHasPendingCard(true);
       
-      // Update orchestrator state (card will be inserted)
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         stuckType,
         true,
         action.cardType
       );
-      
-      // Don't insert card yet - let caller speak first then call insertPendingCard
     } else {
-      // Get contextual response from AI
+      // Get contextual response from AI with full speech analysis context
       try {
         const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
         const conversationHistory = currentMessages
@@ -181,25 +242,62 @@ export function useCoachSession({
           success: lastCardResultRef.current.success,
         } : undefined;
         
-        // Clear card result after using
         lastCardResultRef.current = null;
 
-        const { data, error } = await supabase.functions.invoke('conversation-partner', {
+        // Get session metrics for AI context
+        const sessionMetrics = speechAnalysis.getSessionMetrics();
+
+        // Call the new speech-aware AI function
+        const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
           body: {
             userTranscript: transcript,
             turnNumber: orchestratorStateRef.current.turnNumber + 1,
             maxTurns,
             conversationHistory,
-            cardContext, // Pass card context to AI
+            cardContext,
+            // New: speech analysis data
+            speechAnalysis: {
+              effortfulSpeech: analysis.effortfulSpeech,
+              pausePattern: analysis.pausePattern,
+              circumlocutionDetected: analysis.circumlocutionDetected,
+              fluencyScore: analysis.fluencyScore,
+              wordCount: analysis.wordCount,
+              completionConfidence: analysis.completionConfidence,
+              speechContext: speechAnalysis.buildAISpeechContext(analysis),
+            },
+            // User profile for personalization
+            userProfile: userSpeechProfile ? {
+              primaryChallenge: userSpeechProfile.primaryChallenge,
+              bestCueType: userSpeechProfile.bestCueType,
+              typicalPace: userSpeechProfile.typicalPace,
+            } : undefined,
+            // Session metrics
+            sessionMetrics: sessionMetrics ? {
+              turnsCompleted: sessionMetrics.totalUtterances,
+              avgFluency: sessionMetrics.avgFluency,
+              fluencyTrend: sessionMetrics.fluencyTrend,
+              effortfulCount: sessionMetrics.effortfulCount,
+            } : undefined,
+            // Engagement state
+            engagementState: currentEngagement ? {
+              frustration: currentEngagement.frustration,
+              fatigue: currentEngagement.fatigue,
+              recommendedAction: currentEngagement.recommendedAction,
+            } : undefined,
           }
         });
 
         if (error || !data?.response) {
-          // Fallback to canned response
           console.warn('Edge function error, using fallback:', error);
           aiResponseText = getFollowupLine(action.followupType);
         } else {
           aiResponseText = data.response;
+          
+          // Check if AI suggested a break
+          if (data.suggestBreak) {
+            // Could trigger a break prompt UI
+            console.log('AI suggests taking a break');
+          }
         }
       } catch (err) {
         console.warn('Failed to get AI response:', err);
@@ -209,14 +307,12 @@ export function useCoachSession({
       addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
       aiWordsRef.current += countWords(aiResponseText);
       
-      // Update orchestrator state (no card)
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         stuckType,
         false
       );
       
-      // Check if we've reached max turns
       if (orchestratorStateRef.current.turnNumber >= maxTurns) {
         const wrapUpText = getFollowupLine('wrap_up');
         addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
@@ -232,33 +328,28 @@ export function useCoachSession({
     setPendingAIText(aiResponseText);
     setIsProcessing(false);
     return aiResponseText;
-  }, [addMessage, maxTurns, messages]);
+  }, [addMessage, maxTurns, messages, speechAnalysis, userSpeechProfile]);
 
   const handleCardComplete = useCallback((messageId: string, result: unknown): string => {
-    // Mark card as completed
     setMessages(prev => prev.map(msg => 
       msg.id === messageId && msg.type === 'card'
         ? { ...msg, completed: true }
         : msg
     ));
 
-    // Get the card type from the current messages state
     const cardMessage = messages.find(msg => msg.id === messageId && msg.type === 'card');
     const cardType = cardMessage && cardMessage.type === 'card' ? cardMessage.cardType : undefined;
     
-    // Determine if the card was successful and extract response
     const cardSuccess = result && typeof result === 'object' && 
       (('success' in result && result.success === true) || 
        ('answered' in result && result.answered === true));
     
-    // Extract user's response from the card result for AI context
     const userResponse = result && typeof result === 'object' 
       ? (result as Record<string, unknown>).answer || 
         (result as Record<string, unknown>).response || 
         (result as Record<string, unknown>).transcript || ''
       : '';
     
-    // Store card result for next AI call
     if (cardType) {
       lastCardResultRef.current = {
         cardType,
@@ -270,7 +361,6 @@ export function useCoachSession({
     cardsCompletedRef.current += 1;
     pendingCardIdRef.current = null;
     
-    // Update orchestrator state to track card success (for escalation logic)
     if (cardType) {
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
@@ -281,12 +371,10 @@ export function useCoachSession({
       );
     }
 
-    // Add outro and return to conversation
     const outro = getCardOutro();
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     
-    // Check if we've reached max turns
     if (orchestratorStateRef.current.turnNumber >= maxTurns) {
       const wrapUpText = getFollowupLine('wrap_up');
       addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
@@ -306,7 +394,6 @@ export function useCoachSession({
     setPendingAIText(null);
   }, []);
 
-  // Insert the pending card after TTS completes
   const insertPendingCard = useCallback(() => {
     if (pendingCardTypeRef.current) {
       const cardId = generateId();
@@ -331,6 +418,7 @@ export function useCoachSession({
     setCurrentPhase('ready');
     setPendingAIText(null);
     setHasPendingCard(false);
+    setEngagementState(null);
     orchestratorStateRef.current = createInitialState(maxTurns);
     latenciesRef.current = [];
     userWordsRef.current = 0;
@@ -338,8 +426,14 @@ export function useCoachSession({
     cardsCompletedRef.current = 0;
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
-  }, [maxTurns]);
+    engagementMonitorRef.current.reset();
+    speechAnalysis.reset();
+    analysisHistoryRef.current = [];
+  }, [maxTurns, speechAnalysis]);
 
+  // Calculate enhanced metrics
+  const sessionMetrics = speechAnalysis.getSessionMetrics();
+  
   const metrics: CoachSessionMetrics = {
     turnsCompleted: orchestratorStateRef.current.turnNumber,
     cardsCompleted: cardsCompletedRef.current,
@@ -351,6 +445,11 @@ export function useCoachSession({
     completionRate: orchestratorStateRef.current.turnNumber > 0
       ? (orchestratorStateRef.current.successStreak / orchestratorStateRef.current.turnNumber) * 100
       : 0,
+    // Enhanced metrics
+    avgFluency: sessionMetrics?.avgFluency,
+    fluencyTrend: sessionMetrics?.fluencyTrend,
+    effortfulCount: sessionMetrics?.effortfulCount,
+    circumlocutionCount: sessionMetrics?.circumlocutionCount,
   };
 
   return {
@@ -361,6 +460,7 @@ export function useCoachSession({
     currentPhase,
     pendingAIText,
     hasPendingCard,
+    engagementState,
     startSession,
     processUserTurn,
     insertPendingCard,

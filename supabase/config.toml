@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.conversation-partner]
 verify_jwt = false
+
+[functions.conversation-coach-ai]
+verify_jwt = false
