@@ -48,9 +48,11 @@ export function ConversationCoachGame({
     isProcessing,
     metrics,
     currentPhase,
+    pendingAIText,
     startSession,
     processUserTurn,
     handleCardComplete,
+    clearPendingAI,
     reset,
   } = useCoachSession({
     userId,
@@ -77,6 +79,7 @@ export function ConversationCoachGame({
     const opener = startSession();
     try {
       await speak(opener, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+      clearPendingAI();
     } catch (err) {
       console.warn('TTS failed:', err);
     }
@@ -98,13 +101,14 @@ export function ConversationCoachGame({
       ? firstWordTimeRef.current - speechStartTimeRef.current
       : null;
 
-    await processUserTurn(userTranscript, latencyMs);
+    // Process and get the AI response text directly
+    const aiResponse = await processUserTurn(userTranscript, latencyMs);
     
-    // Speak the last AI message
-    const lastAIMessage = [...messages].reverse().find(m => m.type === 'ai');
-    if (lastAIMessage && lastAIMessage.type === 'ai') {
+    // Speak the response
+    if (aiResponse) {
       try {
-        await speak(lastAIMessage.text, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        await speak(aiResponse, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        clearPendingAI();
       } catch (err) {
         console.warn('TTS failed:', err);
       }
@@ -115,13 +119,13 @@ export function ConversationCoachGame({
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
-    handleCardComplete(messageId, result);
+    const outroText = handleCardComplete(messageId, result);
     
     // Speak the outro
-    const lastAIMessage = [...messages].reverse().find(m => m.type === 'ai');
-    if (lastAIMessage && lastAIMessage.type === 'ai') {
+    if (outroText) {
       try {
-        await speak(lastAIMessage.text, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        await speak(outroText, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        clearPendingAI();
       } catch (err) {
         console.warn('TTS failed:', err);
       }

@@ -6,36 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Valid follow-up types - must match client-side
-const VALID_FOLLOWUP_TYPES = [
-  'what_next',
-  'what_did',
-  'how_felt',
-  'tell_more',
-  'clarify_small',
-  'acknowledge',
-  'wrap_up'
-] as const;
+const SYSTEM_PROMPT = `You are a supportive conversation partner helping someone practice speaking after a stroke.
 
-type FollowupType = typeof VALID_FOLLOWUP_TYPES[number];
+Your job is to:
+1. Acknowledge what they said briefly and naturally
+2. Ask ONE simple follow-up question to keep them talking
 
-const SYSTEM_PROMPT = `You are analyzing a conversation turn to choose the best follow-up type. 
-You are helping someone practice speaking after a stroke. Your job is ONLY to pick a follow-up label.
+CRITICAL RULES:
+- Keep your response SHORT (15-25 words max)
+- Use simple, everyday words
+- Ask about what they just said, not random topics
+- If they said very little, ask something easier
+- Never correct their speech or grammar
+- Be warm but not patronizing
+- End with ONE clear question
 
-Available labels:
-- what_next: Ask what happened next (use after they describe an event)
-- what_did: Ask what they did about something (use after they mention a situation)
-- how_felt: Ask about their feeling/reaction (use sparingly, after emotional content)
-- tell_more: Simple continuation (use when they gave a short but complete answer)
-- clarify_small: Narrow to a smaller detail (use if they seem overwhelmed or gave very little)
-- acknowledge: Just acknowledge without asking more (use after a good complete answer mid-conversation)
-- wrap_up: End the conversation warmly (use ONLY when it's the final turn)
+RESPONSE PATTERNS:
+- They shared something: "That sounds [nice/interesting]. [Simple follow-up question about it]"
+- They gave short answer: "[Brief acknowledgment]. What else about that?"
+- They struggled: "Take your time. [Simpler question about same topic]"
+- Wrap up (final turn): "Thanks for sharing. That was a nice chat."
 
-Rules:
-- Return ONLY the label, nothing else
-- Never correct or rephrase what they said
-- If unsure, pick "tell_more"
-- For final turn, always pick "wrap_up"`;
+Examples:
+User: "I had eggs for breakfast"
+Response: "Eggs, nice. Did you make them yourself?"
+
+User: "my son visited"
+Response: "That's lovely. What did you two do together?"
+
+User: "um... I... the thing..."
+Response: "No rush. Just tell me one small part."`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -43,13 +43,13 @@ serve(async (req) => {
   }
 
   try {
-    const { userTranscript, turnNumber, maxTurns, conversationHistory } = await req.json();
+    const { userTranscript, turnNumber, maxTurns, conversationHistory, mode } = await req.json();
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       console.error('OPENAI_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'AI service not configured', fallbackType: 'tell_more' }),
+        JSON.stringify({ error: 'AI service not configured', fallbackResponse: "Tell me more about that." }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -58,26 +58,42 @@ serve(async (req) => {
     if (turnNumber >= maxTurns) {
       console.log('Final turn - returning wrap_up');
       return new Response(
-        JSON.stringify({ followupType: 'wrap_up' }),
+        JSON.stringify({ 
+          followupType: 'wrap_up',
+          response: "Thanks for sharing with me. That was a nice chat."
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build context message
-    const contextParts = [];
+    // Build conversation context
+    const messages: { role: string; content: string }[] = [
+      { role: 'system', content: SYSTEM_PROMPT }
+    ];
+
+    // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
-      contextParts.push('Previous exchanges:');
-      conversationHistory.slice(-3).forEach((turn: { role: string; text: string }) => {
-        contextParts.push(`${turn.role}: ${turn.text}`);
+      conversationHistory.slice(-4).forEach((turn: { role: string; text: string }) => {
+        messages.push({
+          role: turn.role === 'ai' ? 'assistant' : 'user',
+          content: turn.text
+        });
       });
     }
-    contextParts.push(`Turn ${turnNumber} of ${maxTurns}`);
-    contextParts.push(`User just said: "${userTranscript || '(silence)'}"`);
-    contextParts.push('Pick the best follow-up label.');
 
-    const userMessage = contextParts.join('\n');
+    // Add current user message
+    const userMessage = userTranscript?.trim() || "(silence)";
+    messages.push({ role: 'user', content: userMessage });
 
-    console.log(`Conversation partner request - Turn ${turnNumber}/${maxTurns}, user said: "${userTranscript?.slice(0, 50)}..."`);
+    // Add context about turn
+    if (turnNumber >= maxTurns - 1) {
+      messages.push({ 
+        role: 'system', 
+        content: 'This is the last exchange. Wrap up warmly without asking another question.' 
+      });
+    }
+
+    console.log(`Conversation request - Turn ${turnNumber}/${maxTurns}, user said: "${userTranscript?.slice(0, 50)}..."`);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -87,12 +103,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage }
-        ],
-        max_tokens: 20,
-        temperature: 0.3,
+        messages,
+        max_tokens: 60,
+        temperature: 0.7,
       }),
     });
 
@@ -100,29 +113,21 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
       return new Response(
-        JSON.stringify({ error: 'AI request failed', fallbackType: 'tell_more' }),
+        JSON.stringify({ error: 'AI request failed', fallbackResponse: "Tell me more about that." }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    const gptResponse = data.choices?.[0]?.message?.content?.trim().toLowerCase() || '';
+    const gptResponse = data.choices?.[0]?.message?.content?.trim() || 'Tell me more.';
     
-    console.log('GPT raw response:', gptResponse);
-
-    // Parse to valid follow-up type
-    let followupType: FollowupType = 'tell_more';
-    for (const validType of VALID_FOLLOWUP_TYPES) {
-      if (gptResponse.includes(validType)) {
-        followupType = validType;
-        break;
-      }
-    }
-
-    console.log('Selected follow-up type:', followupType);
+    console.log('GPT response:', gptResponse);
 
     return new Response(
-      JSON.stringify({ followupType }),
+      JSON.stringify({ 
+        response: gptResponse,
+        followupType: turnNumber >= maxTurns - 1 ? 'wrap_up' : 'contextual'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -131,7 +136,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
-        fallbackType: 'tell_more'
+        fallbackResponse: "That's interesting. Tell me more."
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
