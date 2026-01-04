@@ -100,14 +100,12 @@ export function useSpeechEndDetection({
     lastTranscriptRef.current = transcript;
     lastUpdateTimeRef.current = Date.now();
     
-    // If it's a final transcript, we might want to trigger immediately
-    // for very complete utterances (optional - currently we still wait)
-    if (isFinal && transcript.trim()) {
-      const completion = detectUtteranceComplete(transcript);
-      if (completion.isComplete && completion.confidence === 'high') {
-        // Could trigger immediately, but let's be consistent with silence check
-        console.log('🎯 Final transcript received, will check silence');
-      }
+    // If it's a final transcript, trigger immediately - don't wait for silence
+    if (isFinal && transcript.trim() && !hasTriggeredRef.current) {
+      console.log('🎯 Final transcript received, triggering immediately:', transcript.slice(0, 50));
+      hasTriggeredRef.current = true;
+      onSpeechEndRef.current(transcript);
+      return;
     }
   }, [enabled]);
 
