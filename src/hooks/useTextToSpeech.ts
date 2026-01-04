@@ -31,6 +31,22 @@ export const useTextToSpeech = () => {
       // Cancel any ongoing speech first
       window.speechSynthesis.cancel();
       
+      let hasResolved = false;
+      const safeResolve = () => {
+        if (!hasResolved) {
+          hasResolved = true;
+          setIsSpeaking(false);
+          resolve();
+        }
+      };
+      
+      // Safety timeout - resolve after estimated speech duration + buffer
+      const estimatedDuration = Math.max(3000, text.length * 80); // ~80ms per char, min 3s
+      const safetyTimeout = setTimeout(() => {
+        console.log('[TTS] Safety timeout reached, resolving');
+        safeResolve();
+      }, estimatedDuration);
+      
       const attemptSpeak = () => {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9;
@@ -39,9 +55,11 @@ export const useTextToSpeech = () => {
         
         // Try to get a good voice
         const voices = window.speechSynthesis.getVoices();
+        console.log('[TTS] Available voices:', voices.length);
         const englishVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
         if (englishVoice) {
           utterance.voice = englishVoice;
+          console.log('[TTS] Using voice:', englishVoice.name);
         }
         
         setIsSpeaking(true);
@@ -50,15 +68,15 @@ export const useTextToSpeech = () => {
         let keepAlive: ReturnType<typeof setInterval> | null = null;
         
         const cleanup = () => {
+          clearTimeout(safetyTimeout);
           if (keepAlive) {
             clearInterval(keepAlive);
             keepAlive = null;
           }
-          setIsSpeaking(false);
         };
         
         utterance.onstart = () => {
-          console.log('[TTS] Speech started');
+          console.log('[TTS] Speech started (onstart fired)');
           // Chrome workaround for long text
           keepAlive = setInterval(() => {
             if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
@@ -69,18 +87,28 @@ export const useTextToSpeech = () => {
         };
         
         utterance.onend = () => {
-          console.log('[TTS] Speech ended');
+          console.log('[TTS] Speech ended (onend fired)');
           cleanup();
-          resolve();
+          safeResolve();
         };
         
         utterance.onerror = (event) => {
           console.warn('[TTS] Speech error:', event.error);
           cleanup();
-          resolve();
+          safeResolve();
         };
         
+        console.log('[TTS] Calling speechSynthesis.speak()');
         window.speechSynthesis.speak(utterance);
+        
+        // Check if speaking actually started after a short delay
+        setTimeout(() => {
+          if (!window.speechSynthesis.speaking && !hasResolved) {
+            console.warn('[TTS] Speech did not start, resolving anyway');
+            cleanup();
+            safeResolve();
+          }
+        }, 500);
       };
       
       // Check if voices are loaded
@@ -99,7 +127,8 @@ export const useTextToSpeech = () => {
         // Fallback timeout in case voiceschanged never fires
         setTimeout(() => {
           window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
-          if (!window.speechSynthesis.speaking) {
+          if (!window.speechSynthesis.speaking && !hasResolved) {
+            console.log('[TTS] Voices timeout, attempting to speak anyway');
             attemptSpeak();
           }
         }, 500);
