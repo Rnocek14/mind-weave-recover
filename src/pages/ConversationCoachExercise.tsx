@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,15 @@ export default function ConversationCoachExercise() {
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
-  // Redirect to auth if not logged in
+  // Redirect to auth if not logged in - use useEffect to avoid render-time navigation
+  useEffect(() => {
+    if (!user) {
+      navigate('/auth');
+    }
+  }, [user, navigate]);
+
+  // Return null while redirecting
   if (!user) {
-    navigate('/auth');
     return null;
   }
 

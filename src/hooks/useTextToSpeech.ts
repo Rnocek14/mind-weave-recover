@@ -20,33 +20,89 @@ export const useTextToSpeech = () => {
   // Browser TTS - reliable fallback that always works
   const speakBrowser = useCallback((text: string): Promise<void> => {
     return new Promise<void>((resolve) => {
-      if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech first
-        window.speechSynthesis.cancel();
-        
+      if (!('speechSynthesis' in window)) {
+        console.warn('[TTS] Browser speech synthesis not supported');
+        resolve();
+        return;
+      }
+
+      console.log('[TTS] Starting browser TTS for:', text.substring(0, 50) + '...');
+      
+      // Cancel any ongoing speech first
+      window.speechSynthesis.cancel();
+      
+      const attemptSpeak = () => {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9;
         utterance.pitch = 1;
         utterance.volume = 1;
         
+        // Try to get a good voice
+        const voices = window.speechSynthesis.getVoices();
+        const englishVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
+        
         setIsSpeaking(true);
         
+        // Chrome workaround - keep speech synthesis active
+        let keepAlive: ReturnType<typeof setInterval> | null = null;
+        
+        const cleanup = () => {
+          if (keepAlive) {
+            clearInterval(keepAlive);
+            keepAlive = null;
+          }
+          setIsSpeaking(false);
+        };
+        
+        utterance.onstart = () => {
+          console.log('[TTS] Speech started');
+          // Chrome workaround for long text
+          keepAlive = setInterval(() => {
+            if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+              window.speechSynthesis.pause();
+              window.speechSynthesis.resume();
+            }
+          }, 10000);
+        };
+        
         utterance.onend = () => {
-          setIsSpeaking(false);
+          console.log('[TTS] Speech ended');
+          cleanup();
           resolve();
         };
         
-        utterance.onerror = () => {
-          setIsSpeaking(false);
+        utterance.onerror = (event) => {
+          console.warn('[TTS] Speech error:', event.error);
+          cleanup();
           resolve();
         };
         
-        // Small delay helps with some browsers
-        setTimeout(() => {
-          window.speechSynthesis.speak(utterance);
-        }, 50);
+        window.speechSynthesis.speak(utterance);
+      };
+      
+      // Check if voices are loaded
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        attemptSpeak();
       } else {
-        resolve();
+        // Wait for voices to load (needed on some browsers)
+        console.log('[TTS] Waiting for voices to load...');
+        const handleVoicesChanged = () => {
+          window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+          attemptSpeak();
+        };
+        window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
+        
+        // Fallback timeout in case voiceschanged never fires
+        setTimeout(() => {
+          window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+          if (!window.speechSynthesis.speaking) {
+            attemptSpeak();
+          }
+        }, 500);
       }
     });
   }, []);
