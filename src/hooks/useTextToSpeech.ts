@@ -96,11 +96,34 @@ export const useTextToSpeech = () => {
         return;
       }
       
-      console.warn('Streaming TTS failed, falling back to standard TTS:', err);
+      console.warn('Streaming TTS failed, falling back to browser TTS:', err);
       setIsLoading(false);
       
-      // Fallback to non-streaming
-      return speak(text, { ...options, useStreaming: false });
+      // Fallback directly to browser speech synthesis (avoids autoplay issues)
+      return new Promise<void>((resolve) => {
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          
+          window.speechSynthesis.cancel();
+          setIsSpeaking(true);
+          
+          utterance.onend = () => {
+            setIsSpeaking(false);
+            resolve();
+          };
+          
+          utterance.onerror = () => {
+            setIsSpeaking(false);
+            resolve();
+          };
+          
+          window.speechSynthesis.speak(utterance);
+        } else {
+          resolve();
+        }
+      });
     }
   }, []);
 
