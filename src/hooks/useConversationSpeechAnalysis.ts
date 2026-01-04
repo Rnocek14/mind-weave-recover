@@ -4,7 +4,8 @@
  * Analyzes each user utterance for clinical patterns:
  * - Fluency metrics (pauses, speech rate)
  * - Error classification (circumlocution, effortful speech)
- * - Effort detection
+ * - Pronunciation analysis via Azure API
+ * - Micro-fluency from alignment data
  */
 
 import { useCallback, useRef } from 'react';
@@ -36,6 +37,11 @@ export interface ConversationUtteranceAnalysis {
   
   // Raw data for AI context
   microFluency: MicroFluencyAnalysis | null;
+  
+  // Pronunciation data (when audio available)
+  pronunciationScore: number | null;
+  phonemeAccuracy: { phoneme: string; score: number }[];
+  challengingSounds: string[];
 }
 
 export interface ConversationSpeechContext {
@@ -45,6 +51,19 @@ export interface ConversationSpeechContext {
   challengingAreas?: string[];
   predominantErrorPattern?: 'semantic' | 'phonemic' | 'mixed' | 'unknown';
   bestCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
+}
+
+// Helper to convert Blob to base64
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 export function useConversationSpeechAnalysis(context: ConversationSpeechContext) {
@@ -90,7 +109,7 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       fillerWords.includes(w.toLowerCase())
     ).length;
     
-    // Calculate fluency score (0-100)
+    // Initialize fluency score (will be enhanced with pronunciation data)
     let fluencyScore = 100;
     // Penalize for slow latency
     if (latencyToFirstWordMs) {
@@ -102,10 +121,9 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
     if (speechRateWpm !== null && speechRateWpm < 60) {
       fluencyScore -= Math.min(20, (60 - speechRateWpm));
     }
-    fluencyScore = Math.max(0, Math.min(100, Math.round(fluencyScore)));
     
     // Detect effortful speech
-    const effortfulSpeech = 
+    let effortfulSpeech = 
       (latencyToFirstWordMs !== null && latencyToFirstWordMs > 3000) ||
       (speechRateWpm !== null && speechRateWpm < 30) ||
       pausePattern === 'very_slow';
@@ -128,9 +146,86 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       completionConfidence = 'medium';
     }
     
-    // Try to get pronunciation analysis if we have audio
+    // Initialize pronunciation data
     let microFluency: MicroFluencyAnalysis | null = null;
     let errorPattern: ErrorClassificationResult | null = null;
+    let pronunciationScore: number | null = null;
+    let phonemeAccuracy: { phoneme: string; score: number }[] = [];
+    let challengingSounds: string[] = [];
+    
+    // Call Azure pronunciation analysis if we have audio
+    if (audioBlob && audioBlob.size > 1000 && transcript.trim().length > 0) {
+      try {
+        console.log('[SpeechAnalysis] Calling pronunciation analysis with audio blob', { 
+          size: audioBlob.size,
+          transcript: transcript.slice(0, 30)
+        });
+        
+        const audioBase64 = await blobToBase64(audioBlob);
+        
+        const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
+          body: { 
+            audioBlob: audioBase64,
+            mimeType: audioBlob.type,
+            referenceText: transcript
+          }
+        });
+        
+        if (error) {
+          console.warn('[SpeechAnalysis] Pronunciation API error:', error);
+        } else if (data?.ok && data.data) {
+          console.log('[SpeechAnalysis] Pronunciation analysis success', {
+            pronunciationScore: data.data.pronunciationScore,
+            fluencyScore: data.data.fluencyScore,
+            wordCount: data.data.words?.length
+          });
+          
+          // Extract pronunciation metrics
+          pronunciationScore = data.data.pronunciationScore;
+          
+          // Use Azure fluency score to enhance our calculation
+          if (data.data.fluencyScore !== undefined) {
+            // Blend Azure fluency with our heuristic
+            fluencyScore = Math.round((fluencyScore + data.data.fluencyScore) / 2);
+          }
+          
+          // Extract phoneme-level accuracy
+          if (data.data.words) {
+            for (const word of data.data.words) {
+              if (word.phonemes) {
+                for (const p of word.phonemes) {
+                  phonemeAccuracy.push({
+                    phoneme: p.phoneme,
+                    score: p.accuracyScore
+                  });
+                  
+                  // Track challenging sounds (below 70%)
+                  if (p.accuracyScore < 70) {
+                    if (!challengingSounds.includes(p.phoneme)) {
+                      challengingSounds.push(p.phoneme);
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          // Derive micro-fluency from alignment data
+          if (data.data.alignmentData) {
+            microFluency = deriveMicroFluency(data.data.alignmentData, transcript);
+            
+            // Update effortful speech based on micro-fluency
+            if (microFluency && microFluency.quality.alignmentOk) {
+              if (microFluency.longestPauseMs > 2000 || microFluency.preWordPauses.avgMs > 800) {
+                effortfulSpeech = true;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[SpeechAnalysis] Pronunciation analysis failed:', err);
+      }
+    }
     
     // For conversation coach, we don't have a specific target word,
     // but we can still do basic error classification if transcript suggests issues
@@ -152,6 +247,9 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       };
     }
     
+    // Final fluency score clamping
+    fluencyScore = Math.max(0, Math.min(100, Math.round(fluencyScore)));
+    
     const analysis: ConversationUtteranceAnalysis = {
       transcript,
       wordCount,
@@ -166,6 +264,9 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       totalDurationMs,
       speechRateWpm,
       microFluency,
+      pronunciationScore,
+      phonemeAccuracy,
+      challengingSounds,
     };
     
     // Store in history
@@ -217,6 +318,26 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       }
     }
     
+    // Aggregate pronunciation data
+    const validPronScores = history
+      .map(a => a.pronunciationScore)
+      .filter((p): p is number => p !== null);
+    const avgPronunciationScore = validPronScores.length > 0
+      ? Math.round(validPronScores.reduce((a, b) => a + b, 0) / validPronScores.length)
+      : null;
+    
+    // Collect all challenging sounds from session
+    const allChallengingSounds = history
+      .flatMap(a => a.challengingSounds)
+      .filter((s, i, arr) => arr.indexOf(s) === i)
+      .slice(0, 5);
+    
+    // Find best utterances (high fluency, good word count)
+    const bestUtterances = history
+      .filter(a => a.fluencyScore >= 75 && a.wordCount >= 5)
+      .map(a => a.transcript)
+      .slice(0, 3);
+    
     return {
       avgFluency,
       effortfulCount,
@@ -226,6 +347,10 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       fluencyTrend,
       totalUtterances: history.length,
       sessionDurationMs: Date.now() - sessionStartRef.current,
+      // Enhanced metrics
+      avgPronunciationScore,
+      challengingSounds: allChallengingSounds,
+      bestUtterances,
     };
   }, []);
 
@@ -250,6 +375,30 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
     // Circumlocution
     if (analysis.circumlocutionDetected) {
       parts.push('Word-finding difficulty (used descriptions instead of words)');
+    }
+    
+    // Pronunciation quality
+    if (analysis.pronunciationScore !== null) {
+      if (analysis.pronunciationScore >= 85) {
+        parts.push('Clear pronunciation');
+      } else if (analysis.pronunciationScore < 60) {
+        parts.push('Some pronunciation difficulty');
+      }
+    }
+    
+    // Challenging sounds
+    if (analysis.challengingSounds.length > 0) {
+      parts.push(`Challenging sounds: ${analysis.challengingSounds.slice(0, 3).join(', ')}`);
+    }
+    
+    // Micro-fluency insights
+    if (analysis.microFluency?.quality.alignmentOk) {
+      if (analysis.microFluency.preWordPauses.count > 2) {
+        parts.push('Pre-word hesitations suggest word retrieval difficulty');
+      }
+      if (analysis.microFluency.intraWordPauses.count > 0) {
+        parts.push('Intra-word pauses (possible motor planning)');
+      }
     }
     
     // Completion

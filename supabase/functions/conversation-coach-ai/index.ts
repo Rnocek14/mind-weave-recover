@@ -1,11 +1,12 @@
 /**
  * Conversation Coach AI - Intelligent, speech-aware conversation partner
  * 
- * This is an upgraded version of conversation-partner that:
- * 1. Receives real-time speech analysis data
- * 2. Adapts responses based on user's speech patterns
- * 3. Uses user's speech profile for personalization
+ * This is a sophisticated AI that:
+ * 1. Receives real-time speech analysis data including pronunciation
+ * 2. Adapts responses based on user's speech patterns and phoneme difficulties
+ * 3. Uses user's speech profile for deep personalization
  * 4. Provides supportive responses that acknowledge specific difficulties
+ * 5. Generates contextual cues when user struggles
  */
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -16,8 +17,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Build the system prompt with user profile context
-function buildSystemPrompt(userProfile: UserSpeechContext | null, sessionMetrics: SessionMetrics | null): string {
+// Build the system prompt with full user profile context
+function buildSystemPrompt(
+  userProfile: UserSpeechContext | null, 
+  sessionMetrics: SessionMetrics | null,
+  pronunciationContext: PronunciationContext | null
+): string {
   let profileContext = '';
   
   if (userProfile) {
@@ -26,7 +31,8 @@ USER'S SPEECH PROFILE (use to personalize):
 - Main challenge: ${userProfile.primaryChallenge || 'General word-finding'}
 - Best support type: ${userProfile.bestCueType || 'Gentle encouragement'}
 - Typical speech pace: ${userProfile.typicalPace || 'Variable'}
-${userProfile.additionalNotes || ''}
+${userProfile.predominantErrorPattern ? `- Error pattern: ${userProfile.predominantErrorPattern} (adapt cues accordingly)` : ''}
+${userProfile.effortfulSpeechRate ? `- Effort level: ${userProfile.effortfulSpeechRate > 0.3 ? 'Often effortful - keep demands low' : 'Generally comfortable'}` : ''}
 `;
   }
   
@@ -38,6 +44,18 @@ SESSION SO FAR:
 - Average fluency: ${sessionMetrics.avgFluency}%
 - Trend: ${sessionMetrics.fluencyTrend}
 ${sessionMetrics.effortfulCount > 1 ? '- Multiple effortful responses - reduce cognitive load' : ''}
+${sessionMetrics.avgPronunciationScore ? `- Pronunciation: ${sessionMetrics.avgPronunciationScore}%` : ''}
+${sessionMetrics.challengingSounds?.length ? `- Challenging sounds this session: ${sessionMetrics.challengingSounds.join(', ')}` : ''}
+`;
+  }
+  
+  let pronunciationContext_str = '';
+  if (pronunciationContext) {
+    pronunciationContext_str = `
+PRONUNCIATION INSIGHTS FOR THIS TURN:
+${pronunciationContext.pronunciationScore !== null ? `- Overall pronunciation: ${pronunciationContext.pronunciationScore}%` : ''}
+${pronunciationContext.challengingSounds?.length ? `- Sounds that were difficult: ${pronunciationContext.challengingSounds.join(', ')} - AVOID words with these sounds in your response` : ''}
+${pronunciationContext.microFluencyNotes?.length ? `- Fluency notes: ${pronunciationContext.microFluencyNotes.join('; ')}` : ''}
 `;
   }
 
@@ -45,12 +63,14 @@ ${sessionMetrics.effortfulCount > 1 ? '- Multiple effortful responses - reduce c
 
 ${profileContext}
 ${sessionContext}
+${pronunciationContext_str}
 
 ABSOLUTE RULES (NEVER BREAK):
 1. MAXIMUM 18 WORDS per response. Count them. NEVER exceed.
 2. NEVER mention being an AI, assistant, or program. You're just a friendly person chatting.
 3. ONE simple question OR supportive statement. Never both.
 4. Use simple, everyday words (3rd grade level).
+5. If user has challenging sounds, AVOID using words with those sounds in your response.
 
 ADAPT YOUR RESPONSE BASED ON SPEECH ANALYSIS:
 
@@ -69,6 +89,15 @@ When speech analysis shows STRONG FLOW:
 
 When speech analysis shows BRIEF/MINIMAL response:
 - Don't push. Acknowledge and offer easy out: "Got it." or simple yes/no question
+
+When pronunciation score is LOW (<60):
+- Use shorter, simpler words in your response
+- Avoid complex consonant clusters
+- Be extra encouraging without being patronizing
+
+When a CUE is suggested:
+- Weave it naturally: If semantic cue about food, say "Oh, something for breakfast?"
+- Never say "here's a hint" or point out that you're cueing
 
 FORMAT: 
 - Start with 2-4 word acknowledgment
@@ -89,8 +118,8 @@ You: "Sounds wonderful! What was your favorite part?"
 User: (brief, 2 words) "was good"
 You: "Good to hear."
 
-User: (card just completed, said "apple")
-You: "Apple - nice! Were you thinking about food?"
+User: (challenging sounds: /s/, /r/) "I saw the red car"
+You: "Oh nice! What kind of day was it?" (avoid /s/ and /r/ heavy words)
 
 NEVER:
 - Exceed 18 words
@@ -98,7 +127,8 @@ NEVER:
 - Ask "how did that make you feel?"
 - Give advice or information
 - Mention AI/technology
-- Use complex words`;
+- Use complex words
+- Use sounds the user is struggling with (if provided)`;
 }
 
 interface SpeechAnalysis {
@@ -109,13 +139,21 @@ interface SpeechAnalysis {
   wordCount: number;
   completionConfidence: 'high' | 'medium' | 'low';
   speechContext?: string;
+  // Enhanced pronunciation data
+  pronunciationScore?: number | null;
+  challengingSounds?: string[];
+  microFluencyNotes?: string[];
 }
 
 interface UserSpeechContext {
   primaryChallenge?: string;
   bestCueType?: string;
   typicalPace?: string;
-  additionalNotes?: string;
+  // Enhanced profile data
+  predominantErrorPattern?: string;
+  effortfulSpeechRate?: number;
+  phonemeDifficultyMap?: Record<string, number>;
+  commonSubstitutions?: Record<string, string>;
 }
 
 interface SessionMetrics {
@@ -123,6 +161,9 @@ interface SessionMetrics {
   avgFluency: number;
   fluencyTrend: 'improving' | 'stable' | 'declining';
   effortfulCount: number;
+  // Enhanced metrics
+  avgPronunciationScore?: number | null;
+  challengingSounds?: string[];
 }
 
 interface CardContext {
@@ -135,6 +176,17 @@ interface EngagementState {
   frustration: 'none' | 'low' | 'medium' | 'high';
   fatigue: 'none' | 'low' | 'medium' | 'high';
   recommendedAction?: string;
+}
+
+interface PronunciationContext {
+  pronunciationScore: number | null;
+  challengingSounds: string[];
+  microFluencyNotes: string[];
+}
+
+interface CueContext {
+  cueType: 'semantic' | 'phonemic' | 'encouragement';
+  cueText: string;
 }
 
 serve(async (req) => {
@@ -153,6 +205,7 @@ serve(async (req) => {
       userProfile,
       sessionMetrics,
       engagementState,
+      suggestedCue,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -163,6 +216,7 @@ serve(async (req) => {
       userProfile?: UserSpeechContext;
       sessionMetrics?: SessionMetrics;
       engagementState?: EngagementState;
+      suggestedCue?: CueContext;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -197,8 +251,19 @@ serve(async (req) => {
       );
     }
 
-    // Build system prompt with context
-    const systemPrompt = buildSystemPrompt(userProfile || null, sessionMetrics || null);
+    // Build pronunciation context from speech analysis
+    const pronunciationContext: PronunciationContext | null = speechAnalysis ? {
+      pronunciationScore: speechAnalysis.pronunciationScore ?? null,
+      challengingSounds: speechAnalysis.challengingSounds || [],
+      microFluencyNotes: speechAnalysis.microFluencyNotes || [],
+    } : null;
+
+    // Build system prompt with all context
+    const systemPrompt = buildSystemPrompt(
+      userProfile || null, 
+      sessionMetrics || null,
+      pronunciationContext
+    );
 
     // Build conversation
     const messages: { role: string; content: string }[] = [
@@ -243,12 +308,31 @@ serve(async (req) => {
         analysisNote += 'Flowing well - can ask follow-up question. ';
       }
       
+      // Add pronunciation context
+      if (speechAnalysis.pronunciationScore !== undefined && speechAnalysis.pronunciationScore !== null) {
+        if (speechAnalysis.pronunciationScore < 60) {
+          analysisNote += `Low pronunciation score (${speechAnalysis.pronunciationScore}%) - use simple words. `;
+        }
+      }
+      
+      if (speechAnalysis.challengingSounds && speechAnalysis.challengingSounds.length > 0) {
+        analysisNote += `AVOID words with: ${speechAnalysis.challengingSounds.join(', ')}. `;
+      }
+      
       if (speechAnalysis.speechContext) {
         analysisNote += speechAnalysis.speechContext;
       }
       
       analysisNote += ']';
       messages.push({ role: 'system', content: analysisNote });
+    }
+
+    // Add cue context if provided
+    if (suggestedCue) {
+      messages.push({
+        role: 'system',
+        content: `[User is struggling. Naturally incorporate this ${suggestedCue.cueType} cue into your response: "${suggestedCue.cueText}". Do NOT say "here's a hint".]`
+      });
     }
 
     // Add current user message
@@ -270,7 +354,10 @@ serve(async (req) => {
         effortful: speechAnalysis.effortfulSpeech,
         fluency: speechAnalysis.fluencyScore,
         circumlocution: speechAnalysis.circumlocutionDetected,
+        pronunciationScore: speechAnalysis.pronunciationScore,
+        challengingSounds: speechAnalysis.challengingSounds,
       } : 'none',
+      hasCue: !!suggestedCue,
     });
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
