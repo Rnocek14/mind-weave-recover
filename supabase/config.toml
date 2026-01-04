@@ -9,6 +9,9 @@ verify_jwt = true
 [functions.text-to-speech-elevenlabs]
 verify_jwt = true
 
+[functions.text-to-speech-stream]
+verify_jwt = true
+
 [functions.calculate-learning-rates]
 verify_jwt = false
 

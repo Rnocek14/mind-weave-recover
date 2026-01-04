@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface TTSOptions {
   voiceId?: string;
   autoPlay?: boolean;
+  useStreaming?: boolean;
 }
 
 export const useTextToSpeech = () => {
@@ -11,12 +12,106 @@ export const useTextToSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Streaming TTS - plays audio as chunks arrive
+  const speakStream = useCallback(async (
+    text: string,
+    options: TTSOptions = {}
+  ): Promise<void> => {
+    const { voiceId = 'EXAVITQu4vr4xnSDxMaL' } = options; // Sarah voice
+
+    setIsLoading(true);
+    setIsSpeaking(false);
+    setError(null);
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech-stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ text, voiceId }),
+          signal: abortControllerRef.current.signal,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`TTS request failed: ${response.status}`);
+      }
+
+      // Get audio blob from stream
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      setIsLoading(false);
+      setIsSpeaking(true);
+
+      return new Promise((resolve, reject) => {
+        audio.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          reject(new Error('Audio playback failed'));
+        };
+
+        audio.play().catch((playError) => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          reject(playError);
+        });
+      });
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        setIsLoading(false);
+        return;
+      }
+      
+      console.warn('Streaming TTS failed, falling back to standard TTS:', err);
+      setIsLoading(false);
+      
+      // Fallback to non-streaming
+      return speak(text, { ...options, useStreaming: false });
+    }
+  }, []);
+
+  // Standard non-streaming TTS (fallback)
   const speak = useCallback(async (
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'nova', autoPlay = true } = options;
+    const { voiceId = 'nova', autoPlay = true, useStreaming = true } = options;
+
+    // Use streaming by default for faster response
+    if (useStreaming) {
+      return speakStream(text, options);
+    }
 
     setIsLoading(true);
     setIsSpeaking(false);
@@ -35,19 +130,12 @@ export const useTextToSpeech = () => {
         throw new Error(functionError?.message || 'No audio data received');
       }
 
-      // Convert base64 to audio blob
-      const binaryString = atob(data.audioContent);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
+      // Use data URI for cleaner base64 audio handling
+      const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
 
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
       }
 
       // Create new audio element
@@ -63,19 +151,16 @@ export const useTextToSpeech = () => {
           
           audio.onended = () => {
             setIsSpeaking(false);
-            URL.revokeObjectURL(audioUrl);
             resolve();
           };
           
-          audio.onerror = (e) => {
+          audio.onerror = () => {
             setIsSpeaking(false);
-            URL.revokeObjectURL(audioUrl);
             reject(new Error('Audio playback failed'));
           };
           
           audio.play().catch((playError) => {
             setIsSpeaking(false);
-            URL.revokeObjectURL(audioUrl);
             reject(playError);
           });
         });
@@ -104,7 +189,6 @@ export const useTextToSpeech = () => {
             
             utterance.onerror = (e) => {
               setIsSpeaking(false);
-              // Don't reject on error, just resolve to continue flow
               console.warn('Browser TTS error:', e);
               resolve();
             };
@@ -128,19 +212,26 @@ export const useTextToSpeech = () => {
         }
       });
     }
-  }, []);
+  }, [speakStream]);
 
   const stop = useCallback(() => {
+    // Abort any pending requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
+    setIsLoading(false);
   }, []);
 
   return {
     speak,
+    speakStream,
     stop,
     isLoading,
     isSpeaking,
