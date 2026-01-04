@@ -17,7 +17,41 @@ export const useTextToSpeech = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Streaming TTS - plays audio as chunks arrive
+  // Browser TTS - reliable fallback that always works
+  const speakBrowser = useCallback((text: string): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech first
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        setIsSpeaking(true);
+        
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          resolve();
+        };
+        
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+          resolve();
+        };
+        
+        // Small delay helps with some browsers
+        setTimeout(() => {
+          window.speechSynthesis.speak(utterance);
+        }, 50);
+      } else {
+        resolve();
+      }
+    });
+  }, []);
+
+  // Streaming TTS - tries ElevenLabs, falls back to browser TTS
   const speakStream = useCallback(async (
     text: string,
     options: TTSOptions = {}
@@ -96,36 +130,13 @@ export const useTextToSpeech = () => {
         return;
       }
       
-      console.warn('Streaming TTS failed, falling back to browser TTS:', err);
+      console.warn('Streaming TTS failed, using browser TTS:', err);
       setIsLoading(false);
       
-      // Fallback directly to browser speech synthesis (avoids autoplay issues)
-      return new Promise<void>((resolve) => {
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.9;
-          utterance.pitch = 1;
-          
-          window.speechSynthesis.cancel();
-          setIsSpeaking(true);
-          
-          utterance.onend = () => {
-            setIsSpeaking(false);
-            resolve();
-          };
-          
-          utterance.onerror = () => {
-            setIsSpeaking(false);
-            resolve();
-          };
-          
-          window.speechSynthesis.speak(utterance);
-        } else {
-          resolve();
-        }
-      });
+      // Use browser TTS directly
+      return speakBrowser(text);
     }
-  }, []);
+  }, [speakBrowser]);
 
   // Standard non-streaming TTS (fallback)
   const speak = useCallback(async (
