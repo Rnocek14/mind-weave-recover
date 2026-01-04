@@ -55,6 +55,7 @@ export const useSpeechRecognition = (
   const pendingTranscriptRef = useRef<string>('');
   const lastProcessedTranscriptRef = useRef<string>('');
   const lastStopTimeRef = useRef<number>(0);
+  const enabledRef = useRef(enabled);
   
   // Cooldown period after stop before allowing restart (prevents race)
   const COOLDOWN_MS = 300;
@@ -64,6 +65,11 @@ export const useSpeechRecognition = (
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
+  
+  // Keep enabled ref updated
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   // Check if Speech Recognition is supported
   const isSupported = typeof window !== 'undefined' && 
@@ -244,11 +250,6 @@ export const useSpeechRecognition = (
     };
   }, [isSupported, optContinuous, patientMode]);
 
-  // Store enabled in a ref so startListening always has the current value
-  const enabledRef = useRef(enabled);
-  useEffect(() => {
-    enabledRef.current = enabled;
-  }, [enabled]);
 
   const startListening = useCallback(() => {
     // Gate on enabled prop - if disabled, don't try to start
