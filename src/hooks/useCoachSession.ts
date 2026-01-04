@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   getNextAction, 
   createInitialState, 
@@ -45,9 +46,11 @@ interface UseCoachSessionReturn {
   isProcessing: boolean;
   metrics: CoachSessionMetrics;
   currentPhase: 'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete';
+  pendingAIText: string | null; // Text that needs to be spoken
   startSession: () => string; // Returns opener text
-  processUserTurn: (transcript: string, latencyMs: number | null) => Promise<void>;
-  handleCardComplete: (messageId: string, result: unknown) => void;
+  processUserTurn: (transcript: string, latencyMs: number | null) => Promise<string | null>; // Returns AI response text
+  handleCardComplete: (messageId: string, result: unknown) => string; // Returns outro text
+  clearPendingAI: () => void;
   reset: () => void;
 }
 
@@ -61,6 +64,7 @@ export function useCoachSession({
   const [isComplete, setIsComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete'>('ready');
+  const [pendingAIText, setPendingAIText] = useState<string | null>(null);
   
   const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns));
   const latenciesRef = useRef<number[]>([]);
@@ -79,12 +83,13 @@ export function useCoachSession({
     
     addMessage({ type: 'ai', text: opener, id: messageId });
     aiWordsRef.current += countWords(opener);
+    setPendingAIText(opener);
     setCurrentPhase('user_turn');
     
     return opener;
   }, [addMessage]);
 
-  const processUserTurn = useCallback(async (transcript: string, latencyMs: number | null) => {
+  const processUserTurn = useCallback(async (transcript: string, latencyMs: number | null): Promise<string | null> => {
     setIsProcessing(true);
     
     // Add user message
@@ -101,20 +106,23 @@ export function useCoachSession({
     const stuckType = classifyStuckType({
       didSpeak: wordCount > 0,
       latencyToFirstWordMs: latencyMs,
-      utteranceComplete: wordCount >= 5, // Simple heuristic
+      utteranceComplete: wordCount >= 5,
       wordCount,
-      durationMs: 10000, // Approximate
+      durationMs: 10000,
       narrowingLevelUsed: 0,
     }).stuckType;
 
     // Get next action from orchestrator
     const action = getNextAction(stuckType, orchestratorStateRef.current);
 
+    let aiResponseText: string | null = null;
+
     // Handle action
     if (action.type === 'wrap_up') {
       const wrapUpText = getFollowupLine('wrap_up');
       addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
       aiWordsRef.current += countWords(wrapUpText);
+      aiResponseText = wrapUpText;
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'insert_card') {
@@ -122,6 +130,7 @@ export function useCoachSession({
       const intro = getCardIntro(action.cardType);
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
+      aiResponseText = intro;
       
       // Add card
       const cardId = generateId();
@@ -144,10 +153,40 @@ export function useCoachSession({
         action.cardType
       );
     } else {
-      // Regular follow-up
-      const followupText = getFollowupLine(action.followupType);
-      addMessage({ type: 'ai', text: followupText, id: generateId() });
-      aiWordsRef.current += countWords(followupText);
+      // Get contextual response from AI
+      try {
+        const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
+        const conversationHistory = currentMessages
+          .filter(m => m.type === 'ai' || m.type === 'user')
+          .slice(-6)
+          .map(m => ({
+            role: m.type as 'ai' | 'user',
+            text: m.type === 'ai' ? m.text : m.type === 'user' ? m.text : ''
+          }));
+
+        const { data, error } = await supabase.functions.invoke('conversation-partner', {
+          body: {
+            userTranscript: transcript,
+            turnNumber: orchestratorStateRef.current.turnNumber + 1,
+            maxTurns,
+            conversationHistory
+          }
+        });
+
+        if (error || !data?.response) {
+          // Fallback to canned response
+          console.warn('Edge function error, using fallback:', error);
+          aiResponseText = getFollowupLine(action.followupType);
+        } else {
+          aiResponseText = data.response;
+        }
+      } catch (err) {
+        console.warn('Failed to get AI response:', err);
+        aiResponseText = getFollowupLine(action.followupType);
+      }
+
+      addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      aiWordsRef.current += countWords(aiResponseText);
       
       // Update orchestrator state (no card)
       orchestratorStateRef.current = updateState(
@@ -161,6 +200,7 @@ export function useCoachSession({
         const wrapUpText = getFollowupLine('wrap_up');
         addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
         aiWordsRef.current += countWords(wrapUpText);
+        aiResponseText = wrapUpText;
         setIsComplete(true);
         setCurrentPhase('complete');
       } else {
@@ -168,10 +208,12 @@ export function useCoachSession({
       }
     }
 
+    setPendingAIText(aiResponseText);
     setIsProcessing(false);
-  }, [addMessage, maxTurns]);
+    return aiResponseText;
+  }, [addMessage, maxTurns, messages]);
 
-  const handleCardComplete = useCallback((messageId: string, result: unknown) => {
+  const handleCardComplete = useCallback((messageId: string, result: unknown): string => {
     // Mark card as completed
     setMessages(prev => prev.map(msg => 
       msg.id === messageId && msg.type === 'card'
@@ -179,7 +221,7 @@ export function useCoachSession({
         : msg
     ));
 
-    // Get the card type from the message
+    // Get the card type from the current messages state
     const cardMessage = messages.find(msg => msg.id === messageId && msg.type === 'card');
     const cardType = cardMessage && cardMessage.type === 'card' ? cardMessage.cardType : undefined;
     
@@ -196,7 +238,7 @@ export function useCoachSession({
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         orchestratorStateRef.current.lastStuckType || 'strong_flow',
-        false, // Not inserting a new card
+        false,
         cardType,
         cardSuccess as boolean
       );
@@ -214,16 +256,25 @@ export function useCoachSession({
       aiWordsRef.current += countWords(wrapUpText);
       setIsComplete(true);
       setCurrentPhase('complete');
+      setPendingAIText(wrapUpText);
+      return wrapUpText;
     } else {
       setCurrentPhase('user_turn');
+      setPendingAIText(outro);
+      return outro;
     }
   }, [messages, addMessage, maxTurns]);
+
+  const clearPendingAI = useCallback(() => {
+    setPendingAIText(null);
+  }, []);
 
   const reset = useCallback(() => {
     setMessages([]);
     setIsComplete(false);
     setIsProcessing(false);
     setCurrentPhase('ready');
+    setPendingAIText(null);
     orchestratorStateRef.current = createInitialState(maxTurns);
     latenciesRef.current = [];
     userWordsRef.current = 0;
@@ -251,9 +302,11 @@ export function useCoachSession({
     isProcessing,
     metrics,
     currentPhase,
+    pendingAIText,
     startSession,
     processUserTurn,
     handleCardComplete,
+    clearPendingAI,
     reset,
   };
 }
