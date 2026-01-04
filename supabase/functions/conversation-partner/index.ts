@@ -6,38 +6,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `You are a warm, supportive conversation partner helping someone practice speaking after a stroke.
+const SYSTEM_PROMPT = `You are a warm conversation partner helping someone practice speaking after a stroke.
 
-Your personality:
-- Patient and encouraging, like a friendly neighbor
-- Genuinely curious about what they share
-- Natural and conversational, not clinical
+ABSOLUTE RULES (NEVER BREAK):
+1. MAXIMUM 20 WORDS per response. Count them. Never exceed.
+2. NEVER say "I'm an AI" or mention being artificial - you're just a friendly chat partner.
+3. ONE simple question only. No compound questions.
+4. Use 3rd-grade vocabulary only.
 
-Your job:
-1. Listen and acknowledge what they said
-2. Ask ONE simple follow-up question to keep them talking
+Your style:
+- Warm but brief, like texting a friend
+- Acknowledge what they said in 2-5 words
+- Then ask ONE follow-up about THEIR topic
 
-CRITICAL RULES:
-- Keep responses SHORT (15-25 words max)
-- Use everyday words
-- Ask about what THEY just said, not random topics
-- If they struggled to speak, make your question simpler
-- Never correct their speech
-- End with ONE clear, simple question
-- Be warm but not condescending
+Format: "[Brief acknowledgment]. [One simple question]?"
 
 Examples:
-User: "I had eggs for breakfast"
-You: "Eggs, nice! Did you make them yourself?"
+User: "I had eggs"
+You: "Eggs, yum! Scrambled or fried?"
 
-User: "my son visited yesterday"
-You: "That's wonderful! What did you two do together?"
+User: "my son came over"
+You: "That's nice! What did you do?"
 
-User: "um... I... the thing..."
-You: "Take your time. What were you thinking about?"
+User: "um... the... thing..."
+You: "No rush. What thing?"
 
 User: (silence or very short)
-You: "That's okay. What's something you enjoyed today?"`;
+You: "Take your time. What's on your mind?"
+
+User: "I'm doing this app thing"
+You: "Cool! What part do you like?"
+
+NEVER:
+- Use more than 20 words
+- Ask "how did that make you feel?"
+- Give advice or information
+- Say "that's wonderful" or "how lovely" (too formal)
+- Mention being an AI or program`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -45,7 +50,7 @@ serve(async (req) => {
   }
 
   try {
-    const { userTranscript, turnNumber, maxTurns, conversationHistory } = await req.json();
+    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext } = await req.json();
 
     // Use Lovable AI gateway
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -53,7 +58,7 @@ serve(async (req) => {
       console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ 
-          response: "Tell me more about that.",
+          response: "Tell me more.",
           followupType: 'contextual'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -65,7 +70,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           followupType: 'wrap_up',
-          response: "Thanks for chatting with me! That was really nice."
+          response: "Great chat! Talk again soon."
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -86,6 +91,14 @@ serve(async (req) => {
       });
     }
 
+    // Add card context if available (what happened in an exercise card)
+    if (cardContext) {
+      messages.push({
+        role: 'system',
+        content: `Context: User just did a quick exercise and said "${cardContext.response}" (${cardContext.cardType}). Acknowledge this briefly and continue the conversation.`
+      });
+    }
+
     // Add current user message
     const userMessage = userTranscript?.trim() || "(silence)";
     messages.push({ role: 'user', content: userMessage });
@@ -94,7 +107,7 @@ serve(async (req) => {
     if (turnNumber >= maxTurns - 1) {
       messages.push({ 
         role: 'system', 
-        content: 'This is the last exchange. Wrap up warmly without asking another question.' 
+        content: 'Last exchange. End warmly in under 15 words. No question needed.' 
       });
     }
 
@@ -118,25 +131,39 @@ serve(async (req) => {
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limited', response: "Let's take a moment. What were you saying?" }),
+          JSON.stringify({ error: 'Rate limited', response: "Go on..." }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Payment required', response: "Tell me more about that." }),
+          JSON.stringify({ error: 'Payment required', response: "Tell me more." }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
-        JSON.stringify({ response: "That's interesting. Tell me more." }),
+        JSON.stringify({ response: "Interesting! What else?" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content?.trim() || 'Tell me more.';
+    let aiResponse = data.choices?.[0]?.message?.content?.trim() || 'Tell me more.';
+    
+    // Enforce word limit - truncate if over 25 words
+    const words = aiResponse.split(/\s+/);
+    if (words.length > 25) {
+      // Find the last question mark within limit, or just cut
+      const truncated = words.slice(0, 20).join(' ');
+      const lastQuestion = truncated.lastIndexOf('?');
+      if (lastQuestion > 10) {
+        aiResponse = truncated.slice(0, lastQuestion + 1);
+      } else {
+        aiResponse = truncated + '?';
+      }
+      console.log('Truncated long response to:', aiResponse);
+    }
     
     console.log('AI response:', aiResponse);
 
@@ -152,7 +179,7 @@ serve(async (req) => {
     console.error('Error in conversation-partner:', error);
     return new Response(
       JSON.stringify({ 
-        response: "That's interesting. Tell me more."
+        response: "What else?"
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
