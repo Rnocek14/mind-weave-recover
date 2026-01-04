@@ -17,6 +17,8 @@ interface UseSpeechRecognitionOptions {
   continuousListening?: boolean;
   /** Patient mode: keeps mic on continuously, no auto-end on silence */
   patientMode?: boolean;
+  /** If false, all recognition attempts are blocked. Use to gate on permission status. */
+  enabled?: boolean;
 }
 
 export const useSpeechRecognition = (
@@ -26,15 +28,19 @@ export const useSpeechRecognition = (
 ): SpeechRecognitionHook => {
   // Support both old signature and new options object
   const options: UseSpeechRecognitionOptions = typeof onResultOrOptions === 'function'
-    ? { onResult: onResultOrOptions, autoStart, continuousListening, patientMode: false }
+    ? { onResult: onResultOrOptions, autoStart, continuousListening, patientMode: false, enabled: true }
     : onResultOrOptions;
   
   const { 
     onResult, 
     autoStart: optAutoStart = false, 
     continuousListening: optContinuous = false,
-    patientMode = false 
+    patientMode = false,
+    enabled = true
   } = options;
+  
+  // Track if permission was denied to stop all restart attempts
+  const permissionDeniedRef = useRef(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +166,13 @@ export const useSpeechRecognition = (
         
         setError('No speech detected. Please try again.');
       } else if (event.error === 'not-allowed') {
+        // Permission denied - set flag to prevent ALL restart attempts
+        permissionDeniedRef.current = true;
+        manuallyStoppedRef.current = true;
         setError('Microphone access denied. Please enable microphone permissions.');
+        stateRef.current = 'IDLE';
+        setIsListening(false);
+        return; // Exit early, no restart
       } else {
         setError(`Error: ${event.error}`);
       }
@@ -233,6 +245,18 @@ export const useSpeechRecognition = (
   }, [isSupported, optContinuous, patientMode]);
 
   const startListening = useCallback(() => {
+    // Gate on enabled prop - if disabled, don't try to start
+    if (!enabled) {
+      console.log('🎤 startListening blocked - recognition disabled (permission not granted)');
+      return;
+    }
+    
+    // Gate on permission denied - once denied, don't try again
+    if (permissionDeniedRef.current) {
+      console.log('🎤 startListening blocked - permission was denied');
+      return;
+    }
+    
     // State machine guard: only start from IDLE
     if (stateRef.current !== 'IDLE') {
       console.log('🎤 startListening blocked - state is:', stateRef.current);
@@ -264,7 +288,7 @@ export const useSpeechRecognition = (
       stateRef.current = 'IDLE';
       setError('Failed to start speech recognition');
     }
-  }, []);
+  }, [enabled]);
 
   const stopListening = useCallback(() => {
     // Only stop if actually listening or starting
