@@ -41,6 +41,8 @@ export function ConversationCoachGame({
   onExit,
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
+  const [cardTranscript, setCardTranscript] = useState(''); // Separate transcript for cards
+  const [isCardListening, setIsCardListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'pending' | 'checking' | 'granted' | 'denied'>('pending');
   const [conversationState, setConversationState] = useState<ConversationState>('idle');
   
@@ -164,17 +166,22 @@ export function ConversationCoachGame({
   
   // Track interim (live) transcript for UI updates
   useEffect(() => {
-    if (liveTranscript && conversationState === 'listening') {
-      setUserTranscript(liveTranscript);
+    if (liveTranscript) {
+      // Update card transcript if a card is active
+      if (currentPhase === 'card_active' && isCardListening) {
+        setCardTranscript(liveTranscript);
+      } else if (conversationState === 'listening') {
+        setUserTranscript(liveTranscript);
       
-      if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
-        firstWordTimeRef.current = Date.now();
+        if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
+          firstWordTimeRef.current = Date.now();
+        }
+      
+        // Update speech end detection with interim result
+        speechEndDetection.onTranscriptUpdate(liveTranscript, false);
       }
-      
-      // Update speech end detection with interim result
-      speechEndDetection.onTranscriptUpdate(liveTranscript, false);
     }
-  }, [liveTranscript, conversationState, speechEndDetection]);
+  }, [liveTranscript, conversationState, currentPhase, isCardListening, speechEndDetection]);
 
   // Process turn and speak AI response
   const processTurnAndRespond = useCallback(async (transcript: string) => {
@@ -207,7 +214,11 @@ export function ConversationCoachGame({
         // Add a short delay after speaking intro before showing card
         await new Promise(resolve => setTimeout(resolve, 600));
         insertPendingCard();
-        setConversationState('idle'); // Card will handle listening
+        setConversationState('idle');
+        // Start listening for the card
+        setCardTranscript('');
+        setIsCardListening(true);
+        startListening();
       } else if (!isComplete) {
         // Auto-start listening after AI finishes
         setConversationState('listening');
@@ -276,6 +287,11 @@ export function ConversationCoachGame({
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
+    // Stop card listening
+    setIsCardListening(false);
+    stopListening();
+    setCardTranscript('');
+    
     const outroText = handleCardComplete(messageId, result);
     
     if (outroText) {
@@ -425,6 +441,9 @@ export function ConversationCoachGame({
           messages={messages}
           onCardComplete={handleCardDone}
           isProcessing={isProcessing}
+          cardTranscript={cardTranscript}
+          isCardListening={isCardListening && isListening}
+          isAISpeaking={conversationState === 'ai_speaking'}
         />
       </div>
 

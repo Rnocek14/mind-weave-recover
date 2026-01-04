@@ -2,7 +2,7 @@
  * YesNoCard - Simplest interaction for the Coach
  * 
  * Shows a yes/no question. User can tap buttons or speak.
- * Auto-listens since conversation is already active.
+ * Receives transcript from parent (centralized mic control).
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -10,18 +10,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { getRandomYesNoQuestion } from '@/data/yesNoBank';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface YesNoCardProps {
   difficulty?: 'easy' | 'medium';
+  transcript: string;
+  isListening: boolean;
   onComplete: (result: { answered: boolean; response: 'yes' | 'no' | 'other'; latencyMs: number }) => void;
 }
 
-export function YesNoCard({ onComplete }: YesNoCardProps) {
+export function YesNoCard({ transcript, isListening, onComplete }: YesNoCardProps) {
   const [question] = useState(() => getRandomYesNoQuestion());
   const [hasAnswered, setHasAnswered] = useState(false);
   const [detectedResponse, setDetectedResponse] = useState<'yes' | 'no' | 'other' | null>(null);
   const startTimeRef = useRef<number>(Date.now());
+  const hasCompletedRef = useRef(false);
   
   // Analyze transcript for yes/no
   const analyzeResponse = useCallback((text: string): 'yes' | 'no' | 'other' => {
@@ -40,46 +42,36 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
     return text.length > 0 ? 'other' : 'other';
   }, []);
 
-  // Handle speech result
-  const handleSpeechResult = useCallback((text: string) => {
-    if (hasAnswered || !text) return;
-    
-    const response = analyzeResponse(text);
-    setDetectedResponse(response);
-    setHasAnswered(true);
-    
-    const latencyMs = Date.now() - startTimeRef.current;
-    
-    setTimeout(() => {
-      onComplete({
-        answered: true,
-        response,
-        latencyMs,
-      });
-    }, 800);
-  }, [hasAnswered, analyzeResponse, onComplete]);
-
-  const { 
-    startListening,
-    stopListening,
-  } = useSpeechRecognition({
-    onResult: handleSpeechResult,
-    patientMode: true,
-  });
-
-  // Auto-start listening
+  // Watch transcript for response
   useEffect(() => {
-    startListening();
-    return () => stopListening();
-  }, [startListening, stopListening]);
+    if (hasCompletedRef.current || !transcript.trim()) return;
+
+    const response = analyzeResponse(transcript);
+    // Complete if we detect yes/no OR if they've said enough words
+    if (response !== 'other' || transcript.split(/\s+/).length >= 3) {
+      hasCompletedRef.current = true;
+      setDetectedResponse(response);
+      setHasAnswered(true);
+      
+      const latencyMs = Date.now() - startTimeRef.current;
+      
+      setTimeout(() => {
+        onComplete({
+          answered: true,
+          response,
+          latencyMs,
+        });
+      }, 800);
+    }
+  }, [transcript, analyzeResponse, onComplete]);
 
   // Manual button responses as fallback
   const handleManualResponse = (response: 'yes' | 'no') => {
-    if (hasAnswered) return;
+    if (hasCompletedRef.current) return;
     
+    hasCompletedRef.current = true;
     setDetectedResponse(response);
     setHasAnswered(true);
-    stopListening();
     
     const latencyMs = Date.now() - startTimeRef.current;
     
@@ -114,6 +106,12 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
         {/* Buttons (always visible as fallback) */}
         {!hasAnswered && (
           <div className="flex flex-col items-center gap-4">
+            {/* Show live transcript */}
+            {transcript && (
+              <p className="text-center text-foreground text-sm min-h-[20px]">
+                {transcript}
+              </p>
+            )}
             <div className="flex gap-4">
               <Button
                 variant="outline"
@@ -134,10 +132,12 @@ export function YesNoCard({ onComplete }: YesNoCardProps) {
                 No
               </Button>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Listening...</span>
-            </div>
+            {isListening && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Listening...</span>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
