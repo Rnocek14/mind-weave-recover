@@ -45,10 +45,13 @@ export function ConversationCoachGame({
   const [isCardListening, setIsCardListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'pending' | 'checking' | 'granted' | 'denied'>('pending');
   const [conversationState, setConversationState] = useState<ConversationState>('idle');
+  const [silenceSeconds, setSilenceSeconds] = useState(0);
+  const [showSkipPrompt, setShowSkipPrompt] = useState(false);
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { speak, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
   
@@ -245,11 +248,46 @@ export function ConversationCoachGame({
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
     isProcessingRef.current = false;
+    setSilenceSeconds(0);
+    setShowSkipPrompt(false);
     speechEndDetection.onStart();
     setConversationState('listening');
     console.log('[Coach] Calling startListening()');
     startListening();
+    
+    // Start silence timer
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current);
+    }
+    silenceTimerRef.current = setInterval(() => {
+      setSilenceSeconds(prev => {
+        const newVal = prev + 1;
+        if (newVal >= 10) {
+          setShowSkipPrompt(true);
+        }
+        return newVal;
+      });
+    }, 1000);
   }, [speechEndDetection, startListening]);
+  
+  // Cleanup silence timer
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) {
+        clearInterval(silenceTimerRef.current);
+      }
+    };
+  }, []);
+  
+  // Stop silence timer when not listening
+  useEffect(() => {
+    if (conversationState !== 'listening' && silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+      setSilenceSeconds(0);
+      setShowSkipPrompt(false);
+    }
+  }, [conversationState]);
   
   // Keep startConversationTurn ref updated
   useEffect(() => {
@@ -328,6 +366,18 @@ export function ConversationCoachGame({
       });
     }
   };
+
+  // Manual "Done" button handler - submit what they've said so far
+  const handleManualDone = useCallback(() => {
+    if (userTranscript.trim()) {
+      processTurnAndRespond(userTranscript);
+    }
+  }, [userTranscript, processTurnAndRespond]);
+
+  // Skip turn handler - user stayed silent
+  const handleSkipTurn = useCallback(() => {
+    processTurnAndRespond(''); // Process with empty transcript
+  }, [processTurnAndRespond]);
 
   // Handle retry for denied permission
   const handleRetryPermission = async () => {
@@ -503,22 +553,22 @@ export function ConversationCoachGame({
 
         {/* Listening state */}
         {(conversationState === 'listening' || isListening) && (
-          <div className="flex flex-col items-center gap-5">
+          <div className="flex flex-col items-center gap-4">
             <div className="relative">
               {/* Main microphone circle */}
-              <div className="w-28 h-28 rounded-full bg-destructive/15 flex items-center justify-center border-4 border-destructive/60 shadow-lg">
-                <div className="w-6 h-6 rounded-full bg-destructive animate-pulse" />
+              <div className="w-24 h-24 rounded-full bg-destructive/15 flex items-center justify-center border-4 border-destructive/60 shadow-lg">
+                <div className="w-5 h-5 rounded-full bg-destructive animate-pulse" />
               </div>
               
               {/* Animated sound bars */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex items-end gap-1 h-16">
-                  {[...Array(7)].map((_, i) => (
+                <div className="flex items-end gap-1 h-14">
+                  {[...Array(5)].map((_, i) => (
                     <div
                       key={i}
                       className="w-1.5 bg-destructive/70 rounded-full animate-pulse"
                       style={{
-                        height: `${16 + Math.sin(i * 0.8) * 20 + 10}px`,
+                        height: `${14 + Math.sin(i * 0.8) * 16 + 8}px`,
                         animationDelay: `${i * 0.08}s`,
                         animationDuration: `${0.4 + Math.random() * 0.2}s`,
                       }}
@@ -530,14 +580,45 @@ export function ConversationCoachGame({
             
             <div className="text-center max-w-sm">
               <p className={cn(
-                "text-xl min-h-[32px] transition-all",
+                "text-lg min-h-[28px] transition-all",
                 userTranscript ? "text-foreground font-medium" : "text-muted-foreground italic"
               )}>
                 {userTranscript || "Listening..."}
               </p>
-              <p className="text-sm text-muted-foreground mt-3">
-                Pause when you're done — I'll respond automatically
-              </p>
+            </div>
+
+            {/* Done button and Skip option */}
+            <div className="flex flex-col items-center gap-3 mt-2">
+              {userTranscript.trim() && (
+                <Button
+                  size="lg"
+                  onClick={handleManualDone}
+                  className="px-8 py-3 rounded-xl bg-success hover:bg-success/90 text-success-foreground gap-2"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  Done Speaking
+                </Button>
+              )}
+              
+              {showSkipPrompt && !userTranscript.trim() && (
+                <div className="animate-fade-in text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">Need more time?</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSkipTurn}
+                    className="gap-2"
+                  >
+                    Skip this turn
+                  </Button>
+                </div>
+              )}
+              
+              {!showSkipPrompt && !userTranscript.trim() && (
+                <p className="text-sm text-muted-foreground">
+                  Pause when done — I'll respond
+                </p>
+              )}
             </div>
           </div>
         )}

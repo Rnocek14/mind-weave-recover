@@ -22,7 +22,15 @@ import {
   FollowupType,
 } from '@/lib/conversationFollowups';
 import { classifyStuckType, StuckType } from '@/lib/stuckTypeClassifier';
+import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
+
+// Store card results for AI context
+interface CardResult {
+  cardType: CardType;
+  response: string;
+  success: boolean;
+}
 
 interface CoachSessionMetrics {
   turnsCompleted: number;
@@ -77,6 +85,7 @@ export function useCoachSession({
   const pendingCardIdRef = useRef<string | null>(null);
   const pendingCardTypeRef = useRef<CardType | null>(null);
   const pendingCardDifficultyRef = useRef<'easy' | 'medium'>('easy');
+  const lastCardResultRef = useRef<CardResult | null>(null);
 
   const addMessage = useCallback((message: FeedMessage) => {
     setMessages(prev => [...prev, message]);
@@ -106,12 +115,14 @@ export function useCoachSession({
       latenciesRef.current.push(latencyMs);
     }
 
-    // Classify stuck type
+    // Use smart completion detection instead of fixed word count
     const wordCount = countWords(transcript);
+    const completion = detectUtteranceComplete(transcript);
+    
     const stuckType = classifyStuckType({
       didSpeak: wordCount > 0,
       latencyToFirstWordMs: latencyMs,
-      utteranceComplete: wordCount >= 5,
+      utteranceComplete: completion.isComplete,
       wordCount,
       durationMs: 10000,
       narrowingLevelUsed: 0,
@@ -163,12 +174,23 @@ export function useCoachSession({
             text: m.type === 'ai' ? m.text : m.type === 'user' ? m.text : ''
           }));
 
+        // Include card context if we just completed one
+        const cardContext = lastCardResultRef.current ? {
+          cardType: lastCardResultRef.current.cardType,
+          response: lastCardResultRef.current.response,
+          success: lastCardResultRef.current.success,
+        } : undefined;
+        
+        // Clear card result after using
+        lastCardResultRef.current = null;
+
         const { data, error } = await supabase.functions.invoke('conversation-partner', {
           body: {
             userTranscript: transcript,
             turnNumber: orchestratorStateRef.current.turnNumber + 1,
             maxTurns,
-            conversationHistory
+            conversationHistory,
+            cardContext, // Pass card context to AI
           }
         });
 
@@ -224,10 +246,26 @@ export function useCoachSession({
     const cardMessage = messages.find(msg => msg.id === messageId && msg.type === 'card');
     const cardType = cardMessage && cardMessage.type === 'card' ? cardMessage.cardType : undefined;
     
-    // Determine if the card was successful
+    // Determine if the card was successful and extract response
     const cardSuccess = result && typeof result === 'object' && 
       (('success' in result && result.success === true) || 
        ('answered' in result && result.answered === true));
+    
+    // Extract user's response from the card result for AI context
+    const userResponse = result && typeof result === 'object' 
+      ? (result as Record<string, unknown>).answer || 
+        (result as Record<string, unknown>).response || 
+        (result as Record<string, unknown>).transcript || ''
+      : '';
+    
+    // Store card result for next AI call
+    if (cardType) {
+      lastCardResultRef.current = {
+        cardType,
+        response: String(userResponse),
+        success: !!cardSuccess,
+      };
+    }
 
     cardsCompletedRef.current += 1;
     pendingCardIdRef.current = null;

@@ -93,24 +93,41 @@ export function getNarrowingPrompt(): string {
 }
 
 /**
- * Conversation opener prompts - narrow, time-anchored
+ * Warm-up greetings before the first question
  */
-export const CONVERSATION_OPENERS = [
-  "Tell me one small thing from this morning.",
-  "What was something you ate today?",
-  "Tell me about one thing you saw recently.",
-  "What's something slightly annoying that happened lately?",
-  "What did you do after waking up today?",
-  "Tell me about something you're looking forward to.",
-  "What's one thing you noticed today?",
-  "Tell me about something simple you did yesterday.",
+export const WARMUP_GREETINGS = [
+  "Good to see you!",
+  "Hey there!",
+  "Nice to chat!",
+  "Hi!",
 ];
 
 /**
- * Get a random conversation opener
+ * Conversation opener prompts - narrow, time-anchored, simple
  */
-export function getRandomOpener(): string {
-  return CONVERSATION_OPENERS[Math.floor(Math.random() * CONVERSATION_OPENERS.length)];
+export const CONVERSATION_OPENERS = [
+  "What did you have for breakfast?",
+  "What did you do this morning?",
+  "See anything interesting today?",
+  "What's something you did yesterday?",
+  "Got any plans for later?",
+  "What's one thing on your mind?",
+  "How's your day going so far?",
+  "What did you do after waking up?",
+];
+
+/**
+ * Get a random conversation opener with optional warmup
+ */
+export function getRandomOpener(includeWarmup: boolean = true): string {
+  const opener = CONVERSATION_OPENERS[Math.floor(Math.random() * CONVERSATION_OPENERS.length)];
+  
+  if (includeWarmup) {
+    const warmup = WARMUP_GREETINGS[Math.floor(Math.random() * WARMUP_GREETINGS.length)];
+    return `${warmup} ${opener}`;
+  }
+  
+  return opener;
 }
 
 /**
