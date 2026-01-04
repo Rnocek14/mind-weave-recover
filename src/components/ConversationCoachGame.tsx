@@ -1,21 +1,24 @@
 /**
- * ConversationCoachGame - Beautiful, fluid conversation coach
+ * ConversationCoachGame - Intelligent conversation coach with speech analysis
  * 
  * Features:
- * - Proper mic permission handling with retry
- * - AI speaks, then automatically listens
- * - Smart silence detection for natural flow
- * - Beautiful animated UI with gradient backgrounds
+ * - Real-time speech analysis integration
+ * - User speech profile personalization
+ * - Engagement monitoring with interventions
+ * - Clinical session summary
+ * - Beautiful animated UI
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { useCoachSession } from '@/hooks/useCoachSession';
+import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
 import { useSpeechEndDetection } from '@/hooks/useSpeechEndDetection';
+import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
+import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
 import { cn } from '@/lib/utils';
 
 interface ConversationCoachGameProps {
@@ -41,17 +44,34 @@ export function ConversationCoachGame({
   onExit,
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
-  const [cardTranscript, setCardTranscript] = useState(''); // Separate transcript for cards
+  const [cardTranscript, setCardTranscript] = useState('');
   const [isCardListening, setIsCardListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'pending' | 'checking' | 'granted' | 'denied'>('pending');
   const [conversationState, setConversationState] = useState<ConversationState>('idle');
   const [silenceSeconds, setSilenceSeconds] = useState(0);
   const [showSkipPrompt, setShowSkipPrompt] = useState(false);
+  const [showBreakPrompt, setShowBreakPrompt] = useState(false);
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const turnStartTimeRef = useRef<number | null>(null);
+
+  // Fetch user speech profile for personalization
+  const { profile: speechProfile } = useUserSpeechProfile(userId, { profileId });
+  
+  // Map speech profile to session props
+  const userSpeechProfileForSession = speechProfile ? {
+    primaryChallenge: speechProfile.most_challenging_categories?.[0]?.category,
+    bestCueType: speechProfile.cue_efficacy_by_type 
+      ? Object.entries(speechProfile.cue_efficacy_by_type)
+          .sort(([,a], [,b]) => (b?.successRate ?? 0) - (a?.successRate ?? 0))[0]?.[0]
+      : undefined,
+    typicalPace: speechProfile.baseline_wpm 
+      ? (speechProfile.baseline_wpm < 60 ? 'slow' : speechProfile.baseline_wpm < 100 ? 'moderate' : 'normal')
+      : undefined,
+  } : null;
 
   const { speak, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
   
@@ -62,6 +82,7 @@ export function ConversationCoachGame({
     metrics,
     currentPhase,
     hasPendingCard,
+    engagementState,
     startSession,
     processUserTurn,
     insertPendingCard,
@@ -73,14 +94,22 @@ export function ConversationCoachGame({
     profileId,
     sessionId,
     maxTurns: 5,
+    userSpeechProfile: userSpeechProfileForSession,
   });
 
-  // Request microphone permission (only call on user gesture)
+  // Check for break prompts from engagement state
+  useEffect(() => {
+    if (engagementState?.recommendedAction === 'break_prompt' && !showBreakPrompt) {
+      setShowBreakPrompt(true);
+    }
+  }, [engagementState?.recommendedAction, showBreakPrompt]);
+
+  // Request microphone permission
   const requestMicPermission = useCallback(async () => {
     setMicPermission('checking');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Release immediately
+      stream.getTracks().forEach(track => track.stop());
       setMicPermission('granted');
       return true;
     } catch (err) {
@@ -90,7 +119,7 @@ export function ConversationCoachGame({
     }
   }, []);
 
-  // Check mic permission status on mount and listen for changes
+  // Check mic permission on mount
   useEffect(() => {
     let permissionStatus: PermissionStatus | null = null;
     
@@ -110,20 +139,15 @@ export function ConversationCoachGame({
       try {
         if (navigator.permissions) {
           permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          
-          // Set initial state
           if (permissionStatus.state === 'granted') {
             setMicPermission('granted');
           } else if (permissionStatus.state === 'denied') {
             setMicPermission('denied');
           }
-          // 'prompt' stays as 'pending'
-          
-          // Listen for permission changes (e.g., user changes in browser settings)
           permissionStatus.addEventListener('change', handlePermissionChange);
         }
       } catch {
-        // Permissions API not supported, leave as pending
+        // Permissions API not supported
       }
     };
     checkPermission();
@@ -135,31 +159,28 @@ export function ConversationCoachGame({
     };
   }, []);
 
-  // Process turn and speak AI response - defined early so it can be referenced
   const processTurnAndRespondRef = useRef<(transcript: string) => Promise<void>>();
   const startConversationTurnRef = useRef<() => void>();
   
-  // Smart speech end detection - must be declared before useSpeechRecognition
+  // Smart speech end detection
   const speechEndDetection = useSpeechEndDetection({
     onSpeechEnd: (transcript) => {
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
-    incompletesilenceMs: 1500, // Reduced from 3500ms
-    completesilenceMs: 800,    // Reduced from 2000ms
+    incompletesilenceMs: 1500,
+    completesilenceMs: 800,
     enabled: conversationState === 'listening',
   });
 
-  // Speech recognition - uses speechEndDetection
+  // Speech recognition
   const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
     onResult: (transcript) => {
-      // This is called with the FINAL transcript from speech recognition
       console.log('🎤 Received final transcript:', transcript);
       if (!firstWordTimeRef.current && transcript.trim().length > 0) {
         firstWordTimeRef.current = Date.now();
       }
       setUserTranscript(transcript);
-      // Signal as final transcript - this will trigger processing
       speechEndDetection.onTranscriptUpdate(transcript, true);
     },
     patientMode: true,
@@ -167,20 +188,16 @@ export function ConversationCoachGame({
     enabled: micPermission === 'granted',
   });
   
-  // Track interim (live) transcript for UI updates
+  // Track live transcript
   useEffect(() => {
     if (liveTranscript) {
-      // Update card transcript if a card is active
       if (currentPhase === 'card_active' && isCardListening) {
         setCardTranscript(liveTranscript);
       } else if (conversationState === 'listening') {
         setUserTranscript(liveTranscript);
-      
         if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
           firstWordTimeRef.current = Date.now();
         }
-      
-        // Update speech end detection with interim result
         speechEndDetection.onTranscriptUpdate(liveTranscript, false);
       }
     }
@@ -191,15 +208,19 @@ export function ConversationCoachGame({
     if (isProcessingRef.current || !transcript.trim()) return;
     isProcessingRef.current = true;
     
-    // Stop listening first
     stopListening();
     setConversationState('processing');
 
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
       ? firstWordTimeRef.current - speechStartTimeRef.current
       : null;
+    
+    // Calculate total duration for speech analysis
+    const totalDurationMs = turnStartTimeRef.current 
+      ? Date.now() - turnStartTimeRef.current 
+      : null;
 
-    const aiResponse = await processUserTurn(transcript, latencyMs);
+    const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs);
     
     if (aiResponse) {
       setConversationState('ai_speaking');
@@ -212,18 +233,14 @@ export function ConversationCoachGame({
       
       clearPendingAI();
       
-      // Check if we need to insert a card (after speaking the intro)
       if (hasPendingCard) {
-        // Add a short delay after speaking intro before showing card
         await new Promise(resolve => setTimeout(resolve, 600));
         insertPendingCard();
         setConversationState('idle');
-        // Start listening for the card
         setCardTranscript('');
         setIsCardListening(true);
         startListening();
       } else if (!isComplete) {
-        // Auto-start listening after AI finishes
         setConversationState('listening');
         startConversationTurnRef.current?.();
       } else {
@@ -235,27 +252,25 @@ export function ConversationCoachGame({
 
     setUserTranscript('');
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening]);
 
-  // Keep the refs updated
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
   }, [processTurnAndRespond]);
 
   const startConversationTurn = useCallback(() => {
-    console.log('[Coach] Starting conversation turn - will listen');
+    console.log('[Coach] Starting conversation turn');
     setUserTranscript('');
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
+    turnStartTimeRef.current = Date.now();
     isProcessingRef.current = false;
     setSilenceSeconds(0);
     setShowSkipPrompt(false);
     speechEndDetection.onStart();
     setConversationState('listening');
-    console.log('[Coach] Calling startListening()');
     startListening();
     
-    // Start silence timer
     if (silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
     }
@@ -270,7 +285,6 @@ export function ConversationCoachGame({
     }, 1000);
   }, [speechEndDetection, startListening]);
   
-  // Cleanup silence timer
   useEffect(() => {
     return () => {
       if (silenceTimerRef.current) {
@@ -279,7 +293,6 @@ export function ConversationCoachGame({
     };
   }, []);
   
-  // Stop silence timer when not listening
   useEffect(() => {
     if (conversationState !== 'listening' && silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
@@ -289,14 +302,12 @@ export function ConversationCoachGame({
     }
   }, [conversationState]);
   
-  // Keep startConversationTurn ref updated
   useEffect(() => {
     startConversationTurnRef.current = startConversationTurn;
   }, [startConversationTurn]);
 
-  // Start conversation (requests permission first)
+  // Start conversation
   const handleStart = async () => {
-    // Request permission on this user gesture
     const hasPermission = micPermission === 'granted' || await requestMicPermission();
     if (!hasPermission) return;
     
@@ -310,13 +321,10 @@ export function ConversationCoachGame({
     }
     
     clearPendingAI();
-    
-    // Auto-start listening IMMEDIATELY after AI finishes (no delay)
     setConversationState('listening');
     startConversationTurn();
   };
 
-  // Cleanup on stop
   useEffect(() => {
     if (!isListening && conversationState === 'listening') {
       speechEndDetection.onStop();
@@ -325,7 +333,6 @@ export function ConversationCoachGame({
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
-    // Stop card listening
     setIsCardListening(false);
     stopListening();
     setCardTranscript('');
@@ -343,7 +350,6 @@ export function ConversationCoachGame({
       
       clearPendingAI();
       
-      // Auto-start listening IMMEDIATELY after card outro (no delay)
       if (!isComplete) {
         setConversationState('listening');
         startConversationTurn();
@@ -367,22 +373,23 @@ export function ConversationCoachGame({
     }
   };
 
-  // Manual "Done" button handler - submit what they've said so far
   const handleManualDone = useCallback(() => {
     if (userTranscript.trim()) {
       processTurnAndRespond(userTranscript);
     }
   }, [userTranscript, processTurnAndRespond]);
 
-  // Skip turn handler - user stayed silent
   const handleSkipTurn = useCallback(() => {
-    processTurnAndRespond(''); // Process with empty transcript
+    processTurnAndRespond('');
   }, [processTurnAndRespond]);
 
-  // Handle retry for denied permission
   const handleRetryPermission = async () => {
     setMicPermission('pending');
     await requestMicPermission();
+  };
+
+  const handleDismissBreak = () => {
+    setShowBreakPrompt(false);
   };
 
   if (!isSupported) {
@@ -427,18 +434,11 @@ export function ConversationCoachGame({
             </li>
           </ol>
           <div className="flex gap-3 justify-center">
-            <Button 
-              variant="outline"
-              onClick={() => window.location.reload()}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={() => window.location.reload()} className="gap-2">
               <RefreshCw className="w-4 h-4" />
               Refresh Page
             </Button>
-            <Button 
-              onClick={handleRetryPermission}
-              className="gap-2"
-            >
+            <Button onClick={handleRetryPermission} className="gap-2">
               <Mic className="w-5 h-5" />
               Try Again
             </Button>
@@ -450,7 +450,30 @@ export function ConversationCoachGame({
 
   return (
     <div className="min-h-[70vh] flex flex-col bg-gradient-calm">
-      {/* Header with progress */}
+      {/* Break prompt overlay */}
+      {showBreakPrompt && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-card rounded-3xl shadow-2xl p-8 max-w-sm text-center animate-fade-in">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+              <Coffee className="w-8 h-8 text-amber-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Take a breather?</h3>
+            <p className="text-muted-foreground mb-6">
+              You're doing great. A short break can help.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={handleDismissBreak}>
+                Keep Going
+              </Button>
+              <Button onClick={() => { handleDismissBreak(); onExit?.(); }}>
+                Take Break
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header with progress and engagement indicator */}
       <div className="flex items-center justify-between px-6 py-4 bg-card/80 backdrop-blur-md border-b shadow-soft sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -463,9 +486,24 @@ export function ConversationCoachGame({
           </div>
           <div>
             <h2 className="font-semibold text-lg">Conversation Coach</h2>
-            <p className="text-sm text-muted-foreground">
-              Turn {metrics.turnsCompleted + 1} of 5
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                Turn {metrics.turnsCompleted + 1} of 5
+              </p>
+              {/* Fluency indicator */}
+              {metrics.avgFluency !== undefined && (
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded-full",
+                  metrics.avgFluency >= 70 ? "bg-success/20 text-success" :
+                  metrics.avgFluency >= 50 ? "bg-warning/20 text-warning" :
+                  "bg-muted text-muted-foreground"
+                )}>
+                  {metrics.fluencyTrend === 'improving' ? '↑' : 
+                   metrics.fluencyTrend === 'declining' ? '↓' : ''} 
+                  {metrics.avgFluency}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -499,7 +537,7 @@ export function ConversationCoachGame({
 
       {/* Control panel */}
       <div className="border-t bg-card/95 backdrop-blur-md p-6 pb-8 shadow-soft">
-        {/* Ready state - Start button */}
+        {/* Ready state */}
         {currentPhase === 'ready' && (
           <div className="text-center space-y-5">
             <Button
@@ -521,14 +559,13 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* AI Speaking state */}
+        {/* AI Speaking */}
         {conversationState === 'ai_speaking' && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow">
                 <Volume2 className="w-12 h-12 text-primary-foreground" />
               </div>
-              {/* Animated rings */}
               <div className="absolute inset-0 rounded-full border-4 border-primary/40 animate-ping" />
               <div className="absolute inset-[-4px] rounded-full border-4 border-primary/20 animate-ping" style={{ animationDelay: '0.3s' }} />
               <div className="absolute inset-[-8px] rounded-full border-4 border-primary/10 animate-ping" style={{ animationDelay: '0.6s' }} />
@@ -537,7 +574,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Waiting for user to speak (tap to start) */}
+        {/* Waiting for user */}
         {currentPhase === 'user_turn' && conversationState === 'idle' && !isProcessing && (
           <div className="text-center space-y-4">
             <Button
@@ -551,16 +588,13 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Listening state */}
+        {/* Listening */}
         {(conversationState === 'listening' || isListening) && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
-              {/* Main microphone circle */}
               <div className="w-24 h-24 rounded-full bg-destructive/15 flex items-center justify-center border-4 border-destructive/60 shadow-lg">
                 <div className="w-5 h-5 rounded-full bg-destructive animate-pulse" />
               </div>
-              
-              {/* Animated sound bars */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex items-end gap-1 h-14">
                   {[...Array(5)].map((_, i) => (
@@ -587,7 +621,6 @@ export function ConversationCoachGame({
               </p>
             </div>
 
-            {/* Done button and Skip option */}
             <div className="flex flex-col items-center gap-3 mt-2">
               {userTranscript.trim() && (
                 <Button
@@ -603,12 +636,7 @@ export function ConversationCoachGame({
               {showSkipPrompt && !userTranscript.trim() && (
                 <div className="animate-fade-in text-center space-y-2">
                   <p className="text-sm text-muted-foreground">Need more time?</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSkipTurn}
-                    className="gap-2"
-                  >
+                  <Button variant="outline" size="sm" onClick={handleSkipTurn} className="gap-2">
                     Skip this turn
                   </Button>
                 </div>
@@ -623,7 +651,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Card active state */}
+        {/* Card active */}
         {currentPhase === 'card_active' && (
           <div className="text-center">
             <p className="text-base text-muted-foreground flex items-center justify-center gap-2">
@@ -633,7 +661,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Processing state */}
+        {/* Processing */}
         {conversationState === 'processing' && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center">
@@ -643,44 +671,13 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Completion state */}
+        {/* Completion - use new summary component */}
         {currentPhase === 'complete' && (
-          <div className="text-center space-y-6 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-success/15 shadow-lg">
-              <CheckCircle2 className="w-14 h-14 text-success" />
-            </div>
-            
-            <div>
-              <h3 className="text-2xl font-semibold mb-2">Great conversation!</h3>
-              <p className="text-muted-foreground text-lg">You did wonderfully</p>
-            </div>
-            
-            <div className="flex justify-center gap-10 py-6">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-primary">{metrics.turnsCompleted}</div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Turns</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-primary">{metrics.totalUserWords}</div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Your Words</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-primary">{metrics.cardsCompleted}</div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wide mt-1">Activities</div>
-              </div>
-            </div>
-            
-            <div className="flex gap-4 justify-center">
-              <Button size="lg" onClick={() => { reset(); setConversationState('idle'); }} className="px-8">
-                Chat Again
-              </Button>
-              {onExit && (
-                <Button size="lg" variant="outline" onClick={() => { handleFinish(); onExit(); }} className="px-8">
-                  Finish
-                </Button>
-              )}
-            </div>
-          </div>
+          <CoachSessionSummary
+            metrics={metrics}
+            onPlayAgain={() => { reset(); setConversationState('idle'); }}
+            onFinish={() => { handleFinish(); onExit?.(); }}
+          />
         )}
       </div>
     </div>
