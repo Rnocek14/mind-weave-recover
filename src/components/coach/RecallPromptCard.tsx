@@ -2,63 +2,53 @@
  * RecallPromptCard - Open category word retrieval
  * 
  * Shows a category prompt (e.g., "Name any fruit").
- * Auto-starts listening since conversation is active.
+ * Receives transcript from parent (centralized mic control).
  * User says ANY word in that category - no specific target.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Check, Sparkles, Loader2 } from 'lucide-react';
 import { getRandomRecallPrompt } from '@/data/recallPromptBank';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface RecallPromptCardProps {
   difficulty?: 'easy' | 'medium';
+  transcript: string;
+  isListening: boolean;
   onComplete: (result: { success: boolean; word: string; latencyMs: number }) => void;
 }
 
-export function RecallPromptCard({ difficulty = 'easy', onComplete }: RecallPromptCardProps) {
+export function RecallPromptCard({ difficulty = 'easy', transcript, isListening, onComplete }: RecallPromptCardProps) {
   const [prompt] = useState(() => getRandomRecallPrompt(difficulty));
   const [hasAnswered, setHasAnswered] = useState(false);
   const [spokenWord, setSpokenWord] = useState('');
-  const [transcript, setTranscript] = useState('');
   const startTimeRef = useRef<number>(Date.now());
+  const hasCompletedRef = useRef(false);
   
-  // Handle speech result
-  const handleSpeechResult = useCallback((text: string) => {
-    if (hasAnswered || !text) return;
-    setTranscript(text);
-    
-    // Any speech counts as success for recall prompts
-    const word = text.trim().split(' ')[0] || text.trim();
-    setSpokenWord(word);
-    setHasAnswered(true);
-    
-    const latencyMs = Date.now() - startTimeRef.current;
-    
-    setTimeout(() => {
-      onComplete({
-        success: true,
-        word,
-        latencyMs,
-      });
-    }, 1000);
-  }, [hasAnswered, onComplete]);
-
-  const { 
-    startListening,
-    stopListening,
-  } = useSpeechRecognition({
-    onResult: handleSpeechResult,
-    patientMode: true,
-  });
-
-  // Auto-start listening
+  // Watch transcript for any word response
   useEffect(() => {
-    startListening();
-    return () => stopListening();
-  }, [startListening, stopListening]);
+    if (hasCompletedRef.current) return;
+    
+    const trimmed = transcript.trim();
+    if (trimmed.length > 0) {
+      hasCompletedRef.current = true;
+      
+      // Any speech counts as success for recall prompts
+      const word = trimmed.split(' ')[0] || trimmed;
+      setSpokenWord(word);
+      setHasAnswered(true);
+      
+      const latencyMs = Date.now() - startTimeRef.current;
+      
+      setTimeout(() => {
+        onComplete({
+          success: true,
+          word,
+          latencyMs,
+        });
+      }, 1000);
+    }
+  }, [transcript, onComplete]);
 
   return (
     <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-accent/10">
@@ -91,11 +81,20 @@ export function RecallPromptCard({ difficulty = 'easy', onComplete }: RecallProm
           </div>
         )}
 
-        {/* Listening indicator */}
+        {/* Listening indicator with live transcript */}
         {!hasAnswered && (
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Listening...</span>
+          <div className="flex flex-col items-center gap-2">
+            {transcript && (
+              <p className="text-center text-foreground min-h-[24px]">
+                {transcript}
+              </p>
+            )}
+            {isListening && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Listening...</span>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

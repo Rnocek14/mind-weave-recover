@@ -3,10 +3,12 @@
  * 
  * Renders AI messages, user transcripts, and embedded exercise cards
  * in a scrollable chat-like interface with polished styling.
+ * 
+ * Cards receive transcript from parent (centralized mic control).
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Sparkles, User } from 'lucide-react';
+import { Sparkles, User, Loader2 } from 'lucide-react';
 import { CardType } from '@/lib/coachOrchestrator';
 import { PhotoNamingCard } from './PhotoNamingCard';
 import { SemanticFeaturesCard } from './SemanticFeaturesCard';
@@ -26,6 +28,12 @@ interface CoachChatFeedProps {
   messages: FeedMessage[];
   onCardComplete?: (messageId: string, result: unknown) => void;
   isProcessing?: boolean;
+  /** Current transcript from speech recognition (passed to active cards) */
+  cardTranscript?: string;
+  /** Whether mic is currently listening (passed to active cards) */
+  isCardListening?: boolean;
+  /** Whether AI is currently speaking (shows indicator) */
+  isAISpeaking?: boolean;
 }
 
 // Helper to extract conversation context for cards
@@ -37,7 +45,14 @@ function getConversationContext(messages: FeedMessage[]): string {
     .join(' ');
 }
 
-export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachChatFeedProps) {
+export function CoachChatFeed({ 
+  messages, 
+  onCardComplete, 
+  isProcessing,
+  cardTranscript = '',
+  isCardListening = false,
+  isAISpeaking = false,
+}: CoachChatFeedProps) {
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -48,7 +63,7 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
         behavior: 'smooth'
       });
     }
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, isAISpeaking]);
 
   const renderMessage = (message: FeedMessage, index: number) => {
     const isLast = index === messages.length - 1;
@@ -99,7 +114,13 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
       case 'card':
         return (
           <div key={message.id} className="py-3 animate-fade-in">
-            {!message.completed && renderCard(message.cardType, message.difficulty, message.id)}
+            {!message.completed && renderCard(
+              message.cardType, 
+              message.difficulty, 
+              message.id,
+              cardTranscript,
+              isCardListening
+            )}
             {message.completed && (
               <div className="text-center py-3">
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-success/10 text-success rounded-full text-sm font-medium">
@@ -115,26 +136,76 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
     }
   };
 
-  const renderCard = (cardType: CardType, difficulty: 'easy' | 'medium', messageId: string) => {
+  const renderCard = (
+    cardType: CardType, 
+    difficulty: 'easy' | 'medium', 
+    messageId: string,
+    transcript: string,
+    isListening: boolean
+  ) => {
     const handleComplete = (result: unknown) => {
       onCardComplete?.(messageId, result);
     };
 
     const conversationContext = getConversationContext(messages);
 
+    // All cards now receive transcript and isListening as props
     switch (cardType) {
       case 'photo_naming':
-        return <PhotoNamingCard difficulty={difficulty} onComplete={handleComplete} />;
+        return (
+          <PhotoNamingCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            onComplete={handleComplete} 
+          />
+        );
       case 'semantic_features':
-        return <SemanticFeaturesCard difficulty={difficulty} onComplete={handleComplete} conversationContext={conversationContext} />;
+        return (
+          <SemanticFeaturesCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            conversationContext={conversationContext}
+            onComplete={handleComplete} 
+          />
+        );
       case 'thought_prompt':
-        return <ThoughtPromptCard difficulty={difficulty} onComplete={handleComplete} />;
+        return (
+          <ThoughtPromptCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            onComplete={handleComplete} 
+          />
+        );
       case 'phrase_starter':
-        return <PhraseStarterCard difficulty={difficulty} onComplete={handleComplete} />;
+        return (
+          <PhraseStarterCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            onComplete={handleComplete} 
+          />
+        );
       case 'yes_no':
-        return <YesNoCard difficulty={difficulty} onComplete={handleComplete} />;
+        return (
+          <YesNoCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            onComplete={handleComplete} 
+          />
+        );
       case 'recall_prompt':
-        return <RecallPromptCard difficulty={difficulty} onComplete={handleComplete} />;
+        return (
+          <RecallPromptCard 
+            difficulty={difficulty} 
+            transcript={transcript}
+            isListening={isListening}
+            onComplete={handleComplete} 
+          />
+        );
       default:
         return null;
     }
@@ -146,7 +217,7 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
       className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
     >
       {/* Welcome message if empty */}
-      {messages.length === 0 && !isProcessing && (
+      {messages.length === 0 && !isProcessing && !isAISpeaking && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-20 h-20 rounded-3xl bg-gradient-primary flex items-center justify-center shadow-glow mb-6">
             <Sparkles className="w-10 h-10 text-primary-foreground" />
@@ -160,17 +231,41 @@ export function CoachChatFeed({ messages, onCardComplete, isProcessing }: CoachC
       
       {messages.map((msg, i) => renderMessage(msg, i))}
       
-      {/* Processing indicator */}
-      {isProcessing && (
+      {/* AI Speaking indicator */}
+      {isAISpeaking && (
         <div className="flex items-start gap-4 animate-fade-in">
           <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
             <Sparkles className="w-6 h-6 text-primary-foreground animate-pulse" />
           </div>
           <div className="bg-card rounded-3xl rounded-tl-lg px-5 py-4 shadow-soft border border-border/50">
-            <div className="flex gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex items-center gap-2 text-primary">
+              <div className="flex gap-1">
+                <span className="w-2 h-4 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-5 bg-primary/80 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
+                <span className="w-2 h-3 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                <span className="w-2 h-5 bg-primary/80 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-4 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+              </div>
+              <span className="text-sm font-medium ml-2">Speaking...</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Processing indicator */}
+      {isProcessing && !isAISpeaking && (
+        <div className="flex items-start gap-4 animate-fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
+            <Loader2 className="w-6 h-6 text-primary-foreground animate-spin" />
+          </div>
+          <div className="bg-card rounded-3xl rounded-tl-lg px-5 py-4 shadow-soft border border-border/50">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm font-medium">Thinking</span>
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
         </div>

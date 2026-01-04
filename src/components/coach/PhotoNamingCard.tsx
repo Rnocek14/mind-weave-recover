@@ -2,14 +2,14 @@
  * PhotoNamingCard - Inline mini photo-naming exercise
  * 
  * Shows ONE easy photo, user speaks the name.
- * Returns success/word/latency, takes 10-20 seconds max.
+ * Receives transcript from parent (centralized mic control).
+ * Auto-starts listening (no manual start button).
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Check } from 'lucide-react';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { Check, Loader2, MicOff } from 'lucide-react';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { cn } from '@/lib/utils';
 
@@ -21,79 +21,101 @@ interface PhotoNamingCardResult {
 }
 
 interface PhotoNamingCardProps {
-  difficulty: 'easy' | 'medium';
+  difficulty?: 'easy' | 'medium';
+  transcript: string;
+  isListening: boolean;
   onComplete: (result: PhotoNamingCardResult) => void;
 }
 
-export function PhotoNamingCard({ difficulty, onComplete }: PhotoNamingCardProps) {
-  const [phase, setPhase] = useState<'ready' | 'listening' | 'complete'>('ready');
-  const [transcript, setTranscript] = useState('');
+export function PhotoNamingCard({ 
+  difficulty = 'easy',
+  transcript, 
+  isListening, 
+  onComplete 
+}: PhotoNamingCardProps) {
+  const [phase, setPhase] = useState<'listening' | 'complete'>('listening');
   const [trial, setTrial] = useState<PhotoTrial | null>(null);
   
-  const startTimeRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
   const firstWordTimeRef = useRef<number | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasCompletedRef = useRef(false);
 
-  // Select an easy photo on mount
+  // Select a photo on mount
   useEffect(() => {
-    const easyPhotos = PHOTO_BANK.filter(p => p.computed_difficulty <= 2);
-    const randomPhoto = easyPhotos[Math.floor(Math.random() * easyPhotos.length)];
+    const maxDifficulty = difficulty === 'easy' ? 2 : 3;
+    const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
+    const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
     setTrial(randomPhoto);
-  }, []);
-
-  const handleSpeechResult = useCallback((text: string) => {
-    if (!firstWordTimeRef.current && text.trim().length > 0) {
-      firstWordTimeRef.current = Date.now();
-    }
-    setTranscript(text);
-  }, []);
-
-  const { isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
-    onResult: handleSpeechResult,
-    patientMode: true,
-    continuousListening: false,
-  });
-
-  const handleStart = () => {
-    setTranscript('');
     startTimeRef.current = Date.now();
-    firstWordTimeRef.current = null;
-    setPhase('listening');
-    startListening();
-  };
+  }, [difficulty]);
 
-  const handleDone = () => {
-    stopListening();
+  const handleDone = useCallback(() => {
+    if (hasCompletedRef.current || !trial) return;
+    hasCompletedRef.current = true;
+    
     setPhase('complete');
 
-    const latencyMs = firstWordTimeRef.current && startTimeRef.current
+    const latencyMs = firstWordTimeRef.current 
       ? firstWordTimeRef.current - startTimeRef.current
       : null;
 
     // Check if response matches target (simple check)
-    const target = trial?.target.toLowerCase() || '';
+    const target = trial.target.toLowerCase();
     const spoken = transcript.toLowerCase().trim();
-    const success = spoken.includes(target) || target.includes(spoken);
+    const success = spoken.includes(target) || target.includes(spoken) || spoken.length >= 2;
 
-    // Brief delay before reporting completion
     setTimeout(() => {
       onComplete({
         success,
-        spokenWord: transcript,
-        targetWord: trial?.target || '',
+        spokenWord: transcript.trim(),
+        targetWord: trial.target,
         latencyMs,
       });
     }, 500);
-  };
+  }, [trial, transcript, onComplete]);
 
-  if (!isSupported) {
-    return (
-      <Card className="bg-muted/50">
-        <CardContent className="p-4 text-center text-muted-foreground">
-          Speech not supported
-        </CardContent>
-      </Card>
-    );
-  }
+  // Track first word timing
+  useEffect(() => {
+    if (!firstWordTimeRef.current && transcript.trim().length > 0) {
+      firstWordTimeRef.current = Date.now();
+    }
+  }, [transcript]);
+
+  // Auto-complete after speech detection
+  useEffect(() => {
+    if (hasCompletedRef.current || phase === 'complete') return;
+
+    // Clear existing timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+
+    const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
+    if (wordCount >= 1) {
+      // After first word, wait for silence
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasCompletedRef.current) {
+          handleDone();
+        }
+      }, 2000); // 2 second silence triggers completion
+    }
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [transcript, phase, handleDone]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!trial) {
     return (
@@ -117,32 +139,38 @@ export function PhotoNamingCard({ difficulty, onComplete }: PhotoNamingCardProps
 
         {/* Instructions/Status */}
         <div className="text-center space-y-3">
-          {phase === 'ready' && (
-            <>
-              <p className="text-sm text-muted-foreground">Say what you see</p>
-              <Button onClick={handleStart} className="gap-2">
-                <Mic className="w-4 h-4" />
-                Start
-              </Button>
-            </>
-          )}
-
           {phase === 'listening' && (
             <>
+              <p className="text-sm text-muted-foreground">Say what you see</p>
+              
+              {/* Listening indicator */}
+              {isListening && (
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Listening...</span>
+                </div>
+              )}
+              
+              {/* Live transcript */}
               <div className={cn(
                 "text-lg font-medium min-h-[28px]",
                 transcript ? "text-foreground" : "text-muted-foreground"
               )}>
                 {transcript || '...'}
               </div>
-              <Button 
-                variant="secondary" 
-                onClick={handleDone}
-                className="gap-2"
-              >
-                <MicOff className="w-4 h-4" />
-                Done
-              </Button>
+              
+              {/* Manual done button */}
+              {transcript.trim().length > 0 && (
+                <Button 
+                  variant="secondary" 
+                  onClick={handleDone}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <MicOff className="w-4 h-4" />
+                  Done
+                </Button>
+              )}
             </>
           )}
 

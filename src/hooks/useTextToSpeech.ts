@@ -53,13 +53,52 @@ export const useTextToSpeech = () => {
         utterance.pitch = 1;
         utterance.volume = 1;
         
-        // Try to get a good voice
+        // Try to get a good, natural-sounding voice
         const voices = window.speechSynthesis.getVoices();
         console.log('[TTS] Available voices:', voices.length);
-        const englishVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
-        if (englishVoice) {
-          utterance.voice = englishVoice;
-          console.log('[TTS] Using voice:', englishVoice.name);
+        
+        // Voice preference order (best first)
+        const preferredVoicePatterns = [
+          // Natural/neural voices (best quality)
+          /samantha/i,
+          /karen/i,
+          /moira/i,
+          /tessa/i,
+          /fiona/i,
+          // Google voices (good quality on Chrome)
+          /google.*female/i,
+          /google.*us.*english/i,
+          // Microsoft voices
+          /zira/i,
+          /hazel/i,
+          /aria/i,
+          // Apple voices
+          /alex/i,
+          // Generic fallbacks
+          /female/i,
+        ];
+        
+        let selectedVoice: SpeechSynthesisVoice | undefined;
+        
+        // Try each pattern in order of preference
+        for (const pattern of preferredVoicePatterns) {
+          selectedVoice = voices.find(v => 
+            v.lang.startsWith('en') && pattern.test(v.name)
+          );
+          if (selectedVoice) break;
+        }
+        
+        // Fallback to any English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
+        }
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith('en'));
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          console.log('[TTS] Using voice:', selectedVoice.name);
         }
         
         setIsSpeaking(true);
