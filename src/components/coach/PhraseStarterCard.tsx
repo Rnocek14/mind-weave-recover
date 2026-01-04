@@ -1,15 +1,28 @@
 /**
- * PhraseStarterCard - Inline starter phrase selection
+ * PhraseStarterCard - Enhanced starter phrase selection with visual builder
  * 
- * Offers 2-3 starter phrases to choose from, user picks one and continues.
- * Receives transcript from parent (centralized mic control).
+ * Features:
+ * - Audio playback when selecting starters
+ * - Visual sentence builder (starter + continuation)
+ * - Smart continuation detection (wait for 3+ words)
+ * - Follow-up starter suggestions
+ * - Beautiful, accessible UI
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Volume2, Plus, Loader2 } from 'lucide-react';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
+import { 
+  CardContainer, 
+  SpeechStatusBar, 
+  AudioButton, 
+  SuccessAnimation,
+  LargeTouchButton,
+  SentenceBuilder
+} from './CardComponents';
+import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { cn } from '@/lib/utils';
 
 interface PhraseStarterCardResult {
@@ -17,6 +30,7 @@ interface PhraseStarterCardResult {
   starterUsed: string;
   continuation: string;
   latencyMs: number | null;
+  usedFollowUp?: boolean;
 }
 
 interface PhraseStarterCardProps {
@@ -26,23 +40,40 @@ interface PhraseStarterCardProps {
   onComplete: (result: PhraseStarterCardResult) => void;
 }
 
-// Starter phrase sets - each set has 3 options
+// Starter phrase sets with follow-ups
 const STARTER_SETS = [
-  ["I was thinking about...", "I remember...", "The thing is..."],
-  ["What I mean is...", "It's kind of like...", "I wanted to say..."],
-  ["One thing I know is...", "I noticed that...", "It made me think..."],
-  ["Actually...", "Well...", "So..."],
+  {
+    starters: ["I was thinking about...", "I remember...", "The thing is..."],
+    followUps: ["And then...", "Also..."],
+  },
+  {
+    starters: ["What I mean is...", "It's kind of like...", "I wanted to say..."],
+    followUps: ["Because...", "So..."],
+  },
+  {
+    starters: ["One thing I know is...", "I noticed that...", "It made me think..."],
+    followUps: ["And...", "Which means..."],
+  },
+  {
+    starters: ["Actually...", "Well...", "So..."],
+    followUps: ["And then...", "But..."],
+  },
 ];
 
 export function PhraseStarterCard({ difficulty, transcript, isListening, onComplete }: PhraseStarterCardProps) {
-  const [phase, setPhase] = useState<'choosing' | 'listening' | 'complete'>('choosing');
-  const [starters] = useState(() => STARTER_SETS[Math.floor(Math.random() * STARTER_SETS.length)]);
+  const [phase, setPhase] = useState<'choosing' | 'listening' | 'followUp' | 'complete'>('choosing');
+  const [starterSet] = useState(() => STARTER_SETS[Math.floor(Math.random() * STARTER_SETS.length)]);
   const [selectedStarter, setSelectedStarter] = useState<string>('');
+  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [usedFollowUp, setUsedFollowUp] = useState(false);
+  
+  const { playPhrase, isPlaying, isLoading: audioLoading } = usePhraseAudio();
   
   const startTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const lastTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const followUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasCompletedRef = useRef(false);
 
   const handleSelectStarter = (starter: string) => {
@@ -50,6 +81,9 @@ export function PhraseStarterCard({ difficulty, transcript, isListening, onCompl
     startTimeRef.current = Date.now();
     firstWordTimeRef.current = null;
     setPhase('listening');
+    
+    // Speak the starter to help user
+    playPhrase(starter, { playbackSpeed: 0.9 });
   };
 
   // Track first word timing
@@ -77,38 +111,62 @@ export function PhraseStarterCard({ difficulty, transcript, isListening, onCompl
         starterUsed: selectedStarter,
         continuation: transcript,
         latencyMs,
+        usedFollowUp,
       });
-    }, 500);
-  }, [transcript, selectedStarter, onComplete]);
+    }, 600);
+  }, [transcript, selectedStarter, usedFollowUp, onComplete]);
+
+  // Handle follow-up starter
+  const handleFollowUp = (followUp: string) => {
+    setUsedFollowUp(true);
+    setShowFollowUp(false);
+    playPhrase(followUp, { playbackSpeed: 0.9 });
+  };
 
   // Smart auto-complete with silence detection
   useEffect(() => {
     if (hasCompletedRef.current || phase !== 'listening') return;
 
-    // Clear existing timer
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
     }
 
     const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
-    if (wordCount >= 1) {
+    
+    // Wait for at least 3 words before considering complete
+    if (wordCount >= 3) {
       if (transcript !== lastTranscriptRef.current) {
         lastTranscriptRef.current = transcript;
         
-        // Check completion signals
         const completion = detectUtteranceComplete(transcript);
         
-        // Set timer based on completion confidence
         const timeout = completion.isComplete && completion.confidence === 'high' 
           ? 1500 
           : 3000;
         
         silenceTimerRef.current = setTimeout(() => {
-          if (!hasCompletedRef.current && wordCount >= 1) {
-            handleDone();
+          if (!hasCompletedRef.current && wordCount >= 3) {
+            // Offer follow-up instead of immediate completion
+            if (!showFollowUp) {
+              setShowFollowUp(true);
+              
+              // Auto-complete after showing follow-up for a bit
+              followUpTimerRef.current = setTimeout(() => {
+                if (!hasCompletedRef.current) {
+                  handleDone();
+                }
+              }, 4000);
+            }
           }
         }, timeout);
       }
+    } else if (wordCount >= 1) {
+      // For shorter responses, wait longer
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasCompletedRef.current) {
+          handleDone();
+        }
+      }, 4000);
     }
 
     return () => {
@@ -116,82 +174,109 @@ export function PhraseStarterCard({ difficulty, transcript, isListening, onCompl
         clearTimeout(silenceTimerRef.current);
       }
     };
-  }, [transcript, phase, handleDone]);
+  }, [transcript, phase, showFollowUp, handleDone]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (followUpTimerRef.current) clearTimeout(followUpTimerRef.current);
     };
   }, []);
 
   const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
 
   return (
-    <Card className="bg-card border-2 border-primary/20 overflow-hidden">
-      <CardContent className="p-4 space-y-4">
+    <CardContainer>
+      <CardContent className="p-5 space-y-4">
+        {/* Phase: Choosing starter */}
         {phase === 'choosing' && (
-          <>
-            <p className="text-center text-muted-foreground mb-3">
+          <div className="space-y-4">
+            <p className="text-center text-lg font-medium text-foreground">
               Pick one to start with
             </p>
             <div className="space-y-2">
-              {starters.map((starter, i) => (
-                <Button
+              {starterSet.starters.map((starter, i) => (
+                <button
                   key={i}
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto py-3 px-4"
                   onClick={() => handleSelectStarter(starter)}
+                  className={cn(
+                    "w-full flex items-center justify-between gap-3",
+                    "px-4 py-4 rounded-xl",
+                    "bg-muted/50 hover:bg-primary/10 border-2 border-transparent",
+                    "hover:border-primary/30 transition-all",
+                    "text-left min-h-[56px]"
+                  )}
                 >
-                  <span>{starter}</span>
-                </Button>
+                  <span className="text-base font-medium">{starter}</span>
+                  <Volume2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                </button>
               ))}
             </div>
-          </>
+          </div>
         )}
 
+        {/* Phase: Listening */}
         {phase === 'listening' && (
-          <div className="text-center space-y-3">
-            <div className="text-sm text-muted-foreground">
-              Starting with: <span className="font-medium text-foreground">{selectedStarter}</span>
-            </div>
-            <div className={cn(
-              "text-lg font-medium min-h-[56px] max-w-xs mx-auto",
-              transcript ? "text-foreground" : "text-muted-foreground"
-            )}>
-              {transcript || '(continue speaking...)'}
-            </div>
-            {isListening && (
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Listening...</span>
+          <div className="space-y-4">
+            {/* Visual sentence builder */}
+            <SentenceBuilder 
+              starter={selectedStarter} 
+              continuation={transcript} 
+            />
+
+            <SpeechStatusBar 
+              isListening={isListening} 
+              wordCount={wordCount}
+              showWordCount={wordCount > 0}
+            />
+
+            {/* Follow-up suggestion */}
+            {showFollowUp && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <p className="text-center text-sm text-muted-foreground">
+                  Want to add more?
+                </p>
+                <div className="flex justify-center gap-2">
+                  {starterSet.followUps.map((followUp, i) => (
+                    <Button
+                      key={i}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFollowUp(followUp)}
+                      className="gap-1 min-h-[40px]"
+                    >
+                      <Plus className="w-3 h-3" />
+                      {followUp}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Done button - show after any speech */}
             {wordCount >= 1 && (
-              <Button 
-                variant="secondary" 
-                onClick={handleDone}
-                size="sm"
-                className="gap-2"
-              >
-                <Check className="w-4 h-4" />
-                Done
-              </Button>
+              <div className="flex justify-center">
+                <LargeTouchButton 
+                  onClick={handleDone} 
+                  variant="success"
+                  icon={<Check className="w-5 h-5" />}
+                >
+                  Done
+                </LargeTouchButton>
+              </div>
             )}
           </div>
         )}
 
+        {/* Phase: Complete */}
         {phase === 'complete' && (
-          <div className="text-center py-2">
-            <div className="flex items-center justify-center gap-2 text-primary">
-              <Check className="w-5 h-5" />
-              <span className="font-medium">Nice start!</span>
-            </div>
-          </div>
+          <SuccessAnimation 
+            message="Nice start!"
+            subMessage={wordCount >= 5 ? "Great continuation!" : undefined}
+          />
         )}
       </CardContent>
-    </Card>
+    </CardContainer>
   );
 }

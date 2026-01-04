@@ -1,35 +1,64 @@
 /**
- * YesNoCard - Simplest interaction for the Coach
+ * YesNoCard - Enhanced yes/no question interaction
  * 
- * Shows a yes/no question. User can tap buttons or speak.
- * Receives transcript from parent (centralized mic control).
+ * Features:
+ * - Auto-speak question on mount
+ * - Large, accessible buttons (60px tall)
+ * - Voice confirmation before completing
+ * - Skip option for sensitive questions
+ * - Replay button to hear again
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Volume2, SkipForward, RotateCcw } from 'lucide-react';
 import { getRandomYesNoQuestion } from '@/data/yesNoBank';
+import { 
+  CardContainer, 
+  SpeechStatusBar, 
+  SuccessAnimation,
+  SkipButton,
+  AudioButton
+} from './CardComponents';
+import { usePhraseAudio } from '@/hooks/usePhraseAudio';
+import { cn } from '@/lib/utils';
 
 interface YesNoCardProps {
   difficulty?: 'easy' | 'medium';
   transcript: string;
   isListening: boolean;
-  onComplete: (result: { answered: boolean; response: 'yes' | 'no' | 'other'; latencyMs: number }) => void;
+  onComplete: (result: { answered: boolean; response: 'yes' | 'no' | 'skip' | 'other'; latencyMs: number }) => void;
 }
 
 export function YesNoCard({ transcript, isListening, onComplete }: YesNoCardProps) {
   const [question] = useState(() => getRandomYesNoQuestion());
-  const [hasAnswered, setHasAnswered] = useState(false);
+  const [phase, setPhase] = useState<'listening' | 'confirming' | 'complete'>('listening');
   const [detectedResponse, setDetectedResponse] = useState<'yes' | 'no' | 'other' | null>(null);
+  
+  const { playPhrase, isPlaying, isLoading: audioLoading } = usePhraseAudio();
+  
   const startTimeRef = useRef<number>(Date.now());
   const hasCompletedRef = useRef(false);
-  
+  const hasPlayedAudioRef = useRef(false);
+
+  // Auto-speak question on mount
+  useEffect(() => {
+    if (!hasPlayedAudioRef.current) {
+      hasPlayedAudioRef.current = true;
+      // Small delay to let card render first
+      const timer = setTimeout(() => {
+        playPhrase(question.question, { playbackSpeed: 0.85 });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [question.question, playPhrase]);
+
   // Analyze transcript for yes/no
   const analyzeResponse = useCallback((text: string): 'yes' | 'no' | 'other' => {
     const lower = text.toLowerCase().trim();
-    const yesWords = ['yes', 'yeah', 'yep', 'yup', 'sure', 'uh-huh', 'mhm', 'correct', 'right'];
-    const noWords = ['no', 'nope', 'nah', 'not', 'never', 'uh-uh'];
+    const yesWords = ['yes', 'yeah', 'yep', 'yup', 'sure', 'uh-huh', 'mhm', 'correct', 'right', 'okay', 'ok', 'definitely', 'absolutely'];
+    const noWords = ['no', 'nope', 'nah', 'not', 'never', 'uh-uh', 'don\'t', 'doesn\'t', 'didn\'t'];
     
     for (const word of yesWords) {
       if (lower.includes(word)) return 'yes';
@@ -38,109 +67,194 @@ export function YesNoCard({ transcript, isListening, onComplete }: YesNoCardProp
       if (lower.includes(word)) return 'no';
     }
     
-    // Any speech counts as "other"
     return text.length > 0 ? 'other' : 'other';
   }, []);
+
+  const completeWithResponse = useCallback((response: 'yes' | 'no' | 'skip' | 'other') => {
+    if (hasCompletedRef.current) return;
+    hasCompletedRef.current = true;
+    
+    setDetectedResponse(response === 'skip' ? null : (response as 'yes' | 'no' | 'other'));
+    setPhase('complete');
+    
+    const latencyMs = Date.now() - startTimeRef.current;
+    
+    setTimeout(() => {
+      onComplete({
+        answered: response !== 'skip',
+        response,
+        latencyMs,
+      });
+    }, 600);
+  }, [onComplete]);
 
   // Watch transcript for response
   useEffect(() => {
     if (hasCompletedRef.current || !transcript.trim()) return;
 
     const response = analyzeResponse(transcript);
-    // Complete if we detect yes/no OR if they've said enough words
-    if (response !== 'other' || transcript.split(/\s+/).length >= 3) {
-      hasCompletedRef.current = true;
+    
+    // If clear yes/no, show confirmation briefly then complete
+    if (response !== 'other') {
       setDetectedResponse(response);
-      setHasAnswered(true);
+      setPhase('confirming');
       
-      const latencyMs = Date.now() - startTimeRef.current;
+      // Auto-confirm after showing what we heard
+      const timer = setTimeout(() => {
+        if (!hasCompletedRef.current) {
+          completeWithResponse(response);
+        }
+      }, 1000);
       
-      setTimeout(() => {
-        onComplete({
-          answered: true,
-          response,
-          latencyMs,
-        });
-      }, 800);
+      return () => clearTimeout(timer);
     }
-  }, [transcript, analyzeResponse, onComplete]);
+    
+    // If they've said several words without clear yes/no, let them finish
+    if (transcript.split(/\s+/).length >= 4) {
+      setPhase('confirming');
+      setDetectedResponse('other');
+    }
+  }, [transcript, analyzeResponse, completeWithResponse]);
 
-  // Manual button responses as fallback
+  // Manual button responses
   const handleManualResponse = (response: 'yes' | 'no') => {
     if (hasCompletedRef.current) return;
-    
-    hasCompletedRef.current = true;
-    setDetectedResponse(response);
-    setHasAnswered(true);
-    
-    const latencyMs = Date.now() - startTimeRef.current;
-    
-    setTimeout(() => {
-      onComplete({
-        answered: true,
-        response,
-        latencyMs,
-      });
-    }, 500);
+    completeWithResponse(response);
+  };
+
+  // Skip handler
+  const handleSkip = () => {
+    if (hasCompletedRef.current) return;
+    completeWithResponse('skip');
+  };
+
+  // Replay audio
+  const handleReplay = () => {
+    playPhrase(question.question, { playbackSpeed: 0.85 });
+  };
+
+  // Confirm current response
+  const handleConfirm = () => {
+    if (detectedResponse) {
+      completeWithResponse(detectedResponse);
+    }
   };
 
   return (
-    <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-accent/10">
-      <CardContent className="p-6 space-y-4">
-        {/* Question */}
-        <div className="text-center">
-          <p className="text-xl font-medium text-foreground">{question.question}</p>
-          <p className="text-sm text-muted-foreground mt-1">Say yes or no, or tap below</p>
+    <CardContainer>
+      <CardContent className="p-5 space-y-5">
+        {/* Question with audio indicator */}
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <AudioButton
+              onPlay={handleReplay}
+              isPlaying={isPlaying}
+              isLoading={audioLoading}
+              label=""
+              size="sm"
+              variant="ghost"
+            />
+            <p className="text-xl font-medium text-foreground flex-1 pt-1">
+              {question.question}
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Say yes or no, or tap below
+          </p>
         </div>
 
-        {/* Success state */}
-        {hasAnswered && detectedResponse && (
-          <div className="flex items-center justify-center gap-2 py-4 animate-in fade-in zoom-in-95 duration-300">
-            <Check className="w-6 h-6 text-green-500" />
-            <span className="text-lg font-medium text-green-600 dark:text-green-400">
-              Got it!
-            </span>
+        {/* Phase: Listening - Show buttons */}
+        {phase === 'listening' && (
+          <div className="space-y-4">
+            {/* Live transcript */}
+            {transcript && (
+              <div className="text-center">
+                <p className="text-lg font-medium text-foreground bg-muted/50 rounded-lg px-4 py-2 inline-block">
+                  {transcript}
+                </p>
+              </div>
+            )}
+            
+            {/* Large YES/NO buttons */}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => handleManualResponse('yes')}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-2",
+                  "min-h-[72px] rounded-xl font-semibold text-lg",
+                  "bg-green-500/10 hover:bg-green-500/20 border-2 border-green-500/30",
+                  "text-green-700 dark:text-green-400",
+                  "transition-all active:scale-95"
+                )}
+              >
+                <ThumbsUp className="w-6 h-6" />
+                <span>Yes</span>
+              </button>
+              <button
+                onClick={() => handleManualResponse('no')}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-2",
+                  "min-h-[72px] rounded-xl font-semibold text-lg",
+                  "bg-muted/50 hover:bg-muted border-2 border-border",
+                  "text-foreground",
+                  "transition-all active:scale-95"
+                )}
+              >
+                <ThumbsDown className="w-6 h-6" />
+                <span>No</span>
+              </button>
+            </div>
+
+            {/* Status bar */}
+            <SpeechStatusBar 
+              isListening={isListening} 
+              wordCount={transcript.split(/\s+/).filter(Boolean).length}
+              showWordCount={false}
+            />
+
+            {/* Skip option */}
+            <div className="flex justify-center">
+              <SkipButton onSkip={handleSkip} label="Skip this question" />
+            </div>
           </div>
         )}
 
-        {/* Buttons (always visible as fallback) */}
-        {!hasAnswered && (
-          <div className="flex flex-col items-center gap-4">
-            {/* Show live transcript */}
-            {transcript && (
-              <p className="text-center text-foreground text-sm min-h-[20px]">
-                {transcript}
-              </p>
-            )}
-            <div className="flex gap-4">
-              <Button
-                variant="outline"
-                size="lg"
-                className="flex items-center gap-2 min-w-[100px]"
-                onClick={() => handleManualResponse('yes')}
-              >
-                <ThumbsUp className="w-4 h-4" />
-                Yes
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="flex items-center gap-2 min-w-[100px]"
-                onClick={() => handleManualResponse('no')}
-              >
-                <ThumbsDown className="w-4 h-4" />
-                No
-              </Button>
+        {/* Phase: Confirming - Show what we heard */}
+        {phase === 'confirming' && detectedResponse && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="text-center py-4">
+              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full">
+                {detectedResponse === 'yes' && <ThumbsUp className="w-5 h-5" />}
+                {detectedResponse === 'no' && <ThumbsDown className="w-5 h-5" />}
+                <span className="font-medium capitalize">
+                  Heard: {detectedResponse === 'other' ? `"${transcript}"` : detectedResponse}
+                </span>
+              </div>
             </div>
-            {isListening && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Listening...</span>
+            
+            {/* If unclear, show confirm/retry buttons */}
+            {detectedResponse === 'other' && (
+              <div className="flex justify-center gap-3">
+                <Button variant="outline" onClick={handleReplay} className="gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  Try again
+                </Button>
+                <Button onClick={handleConfirm} className="gap-2">
+                  Continue
+                </Button>
               </div>
             )}
           </div>
         )}
+
+        {/* Phase: Complete */}
+        {phase === 'complete' && (
+          <SuccessAnimation 
+            message="Got it!"
+            subMessage={detectedResponse ? `You said ${detectedResponse}` : 'Skipped'}
+          />
+        )}
       </CardContent>
-    </Card>
+    </CardContainer>
   );
 }
