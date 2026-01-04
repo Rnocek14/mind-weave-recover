@@ -244,9 +244,15 @@ export const useSpeechRecognition = (
     };
   }, [isSupported, optContinuous, patientMode]);
 
+  // Store enabled in a ref so startListening always has the current value
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
   const startListening = useCallback(() => {
     // Gate on enabled prop - if disabled, don't try to start
-    if (!enabled) {
+    if (!enabledRef.current) {
       console.log('🎤 startListening blocked - recognition disabled (permission not granted)');
       return;
     }
@@ -288,7 +294,7 @@ export const useSpeechRecognition = (
       stateRef.current = 'IDLE';
       setError('Failed to start speech recognition');
     }
-  }, [enabled]);
+  }, []);
 
   const stopListening = useCallback(() => {
     // Only stop if actually listening or starting

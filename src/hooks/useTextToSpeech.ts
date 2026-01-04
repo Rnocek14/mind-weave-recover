@@ -1,6 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Get Supabase URL from the client
+const SUPABASE_URL = 'https://wjedbpjaiqdxhmjzkcxo.supabase.co';
+
 interface TTSOptions {
   voiceId?: string;
   autoPlay?: boolean;
@@ -35,13 +38,13 @@ export const useTextToSpeech = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech-stream`,
+        `${SUPABASE_URL}/functions/v1/text-to-speech-stream`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA',
           },
           body: JSON.stringify({ text, voiceId }),
           signal: abortControllerRef.current.signal,
