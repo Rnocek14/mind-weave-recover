@@ -68,18 +68,20 @@ export function ConversationCoachGame({
     maxTurns: 5,
   });
 
-  const { isListening, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
-    onResult: (transcript) => {
-      if (!firstWordTimeRef.current && transcript.trim().length > 0) {
-        firstWordTimeRef.current = Date.now();
-      }
-      setUserTranscript(transcript);
-      speechEndDetection.onTranscriptUpdate(transcript, false);
-    },
-    patientMode: true,
-    continuousListening: false,
-    enabled: micPermission === 'granted', // Only enable when permission is granted
-  });
+  // Request microphone permission (only call on user gesture)
+  const requestMicPermission = useCallback(async () => {
+    setMicPermission('checking');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop()); // Release immediately
+      setMicPermission('granted');
+      return true;
+    } catch (err) {
+      console.error('Mic permission denied:', err);
+      setMicPermission('denied');
+      return false;
+    }
+  }, []);
 
   // Check mic permission status on mount and listen for changes
   useEffect(() => {
@@ -126,25 +128,59 @@ export function ConversationCoachGame({
     };
   }, []);
 
-  // Request microphone permission (only call on user gesture)
-  const requestMicPermission = useCallback(async () => {
-    setMicPermission('checking');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Release immediately
-      setMicPermission('granted');
-      return true;
-    } catch (err) {
-      console.error('Mic permission denied:', err);
-      setMicPermission('denied');
-      return false;
+  // Process turn and speak AI response - defined early so it can be referenced
+  const processTurnAndRespondRef = useRef<(transcript: string) => Promise<void>>();
+  const startConversationTurnRef = useRef<() => void>();
+  
+  // Smart speech end detection - must be declared before useSpeechRecognition
+  const speechEndDetection = useSpeechEndDetection({
+    onSpeechEnd: (transcript) => {
+      console.log('🎯 Speech end detected:', transcript.slice(0, 50));
+      processTurnAndRespondRef.current?.(transcript);
+    },
+    incompletesilenceMs: 3500,
+    completesilenceMs: 2000,
+    enabled: conversationState === 'listening',
+  });
+
+  // Speech recognition - uses speechEndDetection
+  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
+    onResult: (transcript) => {
+      // This is called with the FINAL transcript from speech recognition
+      console.log('🎤 Received final transcript:', transcript);
+      if (!firstWordTimeRef.current && transcript.trim().length > 0) {
+        firstWordTimeRef.current = Date.now();
+      }
+      setUserTranscript(transcript);
+      // Signal as final transcript - this will trigger processing
+      speechEndDetection.onTranscriptUpdate(transcript, true);
+    },
+    patientMode: true,
+    continuousListening: false,
+    enabled: micPermission === 'granted',
+  });
+  
+  // Track interim (live) transcript for UI updates
+  useEffect(() => {
+    if (liveTranscript && conversationState === 'listening') {
+      setUserTranscript(liveTranscript);
+      
+      if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
+        firstWordTimeRef.current = Date.now();
+      }
+      
+      // Update speech end detection with interim result
+      speechEndDetection.onTranscriptUpdate(liveTranscript, false);
     }
-  }, []);
+  }, [liveTranscript, conversationState, speechEndDetection]);
 
   // Process turn and speak AI response
   const processTurnAndRespond = useCallback(async (transcript: string) => {
     if (isProcessingRef.current || !transcript.trim()) return;
     isProcessingRef.current = true;
+    
+    // Stop listening first
+    stopListening();
     setConversationState('processing');
 
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
@@ -168,7 +204,7 @@ export function ConversationCoachGame({
       if (!isComplete) {
         setTimeout(() => {
           setConversationState('listening');
-          startConversationTurn();
+          startConversationTurnRef.current?.();
         }, 400);
       } else {
         setConversationState('idle');
@@ -179,19 +215,12 @@ export function ConversationCoachGame({
 
     setUserTranscript('');
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, currentPhase, isComplete]);
+  }, [processUserTurn, speak, clearPendingAI, currentPhase, isComplete, stopListening]);
 
-  // Smart speech end detection
-  const speechEndDetection = useSpeechEndDetection({
-    onSpeechEnd: (transcript) => {
-      console.log('🎯 Speech end detected:', transcript.slice(0, 50));
-      stopListening();
-      processTurnAndRespond(transcript);
-    },
-    incompletesilenceMs: 3500,
-    completesilenceMs: 2000,
-    enabled: conversationState === 'listening',
-  });
+  // Keep the refs updated
+  useEffect(() => {
+    processTurnAndRespondRef.current = processTurnAndRespond;
+  }, [processTurnAndRespond]);
 
   const startConversationTurn = useCallback(() => {
     setUserTranscript('');
@@ -202,6 +231,11 @@ export function ConversationCoachGame({
     setConversationState('listening');
     startListening();
   }, [speechEndDetection, startListening]);
+  
+  // Keep startConversationTurn ref updated
+  useEffect(() => {
+    startConversationTurnRef.current = startConversationTurn;
+  }, [startConversationTurn]);
 
   // Start conversation (requests permission first)
   const handleStart = async () => {
