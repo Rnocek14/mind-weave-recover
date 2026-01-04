@@ -3,9 +3,10 @@
  * 
  * Handles conversation flow, orchestrator decisions, card insertions,
  * metrics tracking, and integrates with:
- * - Real-time speech analysis
+ * - Real-time speech analysis with pronunciation
  * - User speech profiles
  * - Engagement monitoring
+ * - Contextual cue generation
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -23,9 +24,8 @@ import {
 import { 
   getFollowupLine, 
   getRandomOpener,
-  FollowupType,
 } from '@/lib/conversationFollowups';
-import { classifyStuckType, StuckType } from '@/lib/stuckTypeClassifier';
+import { classifyStuckType } from '@/lib/stuckTypeClassifier';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
 import { EngagementMonitor, EngagementState as MonitorEngagementState } from '@/lib/engagementMonitor';
@@ -62,6 +62,12 @@ interface UseCoachSessionProps {
     primaryChallenge?: string;
     bestCueType?: string;
     typicalPace?: string;
+    // Enhanced profile data
+    errorTypeDistribution?: Record<string, number>;
+    phonemeDifficultyMap?: Record<string, unknown>;
+    avgStallDurationMs?: number | null;
+    effortfulSpeechRate?: number | null;
+    commonSubstitutions?: Record<string, string> | unknown;
   } | null;
 }
 
@@ -75,7 +81,7 @@ interface UseCoachSessionReturn {
   hasPendingCard: boolean;
   engagementState: MonitorEngagementState | null;
   startSession: () => string;
-  processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null) => Promise<string | null>;
+  processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
   handleCardComplete: (messageId: string, result: unknown) => string;
   clearPendingAI: () => void;
@@ -139,7 +145,8 @@ export function useCoachSession({
   const processUserTurn = useCallback(async (
     transcript: string, 
     latencyMs: number | null,
-    totalDurationMs?: number | null
+    totalDurationMs?: number | null,
+    audioBlob?: Blob
   ): Promise<string | null> => {
     setIsProcessing(true);
     
@@ -152,11 +159,12 @@ export function useCoachSession({
       latenciesRef.current.push(latencyMs);
     }
 
-    // Analyze the utterance with speech analysis
+    // Analyze the utterance with speech analysis (now with audio blob for pronunciation)
     const analysis = await speechAnalysis.analyzeUtterance(
       transcript,
       latencyMs,
-      totalDurationMs ?? null
+      totalDurationMs ?? null,
+      audioBlob
     );
     analysisHistoryRef.current.push(analysis);
 
@@ -246,6 +254,19 @@ export function useCoachSession({
 
         // Get session metrics for AI context
         const sessionMetrics = speechAnalysis.getSessionMetrics();
+        
+        // Determine if user needs a cue (effortful + low words)
+        let suggestedCue: { cueType: 'semantic' | 'phonemic' | 'encouragement'; cueText: string } | undefined;
+        if (analysis.effortfulSpeech && analysis.wordCount < 4) {
+          // Generate contextual cue based on user's profile
+          const cueType = userSpeechProfile?.bestCueType === 'phonemic' ? 'phonemic' : 'semantic';
+          suggestedCue = {
+            cueType,
+            cueText: cueType === 'semantic' 
+              ? 'Maybe something about your day or something you like?'
+              : 'Take a moment, start with any word that comes to mind.'
+          };
+        }
 
         // Call the new speech-aware AI function
         const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
@@ -255,7 +276,7 @@ export function useCoachSession({
             maxTurns,
             conversationHistory,
             cardContext,
-            // New: speech analysis data
+            // Full speech analysis data including pronunciation
             speechAnalysis: {
               effortfulSpeech: analysis.effortfulSpeech,
               pausePattern: analysis.pausePattern,
@@ -264,19 +285,27 @@ export function useCoachSession({
               wordCount: analysis.wordCount,
               completionConfidence: analysis.completionConfidence,
               speechContext: speechAnalysis.buildAISpeechContext(analysis),
+              // Pronunciation data
+              pronunciationScore: analysis.pronunciationScore,
+              challengingSounds: analysis.challengingSounds,
+              microFluencyNotes: analysis.microFluency?.notes || [],
             },
-            // User profile for personalization
+            // Enhanced user profile for personalization
             userProfile: userSpeechProfile ? {
               primaryChallenge: userSpeechProfile.primaryChallenge,
               bestCueType: userSpeechProfile.bestCueType,
               typicalPace: userSpeechProfile.typicalPace,
+              predominantErrorPattern: getPredominantErrorPattern(userSpeechProfile.errorTypeDistribution),
+              effortfulSpeechRate: userSpeechProfile.effortfulSpeechRate,
             } : undefined,
-            // Session metrics
+            // Session metrics with pronunciation data
             sessionMetrics: sessionMetrics ? {
               turnsCompleted: sessionMetrics.totalUtterances,
               avgFluency: sessionMetrics.avgFluency,
               fluencyTrend: sessionMetrics.fluencyTrend,
               effortfulCount: sessionMetrics.effortfulCount,
+              avgPronunciationScore: sessionMetrics.avgPronunciationScore,
+              challengingSounds: sessionMetrics.challengingSounds,
             } : undefined,
             // Engagement state
             engagementState: currentEngagement ? {
@@ -284,6 +313,8 @@ export function useCoachSession({
               fatigue: currentEngagement.fatigue,
               recommendedAction: currentEngagement.recommendedAction,
             } : undefined,
+            // Suggested cue if user is struggling
+            suggestedCue,
           }
         });
 
@@ -477,4 +508,17 @@ function generateId(): string {
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Derive predominant error pattern from distribution
+function getPredominantErrorPattern(distribution?: Record<string, number>): string | undefined {
+  if (!distribution) return undefined;
+  
+  const semantic = (distribution.semantic_paraphasia || 0) + (distribution.circumlocution || 0);
+  const phonemic = (distribution.phonemic_paraphasia || 0) + (distribution.neologism || 0);
+  
+  if (semantic === 0 && phonemic === 0) return undefined;
+  if (semantic > phonemic * 1.5) return 'semantic';
+  if (phonemic > semantic * 1.5) return 'phonemic';
+  return 'mixed';
 }

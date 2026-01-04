@@ -3,6 +3,7 @@
  * 
  * Shows meaningful progress data:
  * - Fluency metrics and trends
+ * - Pronunciation highlights and challenges
  * - Session highlights
  * - Areas for practice
  * - Recommendations
@@ -19,6 +20,9 @@ import {
   Target,
   Sparkles,
   ArrowRight,
+  Volume2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -32,6 +36,10 @@ interface SessionMetrics {
   fluencyTrend?: 'improving' | 'stable' | 'declining';
   effortfulCount?: number;
   circumlocutionCount?: number;
+  // Enhanced pronunciation metrics
+  avgPronunciationScore?: number;
+  challengingSounds?: string[];
+  bestUtterances?: string[];
 }
 
 interface CoachSessionSummaryProps {
@@ -55,6 +63,9 @@ export function CoachSessionSummary({
   
   // Generate recommendations
   const recommendations = generateRecommendations(metrics);
+  
+  // Generate pronunciation highlights
+  const pronunciationHighlights = generatePronunciationHighlights(metrics);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -98,14 +109,44 @@ export function CoachSessionSummary({
           value={formatLatency(metrics.avgLatencyMs)}
           icon={<MessageCircle className="w-5 h-5" />}
         />
-        <MetricCard
-          label="Activities"
-          value={metrics.cardsCompleted.toString()}
-          icon={<Target className="w-5 h-5" />}
-        />
+        {metrics.avgPronunciationScore !== undefined ? (
+          <MetricCard
+            label="Pronunciation"
+            value={`${metrics.avgPronunciationScore}%`}
+            icon={<Volume2 className="w-5 h-5" />}
+          />
+        ) : (
+          <MetricCard
+            label="Activities"
+            value={metrics.cardsCompleted.toString()}
+            icon={<Target className="w-5 h-5" />}
+          />
+        )}
       </div>
 
-      {/* Insights */}
+      {/* Pronunciation highlights */}
+      {pronunciationHighlights.length > 0 && (
+        <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-2xl p-4 space-y-3">
+          <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+            <Volume2 className="w-4 h-4" />
+            Pronunciation Insights
+          </h4>
+          <div className="space-y-2">
+            {pronunciationHighlights.map((highlight, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                {highlight.type === 'success' ? (
+                  <CheckCircle className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                )}
+                <span>{highlight.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Session insights */}
       {insights.length > 0 && (
         <div className="bg-muted/50 rounded-2xl p-4 space-y-3">
           <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
@@ -119,6 +160,23 @@ export function CoachSessionSummary({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Best utterances showcase */}
+      {metrics.bestUtterances && metrics.bestUtterances.length > 0 && (
+        <div className="bg-success/10 border border-success/20 rounded-2xl p-4 space-y-3">
+          <h4 className="font-medium text-sm text-success uppercase tracking-wide flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            Great Moments
+          </h4>
+          <div className="space-y-2">
+            {metrics.bestUtterances.slice(0, 2).map((utterance, i) => (
+              <p key={i} className="text-sm italic text-foreground/80 border-l-2 border-success/50 pl-3">
+                "{utterance.length > 60 ? utterance.slice(0, 60) + '...' : utterance}"
+              </p>
+            ))}
+          </div>
         </div>
       )}
 
@@ -199,15 +257,62 @@ function MetricCard({
 function getSessionQuality(metrics: SessionMetrics): 'excellent' | 'good' | 'fair' {
   const fluency = metrics.avgFluency ?? 70;
   const wordRatio = metrics.totalUserWords / Math.max(1, metrics.turnsCompleted);
+  const pronunciation = metrics.avgPronunciationScore ?? 70;
   
-  if (fluency >= 75 && wordRatio >= 8) return 'excellent';
-  if (fluency >= 50 || wordRatio >= 5) return 'good';
+  // Combined score considering fluency, words per turn, and pronunciation
+  const combined = (fluency * 0.4) + (Math.min(wordRatio * 5, 30)) + (pronunciation * 0.3);
+  
+  if (combined >= 65 && wordRatio >= 6) return 'excellent';
+  if (combined >= 45 || wordRatio >= 4) return 'good';
   return 'fair';
 }
 
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+interface PronunciationHighlight {
+  type: 'success' | 'challenge';
+  text: string;
+}
+
+function generatePronunciationHighlights(metrics: SessionMetrics): PronunciationHighlight[] {
+  const highlights: PronunciationHighlight[] = [];
+  
+  // Pronunciation score highlights
+  if (metrics.avgPronunciationScore !== undefined) {
+    if (metrics.avgPronunciationScore >= 80) {
+      highlights.push({
+        type: 'success',
+        text: 'Clear pronunciation throughout the session'
+      });
+    } else if (metrics.avgPronunciationScore >= 60) {
+      highlights.push({
+        type: 'success',
+        text: 'Good pronunciation with some areas to practice'
+      });
+    }
+  }
+  
+  // Challenging sounds
+  if (metrics.challengingSounds && metrics.challengingSounds.length > 0) {
+    const soundsStr = metrics.challengingSounds.slice(0, 3).map(s => `/${s}/`).join(', ');
+    highlights.push({
+      type: 'challenge',
+      text: `Sounds to practice: ${soundsStr}`
+    });
+  }
+  
+  // Fluency trend as pronunciation indicator
+  if (metrics.fluencyTrend === 'improving') {
+    highlights.push({
+      type: 'success',
+      text: 'Speech became smoother as the conversation progressed'
+    });
+  }
+  
+  return highlights.slice(0, 3);
 }
 
 function generateInsights(metrics: SessionMetrics): string[] {
@@ -253,6 +358,15 @@ interface Recommendation {
 function generateRecommendations(metrics: SessionMetrics): Recommendation[] {
   const recommendations: Recommendation[] = [];
   
+  // Based on challenging sounds
+  if (metrics.challengingSounds && metrics.challengingSounds.length > 0) {
+    recommendations.push({
+      slug: 'minimal-pairs',
+      title: 'Minimal Pairs Practice',
+      reason: `Focus on ${metrics.challengingSounds.slice(0, 2).map(s => `/${s}/`).join(' and ')} sounds`,
+    });
+  }
+  
   // Based on circumlocution
   if (metrics.circumlocutionCount && metrics.circumlocutionCount >= 2) {
     recommendations.push({
@@ -278,6 +392,15 @@ function generateRecommendations(metrics: SessionMetrics): Recommendation[] {
       slug: 'thought-continuation',
       title: 'Thought Continuation',
       reason: 'Practice expressing longer thoughts',
+    });
+  }
+  
+  // Based on pronunciation
+  if (metrics.avgPronunciationScore !== undefined && metrics.avgPronunciationScore < 60) {
+    recommendations.push({
+      slug: 'phonological',
+      title: 'Sound Practice',
+      reason: 'Focus on clear pronunciation',
     });
   }
   

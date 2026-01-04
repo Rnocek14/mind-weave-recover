@@ -17,6 +17,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
 import { useSpeechEndDetection } from '@/hooks/useSpeechEndDetection';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
 import { cn } from '@/lib/utils';
@@ -57,20 +58,34 @@ export function ConversationCoachGame({
   const isProcessingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
+  const lastAudioBlobRef = useRef<Blob | null>(null);
 
   // Fetch user speech profile for personalization
   const { profile: speechProfile } = useUserSpeechProfile(userId, { profileId });
   
-  // Map speech profile to session props
+  // Audio recorder for capturing audio blobs
+  const { 
+    isRecording, 
+    startRecording, 
+    stopRecording: stopAudioRecording,
+  } = useAudioRecorder();
+  
+  // Map speech profile to session props - include full profile data for AI
   const userSpeechProfileForSession = speechProfile ? {
     primaryChallenge: speechProfile.most_challenging_categories?.[0]?.category,
     bestCueType: speechProfile.cue_efficacy_by_type 
-      ? Object.entries(speechProfile.cue_efficacy_by_type)
+      ? Object.entries(speechProfile.cue_efficacy_by_type as Record<string, { successRate?: number }>)
           .sort(([,a], [,b]) => (b?.successRate ?? 0) - (a?.successRate ?? 0))[0]?.[0]
       : undefined,
     typicalPace: speechProfile.baseline_wpm 
       ? (speechProfile.baseline_wpm < 60 ? 'slow' : speechProfile.baseline_wpm < 100 ? 'moderate' : 'normal')
       : undefined,
+    // Enhanced profile data for better AI context
+    errorTypeDistribution: speechProfile.error_type_distribution,
+    phonemeDifficultyMap: speechProfile.phoneme_difficulty_map,
+    avgStallDurationMs: speechProfile.avg_stall_duration_ms,
+    effortfulSpeechRate: speechProfile.effortful_speech_rate,
+    commonSubstitutions: speechProfile.common_substitutions,
   } : null;
 
   const { speak, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
@@ -205,10 +220,16 @@ export function ConversationCoachGame({
 
   // Process turn and speak AI response
   const processTurnAndRespond = useCallback(async (transcript: string) => {
-    if (isProcessingRef.current || !transcript.trim()) return;
+    if (isProcessingRef.current) return;
     isProcessingRef.current = true;
     
     stopListening();
+    
+    // Stop audio recording and capture the blob
+    const recordingResult = await stopAudioRecording();
+    const audioBlob = recordingResult?.audioBlob || lastAudioBlobRef.current;
+    lastAudioBlobRef.current = null;
+    
     setConversationState('processing');
 
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
@@ -220,7 +241,8 @@ export function ConversationCoachGame({
       ? Date.now() - turnStartTimeRef.current 
       : null;
 
-    const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs);
+    // Pass audio blob for pronunciation analysis
+    const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
     
     if (aiResponse) {
       setConversationState('ai_speaking');
@@ -252,13 +274,13 @@ export function ConversationCoachGame({
 
     setUserTranscript('');
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
   }, [processTurnAndRespond]);
 
-  const startConversationTurn = useCallback(() => {
+  const startConversationTurn = useCallback(async () => {
     console.log('[Coach] Starting conversation turn');
     setUserTranscript('');
     firstWordTimeRef.current = null;
@@ -267,6 +289,11 @@ export function ConversationCoachGame({
     isProcessingRef.current = false;
     setSilenceSeconds(0);
     setShowSkipPrompt(false);
+    lastAudioBlobRef.current = null;
+    
+    // Start audio recording for pronunciation analysis
+    await startRecording();
+    
     speechEndDetection.onStart();
     setConversationState('listening');
     startListening();
@@ -283,7 +310,7 @@ export function ConversationCoachGame({
         return newVal;
       });
     }, 1000);
-  }, [speechEndDetection, startListening]);
+  }, [speechEndDetection, startListening, startRecording]);
   
   useEffect(() => {
     return () => {
