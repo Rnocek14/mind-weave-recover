@@ -78,27 +78,52 @@ export function ConversationCoachGame({
     },
     patientMode: true,
     continuousListening: false,
+    enabled: micPermission === 'granted', // Only enable when permission is granted
   });
 
-  // Check mic permission status on mount
+  // Check mic permission status on mount and listen for changes
   useEffect(() => {
+    let permissionStatus: PermissionStatus | null = null;
+    
+    const handlePermissionChange = () => {
+      if (permissionStatus) {
+        if (permissionStatus.state === 'granted') {
+          setMicPermission('granted');
+        } else if (permissionStatus.state === 'denied') {
+          setMicPermission('denied');
+        } else {
+          setMicPermission('pending');
+        }
+      }
+    };
+    
     const checkPermission = async () => {
       try {
-        // Try Permissions API first (doesn't prompt user)
         if (navigator.permissions) {
-          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          if (result.state === 'granted') {
+          permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          
+          // Set initial state
+          if (permissionStatus.state === 'granted') {
             setMicPermission('granted');
-          } else if (result.state === 'denied') {
+          } else if (permissionStatus.state === 'denied') {
             setMicPermission('denied');
           }
-          // If 'prompt', leave as 'pending' - will request on user action
+          // 'prompt' stays as 'pending'
+          
+          // Listen for permission changes (e.g., user changes in browser settings)
+          permissionStatus.addEventListener('change', handlePermissionChange);
         }
       } catch {
         // Permissions API not supported, leave as pending
       }
     };
     checkPermission();
+    
+    return () => {
+      if (permissionStatus) {
+        permissionStatus.removeEventListener('change', handlePermissionChange);
+      }
+    };
   }, []);
 
   // Request microphone permission (only call on user gesture)
@@ -279,18 +304,41 @@ export function ConversationCoachGame({
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
             <MicOff className="w-10 h-10 text-destructive" />
           </div>
-          <h2 className="text-2xl font-semibold mb-3">Microphone Access Needed</h2>
-          <p className="text-muted-foreground text-lg mb-6">
-            Please enable microphone access in your browser settings, then click the button below.
+          <h2 className="text-2xl font-semibold mb-3">Microphone Blocked</h2>
+          <p className="text-muted-foreground mb-4">
+            Your browser has blocked microphone access. To fix this:
           </p>
-          <Button 
-            size="lg" 
-            onClick={handleRetryPermission}
-            className="gap-2 px-6"
-          >
-            <RefreshCw className="w-5 h-5" />
-            Try Again
-          </Button>
+          <ol className="text-left text-muted-foreground mb-6 space-y-2 text-sm bg-muted/50 p-4 rounded-xl">
+            <li className="flex gap-2">
+              <span className="font-medium text-foreground">1.</span>
+              Click the 🔒 lock icon in your browser's address bar
+            </li>
+            <li className="flex gap-2">
+              <span className="font-medium text-foreground">2.</span>
+              Find "Microphone" and change it to "Allow"
+            </li>
+            <li className="flex gap-2">
+              <span className="font-medium text-foreground">3.</span>
+              Refresh this page
+            </li>
+          </ol>
+          <div className="flex gap-3 justify-center">
+            <Button 
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Page
+            </Button>
+            <Button 
+              onClick={handleRetryPermission}
+              className="gap-2"
+            >
+              <Mic className="w-5 h-5" />
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
