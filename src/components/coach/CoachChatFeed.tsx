@@ -91,6 +91,13 @@ export function CoachChatFeed({
   
   // Extract current topic for display
   const currentTopic = extractTopic(messages);
+  
+  // Count user words in last message for celebration
+  const lastUserMessage = messages.filter(m => m.type === 'user').pop();
+  const lastUserWordCount = lastUserMessage?.type === 'user' 
+    ? lastUserMessage.text.split(/\s+/).filter(Boolean).length 
+    : 0;
+  const showMiniCelebration = lastUserWordCount >= 5;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -128,6 +135,8 @@ export function CoachChatFeed({
         );
 
       case 'user':
+        const wordCount = message.text.split(/\s+/).filter(Boolean).length;
+        const isGoodResponse = wordCount >= 5;
         return (
           <div 
             key={message.id} 
@@ -136,13 +145,25 @@ export function CoachChatFeed({
               isLast && "mb-2"
             )}
           >
-            {/* Message bubble */}
-            <div className="bg-primary text-primary-foreground rounded-3xl rounded-tr-lg px-5 py-4 max-w-[80%] shadow-soft">
-              <p className="text-lg leading-relaxed">{message.text}</p>
+            {/* Message bubble with celebration for good responses */}
+            <div className="relative">
+              <div className={cn(
+                "bg-primary text-primary-foreground rounded-3xl rounded-tr-lg px-5 py-4 max-w-[80%] shadow-soft",
+                isGoodResponse && isLast && "ring-2 ring-success/30"
+              )}>
+                <p className="text-lg leading-relaxed">{message.text}</p>
+              </div>
+              {/* Mini celebration sparkle for good responses */}
+              {isGoodResponse && isLast && (
+                <span className="absolute -top-2 -right-2 text-lg animate-bounce">✨</span>
+              )}
             </div>
             
             {/* User Avatar */}
-            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center flex-shrink-0 shadow-soft">
+            <div className={cn(
+              "w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-soft transition-colors",
+              isGoodResponse && isLast ? "bg-success" : "bg-primary"
+            )}>
               <User className="w-6 h-6 text-primary-foreground" />
             </div>
           </div>
@@ -253,12 +274,16 @@ export function CoachChatFeed({
       ref={feedRef}
       className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
     >
-      {/* Topic indicator */}
+      {/* Topic indicator with momentum */}
       {currentTopic && messages.length > 2 && (
         <div className="flex justify-center mb-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted/50 text-muted-foreground text-xs rounded-full">
-            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" />
-            Talking about: {currentTopic}
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium">
+            <span className={cn(
+              "w-2 h-2 rounded-full",
+              showMiniCelebration ? "bg-success animate-pulse" : "bg-primary/60"
+            )} />
+            💬 {currentTopic}
+            {showMiniCelebration && <span className="ml-1">🔥</span>}
           </span>
         </div>
       )}
