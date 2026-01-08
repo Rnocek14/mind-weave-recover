@@ -34,6 +34,38 @@ interface CoachChatFeedProps {
   isCardListening?: boolean;
   /** Whether AI is currently speaking (shows indicator) */
   isAISpeaking?: boolean;
+  /** Current live transcript being captured (for "Heard" display) */
+  liveTranscript?: string;
+  /** Whether currently listening to user speech */
+  isListening?: boolean;
+}
+
+// Helper to extract conversation topic from messages
+function extractTopic(messages: FeedMessage[]): string | null {
+  // Look at last 4 messages for topic keywords
+  const recentMessages = messages.slice(-4);
+  const allText = recentMessages
+    .filter(m => m.type === 'user' || m.type === 'ai')
+    .map(m => (m.type === 'user' || m.type === 'ai') ? m.text : '')
+    .join(' ')
+    .toLowerCase();
+  
+  // Topic detection based on keywords
+  const topics: Record<string, string[]> = {
+    'food': ['breakfast', 'lunch', 'dinner', 'eat', 'ate', 'food', 'toast', 'coffee', 'meal', 'cooking'],
+    'family': ['daughter', 'son', 'wife', 'husband', 'family', 'mom', 'dad', 'kids', 'children', 'grandkids'],
+    'morning': ['morning', 'woke', 'wake', 'today'],
+    'yesterday': ['yesterday'],
+    'activities': ['went', 'going', 'store', 'walk', 'shopping', 'outside', 'trip'],
+  };
+  
+  for (const [topic, keywords] of Object.entries(topics)) {
+    if (keywords.some(kw => allText.includes(kw))) {
+      return topic;
+    }
+  }
+  
+  return null;
 }
 
 // Helper to extract conversation context for cards
@@ -52,8 +84,13 @@ export function CoachChatFeed({
   cardTranscript = '',
   isCardListening = false,
   isAISpeaking = false,
+  liveTranscript = '',
+  isListening = false,
 }: CoachChatFeedProps) {
   const feedRef = useRef<HTMLDivElement>(null);
+  
+  // Extract current topic for display
+  const currentTopic = extractTopic(messages);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -63,7 +100,7 @@ export function CoachChatFeed({
         behavior: 'smooth'
       });
     }
-  }, [messages, isProcessing, isAISpeaking]);
+  }, [messages, isProcessing, isAISpeaking, liveTranscript]);
 
   const renderMessage = (message: FeedMessage, index: number) => {
     const isLast = index === messages.length - 1;
@@ -216,6 +253,16 @@ export function CoachChatFeed({
       ref={feedRef}
       className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
     >
+      {/* Topic indicator */}
+      {currentTopic && messages.length > 2 && (
+        <div className="flex justify-center mb-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted/50 text-muted-foreground text-xs rounded-full">
+            <span className="w-1.5 h-1.5 bg-primary/60 rounded-full" />
+            Talking about: {currentTopic}
+          </span>
+        </div>
+      )}
+      
       {/* Welcome message if empty */}
       {messages.length === 0 && !isProcessing && !isAISpeaking && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -230,6 +277,22 @@ export function CoachChatFeed({
       )}
       
       {messages.map((msg, i) => renderMessage(msg, i))}
+      
+      {/* Live transcript "Heard" indicator while listening */}
+      {isListening && liveTranscript && liveTranscript.trim().length > 0 && (
+        <div className="flex items-start gap-4 justify-end animate-fade-in opacity-70">
+          <div className="bg-primary/20 text-primary-foreground/80 rounded-3xl rounded-tr-lg px-5 py-3 max-w-[80%] border border-primary/30">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-primary font-medium">Hearing:</span>
+              <p className="text-base leading-relaxed text-foreground/70">{liveTranscript}</p>
+              <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-primary/50 flex items-center justify-center flex-shrink-0">
+            <User className="w-6 h-6 text-primary-foreground/70" />
+          </div>
+        </div>
+      )}
       
       {/* AI Speaking indicator */}
       {isAISpeaking && (

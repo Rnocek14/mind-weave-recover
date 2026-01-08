@@ -234,12 +234,13 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
  */
 function selectFollowupForFlow(turnNumber: number): FollowupType {
   // Vary the follow-ups to keep conversation natural
-  const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more'];
+  const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more', 'what_did'];
   return flowFollowups[turnNumber % flowFollowups.length];
 }
 
 /**
  * Select follow-up type based on stuck type (when not inserting a card)
+ * CRITICAL: NEVER return pure 'acknowledge' - always continue conversation
  */
 function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): FollowupType {
   switch (stuckType) {
@@ -249,18 +250,20 @@ function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): F
       return 'clarify_small';
 
     case 'word_search_stall':
-      // Just acknowledge and let them try again
-      return turnNumber === 0 ? 'tell_more' : 'acknowledge';
+      // Don't just acknowledge - always continue!
+      // Use 'tell_more' or 'what_next' instead of 'acknowledge'
+      return turnNumber === 0 ? 'tell_more' : 'what_next';
 
     case 'thought_abandonment':
       // Help them continue
       return 'what_next';
 
     case 'strong_flow':
-      return 'tell_more';
+      return turnNumber % 2 === 0 ? 'what_next' : 'tell_more';
 
     default:
-      return 'acknowledge';
+      // NEVER default to pure acknowledge - always invite continuation
+      return 'tell_more';
   }
 }
 

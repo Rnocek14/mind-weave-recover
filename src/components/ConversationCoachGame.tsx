@@ -516,6 +516,7 @@ export function ConversationCoachGame({
             <div className="flex items-center gap-2">
               <p className="text-sm text-muted-foreground">
                 Turn {metrics.turnsCompleted + 1} of 5
+                {metrics.turnsCompleted >= 2 && " — You're doing great!"}
               </p>
               {/* Fluency indicator */}
               {metrics.avgFluency !== undefined && (
@@ -559,6 +560,8 @@ export function ConversationCoachGame({
           cardTranscript={cardTranscript}
           isCardListening={isCardListening && isListening}
           isAISpeaking={conversationState === 'ai_speaking'}
+          liveTranscript={userTranscript}
+          isListening={conversationState === 'listening' || isListening}
         />
       </div>
 

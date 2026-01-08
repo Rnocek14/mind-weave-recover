@@ -3,6 +3,8 @@
  * 
  * Uses a label→canned response pattern to prevent LLM drift.
  * GPT returns only a FOLLOWUP_TYPE label, and we map it to pre-approved lines.
+ * 
+ * KEY PRINCIPLE: Every response invites continuation - NO dead-ends.
  */
 
 import { StuckType } from './stuckTypeClassifier';
@@ -14,45 +16,63 @@ export type FollowupType =
   | 'how_felt'        // Ask about feeling/reaction
   | 'tell_more'       // Simple continuation
   | 'clarify_small'   // Narrow down to smaller detail
-  | 'acknowledge'     // Just acknowledge, no question
+  | 'acknowledge'     // Acknowledge WITH continuation (never dead-end)
   | 'wrap_up';        // End the conversation warmly
 
-// Pre-approved follow-up lines for each type
+// Pre-approved follow-up lines - ALL invite continuation (no dead-ends!)
 const FOLLOWUP_LINES: Record<FollowupType, string[]> = {
   what_next: [
     "What happened next?",
     "And then?",
     "What came after that?",
+    "Oh, then what?",
+    "What happened after?",
   ],
   what_did: [
     "What did you do about it?",
     "How did you handle that?",
     "What did you do then?",
+    "So what did you do?",
   ],
   how_felt: [
     "How did that feel?",
     "What was that like?",
+    "How was that for you?",
+    "Did you like it?",
   ],
   tell_more: [
     "Tell me more.",
     "Go on...",
-    "Keep going.",
+    "Keep going, I'm listening.",
+    "Yeah? What else?",
+    "And?",
+    "Oh really? Tell me more.",
   ],
   clarify_small: [
     "Just one small part of that.",
     "Pick one thing from that.",
     "What's one detail you remember?",
+    "Start with just one thing.",
+    "Any one thing is fine.",
   ],
+  // CRITICAL: acknowledge now ALWAYS includes continuation!
   acknowledge: [
-    "Got it.",
-    "Makes sense.",
-    "Okay.",
-    "I see.",
+    "Nice! What else?",
+    "Got it. And then?",
+    "Ah, okay. Tell me more.",
+    "Yeah? Go on.",
+    "Oh, interesting. What about after that?",
+    "Makes sense. What else happened?",
+    "Cool. And?",
+    "Right, right. Keep going.",
+    "Good. What's next?",
+    "Mm-hmm. And then?",
   ],
   wrap_up: [
-    "That's enough for today. Nice talking.",
+    "Great chat! Talk again soon.",
     "Good conversation. Let's stop there.",
-    "That was great. We're done for now.",
+    "That was nice. We're done for now.",
+    "Thanks for chatting! See you next time.",
   ],
 };
 
@@ -61,6 +81,7 @@ export const SILENCE_NUDGES = [
   "Take your time.",
   "No rush.",
   "Whenever you're ready.",
+  "It's okay, think about it.",
 ];
 
 // Narrow prompts for extended silence
@@ -68,6 +89,7 @@ export const NARROWING_PROMPTS = [
   "How about just one word that comes to mind?",
   "Even a short answer is fine.",
   "Just tell me any small thing.",
+  "Any word at all is good.",
 ];
 
 /**
@@ -76,6 +98,45 @@ export const NARROWING_PROMPTS = [
 export function getFollowupLine(type: FollowupType): string {
   const lines = FOLLOWUP_LINES[type];
   return lines[Math.floor(Math.random() * lines.length)];
+}
+
+/**
+ * Get a smart acknowledge that references what the user said
+ * This creates much more natural, connected conversation
+ */
+export function getSmartAcknowledge(userTranscript: string): string {
+  if (!userTranscript || userTranscript.trim().length < 3) {
+    return getFollowupLine('tell_more');
+  }
+  
+  // Extract meaningful words (ignore common filler/short words)
+  const fillerWords = new Set(['the', 'a', 'an', 'is', 'was', 'are', 'were', 'um', 'uh', 'and', 'but', 'or', 'so', 'to', 'it', 'i', 'my', 'me', 'you', 'we', 'they', 'he', 'she', 'that', 'this']);
+  const words = userTranscript.toLowerCase().split(/\s+/).filter(w => 
+    w.length > 2 && !fillerWords.has(w)
+  );
+  
+  if (words.length === 0) {
+    return getFollowupLine('tell_more');
+  }
+  
+  // Pick last meaningful word or a random one
+  const keyWord = words[words.length - 1] || words[0];
+  
+  // Templates that echo the topic and invite continuation
+  const templates = [
+    `${capitalize(keyWord)}! Nice. What else?`,
+    `Ah, ${keyWord}. Tell me more about that.`,
+    `${capitalize(keyWord)}, got it. And?`,
+    `Oh, ${keyWord}? What happened?`,
+    `${capitalize(keyWord)}! Go on.`,
+    `Nice, ${keyWord}. Then what?`,
+  ];
+  
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 /**
@@ -132,7 +193,7 @@ export function getRandomOpener(includeWarmup: boolean = true): string {
 
 /**
  * Rule-based follow-up selection based on stuck type and turn count
- * This is a fallback if GPT doesn't respond or for offline mode
+ * CRITICAL: Never return pure acknowledge - always add continuation
  */
 export function selectFollowupByRule(
   stuckType: StuckType,
@@ -144,7 +205,7 @@ export function selectFollowupByRule(
     return 'wrap_up';
   }
 
-  // Select based on stuck type
+  // Select based on stuck type - ALWAYS with continuation
   switch (stuckType) {
     case 'no_speech':
       // They didn't speak - try to narrow
@@ -155,8 +216,8 @@ export function selectFollowupByRule(
       return 'clarify_small';
     
     case 'word_search_stall':
-      // They're trying but stuck - just acknowledge and continue
-      return turnNumber === 1 ? 'tell_more' : 'acknowledge';
+      // They're trying but stuck - acknowledge WITH continuation
+      return turnNumber === 1 ? 'tell_more' : 'what_next';
     
     case 'thought_abandonment':
       // They started but trailed off - ask follow-up
@@ -188,6 +249,38 @@ export function parseFollowupType(gptResponse: string): FollowupType {
     }
   }
   
-  // Default fallback
+  // Default fallback - always continue conversation
   return 'tell_more';
+}
+
+/**
+ * Get a context-aware fallback when AI fails
+ * Always references conversation and invites continuation
+ */
+export function getSmartFallback(
+  lastAIMessage?: string, 
+  lastUserMessage?: string
+): string {
+  // If user said something, echo it
+  if (lastUserMessage && lastUserMessage.trim().length > 3) {
+    return getSmartAcknowledge(lastUserMessage);
+  }
+  
+  // If AI asked about something specific, follow up on it
+  if (lastAIMessage) {
+    if (lastAIMessage.toLowerCase().includes('breakfast') || 
+        lastAIMessage.toLowerCase().includes('eat') ||
+        lastAIMessage.toLowerCase().includes('food')) {
+      return "Sounds good! What else do you like to eat?";
+    }
+    if (lastAIMessage.toLowerCase().includes('morning')) {
+      return "Nice. What else happened this morning?";
+    }
+    if (lastAIMessage.toLowerCase().includes('yesterday')) {
+      return "Good! What else from yesterday?";
+    }
+  }
+  
+  // Generic but still inviting continuation
+  return "Tell me more about that.";
 }

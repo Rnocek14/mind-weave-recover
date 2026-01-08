@@ -24,6 +24,8 @@ import {
 import { 
   getFollowupLine, 
   getRandomOpener,
+  getSmartFallback,
+  getSmartAcknowledge,
 } from '@/lib/conversationFollowups';
 import { classifyStuckType } from '@/lib/stuckTypeClassifier';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
@@ -319,20 +321,42 @@ export function useCoachSession({
         });
 
         if (error || !data?.response) {
-          console.warn('Edge function error, using fallback:', error);
-          aiResponseText = getFollowupLine(action.followupType);
+          console.warn('Edge function error, using smart fallback:', error);
+          
+          // Get last AI message for context-aware fallback
+          const lastAIMessage = messages
+            .filter(m => m.type === 'ai')
+            .pop();
+          const lastAIText = lastAIMessage?.type === 'ai' ? lastAIMessage.text : undefined;
+          
+          // Use smart fallback that references conversation context
+          aiResponseText = getSmartFallback(lastAIText, transcript);
         } else {
           aiResponseText = data.response;
           
+          // Double-check: if AI response is a dead-end, enhance it
+          const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.'];
+          const lowerResponse = aiResponseText.toLowerCase().trim();
+          if (deadEnds.some(de => lowerResponse === de || lowerResponse === de.replace('.', ''))) {
+            // AI gave dead-end, enhance with smart acknowledge
+            aiResponseText = getSmartAcknowledge(transcript);
+          }
+          
           // Check if AI suggested a break
           if (data.suggestBreak) {
-            // Could trigger a break prompt UI
             console.log('AI suggests taking a break');
           }
         }
       } catch (err) {
-        console.warn('Failed to get AI response:', err);
-        aiResponseText = getFollowupLine(action.followupType);
+        console.warn('Failed to get AI response, using smart fallback:', err);
+        
+        // Get last AI message for context
+        const lastAIMessage = messages
+          .filter(m => m.type === 'ai')
+          .pop();
+        const lastAIText = lastAIMessage?.type === 'ai' ? lastAIMessage.text : undefined;
+        
+        aiResponseText = getSmartFallback(lastAIText, transcript);
       }
 
       addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
