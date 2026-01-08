@@ -319,46 +319,70 @@ export function updateState(
 
 /**
  * Conversational wrappers for card insertions
+ * Updated to feel more natural and connected to conversation
  */
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
   photo_naming: [
-    "Let's try a quick warm-up.",
-    "Here's something quick.",
-    "Let's do an easy one.",
+    "While we chat, here's a quick one.",
+    "Oh, here's something fun to try.",
+    "Let me show you something easy.",
+    "Quick brain warm-up for you.",
   ],
   semantic_features: [
-    "Let me help—describe this for me.",
-    "Try telling me about this.",
-    "Describe what you see here.",
+    "Let me help with this one.",
+    "Try describing this for me.",
+    "Here's something to think about.",
   ],
   thought_prompt: [
-    "Try finishing this thought.",
-    "Here's an easier one.",
-    "Start with this.",
+    "Here's an easy one to finish.",
+    "Try this quick thought.",
+    "Just complete this for me.",
   ],
   phrase_starter: [
-    "Pick one of these to start.",
-    "Try one of these phrases.",
-    "Use one of these to begin.",
+    "Pick whichever feels right.",
+    "Here are some ways to start.",
+    "Use any of these to begin.",
   ],
   yes_no: [
-    "Let me ask you something simple.",
-    "Quick question for you.",
-    "Just a yes or no.",
+    "Quick one for you.",
+    "Simple question first.",
+    "Easy yes or no.",
   ],
   recall_prompt: [
-    "Think of any word.",
-    "Name anything that comes to mind.",
-    "Just one word is fine.",
+    "Any word that comes to mind.",
+    "Just name one thing.",
+    "Think of anything at all.",
   ],
 };
 
+// Context-aware outros that reference what we were talking about
 export const CARD_OUTRO_LINES: string[] = [
-  "Nice. Back to what you were saying.",
-  "Good. Now, where were we?",
-  "Got it. Let's continue.",
-  "Great. Back to our chat.",
+  "Nice! Now, back to chatting.",
+  "Good one. Where were we?",
+  "Great! So, what else?",
+  "Perfect. Let's keep talking.",
+  "Awesome! Now tell me more.",
 ];
+
+// Topic-connected outros (used when we know the topic)
+export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
+  food: [
+    "Nice! So, back to food — what else do you like?",
+    "Good! Now, you were telling me about eating...",
+  ],
+  family: [
+    "Great! You were telling me about your family...",
+    "Nice! Back to your family — who else?",
+  ],
+  morning: [
+    "Good! So what else happened this morning?",
+    "Nice! Back to your morning...",
+  ],
+  activities: [
+    "Great! So what else did you do?",
+    "Nice! Tell me more about that.",
+  ],
+};
 
 /**
  * Get a random intro line for a card type
@@ -370,7 +394,13 @@ export function getCardIntro(cardType: CardType): string {
 
 /**
  * Get a random outro line after completing a card
+ * Optionally pass a topic for more connected response
  */
-export function getCardOutro(): string {
+export function getCardOutro(topic?: string): string {
+  // Try to use topic-connected outro if we know the topic
+  if (topic && CARD_OUTRO_WITH_TOPIC[topic]) {
+    const topicLines = CARD_OUTRO_WITH_TOPIC[topic];
+    return topicLines[Math.floor(Math.random() * topicLines.length)];
+  }
   return CARD_OUTRO_LINES[Math.floor(Math.random() * CARD_OUTRO_LINES.length)];
 }

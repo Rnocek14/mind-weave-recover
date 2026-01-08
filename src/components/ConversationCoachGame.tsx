@@ -11,7 +11,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee, HelpCircle } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
@@ -20,6 +20,7 @@ import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
+import { ConversationHelpers, getRandomIdea } from '@/components/coach/ConversationHelpers';
 import { cn } from '@/lib/utils';
 
 interface ConversationCoachGameProps {
@@ -52,6 +53,8 @@ export function ConversationCoachGame({
   const [silenceSeconds, setSilenceSeconds] = useState(0);
   const [showSkipPrompt, setShowSkipPrompt] = useState(false);
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
+  const [autoListenEnabled, setAutoListenEnabled] = useState(true); // Auto-listen after AI speaks
+  const [showHelpers, setShowHelpers] = useState(false);
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
@@ -263,8 +266,13 @@ export function ConversationCoachGame({
         setIsCardListening(true);
         startListening();
       } else if (!isComplete) {
-        setConversationState('listening');
-        startConversationTurnRef.current?.();
+        // AUTO-LISTEN: Automatically start listening after AI finishes speaking
+        if (autoListenEnabled) {
+          setConversationState('listening');
+          startConversationTurnRef.current?.();
+        } else {
+          setConversationState('idle');
+        }
       } else {
         setConversationState('idle');
       }
@@ -273,8 +281,9 @@ export function ConversationCoachGame({
     }
 
     setUserTranscript('');
+    setShowHelpers(false);
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
@@ -296,6 +305,7 @@ export function ConversationCoachGame({
     
     speechEndDetection.onStart();
     setConversationState('listening');
+    setShowHelpers(false);
     startListening();
     
     if (silenceTimerRef.current) {
@@ -304,7 +314,10 @@ export function ConversationCoachGame({
     silenceTimerRef.current = setInterval(() => {
       setSilenceSeconds(prev => {
         const newVal = prev + 1;
-        if (newVal >= 10) {
+        if (newVal >= 6) {
+          setShowHelpers(true);
+        }
+        if (newVal >= 12) {
           setShowSkipPrompt(true);
         }
         return newVal;
@@ -326,6 +339,7 @@ export function ConversationCoachGame({
       silenceTimerRef.current = null;
       setSilenceSeconds(0);
       setShowSkipPrompt(false);
+      setShowHelpers(false);
     }
   }, [conversationState]);
   
@@ -418,6 +432,28 @@ export function ConversationCoachGame({
   const handleDismissBreak = () => {
     setShowBreakPrompt(false);
   };
+
+  // Handle topic selection from helpers
+  const handleTopicSelect = useCallback(async (prompt: string) => {
+    setShowHelpers(false);
+    // AI will use this prompt for next response
+    await processTurnAndRespond(`(Topic request: ${prompt})`);
+  }, [processTurnAndRespond]);
+
+  // Handle "give me an idea" button
+  const handleGiveIdea = useCallback(async () => {
+    const idea = getRandomIdea();
+    setShowHelpers(false);
+    // Speak the idea and then listen
+    setConversationState('ai_speaking');
+    try {
+      await speak(idea);
+    } catch (err) {
+      console.warn('TTS failed:', err);
+    }
+    setConversationState('listening');
+    startConversationTurn();
+  }, [speak, startConversationTurn]);
 
   if (!isSupported) {
     return (
@@ -516,10 +552,20 @@ export function ConversationCoachGame({
             <div className="flex items-center gap-2">
               <p className="text-sm text-muted-foreground">
                 Turn {metrics.turnsCompleted + 1} of 5
-                {metrics.turnsCompleted >= 2 && " — You're doing great!"}
               </p>
+              {/* Progress encouragement */}
+              {metrics.turnsCompleted >= 1 && metrics.turnsCompleted < 4 && (
+                <span className="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">
+                  Keep going! 💪
+                </span>
+              )}
+              {metrics.turnsCompleted >= 4 && (
+                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                  Almost done! 🎉
+                </span>
+              )}
               {/* Fluency indicator */}
-              {metrics.avgFluency !== undefined && (
+              {metrics.avgFluency !== undefined && metrics.turnsCompleted >= 2 && (
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
                   metrics.avgFluency >= 70 ? "bg-success/20 text-success" :
@@ -543,6 +589,17 @@ export function ConversationCoachGame({
               style={{ width: `${(metrics.turnsCompleted / 5) * 100}%` }}
             />
           </div>
+          {/* Help toggle button */}
+          {conversationState === 'listening' && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowHelpers(!showHelpers)} 
+              className="h-10 w-10 rounded-xl"
+            >
+              <HelpCircle className={cn("w-5 h-5", showHelpers && "text-primary")} />
+            </Button>
+          )}
           {onExit && currentPhase !== 'complete' && (
             <Button variant="ghost" size="icon" onClick={onExit} className="h-10 w-10 rounded-xl">
               <X className="w-5 h-5" />
@@ -567,9 +624,15 @@ export function ConversationCoachGame({
 
       {/* Control panel */}
       <div className="border-t bg-card/95 backdrop-blur-md p-6 pb-8 shadow-soft">
-        {/* Ready state */}
+        {/* Ready state - Enhanced with clear expectations */}
         {currentPhase === 'ready' && (
           <div className="text-center space-y-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span className="px-3 py-1 bg-muted rounded-full">5 turns</span>
+                <span className="px-3 py-1 bg-muted rounded-full">~3 min</span>
+              </div>
+            </div>
             <Button
               size="lg"
               onClick={handleStart}
@@ -584,12 +647,12 @@ export function ConversationCoachGame({
               Start Conversation
             </Button>
             <p className="text-base text-muted-foreground max-w-sm mx-auto">
-              We'll have a friendly chat. Just speak naturally — I'll listen and respond.
+              I'll ask questions and you respond. Just speak naturally — no right or wrong answers!
             </p>
           </div>
         )}
 
-        {/* AI Speaking */}
+        {/* AI Speaking - with enhanced animation */}
         {conversationState === 'ai_speaking' && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
@@ -601,10 +664,11 @@ export function ConversationCoachGame({
               <div className="absolute inset-[-8px] rounded-full border-4 border-primary/10 animate-ping" style={{ animationDelay: '0.6s' }} />
             </div>
             <span className="text-lg font-medium text-primary">Speaking...</span>
+            <p className="text-sm text-muted-foreground">Your turn next</p>
           </div>
         )}
 
-        {/* Waiting for user */}
+        {/* User turn idle - simplified (shows less often with auto-listen) */}
         {currentPhase === 'user_turn' && conversationState === 'idle' && !isProcessing && (
           <div className="text-center space-y-4">
             <Button
@@ -618,7 +682,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Listening */}
+        {/* Listening - with helpers integration */}
         {(conversationState === 'listening' || isListening) && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
@@ -642,37 +706,51 @@ export function ConversationCoachGame({
               </div>
             </div>
             
+            {/* Live transcript or listening prompt */}
             <div className="text-center max-w-sm">
               <p className={cn(
                 "text-lg min-h-[28px] transition-all",
-                userTranscript ? "text-foreground font-medium" : "text-muted-foreground italic"
+                userTranscript ? "text-foreground font-medium" : "text-muted-foreground"
               )}>
-                {userTranscript || "Listening..."}
+                {userTranscript || (silenceSeconds < 3 ? "Your turn to speak..." : "Take your time...")}
               </p>
             </div>
 
+            {/* Conversation helpers - shows when stuck */}
+            {showHelpers && !userTranscript.trim() && (
+              <ConversationHelpers
+                silenceSeconds={silenceSeconds}
+                onTopicSelect={handleTopicSelect}
+                onGiveIdea={handleGiveIdea}
+                onSkip={handleSkipTurn}
+                className="mt-2"
+              />
+            )}
+
+            {/* Action buttons */}
             <div className="flex flex-col items-center gap-3 mt-2">
               {userTranscript.trim() && (
                 <Button
                   size="lg"
                   onClick={handleManualDone}
-                  className="px-8 py-3 rounded-xl bg-success hover:bg-success/90 text-success-foreground gap-2"
+                  className="px-8 py-3 rounded-xl bg-success hover:bg-success/90 text-success-foreground gap-2 min-h-[48px]"
                 >
                   <CheckCircle2 className="w-5 h-5" />
                   Done Speaking
                 </Button>
               )}
               
-              {showSkipPrompt && !userTranscript.trim() && (
+              {/* Simple skip for extended silence (without full helpers) */}
+              {showSkipPrompt && !userTranscript.trim() && !showHelpers && (
                 <div className="animate-fade-in text-center space-y-2">
                   <p className="text-sm text-muted-foreground">Need more time?</p>
-                  <Button variant="outline" size="sm" onClick={handleSkipTurn} className="gap-2">
+                  <Button variant="outline" size="sm" onClick={handleSkipTurn} className="gap-2 min-h-[44px]">
                     Skip this turn
                   </Button>
                 </div>
               )}
               
-              {!showSkipPrompt && !userTranscript.trim() && (
+              {!showSkipPrompt && !userTranscript.trim() && !showHelpers && (
                 <p className="text-sm text-muted-foreground">
                   Pause when done — I'll respond
                 </p>
