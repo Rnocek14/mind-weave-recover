@@ -69,17 +69,21 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export function useConversationSpeechAnalysis(context: ConversationSpeechContext) {
   const analysisHistoryRef = useRef<ConversationUtteranceAnalysis[]>([]);
   const sessionStartRef = useRef<number>(Date.now());
+  const pendingPronunciationRef = useRef<{
+    pronunciationScore: number | null;
+    phonemeAccuracy: { phoneme: string; score: number }[];
+    challengingSounds: string[];
+  } | null>(null);
 
   /**
-   * Analyze a user utterance
-   * Called after each turn with the transcript and timing info
+   * Quick analysis - returns immediately for fast AI response
+   * Does NOT wait for pronunciation API
    */
-  const analyzeUtterance = useCallback(async (
+  const analyzeUtteranceQuick = useCallback((
     transcript: string,
     latencyToFirstWordMs: number | null,
-    totalDurationMs: number | null,
-    audioBlob?: Blob
-  ): Promise<ConversationUtteranceAnalysis> => {
+    totalDurationMs: number | null
+  ): ConversationUtteranceAnalysis => {
     const words = transcript.trim().split(/\s+/).filter(Boolean);
     const wordCount = words.length;
     
@@ -98,7 +102,6 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
         pausePattern = 'hesitant';
       }
     }
-    // Also check speech rate
     if (speechRateWpm !== null && speechRateWpm < 40) {
       pausePattern = pausePattern === 'very_slow' ? 'very_slow' : 'hesitant';
     }
@@ -109,26 +112,23 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       fillerWords.includes(w.toLowerCase())
     ).length;
     
-    // Initialize fluency score (will be enhanced with pronunciation data)
+    // Initialize fluency score (heuristic only - fast)
     let fluencyScore = 100;
-    // Penalize for slow latency
     if (latencyToFirstWordMs) {
       fluencyScore -= Math.min(20, (latencyToFirstWordMs - 1000) / 100);
     }
-    // Penalize for filled pauses
     fluencyScore -= Math.min(20, filledPauseCount * 5);
-    // Penalize for very slow speech rate
     if (speechRateWpm !== null && speechRateWpm < 60) {
       fluencyScore -= Math.min(20, (60 - speechRateWpm));
     }
     
     // Detect effortful speech
-    let effortfulSpeech = 
+    const effortfulSpeech = 
       (latencyToFirstWordMs !== null && latencyToFirstWordMs > 3000) ||
       (speechRateWpm !== null && speechRateWpm < 30) ||
       pausePattern === 'very_slow';
     
-    // Detect circumlocution (multi-word indirect reference)
+    // Detect circumlocution
     const circumlocutionPhrases = [
       'the thing', 'you know the', 'it has', 'you use it', 
       'kind of', 'sort of', 'that thing', 'what do you call'
@@ -145,22 +145,72 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
     } else if (pausePattern === 'very_slow' || effortfulSpeech) {
       completionConfidence = 'medium';
     }
+
+    // Use cached pronunciation data from previous turn (if available)
+    const cachedPron = pendingPronunciationRef.current;
     
-    // Initialize pronunciation data
-    let microFluency: MicroFluencyAnalysis | null = null;
-    let errorPattern: ErrorClassificationResult | null = null;
-    let pronunciationScore: number | null = null;
-    let phonemeAccuracy: { phoneme: string; score: number }[] = [];
-    let challengingSounds: string[] = [];
+    const analysis: ConversationUtteranceAnalysis = {
+      transcript,
+      wordCount,
+      fluencyScore: Math.max(0, Math.min(100, Math.round(fluencyScore))),
+      effortfulSpeech,
+      pausePattern,
+      filledPauseCount,
+      errorPattern: circumlocutionDetected ? {
+        errorType: 'circumlocution',
+        confidence: 0.7,
+        reasoning: 'Circumlocution phrase detected',
+        needs_review: false,
+        circumlocutionDetected: true,
+        meaningAccuracy: 0.8,
+        fluencyMetrics: {
+          speechRateWpm: speechRateWpm ?? undefined,
+          pauseCount: filledPauseCount,
+          avgPauseDurationMs: latencyToFirstWordMs ?? undefined,
+          effortfulSpeech,
+        }
+      } : null,
+      circumlocutionDetected,
+      completionConfidence,
+      latencyToFirstWordMs,
+      totalDurationMs,
+      speechRateWpm,
+      microFluency: null,
+      // Use cached pronunciation from previous analysis
+      pronunciationScore: cachedPron?.pronunciationScore ?? null,
+      phonemeAccuracy: cachedPron?.phonemeAccuracy ?? [],
+      challengingSounds: cachedPron?.challengingSounds ?? [],
+    };
     
-    // Call Azure pronunciation analysis if we have audio
-    if (audioBlob && audioBlob.size > 1000 && transcript.trim().length > 0) {
+    // Store in history
+    analysisHistoryRef.current.push(analysis);
+    if (analysisHistoryRef.current.length > 10) {
+      analysisHistoryRef.current.shift();
+    }
+    
+    return analysis;
+  }, []);
+
+  /**
+   * Run pronunciation analysis in background - results used for NEXT turn
+   * This is fire-and-forget, doesn't block the AI response
+   */
+  const analyzePronunciationAsync = useCallback((
+    transcript: string,
+    audioBlob: Blob
+  ) => {
+    // Only run every 2nd turn to reduce load, or if we have no cached data
+    const shouldAnalyze = analysisHistoryRef.current.length % 2 === 0 || 
+                          pendingPronunciationRef.current === null;
+    
+    if (!shouldAnalyze || audioBlob.size < 1000 || transcript.trim().length === 0) {
+      return;
+    }
+
+    // Fire and forget - run in background
+    (async () => {
       try {
-        console.log('[SpeechAnalysis] Calling pronunciation analysis with audio blob', { 
-          size: audioBlob.size,
-          transcript: transcript.slice(0, 30)
-        });
-        
+        console.log('[SpeechAnalysis] Background pronunciation analysis starting');
         const audioBase64 = await blobToBase64(audioBlob);
         
         const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
@@ -171,113 +221,56 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
           }
         });
         
-        if (error) {
-          console.warn('[SpeechAnalysis] Pronunciation API error:', error);
-        } else if (data?.ok && data.data) {
-          console.log('[SpeechAnalysis] Pronunciation analysis success', {
-            pronunciationScore: data.data.pronunciationScore,
-            fluencyScore: data.data.fluencyScore,
-            wordCount: data.data.words?.length
-          });
+        if (!error && data?.ok && data.data) {
+          const phonemeAccuracy: { phoneme: string; score: number }[] = [];
+          const challengingSounds: string[] = [];
           
-          // Extract pronunciation metrics
-          pronunciationScore = data.data.pronunciationScore;
-          
-          // Use Azure fluency score to enhance our calculation
-          if (data.data.fluencyScore !== undefined) {
-            // Blend Azure fluency with our heuristic
-            fluencyScore = Math.round((fluencyScore + data.data.fluencyScore) / 2);
-          }
-          
-          // Extract phoneme-level accuracy
           if (data.data.words) {
             for (const word of data.data.words) {
               if (word.phonemes) {
                 for (const p of word.phonemes) {
-                  phonemeAccuracy.push({
-                    phoneme: p.phoneme,
-                    score: p.accuracyScore
-                  });
-                  
-                  // Track challenging sounds (below 70%)
-                  if (p.accuracyScore < 70) {
-                    if (!challengingSounds.includes(p.phoneme)) {
-                      challengingSounds.push(p.phoneme);
-                    }
+                  phonemeAccuracy.push({ phoneme: p.phoneme, score: p.accuracyScore });
+                  if (p.accuracyScore < 70 && !challengingSounds.includes(p.phoneme)) {
+                    challengingSounds.push(p.phoneme);
                   }
                 }
               }
             }
           }
           
-          // Derive micro-fluency from alignment data
-          if (data.data.alignmentData) {
-            microFluency = deriveMicroFluency(data.data.alignmentData, transcript);
-            
-            // Update effortful speech based on micro-fluency
-            if (microFluency && microFluency.quality.alignmentOk) {
-              if (microFluency.longestPauseMs > 2000 || microFluency.preWordPauses.avgMs > 800) {
-                effortfulSpeech = true;
-              }
-            }
-          }
+          // Cache for next turn
+          pendingPronunciationRef.current = {
+            pronunciationScore: data.data.pronunciationScore,
+            phonemeAccuracy,
+            challengingSounds,
+          };
+          console.log('[SpeechAnalysis] Background analysis cached:', pendingPronunciationRef.current);
         }
       } catch (err) {
-        console.warn('[SpeechAnalysis] Pronunciation analysis failed:', err);
+        console.warn('[SpeechAnalysis] Background pronunciation failed:', err);
       }
-    }
+    })();
+  }, []);
+
+  /**
+   * Legacy method - now just calls quick analysis + starts background pronunciation
+   */
+  const analyzeUtterance = useCallback(async (
+    transcript: string,
+    latencyToFirstWordMs: number | null,
+    totalDurationMs: number | null,
+    audioBlob?: Blob
+  ): Promise<ConversationUtteranceAnalysis> => {
+    // Get quick analysis immediately (no await on pronunciation)
+    const analysis = analyzeUtteranceQuick(transcript, latencyToFirstWordMs, totalDurationMs);
     
-    // For conversation coach, we don't have a specific target word,
-    // but we can still do basic error classification if transcript suggests issues
-    if (transcript.length > 0 && circumlocutionDetected) {
-      // Mark as circumlocution without needing target word
-      errorPattern = {
-        errorType: 'circumlocution',
-        confidence: 0.7,
-        reasoning: 'Circumlocution phrase detected in conversational speech',
-        needs_review: false,
-        circumlocutionDetected: true,
-        meaningAccuracy: 0.8,
-        fluencyMetrics: {
-          speechRateWpm: speechRateWpm ?? undefined,
-          pauseCount: filledPauseCount,
-          avgPauseDurationMs: latencyToFirstWordMs ?? undefined,
-          effortfulSpeech,
-        }
-      };
-    }
-    
-    // Final fluency score clamping
-    fluencyScore = Math.max(0, Math.min(100, Math.round(fluencyScore)));
-    
-    const analysis: ConversationUtteranceAnalysis = {
-      transcript,
-      wordCount,
-      fluencyScore,
-      effortfulSpeech,
-      pausePattern,
-      filledPauseCount,
-      errorPattern,
-      circumlocutionDetected,
-      completionConfidence,
-      latencyToFirstWordMs,
-      totalDurationMs,
-      speechRateWpm,
-      microFluency,
-      pronunciationScore,
-      phonemeAccuracy,
-      challengingSounds,
-    };
-    
-    // Store in history
-    analysisHistoryRef.current.push(analysis);
-    // Keep last 10 analyses
-    if (analysisHistoryRef.current.length > 10) {
-      analysisHistoryRef.current.shift();
+    // Start pronunciation analysis in background for next turn
+    if (audioBlob) {
+      analyzePronunciationAsync(transcript, audioBlob);
     }
     
     return analysis;
-  }, []);
+  }, [analyzeUtteranceQuick, analyzePronunciationAsync]);
 
   /**
    * Get aggregated session metrics
