@@ -65,16 +65,7 @@ serve(async (req) => {
       );
     }
 
-    // Force wrap_up on final turn
-    if (turnNumber >= maxTurns) {
-      return new Response(
-        JSON.stringify({ 
-          followupType: 'wrap_up',
-          response: "Great chat! Talk again soon."
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // No forced wrap-up - user ends when ready
 
     // Build conversation context
     const messages: { role: string; content: string }[] = [
@@ -103,13 +94,7 @@ serve(async (req) => {
     const userMessage = userTranscript?.trim() || "(silence)";
     messages.push({ role: 'user', content: userMessage });
 
-    // Add wrap-up hint for second-to-last turn
-    if (turnNumber >= maxTurns - 1) {
-      messages.push({ 
-        role: 'system', 
-        content: 'Last exchange. End warmly in under 15 words. No question needed.' 
-      });
-    }
+    // No forced wrap-up hints - user ends when ready
 
     console.log(`Turn ${turnNumber}/${maxTurns}: "${userTranscript?.slice(0, 50)}..."`);
 
