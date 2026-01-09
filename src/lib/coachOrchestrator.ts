@@ -41,6 +41,8 @@ export interface OrchestratorState {
   yesNoSucceeded: boolean; // Track if yes/no card was successful (for escalation)
   currentTopic: string | null; // Track conversation topic for card selection
   userRequestedCards: number; // Cards requested by user (don't count against limits)
+  // Scaffolding level for adaptive support
+  scaffoldingLevel: 'open' | 'guided' | 'choice'; // open = flowing, guided = some help, choice = needs options
 }
 
 // Speech analysis data for smarter card selection
@@ -285,6 +287,7 @@ export function createInitialState(maxTurns: number = 5): OrchestratorState {
     yesNoSucceeded: false,
     currentTopic: null,
     userRequestedCards: 0,
+    scaffoldingLevel: 'open', // Start with open-ended, adapt based on performance
   };
 }
 
@@ -307,6 +310,12 @@ export function updateState(
   const yesNoSucceeded = state.yesNoSucceeded || 
     (cardType === 'yes_no' && cardSuccess === true);
 
+  // Update scaffolding level based on recent performance
+  const newScaffoldingLevel = calculateScaffoldingLevel(
+    [...state.recentStuckTypes.slice(-4), stuckType],
+    newSuccessStreak
+  );
+
   return {
     ...state,
     turnNumber: state.turnNumber + 1,
@@ -321,7 +330,37 @@ export function updateState(
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
     userRequestedCards: state.userRequestedCards,
+    scaffoldingLevel: newScaffoldingLevel,
   };
+}
+
+/**
+ * Calculate scaffolding level based on recent performance
+ * - open: User flowing well, use open-ended questions
+ * - guided: Some struggle, offer gentle guidance
+ * - choice: Struggling, offer explicit choices
+ */
+function calculateScaffoldingLevel(
+  recentStuckTypes: StuckType[],
+  successStreak: number
+): 'open' | 'guided' | 'choice' {
+  // If flowing well (2+ successes in a row), use open-ended
+  if (successStreak >= 2) {
+    return 'open';
+  }
+  
+  // Count recent struggles
+  const recentStruggles = recentStuckTypes.filter(
+    t => t === 'no_speech' || t === 'word_search_stall' || t === 'prompt_overload'
+  ).length;
+  
+  // If multiple struggles recently, offer choices
+  if (recentStruggles >= 2) {
+    return 'choice';
+  }
+  
+  // Default to guided
+  return 'guided';
 }
 
 /**
