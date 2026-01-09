@@ -31,11 +31,11 @@ const TOPIC_CHIPS = [
   { emoji: '🎯', label: 'Fun', prompt: 'What is something you enjoy doing?' },
 ];
 
-// Progressive help messages
+// Progressive help messages - extended thresholds for more natural thinking time
 const ENCOURAGEMENT_MESSAGES = [
-  { minSeconds: 3, text: 'Take your time...' },
-  { minSeconds: 6, text: 'No rush - I am here.' },
-  { minSeconds: 10, text: 'Need a topic to start with?' },
+  { minSeconds: 5, text: 'Take your time...' },
+  { minSeconds: 8, text: 'No rush - I am here.' },
+  { minSeconds: 12, text: 'Need a topic to start with?' },
 ];
 
 export function ConversationHelpers({
@@ -46,10 +46,10 @@ export function ConversationHelpers({
   onPlayGame,
   className,
 }: ConversationHelpersProps) {
-  // Determine what to show based on silence duration
-  const showEncouragement = silenceSeconds >= 3;
-  const showTopics = silenceSeconds >= 6;
-  const showSkip = silenceSeconds >= 12;
+  // Determine what to show based on silence duration - extended for natural thinking time
+  const showEncouragement = silenceSeconds >= 5;
+  const showTopics = silenceSeconds >= 8;
+  const showSkip = silenceSeconds >= 15;
   
   // Get the appropriate encouragement message
   const encouragementMessage = ENCOURAGEMENT_MESSAGES
