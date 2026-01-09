@@ -17,11 +17,52 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Extract key topics from conversation history for memory
+function buildConversationMemory(history: { role: string; text: string }[]): string {
+  if (!history || history.length === 0) return '';
+  
+  const keyTopics: string[] = [];
+  const keyDetails: string[] = [];
+  
+  // Extract nouns and key info from user messages
+  for (const msg of history) {
+    if (msg.role === 'user') {
+      const text = msg.text.toLowerCase();
+      
+      // Food items
+      const foods = ['eggs', 'toast', 'coffee', 'tea', 'bread', 'cereal', 'fruit', 'milk', 'juice', 'bacon', 'pancakes'];
+      foods.forEach(f => { if (text.includes(f)) keyTopics.push(f); });
+      
+      // People
+      const people = ['sister', 'brother', 'mom', 'mother', 'dad', 'father', 'wife', 'husband', 'daughter', 'son', 'friend'];
+      people.forEach(p => { if (text.includes(p)) keyDetails.push(`mentioned ${p}`); });
+      
+      // Activities
+      const activities = ['went to', 'watched', 'cooked', 'made', 'ate', 'saw', 'visited', 'called'];
+      activities.forEach(a => { if (text.includes(a)) keyDetails.push(text.slice(text.indexOf(a), text.indexOf(a) + 20).split(/[.!?]/)[0]); });
+    }
+  }
+  
+  if (keyTopics.length === 0 && keyDetails.length === 0) return '';
+  
+  let memory = '\nCONVERSATION MEMORY (REMEMBER THIS!):\n';
+  if (keyTopics.length > 0) {
+    memory += `- Topics discussed: ${[...new Set(keyTopics)].join(', ')}\n`;
+  }
+  if (keyDetails.length > 0) {
+    memory += `- Key details: ${[...new Set(keyDetails)].slice(0, 3).join('; ')}\n`;
+  }
+  memory += '- NEVER ask about something user already told you!\n';
+  
+  return memory;
+}
+
 // Build the system prompt with full user profile context
 function buildSystemPrompt(
   userProfile: UserSpeechContext | null, 
   sessionMetrics: SessionMetrics | null,
-  pronunciationContext: PronunciationContext | null
+  pronunciationContext: PronunciationContext | null,
+  conversationMemory: string
 ): string {
   let profileContext = '';
   
@@ -63,6 +104,7 @@ ${pronunciationContext.microFluencyNotes?.length ? `- Fluency notes: ${pronuncia
 
 ${profileContext}
 ${sessionContext}
+${conversationMemory}
 ${pronunciationContext_str}
 
 ABSOLUTE RULES (NEVER BREAK):
@@ -70,12 +112,13 @@ ABSOLUTE RULES (NEVER BREAK):
 2. NEVER mention being an AI, assistant, or program. You're just a friendly person chatting.
 3. Use simple, everyday words (3rd grade level).
 4. If user has challenging sounds, AVOID using words with those sounds in your response.
-5. CRITICAL: EVERY response MUST invite them to speak more. NEVER dead-end.
+5. CRITICAL: NEVER ask about something the user already told you! Read conversation memory!
 
 THE MOST IMPORTANT RULE - KEEP CONVERSATION FLOWING:
 - ALWAYS echo something specific they said
 - ALWAYS end with something that invites them to continue
 - NEVER just say "Nice." or "I see." - those kill the conversation
+- NEVER repeat a question the user already answered!
 
 RESPONSE FORMULA:
 1. Brief echo of what they said (2-4 words referencing their topic)
@@ -88,14 +131,11 @@ You: "Toast! Good. What did you put on it?"
 User: "went to store"
 You: "The store, nice. What did you get?"
 
-User: "was okay"
-You: "Okay, got it. What else happened?"
+User: "my sister"
+You: "Oh, your sister! What did you do together?"
 
-User: "my daughter"
-You: "Oh, your daughter! What did you do together?"
-
-User: "coffee"
-You: "Ah, coffee. Do you have it every day?"
+User: [after saying eggs earlier] "my sister made them"
+You: "Nice! Your sister cooked. Does she visit often?" (NOT "what did she cook" - already said eggs!)
 
 WHEN USER STRUGGLES (effortful/slow speech):
 - Still echo what they said
@@ -105,23 +145,15 @@ WHEN USER STRUGGLES (effortful/slow speech):
 WHEN USER IS FLOWING WELL:
 - Match their energy with engaged follow-up
 - "Sounds fun! What happened next?"
-- "Oh wow! Tell me more about that."
 
 WHEN USER SAYS VERY LITTLE (1-2 words):
 - Echo the word and ask easy yes/no: "Coffee? Do you like it strong?"
-- Or simple follow-up: "Nice. What else?"
-
-WHEN CIRCUMLOCUTION DETECTED (describing instead of naming):
-- Gently offer the word: "Oh, you mean coffee?"
-- Then continue: "I love coffee too. Hot or iced?"
 
 NEVER:
+- Ask about something already answered (check memory!)
 - Say just "I see" or "Nice." without follow-up
 - Say "That's wonderful" or "How lovely" (too formal)
 - Ask "How did that make you feel?" (too therapy-like)
-- End with a statement that doesn't invite response
-- Give advice or information
-- Mention AI/technology
 - Exceed 18 words`;
 }
 
@@ -243,11 +275,15 @@ serve(async (req) => {
       microFluencyNotes: speechAnalysis.microFluencyNotes || [],
     } : null;
 
+    // Build conversation memory to prevent repetition
+    const conversationMemory = buildConversationMemory(conversationHistory || []);
+
     // Build system prompt with all context
     const systemPrompt = buildSystemPrompt(
       userProfile || null, 
       sessionMetrics || null,
-      pronunciationContext
+      pronunciationContext,
+      conversationMemory
     );
 
     // Build conversation
