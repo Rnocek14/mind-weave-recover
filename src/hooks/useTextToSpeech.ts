@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Get Supabase URL from the client
+// Get Supabase URL and anon key from the client
 const SUPABASE_URL = 'https://wjedbpjaiqdxhmjzkcxo.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA';
 
 interface TTSOptions {
   voiceId?: string;
@@ -262,118 +263,85 @@ export const useTextToSpeech = () => {
     }
   }, [speakBrowser]);
 
-  // Standard TTS - go directly to browser TTS (ElevenLabs key is invalid)
+  // Standard TTS - use ElevenLabs for natural voice
   const speak = useCallback(async (
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'nova', autoPlay = true, useStreaming = true } = options;
-
-    // Skip streaming/API calls entirely - go straight to browser TTS
-    // This avoids the 401 ElevenLabs errors
-    console.log('[TTS] Using browser TTS directly (API disabled)');
-    return speakBrowser(text);
+    const { voiceId = 'XrExE9yKIg1WjnnlVkGX' } = options; // Matilda - natural voice
 
     setIsLoading(true);
     setIsSpeaking(false);
     setError(null);
 
     try {
-      // Try OpenAI TTS first
-      const { data, error: functionError } = await supabase.functions.invoke(
-        'text-to-speech',
+      // Use ElevenLabs for natural voice
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/text-to-speech-elevenlabs`,
         {
-          body: { text, voice: voiceId }
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+            'apikey': ANON_KEY,
+          },
+          body: JSON.stringify({ text, voiceId }),
         }
       );
 
-      if (functionError || !data?.audioContent) {
-        throw new Error(functionError?.message || 'No audio data received');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('[TTS] ElevenLabs failed, falling back to browser:', errorData);
+        return speakBrowser(text);
+      }
+
+      const data = await response.json();
+      
+      if (!data?.audioBase64) {
+        console.warn('[TTS] No audio data, falling back to browser');
+        return speakBrowser(text);
       }
 
       // Use data URI for cleaner base64 audio handling
-      const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+      const audioUrl = `data:audio/mpeg;base64,${data.audioBase64}`;
 
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
       }
 
-      // Create new audio element
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
       setIsLoading(false);
+      setIsSpeaking(true);
 
-      if (autoPlay) {
-        // Return a promise that resolves when audio FINISHES playing
-        return new Promise((resolve, reject) => {
-          setIsSpeaking(true);
-          
-          audio.onended = () => {
-            setIsSpeaking(false);
-            resolve();
-          };
-          
-          audio.onerror = () => {
-            setIsSpeaking(false);
-            reject(new Error('Audio playback failed'));
-          };
-          
-          audio.play().catch((playError) => {
-            setIsSpeaking(false);
-            reject(playError);
-          });
-        });
-      }
-
-    } catch (err) {
-      console.warn('OpenAI TTS failed, falling back to browser speech:', err);
-      setIsLoading(false);
-      
-      // Fallback to browser speech synthesis
       return new Promise((resolve, reject) => {
-        try {
-          if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
-            
-            window.speechSynthesis.cancel(); // Stop any ongoing speech
-            
-            setIsSpeaking(true);
-            
-            utterance.onend = () => {
-              setIsSpeaking(false);
-              resolve();
-            };
-            
-            utterance.onerror = (e) => {
-              setIsSpeaking(false);
-              console.warn('Browser TTS error:', e);
-              resolve();
-            };
-            
-            if (autoPlay) {
-              window.speechSynthesis.speak(utterance);
-            } else {
-              setIsSpeaking(false);
-              resolve();
-            }
-          } else {
-            setIsSpeaking(false);
-            reject(new Error('Speech synthesis not available'));
-          }
-        } catch (fallbackErr) {
-          const errorMessage = fallbackErr instanceof Error ? fallbackErr.message : 'Failed to generate speech';
-          console.error('TTS fallback error:', errorMessage);
-          setError(errorMessage);
+        audio.onended = () => {
           setIsSpeaking(false);
-          reject(fallbackErr);
-        }
+          resolve();
+        };
+
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          console.warn('[TTS] Audio playback failed, using browser');
+          speakBrowser(text).then(resolve).catch(reject);
+        };
+
+        audio.play().catch((playError) => {
+          setIsSpeaking(false);
+          console.warn('[TTS] Play failed, using browser:', playError);
+          speakBrowser(text).then(resolve).catch(reject);
+        });
       });
+    } catch (err) {
+      console.warn('[TTS] Error, falling back to browser:', err);
+      setIsLoading(false);
+      return speakBrowser(text);
     }
-  }, [speakStream]);
+  }, [speakBrowser]);
 
   const stop = useCallback(() => {
     // Abort any pending requests

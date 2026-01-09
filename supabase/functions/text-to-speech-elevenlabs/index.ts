@@ -12,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voiceId = 'EXAVITQu4vr4xnSDxMaL' } = await req.json(); // Default: Sarah
+    // Default: Matilda - warm, natural female voice good for therapy
+    const { text, voiceId = 'XrExE9yKIg1WjnnlVkGX' } = await req.json();
     
     if (!text) {
       return new Response(
@@ -21,7 +22,8 @@ serve(async (req) => {
       );
     }
 
-    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+    // Try both secret names (connector uses _1 suffix)
+    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY') || Deno.env.get('ELEVENLABS_API_KEY_1');
     if (!ELEVENLABS_API_KEY) {
       console.error('ELEVENLABS_API_KEY not configured');
       return new Response(
@@ -30,10 +32,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Generating speech for: "${text}" with voice ${voiceId}`);
+    console.log(`Generating speech for: "${text.slice(0, 40)}..." with voice ${voiceId}`);
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
       {
         method: 'POST',
         headers: {
@@ -43,10 +45,12 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_turbo_v2', // Fast, low latency for therapy
+          model_id: 'eleven_multilingual_v2', // Highest quality, most natural
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
+            stability: 0.4,        // Lower = more expressive/natural
+            similarity_boost: 0.8, // Keep voice consistent
+            style: 0.3,           // Some style variation
+            use_speaker_boost: true,
           },
         }),
       }
