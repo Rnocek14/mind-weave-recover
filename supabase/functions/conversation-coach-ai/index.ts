@@ -222,16 +222,7 @@ serve(async (req) => {
       );
     }
 
-    // Check for wrap-up conditions
-    if (turnNumber >= maxTurns) {
-      return new Response(
-        JSON.stringify({ 
-          response: "Great chat! Talk again soon.",
-          followupType: 'wrap_up',
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // No forced wrap-up - user ends when ready
 
     // Check if user is highly frustrated or fatigued
     if (engagementState?.frustration === 'high' || engagementState?.fatigue === 'high') {
@@ -336,13 +327,7 @@ serve(async (req) => {
     const userMessage = userTranscript?.trim() || "(silence)";
     messages.push({ role: 'user', content: userMessage });
 
-    // Add wrap-up hint for final turn
-    if (turnNumber >= maxTurns - 1) {
-      messages.push({ 
-        role: 'system', 
-        content: '[FINAL TURN - End warmly in under 12 words. No question.]' 
-      });
-    }
+    // No forced wrap-up hints - user ends when ready
 
     // Log for debugging
     console.log(`Turn ${turnNumber}/${maxTurns}:`, {
@@ -428,7 +413,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         response: aiResponse,
-        followupType: turnNumber >= maxTurns - 1 ? 'wrap_up' : 'contextual',
+        followupType: 'contextual', // No forced wrap-up
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

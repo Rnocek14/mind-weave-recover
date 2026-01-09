@@ -112,11 +112,12 @@ export function ConversationCoachGame({
     clearPendingAI,
     reset,
     requestCard,
+    endSession,
   } = useCoachSession({
     userId,
     profileId,
     sessionId,
-    maxTurns: 5,
+    // No maxTurns - conversation flows naturally
     userSpeechProfile: userSpeechProfileForSession,
   });
 
@@ -594,17 +595,17 @@ export function ConversationCoachGame({
             <h2 className="font-semibold text-lg">Conversation Coach</h2>
             <div className="flex items-center gap-2">
               <p className="text-sm text-muted-foreground">
-                Turn {metrics.turnsCompleted + 1} of 5
+                Turn {metrics.turnsCompleted + 1}
               </p>
-              {/* Progress encouragement */}
-              {metrics.turnsCompleted >= 1 && metrics.turnsCompleted < 4 && (
+              {/* Milestone encouragement */}
+              {metrics.turnsCompleted === 5 && (
                 <span className="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">
-                  Keep going! 💪
+                  Great flow! 🔥
                 </span>
               )}
-              {metrics.turnsCompleted >= 4 && (
+              {metrics.turnsCompleted === 10 && (
                 <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                  Almost done! 🎉
+                  Nice session! 🎉
                 </span>
               )}
               {/* Fluency indicator */}
@@ -624,14 +625,19 @@ export function ConversationCoachGame({
           </div>
         </div>
         
-        {/* Progress bar */}
+        {/* Controls - removed fixed progress bar */}
         <div className="flex items-center gap-3">
-          <div className="w-32 h-3 bg-muted rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-primary transition-all duration-500 ease-out rounded-full"
-              style={{ width: `${(metrics.turnsCompleted / 5) * 100}%` }}
-            />
-          </div>
+          {/* End conversation button */}
+          {currentPhase !== 'ready' && currentPhase !== 'complete' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { endSession(); setConversationState('idle'); }}
+              className="h-9 px-4 rounded-xl"
+            >
+              End Chat
+            </Button>
+          )}
           {/* Help toggle button */}
           {conversationState === 'listening' && (
             <Button 
@@ -672,8 +678,7 @@ export function ConversationCoachGame({
           <div className="text-center space-y-5">
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span className="px-3 py-1 bg-muted rounded-full">5 turns</span>
-                <span className="px-3 py-1 bg-muted rounded-full">~3 min</span>
+                <span className="px-3 py-1 bg-muted rounded-full">Chat as long as you like</span>
               </div>
             </div>
             <Button
@@ -690,7 +695,7 @@ export function ConversationCoachGame({
               Start Conversation
             </Button>
             <p className="text-base text-muted-foreground max-w-sm mx-auto">
-              I'll ask questions and you respond. Just speak naturally — no right or wrong answers!
+              I'll ask questions and you respond. End when you're ready!
             </p>
           </div>
         )}

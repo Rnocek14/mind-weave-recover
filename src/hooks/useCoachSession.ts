@@ -91,14 +91,15 @@ interface UseCoachSessionReturn {
   handleCardComplete: (messageId: string, result: unknown) => string;
   clearPendingAI: () => void;
   reset: () => void;
-  requestCard: (cardType: CardType) => string; // New: user-requested card
+  requestCard: (cardType: CardType) => string;
+  endSession: () => void; // User-initiated end
 }
 
 export function useCoachSession({
   userId,
   profileId,
   sessionId,
-  maxTurns = 5,
+  maxTurns, // No default - undefined means unlimited
   userSpeechProfile,
 }: UseCoachSessionProps): UseCoachSessionReturn {
   const [messages, setMessages] = useState<FeedMessage[]>([]);
@@ -109,7 +110,7 @@ export function useCoachSession({
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   
-  const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns));
+  const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns ?? 999));
   const latenciesRef = useRef<number[]>([]);
   const userWordsRef = useRef(0);
   const aiWordsRef = useRef(0);
@@ -385,16 +386,8 @@ export function useCoachSession({
         false
       );
       
-      if (orchestratorStateRef.current.turnNumber >= maxTurns) {
-        const wrapUpText = getFollowupLine('wrap_up');
-        addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
-        aiWordsRef.current += countWords(wrapUpText);
-        aiResponseText = wrapUpText;
-        setIsComplete(true);
-        setCurrentPhase('complete');
-      } else {
-        setCurrentPhase('user_turn');
-      }
+      // No automatic wrap-up - user ends when ready
+      setCurrentPhase('user_turn');
     }
 
     setPendingAIText(aiResponseText);
@@ -451,20 +444,11 @@ export function useCoachSession({
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     
-    if (orchestratorStateRef.current.turnNumber >= maxTurns) {
-      const wrapUpText = getFollowupLine('wrap_up');
-      addMessage({ type: 'ai', text: wrapUpText, id: generateId() });
-      aiWordsRef.current += countWords(wrapUpText);
-      setIsComplete(true);
-      setCurrentPhase('complete');
-      setPendingAIText(wrapUpText);
-      return wrapUpText;
-    } else {
-      setCurrentPhase('user_turn');
-      setPendingAIText(outro);
-      return outro;
-    }
-  }, [messages, addMessage, maxTurns]);
+    // No automatic wrap-up - user ends when ready
+    setCurrentPhase('user_turn');
+    setPendingAIText(outro);
+    return outro;
+  }, [messages, addMessage]);
 
   // New: Handle user-requested card insertion
   const requestCard = useCallback((cardType: CardType): string => {
@@ -516,7 +500,7 @@ export function useCoachSession({
     setPendingAIText(null);
     setHasPendingCard(false);
     setEngagementState(null);
-    orchestratorStateRef.current = createInitialState(maxTurns);
+    orchestratorStateRef.current = createInitialState(maxTurns ?? 999);
     latenciesRef.current = [];
     userWordsRef.current = 0;
     aiWordsRef.current = 0;
@@ -527,6 +511,12 @@ export function useCoachSession({
     speechAnalysis.reset();
     analysisHistoryRef.current = [];
   }, [maxTurns, speechAnalysis]);
+
+  // User-initiated session end
+  const endSession = useCallback(() => {
+    setIsComplete(true);
+    setCurrentPhase('complete');
+  }, []);
 
   // Calculate enhanced metrics
   const sessionMetrics = speechAnalysis.getSessionMetrics();
@@ -566,6 +556,7 @@ export function useCoachSession({
     clearPendingAI,
     reset,
     requestCard,
+    endSession,
   };
 }
 
