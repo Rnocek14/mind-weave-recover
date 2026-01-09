@@ -36,8 +36,8 @@ interface SpeechEndDetection {
 
 export function useSpeechEndDetection({
   onSpeechEnd,
-  incompletesilenceMs = 1500, // 1.5s backup for "um", "and..." (reduced from 4s)
-  completesilenceMs = 800,    // 0.8s backup for natural endings (reduced from 2s)
+  incompletesilenceMs = 1000, // 1s backup for "um", "and..." (reduced from 1.5s)
+  completesilenceMs = 400,    // 0.4s backup for natural endings (reduced from 0.8s)
   enabled = true,
 }: UseSpeechEndDetectionOptions): SpeechEndDetection {
   
@@ -122,7 +122,7 @@ export function useSpeechEndDetection({
     if (silenceCheckIntervalRef.current) {
       clearInterval(silenceCheckIntervalRef.current);
     }
-    silenceCheckIntervalRef.current = setInterval(checkForSpeechEnd, 500);
+    silenceCheckIntervalRef.current = setInterval(checkForSpeechEnd, 200);
     
     console.log('🎯 Speech end detection started');
   }, [checkForSpeechEnd]);

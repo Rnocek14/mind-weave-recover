@@ -45,8 +45,9 @@ serve(async (req) => {
           text,
           model_id: 'eleven_turbo_v2_5', // Fastest model for real-time
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
+            stability: 0.4,
+            similarity_boost: 0.8,
+            style: 0.3,
           },
         }),
       }
