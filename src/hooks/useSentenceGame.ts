@@ -1,15 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   SentenceTrial,
   GrammarErrorType,
   getMixedTrials,
   analyzeSentenceErrors
 } from "@/data/sentenceBank";
+import { shuffleArray } from "@/lib/shuffle";
+import { filterRecentlyShown, markItemShown } from "@/lib/sessionHistory";
 
 interface GameState {
   currentTrial: number;
   trials: SentenceTrial[];
-  currentAnswer: number[]; // Stores indices into trial.options
+  currentAnswer: number[];
   score: number;
   completed: boolean;
   showFeedback: boolean;
@@ -25,6 +27,8 @@ export const useSentenceGame = (
   totalTrials: number = 10,
   difficultyLevel: number = 1
 ) => {
+  const shownTrialsRef = useRef<Set<string>>(new Set());
+  
   const [gameState, setGameState] = useState<GameState>({
     currentTrial: 0,
     trials: [],
@@ -36,12 +40,17 @@ export const useSentenceGame = (
     recentErrors: []
   });
 
-  // Initialize trials
+  // Initialize trials with deduplication
   useEffect(() => {
-    const trials = getMixedTrials(difficultyLevel, totalTrials);
+    let allTrials = getMixedTrials(difficultyLevel, totalTrials * 2);
+    allTrials = filterRecentlyShown(allTrials, 'sentence_game', 2);
+    const available = allTrials.filter(t => !shownTrialsRef.current.has(t.id));
+    const trialsToUse = available.length >= totalTrials ? available : allTrials;
+    const selectedTrials = shuffleArray(trialsToUse).slice(0, totalTrials);
+    
     setGameState(prev => ({
       ...prev,
-      trials,
+      trials: selectedTrials,
       currentTrial: 0,
       score: 0,
       completed: false,
