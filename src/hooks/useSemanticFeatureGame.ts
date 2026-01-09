@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   SemanticFeature,
   SemanticFeatureTrial,
@@ -7,6 +7,8 @@ import {
   generateFeatureOptions,
   analyzeFeatureErrors,
 } from '@/data/semanticFeatureBank';
+import { shuffleArray } from '@/lib/shuffle';
+import { filterRecentlyShown, markItemShown } from '@/lib/sessionHistory';
 
 interface GameState {
   currentTrial: number;
@@ -29,6 +31,8 @@ export const useSemanticFeatureGame = (
   difficultyLevel: number = 1,
   customTrials?: SemanticFeatureTrial[]
 ) => {
+  const shownTrialsRef = useRef<Set<string>>(new Set());
+  
   const [state, setState] = useState<GameState>({
     currentTrial: 0,
     trials: [],
@@ -41,17 +45,23 @@ export const useSemanticFeatureGame = (
     recentErrors: [],
   });
 
-  // Initialize trials (use customTrials if provided)
+  // Initialize trials with deduplication
   useEffect(() => {
-    const trials = customTrials && customTrials.length > 0 
+    let allTrials = customTrials && customTrials.length > 0 
       ? customTrials 
-      : getTrialsForLevel(difficultyLevel, totalTrials);
-    if (trials.length === 0) return;
+      : getTrialsForLevel(difficultyLevel, totalTrials * 2);
+    if (allTrials.length === 0) return;
     
-    const options = generateFeatureOptions(trials[0], difficultyLevel);
+    // Filter recently shown
+    const trialsWithIds = allTrials.map((t, i) => ({ ...t, id: t.word + '_' + i }));
+    const filtered = trialsWithIds.filter(t => !shownTrialsRef.current.has(t.id));
+    const trialsToUse = filtered.length >= totalTrials ? filtered : trialsWithIds;
+    const selectedTrials = shuffleArray(trialsToUse).slice(0, totalTrials);
+    
+    const options = generateFeatureOptions(selectedTrials[0], difficultyLevel);
     setState(prev => ({
       ...prev,
-      trials,
+      trials: selectedTrials,
       currentOptions: options,
       currentTrial: 0,
       selectedFeatures: new Set(),

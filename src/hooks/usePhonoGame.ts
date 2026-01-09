@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   PhonologicalTrial,
   getMixedTrials,
   getTrialsByTargetWords,
   analyzePhonemeErrors,
 } from '@/data/phonologicalBank';
+import { shuffleArray } from '@/lib/shuffle';
+import { filterRecentlyShown, markItemShown } from '@/lib/sessionHistory';
 
 interface GameState {
   currentTrial: number;
@@ -22,6 +24,9 @@ export const usePhonoGame = (
   difficultyLevel: number = 1,
   customTrials?: PhonologicalTrial[]
 ) => {
+  // Track shown trials within session to prevent repeats
+  const shownTrialsRef = useRef<Set<string>>(new Set());
+  
   const [state, setState] = useState<GameState>({
     currentTrial: 0,
     trials: [],
@@ -33,14 +38,29 @@ export const usePhonoGame = (
     incorrectTrials: [],
   });
 
-  // Initialize trials (use customTrials if provided)
+  // Initialize trials with deduplication
   useEffect(() => {
-    const trials = customTrials && customTrials.length > 0
+    let allTrials = customTrials && customTrials.length > 0
       ? customTrials
-      : getMixedTrials(difficultyLevel, totalTrials);
+      : getMixedTrials(difficultyLevel, totalTrials * 3); // Get extra to filter
+    
+    // Filter out recently shown (cross-session)
+    allTrials = filterRecentlyShown(allTrials, 'phono_game', 2);
+    
+    // Filter out already shown this session
+    const availableTrials = allTrials.filter(t => !shownTrialsRef.current.has(t.id));
+    
+    // If we've run out, reset session tracking
+    const trialsToUse = availableTrials.length >= totalTrials 
+      ? availableTrials 
+      : allTrials;
+    
+    // Shuffle and take needed amount
+    const selectedTrials = shuffleArray(trialsToUse).slice(0, totalTrials);
+    
     setState(prev => ({
       ...prev,
-      trials,
+      trials: selectedTrials,
       currentTrial: 0,
       userAnswer: null,
       score: 0,
@@ -56,6 +76,10 @@ export const usePhonoGame = (
     relationType: string;
   } => {
     const trial = state.trials[state.currentTrial];
+    
+    // Mark as shown for cross-session and session tracking
+    shownTrialsRef.current.add(trial.id);
+    markItemShown('phono_game', trial.id);
     
     // Determine correct answer based on trial type
     const expectedAnswer: 'same' | 'different' = trial.areSame ? 'same' : 'different';
@@ -96,7 +120,10 @@ export const usePhonoGame = (
   };
 
   const reset = (newLevel: number = 1) => {
-    const trials = getMixedTrials(newLevel, totalTrials);
+    // Clear session tracking on explicit reset
+    shownTrialsRef.current.clear();
+    
+    const trials = shuffleArray(getMixedTrials(newLevel, totalTrials));
     
     setState({
       currentTrial: 0,
