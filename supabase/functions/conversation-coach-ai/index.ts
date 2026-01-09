@@ -274,11 +274,14 @@ serve(async (req) => {
       });
     }
 
-    // Add card context if available
+    // Add card context if available - help AI connect card result to conversation
     if (cardContext) {
+      const cardResultNote = cardContext.success 
+        ? `[CARD COMPLETED: User successfully named/answered "${cardContext.response}" in a ${cardContext.cardType} game. Echo their answer and ask a simple follow-up about it. Example: "Cat! Nice. Do you have a cat?" or "Toast! Good. What did you put on it?"]`
+        : `[CARD COMPLETED: User attempted a ${cardContext.cardType} game. Acknowledge kindly and continue conversation. Example: "Good try! Let's keep chatting. What were we talking about?"]`;
       messages.push({
         role: 'system',
-        content: `[Card completed: User said "${cardContext.response}" in a ${cardContext.cardType} exercise. Acknowledge briefly.]`
+        content: cardResultNote
       });
     }
 

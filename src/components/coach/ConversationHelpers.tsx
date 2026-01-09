@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, SkipForward, HelpCircle } from 'lucide-react';
+import { Lightbulb, SkipForward, HelpCircle, Gamepad2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ConversationHelpersProps {
@@ -19,6 +19,7 @@ interface ConversationHelpersProps {
   onTopicSelect: (topic: string) => void;
   onGiveIdea: () => void;
   onSkip: () => void;
+  onPlayGame?: () => void;
   className?: string;
 }
 
@@ -42,6 +43,7 @@ export function ConversationHelpers({
   onTopicSelect,
   onGiveIdea,
   onSkip,
+  onPlayGame,
   className,
 }: ConversationHelpersProps) {
   // Determine what to show based on silence duration
@@ -107,8 +109,20 @@ export function ConversationHelpers({
               className="flex-1 gap-2 min-h-[44px]"
             >
               <Lightbulb className="w-4 h-4" />
-              Give me an idea
+              Give idea
             </Button>
+            
+            {onPlayGame && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onPlayGame}
+                className="flex-1 gap-2 min-h-[44px]"
+              >
+                <Gamepad2 className="w-4 h-4" />
+                Play game
+              </Button>
+            )}
             
             {showSkip && (
               <Button

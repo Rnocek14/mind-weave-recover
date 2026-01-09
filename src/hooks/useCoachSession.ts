@@ -20,6 +20,8 @@ import {
   getCardIntro,
   getCardOutro,
   SpeechAnalysisForOrchestrator,
+  extractTopicFromMessages,
+  getUserRequestedCardConfig,
 } from '@/lib/coachOrchestrator';
 import { 
   getFollowupLine, 
@@ -82,12 +84,14 @@ interface UseCoachSessionReturn {
   pendingAIText: string | null;
   hasPendingCard: boolean;
   engagementState: MonitorEngagementState | null;
+  currentTopic: string | null;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
   handleCardComplete: (messageId: string, result: unknown) => string;
   clearPendingAI: () => void;
   reset: () => void;
+  requestCard: (cardType: CardType) => string; // New: user-requested card
 }
 
 export function useCoachSession({
@@ -218,7 +222,18 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'insert_card') {
-      const intro = getCardIntro(action.cardType);
+      // Extract topic for topic-aware intro
+      const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
+      const conversationHistory = currentMessages
+        .filter(m => m.type === 'ai' || m.type === 'user')
+        .slice(-6)
+        .map(m => ({
+          role: m.type as 'ai' | 'user',
+          text: m.type === 'ai' ? m.text : m.type === 'user' ? m.text : ''
+        }));
+      const topic = extractTopicFromMessages(conversationHistory);
+      
+      const intro = getCardIntro(action.cardType, topic);
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
@@ -231,7 +246,9 @@ export function useCoachSession({
         orchestratorStateRef.current,
         stuckType,
         true,
-        action.cardType
+        action.cardType,
+        undefined,
+        topic || undefined
       );
     } else {
       // Get contextual response from AI with full speech analysis context
@@ -416,6 +433,9 @@ export function useCoachSession({
     cardsCompletedRef.current += 1;
     pendingCardIdRef.current = null;
     
+    // Get current topic for connected outro
+    const currentTopic = orchestratorStateRef.current.currentTopic;
+    
     if (cardType) {
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
@@ -426,7 +446,8 @@ export function useCoachSession({
       );
     }
 
-    const outro = getCardOutro();
+    // Use topic-connected outro
+    const outro = getCardOutro(currentTopic || undefined);
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     
@@ -444,6 +465,27 @@ export function useCoachSession({
       return outro;
     }
   }, [messages, addMessage, maxTurns]);
+
+  // New: Handle user-requested card insertion
+  const requestCard = useCallback((cardType: CardType): string => {
+    const topic = orchestratorStateRef.current.currentTopic;
+    const { intro, config } = getUserRequestedCardConfig(cardType, topic);
+    
+    addMessage({ type: 'ai', text: intro, id: generateId() });
+    aiWordsRef.current += countWords(intro);
+    
+    pendingCardTypeRef.current = cardType;
+    pendingCardDifficultyRef.current = config.difficulty;
+    setHasPendingCard(true);
+    
+    // Update state but mark as user-requested (doesn't count against auto limits)
+    orchestratorStateRef.current = {
+      ...orchestratorStateRef.current,
+      userRequestedCards: orchestratorStateRef.current.userRequestedCards + 1,
+    };
+    
+    return intro;
+  }, [addMessage]);
 
   const clearPendingAI = useCallback(() => {
     setPendingAIText(null);
@@ -516,12 +558,14 @@ export function useCoachSession({
     pendingAIText,
     hasPendingCard,
     engagementState,
+    currentTopic: orchestratorStateRef.current.currentTopic,
     startSession,
     processUserTurn,
     insertPendingCard,
     handleCardComplete,
     clearPendingAI,
     reset,
+    requestCard,
   };
 }
 

@@ -39,6 +39,8 @@ export interface OrchestratorState {
   successStreak: number;
   lastCardType: CardType | null;
   yesNoSucceeded: boolean; // Track if yes/no card was successful (for escalation)
+  currentTopic: string | null; // Track conversation topic for card selection
+  userRequestedCards: number; // Cards requested by user (don't count against limits)
 }
 
 // Speech analysis data for smarter card selection
@@ -51,10 +53,10 @@ export interface SpeechAnalysisForOrchestrator {
   filledPauseCount: number;
 }
 
-// Thresholds and limits
+// Thresholds and limits - relaxed for better card availability
 const LIMITS = {
-  MIN_TURNS_BETWEEN_CARDS: 3,
-  MAX_CARDS_PER_SESSION: 3,
+  MIN_TURNS_BETWEEN_CARDS: 2,  // Allow more frequent cards
+  MAX_CARDS_PER_SESSION: 5,    // Allow more cards
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
 };
 
@@ -281,6 +283,8 @@ export function createInitialState(maxTurns: number = 5): OrchestratorState {
     successStreak: 0,
     lastCardType: null,
     yesNoSucceeded: false,
+    currentTopic: null,
+    userRequestedCards: 0,
   };
 }
 
@@ -292,7 +296,8 @@ export function updateState(
   stuckType: StuckType,
   cardInserted: boolean,
   cardType?: CardType,
-  cardSuccess?: boolean
+  cardSuccess?: boolean,
+  topic?: string
 ): OrchestratorState {
   const newSuccessStreak = stuckType === 'strong_flow' 
     ? state.successStreak + 1 
@@ -314,6 +319,8 @@ export function updateState(
     successStreak: newSuccessStreak,
     lastCardType: cardInserted && cardType ? cardType : state.lastCardType,
     yesNoSucceeded,
+    currentTopic: topic || state.currentTopic,
+    userRequestedCards: state.userRequestedCards,
   };
 }
 
@@ -355,6 +362,72 @@ export const CARD_INTRO_LINES: Record<CardType, string[]> = {
   ],
 };
 
+// Topic-aware card intros (when we know what user was talking about)
+export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
+  food: {
+    photo_naming: [
+      "Speaking of food, can you name this?",
+      "Here's something you might eat.",
+    ],
+    semantic_features: [
+      "Let's think about foods. Describe this.",
+    ],
+    thought_prompt: [
+      "Finish this thought about eating...",
+    ],
+    phrase_starter: [
+      "Try starting with one of these...",
+    ],
+    yes_no: [
+      "Quick question about food.",
+    ],
+    recall_prompt: [
+      "Name any foods you can think of.",
+      "What other foods do you like?",
+    ],
+  },
+  family: {
+    photo_naming: [
+      "Here's a quick one while we chat.",
+    ],
+    semantic_features: [
+      "Tell me about this person.",
+    ],
+    thought_prompt: [
+      "Finish this thought about family...",
+    ],
+    phrase_starter: [
+      "You could start with one of these...",
+    ],
+    yes_no: [
+      "Quick question about people.",
+    ],
+    recall_prompt: [
+      "Name anyone who comes to mind.",
+    ],
+  },
+  activities: {
+    photo_naming: [
+      "Here's something related to activities.",
+    ],
+    semantic_features: [
+      "Describe what you see here.",
+    ],
+    thought_prompt: [
+      "Complete this thought...",
+    ],
+    phrase_starter: [
+      "Start with any of these.",
+    ],
+    yes_no: [
+      "Quick yes or no for you.",
+    ],
+    recall_prompt: [
+      "Name any activities you enjoy.",
+    ],
+  },
+};
+
 // Context-aware outros that reference what we were talking about
 export const CARD_OUTRO_LINES: string[] = [
   "Nice! Now, back to chatting.",
@@ -386,8 +459,16 @@ export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
 
 /**
  * Get a random intro line for a card type
+ * Uses topic-aware intro if topic is known
  */
-export function getCardIntro(cardType: CardType): string {
+export function getCardIntro(cardType: CardType, topic?: string | null): string {
+  // Try topic-aware intro first
+  if (topic && TOPIC_CARD_INTROS[topic]?.[cardType]) {
+    const topicLines = TOPIC_CARD_INTROS[topic][cardType];
+    return topicLines[Math.floor(Math.random() * topicLines.length)];
+  }
+  
+  // Fall back to generic intro
   const lines = CARD_INTRO_LINES[cardType];
   return lines[Math.floor(Math.random() * lines.length)];
 }
@@ -403,4 +484,41 @@ export function getCardOutro(topic?: string): string {
     return topicLines[Math.floor(Math.random() * topicLines.length)];
   }
   return CARD_OUTRO_LINES[Math.floor(Math.random() * CARD_OUTRO_LINES.length)];
+}
+
+/**
+ * Extract topic from conversation messages
+ */
+export function extractTopicFromMessages(messages: { role: string; text: string }[]): string | null {
+  const recentText = messages
+    .slice(-4)
+    .map(m => m.text.toLowerCase())
+    .join(' ');
+  
+  // Simple keyword matching for topics
+  if (/\b(breakfast|lunch|dinner|eat|food|meal|cook|taste|hungry)\b/.test(recentText)) {
+    return 'food';
+  }
+  if (/\b(family|mom|dad|mother|father|son|daughter|brother|sister|wife|husband)\b/.test(recentText)) {
+    return 'family';
+  }
+  if (/\b(morning|today|yesterday|weekend|did|went|going)\b/.test(recentText)) {
+    return 'activities';
+  }
+  
+  return null;
+}
+
+/**
+ * Get card config for a user-requested card
+ * User-requested cards use easy difficulty and don't count against limits
+ */
+export function getUserRequestedCardConfig(cardType: CardType, topic?: string | null): {
+  intro: string;
+  config: { difficulty: 'easy' | 'medium' };
+} {
+  return {
+    intro: getCardIntro(cardType, topic),
+    config: { difficulty: 'easy' },
+  };
 }
