@@ -21,6 +21,8 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
 import { ConversationHelpers, getRandomIdea } from '@/components/coach/ConversationHelpers';
+import { GamePickerDialog } from '@/components/coach/GamePickerDialog';
+import { CardType } from '@/lib/coachOrchestrator';
 import { cn } from '@/lib/utils';
 
 interface ConversationCoachGameProps {
@@ -55,6 +57,7 @@ export function ConversationCoachGame({
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
   const [autoListenEnabled, setAutoListenEnabled] = useState(true); // Auto-listen after AI speaks
   const [showHelpers, setShowHelpers] = useState(false);
+  const [showGamePicker, setShowGamePicker] = useState(false);
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
@@ -101,12 +104,14 @@ export function ConversationCoachGame({
     currentPhase,
     hasPendingCard,
     engagementState,
+    currentTopic,
     startSession,
     processUserTurn,
     insertPendingCard,
     handleCardComplete,
     clearPendingAI,
     reset,
+    requestCard,
   } = useCoachSession({
     userId,
     profileId,
@@ -455,6 +460,38 @@ export function ConversationCoachGame({
     startConversationTurn();
   }, [speak, startConversationTurn]);
 
+  // Handle "play a game" button - open game picker
+  const handlePlayGame = useCallback(() => {
+    setShowGamePicker(true);
+  }, []);
+
+  // Handle game selection from picker
+  const handleGameSelect = useCallback(async (cardType: CardType) => {
+    setShowHelpers(false);
+    stopListening();
+    
+    // Stop audio recording
+    await stopAudioRecording();
+    
+    // Insert the user-requested card
+    const intro = requestCard(cardType);
+    
+    // Speak the intro
+    setConversationState('ai_speaking');
+    try {
+      await speak(intro);
+    } catch (err) {
+      console.warn('TTS failed:', err);
+    }
+    
+    // Insert the card
+    insertPendingCard();
+    setConversationState('idle');
+    setCardTranscript('');
+    setIsCardListening(true);
+    startListening();
+  }, [stopListening, stopAudioRecording, requestCard, speak, insertPendingCard, startListening]);
+
   if (!isSupported) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center bg-gradient-calm">
@@ -513,6 +550,12 @@ export function ConversationCoachGame({
 
   return (
     <div className="min-h-[70vh] flex flex-col bg-gradient-calm">
+      {/* Game picker dialog */}
+      <GamePickerDialog
+        open={showGamePicker}
+        onOpenChange={setShowGamePicker}
+        onSelectGame={handleGameSelect}
+      />
       {/* Break prompt overlay */}
       {showBreakPrompt && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -723,6 +766,7 @@ export function ConversationCoachGame({
                 onTopicSelect={handleTopicSelect}
                 onGiveIdea={handleGiveIdea}
                 onSkip={handleSkipTurn}
+                onPlayGame={handlePlayGame}
                 className="mt-2"
               />
             )}
