@@ -94,7 +94,7 @@ export function ConversationCoachGame({
     commonSubstitutions: speechProfile.common_substitutions,
   } : null;
 
-  const { speak, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
+  const { speak, speakStream, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
   
   const {
     messages,
@@ -186,14 +186,14 @@ export function ConversationCoachGame({
   const processTurnAndRespondRef = useRef<(transcript: string) => Promise<void>>();
   const startConversationTurnRef = useRef<() => void>();
   
-  // Smart speech end detection
+  // Smart speech end detection - faster thresholds for responsive feel
   const speechEndDetection = useSpeechEndDetection({
     onSpeechEnd: (transcript) => {
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
-    incompletesilenceMs: 1500,
-    completesilenceMs: 800,
+    incompletesilenceMs: 1000, // Reduced from 1500ms
+    completesilenceMs: 400,    // Reduced from 800ms
     enabled: conversationState === 'listening',
   });
 
@@ -257,7 +257,8 @@ export function ConversationCoachGame({
       setConversationState('ai_speaking');
       
       try {
-        await speak(aiResponse);
+        // Use streaming TTS for faster response time
+        await speakStream(aiResponse);
       } catch (err) {
         console.warn('TTS failed, continuing:', err);
       }
@@ -362,7 +363,7 @@ export function ConversationCoachGame({
     setConversationState('ai_speaking');
     
     try {
-      await speak(opener);
+      await speakStream(opener);
     } catch (err) {
       console.warn('TTS failed:', err);
     }
@@ -390,7 +391,7 @@ export function ConversationCoachGame({
       setConversationState('ai_speaking');
       
       try {
-        await speak(outroText);
+        await speakStream(outroText);
       } catch (err) {
         console.warn('TTS failed:', err);
       }
@@ -453,13 +454,13 @@ export function ConversationCoachGame({
     // Speak the idea and then listen
     setConversationState('ai_speaking');
     try {
-      await speak(idea);
+      await speakStream(idea);
     } catch (err) {
       console.warn('TTS failed:', err);
     }
     setConversationState('listening');
     startConversationTurn();
-  }, [speak, startConversationTurn]);
+  }, [speakStream, startConversationTurn]);
 
   // Handle "play a game" button - open game picker
   const handlePlayGame = useCallback(() => {
@@ -480,7 +481,7 @@ export function ConversationCoachGame({
     // Speak the intro
     setConversationState('ai_speaking');
     try {
-      await speak(intro);
+      await speakStream(intro);
     } catch (err) {
       console.warn('TTS failed:', err);
     }

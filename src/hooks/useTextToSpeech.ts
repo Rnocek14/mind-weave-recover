@@ -176,12 +176,12 @@ export const useTextToSpeech = () => {
     });
   }, []);
 
-  // Streaming TTS - tries ElevenLabs, falls back to browser TTS
+  // Streaming TTS - uses ElevenLabs streaming for faster time-to-first-audio
   const speakStream = useCallback(async (
     text: string,
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'EXAVITQu4vr4xnSDxMaL' } = options; // Sarah voice
+    const { voiceId = 'XrExE9yKIg1WjnnlVkGX' } = options; // Matilda voice (same as non-streaming)
 
     setIsLoading(true);
     setIsSpeaking(false);
@@ -203,7 +203,7 @@ export const useTextToSpeech = () => {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token}`,
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA',
+            'apikey': ANON_KEY,
           },
           body: JSON.stringify({ text, voiceId }),
           signal: abortControllerRef.current.signal,
@@ -214,41 +214,112 @@ export const useTextToSpeech = () => {
         throw new Error(`TTS request failed: ${response.status}`);
       }
 
-      // Get audio blob from stream
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
         URL.revokeObjectURL(audioRef.current.src);
       }
 
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      setIsLoading(false);
-      setIsSpeaking(true);
+      // Try to use MediaSource for true streaming playback
+      if ('MediaSource' in window && MediaSource.isTypeSupported('audio/mpeg')) {
+        const mediaSource = new MediaSource();
+        const audio = new Audio();
+        audio.src = URL.createObjectURL(mediaSource);
+        audioRef.current = audio;
 
-      return new Promise((resolve, reject) => {
-        audio.onended = () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          resolve();
-        };
+        return new Promise((resolve, reject) => {
+          mediaSource.addEventListener('sourceopen', async () => {
+            try {
+              const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+              const reader = response.body?.getReader();
+              
+              if (!reader) {
+                throw new Error('No response body');
+              }
 
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          reject(new Error('Audio playback failed'));
-        };
+              setIsLoading(false);
+              setIsSpeaking(true);
+              
+              // Start playback immediately
+              audio.play().catch(console.warn);
 
-        audio.play().catch((playError) => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          reject(playError);
+              // Stream chunks into the source buffer
+              const pump = async (): Promise<void> => {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                  // Wait for buffer to finish processing
+                  if (!sourceBuffer.updating) {
+                    mediaSource.endOfStream();
+                  } else {
+                    sourceBuffer.addEventListener('updateend', () => {
+                      mediaSource.endOfStream();
+                    }, { once: true });
+                  }
+                  return;
+                }
+
+                // Append chunk to buffer
+                if (!sourceBuffer.updating) {
+                  sourceBuffer.appendBuffer(value);
+                  await pump();
+                } else {
+                  sourceBuffer.addEventListener('updateend', async () => {
+                    sourceBuffer.appendBuffer(value);
+                    await pump();
+                  }, { once: true });
+                }
+              };
+
+              await pump();
+
+              audio.onended = () => {
+                setIsSpeaking(false);
+                URL.revokeObjectURL(audio.src);
+                resolve();
+              };
+
+              audio.onerror = () => {
+                setIsSpeaking(false);
+                URL.revokeObjectURL(audio.src);
+                reject(new Error('Audio playback failed'));
+              };
+            } catch (err) {
+              reject(err);
+            }
+          }, { once: true });
         });
-      });
+      } else {
+        // Fallback: wait for full blob then play
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        
+        setIsLoading(false);
+        setIsSpeaking(true);
+
+        return new Promise((resolve, reject) => {
+          audio.onended = () => {
+            setIsSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+          };
+
+          audio.onerror = () => {
+            setIsSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            reject(new Error('Audio playback failed'));
+          };
+
+          audio.play().catch((playError) => {
+            setIsSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            reject(playError);
+          });
+        });
+      }
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
         setIsLoading(false);
