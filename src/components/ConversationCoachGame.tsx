@@ -128,6 +128,7 @@ export function ConversationCoachGame({
     handleWordTileTap,
     handleFrameTap,
     requestCue,
+    currentSupportLevel,
   } = useCoachSession({
     userId,
     profileId,
@@ -695,7 +696,9 @@ export function ConversationCoachGame({
           primedVocabulary={assistivePanelState.primedVocabulary}
           usedWords={[]}
           onWordSelect={(word) => {
+            // handleWordTileTap only tracks the word, doesn't add a message
             handleWordTileTap(word);
+            // processTurnAndRespond handles the actual submission
             processTurnAndRespond(word);
           }}
           sentenceFrames={assistivePanelState.sentenceFrames}
@@ -705,8 +708,8 @@ export function ConversationCoachGame({
           }}
           cueLevel={assistivePanelState.cueLevel}
           cueText={assistivePanelState.cueText || undefined}
-          onRequestCue={requestCue}
-          supportLevel="guided"
+          onRequestCue={(level) => requestCue()}
+          supportLevel={currentSupportLevel}
           isExpanded={showAssistivePanel}
           onToggleExpand={() => setShowAssistivePanel(!showAssistivePanel)}
           isVisible={true}
