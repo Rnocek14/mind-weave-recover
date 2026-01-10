@@ -44,6 +44,12 @@ interface AssistivePanelProps {
   onToggleExpand: () => void;
   isVisible: boolean;
   
+  // FIX #2: Override props - allow parent to force show tiles/frames
+  // (cue engine emergency override or orchestrator policy)
+  showTilesOverride?: boolean;
+  showFramesOverride?: boolean;
+  showCueLadderOverride?: boolean;
+  
   // Topic context
   currentTopic?: string | null;
   
@@ -65,15 +71,20 @@ export function AssistivePanel({
   isExpanded,
   onToggleExpand,
   isVisible,
+  // FIX #2: Override props
+  showTilesOverride,
+  showFramesOverride,
+  showCueLadderOverride,
   currentTopic,
   className,
 }: AssistivePanelProps) {
   if (!isVisible) return null;
 
-  // Determine what to show based on support level
-  const showTiles = supportLevel === 'choice' || supportLevel === 'guided';
-  const showFrames = supportLevel === 'choice';
-  const showCueLadder = supportLevel === 'choice';
+  // FIX #2: Respect parent overrides (cue engine or orchestrator can force show)
+  // Override takes precedence, then fall back to supportLevel-based logic
+  const showTiles = showTilesOverride ?? (supportLevel === 'choice' || supportLevel === 'guided');
+  const showFrames = showFramesOverride ?? (supportLevel === 'choice');
+  const showCueLadder = showCueLadderOverride ?? (supportLevel === 'choice');
 
   // Combine primed vocabulary with topic words, prioritizing primed
   const allWords = [...new Set([...primedVocabulary, ...wordTiles])].slice(0, 6);
