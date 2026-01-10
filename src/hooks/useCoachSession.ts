@@ -611,9 +611,12 @@ export function useCoachSession({
     const cardMessage = messages.find(msg => msg.id === messageId && msg.type === 'card');
     const cardType = cardMessage && cardMessage.type === 'card' ? cardMessage.cardType : undefined;
     
+    // FIX #3: Expand success detection to handle more result formats
     const cardSuccess = result && typeof result === 'object' && 
       (('success' in result && result.success === true) || 
-       ('answered' in result && result.answered === true));
+       ('answered' in result && result.answered === true) ||
+       ('correct' in result && result.correct === true) ||
+       ('completed' in result));  // Treat any completion as success for phase progression
     
     const userResponse = result && typeof result === 'object' 
       ? (result as Record<string, unknown>).answer || 
@@ -635,14 +638,33 @@ export function useCoachSession({
     // Get current topic for connected outro
     const currentTopic = orchestratorStateRef.current.currentTopic;
     
+    // Store previous state for logging
+    const prevPhase = orchestratorStateRef.current.sessionPhase;
+    const prevWarmupCount = orchestratorStateRef.current.warmupCardsCompleted;
+    
     if (cardType) {
+      // FIX #1: Pass cardInserted=true (we ARE completing an inserted card)
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
         orchestratorStateRef.current.lastStuckType || 'strong_flow',
-        false,
+        true,  // FIX: Card WAS inserted
         cardType,
-        cardSuccess as boolean
+        cardSuccess as boolean,
+        currentTopic,
+        userResponse ? String(userResponse).split(/\s+/).filter(w => w.length > 2) : undefined
       );
+      
+      // FIX #2: Debug logging for phase transitions
+      console.log('[card-complete]', {
+        cardType,
+        cardSuccess,
+        previousPhase: prevPhase,
+        newPhase: orchestratorStateRef.current.sessionPhase,
+        warmupCardsCompleted: orchestratorStateRef.current.warmupCardsCompleted,
+        prevWarmupCount,
+        buildComplete: orchestratorStateRef.current.buildComplete,
+        cardsInsertedThisSession: orchestratorStateRef.current.cardsInsertedThisSession,
+      });
     }
     
     // Prime vocabulary from card result (for later reuse)

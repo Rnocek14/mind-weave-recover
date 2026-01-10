@@ -109,8 +109,28 @@ export function getNextAction(
     successStreak,
   } = state;
 
+  // FIX #4: Safety valve - prevent infinite warmup loops
+  const MAX_WARMUP_ATTEMPTS = 5;
+  if (sessionPhase === 'warmup' && cardsInsertedThisSession >= MAX_WARMUP_ATTEMPTS) {
+    console.warn('[orchestrator] Forcing warmup exit after max attempts:', {
+      cardsInsertedThisSession,
+      warmupCardsCompleted,
+    });
+    return {
+      type: 'chat_followup',
+      followupType: 'what_next',
+      objective: 'topic_exploration',
+      showTiles: true,
+    };
+  }
+
   // 1. PHASE-BASED LOGIC: Warmup phase forces cards first
   if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
+    console.log('[orchestrator] Warmup phase - inserting card:', {
+      warmupCardsCompleted,
+      required: LIMITS.WARMUP_CARDS_REQUIRED,
+      cardsInsertedThisSession,
+    });
     return {
       type: 'insert_card',
       cardType: 'photo_naming',
