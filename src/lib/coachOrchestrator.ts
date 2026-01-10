@@ -1,13 +1,13 @@
 /**
- * Conversation Coach Orchestrator
+ * Conversation Coach Orchestrator - ENHANCED
  * 
- * Rule-based decision engine that maps stuck types to appropriate interventions.
- * Decides when to continue conversation vs insert a mini-exercise card.
+ * Rule-based decision engine with STRICT ANTI-LOOP CONSTRAINTS:
+ * 1. Max 1 follow-up per micro-topic before forcing intervention
+ * 2. Every AI turn has a therapy objective tag
+ * 3. Low-content responses trigger tiles/frames (no open-ended prompts)
+ * 4. Proactive reps every 2-3 turns
  * 
- * Key principles:
- * - Max 1 card per 2 AI turns (frequency limiter)
- * - Only insert cards after genuine stall events
- * - Never interrupt if user is flowing
+ * Session phases: warmup → build → conversation → wrapup
  */
 
 import { StuckType } from './stuckTypeClassifier';
@@ -15,6 +15,12 @@ import { FollowupType } from './conversationFollowups';
 
 // Card types that can be inserted inline
 export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
+
+// Session phases
+export type SessionPhase = 'warmup' | 'build' | 'conversation' | 'wrapup';
+
+// Therapy objectives for each turn
+export type TherapyObjective = 'word_retrieval' | 'sentence_building' | 'comprehension_check' | 'topic_exploration' | 'rep_practice' | 'carryover';
 
 // Configuration for each card type
 export interface CardConfig {
@@ -24,25 +30,43 @@ export interface CardConfig {
 
 // Possible actions the orchestrator can take
 export type NextAction =
-  | { type: 'chat_followup'; followupType: FollowupType }
-  | { type: 'insert_card'; cardType: CardType; config: CardConfig }
+  | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; showTiles?: boolean; showFrames?: boolean }
+  | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
+  | { type: 'summary_verify'; summary: string }  // NEW: Summarize and verify before moving on
+  | { type: 'topic_shift' }  // NEW: Force topic change
   | { type: 'wrap_up' };
 
-// Session state for making decisions
+// Session state for making decisions - ENHANCED
 export interface OrchestratorState {
+  // Phase tracking
+  sessionPhase: SessionPhase;
+  warmupCardsCompleted: number;
+  buildComplete: boolean;
+  
+  // Turn tracking
   turnNumber: number;
   maxTurns: number;
   lastStuckType: StuckType | null;
   turnsSinceLastCard: number;
   cardsInsertedThisSession: number;
+  
+  // ANTI-LOOP: Follow-up depth tracking
+  consecutiveFollowups: number;  // NEW: Count of follow-ups on same micro-topic
+  lastMicroTopic: string | null;  // NEW: Track micro-topic (e.g., "eggs", "scrambled")
+  lastObjective: TherapyObjective | null;  // NEW: Previous turn's objective
+  
+  // Vocabulary priming
+  primedVocabulary: string[];  // NEW: Words from exercises to reuse
+  usedVocabulary: string[];    // NEW: Words user has produced
+  
+  // Success tracking
   recentStuckTypes: StuckType[];
   successStreak: number;
   lastCardType: CardType | null;
-  yesNoSucceeded: boolean; // Track if yes/no card was successful (for escalation)
-  currentTopic: string | null; // Track conversation topic for card selection
-  userRequestedCards: number; // Cards requested by user (don't count against limits)
-  // Scaffolding level for adaptive support
-  scaffoldingLevel: 'open' | 'guided' | 'choice'; // open = flowing, guided = some help, choice = needs options
+  yesNoSucceeded: boolean;
+  currentTopic: string | null;
+  userRequestedCards: number;
+  scaffoldingLevel: 'open' | 'guided' | 'choice';
 }
 
 // Speech analysis data for smarter card selection
@@ -55,16 +79,19 @@ export interface SpeechAnalysisForOrchestrator {
   filledPauseCount: number;
 }
 
-// Thresholds and limits - relaxed for better card availability
+// ANTI-LOOP LIMITS
 const LIMITS = {
-  MIN_TURNS_BETWEEN_CARDS: 2,  // Allow more frequent cards
-  MAX_CARDS_PER_SESSION: 5,    // Allow more cards
+  MIN_TURNS_BETWEEN_CARDS: 2,
+  MAX_CARDS_PER_SESSION: 8,  // Increased for structured session
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
+  MAX_CONSECUTIVE_FOLLOWUPS: 1,  // NEW: Force intervention after 1 follow-up
+  TURNS_BETWEEN_REPS: 3,  // NEW: Proactive rep every 3 turns
+  WARMUP_CARDS_REQUIRED: 2,
 };
 
 /**
  * Main orchestrator function - decides what to do next
- * Now accepts optional speech analysis for smarter decisions
+ * NOW WITH ANTI-LOOP CONSTRAINTS
  */
 export function getNextAction(
   stuckType: StuckType,
@@ -72,160 +99,189 @@ export function getNextAction(
   speechAnalysis?: SpeechAnalysisForOrchestrator
 ): NextAction {
   const {
+    sessionPhase,
+    warmupCardsCompleted,
     turnNumber,
     maxTurns,
     turnsSinceLastCard,
     cardsInsertedThisSession,
+    consecutiveFollowups,
     successStreak,
   } = state;
 
-  // 1. Check if we should wrap up
+  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first
+  if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
+    return {
+      type: 'insert_card',
+      cardType: 'photo_naming',
+      config: { difficulty: 'easy' },
+      objective: 'word_retrieval',
+    };
+  }
+
+  // 2. Build phase: Insert recall prompt for topic vocabulary
+  if (sessionPhase === 'build' && !state.buildComplete) {
+    return {
+      type: 'insert_card',
+      cardType: 'recall_prompt',
+      config: { difficulty: 'easy' },
+      objective: 'word_retrieval',
+    };
+  }
+
+  // 3. Check if we should wrap up
   if (turnNumber >= maxTurns - 1) {
     return { type: 'wrap_up' };
   }
 
-  // 2. If user is flowing well AND speech analysis confirms good fluency, continue
-  if (stuckType === 'strong_flow') {
-    // Double-check with speech analysis if available
-    if (speechAnalysis && speechAnalysis.effortfulSpeech) {
-      // User seems stuck but got words out - might need support
-      // Don't insert card, but use gentler followup
+  // 4. ANTI-LOOP: Too many consecutive follow-ups → force intervention
+  if (consecutiveFollowups >= LIMITS.MAX_CONSECUTIVE_FOLLOWUPS) {
+    // Option A: Insert a micro-game rep
+    if (turnsSinceLastCard >= 2 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
       return {
-        type: 'chat_followup',
-        followupType: 'acknowledge',
+        type: 'insert_card',
+        cardType: selectQuickRepCard(state),
+        config: { difficulty: 'easy' },
+        objective: 'rep_practice',
       };
     }
+    
+    // Option B: Summary + verify (break the loop)
+    if (state.primedVocabulary.length > 0) {
+      const summary = `So: ${state.usedVocabulary.slice(-2).join(', ')}. Right?`;
+      return { type: 'summary_verify', summary };
+    }
+    
+    // Option C: Topic shift
+    return { type: 'topic_shift' };
+  }
+
+  // 5. ANTI-LOOP: Low-content response → MUST show tiles (no open-ended)
+  if (speechAnalysis && (speechAnalysis.wordCount < 3 || speechAnalysis.pausePattern === 'very_slow')) {
+    // Force scaffolded response, not open-ended prompt
     return {
       type: 'chat_followup',
-      followupType: selectFollowupForFlow(turnNumber),
+      followupType: 'clarify_small',
+      objective: 'word_retrieval',
+      showTiles: true,
+      showFrames: true,
     };
   }
 
-  // 3. Check if we can insert a card (frequency limiter)
+  // 6. Proactive rep every 3 turns (even if flowing)
+  if (turnsSinceLastCard >= LIMITS.TURNS_BETWEEN_REPS && 
+      cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
+      stuckType !== 'strong_flow') {
+    return {
+      type: 'insert_card',
+      cardType: selectQuickRepCard(state),
+      config: { difficulty: 'easy' },
+      objective: 'rep_practice',
+    };
+  }
+
+  // 7. User flowing well - continue but track follow-up depth
+  if (stuckType === 'strong_flow') {
+    return {
+      type: 'chat_followup',
+      followupType: selectFollowupForFlow(turnNumber),
+      objective: 'topic_exploration',
+      showTiles: false,
+    };
+  }
+
+  // 8. Check if we can insert a card (frequency limiter)
   const canInsertCard = 
     turnsSinceLastCard >= LIMITS.MIN_TURNS_BETWEEN_CARDS &&
     cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
     successStreak < LIMITS.SUCCESS_STREAK_TO_AVOID_CARDS;
 
-  // 4. Use speech analysis for smarter card selection
+  // 9. Use speech analysis for card selection
   if (canInsertCard && speechAnalysis) {
     const cardDecision = selectCardBasedOnSpeechAnalysis(speechAnalysis, state);
     if (cardDecision) {
-      return cardDecision;
+      return { ...cardDecision, objective: 'word_retrieval' };
     }
   }
 
-  // 5. Fall back to stuck-type based card selection
+  // 10. Fall back to stuck-type based card selection
   if (canInsertCard) {
     const cardDecision = selectCardForStuckType(stuckType, state);
     if (cardDecision) {
-      return cardDecision;
+      return { ...cardDecision, objective: 'word_retrieval' };
     }
   }
 
-  // 6. Fallback to conversation follow-up
+  // 11. Fallback to conversation follow-up with scaffolding
   return {
     type: 'chat_followup',
     followupType: selectFollowupForStuckType(stuckType, turnNumber),
+    objective: 'sentence_building',
+    showTiles: state.scaffoldingLevel === 'choice',
+    showFrames: state.scaffoldingLevel === 'choice',
   };
 }
 
 /**
- * Select card based on speech analysis data (smarter than stuck type alone)
+ * Select a quick rep card that uses primed vocabulary
+ */
+function selectQuickRepCard(state: OrchestratorState): CardType {
+  // Vary card types for engagement
+  const options: CardType[] = ['photo_naming', 'recall_prompt', 'semantic_features'];
+  const lastUsed = state.lastCardType;
+  const available = options.filter(c => c !== lastUsed);
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+/**
+ * Select card based on speech analysis data
  */
 function selectCardBasedOnSpeechAnalysis(
   speechAnalysis: SpeechAnalysisForOrchestrator, 
   state: OrchestratorState
-): NextAction | null {
+): Omit<NextAction, 'objective'> | null {
   const { effortfulSpeech, circumlocutionDetected, pausePattern, wordCount, filledPauseCount } = speechAnalysis;
   
-  // Very effortful + very slow = reduce cognitive load with simple yes/no
   if (effortfulSpeech && pausePattern === 'very_slow' && !state.yesNoSucceeded) {
-    return {
-      type: 'insert_card',
-      cardType: 'yes_no',
-      config: { difficulty: 'easy' },
-    };
+    return { type: 'insert_card', cardType: 'yes_no', config: { difficulty: 'easy' } };
   }
   
-  // Circumlocution detected = practice direct naming
   if (circumlocutionDetected) {
-    return {
-      type: 'insert_card',
-      cardType: 'photo_naming',
-      config: { difficulty: 'easy' },
-    };
+    return { type: 'insert_card', cardType: 'photo_naming', config: { difficulty: 'easy' } };
   }
   
-  // High filled pause count = needs structure
   if (filledPauseCount >= 3) {
-    return {
-      type: 'insert_card',
-      cardType: 'phrase_starter',
-      config: { difficulty: 'easy' },
-    };
+    return { type: 'insert_card', cardType: 'phrase_starter', config: { difficulty: 'easy' } };
   }
   
-  // Effortful but got some words = recall prompt to reduce load
   if (effortfulSpeech && wordCount > 2) {
-    return {
-      type: 'insert_card',
-      cardType: 'recall_prompt',
-      config: { difficulty: 'easy' },
-    };
+    return { type: 'insert_card', cardType: 'recall_prompt', config: { difficulty: 'easy' } };
   }
   
-  // No clear pattern from analysis - let stuck type decide
   return null;
 }
 
 /**
- * Select the right card type based on stuck type and session history
+ * Select the right card type based on stuck type
  */
-function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState): NextAction | null {
+function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState): Omit<NextAction, 'objective'> | null {
   switch (stuckType) {
     case 'no_speech':
-      // If they haven't done yes_no yet, start there (easiest)
       if (!state.yesNoSucceeded) {
-        return {
-          type: 'insert_card',
-          cardType: 'yes_no',
-          config: { difficulty: 'easy' },
-        };
+        return { type: 'insert_card', cardType: 'yes_no', config: { difficulty: 'easy' } };
       }
-      // After yes_no success, try photo naming
-      return {
-        type: 'insert_card',
-        cardType: 'photo_naming',
-        config: { difficulty: 'easy' },
-      };
+      return { type: 'insert_card', cardType: 'photo_naming', config: { difficulty: 'easy' } };
 
     case 'word_search_stall':
-      // Use recall prompt - gentler and stays in conversation context
-      return {
-        type: 'insert_card',
-        cardType: 'recall_prompt',
-        config: { difficulty: 'easy' },
-      };
+      return { type: 'insert_card', cardType: 'recall_prompt', config: { difficulty: 'easy' } };
 
     case 'prompt_overload':
-      // Too broad - offer starter phrases
-      return {
-        type: 'insert_card',
-        cardType: 'phrase_starter',
-        config: { difficulty: 'easy' },
-      };
+      return { type: 'insert_card', cardType: 'phrase_starter', config: { difficulty: 'easy' } };
 
     case 'thought_abandonment':
-      // Trailed off - try a narrowed thought prompt
-      return {
-        type: 'insert_card',
-        cardType: 'thought_prompt',
-        config: { difficulty: 'easy' },
-      };
+      return { type: 'insert_card', cardType: 'thought_prompt', config: { difficulty: 'easy' } };
 
     case 'strong_flow':
-      // User is doing well - don't insert card
       return null;
 
     default:
@@ -233,66 +289,57 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
   }
 }
 
-/**
- * Select follow-up type when user is flowing well
- */
 function selectFollowupForFlow(turnNumber: number): FollowupType {
-  // Vary the follow-ups to keep conversation natural
   const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more', 'what_did'];
   return flowFollowups[turnNumber % flowFollowups.length];
 }
 
-/**
- * Select follow-up type based on stuck type (when not inserting a card)
- * CRITICAL: NEVER return pure 'acknowledge' - always continue conversation
- */
 function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): FollowupType {
   switch (stuckType) {
     case 'no_speech':
     case 'prompt_overload':
-      // Narrow down
       return 'clarify_small';
-
     case 'word_search_stall':
-      // Don't just acknowledge - always continue!
-      // Use 'tell_more' or 'what_next' instead of 'acknowledge'
       return turnNumber === 0 ? 'tell_more' : 'what_next';
-
     case 'thought_abandonment':
-      // Help them continue
       return 'what_next';
-
     case 'strong_flow':
       return turnNumber % 2 === 0 ? 'what_next' : 'tell_more';
-
     default:
-      // NEVER default to pure acknowledge - always invite continuation
       return 'tell_more';
   }
 }
 
 /**
- * Create initial orchestrator state
+ * Create initial orchestrator state - ENHANCED
  */
-export function createInitialState(maxTurns: number = 5): OrchestratorState {
+export function createInitialState(maxTurns: number = 999): OrchestratorState {
   return {
+    sessionPhase: 'warmup',
+    warmupCardsCompleted: 0,
+    buildComplete: false,
     turnNumber: 0,
     maxTurns,
     lastStuckType: null,
-    turnsSinceLastCard: 0, // Require MIN_TURNS_BETWEEN_CARDS before first card
+    turnsSinceLastCard: 0,
     cardsInsertedThisSession: 0,
+    consecutiveFollowups: 0,
+    lastMicroTopic: null,
+    lastObjective: null,
+    primedVocabulary: [],
+    usedVocabulary: [],
     recentStuckTypes: [],
     successStreak: 0,
     lastCardType: null,
     yesNoSucceeded: false,
     currentTopic: null,
     userRequestedCards: 0,
-    scaffoldingLevel: 'open', // Start with open-ended, adapt based on performance
+    scaffoldingLevel: 'guided',
   };
 }
 
 /**
- * Update state after a turn
+ * Update state after a turn - ENHANCED with anti-loop tracking
  */
 export function updateState(
   state: OrchestratorState,
@@ -300,17 +347,50 @@ export function updateState(
   cardInserted: boolean,
   cardType?: CardType,
   cardSuccess?: boolean,
-  topic?: string
+  topic?: string,
+  userWords?: string[],
+  microTopic?: string
 ): OrchestratorState {
-  const newSuccessStreak = stuckType === 'strong_flow' 
-    ? state.successStreak + 1 
-    : 0;
+  const newSuccessStreak = stuckType === 'strong_flow' ? state.successStreak + 1 : 0;
+  const yesNoSucceeded = state.yesNoSucceeded || (cardType === 'yes_no' && cardSuccess === true);
 
-  // Track if yes_no card succeeded (for escalation logic)
-  const yesNoSucceeded = state.yesNoSucceeded || 
-    (cardType === 'yes_no' && cardSuccess === true);
+  // Phase transitions
+  let newPhase = state.sessionPhase;
+  let warmupCardsCompleted = state.warmupCardsCompleted;
+  let buildComplete = state.buildComplete;
+  let primedVocabulary = [...state.primedVocabulary];
+  
+  if (cardInserted && cardSuccess) {
+    if (state.sessionPhase === 'warmup') {
+      warmupCardsCompleted++;
+      if (userWords) primedVocabulary.push(...userWords);
+      if (warmupCardsCompleted >= LIMITS.WARMUP_CARDS_REQUIRED) {
+        newPhase = 'build';
+      }
+    } else if (state.sessionPhase === 'build') {
+      if (userWords) primedVocabulary.push(...userWords);
+      buildComplete = true;
+      newPhase = 'conversation';
+    }
+  }
 
-  // Update scaffolding level based on recent performance
+  // Track consecutive follow-ups (anti-loop)
+  let consecutiveFollowups = state.consecutiveFollowups;
+  if (!cardInserted) {
+    if (microTopic === state.lastMicroTopic) {
+      consecutiveFollowups++;
+    } else {
+      consecutiveFollowups = 0;
+    }
+  } else {
+    consecutiveFollowups = 0;
+  }
+
+  // Update used vocabulary
+  const usedVocabulary = userWords 
+    ? [...state.usedVocabulary, ...userWords]
+    : state.usedVocabulary;
+
   const newScaffoldingLevel = calculateScaffoldingLevel(
     [...state.recentStuckTypes.slice(-4), stuckType],
     newSuccessStreak
@@ -318,240 +398,114 @@ export function updateState(
 
   return {
     ...state,
+    sessionPhase: newPhase,
+    warmupCardsCompleted,
+    buildComplete,
     turnNumber: state.turnNumber + 1,
     lastStuckType: stuckType,
     turnsSinceLastCard: cardInserted ? 0 : state.turnsSinceLastCard + 1,
-    cardsInsertedThisSession: cardInserted 
-      ? state.cardsInsertedThisSession + 1 
-      : state.cardsInsertedThisSession,
+    cardsInsertedThisSession: cardInserted ? state.cardsInsertedThisSession + 1 : state.cardsInsertedThisSession,
+    consecutiveFollowups,
+    lastMicroTopic: microTopic || state.lastMicroTopic,
+    primedVocabulary,
+    usedVocabulary,
     recentStuckTypes: [...state.recentStuckTypes.slice(-4), stuckType],
     successStreak: newSuccessStreak,
     lastCardType: cardInserted && cardType ? cardType : state.lastCardType,
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
-    userRequestedCards: state.userRequestedCards,
     scaffoldingLevel: newScaffoldingLevel,
   };
 }
 
-/**
- * Calculate scaffolding level based on recent performance
- * - open: User flowing well, use open-ended questions
- * - guided: Some struggle, offer gentle guidance
- * - choice: Struggling, offer explicit choices
- */
 function calculateScaffoldingLevel(
   recentStuckTypes: StuckType[],
   successStreak: number
 ): 'open' | 'guided' | 'choice' {
-  // If flowing well (2+ successes in a row), use open-ended
-  if (successStreak >= 2) {
-    return 'open';
-  }
-  
-  // Count recent struggles
+  if (successStreak >= 2) return 'open';
   const recentStruggles = recentStuckTypes.filter(
     t => t === 'no_speech' || t === 'word_search_stall' || t === 'prompt_overload'
   ).length;
-  
-  // If multiple struggles recently, offer choices
-  if (recentStruggles >= 2) {
-    return 'choice';
-  }
-  
-  // Default to guided
+  if (recentStruggles >= 2) return 'choice';
   return 'guided';
 }
 
-/**
- * Conversational wrappers for card insertions
- * Updated to feel more natural and connected to conversation
- */
+// Card intro/outro lines
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: [
-    "While we chat, here's a quick one.",
-    "Oh, here's something fun to try.",
-    "Let me show you something easy.",
-    "Quick brain warm-up for you.",
-  ],
-  semantic_features: [
-    "Let me help with this one.",
-    "Try describing this for me.",
-    "Here's something to think about.",
-  ],
-  thought_prompt: [
-    "Here's an easy one to finish.",
-    "Try this quick thought.",
-    "Just complete this for me.",
-  ],
-  phrase_starter: [
-    "Pick whichever feels right.",
-    "Here are some ways to start.",
-    "Use any of these to begin.",
-  ],
-  yes_no: [
-    "Quick one for you.",
-    "Simple question first.",
-    "Easy yes or no.",
-  ],
-  recall_prompt: [
-    "Any word that comes to mind.",
-    "Just name one thing.",
-    "Think of anything at all.",
-  ],
+  photo_naming: ["Quick one! Name this.", "What's this?", "Easy warm-up."],
+  semantic_features: ["Describe this for me.", "Tell me about this."],
+  thought_prompt: ["Finish this thought.", "Complete this."],
+  phrase_starter: ["Pick one to start.", "Use any of these."],
+  yes_no: ["Quick yes or no.", "Simple question."],
+  recall_prompt: ["Name anything that fits.", "What comes to mind?"],
 };
 
-// Topic-aware card intros (when we know what user was talking about)
 export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
   food: {
-    photo_naming: [
-      "Speaking of food, can you name this?",
-      "Here's something you might eat.",
-    ],
-    semantic_features: [
-      "Let's think about foods. Describe this.",
-    ],
-    thought_prompt: [
-      "Finish this thought about eating...",
-    ],
-    phrase_starter: [
-      "Try starting with one of these...",
-    ],
-    yes_no: [
-      "Quick question about food.",
-    ],
-    recall_prompt: [
-      "Name any foods you can think of.",
-      "What other foods do you like?",
-    ],
+    photo_naming: ["Speaking of food, name this."],
+    semantic_features: ["Describe this food."],
+    thought_prompt: ["Finish this about food..."],
+    phrase_starter: ["Try one of these..."],
+    yes_no: ["Quick food question."],
+    recall_prompt: ["Name any foods you like."],
   },
   family: {
-    photo_naming: [
-      "Here's a quick one while we chat.",
-    ],
-    semantic_features: [
-      "Tell me about this person.",
-    ],
-    thought_prompt: [
-      "Finish this thought about family...",
-    ],
-    phrase_starter: [
-      "You could start with one of these...",
-    ],
-    yes_no: [
-      "Quick question about people.",
-    ],
-    recall_prompt: [
-      "Name anyone who comes to mind.",
-    ],
+    photo_naming: ["Quick one."],
+    semantic_features: ["Tell me about them."],
+    thought_prompt: ["Finish this thought..."],
+    phrase_starter: ["Start with one of these."],
+    yes_no: ["Quick question."],
+    recall_prompt: ["Name anyone who comes to mind."],
   },
   activities: {
-    photo_naming: [
-      "Here's something related to activities.",
-    ],
-    semantic_features: [
-      "Describe what you see here.",
-    ],
-    thought_prompt: [
-      "Complete this thought...",
-    ],
-    phrase_starter: [
-      "Start with any of these.",
-    ],
-    yes_no: [
-      "Quick yes or no for you.",
-    ],
-    recall_prompt: [
-      "Name any activities you enjoy.",
-    ],
+    photo_naming: ["What's this?"],
+    semantic_features: ["Describe this."],
+    thought_prompt: ["Complete this..."],
+    phrase_starter: ["Pick one."],
+    yes_no: ["Yes or no?"],
+    recall_prompt: ["Name any activities."],
   },
 };
 
-// Context-aware outros that reference what we were talking about
 export const CARD_OUTRO_LINES: string[] = [
-  "Nice! Now, back to chatting.",
-  "Good one. Where were we?",
-  "Great! So, what else?",
-  "Perfect. Let's keep talking.",
-  "Awesome! Now tell me more.",
+  "Nice! Back to chatting.",
+  "Good one! So...",
+  "Great! Tell me more.",
+  "Perfect! What else?",
 ];
 
-// Topic-connected outros (used when we know the topic)
 export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
-  food: [
-    "Nice! So, back to food — what else do you like?",
-    "Good! Now, you were telling me about eating...",
-  ],
-  family: [
-    "Great! You were telling me about your family...",
-    "Nice! Back to your family — who else?",
-  ],
-  morning: [
-    "Good! So what else happened this morning?",
-    "Nice! Back to your morning...",
-  ],
-  activities: [
-    "Great! So what else did you do?",
-    "Nice! Tell me more about that.",
-  ],
+  food: ["Nice! What else about food?", "Good! Tell me more about eating."],
+  family: ["Great! More about your family?", "Nice! Who else?"],
+  morning: ["Good! What else this morning?"],
+  activities: ["Great! What else did you do?"],
 };
 
-/**
- * Get a random intro line for a card type
- * Uses topic-aware intro if topic is known
- */
 export function getCardIntro(cardType: CardType, topic?: string | null): string {
-  // Try topic-aware intro first
   if (topic && TOPIC_CARD_INTROS[topic]?.[cardType]) {
-    const topicLines = TOPIC_CARD_INTROS[topic][cardType];
-    return topicLines[Math.floor(Math.random() * topicLines.length)];
+    const lines = TOPIC_CARD_INTROS[topic][cardType];
+    return lines[Math.floor(Math.random() * lines.length)];
   }
-  
-  // Fall back to generic intro
   const lines = CARD_INTRO_LINES[cardType];
   return lines[Math.floor(Math.random() * lines.length)];
 }
 
-/**
- * Get a random outro line after completing a card
- * Optionally pass a topic for more connected response
- */
 export function getCardOutro(topic?: string): string {
-  // Try to use topic-connected outro if we know the topic
   if (topic && CARD_OUTRO_WITH_TOPIC[topic]) {
-    const topicLines = CARD_OUTRO_WITH_TOPIC[topic];
-    return topicLines[Math.floor(Math.random() * topicLines.length)];
+    const lines = CARD_OUTRO_WITH_TOPIC[topic];
+    return lines[Math.floor(Math.random() * lines.length)];
   }
   return CARD_OUTRO_LINES[Math.floor(Math.random() * CARD_OUTRO_LINES.length)];
 }
 
-/**
- * Extract topic from conversation messages
- */
 export function extractTopicFromMessages(messages: { role: string; text: string }[]): string | null {
-  const recentText = messages
-    .slice(-4)
-    .map(m => m.text.toLowerCase())
-    .join(' ');
-  
-  // Simple keyword matching for topics
-  if (/\b(breakfast|lunch|dinner|eat|food|meal|cook|taste|hungry)\b/.test(recentText)) {
-    return 'food';
-  }
-  if (/\b(family|mom|dad|mother|father|son|daughter|brother|sister|wife|husband)\b/.test(recentText)) {
-    return 'family';
-  }
-  if (/\b(morning|today|yesterday|weekend|did|went|going)\b/.test(recentText)) {
-    return 'activities';
-  }
-  
+  const recentText = messages.slice(-4).map(m => m.text.toLowerCase()).join(' ');
+  if (/\b(breakfast|lunch|dinner|eat|food|meal|cook)\b/.test(recentText)) return 'food';
+  if (/\b(family|mom|dad|mother|father|son|daughter|wife|husband)\b/.test(recentText)) return 'family';
+  if (/\b(morning|today|yesterday|weekend|did|went)\b/.test(recentText)) return 'activities';
   return null;
 }
 
-/**
- * Get card config for a user-requested card
- * User-requested cards use easy difficulty and don't count against limits
- */
 export function getUserRequestedCardConfig(cardType: CardType, topic?: string | null): {
   intro: string;
   config: { difficulty: 'easy' | 'medium' };
