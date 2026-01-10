@@ -715,6 +715,9 @@ export function ConversationCoachGame({
           isExpanded={showAssistivePanel}
           onToggleExpand={() => setShowAssistivePanel(!showAssistivePanel)}
           isVisible={true}
+          // FIX #2: Pass overrides from assistivePanelState (cue engine/orchestrator)
+          showTilesOverride={assistivePanelState.showTiles}
+          showFramesOverride={assistivePanelState.showFrames}
           currentTopic={assistivePanelState.currentTopic}
         />
       )}

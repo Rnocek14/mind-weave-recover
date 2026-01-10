@@ -153,6 +153,8 @@ export function useCoachSession({
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
+  // FIX #1: Make supportLevel reactive (not read from ref at render time)
+  const [currentSupportLevel, setCurrentSupportLevel] = useState<SupportLevel>('guided');
   const [assistivePanelState, setAssistivePanelState] = useState<AssistivePanelState>({
     wordTiles: [],
     sentenceFrames: [],
@@ -284,21 +286,34 @@ export function useCoachSession({
     const action = getNextAction(stuckType, orchestratorStateRef.current, speechAnalysisForOrchestrator);
     setLastAction(action);
     
+    // DEBUG LOGGING: Orchestrator decision
+    console.log('[orchestrator]', { 
+      turn: orchestratorStateRef.current.turnNumber, 
+      actionType: action.type,
+      showTiles: 'showTiles' in action ? action.showTiles : undefined,
+      showFrames: 'showFrames' in action ? action.showFrames : undefined,
+      objective: 'objective' in action ? action.objective : undefined,
+    });
+    
     // FIX #3: Apply cue engine first (emergency override), then orchestrator (session policy)
     // Cue engine runs on struggle signals, orchestrator runs on session flow
     const topic = orchestratorStateRef.current.currentTopic;
-    // FIX #3: Use actual silence from recording duration minus speech, or estimate from latency
-    // latencyMs is time-to-first-word, not total silence. Use totalDurationMs for better estimate.
-    const estimatedSilenceMs = totalDurationMs 
-      ? Math.max(0, (totalDurationMs) - (wordCount * 300)) // rough: 300ms per word
+    // FIX #3: Improved silenceMs - only treat as "silence" when wordCount === 0
+    // Using slower per-word estimate for aphasia speech (700ms), and only use silence triggers
+    // when user truly didn't speak (avoids misclassifying slow speech as silence)
+    const estimatedSpeechMs = wordCount * 700; // more realistic for aphasia
+    const rawSilenceMs = totalDurationMs 
+      ? Math.max(0, totalDurationMs - estimatedSpeechMs)
       : (latencyMs ?? 0);
+    // Only use silence triggers if they truly didn't speak
+    const effectiveSilenceMs = wordCount === 0 ? rawSilenceMs : 0;
     
     const cueRec = getCueForUtterance(
       {
         wordCount,
         effortfulSpeech: analysis.effortfulSpeech,
         pausePattern: analysis.pausePattern,
-        silenceMs: estimatedSilenceMs,
+        silenceMs: effectiveSilenceMs, // FIX #3: Use effective silence
         filledPauseCount: analysis.filledPauseCount || 0,
         fluencyScore: analysis.fluencyScore || 50,
         circumlocutionDetected: analysis.circumlocutionDetected,
@@ -309,6 +324,27 @@ export function useCoachSession({
       primedVocabularyRef.current, // FIX #4: Use ref
       cueStateRef.current
     );
+    
+    // DEBUG LOGGING: Cue engine recommendation
+    console.log('[cue-engine]', { 
+      turn: orchestratorStateRef.current.turnNumber,
+      action: cueRec.action,
+      cueLevel: cueRec.cueLevel,
+      tiles: cueRec.tiles?.length,
+      frames: cueRec.frames?.length,
+      effectiveSilenceMs,
+    });
+    
+    // DEBUG LOGGING: Turn signals
+    console.log('[turn]', { 
+      transcript: transcript.slice(0, 50),
+      wordCount,
+      effortful: analysis.effortfulSpeech,
+      pausePattern: analysis.pausePattern,
+      filledPauseCount: analysis.filledPauseCount,
+      circumlocution: analysis.circumlocutionDetected,
+      effectiveSilenceMs,
+    });
     
     // Update cue state based on recommendation
     const userSucceeded = wordCount >= 3 && !analysis.effortfulSpeech;
@@ -368,6 +404,19 @@ export function useCoachSession({
     const turnSuccess = wordCount >= 3 && !analysis.effortfulSpeech;
     const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, turnSuccess);
     difficultyStateRef.current = adjustResult.newState;
+    
+    // FIX #1: Update reactive supportLevel state when it changes
+    if (adjustResult.newState.supportLevel !== currentSupportLevel) {
+      setCurrentSupportLevel(adjustResult.newState.supportLevel);
+    }
+    
+    // DEBUG LOGGING: Difficulty controller
+    console.log('[difficulty]', { 
+      turn: orchestratorStateRef.current.turnNumber,
+      support: adjustResult.newState.supportLevel,
+      cueFrequency: adjustResult.newState.cueFrequency,
+      action: adjustResult.action,
+    });
 
     let aiResponseText: string | null = null;
 
@@ -685,6 +734,7 @@ export function useCoachSession({
       primedVocabulary: [],
     });
     setLastAction(null);
+    setCurrentSupportLevel('guided'); // FIX #1: Reset reactive support level
     orchestratorStateRef.current = createInitialState(maxTurns ?? 999);
     latenciesRef.current = [];
     userWordsRef.current = 0;
@@ -792,8 +842,8 @@ export function useCoachSession({
     handleWordTileTap,
     handleFrameTap,
     requestCue,
-    // NEW: Expose support level
-    currentSupportLevel: difficultyStateRef.current.supportLevel,
+    // FIX #1: Return reactive state, not stale ref read
+    currentSupportLevel,
   };
 }
 
