@@ -19,7 +19,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.generate-recovery-summary]
-verify_jwt = true
+verify_jwt = false
 
 [functions.analyze-speech]
 verify_jwt = true
