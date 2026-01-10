@@ -51,7 +51,7 @@ export interface UtteranceSignals {
   primedVocabulary?: string[];
 }
 
-interface CueState {
+export interface CueState {
   currentLevel: number;
   lastActionTime: number;
   escalationCount: number;
