@@ -200,7 +200,12 @@ export function getNextAction(
   if (canInsertCard && speechAnalysis) {
     const cardDecision = selectCardBasedOnSpeechAnalysis(speechAnalysis, state);
     if (cardDecision) {
-      return { ...cardDecision, objective: 'word_retrieval' };
+      return {
+        type: 'insert_card',
+        cardType: cardDecision.cardType,
+        config: cardDecision.config,
+        objective: 'word_retrieval' as TherapyObjective,
+      };
     }
   }
 
@@ -208,7 +213,12 @@ export function getNextAction(
   if (canInsertCard) {
     const cardDecision = selectCardForStuckType(stuckType, state);
     if (cardDecision) {
-      return { ...cardDecision, objective: 'word_retrieval' };
+      return {
+        type: 'insert_card',
+        cardType: cardDecision.cardType,
+        config: cardDecision.config,
+        objective: 'word_retrieval' as TherapyObjective,
+      };
     }
   }
 
@@ -216,7 +226,7 @@ export function getNextAction(
   return {
     type: 'chat_followup',
     followupType: selectFollowupForStuckType(stuckType, turnNumber),
-    objective: 'sentence_building',
+    objective: 'sentence_building' as TherapyObjective,
     showTiles: state.scaffoldingLevel === 'choice',
     showFrames: state.scaffoldingLevel === 'choice',
   };
@@ -233,29 +243,35 @@ function selectQuickRepCard(state: OrchestratorState): CardType {
   return available[Math.floor(Math.random() * available.length)];
 }
 
+// Helper type for card decisions
+interface CardDecision {
+  cardType: CardType;
+  config: CardConfig;
+}
+
 /**
  * Select card based on speech analysis data
  */
 function selectCardBasedOnSpeechAnalysis(
   speechAnalysis: SpeechAnalysisForOrchestrator, 
   state: OrchestratorState
-): Omit<NextAction, 'objective'> | null {
+): CardDecision | null {
   const { effortfulSpeech, circumlocutionDetected, pausePattern, wordCount, filledPauseCount } = speechAnalysis;
   
   if (effortfulSpeech && pausePattern === 'very_slow' && !state.yesNoSucceeded) {
-    return { type: 'insert_card', cardType: 'yes_no', config: { difficulty: 'easy' } };
+    return { cardType: 'yes_no', config: { difficulty: 'easy' } };
   }
   
   if (circumlocutionDetected) {
-    return { type: 'insert_card', cardType: 'photo_naming', config: { difficulty: 'easy' } };
+    return { cardType: 'photo_naming', config: { difficulty: 'easy' } };
   }
   
   if (filledPauseCount >= 3) {
-    return { type: 'insert_card', cardType: 'phrase_starter', config: { difficulty: 'easy' } };
+    return { cardType: 'phrase_starter', config: { difficulty: 'easy' } };
   }
   
   if (effortfulSpeech && wordCount > 2) {
-    return { type: 'insert_card', cardType: 'recall_prompt', config: { difficulty: 'easy' } };
+    return { cardType: 'recall_prompt', config: { difficulty: 'easy' } };
   }
   
   return null;
@@ -264,22 +280,22 @@ function selectCardBasedOnSpeechAnalysis(
 /**
  * Select the right card type based on stuck type
  */
-function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState): Omit<NextAction, 'objective'> | null {
+function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState): CardDecision | null {
   switch (stuckType) {
     case 'no_speech':
       if (!state.yesNoSucceeded) {
-        return { type: 'insert_card', cardType: 'yes_no', config: { difficulty: 'easy' } };
+        return { cardType: 'yes_no', config: { difficulty: 'easy' } };
       }
-      return { type: 'insert_card', cardType: 'photo_naming', config: { difficulty: 'easy' } };
+      return { cardType: 'photo_naming', config: { difficulty: 'easy' } };
 
     case 'word_search_stall':
-      return { type: 'insert_card', cardType: 'recall_prompt', config: { difficulty: 'easy' } };
+      return { cardType: 'recall_prompt', config: { difficulty: 'easy' } };
 
     case 'prompt_overload':
-      return { type: 'insert_card', cardType: 'phrase_starter', config: { difficulty: 'easy' } };
+      return { cardType: 'phrase_starter', config: { difficulty: 'easy' } };
 
     case 'thought_abandonment':
-      return { type: 'insert_card', cardType: 'thought_prompt', config: { difficulty: 'easy' } };
+      return { cardType: 'thought_prompt', config: { difficulty: 'easy' } };
 
     case 'strong_flow':
       return null;
