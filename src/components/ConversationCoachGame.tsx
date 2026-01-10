@@ -696,10 +696,11 @@ export function ConversationCoachGame({
           primedVocabulary={assistivePanelState.primedVocabulary}
           usedWords={[]}
           onWordSelect={(word) => {
-            // handleWordTileTap only tracks the word, doesn't add a message
-            handleWordTileTap(word);
-            // processTurnAndRespond handles the actual submission
-            processTurnAndRespond(word);
+            // FIX #1: Tile tap is input-only - just get the word and submit it
+            // handleWordTileTap returns the word (no scoring)
+            // processTurnAndRespond handles submission + scoring in one place
+            const selectedWord = handleWordTileTap(word);
+            processTurnAndRespond(selectedWord);
           }}
           sentenceFrames={assistivePanelState.sentenceFrames}
           onFrameSelect={(frame) => {
@@ -708,7 +709,7 @@ export function ConversationCoachGame({
           }}
           cueLevel={assistivePanelState.cueLevel}
           cueText={assistivePanelState.cueText || undefined}
-          onRequestCue={(level) => requestCue()}
+          onRequestCue={(level) => requestCue(level)}
           supportLevel={currentSupportLevel}
           isExpanded={showAssistivePanel}
           onToggleExpand={() => setShowAssistivePanel(!showAssistivePanel)}

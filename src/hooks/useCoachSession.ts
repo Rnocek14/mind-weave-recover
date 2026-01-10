@@ -131,7 +131,7 @@ interface UseCoachSessionReturn {
   // NEW: Assistive panel interactions
   handleWordTileTap: (word: string) => string;
   handleFrameTap: (frame: string) => string;
-  requestCue: () => void;
+  requestCue: (level?: number) => void;
   // NEW: Expose support level for UI
   currentSupportLevel: SupportLevel;
 }
@@ -281,12 +281,57 @@ export function useCoachSession({
     const action = getNextAction(stuckType, orchestratorStateRef.current, speechAnalysisForOrchestrator);
     setLastAction(action);
     
-    // NEW: Apply orchestrator showTiles/showFrames flags to panel state
-    if (action.type === 'chat_followup') {
-      const topic = orchestratorStateRef.current.currentTopic;
-      const topicWords = topic ? getWordsForTopic(topic) : [];
-      const topicFrames = topic ? getFramesForTopic(topic) : [];
-      
+    // FIX #3: Apply cue engine first (emergency override), then orchestrator (session policy)
+    // Cue engine runs on struggle signals, orchestrator runs on session flow
+    const topic = orchestratorStateRef.current.currentTopic;
+    const cueRec = getCueForUtterance(
+      {
+        wordCount,
+        effortfulSpeech: analysis.effortfulSpeech,
+        pausePattern: analysis.pausePattern,
+        silenceMs: latencyMs ?? 0,
+        filledPauseCount: analysis.filledPauseCount || 0,
+        fluencyScore: analysis.fluencyScore || 50,
+        circumlocutionDetected: analysis.circumlocutionDetected,
+        lastUserWords: transcript.split(/\s+/).slice(-3),
+        primedVocabulary: assistivePanelState.primedVocabulary,
+      },
+      topic,
+      assistivePanelState.primedVocabulary,
+      cueStateRef.current
+    );
+    
+    // Update cue state based on recommendation
+    const userSucceeded = wordCount >= 3 && !analysis.effortfulSpeech;
+    if (cueRec.action !== 'none') {
+      cueStateRef.current = updateCueState(cueStateRef.current, cueRec.action, userSucceeded);
+    } else if (userSucceeded) {
+      // Reset on success even if no action
+      cueStateRef.current = updateCueState(cueStateRef.current, 'celebrate', true);
+    }
+    
+    // Determine panel state: cue engine overrides orchestrator when struggling
+    const topicWords = topic ? getWordsForTopic(topic) : [];
+    const topicFrames = topic ? getFramesForTopic(topic) : [];
+    
+    if (cueRec.action !== 'none' && cueRec.action !== 'celebrate') {
+      // Cue engine takes precedence (user is struggling)
+      setAssistivePanelState(prev => ({
+        ...prev,
+        showTiles: true,  // Always show tiles when struggling
+        showFrames: cueRec.cueLevel >= 2,  // Show frames at higher cue levels
+        wordTiles: cueRec.tiles || [...new Set([...prev.primedVocabulary, ...topicWords])].slice(0, 6),
+        sentenceFrames: cueRec.frames || topicFrames,
+        cueLevel: cueRec.cueLevel,
+        cueText: cueRec.cueText || getCueTextForLevel(
+          cueRec.cueLevel,
+          cueStateRef.current.targetWord,
+          topic || undefined
+        ),
+        currentTopic: topic,
+      }));
+    } else if (action.type === 'chat_followup') {
+      // Orchestrator policy applies (user is flowing)
       setAssistivePanelState(prev => ({
         ...prev,
         showTiles: action.showTiles ?? prev.showTiles,
@@ -294,6 +339,9 @@ export function useCoachSession({
         wordTiles: action.showTiles ? [...new Set([...prev.primedVocabulary, ...topicWords])].slice(0, 6) : prev.wordTiles,
         sentenceFrames: action.showFrames ? topicFrames : prev.sentenceFrames,
         currentTopic: topic,
+        // Reset cue level on success
+        cueLevel: userSucceeded ? 0 : prev.cueLevel,
+        cueText: userSucceeded ? null : prev.cueText,
       }));
     }
     
@@ -634,23 +682,11 @@ export function useCoachSession({
   }, []);
 
   // NEW: Assistive panel interaction handlers
-  // Returns the word - does NOT submit or add messages (caller handles that)
+  // FIX #1: Tile taps are INPUT-ONLY - no scoring, no orchestrator updates
+  // Scoring happens in processUserTurn when the word is actually submitted
   const handleWordTileTap = useCallback((word: string): string => {
-    // Track as a successful word retrieval
-    orchestratorStateRef.current = updateState(
-      orchestratorStateRef.current,
-      'strong_flow',
-      false,
-      undefined,
-      true,
-      undefined,
-      [word]
-    );
-    
-    // Update difficulty controller with success
-    const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, true);
-    difficultyStateRef.current = adjustResult.newState;
-    
+    // Just return the word - caller handles submission via processTurnAndRespond
+    // Do NOT update orchestrator or difficulty here (would double-score)
     return word;
   }, []);
 
@@ -659,19 +695,28 @@ export function useCoachSession({
     return frame;
   }, []);
 
-  const requestCue = useCallback(() => {
-    // Escalate cue level
-    cueStateRef.current = updateCueState(cueStateRef.current, 'escalate', false);
+  // FIX #2: requestCue accepts optional level parameter
+  const requestCue = useCallback((level?: number) => {
+    // If level provided, set directly; otherwise escalate by 1
+    const nextLevel = typeof level === 'number'
+      ? Math.min(Math.max(level, 0), 4)
+      : Math.min(cueStateRef.current.currentLevel + 1, 4);
+    
+    cueStateRef.current = {
+      ...cueStateRef.current,
+      currentLevel: nextLevel,
+      lastActionTime: Date.now(),
+    };
     
     const newCueText = getCueTextForLevel(
-      cueStateRef.current.currentLevel,
+      nextLevel,
       cueStateRef.current.targetWord,
       orchestratorStateRef.current.currentTopic || undefined
     );
     
     setAssistivePanelState(prev => ({
       ...prev,
-      cueLevel: cueStateRef.current.currentLevel,
+      cueLevel: nextLevel,
       cueText: newCueText,
     }));
   }, []);
