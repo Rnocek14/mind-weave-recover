@@ -229,11 +229,14 @@ export function ConversationCoachGame({
   });
   
   // Track live transcript
+  // Track live transcript - route to card or conversation appropriately
   useEffect(() => {
     if (liveTranscript) {
       if (currentPhase === 'card_active' && isCardListening) {
+        // Route to card's transcript - do NOT trigger conversation flow
         setCardTranscript(liveTranscript);
-      } else if (conversationState === 'listening') {
+      } else if (conversationState === 'listening' && currentPhase !== 'card_active') {
+        // Only route to conversation if we're NOT in card_active phase
         setUserTranscript(liveTranscript);
         if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
           firstWordTimeRef.current = Date.now();
@@ -246,6 +249,14 @@ export function ConversationCoachGame({
   // Process turn and speak AI response
   const processTurnAndRespond = useCallback(async (transcript: string) => {
     if (isProcessingRef.current) return;
+    
+    // FIX: Don't process conversation turns while a card is active
+    // Card speech should go through handleCardDone instead
+    if (currentPhase === 'card_active' || hasPendingCard) {
+      console.log('[processTurnAndRespond] Skipping - card active or pending:', { currentPhase, hasPendingCard });
+      return;
+    }
+    
     isProcessingRef.current = true;
     
     stopListening();
@@ -306,7 +317,7 @@ export function ConversationCoachGame({
     setUserTranscript('');
     setShowHelpers(false);
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentPhase]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
