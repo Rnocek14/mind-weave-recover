@@ -689,8 +689,9 @@ export function ConversationCoachGame({
       </div>
 
       {/* NEW: Assistive Panel - shows during listening/speaking phases */}
+      {/* FIX #6: Gate on showTiles/showFrames/cueText, not just wordTiles.length */}
       {(conversationState === 'listening' || currentPhase === 'user_turn') && 
-       assistivePanelState.wordTiles.length > 0 && (
+       (assistivePanelState.showTiles || assistivePanelState.showFrames || assistivePanelState.cueText) && (
         <AssistivePanel
           wordTiles={assistivePanelState.wordTiles}
           primedVocabulary={assistivePanelState.primedVocabulary}

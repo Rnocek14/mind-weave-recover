@@ -180,6 +180,8 @@ export function useCoachSession({
   // NEW: Cue engine and difficulty controller state
   const cueStateRef = useRef<CueState>(createInitialCueState());
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
+  // FIX #4: Use ref for primed vocabulary to avoid stale closures
+  const primedVocabularyRef = useRef<string[]>([]);
   
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
@@ -207,6 +209,7 @@ export function useCoachSession({
     
     // Initialize assistive panel with warmup words
     const warmupWords = getWarmupWords();
+    primedVocabularyRef.current = warmupWords; // FIX #4: Keep ref in sync
     setAssistivePanelState(prev => ({
       ...prev,
       wordTiles: warmupWords,
@@ -284,20 +287,26 @@ export function useCoachSession({
     // FIX #3: Apply cue engine first (emergency override), then orchestrator (session policy)
     // Cue engine runs on struggle signals, orchestrator runs on session flow
     const topic = orchestratorStateRef.current.currentTopic;
+    // FIX #3: Use actual silence from recording duration minus speech, or estimate from latency
+    // latencyMs is time-to-first-word, not total silence. Use totalDurationMs for better estimate.
+    const estimatedSilenceMs = totalDurationMs 
+      ? Math.max(0, (totalDurationMs) - (wordCount * 300)) // rough: 300ms per word
+      : (latencyMs ?? 0);
+    
     const cueRec = getCueForUtterance(
       {
         wordCount,
         effortfulSpeech: analysis.effortfulSpeech,
         pausePattern: analysis.pausePattern,
-        silenceMs: latencyMs ?? 0,
+        silenceMs: estimatedSilenceMs,
         filledPauseCount: analysis.filledPauseCount || 0,
         fluencyScore: analysis.fluencyScore || 50,
         circumlocutionDetected: analysis.circumlocutionDetected,
         lastUserWords: transcript.split(/\s+/).slice(-3),
-        primedVocabulary: assistivePanelState.primedVocabulary,
+        primedVocabulary: primedVocabularyRef.current, // FIX #4: Use ref
       },
       topic,
-      assistivePanelState.primedVocabulary,
+      primedVocabularyRef.current, // FIX #4: Use ref
       cueStateRef.current
     );
     
@@ -316,33 +325,43 @@ export function useCoachSession({
     
     if (cueRec.action !== 'none' && cueRec.action !== 'celebrate') {
       // Cue engine takes precedence (user is struggling)
-      setAssistivePanelState(prev => ({
-        ...prev,
-        showTiles: true,  // Always show tiles when struggling
-        showFrames: cueRec.cueLevel >= 2,  // Show frames at higher cue levels
-        wordTiles: cueRec.tiles || [...new Set([...prev.primedVocabulary, ...topicWords])].slice(0, 6),
-        sentenceFrames: cueRec.frames || topicFrames,
-        cueLevel: cueRec.cueLevel,
-        cueText: cueRec.cueText || getCueTextForLevel(
-          cueRec.cueLevel,
-          cueStateRef.current.targetWord,
-          topic || undefined
-        ),
-        currentTopic: topic,
-      }));
+      setAssistivePanelState(prev => {
+        // FIX #4: Keep ref in sync
+        const newPrimed = prev.primedVocabulary;
+        primedVocabularyRef.current = newPrimed;
+        return {
+          ...prev,
+          showTiles: true,  // Always show tiles when struggling
+          showFrames: cueRec.cueLevel >= 2,  // Show frames at higher cue levels
+          wordTiles: cueRec.tiles || [...new Set([...newPrimed, ...topicWords])].slice(0, 6),
+          sentenceFrames: cueRec.frames || topicFrames,
+          cueLevel: cueRec.cueLevel,
+          cueText: cueRec.cueText || getCueTextForLevel(
+            cueRec.cueLevel,
+            cueStateRef.current.targetWord,
+            topic || undefined
+          ),
+          currentTopic: topic,
+        };
+      });
     } else if (action.type === 'chat_followup') {
       // Orchestrator policy applies (user is flowing)
-      setAssistivePanelState(prev => ({
-        ...prev,
-        showTiles: action.showTiles ?? prev.showTiles,
-        showFrames: action.showFrames ?? prev.showFrames,
-        wordTiles: action.showTiles ? [...new Set([...prev.primedVocabulary, ...topicWords])].slice(0, 6) : prev.wordTiles,
-        sentenceFrames: action.showFrames ? topicFrames : prev.sentenceFrames,
-        currentTopic: topic,
-        // Reset cue level on success
-        cueLevel: userSucceeded ? 0 : prev.cueLevel,
-        cueText: userSucceeded ? null : prev.cueText,
-      }));
+      setAssistivePanelState(prev => {
+        // FIX #4: Keep ref in sync
+        const newPrimed = prev.primedVocabulary;
+        primedVocabularyRef.current = newPrimed;
+        return {
+          ...prev,
+          showTiles: action.showTiles ?? prev.showTiles,
+          showFrames: action.showFrames ?? prev.showFrames,
+          wordTiles: action.showTiles ? [...new Set([...newPrimed, ...topicWords])].slice(0, 6) : prev.wordTiles,
+          sentenceFrames: action.showFrames ? topicFrames : prev.sentenceFrames,
+          currentTopic: topic,
+          // Reset cue level on success
+          cueLevel: userSucceeded ? 0 : prev.cueLevel,
+          cueText: userSucceeded ? null : prev.cueText,
+        };
+      });
     }
     
     // Update difficulty controller with turn result
@@ -581,10 +600,14 @@ export function useCoachSession({
     if (userResponse && typeof userResponse === 'string') {
       const responseWords = userResponse.split(/\s+/).filter(w => w.length > 2);
       if (responseWords.length > 0) {
-        setAssistivePanelState(prev => ({
-          ...prev,
-          primedVocabulary: [...new Set([...prev.primedVocabulary, ...responseWords])].slice(0, 10),
-        }));
+        setAssistivePanelState(prev => {
+          const newPrimed = [...new Set([...prev.primedVocabulary, ...responseWords])].slice(0, 10);
+          primedVocabularyRef.current = newPrimed; // FIX #4: Keep ref in sync
+          return {
+            ...prev,
+            primedVocabulary: newPrimed,
+          };
+        });
       }
     }
 
@@ -650,6 +673,7 @@ export function useCoachSession({
     setHasPendingCard(false);
     setEngagementState(null);
     setSessionPhase('warmup');
+    primedVocabularyRef.current = []; // FIX #4: Reset ref
     setAssistivePanelState({
       wordTiles: [],
       sentenceFrames: [],
