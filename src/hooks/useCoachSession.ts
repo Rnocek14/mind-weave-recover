@@ -52,7 +52,7 @@ import {
   SupportLevel,
   AdjustmentResult,
 } from '@/lib/conversationDifficultyController';
-import { getWordsForTopic, getFramesForTopic, detectTopicFromWords } from '@/lib/topicWordBanks';
+import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWords } from '@/lib/topicWordBanks';
 
 // Store card results for AI context
 interface CardResult {
@@ -129,9 +129,11 @@ interface UseCoachSessionReturn {
   requestCard: (cardType: CardType) => string;
   endSession: () => void;
   // NEW: Assistive panel interactions
-  handleWordTileTap: (word: string) => void;
+  handleWordTileTap: (word: string) => string;
   handleFrameTap: (frame: string) => string;
   requestCue: () => void;
+  // NEW: Expose support level for UI
+  currentSupportLevel: SupportLevel;
 }
 
 export function useCoachSession({
@@ -203,6 +205,15 @@ export function useCoachSession({
     engagementMonitorRef.current.reset();
     speechAnalysis.reset();
     
+    // Initialize assistive panel with warmup words
+    const warmupWords = getWarmupWords();
+    setAssistivePanelState(prev => ({
+      ...prev,
+      wordTiles: warmupWords,
+      showTiles: true,
+      primedVocabulary: warmupWords,
+    }));
+    
     return opener;
   }, [addMessage, speechAnalysis]);
 
@@ -268,6 +279,28 @@ export function useCoachSession({
 
     // Get next action from orchestrator (now with speech analysis)
     const action = getNextAction(stuckType, orchestratorStateRef.current, speechAnalysisForOrchestrator);
+    setLastAction(action);
+    
+    // NEW: Apply orchestrator showTiles/showFrames flags to panel state
+    if (action.type === 'chat_followup') {
+      const topic = orchestratorStateRef.current.currentTopic;
+      const topicWords = topic ? getWordsForTopic(topic) : [];
+      const topicFrames = topic ? getFramesForTopic(topic) : [];
+      
+      setAssistivePanelState(prev => ({
+        ...prev,
+        showTiles: action.showTiles ?? prev.showTiles,
+        showFrames: action.showFrames ?? prev.showFrames,
+        wordTiles: action.showTiles ? [...new Set([...prev.primedVocabulary, ...topicWords])].slice(0, 6) : prev.wordTiles,
+        sentenceFrames: action.showFrames ? topicFrames : prev.sentenceFrames,
+        currentTopic: topic,
+      }));
+    }
+    
+    // Update difficulty controller with turn result
+    const turnSuccess = wordCount >= 3 && !analysis.effortfulSpeech;
+    const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, turnSuccess);
+    difficultyStateRef.current = adjustResult.newState;
 
     let aiResponseText: string | null = null;
 
@@ -495,6 +528,17 @@ export function useCoachSession({
         cardSuccess as boolean
       );
     }
+    
+    // Prime vocabulary from card result (for later reuse)
+    if (userResponse && typeof userResponse === 'string') {
+      const responseWords = userResponse.split(/\s+/).filter(w => w.length > 2);
+      if (responseWords.length > 0) {
+        setAssistivePanelState(prev => ({
+          ...prev,
+          primedVocabulary: [...new Set([...prev.primedVocabulary, ...responseWords])].slice(0, 10),
+        }));
+      }
+    }
 
     // Use topic-connected outro
     const outro = getCardOutro(currentTopic || undefined);
@@ -590,13 +634,9 @@ export function useCoachSession({
   }, []);
 
   // NEW: Assistive panel interaction handlers
-  const handleWordTileTap = useCallback((word: string) => {
-    // Add the word to the conversation as if user spoke it
-    const messageId = generateId();
-    addMessage({ type: 'user', text: word, id: messageId });
-    userWordsRef.current += 1;
-    
-    // Track as a rep/word retrieval success
+  // Returns the word - does NOT submit or add messages (caller handles that)
+  const handleWordTileTap = useCallback((word: string): string => {
+    // Track as a successful word retrieval
     orchestratorStateRef.current = updateState(
       orchestratorStateRef.current,
       'strong_flow',
@@ -610,7 +650,9 @@ export function useCoachSession({
     // Update difficulty controller with success
     const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, true);
     difficultyStateRef.current = adjustResult.newState;
-  }, [addMessage]);
+    
+    return word;
+  }, []);
 
   const handleFrameTap = useCallback((frame: string): string => {
     // Return the frame template for the input field
@@ -681,6 +723,8 @@ export function useCoachSession({
     handleWordTileTap,
     handleFrameTap,
     requestCue,
+    // NEW: Expose support level
+    currentSupportLevel: difficultyStateRef.current.supportLevel,
   };
 }
 
