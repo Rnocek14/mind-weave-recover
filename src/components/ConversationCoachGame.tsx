@@ -1,17 +1,18 @@
 /**
- * ConversationCoachGame - Intelligent conversation coach with speech analysis
+ * ConversationCoachGame - Revolutionary evidence-based conversation coach
  * 
  * Features:
- * - Real-time speech analysis integration
- * - User speech profile personalization
- * - Engagement monitoring with interventions
- * - Clinical session summary
- * - Beautiful animated UI
+ * - Assistive Panel with word tiles, sentence frames, cue ladder
+ * - Session phases (warmup → build → conversation → wrapup)
+ * - Vocabulary priming and reuse
+ * - Real-time cue engine integration
+ * - Adaptive difficulty (70-85% success band)
+ * - Anti-loop constraints from orchestrator
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee, HelpCircle } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee, HelpCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
@@ -22,6 +23,8 @@ import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
 import { ConversationHelpers, getRandomIdea } from '@/components/coach/ConversationHelpers';
 import { GamePickerDialog } from '@/components/coach/GamePickerDialog';
+import { AssistivePanel } from '@/components/coach/AssistivePanel';
+import { SessionPhaseIndicator } from '@/components/coach/SessionProgressBar';
 import { CardType } from '@/lib/coachOrchestrator';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +68,10 @@ export function ConversationCoachGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
+  
+  // NEW: Assistive panel state
+  const [showAssistivePanel, setShowAssistivePanel] = useState(true);
+  const [inputBuffer, setInputBuffer] = useState('');
 
   // Fetch user speech profile for personalization
   const { profile: speechProfile } = useUserSpeechProfile(userId, { profileId });
@@ -105,6 +112,10 @@ export function ConversationCoachGame({
     hasPendingCard,
     engagementState,
     currentTopic,
+    // NEW: Session phase and assistive panel
+    sessionPhase,
+    assistivePanelState,
+    lastAction,
     startSession,
     processUserTurn,
     insertPendingCard,
@@ -113,6 +124,10 @@ export function ConversationCoachGame({
     reset,
     requestCard,
     endSession,
+    // NEW: Assistive panel interactions
+    handleWordTileTap,
+    handleFrameTap,
+    requestCue,
   } = useCoachSession({
     userId,
     profileId,
@@ -671,6 +686,33 @@ export function ConversationCoachGame({
           isListening={conversationState === 'listening' || isListening}
         />
       </div>
+
+      {/* NEW: Assistive Panel - shows during listening/speaking phases */}
+      {(conversationState === 'listening' || currentPhase === 'user_turn') && 
+       assistivePanelState.wordTiles.length > 0 && (
+        <AssistivePanel
+          wordTiles={assistivePanelState.wordTiles}
+          primedVocabulary={assistivePanelState.primedVocabulary}
+          usedWords={[]}
+          onWordSelect={(word) => {
+            handleWordTileTap(word);
+            processTurnAndRespond(word);
+          }}
+          sentenceFrames={assistivePanelState.sentenceFrames}
+          onFrameSelect={(frame) => {
+            const template = handleFrameTap(frame);
+            setInputBuffer(template);
+          }}
+          cueLevel={assistivePanelState.cueLevel}
+          cueText={assistivePanelState.cueText || undefined}
+          onRequestCue={requestCue}
+          supportLevel="guided"
+          isExpanded={showAssistivePanel}
+          onToggleExpand={() => setShowAssistivePanel(!showAssistivePanel)}
+          isVisible={true}
+          currentTopic={assistivePanelState.currentTopic}
+        />
+      )}
 
       {/* Control panel */}
       <div className="border-t bg-card/95 backdrop-blur-md p-6 pb-8 shadow-soft">

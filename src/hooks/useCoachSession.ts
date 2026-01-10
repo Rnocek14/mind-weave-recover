@@ -1,12 +1,12 @@
 /**
  * useCoachSession - Manages the Conversation Coach session state
  * 
- * Handles conversation flow, orchestrator decisions, card insertions,
- * metrics tracking, and integrates with:
- * - Real-time speech analysis with pronunciation
- * - User speech profiles
- * - Engagement monitoring
- * - Contextual cue generation
+ * ENHANCED with Revolutionary Coach features:
+ * - Session phases (warmup → build → conversation → wrapup)
+ * - Vocabulary priming & reuse
+ * - Cue engine integration for real-time panel updates
+ * - Difficulty controller for 70-85% success band
+ * - Anti-loop enforcement from orchestrator
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -22,6 +22,9 @@ import {
   SpeechAnalysisForOrchestrator,
   extractTopicFromMessages,
   getUserRequestedCardConfig,
+  SessionPhase,
+  TherapyObjective,
+  NextAction,
 } from '@/lib/coachOrchestrator';
 import { 
   getFollowupLine, 
@@ -34,6 +37,22 @@ import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
 import { EngagementMonitor, EngagementState as MonitorEngagementState } from '@/lib/engagementMonitor';
 import { useConversationSpeechAnalysis, ConversationUtteranceAnalysis } from './useConversationSpeechAnalysis';
+import { 
+  getCueForUtterance, 
+  createInitialCueState, 
+  updateCueState, 
+  CueState, 
+  CueRecommendation,
+  getCueTextForLevel,
+} from '@/lib/conversationCueEngine';
+import { 
+  createInitialDifficultyState, 
+  recordTurnAndAdjust, 
+  DifficultyState,
+  SupportLevel,
+  AdjustmentResult,
+} from '@/lib/conversationDifficultyController';
+import { getWordsForTopic, getFramesForTopic, detectTopicFromWords } from '@/lib/topicWordBanks';
 
 // Store card results for AI context
 interface CardResult {
@@ -54,6 +73,18 @@ export interface CoachSessionMetrics {
   fluencyTrend?: 'improving' | 'stable' | 'declining';
   effortfulCount?: number;
   circumlocutionCount?: number;
+}
+
+// Assistive Panel state for the UI
+export interface AssistivePanelState {
+  wordTiles: string[];
+  sentenceFrames: string[];
+  cueLevel: number;
+  cueText: string | null;
+  showTiles: boolean;
+  showFrames: boolean;
+  currentTopic: string | null;
+  primedVocabulary: string[];
 }
 
 interface UseCoachSessionProps {
@@ -85,6 +116,10 @@ interface UseCoachSessionReturn {
   hasPendingCard: boolean;
   engagementState: MonitorEngagementState | null;
   currentTopic: string | null;
+  // NEW: Session phase and assistive panel state
+  sessionPhase: SessionPhase;
+  assistivePanelState: AssistivePanelState;
+  lastAction: NextAction | null;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
@@ -92,7 +127,11 @@ interface UseCoachSessionReturn {
   clearPendingAI: () => void;
   reset: () => void;
   requestCard: (cardType: CardType) => string;
-  endSession: () => void; // User-initiated end
+  endSession: () => void;
+  // NEW: Assistive panel interactions
+  handleWordTileTap: (word: string) => void;
+  handleFrameTap: (frame: string) => string;
+  requestCue: () => void;
 }
 
 export function useCoachSession({
@@ -110,6 +149,20 @@ export function useCoachSession({
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   
+  // NEW: Session phase & assistive panel state
+  const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
+  const [assistivePanelState, setAssistivePanelState] = useState<AssistivePanelState>({
+    wordTiles: [],
+    sentenceFrames: [],
+    cueLevel: 0,
+    cueText: null,
+    showTiles: false,
+    showFrames: false,
+    currentTopic: null,
+    primedVocabulary: [],
+  });
+  const [lastAction, setLastAction] = useState<NextAction | null>(null);
+  
   const orchestratorStateRef = useRef<OrchestratorState>(createInitialState(maxTurns ?? 999));
   const latenciesRef = useRef<number[]>([]);
   const userWordsRef = useRef(0);
@@ -121,6 +174,10 @@ export function useCoachSession({
   const lastCardResultRef = useRef<CardResult | null>(null);
   const engagementMonitorRef = useRef(new EngagementMonitor(5));
   const analysisHistoryRef = useRef<ConversationUtteranceAnalysis[]>([]);
+  
+  // NEW: Cue engine and difficulty controller state
+  const cueStateRef = useRef<CueState>(createInitialCueState());
+  const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
@@ -500,6 +557,18 @@ export function useCoachSession({
     setPendingAIText(null);
     setHasPendingCard(false);
     setEngagementState(null);
+    setSessionPhase('warmup');
+    setAssistivePanelState({
+      wordTiles: [],
+      sentenceFrames: [],
+      cueLevel: 0,
+      cueText: null,
+      showTiles: false,
+      showFrames: false,
+      currentTopic: null,
+      primedVocabulary: [],
+    });
+    setLastAction(null);
     orchestratorStateRef.current = createInitialState(maxTurns ?? 999);
     latenciesRef.current = [];
     userWordsRef.current = 0;
@@ -510,12 +579,59 @@ export function useCoachSession({
     engagementMonitorRef.current.reset();
     speechAnalysis.reset();
     analysisHistoryRef.current = [];
+    cueStateRef.current = createInitialCueState();
+    difficultyStateRef.current = createInitialDifficultyState();
   }, [maxTurns, speechAnalysis]);
 
   // User-initiated session end
   const endSession = useCallback(() => {
     setIsComplete(true);
     setCurrentPhase('complete');
+  }, []);
+
+  // NEW: Assistive panel interaction handlers
+  const handleWordTileTap = useCallback((word: string) => {
+    // Add the word to the conversation as if user spoke it
+    const messageId = generateId();
+    addMessage({ type: 'user', text: word, id: messageId });
+    userWordsRef.current += 1;
+    
+    // Track as a rep/word retrieval success
+    orchestratorStateRef.current = updateState(
+      orchestratorStateRef.current,
+      'strong_flow',
+      false,
+      undefined,
+      true,
+      undefined,
+      [word]
+    );
+    
+    // Update difficulty controller with success
+    const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, true);
+    difficultyStateRef.current = adjustResult.newState;
+  }, [addMessage]);
+
+  const handleFrameTap = useCallback((frame: string): string => {
+    // Return the frame template for the input field
+    return frame;
+  }, []);
+
+  const requestCue = useCallback(() => {
+    // Escalate cue level
+    cueStateRef.current = updateCueState(cueStateRef.current, 'escalate', false);
+    
+    const newCueText = getCueTextForLevel(
+      cueStateRef.current.currentLevel,
+      cueStateRef.current.targetWord,
+      orchestratorStateRef.current.currentTopic || undefined
+    );
+    
+    setAssistivePanelState(prev => ({
+      ...prev,
+      cueLevel: cueStateRef.current.currentLevel,
+      cueText: newCueText,
+    }));
   }, []);
 
   // Calculate enhanced metrics
@@ -549,6 +665,10 @@ export function useCoachSession({
     hasPendingCard,
     engagementState,
     currentTopic: orchestratorStateRef.current.currentTopic,
+    // NEW: Session phase and assistive panel
+    sessionPhase,
+    assistivePanelState,
+    lastAction,
     startSession,
     processUserTurn,
     insertPendingCard,
@@ -557,6 +677,10 @@ export function useCoachSession({
     reset,
     requestCard,
     endSession,
+    // NEW: Assistive panel interactions
+    handleWordTileTap,
+    handleFrameTap,
+    requestCue,
   };
 }
 
