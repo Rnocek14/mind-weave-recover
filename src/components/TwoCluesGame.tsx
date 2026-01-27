@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage } from '@/lib/twoCluesScorer';
+import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormalizer';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
@@ -58,12 +59,21 @@ export function TwoCluesGame({
     isSupported,
   } = useSpeechRecognition(handleSpeechResult);
 
-  // Start round timer when puzzle changes
+  // Start round timer and auto-start listening when puzzle changes
   useEffect(() => {
-    if (game.currentPuzzle && !game.isComplete) {
-      game.startRound();
+    if (!game.currentPuzzle || game.isComplete) return;
+    
+    game.startRound();
+
+    // Auto-start listening (match other speech games behavior)
+    if (!showFeedback) {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      lastTranscriptRef.current = '';
+      setDisplayTranscript('');
+      setIsListening(true);
+      startListening();
     }
-  }, [game.currentPuzzle?.id]);
+  }, [game.currentPuzzle?.id, showFeedback, startListening]);
 
   // Update display transcript
   useEffect(() => {
@@ -72,29 +82,40 @@ export function TwoCluesGame({
     }
   }, [transcript]);
 
-  // Handle transcript changes with debouncing
+  // Handle transcript changes with debouncing and speech cleanup
   useEffect(() => {
-    if (!transcript || transcript === lastTranscriptRef.current) return;
-    lastTranscriptRef.current = transcript;
+    if (!transcript) return;
+    
+    // Extract the candidate answer (handles "I think it's a bird" → "bird")
+    const candidate = extractAnswerFromTranscript(transcript);
+    
+    // Compare extracted candidate for stability (not raw transcript)
+    // This reduces rescore spam while ASR changes "i think bird" → "i think it's bird"
+    if (candidate === lastTranscriptRef.current) return;
+    lastTranscriptRef.current = candidate;
 
     // Clear existing timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    // Debounce: wait for 750ms of stable transcript before scoring
+    // Debounce: wait for 750ms of stable extracted answer before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
       // Guard: only score if still listening (prevents double-score on stop)
       if (!isListening) return;
       // Guard: don't score while feedback is showing (prevents scoring during auto-advance)
       if (showFeedback) return;
-      if (transcript.trim().length < 2) return;
+      // Guard: ignore filler-only transcripts ("um", "uh", "like")
+      if (isMostlyFiller(transcript)) return;
+      // Guard: need meaningful content
+      if (candidate.length < 2) return;
       if (isProcessing) return;
 
       setIsProcessing(true);
       
       try {
-        const result = await game.submitAnswer(transcript.trim());
+        // Submit the cleaned candidate, not raw transcript
+        const result = await game.submitAnswer(candidate);
         
         // Show feedback
         const message = getTierMessage(result.tier, result.matchedWord);

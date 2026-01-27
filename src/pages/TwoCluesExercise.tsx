@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -71,6 +72,9 @@ export default function TwoCluesExercise() {
     scoreRef.current += result.score;
     trialsRef.current += 1;
 
+    // Log both raw spoken word and cleaned version for analytics
+    const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
+
     logTrial({
       correct: result.tier === 'strong' || result.tier === 'related',
       reactionTimeMs: result.reactionTimeMs,
@@ -81,8 +85,11 @@ export default function TwoCluesExercise() {
         anchors: result.anchors,
         match_tier: result.tier,
         reached_anchor: result.reachedAnchor,
-        spoken_word: result.spokenWord,
+        spoken_word_raw: result.spokenWord,
+        spoken_word_clean: cleanedAnswer,
+        matched_word: result.matchedWord,
         coach_response: result.coachResponse,
+        semantic_similarity: result.semanticSimilarity,
       },
       cueTypeGiven: 'none', // Phase 1: no cueing yet
     });
