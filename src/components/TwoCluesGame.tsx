@@ -63,12 +63,14 @@ export function TwoCluesGame({
     resetAttempt,
   } = useUtteranceLogger();
 
-  // Audio recording
+  // Audio recording (same as PhotoNaming - includes upload)
   const {
     isRecording,
     isSupported: isRecordingSupported,
     startRecording,
     stopRecording,
+    uploadRecording,
+    cancelRecording,
   } = useAudioRecorder();
 
   const game = useTwoCluesGame({
@@ -92,41 +94,56 @@ export function TwoCluesGame({
     isSupported,
   } = useSpeechRecognition(handleSpeechResult);
 
+  // Helper: begin new attempt with audio recording (centralized lifecycle)
+  const beginAttempt = useCallback((attemptNumber: number = 1) => {
+    if (!sessionId || !userId || !game.currentPuzzle) return;
+    
+    // Clear pending debounce
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    lastTranscriptRef.current = '';
+    rawTranscriptRef.current = '';
+    setDisplayTranscript('');
+    
+    // Start utterance tracking
+    const targetWord = game.currentPuzzle.anchors[0] || 'unknown';
+    startAttempt({
+      sessionId,
+      userId,
+      exerciseSlug: 'two_clues',
+      trialIndex: game.currentIndex,
+      attemptNumber,
+      targetWord,
+      category: game.currentPuzzle.category,
+    });
+    
+    // Start listening + recording
+    setIsListening(true);
+    startListening();
+    if (isRecordingSupported) {
+      startRecording();
+    }
+  }, [sessionId, userId, game.currentPuzzle, game.currentIndex, startAttempt, startListening, isRecordingSupported, startRecording]);
+
   // Start round timer, attempt tracking, and auto-start listening when puzzle changes
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
     game.startRound();
 
-    // Start new attempt for utterance logging
-    if (sessionId && userId && game.currentPuzzle) {
-      const targetWord = game.currentPuzzle.anchors[0] || 'unknown';
-      startAttempt({
-        sessionId,
-        userId,
-        exerciseSlug: 'two_clues',
-        trialIndex: game.currentIndex,
-        attemptNumber: 1,
-        targetWord,
-        category: game.currentPuzzle.category,
-      });
+    // Auto-start attempt (match other speech games behavior)
+    if (!showFeedback && sessionId && userId) {
+      beginAttempt(1);
     }
+  }, [game.currentPuzzle?.id, showFeedback, sessionId, userId]);
 
-    // Auto-start listening (match other speech games behavior)
-    if (!showFeedback) {
+  // Cleanup on unmount - cancel recording and reset attempt
+  useEffect(() => {
+    return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-      lastTranscriptRef.current = '';
-      rawTranscriptRef.current = '';
-      setDisplayTranscript('');
-      setIsListening(true);
-      startListening();
-      
-      // Start audio recording
-      if (isRecordingSupported && sessionId) {
-        startRecording();
-      }
-    }
-  }, [game.currentPuzzle?.id, showFeedback, startListening, sessionId, userId, startAttempt, isRecordingSupported, startRecording, game.currentIndex]);
+      cancelRecording();
+      resetAttempt();
+    };
+  }, [cancelRecording, resetAttempt]);
 
   // Update display transcript and store raw
   useEffect(() => {
@@ -173,31 +190,46 @@ export function TwoCluesGame({
         stopListening();
         setIsListening(false);
         
-        // Stop recording and get audio data
+        // Stop recording and get audio data (same pattern as PhotoNaming)
         let recordingDurationMs: number | undefined;
+        let audioStoragePath: string | undefined;
         if (isRecording) {
           const recordingResult = await stopRecording();
-          if (recordingResult) {
+          if (recordingResult && sessionId && userId) {
             recordingDurationMs = recordingResult.duration;
+            // Upload to storage (same as PhotoNaming)
+            const uploadedPath = await uploadRecording(
+              recordingResult.audioBlob,
+              userId,
+              sessionId,
+              game.currentIndex + 1,
+              recordingResult.mimeType
+            );
+            if (uploadedPath) {
+              audioStoragePath = uploadedPath;
+            }
           }
         }
         
         // Submit the cleaned candidate, not raw transcript
         const result = await game.submitAnswer(candidate);
         
-        // Log utterance analysis (same pattern as PhotoNaming)
+        // Log utterance analysis (same full pattern as PhotoNaming)
         if (sessionId && currentAttemptId) {
           const isCorrect = result.tier === 'strong' || result.tier === 'related';
+          const contentWordCount = getContentWordCount(rawTranscript);
           
           await logFinalAnalysis({
             transcript: rawTranscript,
             transcriptSource: 'browser',
             isCorrect,
             errorType: result.tier === 'uncertain' ? 'no_match' : 
-                       result.tier === 'creative' ? 'creative_link' : undefined,
+                       result.tier === 'creative' ? 'creative_link' : 
+                       result.tier === 'related' ? 'semantic_paraphasia' : undefined,
             semanticSimilarity: result.semanticSimilarity,
             recordingDurationMs,
-            // Two Clues specific data in reasoning
+            audioStoragePath, // NOW INCLUDED - enables pronunciation/fluency analysis
+            // Two Clues specific structured data
             reasoning: JSON.stringify({
               rawTranscript,
               cleanedAnswer: candidate,
@@ -207,9 +239,11 @@ export function TwoCluesGame({
               reachedAnchor: result.reachedAnchor,
               puzzleId: game.currentPuzzle?.id,
               clues: game.currentPuzzle?.clues,
-              contentWordCount: getContentWordCount(rawTranscript),
+              contentWordCount,
             }),
             cueTypeGiven: 'none', // Phase 1: no cueing
+            fluencyAvailable: !!audioStoragePath,
+            fluencyUnavailableReason: !audioStoragePath ? 'no_recording' : undefined,
           });
         }
         
@@ -243,7 +277,7 @@ export function TwoCluesGame({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback, sessionId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, resetAttempt]);
+  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(() => {
@@ -254,22 +288,13 @@ export function TwoCluesGame({
       }
       stopListening();
       setIsListening(false);
-      // Stop recording too
-      if (isRecording) {
-        stopRecording();
-      }
+      // Cancel recording (don't score partial)
+      cancelRecording();
     } else {
-      setDisplayTranscript('');
-      lastTranscriptRef.current = '';
-      rawTranscriptRef.current = '';
-      startListening();
-      setIsListening(true);
-      // Start recording
-      if (isRecordingSupported && sessionId) {
-        startRecording();
-      }
+      // Use centralized beginAttempt for proper tracking
+      beginAttempt((game.currentAttempt || 0) + 1);
     }
-  }, [isListening, startListening, stopListening, isRecording, stopRecording, isRecordingSupported, startRecording, sessionId]);
+  }, [isListening, stopListening, cancelRecording, beginAttempt, game.currentAttempt]);
 
   // Read clues aloud
   const handleReadClues = useCallback(() => {
@@ -281,35 +306,11 @@ export function TwoCluesGame({
 
   // Try again after uncertain/creative
   const handleTryAgain = useCallback(() => {
-    // Clear pending debounce before retry
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
     setShowFeedback(false);
-    setDisplayTranscript('');
-    lastTranscriptRef.current = '';
-    rawTranscriptRef.current = '';
     resetAttempt();
-    
-    // Start new attempt
-    if (sessionId && userId && game.currentPuzzle) {
-      startAttempt({
-        sessionId,
-        userId,
-        exerciseSlug: 'two_clues',
-        trialIndex: game.currentIndex,
-        attemptNumber: (game.currentAttempt || 0) + 1,
-        targetWord: game.currentPuzzle.anchors[0] || 'unknown',
-        category: game.currentPuzzle.category,
-      });
-    }
-    
-    setIsListening(true);
-    startListening();
-    if (isRecordingSupported && sessionId) {
-      startRecording();
-    }
-  }, [startListening, resetAttempt, sessionId, userId, game.currentPuzzle, game.currentIndex, game.currentAttempt, startAttempt, isRecordingSupported, startRecording]);
+    // Use centralized beginAttempt
+    beginAttempt((game.currentAttempt || 0) + 1);
+  }, [resetAttempt, beginAttempt, game.currentAttempt]);
 
   // Skip to next
   const handleSkip = useCallback(() => {
@@ -317,17 +318,17 @@ export function TwoCluesGame({
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
-    // Stop recording if active
-    if (isRecording) {
-      stopRecording();
-    }
+    // Cancel recording (don't upload incomplete attempts)
+    cancelRecording();
+    stopListening();
+    setIsListening(false);
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
     rawTranscriptRef.current = '';
     setShowFeedback(false);
     resetAttempt();
     game.skipRound();
-  }, [game, isRecording, stopRecording, resetAttempt]);
+  }, [game, cancelRecording, stopListening, resetAttempt]);
 
   // Continue to next after feedback
   const handleContinue = useCallback(() => {
