@@ -57,6 +57,7 @@ export function TwoCluesGame({
   // Utterance logging (same as PhotoNaming/PhrasePractice)
   const {
     currentAttemptId,
+    isFinalized,
     startAttempt,
     logBrowserTranscript,
     logFinalAnalysis,
@@ -136,14 +137,26 @@ export function TwoCluesGame({
     }
   }, [game.currentPuzzle?.id, showFeedback, sessionId, userId]);
 
-  // Cleanup on unmount - cancel recording and reset attempt
+  // Cleanup on unmount - log abandoned attempt if active (matches PhrasePractice pattern)
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       cancelRecording();
+      stopListening();
+      
+      // Log abandoned attempt if not finalized (prevents dangling "started" attempts)
+      if (currentAttemptId && !isFinalized && game.currentPuzzle) {
+        console.log('⚠️ [TwoClues] Unmount with active attempt - logging as abandoned');
+        logFinalAnalysis({
+          transcriptSource: 'browser',
+          isCorrect: false,
+          errorType: 'abandoned',
+          cueTypeGiven: 'none',
+        });
+      }
       resetAttempt();
     };
-  }, [cancelRecording, resetAttempt]);
+  }, [cancelRecording, stopListening, resetAttempt, currentAttemptId, isFinalized, game.currentPuzzle, logFinalAnalysis]);
 
   // Update display transcript and store raw
   useEffect(() => {
@@ -280,7 +293,7 @@ export function TwoCluesGame({
   }, [transcript, game, stopListening, isProcessing, isListening, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt]);
 
   // Toggle microphone
-  const handleToggleMic = useCallback(() => {
+  const handleToggleMic = useCallback(async () => {
     if (isListening) {
       // Clear pending debounce when stopping mic
       if (debounceTimeoutRef.current) {
@@ -288,13 +301,24 @@ export function TwoCluesGame({
       }
       stopListening();
       setIsListening(false);
-      // Cancel recording (don't score partial)
       cancelRecording();
+      
+      // Log cancelled attempt (matches PhotoNaming pattern - no dangling "started" attempts)
+      if (currentAttemptId && !isFinalized) {
+        await logFinalAnalysis({
+          transcript: rawTranscriptRef.current || undefined,
+          transcriptSource: 'browser',
+          isCorrect: false,
+          errorType: 'cancelled',
+          cueTypeGiven: 'none',
+        });
+      }
+      resetAttempt();
     } else {
       // Use centralized beginAttempt for proper tracking
       beginAttempt((game.currentAttempt || 0) + 1);
     }
-  }, [isListening, stopListening, cancelRecording, beginAttempt, game.currentAttempt]);
+  }, [isListening, stopListening, cancelRecording, beginAttempt, game.currentAttempt, currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
 
   // Read clues aloud
   const handleReadClues = useCallback(() => {
@@ -313,22 +337,33 @@ export function TwoCluesGame({
   }, [resetAttempt, beginAttempt, game.currentAttempt]);
 
   // Skip to next
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     // Clear pending debounce before skip
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
-    // Cancel recording (don't upload incomplete attempts)
     cancelRecording();
     stopListening();
     setIsListening(false);
+    
+    // Log skipped attempt (matches PhotoNaming pattern)
+    if (currentAttemptId && !isFinalized) {
+      await logFinalAnalysis({
+        transcript: rawTranscriptRef.current || undefined,
+        transcriptSource: 'browser',
+        isCorrect: false,
+        errorType: 'skipped',
+        cueTypeGiven: 'none',
+      });
+    }
+    
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
     rawTranscriptRef.current = '';
     setShowFeedback(false);
     resetAttempt();
     game.skipRound();
-  }, [game, cancelRecording, stopListening, resetAttempt]);
+  }, [game, cancelRecording, stopListening, currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
 
   // Continue to next after feedback
   const handleContinue = useCallback(() => {
