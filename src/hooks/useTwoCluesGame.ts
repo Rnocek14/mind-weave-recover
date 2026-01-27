@@ -15,6 +15,7 @@ export interface TwoCluesTrialResult {
   clues: string[];
   anchors: string[];
   spokenWord: string;
+  matchedWord?: string;
   tier: ScoringResult['tier'];
   score: number;
   reachedAnchor: boolean;
@@ -137,6 +138,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       clues: currentPuzzle.clues,
       anchors: currentPuzzle.anchors,
       spokenWord,
+      matchedWord: result.matchedWord,
       tier: result.tier,
       score: result.score,
       reachedAnchor: result.reachedAnchor,

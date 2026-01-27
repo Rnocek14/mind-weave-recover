@@ -3,13 +3,21 @@
  * Critical for stroke survivors with aphasia who use fillers naturally
  */
 
-// Common filler words in English
+// Common filler words in English (expanded set)
 const FILLER_WORDS = new Set([
-  'um', 'uh', 'er', 'ah', 'hmm', 'mm', 'mhm',
-  'like', 'you know', 'i mean', 'well', 'so',
-  'actually', 'basically', 'literally',
+  'um', 'uh', 'umm', 'uhh', 'er', 'erm', 'ah', 'hmm', 'mm', 'mmm', 'mhm',
+  'like', 'you know', 'i mean', 'kind of', 'sort of',
+  'well', 'so', 'actually', 'basically', 'literally',
   'right', 'okay', 'ok'
 ]);
+
+// Lead-in phrases to strip (common "thinking aloud" patterns)
+const LEAD_IN_PATTERNS = [
+  /^(i\s+think|i\s+guess|maybe|probably)\s+(it'?s?\s+)?/i,
+  /^(it'?s?\s+|it\s+is\s+)/i,
+  /^(that'?s?\s+|that\s+is\s+)/i,
+  /^(a|an|the)\s+/i,
+];
 
 // Breathing/noise patterns (regex)
 const NOISE_PATTERNS = [
@@ -77,6 +85,54 @@ export const isOnlyFillers = (transcript: string): boolean => {
 export const getContentWordCount = (transcript: string): number => {
   const normalized = normalizeASROutput(transcript);
   return normalized.split(/\s+/).filter(w => w.length > 0).length;
+};
+
+/**
+ * Extract the likely "answer" from a longer utterance
+ * Handles: "I think it's a bird" → "bird"
+ *          "um maybe like a tree" → "tree"
+ *          "blue jay" → "blue jay"
+ * 
+ * Strategy:
+ * 1. Strip lead-in phrases ("I think it's...")
+ * 2. Remove filler words
+ * 3. Return last 1-2 meaningful tokens (answer is usually at the end)
+ */
+export const extractAnswerFromTranscript = (raw: string): string => {
+  let t = raw.toLowerCase().trim();
+  if (!t) return '';
+
+  // Remove lead-in patterns
+  for (const pattern of LEAD_IN_PATTERNS) {
+    t = t.replace(pattern, '');
+  }
+
+  // Clean up punctuation and extra spaces
+  t = t
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!t) return '';
+
+  // Tokenize and remove fillers
+  const tokens = t.split(' ').filter(Boolean);
+  const meaningful = tokens.filter(word => !FILLER_WORDS.has(word));
+
+  if (meaningful.length === 0) return '';
+
+  // Heuristic: answer is usually the last 1-2 meaningful tokens
+  // e.g., "a little blue jay" → "blue jay"
+  const last = meaningful.slice(-2).join(' ').trim();
+  return last;
+};
+
+/**
+ * Check if transcript is mostly filler with no real answer
+ */
+export const isMostlyFiller = (raw: string): boolean => {
+  const answer = extractAnswerFromTranscript(raw);
+  return answer.length < 2;
 };
 
 /**
