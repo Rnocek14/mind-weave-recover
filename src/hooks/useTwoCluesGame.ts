@@ -116,11 +116,12 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     // Score the answer
     const result = await scoreAnswer(spokenWord, currentPuzzle);
 
-    // Track unique answers for bonus
-    const normalizedWord = spokenWord.toLowerCase().trim();
+    // Track unique answers for bonus - use matchedWord for canonical deduplication
+    // This ensures aliases ("birds") count as "bird" for uniqueness
+    const canonical = (result.matchedWord ?? spokenWord).toLowerCase().trim();
     const newUniqueAnswers = new Set(uniqueAnswersThisRound);
     if (result.tier !== 'uncertain') {
-      newUniqueAnswers.add(normalizedWord);
+      newUniqueAnswers.add(canonical);
     }
 
     // Play sound based on tier

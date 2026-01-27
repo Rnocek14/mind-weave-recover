@@ -86,6 +86,8 @@ export function TwoCluesGame({
     debounceTimeoutRef.current = setTimeout(async () => {
       // Guard: only score if still listening (prevents double-score on stop)
       if (!isListening) return;
+      // Guard: don't score while feedback is showing (prevents scoring during auto-advance)
+      if (showFeedback) return;
       if (transcript.trim().length < 2) return;
       if (isProcessing) return;
 
@@ -108,6 +110,10 @@ export function TwoCluesGame({
         // Auto-advance after feedback for strong/related matches
         if (result.tier === 'strong' || result.tier === 'related') {
           setTimeout(() => {
+            // Clear pending debounce before advancing
+            if (debounceTimeoutRef.current) {
+              clearTimeout(debounceTimeoutRef.current);
+            }
             setShowFeedback(false);
             game.nextRound();
           }, 2000);
@@ -122,11 +128,15 @@ export function TwoCluesGame({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [transcript, game, stopListening, isProcessing, isListening]);
+  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(() => {
     if (isListening) {
+      // Clear pending debounce when stopping mic
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
       stopListening();
       setIsListening(false);
     } else {
@@ -147,6 +157,10 @@ export function TwoCluesGame({
 
   // Try again after uncertain/creative
   const handleTryAgain = useCallback(() => {
+    // Clear pending debounce before retry
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
     setShowFeedback(false);
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
@@ -156,12 +170,24 @@ export function TwoCluesGame({
 
   // Skip to next
   const handleSkip = useCallback(() => {
+    // Clear pending debounce before skip
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setDisplayTranscript('');
+    lastTranscriptRef.current = '';
     setShowFeedback(false);
     game.skipRound();
   }, [game]);
 
   // Continue to next after feedback
   const handleContinue = useCallback(() => {
+    // Clear pending debounce before continue
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setDisplayTranscript('');
+    lastTranscriptRef.current = '';
     setShowFeedback(false);
     game.nextRound();
   }, [game]);
