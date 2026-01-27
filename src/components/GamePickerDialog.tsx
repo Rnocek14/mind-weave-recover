@@ -29,6 +29,7 @@ const GAME_INFO: Record<string, GameInfo> = {
   'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases', difficulty: 'easy', category: 'speech' },
   'conversation-partner': { emoji: '🎙️', name: 'Free Talk', desc: 'Have a short conversation with a patient listener', difficulty: 'easy', category: 'speech' },
   'conversation-coach': { emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises when you get stuck', difficulty: 'easy', category: 'speech' },
+  'two-clues': { emoji: '🔗', name: 'Two Clues', desc: 'Say a word that connects 2 clues', difficulty: 'easy', category: 'speech' },
   'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech' },
   'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side', difficulty: 'medium', category: 'motor' },
   'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds', difficulty: 'medium', category: 'speech' },
@@ -50,6 +51,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'minimal-pairs': '/exercise/minimal-pairs',
   'conversation-partner': '/exercise/conversation-partner',
   'conversation-coach': '/exercise/conversation-coach',
+  'two-clues': '/exercise/two-clues',
 };
 
 interface GamePickerDialogProps {

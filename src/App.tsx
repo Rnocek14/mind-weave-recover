@@ -33,6 +33,7 @@ import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
+import TwoCluesExercise from "./pages/TwoCluesExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -93,6 +94,7 @@ const App = () => (
           
           <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
           <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
+          <Route path="/exercise/two-clues" element={<TwoCluesExercise />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
           </Routes>
