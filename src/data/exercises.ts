@@ -1,6 +1,6 @@
 import {
   Camera, Hand, MessageSquare, Target,
-  Lightbulb, Volume2, List, Sparkles, MessageCircle, type LucideIcon
+  Lightbulb, Volume2, List, Sparkles, MessageCircle, Link2, type LucideIcon
 } from "lucide-react";
 
 export interface Exercise {
@@ -103,5 +103,14 @@ export const EXERCISES: Exercise[] = [
     duration: "3-5 min",
     difficulty: "Easy",
     color: "bg-gradient-primary"
+  },
+  {
+    id: "two-clues",
+    title: "Two Clues",
+    icon: Link2,
+    category: "Language",
+    duration: "5-8 min",
+    difficulty: "Easy",
+    color: "bg-gradient-healing"
   }
 ];

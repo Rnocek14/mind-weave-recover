@@ -10,6 +10,7 @@ export const CANONICAL_SLUGS = {
   // Speech exercises (expressive - require utterance logging)
   PHOTO_NAMING: 'photo_naming',
   PHRASE_PRACTICE: 'phrase_practice',
+  TWO_CLUES: 'two_clues',
   
   // Receptive/discrimination exercises (listening - no speech required)
   MINIMAL_PAIRS: 'minimal_pairs',
@@ -44,6 +45,7 @@ export const isSpeechExercise = (slug: string): boolean => {
   return [
     CANONICAL_SLUGS.PHOTO_NAMING,
     CANONICAL_SLUGS.PHRASE_PRACTICE,
+    CANONICAL_SLUGS.TWO_CLUES,
   ].includes(normalized as any);
 };
 
