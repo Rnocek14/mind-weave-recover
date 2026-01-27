@@ -51,6 +51,7 @@ export function TwoCluesGame({
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef<string>('');
   const rawTranscriptRef = useRef<string>(''); // Keep raw transcript for logging
+  const finalizingRef = useRef(false); // Prevent double-finalization
   
   const { speak } = useTextToSpeech();
 
@@ -125,6 +126,37 @@ export function TwoCluesGame({
     }
   }, [sessionId, userId, game.currentPuzzle, game.currentIndex, startAttempt, startListening, isRecordingSupported, startRecording]);
 
+  // Centralized terminal logging helper (exactly-once finalization guard)
+  const finalizeAttempt = useCallback(async (
+    errorType: 'cancelled' | 'skipped' | 'abandoned',
+    extra?: Record<string, any>
+  ): Promise<void> => {
+    if (!currentAttemptId || isFinalized) return;
+    if (finalizingRef.current) return;
+    finalizingRef.current = true;
+
+    try {
+      await logFinalAnalysis({
+        transcript: rawTranscriptRef.current || undefined,
+        transcriptSource: 'browser',
+        isCorrect: false,
+        errorType,
+        cueTypeGiven: 'none',
+        ...extra,
+      });
+    } finally {
+      finalizingRef.current = false;
+      resetAttempt();
+    }
+  }, [currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
+
+  // Helper: clear all transcript state
+  const clearTranscriptState = useCallback(() => {
+    setDisplayTranscript('');
+    lastTranscriptRef.current = '';
+    rawTranscriptRef.current = '';
+  }, []);
+
   // Start round timer, attempt tracking, and auto-start listening when puzzle changes
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
@@ -137,26 +169,16 @@ export function TwoCluesGame({
     }
   }, [game.currentPuzzle?.id, showFeedback, sessionId, userId]);
 
-  // Cleanup on unmount - log abandoned attempt if active (matches PhrasePractice pattern)
+  // Cleanup on unmount - use centralized finalizeAttempt (no await in cleanup)
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       cancelRecording();
       stopListening();
-      
-      // Log abandoned attempt if not finalized (prevents dangling "started" attempts)
-      if (currentAttemptId && !isFinalized && game.currentPuzzle) {
-        console.log('⚠️ [TwoClues] Unmount with active attempt - logging as abandoned');
-        logFinalAnalysis({
-          transcriptSource: 'browser',
-          isCorrect: false,
-          errorType: 'abandoned',
-          cueTypeGiven: 'none',
-        });
-      }
-      resetAttempt();
+      // void = fire-and-forget (no await in cleanup)
+      void finalizeAttempt('abandoned');
     };
-  }, [cancelRecording, stopListening, resetAttempt, currentAttemptId, isFinalized, game.currentPuzzle, logFinalAnalysis]);
+  }, [cancelRecording, stopListening, finalizeAttempt]);
 
   // Update display transcript and store raw
   useEffect(() => {
@@ -302,23 +324,15 @@ export function TwoCluesGame({
       stopListening();
       setIsListening(false);
       cancelRecording();
+      clearTranscriptState(); // Clear transcript refs on mic-off
       
-      // Log cancelled attempt (matches PhotoNaming pattern - no dangling "started" attempts)
-      if (currentAttemptId && !isFinalized) {
-        await logFinalAnalysis({
-          transcript: rawTranscriptRef.current || undefined,
-          transcriptSource: 'browser',
-          isCorrect: false,
-          errorType: 'cancelled',
-          cueTypeGiven: 'none',
-        });
-      }
-      resetAttempt();
+      // Use centralized finalizeAttempt (handles guard + reset)
+      await finalizeAttempt('cancelled');
     } else {
       // Use centralized beginAttempt for proper tracking
       beginAttempt((game.currentAttempt || 0) + 1);
     }
-  }, [isListening, stopListening, cancelRecording, beginAttempt, game.currentAttempt, currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
+  }, [isListening, stopListening, cancelRecording, clearTranscriptState, finalizeAttempt, beginAttempt, game.currentAttempt]);
 
   // Read clues aloud
   const handleReadClues = useCallback(() => {
@@ -345,25 +359,13 @@ export function TwoCluesGame({
     cancelRecording();
     stopListening();
     setIsListening(false);
-    
-    // Log skipped attempt (matches PhotoNaming pattern)
-    if (currentAttemptId && !isFinalized) {
-      await logFinalAnalysis({
-        transcript: rawTranscriptRef.current || undefined,
-        transcriptSource: 'browser',
-        isCorrect: false,
-        errorType: 'skipped',
-        cueTypeGiven: 'none',
-      });
-    }
-    
-    setDisplayTranscript('');
-    lastTranscriptRef.current = '';
-    rawTranscriptRef.current = '';
+    clearTranscriptState();
     setShowFeedback(false);
-    resetAttempt();
+    
+    // Use centralized finalizeAttempt (handles guard + reset)
+    await finalizeAttempt('skipped');
     game.skipRound();
-  }, [game, cancelRecording, stopListening, currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
+  }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt]);
 
   // Continue to next after feedback
   const handleContinue = useCallback(() => {
