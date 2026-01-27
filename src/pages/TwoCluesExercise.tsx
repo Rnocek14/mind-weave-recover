@@ -189,6 +189,9 @@ export default function TwoCluesExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={10}
+            sessionId={activeSessionId}
+            userId={user?.id}
+            profileId={activeProfile?.id}
           />
         )}
       </main>

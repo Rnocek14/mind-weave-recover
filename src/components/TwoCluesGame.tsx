@@ -3,6 +3,11 @@
  * 
  * Shows 2-3 clue words and accepts multiple valid spoken answers
  * with tiered scoring (strong/related/creative/uncertain).
+ * 
+ * Uses the full speech analysis pipeline:
+ * - Audio recording per attempt
+ * - Utterance analysis logging
+ * - Transcript cleanup (filler removal)
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -13,7 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage } from '@/lib/twoCluesScorer';
-import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
@@ -22,12 +29,19 @@ interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
   onGameComplete?: (results: TwoCluesTrialResult[]) => void;
   roundCount?: number;
+  // Session context for utterance logging
+  sessionId?: string | null;
+  userId?: string;
+  profileId?: string;
 }
 
 export function TwoCluesGame({
   onTrialComplete,
   onGameComplete,
   roundCount = 10,
+  sessionId,
+  userId,
+  profileId,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -36,8 +50,26 @@ export function TwoCluesGame({
   const [displayTranscript, setDisplayTranscript] = useState('');
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef<string>('');
+  const rawTranscriptRef = useRef<string>(''); // Keep raw transcript for logging
   
   const { speak } = useTextToSpeech();
+
+  // Utterance logging (same as PhotoNaming/PhrasePractice)
+  const {
+    currentAttemptId,
+    startAttempt,
+    logBrowserTranscript,
+    logFinalAnalysis,
+    resetAttempt,
+  } = useUtteranceLogger();
+
+  // Audio recording
+  const {
+    isRecording,
+    isSupported: isRecordingSupported,
+    startRecording,
+    stopRecording,
+  } = useAudioRecorder();
 
   const game = useTwoCluesGame({
     roundCount,
@@ -48,8 +80,9 @@ export function TwoCluesGame({
   // Handle speech result
   const handleSpeechResult = useCallback((result: string) => {
     console.log('[TwoClues] Speech result:', result);
-    // We'll process in the debounce effect
-  }, []);
+    // Log browser transcript for utterance analysis
+    logBrowserTranscript(result);
+  }, [logBrowserTranscript]);
 
   const {
     transcript,
@@ -59,26 +92,47 @@ export function TwoCluesGame({
     isSupported,
   } = useSpeechRecognition(handleSpeechResult);
 
-  // Start round timer and auto-start listening when puzzle changes
+  // Start round timer, attempt tracking, and auto-start listening when puzzle changes
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
     game.startRound();
 
+    // Start new attempt for utterance logging
+    if (sessionId && userId && game.currentPuzzle) {
+      const targetWord = game.currentPuzzle.anchors[0] || 'unknown';
+      startAttempt({
+        sessionId,
+        userId,
+        exerciseSlug: 'two_clues',
+        trialIndex: game.currentIndex,
+        attemptNumber: 1,
+        targetWord,
+        category: game.currentPuzzle.category,
+      });
+    }
+
     // Auto-start listening (match other speech games behavior)
     if (!showFeedback) {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       lastTranscriptRef.current = '';
+      rawTranscriptRef.current = '';
       setDisplayTranscript('');
       setIsListening(true);
       startListening();
+      
+      // Start audio recording
+      if (isRecordingSupported && sessionId) {
+        startRecording();
+      }
     }
-  }, [game.currentPuzzle?.id, showFeedback, startListening]);
+  }, [game.currentPuzzle?.id, showFeedback, startListening, sessionId, userId, startAttempt, isRecordingSupported, startRecording, game.currentIndex]);
 
-  // Update display transcript
+  // Update display transcript and store raw
   useEffect(() => {
     if (transcript) {
       setDisplayTranscript(transcript);
+      rawTranscriptRef.current = transcript; // Keep raw for logging
     }
   }, [transcript]);
 
@@ -112,21 +166,60 @@ export function TwoCluesGame({
       if (isProcessing) return;
 
       setIsProcessing(true);
+      const rawTranscript = rawTranscriptRef.current;
       
       try {
+        // Stop listening and recording first
+        stopListening();
+        setIsListening(false);
+        
+        // Stop recording and get audio data
+        let recordingDurationMs: number | undefined;
+        if (isRecording) {
+          const recordingResult = await stopRecording();
+          if (recordingResult) {
+            recordingDurationMs = recordingResult.duration;
+          }
+        }
+        
         // Submit the cleaned candidate, not raw transcript
         const result = await game.submitAnswer(candidate);
+        
+        // Log utterance analysis (same pattern as PhotoNaming)
+        if (sessionId && currentAttemptId) {
+          const isCorrect = result.tier === 'strong' || result.tier === 'related';
+          
+          await logFinalAnalysis({
+            transcript: rawTranscript,
+            transcriptSource: 'browser',
+            isCorrect,
+            errorType: result.tier === 'uncertain' ? 'no_match' : 
+                       result.tier === 'creative' ? 'creative_link' : undefined,
+            semanticSimilarity: result.semanticSimilarity,
+            recordingDurationMs,
+            // Two Clues specific data in reasoning
+            reasoning: JSON.stringify({
+              rawTranscript,
+              cleanedAnswer: candidate,
+              matchedWord: result.matchedWord,
+              tier: result.tier,
+              score: result.score,
+              reachedAnchor: result.reachedAnchor,
+              puzzleId: game.currentPuzzle?.id,
+              clues: game.currentPuzzle?.clues,
+              contentWordCount: getContentWordCount(rawTranscript),
+            }),
+            cueTypeGiven: 'none', // Phase 1: no cueing
+          });
+        }
         
         // Show feedback
         const message = getTierMessage(result.tier, result.matchedWord);
         setFeedbackMessage(result.coachResponse || message);
         setShowFeedback(true);
-
-        // Stop listening after submission
-        stopListening();
-        setIsListening(false);
         setDisplayTranscript('');
         lastTranscriptRef.current = '';
+        rawTranscriptRef.current = '';
 
         // Auto-advance after feedback for strong/related matches
         if (result.tier === 'strong' || result.tier === 'related') {
@@ -136,6 +229,7 @@ export function TwoCluesGame({
               clearTimeout(debounceTimeoutRef.current);
             }
             setShowFeedback(false);
+            resetAttempt();
             game.nextRound();
           }, 2000);
         }
@@ -149,7 +243,7 @@ export function TwoCluesGame({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback]);
+  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback, sessionId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, resetAttempt]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(() => {
@@ -160,13 +254,22 @@ export function TwoCluesGame({
       }
       stopListening();
       setIsListening(false);
+      // Stop recording too
+      if (isRecording) {
+        stopRecording();
+      }
     } else {
       setDisplayTranscript('');
       lastTranscriptRef.current = '';
+      rawTranscriptRef.current = '';
       startListening();
       setIsListening(true);
+      // Start recording
+      if (isRecordingSupported && sessionId) {
+        startRecording();
+      }
     }
-  }, [isListening, startListening, stopListening]);
+  }, [isListening, startListening, stopListening, isRecording, stopRecording, isRecordingSupported, startRecording, sessionId]);
 
   // Read clues aloud
   const handleReadClues = useCallback(() => {
@@ -185,9 +288,28 @@ export function TwoCluesGame({
     setShowFeedback(false);
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
+    rawTranscriptRef.current = '';
+    resetAttempt();
+    
+    // Start new attempt
+    if (sessionId && userId && game.currentPuzzle) {
+      startAttempt({
+        sessionId,
+        userId,
+        exerciseSlug: 'two_clues',
+        trialIndex: game.currentIndex,
+        attemptNumber: (game.currentAttempt || 0) + 1,
+        targetWord: game.currentPuzzle.anchors[0] || 'unknown',
+        category: game.currentPuzzle.category,
+      });
+    }
+    
     setIsListening(true);
     startListening();
-  }, [startListening]);
+    if (isRecordingSupported && sessionId) {
+      startRecording();
+    }
+  }, [startListening, resetAttempt, sessionId, userId, game.currentPuzzle, game.currentIndex, game.currentAttempt, startAttempt, isRecordingSupported, startRecording]);
 
   // Skip to next
   const handleSkip = useCallback(() => {
@@ -195,11 +317,17 @@ export function TwoCluesGame({
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
+    // Stop recording if active
+    if (isRecording) {
+      stopRecording();
+    }
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
+    rawTranscriptRef.current = '';
     setShowFeedback(false);
+    resetAttempt();
     game.skipRound();
-  }, [game]);
+  }, [game, isRecording, stopRecording, resetAttempt]);
 
   // Continue to next after feedback
   const handleContinue = useCallback(() => {
@@ -209,9 +337,11 @@ export function TwoCluesGame({
     }
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
+    rawTranscriptRef.current = '';
     setShowFeedback(false);
+    resetAttempt();
     game.nextRound();
-  }, [game]);
+  }, [game, resetAttempt]);
 
   // Game complete screen
   if (game.isComplete) {
