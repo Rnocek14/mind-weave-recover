@@ -84,6 +84,8 @@ export function TwoCluesGame({
 
     // Debounce: wait for 750ms of stable transcript before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
+      // Guard: only score if still listening (prevents double-score on stop)
+      if (!isListening) return;
       if (transcript.trim().length < 2) return;
       if (isProcessing) return;
 
@@ -120,7 +122,7 @@ export function TwoCluesGame({
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [transcript, game, stopListening, isProcessing]);
+  }, [transcript, game, stopListening, isProcessing, isListening]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(() => {
