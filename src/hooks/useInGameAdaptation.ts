@@ -233,13 +233,17 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     } 
     // Normal difficulty adjustment based on rolling window
     else {
-      const adjustedLevel = controller.adjustLevel(currentDifficultyRef.current);
-      if (adjustedLevel !== currentDifficultyRef.current) {
+      // CRITICAL: Capture previous level BEFORE updating the ref
+      const previousLevel = currentDifficultyRef.current;
+      const adjustedLevel = controller.adjustLevel(previousLevel);
+      
+      if (adjustedLevel !== previousLevel) {
         difficultyAdjusted = true;
         newDifficulty = adjustedLevel;
         currentDifficultyRef.current = adjustedLevel;
         
-        const direction = adjustedLevel > currentDifficultyRef.current ? 'up' : 'down';
+        // Direction computed from previous vs new (not new vs new)
+        const direction = adjustedLevel > previousLevel ? 'up' : 'down';
         const successRate = controller.getSuccessRate();
         const reason = direction === 'up' 
           ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
