@@ -44,8 +44,8 @@ export function CaregiverModeToggle() {
       // Switching TO patient mode
       setUiMode('patient');
       
-      // If on a caregiver-only page, redirect to dashboard
-      if (location.pathname === '/caregiver') {
+      // If on caregiver-specific pages, redirect to dashboard
+      if (location.pathname.startsWith('/caregiver')) {
         navigate('/dashboard');
       }
       // Otherwise stay on current page (tabs will auto-hide caregiver-only content)

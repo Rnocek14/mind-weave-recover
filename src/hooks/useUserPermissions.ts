@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = 'admin' | 'moderator' | 'user';
+export type AppRole = 'admin' | 'moderator' | 'caregiver' | 'user';
 
 interface UserPermissions {
   isAdmin: boolean;
   isModerator: boolean;
+  isCaregiver: boolean;
   roles: AppRole[];
   isLoading: boolean;
 }
@@ -53,6 +54,7 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
   return {
     isAdmin: roles.includes('admin'),
     isModerator: roles.includes('moderator') || roles.includes('admin'),
+    isCaregiver: roles.includes('caregiver') || roles.includes('moderator') || roles.includes('admin'),
     roles,
     isLoading,
   };
