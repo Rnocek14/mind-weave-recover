@@ -120,8 +120,27 @@ export function AdaptationsSection({ userId, todayFocus }: AdaptationsSectionPro
         {events.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Settings2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No adaptations yet</p>
-            <p className="text-sm">Events will appear as you practice</p>
+            <p className="font-medium">No adaptations recorded yet</p>
+            <p className="text-sm mt-1">
+              Difficulty adjustments will appear here as you practice.
+            </p>
+            <div className="mt-4 text-xs bg-muted/50 rounded-lg p-3 text-left max-w-sm mx-auto">
+              <p className="font-medium mb-2">Exercises that track adaptations:</p>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Photo Naming
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Phonological Awareness
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Semantic Features
+                </li>
+              </ul>
+            </div>
           </div>
         ) : (
           <div>

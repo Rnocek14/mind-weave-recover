@@ -69,6 +69,10 @@ export const SemanticFeatureGame = ({
       onDifficultyChange?.(newLevel);
       setTimeout(() => setShowDifficultyChange(false), 2000);
     },
+    // Adaptation logging context
+    userId,
+    sessionId: sessionId || undefined,
+    exerciseSlug: 'semantic-features',
   });
   
   const game = useSemanticFeatureGame(totalTrials, currentDifficulty, customTrials);

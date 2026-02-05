@@ -69,6 +69,10 @@ export const PhonologicalGame = ({
       onDifficultyChange?.(newLevel);
       setTimeout(() => setShowDifficultyChange(false), 2000);
     },
+    // Adaptation logging context
+    userId,
+    sessionId: sessionId || undefined,
+    exerciseSlug: 'phonological-awareness',
   });
   
   const game = usePhonoGame(totalTrials, currentDifficulty, customTrials);
