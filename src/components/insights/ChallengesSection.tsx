@@ -80,7 +80,10 @@ export function ChallengesSection({ userId }: ChallengesSectionProps) {
                     size="sm" 
                     variant="outline" 
                     className="gap-1"
-                    onClick={() => navigate(withReturnTo(`/exercise/photo-naming?targets=${focusWords.join(',')}`, returnPath))}
+                    onClick={() => {
+                      const targets = focusWords.map(w => encodeURIComponent(w)).join(',');
+                      navigate(withReturnTo(`/exercise/photo-naming?targets=${targets}`, returnPath));
+                    }}
                   >
                     <Play className="w-3 h-3" />
                     Practice Now
@@ -117,7 +120,10 @@ export function ChallengesSection({ userId }: ChallengesSectionProps) {
                       size="sm" 
                       variant="outline" 
                       className="gap-1"
-                      onClick={() => navigate(withReturnTo(`/exercise/photo-naming?targets=${targetWords.slice(0, 5).join(',')}`, returnPath))}
+                      onClick={() => {
+                        const targets = targetWords.slice(0, 5).map(w => encodeURIComponent(w)).join(',');
+                        navigate(withReturnTo(`/exercise/photo-naming?targets=${targets}`, returnPath));
+                      }}
                     >
                       <Play className="w-3 h-3" />
                       Practice These Sounds
