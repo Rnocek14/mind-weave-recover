@@ -159,18 +159,22 @@ export const useUnifiedAnalytics = (
   todayFocus: TodayFocus | null,
   daysBack = 7
 ): UseUnifiedAnalyticsResult => {
-  // Fetch all data sources
-  const { learningRates, isLoading: learningLoading } = useLearningRate(userId || '');
+  // Gate all hooks - don't call with empty strings
+  const enabled = !!userId;
+  
+  // Fetch all data sources (properly gated)
+  const { learningRates, isLoading: learningLoading } = useLearningRate(enabled ? userId! : '');
   const { trends: weeklyTrends, loading: trendsLoading } = useWeeklyTrends();
-  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId || '', 4);
-  const { stats: cueStats, loading: cueLoading } = useCueTelemetry(userId || '', daysBack);
-  const { profile: speechProfile, loading: speechLoading } = useUserSpeechProfile(userId, { profileId });
-  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId || '', profileId);
-  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId || null);
-  const { events: adaptationEvents, isLoading: timelineLoading, refresh: refreshTimeline } = useAdaptationTimeline(userId, daysBack);
+  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(enabled ? userId! : '', 4);
+  const { stats: cueStats, loading: cueLoading } = useCueTelemetry(enabled ? userId! : '', daysBack);
+  const { profile: speechProfile, loading: speechLoading } = useUserSpeechProfile(enabled ? userId : undefined, { profileId });
+  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(enabled ? userId! : '', profileId);
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(enabled ? userId! : null);
+  const { events: adaptationEvents, isLoading: timelineLoading, refresh: refreshTimeline } = useAdaptationTimeline(enabled ? userId : undefined, daysBack);
 
-  const isLoading = learningLoading || trendsLoading || errorLoading || cueLoading || 
-                    speechLoading || crossLoading || flagsLoading || timelineLoading;
+  // Only loading if enabled and any source is loading
+  const isLoading = enabled && (learningLoading || trendsLoading || errorLoading || cueLoading || 
+                    speechLoading || crossLoading || flagsLoading || timelineLoading);
 
   // Compute unified model
   const analytics = useMemo<UnifiedAnalyticsModel>(() => {
@@ -381,15 +385,19 @@ export const useUnifiedAnalytics = (
 
 // Helper to format adaptation event for timeline display
 function formatAdaptationDescription(event: any): string {
+  // Handle raw JSONB values (no longer wrapped in {value: ...})
+  const before = event.value_before;
+  const after = event.value_after;
+  
   switch (event.adaptation_type) {
     case 'difficulty_up':
-      return `Difficulty increased: ${event.value_before?.value} → ${event.value_after?.value}`;
+      return `Difficulty increased: ${before} → ${after}`;
     case 'difficulty_down':
-      return `Difficulty decreased: ${event.value_before?.value} → ${event.value_after?.value}`;
+      return `Difficulty decreased: ${before} → ${after}`;
     case 'lane_switch':
-      return `Content lane: ${event.value_before?.value} → ${event.value_after?.value}`;
+      return `Content lane: ${before} → ${after}`;
     case 'cue_delivered':
-      return `Cue shown: ${event.value_after?.value} (${event.trigger_condition})`;
+      return `Cue shown: ${after} (${event.trigger_condition})`;
     case 'frustration_stepdown':
       return 'Emergency difficulty reduction due to frustration';
     default:
