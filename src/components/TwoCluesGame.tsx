@@ -53,6 +53,11 @@ export function TwoCluesGame({
   const rawTranscriptRef = useRef<string>(''); // Keep raw transcript for logging
   const finalizingRef = useRef(false); // Prevent double-finalization
   
+  // Refs for cleanup functions (to avoid cleanup effect firing on callback changes)
+  const stopListeningRef = useRef<() => void>(() => {});
+  const cancelRecordingRef = useRef<() => void>(() => {});
+  const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
+  
   const { speak } = useTextToSpeech();
 
   // Utterance logging (same as PhotoNaming/PhrasePractice)
@@ -95,6 +100,15 @@ export function TwoCluesGame({
     stopListening,
     isSupported,
    } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening (same as PhotoNaming)
+
+  // Keep refs updated for cleanup
+  useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
+  useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
+
+  // Sync local isListening state with hook's state
+  useEffect(() => {
+    setIsListening(speechIsListening);
+  }, [speechIsListening]);
 
   // Helper: begin new attempt with audio recording (centralized lifecycle)
   const beginAttempt = useCallback((attemptNumber: number = 1) => {
@@ -150,6 +164,9 @@ export function TwoCluesGame({
     }
   }, [currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
 
+  // Keep finalizeAttempt ref updated
+  useEffect(() => { finalizeAttemptRef.current = finalizeAttempt; }, [finalizeAttempt]);
+
   // Helper: clear all transcript state
   const clearTranscriptState = useCallback(() => {
     setDisplayTranscript('');
@@ -167,18 +184,17 @@ export function TwoCluesGame({
     if (!showFeedback && sessionId && userId) {
       beginAttempt(1);
     }
-  }, [game.currentPuzzle?.id, showFeedback, sessionId, userId]);
+  }, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt]);
 
-  // Cleanup on unmount - use centralized finalizeAttempt (no await in cleanup)
+  // Cleanup on unmount - uses refs to avoid firing on callback changes
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-      cancelRecording();
-      stopListening();
-      // void = fire-and-forget (no await in cleanup)
-      void finalizeAttempt('abandoned');
+      cancelRecordingRef.current();
+      stopListeningRef.current();
+      void finalizeAttemptRef.current('abandoned');
     };
-  }, [cancelRecording, stopListening, finalizeAttempt]);
+  }, []); // Empty deps = unmount only
 
   // Update display transcript and store raw
   useEffect(() => {
@@ -471,10 +487,12 @@ export function TwoCluesGame({
         </div>
 
         {/* Transcript display */}
-        {isListening && (
+        {(isListening || speechIsListening) && (
           <div className="text-center p-4 bg-muted/50 rounded-lg min-h-[60px] flex items-center justify-center">
             <p className="text-lg">
-              {displayTranscript || (
+              {displayTranscript ? (
+                <>Heard: "{displayTranscript}"</>
+              ) : (
                 <span className="text-muted-foreground animate-pulse">Listening...</span>
               )}
             </p>
