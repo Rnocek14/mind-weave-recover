@@ -136,7 +136,7 @@ interface InsightsTabProps {
 const InsightsTab = ({ analytics, showEvidence, showAdmin }: InsightsTabProps) => {
   const { summary, trends, cues, challenges, recommendations, alerts, dataCompleteness } = analytics;
 
-  const trendIcon = summary.trend === 'improving' ? TrendingUp :
+  const TrendIcon = summary.trend === 'improving' ? TrendingUp :
                     summary.trend === 'declining' ? TrendingDown : Minus;
   const trendColor = summary.trend === 'improving' ? 'text-success' :
                      summary.trend === 'declining' ? 'text-warning' : 'text-primary';
@@ -159,7 +159,7 @@ const InsightsTab = ({ analytics, showEvidence, showAdmin }: InsightsTabProps) =
         />
         <KPICard
           label="Trend"
-          value={<span className={trendColor}>{trendIcon({ className: 'w-5 h-5' })}</span>}
+          value={<span className={trendColor}><TrendIcon className="w-5 h-5" /></span>}
           subtitle={summary.trend.replace('_', ' ')}
           icon={<TrendingUp className="w-4 h-4" />}
         />
