@@ -23,20 +23,22 @@ export interface UserSpeechProfile extends Omit<UserSpeechProfileRow, 'error_typ
 
 interface UseUserSpeechProfileOptions {
   profileId?: string;
+  enabled?: boolean;
 }
 
 export const useUserSpeechProfile = (
-  userId: string | undefined,
-  options?: UseUserSpeechProfileOptions
+  userId: string | null | undefined,
+  options: UseUserSpeechProfileOptions = {}
 ) => {
-  const { profileId } = options ?? {};
+  const { profileId, enabled = true } = options;
   const [profile, setProfile] = useState<UserSpeechProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchProfile = useCallback(async () => {
-    if (!userId) {
+    if (!enabled || !userId) {
       setProfile(null);
+      setLoading(false);
       return;
     }
 
@@ -76,7 +78,7 @@ export const useUserSpeechProfile = (
     } finally {
       setLoading(false);
     }
-  }, [userId, profileId]);
+  }, [userId, profileId, enabled]);
 
   const refresh = useCallback(() => {
     return fetchProfile();

@@ -70,10 +70,10 @@ export default function ClinicianReport() {
   const { isAtLeast } = useUiMode();
   
   const { trends, loading: trendsLoading } = useWeeklyTrends();
-  const { learningRates, isLoading: learningLoading } = useLearningRate(user?.id || '');
-  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(user?.id || '', 1);
-  const { analytics: correlations, isLoading: correlationsLoading } = useCapabilitySpeechCorrelation(user?.id || '', activeProfile?.id);
-  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || '');
+  const { learningRates, isLoading: learningLoading } = useLearningRate(user?.id);
+  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(user?.id, { weeksBack: 1 });
+  const { analytics: correlations, isLoading: correlationsLoading } = useCapabilitySpeechCorrelation(user?.id, { profileId: activeProfile?.id });
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, 7);
   
   const isLoading = trendsLoading || learningLoading || errorLoading || correlationsLoading || flagsLoading || audioLoading;

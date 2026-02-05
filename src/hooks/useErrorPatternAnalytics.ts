@@ -52,12 +52,26 @@ interface ErrorPatternAnalytics {
   errorTypeExamples: Record<string, ErrorTypeExample[]>;
 }
 
-export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12) => {
+interface UseErrorPatternOptions {
+  weeksBack?: number;
+  enabled?: boolean;
+}
+
+export const useErrorPatternAnalytics = (
+  userId: string | null | undefined,
+  options: UseErrorPatternOptions = {}
+) => {
+  const { weeksBack = 12, enabled = true } = options;
   const [analytics, setAnalytics] = useState<ErrorPatternAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
+    if (!enabled || !userId) {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -301,17 +315,17 @@ export const useErrorPatternAnalytics = (userId: string, weeksBack: number = 12)
     } finally {
       setIsLoading(false);
     }
-  }, [userId, weeksBack]);
+  }, [userId, weeksBack, enabled]);
 
   useEffect(() => {
-    if (userId) {
+    if (enabled && userId) {
       fetchAnalytics();
     }
-  }, [userId, weeksBack]);
+  }, [userId, weeksBack, enabled, fetchAnalytics]);
 
   // Set up real-time subscription to utterance_analyses
   useEffect(() => {
-    if (!userId) return;
+    if (!enabled || !userId) return;
 
     const channel = supabase
       .channel('utterance-analytics')

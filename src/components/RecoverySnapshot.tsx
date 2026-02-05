@@ -94,8 +94,8 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   const { uiMode, isAtLeast } = useUiMode();
   const { learningRates, isLoading: learningLoading } = useLearningRate(userId);
   const { trends, loading: trendsLoading } = useWeeklyTrends();
-  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, 4);
-  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId, activeProfile?.id);
+  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
+  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId, { profileId: activeProfile?.id });
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId);
   
   // Phase 2: Role-based content density

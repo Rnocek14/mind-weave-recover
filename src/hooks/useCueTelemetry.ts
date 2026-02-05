@@ -51,13 +51,22 @@ interface CueTelemetryStats {
 
 const QUERY_LIMIT = 2000;
 
-export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => {
+interface UseCueTelemetryOptions {
+  daysBack?: number;
+  enabled?: boolean;
+}
+
+export const useCueTelemetry = (
+  userId: string | null | undefined,
+  options: UseCueTelemetryOptions = {}
+) => {
+  const { daysBack = 7, enabled = true } = options;
   const [stats, setStats] = useState<CueTelemetryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    if (!userId) {
+    if (!enabled || !userId) {
       setLoading(false);
       return;
     }
@@ -193,7 +202,7 @@ export const useCueTelemetry = (userId: string | null, daysBack: number = 7) => 
     } finally {
       setLoading(false);
     }
-  }, [userId, daysBack]);
+  }, [userId, daysBack, enabled]);
 
   useEffect(() => {
     fetchStats();

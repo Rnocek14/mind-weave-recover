@@ -80,13 +80,21 @@ export const useAdaptationEventLogger = ({
   // Batch queue for high-frequency events
   const batchQueueRef = useRef<AdaptationEventInput[]>([]);
   const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Prevent double-flush on overlapping timer + unmount
+  const isFlushingRef = useRef(false);
 
   /**
    * Flush queued events to database (defined first so queueEvent can depend on it)
    */
   const flushBatch = useCallback(async () => {
+    // Guard against concurrent flushes (timer + unmount overlap)
+    if (isFlushingRef.current) return;
+    
     const { userId, profileId, maxEventsPerSession } = configRef.current;
     if (!userId || batchQueueRef.current.length === 0) return;
+
+    isFlushingRef.current = true;
 
     const events = [...batchQueueRef.current];
     batchQueueRef.current = [];
@@ -100,7 +108,10 @@ export const useAdaptationEventLogger = ({
     const remaining = maxEventsPerSession - eventCountRef.current;
     const toInsert = events.slice(0, remaining);
     
-    if (toInsert.length === 0) return;
+    if (toInsert.length === 0) {
+      isFlushingRef.current = false;
+      return;
+    }
 
     try {
       const rows = toInsert.map(event => ({
@@ -135,6 +146,8 @@ export const useAdaptationEventLogger = ({
       }
     } catch (err) {
       console.warn('[AdaptationLogger] Batch flush error:', err);
+    } finally {
+      isFlushingRef.current = false;
     }
   }, []); // No deps - uses configRef
 
@@ -146,8 +159,9 @@ export const useAdaptationEventLogger = ({
     const { userId, maxEventsPerSession } = configRef.current;
     if (!userId) return;
 
-    // Early drop if already at cap (avoid memory growth)
-    if (eventCountRef.current + batchQueueRef.current.length >= maxEventsPerSession) {
+    // Early drop if already at cap including queued events (avoid memory growth)
+    const totalPending = eventCountRef.current + batchQueueRef.current.length;
+    if (totalPending >= maxEventsPerSession) {
       if (import.meta.env.DEV) {
         console.debug('[AdaptationLogger] Queue cap reached, dropping event');
       }
@@ -187,8 +201,9 @@ export const useAdaptationEventLogger = ({
       return false;
     }
 
-    // Rate limiting
-    if (eventCountRef.current >= maxEventsPerSession) {
+    // Rate limiting - account for queued events too
+    const totalPending = eventCountRef.current + batchQueueRef.current.length;
+    if (totalPending >= maxEventsPerSession) {
       if (import.meta.env.DEV) {
         console.debug('[AdaptationLogger] Rate limit reached, skipping');
       }

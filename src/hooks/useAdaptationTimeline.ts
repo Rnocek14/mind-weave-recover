@@ -16,8 +16,9 @@ export interface AdaptationEvent {
   trial_index: number | null;
   adaptation_type: string;
   layer: 'session' | 'in_game';
-  value_before: { value: unknown } | null;
-  value_after: { value: unknown } | null;
+  // Raw JSONB values (not wrapped in {value: ...})
+  value_before: unknown;
+  value_after: unknown;
   trigger_type: string;
   trigger_rule_id: string | null;
   trigger_condition: string | null;
