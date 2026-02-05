@@ -127,11 +127,13 @@ export default function Insights() {
     if (!user) return;
     
     try {
+      // Must query the ACTIVE profile, not just any profile for this user
       const { data: profileData } = await supabase
         .from('profiles')
         .select('clinical_profile')
         .eq('user_id', user.id)
-        .single();
+        .eq('is_active', true)
+        .maybeSingle();
 
       if (profileData?.clinical_profile) {
         setClinicalProfile(profileData.clinical_profile as unknown as ClinicalProfile);
