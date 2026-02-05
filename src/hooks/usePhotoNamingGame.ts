@@ -38,11 +38,27 @@ interface ContentLanes {
   hard: MixedTrial[];   // computed_difficulty 4-5
 }
 
+/**
+ * Fisher-Yates shuffle for randomizing lane contents once at init
+ */
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
+ * Partition trials into difficulty lanes, shuffled for consistent selection
+ */
 function partitionIntoLanes(trials: MixedTrial[]): ContentLanes {
   const lanes: ContentLanes = { easy: [], mid: [], hard: [] };
   
   for (const trial of trials) {
-    const diff = trial.computed_difficulty;
+    // Fallback to mid (3) if computed_difficulty is missing
+    const diff = trial.computed_difficulty ?? 3;
     if (diff <= 2) {
       lanes.easy.push(trial);
     } else if (diff === 3) {
@@ -51,6 +67,11 @@ function partitionIntoLanes(trials: MixedTrial[]): ContentLanes {
       lanes.hard.push(trial);
     }
   }
+  
+  // Shuffle each lane once so pop() gives random-but-deterministic selection
+  lanes.easy = shuffleArray(lanes.easy);
+  lanes.mid = shuffleArray(lanes.mid);
+  lanes.hard = shuffleArray(lanes.hard);
   
   return lanes;
 }
@@ -62,29 +83,47 @@ function getLaneForLevel(level: number): keyof ContentLanes {
   return 'hard';
 }
 
-function selectFromLanes(
-  lanes: ContentLanes,
-  level: number,
-  shownTargets: Set<string>
-): MixedTrial | null {
+/**
+ * Pop a trial from the appropriate lane (removes it to prevent re-selection)
+ * Falls back to other lanes if preferred is empty
+ */
+function popFromLanes(lanes: ContentLanes, level: number): MixedTrial | null {
   const preferredLane = getLaneForLevel(level);
   const laneOrder: (keyof ContentLanes)[] = 
     preferredLane === 'easy' ? ['easy', 'mid', 'hard'] :
     preferredLane === 'mid' ? ['mid', 'easy', 'hard'] :
     ['hard', 'mid', 'easy'];
   
-  // Try each lane in priority order
+  // Try each lane in priority order, pop removes from array
   for (const laneName of laneOrder) {
     const lane = lanes[laneName];
-    const available = lane.filter(t => !shownTargets.has(t.target));
-    if (available.length > 0) {
-      // Pick randomly from available
-      const idx = Math.floor(Math.random() * available.length);
-      return available[idx];
+    if (lane.length > 0) {
+      return lane.pop()!;
     }
   }
   
   return null; // Pool exhausted
+}
+
+/**
+ * Peek at next trial without removing it
+ */
+function peekFromLanes(lanes: ContentLanes, level: number): MixedTrial | null {
+  const preferredLane = getLaneForLevel(level);
+  const laneOrder: (keyof ContentLanes)[] = 
+    preferredLane === 'easy' ? ['easy', 'mid', 'hard'] :
+    preferredLane === 'mid' ? ['mid', 'easy', 'hard'] :
+    ['hard', 'mid', 'easy'];
+  
+  for (const laneName of laneOrder) {
+    const lane = lanes[laneName];
+    if (lane.length > 0) {
+      // Peek at last element (what pop would return)
+      return lane[lane.length - 1];
+    }
+  }
+  
+  return null;
 }
 
 export const usePhotoNamingGame = (
@@ -99,15 +138,8 @@ export const usePhotoNamingGame = (
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   
-  // Session-level deduplication: track shown photo targets
-  const shownTargetsRef = useRef<Set<string>>(new Set());
-  
-  // Content lanes for difficulty-aware selection
+  // Content lanes for difficulty-aware selection (trials are REMOVED when selected)
   const lanesRef = useRef<ContentLanes | null>(null);
-  
-  // Track initial difficulty for pool building
-  const initialDifficultyRef = useRef(difficultyLevel);
-  const isInitializedRef = useRef(false);
   
   // Current difficulty ref (updated by external hook)
   const currentLevelRef = useRef(difficultyLevel);
@@ -119,56 +151,69 @@ export const usePhotoNamingGame = (
   const focusPhonemes = options?.focusPhonemes || [];
   const focusWords = options?.focusWords || [];
 
-  // Build session pool and partition into lanes ONCE at mount
-  useEffect(() => {
-    if (isInitializedRef.current && !customTrials) {
-      return;
-    }
+  // ==========================================================================
+  // Core pool builder - called from init AND reset
+  // ==========================================================================
+  const buildSessionPool = useCallback((level: number): { 
+    lanes: ContentLanes; 
+    firstTrial: MixedTrial | null;
+    firstChoices: string[];
+  } => {
+    let lanes: ContentLanes;
     
-    if (customTrials) {
-      // Custom trials: use directly, partition into lanes
-      lanesRef.current = partitionIntoLanes(customTrials);
+    if (customTrials && customTrials.length > 0) {
+      // Custom trials: partition directly
+      lanes = partitionIntoLanes(customTrials);
     } else {
       // Build a larger pool (2x-3x requested count) to allow lane switching
       const poolSize = Math.min(totalTrials * 3, PHOTO_BANK.length);
       
-      // Get broad pool with ±2 difficulty tolerance
-      const broadPool = getTrialsForLevel(initialDifficultyRef.current, poolSize, {
-        excludeTargets: Array.from(shownTargetsRef.current),
+      // Get broad pool with tolerance for difficulty
+      const broadPool = getTrialsForLevel(level, poolSize, {
         focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
         focusWords: focusWords.length > 0 ? focusWords : undefined,
       });
       
-      lanesRef.current = partitionIntoLanes(broadPool as MixedTrial[]);
+      lanes = partitionIntoLanes(broadPool as MixedTrial[]);
     }
     
-    // Select first trial from appropriate lane
-    if (lanesRef.current) {
-      const firstTrial = selectFromLanes(
-        lanesRef.current, 
-        initialDifficultyRef.current, 
-        shownTargetsRef.current
-      );
-      
-      if (firstTrial) {
-        shownTargetsRef.current.add(firstTrial.target);
-        setCurrentTrial(firstTrial);
-        setTrialNumber(1);
-        setChoices(generateChoices(firstTrial as PhotoTrial, initialDifficultyRef.current));
-      }
-    }
+    // Pop first trial from appropriate lane
+    const firstTrial = popFromLanes(lanes, level);
+    const firstChoices = firstTrial 
+      ? generateChoices(firstTrial as PhotoTrial, level)
+      : [];
+    
+    return { lanes, firstTrial, firstChoices };
+  }, [customTrials, totalTrials, focusPhonemes, focusWords]);
+
+  // ==========================================================================
+  // Initialize on mount
+  // ==========================================================================
+  const isInitializedRef = useRef(false);
+  
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+    
+    const { lanes, firstTrial, firstChoices } = buildSessionPool(difficultyLevel);
+    
+    lanesRef.current = lanes;
+    setCurrentTrial(firstTrial);
+    setTrialNumber(firstTrial ? 1 : 0);
+    setChoices(firstChoices);
     
     isInitializedRef.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalTrials, customTrials]);
+  }, [buildSessionPool, difficultyLevel]);
   
-  // Update choices when difficulty changes mid-session
+  // Update choices when difficulty changes mid-session (affects choice count/foils)
   useEffect(() => {
     if (isInitializedRef.current && currentTrial) {
       setChoices(generateChoices(currentTrial as PhotoTrial, difficultyLevel));
     }
   }, [difficultyLevel, currentTrial]);
 
+  // ==========================================================================
+  // Answer selection
+  // ==========================================================================
   const selectAnswer = useCallback(
     (selectedWord: string): { correct: boolean; errorType?: string } => {
       if (!currentTrial) {
@@ -196,22 +241,15 @@ export const usePhotoNamingGame = (
     [currentTrial]
   );
 
+  // ==========================================================================
+  // Advance to next trial - uses functional update to avoid stale closure
+  // ==========================================================================
   const nextTrial = useCallback((currentLevel: number) => {
     if (!lanesRef.current) return;
     
-    // Check if we've hit the trial limit
-    if (trialNumber >= totalTrials) {
-      setIsComplete(true);
-      return;
-    }
-    
-    // Select NEXT trial from appropriate lane based on CURRENT difficulty
+    // Pop NEXT trial from appropriate lane based on CURRENT difficulty
     // This is the key: difficulty changes affect which lane we pull from
-    const nextTrialData = selectFromLanes(
-      lanesRef.current,
-      currentLevel,
-      shownTargetsRef.current
-    );
+    const nextTrialData = popFromLanes(lanesRef.current, currentLevel);
     
     if (!nextTrialData) {
       // Pool exhausted
@@ -219,50 +257,44 @@ export const usePhotoNamingGame = (
       return;
     }
     
-    shownTargetsRef.current.add(nextTrialData.target);
     setCurrentTrial(nextTrialData);
-    setTrialNumber(prev => prev + 1);
     setChoices(generateChoices(nextTrialData as PhotoTrial, currentLevel));
-  }, [trialNumber, totalTrials]);
-
-  const reset = useCallback((level: number = 1) => {
-    // Clear shown targets on explicit reset (new session)
-    shownTargetsRef.current.clear();
-    isInitializedRef.current = false;
-    initialDifficultyRef.current = level;
-    currentLevelRef.current = level;
-    lanesRef.current = null;
     
-    setCurrentTrial(null);
-    setTrialNumber(0);
+    // Use functional update to avoid stale trialNumber closure
+    // Check completion AFTER incrementing
+    setTrialNumber(prev => {
+      const next = prev + 1;
+      if (next >= totalTrials) {
+        // Schedule completion for next tick to avoid setState during render
+        setTimeout(() => setIsComplete(true), 0);
+      }
+      return next;
+    });
+  }, [totalTrials]);
+
+  // ==========================================================================
+  // Reset - rebuilds pool directly (no dependency on useEffect)
+  // ==========================================================================
+  const reset = useCallback((level: number = 1) => {
+    currentLevelRef.current = level;
+    
+    // Rebuild pool directly
+    const { lanes, firstTrial, firstChoices } = buildSessionPool(level);
+    
+    lanesRef.current = lanes;
+    setCurrentTrial(firstTrial);
+    setTrialNumber(firstTrial ? 1 : 0);
+    setChoices(firstChoices);
     setScore(0);
     setIsComplete(false);
-    setChoices([]);
-    
-    // Re-trigger initialization effect
-    // Note: Since we cleared isInitializedRef, the useEffect will run again
-  }, []);
+  }, [buildSessionPool]);
 
-  // Peek at next trial for preloading (without consuming it)
+  // ==========================================================================
+  // Peek at next trial for preloading (consistent with actual selection)
+  // ==========================================================================
   const peekNextTrial = useCallback((): MixedTrial | null => {
     if (!lanesRef.current) return null;
-    
-    // Simulate what selectFromLanes would return WITHOUT adding to shown
-    const preferredLane = getLaneForLevel(currentLevelRef.current);
-    const laneOrder: (keyof ContentLanes)[] = 
-      preferredLane === 'easy' ? ['easy', 'mid', 'hard'] :
-      preferredLane === 'mid' ? ['mid', 'easy', 'hard'] :
-      ['hard', 'mid', 'easy'];
-    
-    for (const laneName of laneOrder) {
-      const lane = lanesRef.current[laneName];
-      const available = lane.filter(t => !shownTargetsRef.current.has(t.target));
-      if (available.length > 0) {
-        return available[0]; // Return first available (for preload)
-      }
-    }
-    
-    return null;
+    return peekFromLanes(lanesRef.current, currentLevelRef.current);
   }, []);
 
   const state: PhotoNamingGameState = {
