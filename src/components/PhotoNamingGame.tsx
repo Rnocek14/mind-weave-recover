@@ -91,7 +91,11 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, nextTrial: nextTrialData, advanceTrial } = usePhotoNamingGame(totalTrials, initialDifficulty, customTrials);
+  const { state, currentLane, nextTrial: nextTrialData, advanceTrial } = usePhotoNamingGame(
+    totalTrials, 
+    initialDifficulty, 
+    customTrials
+  );
   
   // Preload next image to eliminate delay when advancing
   useImagePreloader(state.currentTrial?.imageUrl, nextTrialData?.imageUrl);
@@ -327,25 +331,24 @@ export const PhotoNamingGame = ({
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
-  // Track lane switches when difficulty changes
-  const previousLaneRef = useRef<'easy' | 'mid' | 'hard'>('mid');
+  // Track lane switches using ACTUAL lane from hook (not inferred from difficulty)
+  const previousActualLaneRef = useRef<'easy' | 'mid' | 'hard' | null>(null);
   useEffect(() => {
-    // Compute current lane from difficulty level
-    const currentLane = currentDifficulty <= 3 ? 'easy' : currentDifficulty <= 6 ? 'mid' : 'hard';
+    if (!currentLane) return;
     
-    if (currentLane !== previousLaneRef.current) {
+    if (previousActualLaneRef.current && previousActualLaneRef.current !== currentLane) {
       // Lane switch occurred - log it (batched via queueEvent)
       logLaneSwitch(
-        previousLaneRef.current,
+        previousActualLaneRef.current,
         currentLane,
         currentDifficulty,
         activeSessionId,
         CANONICAL_SLUGS.PHOTO_NAMING,
         state.trialNumber
       );
-      previousLaneRef.current = currentLane;
     }
-  }, [currentDifficulty, activeSessionId, state.trialNumber, logLaneSwitch]);
+    previousActualLaneRef.current = currentLane;
+  }, [currentLane, currentDifficulty, activeSessionId, state.trialNumber, logLaneSwitch]);
   
   // CRITICAL: Clean up stall timer AND debounce timer on trial change and unmount
   // Use trialNumber as dependency (unique per trial, unlike target which may repeat)
@@ -363,6 +366,13 @@ export const PhotoNamingGame = ({
       pendingTranscriptRef.current = null;
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
+  
+  // Reset logger counters when session starts/changes
+  useEffect(() => {
+    if (activeSessionId) {
+      resetLoggerSession(activeSessionId);
+    }
+  }, [activeSessionId, resetLoggerSession]);
   
   // Flush adaptation events on session end
   useEffect(() => {
