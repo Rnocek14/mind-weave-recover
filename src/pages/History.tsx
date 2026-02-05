@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Calendar, Clock, TrendingUp } from "lucide-react";
+import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -103,15 +102,6 @@ export default function History() {
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-4xl">
-        <Button 
-          variant="ghost" 
-          className="mb-6"
-          onClick={() => navigate("/dashboard")}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
-
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Session History</h1>
           <p className="text-muted-foreground">
