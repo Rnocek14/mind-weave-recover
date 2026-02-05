@@ -5,7 +5,7 @@
  * Includes "building" state for phonemes approaching visibility threshold
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,13 +51,19 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   const [showDebug, setShowDebug] = useState(false);
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [lastRecomputeTime, setLastRecomputeTime] = useState<number>(0);
+  const [cooldownTick, setCooldownTick] = useState(0);
   
   // Dev warning for missing profileId
   if (import.meta.env.DEV && !profileId) {
     console.warn('[ChallengesSection] profileId missing, using most recent profile');
   }
   
-  const { strugglingWords, focusWords, loading: wordsLoading } = useStrugglingWords({ userId });
+  const { 
+    strugglingWords, 
+    focusWords, 
+    loading: wordsLoading,
+    refresh: refreshWords 
+  } = useStrugglingWords({ userId });
   const { 
     strugglingPhonemes, 
     strongPhonemes,
@@ -73,7 +79,11 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
     readyCount,
     refresh: refreshPhonemeData,
   } = useStrugglingPhonemes(userId, { profileId });
-  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
+  const { 
+    analytics: errorAnalytics, 
+    isLoading: errorLoading,
+    refetch: refreshErrorAnalytics 
+  } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
 
   const isLoading = wordsLoading || phonemesLoading || errorLoading;
   const showClinicianDebug = isAtLeast('clinician');
@@ -83,18 +93,22 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   
   // Cooldown for recompute button (60 seconds)
   const RECOMPUTE_COOLDOWN_MS = 60_000;
-  const [cooldownTick, setCooldownTick] = useState(0);
-  const cooldownRemaining = Math.max(0, RECOMPUTE_COOLDOWN_MS - (Date.now() - lastRecomputeTime));
+  
+  // Derive cooldown remaining using memo to properly re-render on tick
+  const cooldownRemaining = useMemo(
+    () => Math.max(0, RECOMPUTE_COOLDOWN_MS - (Date.now() - lastRecomputeTime)),
+    [lastRecomputeTime, cooldownTick]
+  );
   const isOnCooldown = cooldownRemaining > 0;
   
-  // Timer to update cooldown display
+  // Timer to update cooldown display - no cooldownTick in deps to avoid re-creating interval
   useEffect(() => {
     if (!isOnCooldown) return;
     const interval = setInterval(() => setCooldownTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [isOnCooldown, cooldownTick]);
+  }, [isOnCooldown]);
 
-  // Handle manual recompute
+  // Handle manual recompute with explicit refresh of all displayed data
   const handleRecompute = async () => {
     if (isOnCooldown) {
       toast({
@@ -108,9 +122,16 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
     try {
       const result = await recomputeSpeechProfileNow(userId, { force: true, profileId });
       
-      // Refresh the hook data directly (useUserSpeechProfile uses useState, not React Query)
-      // Note: error analytics + struggling words use different data sources that auto-refresh
-      refreshPhonemeData();
+      // Explicitly refresh ALL data sources shown on this screen
+      // Don't rely on "auto-refresh" - be explicit about what needs updating
+      await Promise.all([
+        refreshPhonemeData(),
+        refreshWords(),
+        refreshErrorAnalytics?.(),
+      ]);
+      
+      // Reset cooldown state
+      setCooldownTick(0);
       setLastRecomputeTime(Date.now());
       
       toast({
