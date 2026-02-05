@@ -94,7 +94,7 @@ export function TwoCluesGame({
     startListening,
     stopListening,
     isSupported,
-  } = useSpeechRecognition(handleSpeechResult);
+   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening (same as PhotoNaming)
 
   // Helper: begin new attempt with audio recording (centralized lifecycle)
   const beginAttempt = useCallback((attemptNumber: number = 1) => {
