@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 
 interface UseAdaptiveDifficultyOptions {
   initialDifficulty: number;
@@ -9,6 +10,11 @@ interface UseAdaptiveDifficultyOptions {
   targetSuccessRate?: number;
   adjustmentThreshold?: number;
   onDifficultyChange?: (newLevel: number) => void;
+  // New: logging context
+  userId?: string;
+  profileId?: string;
+  sessionId?: string | null;
+  exerciseSlug?: string;
 }
 
 export const useAdaptiveDifficulty = ({
@@ -18,8 +24,13 @@ export const useAdaptiveDifficulty = ({
   targetSuccessRate = 0.80,
   adjustmentThreshold = 0.15,
   onDifficultyChange,
+  userId,
+  profileId,
+  sessionId,
+  exerciseSlug,
 }: UseAdaptiveDifficultyOptions) => {
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
+  const trialIndexRef = useRef(0);
   
   const controllerRef = useRef(
     new AdaptiveDifficultyController(
@@ -30,6 +41,12 @@ export const useAdaptiveDifficulty = ({
     )
   );
 
+  // Adaptation event logger - only active if userId provided
+  const { logDifficultyChange } = useAdaptationEventLogger({
+    userId,
+    profileId,
+  });
+
   // Update bounds when they change
   useEffect(() => {
     controllerRef.current.setBounds(bounds);
@@ -38,28 +55,62 @@ export const useAdaptiveDifficulty = ({
   // Update a trial result
   const updateTrial = useCallback((wasCorrect: boolean) => {
     controllerRef.current.update(wasCorrect);
+    trialIndexRef.current += 1;
   }, []);
 
   // Check if difficulty should adjust and return the result
   const checkAndAdjust = useCallback((): { adjusted: boolean; newLevel: number } => {
+    const previousLevel = currentDifficulty;
     const newLevel = controllerRef.current.adjustLevel(currentDifficulty);
     const adjusted = newLevel !== currentDifficulty;
     
     if (adjusted) {
       setCurrentDifficulty(newLevel);
       onDifficultyChange?.(newLevel);
+      
+      // Log adaptation event if we have userId
+      if (userId && exerciseSlug) {
+        const state = controllerRef.current.getState();
+        logDifficultyChange(
+          newLevel > previousLevel ? 'up' : 'down',
+          previousLevel,
+          newLevel,
+          state.successRate,
+          0, // consecutiveErrors not tracked here
+          sessionId,
+          exerciseSlug,
+          trialIndexRef.current
+        );
+      }
     }
     
     return { adjusted, newLevel };
-  }, [currentDifficulty, onDifficultyChange]);
+  }, [currentDifficulty, onDifficultyChange, userId, exerciseSlug, sessionId, logDifficultyChange]);
 
   // Emergency step down
   const stepDown = useCallback((): number => {
+    const previousLevel = currentDifficulty;
     const newLevel = controllerRef.current.handleFrustration(currentDifficulty);
     setCurrentDifficulty(newLevel);
     onDifficultyChange?.(newLevel);
+    
+    // Log frustration stepdown
+    if (userId && exerciseSlug && newLevel !== previousLevel) {
+      const state = controllerRef.current.getState();
+      logDifficultyChange(
+        'down',
+        previousLevel,
+        newLevel,
+        state.successRate,
+        3, // Frustration implies consecutive errors
+        sessionId,
+        exerciseSlug,
+        trialIndexRef.current
+      );
+    }
+    
     return newLevel;
-  }, [currentDifficulty, onDifficultyChange]);
+  }, [currentDifficulty, onDifficultyChange, userId, exerciseSlug, sessionId, logDifficultyChange]);
 
   // Update bounds dynamically
   const setBounds = useCallback((newBounds: DifficultyBounds) => {
@@ -74,6 +125,7 @@ export const useAdaptiveDifficulty = ({
   // Reset controller for new session
   const reset = useCallback(() => {
     controllerRef.current.reset();
+    trialIndexRef.current = 0;
   }, []);
 
   // Get cue level based on recent errors
