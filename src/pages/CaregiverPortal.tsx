@@ -11,7 +11,7 @@
  * - All actual content comes from shared components
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Heart, Bell, LayoutGrid } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -43,23 +43,33 @@ export default function CaregiverPortal() {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  
+  // Refs to prevent re-triggering effects
+  const prevModeRef = useRef(uiMode);
+  const didInitTab = useRef(false);
 
   // Set caregiver mode on mount, restore previous on unmount
   useEffect(() => {
-    const prevMode = uiMode;
     setUiMode('caregiver');
-    return () => {
-      // Only restore if we're actually leaving (not just re-rendering)
-      setUiMode(prevMode);
-    };
-  }, []); // Empty deps - only run on mount/unmount
+    return () => setUiMode(prevModeRef.current);
+  }, [setUiMode]);
   
-  // Update active tab when flags load
+  // Auto-set tab only once on initial flags load (don't fight user clicks)
   useEffect(() => {
-    if (!flagsLoading) {
+    if (!flagsLoading && !didInitTab.current) {
       setActiveTab(redFlags.length > 0 ? 'alerts' : 'overview');
+      didInitTab.current = true;
     }
   }, [flagsLoading, redFlags.length]);
+
+  // Gate: redirect patients away from caregiver portal
+  const isCaregiverPlus = isAtLeast('caregiver');
+  
+  useEffect(() => {
+    if (!authLoading && user && !isCaregiverPlus) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [authLoading, user, isCaregiverPlus, navigate]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -83,8 +93,6 @@ export default function CaregiverPortal() {
     }
   };
 
-  // Gate: if somehow a patient lands here, redirect to dashboard
-  const isCaregiverPlus = isAtLeast('caregiver');
 
   if (authLoading || loading) {
     return (
