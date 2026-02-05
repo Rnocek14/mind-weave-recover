@@ -149,6 +149,13 @@ export const usePhotoNamingGame = (
   const currentLevelRef = useRef(difficultyLevel);
   const isInitializedRef = useRef(false);
   
+  // Session start level - captured once, used for pool building
+  // Prevents edge case where difficulty changes before init runs
+  const startLevelRef = useRef<number | null>(null);
+  if (startLevelRef.current === null) {
+    startLevelRef.current = difficultyLevel;
+  }
+  
   // Sync currentLevel ref when prop changes
   useEffect(() => {
     currentLevelRef.current = difficultyLevel;
@@ -158,7 +165,7 @@ export const usePhotoNamingGame = (
   // Memoize options to prevent callback recreation
   // ==========================================================================
   const focusPhonemes = useMemo(
-    () => options?.focusPhonemes ?? [], 
+    () => options?.focusPhonemes ?? [],
     [options?.focusPhonemes]
   );
   const focusWords = useMemo(
@@ -208,7 +215,9 @@ export const usePhotoNamingGame = (
   useEffect(() => {
     if (isInitializedRef.current) return;
     
-    const { lanes, firstTrial, firstChoices } = buildSessionPool(difficultyLevel);
+    // Use session start level for pool building (captured at first render)
+    const buildLevel = startLevelRef.current ?? difficultyLevel;
+    const { lanes, firstTrial, firstChoices } = buildSessionPool(buildLevel);
     
     lanesRef.current = lanes;
     trialNumberRef.current = firstTrial ? 1 : 0;
@@ -263,15 +272,8 @@ export const usePhotoNamingGame = (
   const nextTrial = useCallback((currentLevel: number) => {
     if (!lanesRef.current) return;
     
-    // Increment ref FIRST (authoritative counter)
-    trialNumberRef.current += 1;
-    const nextNum = trialNumberRef.current;
-    
-    // Sync state
-    setTrialNumber(nextNum);
-    
-    // Check completion based on ref (no stale closure)
-    if (nextNum >= totalTrials) {
+    // Check completion BEFORE attempting to pop (avoids phantom trial increment)
+    if (trialNumberRef.current >= totalTrials) {
       setIsComplete(true);
       return;
     }
@@ -286,14 +288,26 @@ export const usePhotoNamingGame = (
       return;
     }
     
+    // Successfully got a trial - NOW increment counter
+    trialNumberRef.current += 1;
+    const nextNum = trialNumberRef.current;
+    
+    setTrialNumber(nextNum);
     setCurrentTrial(nextTrialData);
     setChoices(generateChoices(nextTrialData as PhotoTrial, currentLevel));
+    
+    // Check if this was the last trial (show trial 10, then complete)
+    if (nextNum >= totalTrials) {
+      setIsComplete(true);
+    }
   }, [totalTrials]);
 
   // ==========================================================================
   // Reset - rebuilds pool directly (no dependency on useEffect)
   // ==========================================================================
   const reset = useCallback((level: number = 1) => {
+    // Reset session start level for new pool build
+    startLevelRef.current = level;
     currentLevelRef.current = level;
     
     // Rebuild pool directly
