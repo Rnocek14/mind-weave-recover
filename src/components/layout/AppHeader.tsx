@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useUiMode } from "@/hooks/useUiMode";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,8 +35,12 @@ const navItems = [
 export function AppHeader() {
   const location = useLocation();
   const { user } = useAuth();
-  const { isAdmin } = useUserPermissions(user?.id);
+  const { isAdmin, isModerator } = useUserPermissions(user?.id);
   const { isAtLeast } = useUiMode();
+  
+  // Show caregiver toggle only for users with caregiver+ database permissions
+  // (not just uiMode, which anyone can set)
+  const canAccessCaregiverMode = isModerator || isAdmin;
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -139,6 +144,9 @@ export function AppHeader() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Caregiver Mode Toggle - only for eligible users */}
+          {canAccessCaregiverMode && <CaregiverModeToggle />}
 
           <ThemeToggle />
         </nav>
