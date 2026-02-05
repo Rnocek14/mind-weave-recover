@@ -162,13 +162,15 @@ serve(async (req) => {
       : 'audio/wav';
 
     // Build pronunciation assessment config
+    // NBestPhonemeCount enables spoken phoneme alternatives for substitution detection
     const pronunciationConfig = {
       referenceText: referenceText,
       gradingSystem: "HundredMark",
       granularity: "Phoneme",
       dimension: "Comprehensive",
       enableMiscue: true,
-      enableProsodyAssessment: true
+      enableProsodyAssessment: true,
+      NBestPhonemeCount: 5,  // Request top 5 phoneme candidates per phoneme
     };
 
     const configBase64 = btoa(JSON.stringify(pronunciationConfig));
@@ -215,6 +217,31 @@ serve(async (req) => {
     }
 
     const azureData = await response.json();
+    
+    // TEMPORARY: Log sample phoneme structure for NBest schema discovery
+    // Gate behind env flag to avoid log spam in prod
+    const LOG_SAMPLE = Deno.env.get('LOG_AZURE_PA_SAMPLE') === 'true';
+    if (LOG_SAMPLE && azureData.NBest?.[0]?.Words?.length > 0) {
+      const sampleWord = azureData.NBest[0].Words[0];
+      console.log('[analyze-pronunciation] SAMPLE_PHONEME_STRUCTURE', JSON.stringify({
+        pronRequestId,
+        wordShape: {
+          Word: sampleWord.Word,
+          AccuracyScore: sampleWord.AccuracyScore,
+          ErrorType: sampleWord.ErrorType,
+          // Capture first phoneme's full structure
+          firstPhoneme: sampleWord.Phonemes?.[0] ?? null,
+          phonemeCount: sampleWord.Phonemes?.length ?? 0,
+        },
+        configUsed: {
+          granularity: 'Phoneme',
+          dimension: 'Comprehensive',
+          enableMiscue: true,
+          NBestPhonemeCount: 5,
+        },
+      }, null, 2));
+    }
+    
     console.log('[analyze-pronunciation] Azure response received', { 
       pronRequestId,
       hasNBest: !!azureData.NBest,
