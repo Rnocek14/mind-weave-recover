@@ -35,12 +35,11 @@ const navItems = [
 export function AppHeader() {
   const location = useLocation();
   const { user } = useAuth();
-  const { isAdmin, isModerator } = useUserPermissions(user?.id);
+  const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast } = useUiMode();
   
-  // Show caregiver toggle only for users with caregiver+ database permissions
-  // (not just uiMode, which anyone can set)
-  const canAccessCaregiverMode = isModerator || isAdmin;
+  // Show caregiver toggle only for users with caregiver+ database role
+  const canAccessCaregiverMode = isCaregiver;
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
