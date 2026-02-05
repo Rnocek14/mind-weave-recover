@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PhotoTrial, getTrialsForLevel, generateChoices, PHOTO_BANK } from '@/data/photoBank';
 
 // Extended trial type that supports optional imageUrl for audio-only trials
@@ -132,24 +132,39 @@ export const usePhotoNamingGame = (
   customTrials?: MixedTrial[],
   options?: PhotoNamingGameOptions
 ) => {
+  // ==========================================================================
+  // State
+  // ==========================================================================
   const [currentTrial, setCurrentTrial] = useState<MixedTrial | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
   const [trialNumber, setTrialNumber] = useState(0);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   
-  // Content lanes for difficulty-aware selection (trials are REMOVED when selected)
+  // ==========================================================================
+  // Refs (authoritative counters to avoid stale closures)
+  // ==========================================================================
   const lanesRef = useRef<ContentLanes | null>(null);
-  
-  // Current difficulty ref (updated by external hook)
+  const trialNumberRef = useRef(0);
   const currentLevelRef = useRef(difficultyLevel);
+  const isInitializedRef = useRef(false);
+  
+  // Sync currentLevel ref when prop changes
   useEffect(() => {
     currentLevelRef.current = difficultyLevel;
   }, [difficultyLevel]);
   
-  // Extract phoneme/word targeting options
-  const focusPhonemes = options?.focusPhonemes || [];
-  const focusWords = options?.focusWords || [];
+  // ==========================================================================
+  // Memoize options to prevent callback recreation
+  // ==========================================================================
+  const focusPhonemes = useMemo(
+    () => options?.focusPhonemes ?? [], 
+    [options?.focusPhonemes]
+  );
+  const focusWords = useMemo(
+    () => options?.focusWords ?? [], 
+    [options?.focusWords]
+  );
 
   // ==========================================================================
   // Core pool builder - called from init AND reset
@@ -165,8 +180,9 @@ export const usePhotoNamingGame = (
       // Custom trials: partition directly
       lanes = partitionIntoLanes(customTrials);
     } else {
-      // Build a larger pool (2x-3x requested count) to allow lane switching
-      const poolSize = Math.min(totalTrials * 3, PHOTO_BANK.length);
+      // Build a larger pool (5x requested count) to ensure all lanes have content
+      // This prevents lane starvation when difficulty shifts mid-session
+      const poolSize = Math.min(totalTrials * 5, PHOTO_BANK.length);
       
       // Get broad pool with tolerance for difficulty
       const broadPool = getTrialsForLevel(level, poolSize, {
@@ -189,16 +205,16 @@ export const usePhotoNamingGame = (
   // ==========================================================================
   // Initialize on mount
   // ==========================================================================
-  const isInitializedRef = useRef(false);
-  
   useEffect(() => {
     if (isInitializedRef.current) return;
     
     const { lanes, firstTrial, firstChoices } = buildSessionPool(difficultyLevel);
     
     lanesRef.current = lanes;
+    trialNumberRef.current = firstTrial ? 1 : 0;
+    
     setCurrentTrial(firstTrial);
-    setTrialNumber(firstTrial ? 1 : 0);
+    setTrialNumber(trialNumberRef.current);
     setChoices(firstChoices);
     
     isInitializedRef.current = true;
@@ -242,10 +258,23 @@ export const usePhotoNamingGame = (
   );
 
   // ==========================================================================
-  // Advance to next trial - uses functional update to avoid stale closure
+  // Advance to next trial - ref-based to avoid stale closures
   // ==========================================================================
   const nextTrial = useCallback((currentLevel: number) => {
     if (!lanesRef.current) return;
+    
+    // Increment ref FIRST (authoritative counter)
+    trialNumberRef.current += 1;
+    const nextNum = trialNumberRef.current;
+    
+    // Sync state
+    setTrialNumber(nextNum);
+    
+    // Check completion based on ref (no stale closure)
+    if (nextNum >= totalTrials) {
+      setIsComplete(true);
+      return;
+    }
     
     // Pop NEXT trial from appropriate lane based on CURRENT difficulty
     // This is the key: difficulty changes affect which lane we pull from
@@ -259,17 +288,6 @@ export const usePhotoNamingGame = (
     
     setCurrentTrial(nextTrialData);
     setChoices(generateChoices(nextTrialData as PhotoTrial, currentLevel));
-    
-    // Use functional update to avoid stale trialNumber closure
-    // Check completion AFTER incrementing
-    setTrialNumber(prev => {
-      const next = prev + 1;
-      if (next >= totalTrials) {
-        // Schedule completion for next tick to avoid setState during render
-        setTimeout(() => setIsComplete(true), 0);
-      }
-      return next;
-    });
   }, [totalTrials]);
 
   // ==========================================================================
@@ -282,8 +300,10 @@ export const usePhotoNamingGame = (
     const { lanes, firstTrial, firstChoices } = buildSessionPool(level);
     
     lanesRef.current = lanes;
+    trialNumberRef.current = firstTrial ? 1 : 0;
+    
     setCurrentTrial(firstTrial);
-    setTrialNumber(firstTrial ? 1 : 0);
+    setTrialNumber(trialNumberRef.current);
     setChoices(firstChoices);
     setScore(0);
     setIsComplete(false);
