@@ -19,27 +19,30 @@ export function useUiModeEntitlement() {
   const { isCaregiver: canUseCaregiverMode, isLoading } = useUserPermissions(user?.id);
   const { uiMode, setUiMode } = useUiMode();
   
-  const didCorrect = useRef(false);
+  const didEvaluate = useRef(false);
+  
+  // Consistent definition: caregiver+ modes
+  const isCaregiverModeActive = uiMode === 'caregiver' || uiMode === 'clinician' || uiMode === 'admin';
   
   useEffect(() => {
     // Wait until permissions are loaded
     if (isLoading || !user) return;
     
-    // Only run correction once per session
-    if (didCorrect.current) return;
+    // Only run evaluation once per session
+    if (didEvaluate.current) return;
     
     // If uiMode is caregiver+ but user lacks entitlement, reset to patient
-    const isCaregiverModeActive = uiMode === 'caregiver' || uiMode === 'clinician';
-    
     if (isCaregiverModeActive && !canUseCaregiverMode) {
       console.info('[UiModeEntitlement] User lacks caregiver role, resetting uiMode to patient');
       setUiMode('patient');
-      didCorrect.current = true;
     }
-  }, [isLoading, user, uiMode, canUseCaregiverMode, setUiMode]);
+    
+    // Mark as evaluated regardless of outcome
+    didEvaluate.current = true;
+  }, [isLoading, user, isCaregiverModeActive, canUseCaregiverMode, setUiMode]);
   
   return {
     canUseCaregiverMode,
-    isCaregiverModeActive: uiMode === 'caregiver' || uiMode === 'clinician' || uiMode === 'admin',
+    isCaregiverModeActive,
   };
 }
