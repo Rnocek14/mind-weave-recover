@@ -5,7 +5,7 @@
  * Includes "building" state for phonemes approaching visibility threshold
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,12 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   
   const [showDebug, setShowDebug] = useState(false);
   const [isRecomputing, setIsRecomputing] = useState(false);
+  const [lastRecomputeTime, setLastRecomputeTime] = useState<number>(0);
+  
+  // Dev warning for missing profileId
+  if (import.meta.env.DEV && !profileId) {
+    console.warn('[ChallengesSection] profileId missing, using most recent profile');
+  }
   
   const { strugglingWords, focusWords, loading: wordsLoading } = useStrugglingWords({ userId });
   const { 
@@ -74,15 +80,38 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   
   // Calculate trials since last recompute
   const trialsSinceRecompute = totalTrials - trialCountAtComputation;
+  
+  // Cooldown for recompute button (60 seconds)
+  const RECOMPUTE_COOLDOWN_MS = 60_000;
+  const [cooldownTick, setCooldownTick] = useState(0);
+  const cooldownRemaining = Math.max(0, RECOMPUTE_COOLDOWN_MS - (Date.now() - lastRecomputeTime));
+  const isOnCooldown = cooldownRemaining > 0;
+  
+  // Timer to update cooldown display
+  useEffect(() => {
+    if (!isOnCooldown) return;
+    const interval = setInterval(() => setCooldownTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isOnCooldown, cooldownTick]);
 
   // Handle manual recompute
   const handleRecompute = async () => {
+    if (isOnCooldown) {
+      toast({
+        title: "Please wait",
+        description: `Recompute available in ${Math.ceil(cooldownRemaining / 1000)}s`,
+      });
+      return;
+    }
+    
     setIsRecomputing(true);
     try {
       const result = await recomputeSpeechProfileNow(userId, { force: true, profileId });
       
       // Refresh the hook data directly (useUserSpeechProfile uses useState, not React Query)
+      // Note: error analytics + struggling words use different data sources that auto-refresh
       refreshPhonemeData();
+      setLastRecomputeTime(Date.now());
       
       toast({
         title: "Profile Updated",
@@ -161,9 +190,8 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
                   >
                     <span className="font-mono">/{formatPhonemeDisplay(p.phoneme)}/</span>
                     <span className={cn("font-medium", label.color)}>{Math.round(p.accuracy)}%</span>
-                    <span className="text-muted-foreground">
-                      · {p.trials} trial{p.trials !== 1 ? 's' : ''} 
-                      <span className="text-xs ml-1">(need {p.neededTrials} more)</span>
+                    <span className="text-muted-foreground text-xs">
+                      · early signal · {p.neededTrials} more trial{p.neededTrials !== 1 ? 's' : ''} needed
                     </span>
                   </div>
                 );
@@ -352,18 +380,28 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
                   </div>
                 </div>
                 
-                <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-2">
+                  {/* Data freshness line */}
+                  <div className="text-xs text-muted-foreground text-center">
+                    Last computed: {formatTimeAgo(lastComputedAt)} · Trials since: {trialsSinceRecompute}
+                  </div>
+                  
                   <Button
                     size="sm"
                     variant="outline"
                     className="w-full gap-2"
                     onClick={handleRecompute}
-                    disabled={isRecomputing}
+                    disabled={isRecomputing || isOnCooldown}
                   >
                     {isRecomputing ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
                         Recomputing...
+                      </>
+                    ) : isOnCooldown ? (
+                      <>
+                        <RefreshCw className="w-3 h-3" />
+                        Wait {Math.ceil(cooldownRemaining / 1000)}s
                       </>
                     ) : (
                       <>
