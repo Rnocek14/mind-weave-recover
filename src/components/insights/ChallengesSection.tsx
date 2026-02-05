@@ -53,10 +53,12 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   const [lastRecomputeTime, setLastRecomputeTime] = useState<number>(0);
   const [cooldownTick, setCooldownTick] = useState(0);
   
-  // Dev warning for missing profileId
-  if (import.meta.env.DEV && !profileId) {
-    console.warn('[ChallengesSection] profileId missing, using most recent profile');
-  }
+  // Dev warning for missing profileId - wrapped in useEffect to avoid spam
+  useEffect(() => {
+    if (import.meta.env.DEV && !profileId) {
+      console.warn('[ChallengesSection] profileId missing, using most recent profile');
+    }
+  }, [profileId]);
   
   const { 
     strugglingWords, 
@@ -124,11 +126,10 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
       
       // Explicitly refresh ALL data sources shown on this screen
       // Don't rely on "auto-refresh" - be explicit about what needs updating
-      await Promise.all([
-        refreshPhonemeData(),
-        refreshWords(),
-        refreshErrorAnalytics?.(),
-      ]);
+      // Note: some refreshers return void, others Promise - handle both
+      refreshPhonemeData();
+      refreshWords();
+      if (refreshErrorAnalytics) await refreshErrorAnalytics();
       
       // Reset cooldown state
       setCooldownTick(0);
