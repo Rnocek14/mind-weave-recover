@@ -1,0 +1,355 @@
+/**
+ * Adaptation Event Logger
+ * 
+ * Lightweight hook for logging adaptation events to the database.
+ * Supports both session-level (TodayFocus) and in-game (difficulty, lane) events.
+ * 
+ * Features:
+ * - Rate limiting (max 50 events per session)
+ * - Fire-and-forget pattern (non-blocking)
+ * - Batching for high-frequency events (lane switches)
+ */
+
+import { useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+// Adaptation types matching the database schema
+export type AdaptationType =
+  // Session-level
+  | 'start_difficulty_set'
+  | 'timeout_extended'
+  | 'session_cap_reduced'
+  | 'large_targets_enabled'
+  | 'slower_tts_enabled'
+  | 'preferred_cue_type_set'
+  | 'focus_phonemes_set'
+  | 'focus_words_set'
+  // In-game
+  | 'difficulty_up'
+  | 'difficulty_down'
+  | 'frustration_stepdown'
+  | 'lane_switch'
+  | 'cue_delivered'
+  | 'cue_escalated'
+  | 'break_prompted'
+  | 'confidence_boost_shown';
+
+export type AdaptationLayer = 'session' | 'in_game';
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface AdaptationEventInput {
+  adaptationType: AdaptationType;
+  layer: AdaptationLayer;
+  
+  sessionId?: string | null;
+  exerciseSlug?: string;
+  trialIndex?: number;
+  
+  valueBefore?: number | string | boolean;
+  valueAfter?: number | string | boolean;
+  
+  triggerType: 'rule' | 'threshold' | 'timer' | 'user_request';
+  triggerRuleId?: string;
+  triggerCondition?: string;
+  
+  evidence: Record<string, unknown>;
+  confidence: ConfidenceLevel;
+}
+
+interface UseAdaptationEventLoggerOptions {
+  userId: string | undefined;
+  profileId?: string;
+  maxEventsPerSession?: number;
+}
+
+export const useAdaptationEventLogger = ({
+  userId,
+  profileId,
+  maxEventsPerSession = 50,
+}: UseAdaptationEventLoggerOptions) => {
+  // Rate limiting counter
+  const eventCountRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
+  
+  // Batch queue for high-frequency events
+  const batchQueueRef = useRef<AdaptationEventInput[]>([]);
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Log a single adaptation event (fire-and-forget)
+   */
+  const logEvent = useCallback(async (event: AdaptationEventInput): Promise<boolean> => {
+    if (!userId) {
+      console.debug('[AdaptationLogger] No userId, skipping');
+      return false;
+    }
+
+    // Rate limiting
+    if (eventCountRef.current >= maxEventsPerSession) {
+      console.debug('[AdaptationLogger] Rate limit reached, skipping');
+      return false;
+    }
+
+    // Reset counter on new session
+    if (event.sessionId && event.sessionId !== sessionIdRef.current) {
+      sessionIdRef.current = event.sessionId;
+      eventCountRef.current = 0;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('adaptation_events' as any)
+        .insert({
+          user_id: userId,
+          profile_id: profileId || null,
+          session_id: event.sessionId || null,
+          exercise_slug: event.exerciseSlug || null,
+          trial_index: event.trialIndex ?? null,
+          adaptation_type: event.adaptationType,
+          layer: event.layer,
+          value_before: event.valueBefore !== undefined ? { value: event.valueBefore } : null,
+          value_after: event.valueAfter !== undefined ? { value: event.valueAfter } : null,
+          trigger_type: event.triggerType,
+          trigger_rule_id: event.triggerRuleId || null,
+          trigger_condition: event.triggerCondition || null,
+          evidence: event.evidence,
+          confidence: event.confidence,
+        });
+
+      if (error) {
+        console.warn('[AdaptationLogger] Insert failed:', error.message);
+        return false;
+      }
+
+      eventCountRef.current += 1;
+      
+      if (import.meta.env.DEV) {
+        console.debug(`[AdaptationLogger] Logged: ${event.adaptationType} (${event.layer})`, {
+          before: event.valueBefore,
+          after: event.valueAfter,
+          trigger: event.triggerType,
+        });
+      }
+      
+      return true;
+    } catch (err) {
+      console.warn('[AdaptationLogger] Unexpected error:', err);
+      return false;
+    }
+  }, [userId, profileId, maxEventsPerSession]);
+
+  /**
+   * Queue a high-frequency event for batched insert (e.g., lane switches)
+   * Flushes after 5 seconds of inactivity or when session ends
+   */
+  const queueEvent = useCallback((event: AdaptationEventInput) => {
+    if (!userId) return;
+
+    batchQueueRef.current.push(event);
+
+    // Reset flush timer
+    if (batchTimeoutRef.current) {
+      clearTimeout(batchTimeoutRef.current);
+    }
+
+    batchTimeoutRef.current = setTimeout(() => {
+      flushBatch();
+    }, 5000);
+  }, [userId]);
+
+  /**
+   * Flush queued events to database
+   */
+  const flushBatch = useCallback(async () => {
+    if (!userId || batchQueueRef.current.length === 0) return;
+
+    const events = [...batchQueueRef.current];
+    batchQueueRef.current = [];
+
+    if (batchTimeoutRef.current) {
+      clearTimeout(batchTimeoutRef.current);
+      batchTimeoutRef.current = null;
+    }
+
+    // Check rate limit
+    const remaining = maxEventsPerSession - eventCountRef.current;
+    const toInsert = events.slice(0, remaining);
+    
+    if (toInsert.length === 0) return;
+
+    try {
+      const rows = toInsert.map(event => ({
+        user_id: userId,
+        profile_id: profileId || null,
+        session_id: event.sessionId || null,
+        exercise_slug: event.exerciseSlug || null,
+        trial_index: event.trialIndex ?? null,
+        adaptation_type: event.adaptationType,
+        layer: event.layer,
+        value_before: event.valueBefore !== undefined ? { value: event.valueBefore } : null,
+        value_after: event.valueAfter !== undefined ? { value: event.valueAfter } : null,
+        trigger_type: event.triggerType,
+        trigger_rule_id: event.triggerRuleId || null,
+        trigger_condition: event.triggerCondition || null,
+        evidence: event.evidence,
+        confidence: event.confidence,
+      }));
+
+      const { error } = await supabase
+        .from('adaptation_events' as any)
+        .insert(rows);
+
+      if (error) {
+        console.warn('[AdaptationLogger] Batch insert failed:', error.message);
+      } else {
+        eventCountRef.current += toInsert.length;
+        console.debug(`[AdaptationLogger] Flushed ${toInsert.length} events`);
+      }
+    } catch (err) {
+      console.warn('[AdaptationLogger] Batch flush error:', err);
+    }
+  }, [userId, profileId, maxEventsPerSession]);
+
+  /**
+   * Log difficulty change (convenience method)
+   */
+  const logDifficultyChange = useCallback((
+    direction: 'up' | 'down',
+    previousLevel: number,
+    newLevel: number,
+    successRate: number,
+    consecutiveErrors: number,
+    sessionId?: string | null,
+    exerciseSlug?: string,
+    trialIndex?: number
+  ) => {
+    return logEvent({
+      adaptationType: direction === 'up' ? 'difficulty_up' : 'difficulty_down',
+      layer: 'in_game',
+      sessionId,
+      exerciseSlug,
+      trialIndex,
+      valueBefore: previousLevel,
+      valueAfter: newLevel,
+      triggerType: 'threshold',
+      triggerCondition: direction === 'up' 
+        ? `successRate > 90% (${Math.round(successRate * 100)}%)`
+        : `successRate < 70% (${Math.round(successRate * 100)}%)`,
+      evidence: {
+        successRate,
+        consecutiveErrors,
+        previousLevel,
+        newLevel,
+      },
+      confidence: 'HIGH',
+    });
+  }, [logEvent]);
+
+  /**
+   * Log lane switch (queued for batching)
+   */
+  const logLaneSwitch = useCallback((
+    previousLane: string,
+    newLane: string,
+    currentDifficulty: number,
+    sessionId?: string | null,
+    exerciseSlug?: string,
+    trialIndex?: number
+  ) => {
+    queueEvent({
+      adaptationType: 'lane_switch',
+      layer: 'in_game',
+      sessionId,
+      exerciseSlug,
+      trialIndex,
+      valueBefore: previousLane,
+      valueAfter: newLane,
+      triggerType: 'threshold',
+      triggerCondition: `difficulty ${currentDifficulty} maps to ${newLane} lane`,
+      evidence: {
+        currentDifficulty,
+        previousLane,
+        newLane,
+      },
+      confidence: 'HIGH',
+    });
+  }, [queueEvent]);
+
+  /**
+   * Log cue delivery
+   */
+  const logCueDelivered = useCallback((
+    cueType: string,
+    cueLevel: number,
+    trigger: 'stall' | 'consecutive_errors' | 'user_request',
+    consecutiveErrors: number,
+    sessionId?: string | null,
+    exerciseSlug?: string,
+    trialIndex?: number
+  ) => {
+    return logEvent({
+      adaptationType: 'cue_delivered',
+      layer: 'in_game',
+      sessionId,
+      exerciseSlug,
+      trialIndex,
+      valueAfter: cueType,
+      triggerType: trigger === 'user_request' ? 'user_request' : 'threshold',
+      triggerCondition: trigger,
+      evidence: {
+        cueType,
+        cueLevel,
+        trigger,
+        consecutiveErrors,
+      },
+      confidence: 'HIGH',
+    });
+  }, [logEvent]);
+
+  /**
+   * Log session-level adaptation from TodayFocus
+   */
+  const logSessionAdaptation = useCallback((
+    adaptationType: AdaptationType,
+    value: unknown,
+    ruleId: string,
+    evidence: Record<string, unknown>,
+    confidence: ConfidenceLevel,
+    sessionId?: string | null
+  ) => {
+    return logEvent({
+      adaptationType,
+      layer: 'session',
+      sessionId,
+      valueAfter: typeof value === 'object' ? JSON.stringify(value) : String(value),
+      triggerType: 'rule',
+      triggerRuleId: ruleId,
+      evidence,
+      confidence,
+    });
+  }, [logEvent]);
+
+  /**
+   * Reset rate limit counter (call on session start)
+   */
+  const resetSession = useCallback((newSessionId: string) => {
+    sessionIdRef.current = newSessionId;
+    eventCountRef.current = 0;
+    batchQueueRef.current = [];
+    if (batchTimeoutRef.current) {
+      clearTimeout(batchTimeoutRef.current);
+      batchTimeoutRef.current = null;
+    }
+  }, []);
+
+  return {
+    logEvent,
+    logDifficultyChange,
+    logLaneSwitch,
+    logCueDelivered,
+    logSessionAdaptation,
+    flushBatch,
+    resetSession,
+    eventCount: eventCountRef.current,
+  };
+};

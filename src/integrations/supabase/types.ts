@@ -49,6 +49,78 @@ export type Database = {
           },
         ]
       }
+      adaptation_events: {
+        Row: {
+          adaptation_type: string
+          confidence: string
+          created_at: string
+          evidence: Json
+          exercise_slug: string | null
+          id: string
+          layer: string
+          profile_id: string | null
+          session_id: string | null
+          trial_index: number | null
+          trigger_condition: string | null
+          trigger_rule_id: string | null
+          trigger_type: string
+          user_id: string
+          value_after: Json | null
+          value_before: Json | null
+        }
+        Insert: {
+          adaptation_type: string
+          confidence: string
+          created_at?: string
+          evidence?: Json
+          exercise_slug?: string | null
+          id?: string
+          layer: string
+          profile_id?: string | null
+          session_id?: string | null
+          trial_index?: number | null
+          trigger_condition?: string | null
+          trigger_rule_id?: string | null
+          trigger_type: string
+          user_id: string
+          value_after?: Json | null
+          value_before?: Json | null
+        }
+        Update: {
+          adaptation_type?: string
+          confidence?: string
+          created_at?: string
+          evidence?: Json
+          exercise_slug?: string | null
+          id?: string
+          layer?: string
+          profile_id?: string | null
+          session_id?: string | null
+          trial_index?: number | null
+          trigger_condition?: string | null
+          trigger_rule_id?: string | null
+          trigger_type?: string
+          user_id?: string
+          value_after?: Json | null
+          value_before?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptation_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adaptation_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adaptive_decision_logs: {
         Row: {
           adaptations: Json
