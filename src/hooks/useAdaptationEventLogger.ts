@@ -10,7 +10,7 @@
  * - Batching for high-frequency events (lane switches)
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Adaptation types matching the database schema
@@ -45,8 +45,8 @@ export interface AdaptationEventInput {
   exerciseSlug?: string;
   trialIndex?: number;
   
-  valueBefore?: number | string | boolean;
-  valueAfter?: number | string | boolean;
+  valueBefore?: unknown;
+  valueAfter?: unknown;
   
   triggerType: 'rule' | 'threshold' | 'timer' | 'user_request';
   triggerRuleId?: string;
@@ -67,26 +67,131 @@ export const useAdaptationEventLogger = ({
   profileId,
   maxEventsPerSession = 50,
 }: UseAdaptationEventLoggerOptions) => {
+  // Store latest config in ref to avoid stale closures
+  const configRef = useRef({ userId, profileId, maxEventsPerSession });
+  useEffect(() => {
+    configRef.current = { userId, profileId, maxEventsPerSession };
+  }, [userId, profileId, maxEventsPerSession]);
+
   // Rate limiting counter
   const eventCountRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
   
   // Batch queue for high-frequency events
   const batchQueueRef = useRef<AdaptationEventInput[]>([]);
-  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Flush queued events to database (defined first so queueEvent can depend on it)
+   */
+  const flushBatch = useCallback(async () => {
+    const { userId, profileId, maxEventsPerSession } = configRef.current;
+    if (!userId || batchQueueRef.current.length === 0) return;
+
+    const events = [...batchQueueRef.current];
+    batchQueueRef.current = [];
+
+    if (batchTimeoutRef.current) {
+      clearTimeout(batchTimeoutRef.current);
+      batchTimeoutRef.current = null;
+    }
+
+    // Check rate limit
+    const remaining = maxEventsPerSession - eventCountRef.current;
+    const toInsert = events.slice(0, remaining);
+    
+    if (toInsert.length === 0) return;
+
+    try {
+      const rows = toInsert.map(event => ({
+        user_id: userId,
+        profile_id: profileId || null,
+        session_id: event.sessionId || null,
+        exercise_slug: event.exerciseSlug || null,
+        trial_index: event.trialIndex ?? null,
+        adaptation_type: event.adaptationType,
+        layer: event.layer,
+        // Store raw JSONB values, not wrapped in {value: ...}
+        value_before: event.valueBefore ?? null,
+        value_after: event.valueAfter ?? null,
+        trigger_type: event.triggerType,
+        trigger_rule_id: event.triggerRuleId || null,
+        trigger_condition: event.triggerCondition || null,
+        evidence: event.evidence,
+        confidence: event.confidence,
+      }));
+
+      const { error } = await supabase
+        .from('adaptation_events' as any)
+        .insert(rows);
+
+      if (error) {
+        console.warn('[AdaptationLogger] Batch insert failed:', error.message);
+      } else {
+        eventCountRef.current += toInsert.length;
+        if (import.meta.env.DEV) {
+          console.debug(`[AdaptationLogger] Flushed ${toInsert.length} events`);
+        }
+      }
+    } catch (err) {
+      console.warn('[AdaptationLogger] Batch flush error:', err);
+    }
+  }, []); // No deps - uses configRef
+
+  /**
+   * Queue a high-frequency event for batched insert (e.g., lane switches)
+   * Flushes after 5 seconds of inactivity or when session ends
+   */
+  const queueEvent = useCallback((event: AdaptationEventInput) => {
+    const { userId, maxEventsPerSession } = configRef.current;
+    if (!userId) return;
+
+    // Early drop if already at cap (avoid memory growth)
+    if (eventCountRef.current + batchQueueRef.current.length >= maxEventsPerSession) {
+      if (import.meta.env.DEV) {
+        console.debug('[AdaptationLogger] Queue cap reached, dropping event');
+      }
+      return;
+    }
+
+    batchQueueRef.current.push(event);
+
+    // Reset flush timer
+    if (batchTimeoutRef.current) {
+      clearTimeout(batchTimeoutRef.current);
+    }
+
+    batchTimeoutRef.current = setTimeout(flushBatch, 5000);
+  }, [flushBatch]);
+
+  // Cleanup: flush on unmount
+  useEffect(() => {
+    return () => {
+      if (batchTimeoutRef.current) {
+        clearTimeout(batchTimeoutRef.current);
+      }
+      // Best-effort flush on exit
+      flushBatch();
+    };
+  }, [flushBatch]);
 
   /**
    * Log a single adaptation event (fire-and-forget)
    */
   const logEvent = useCallback(async (event: AdaptationEventInput): Promise<boolean> => {
+    const { userId, profileId, maxEventsPerSession } = configRef.current;
     if (!userId) {
-      console.debug('[AdaptationLogger] No userId, skipping');
+      if (import.meta.env.DEV) {
+        console.debug('[AdaptationLogger] No userId, skipping');
+      }
       return false;
     }
 
     // Rate limiting
     if (eventCountRef.current >= maxEventsPerSession) {
-      console.debug('[AdaptationLogger] Rate limit reached, skipping');
+      if (import.meta.env.DEV) {
+        console.debug('[AdaptationLogger] Rate limit reached, skipping');
+      }
       return false;
     }
 
@@ -107,8 +212,9 @@ export const useAdaptationEventLogger = ({
           trial_index: event.trialIndex ?? null,
           adaptation_type: event.adaptationType,
           layer: event.layer,
-          value_before: event.valueBefore !== undefined ? { value: event.valueBefore } : null,
-          value_after: event.valueAfter !== undefined ? { value: event.valueAfter } : null,
+          // Store raw JSONB values
+          value_before: event.valueBefore ?? null,
+          value_after: event.valueAfter ?? null,
           trigger_type: event.triggerType,
           trigger_rule_id: event.triggerRuleId || null,
           trigger_condition: event.triggerCondition || null,
@@ -136,79 +242,7 @@ export const useAdaptationEventLogger = ({
       console.warn('[AdaptationLogger] Unexpected error:', err);
       return false;
     }
-  }, [userId, profileId, maxEventsPerSession]);
-
-  /**
-   * Queue a high-frequency event for batched insert (e.g., lane switches)
-   * Flushes after 5 seconds of inactivity or when session ends
-   */
-  const queueEvent = useCallback((event: AdaptationEventInput) => {
-    if (!userId) return;
-
-    batchQueueRef.current.push(event);
-
-    // Reset flush timer
-    if (batchTimeoutRef.current) {
-      clearTimeout(batchTimeoutRef.current);
-    }
-
-    batchTimeoutRef.current = setTimeout(() => {
-      flushBatch();
-    }, 5000);
-  }, [userId]);
-
-  /**
-   * Flush queued events to database
-   */
-  const flushBatch = useCallback(async () => {
-    if (!userId || batchQueueRef.current.length === 0) return;
-
-    const events = [...batchQueueRef.current];
-    batchQueueRef.current = [];
-
-    if (batchTimeoutRef.current) {
-      clearTimeout(batchTimeoutRef.current);
-      batchTimeoutRef.current = null;
-    }
-
-    // Check rate limit
-    const remaining = maxEventsPerSession - eventCountRef.current;
-    const toInsert = events.slice(0, remaining);
-    
-    if (toInsert.length === 0) return;
-
-    try {
-      const rows = toInsert.map(event => ({
-        user_id: userId,
-        profile_id: profileId || null,
-        session_id: event.sessionId || null,
-        exercise_slug: event.exerciseSlug || null,
-        trial_index: event.trialIndex ?? null,
-        adaptation_type: event.adaptationType,
-        layer: event.layer,
-        value_before: event.valueBefore !== undefined ? { value: event.valueBefore } : null,
-        value_after: event.valueAfter !== undefined ? { value: event.valueAfter } : null,
-        trigger_type: event.triggerType,
-        trigger_rule_id: event.triggerRuleId || null,
-        trigger_condition: event.triggerCondition || null,
-        evidence: event.evidence,
-        confidence: event.confidence,
-      }));
-
-      const { error } = await supabase
-        .from('adaptation_events' as any)
-        .insert(rows);
-
-      if (error) {
-        console.warn('[AdaptationLogger] Batch insert failed:', error.message);
-      } else {
-        eventCountRef.current += toInsert.length;
-        console.debug(`[AdaptationLogger] Flushed ${toInsert.length} events`);
-      }
-    } catch (err) {
-      console.warn('[AdaptationLogger] Batch flush error:', err);
-    }
-  }, [userId, profileId, maxEventsPerSession]);
+  }, []); // No deps - uses configRef
 
   /**
    * Log difficulty change (convenience method)
@@ -321,7 +355,8 @@ export const useAdaptationEventLogger = ({
       adaptationType,
       layer: 'session',
       sessionId,
-      valueAfter: typeof value === 'object' ? JSON.stringify(value) : String(value),
+      // Store raw value directly as JSONB
+      valueAfter: value,
       triggerType: 'rule',
       triggerRuleId: ruleId,
       evidence,
@@ -342,6 +377,11 @@ export const useAdaptationEventLogger = ({
     }
   }, []);
 
+  /**
+   * Get current event count (for debugging, not reactive)
+   */
+  const getEventCount = useCallback(() => eventCountRef.current, []);
+
   return {
     logEvent,
     logDifficultyChange,
@@ -350,6 +390,6 @@ export const useAdaptationEventLogger = ({
     logSessionAdaptation,
     flushBatch,
     resetSession,
-    eventCount: eventCountRef.current,
+    getEventCount,
   };
 };
