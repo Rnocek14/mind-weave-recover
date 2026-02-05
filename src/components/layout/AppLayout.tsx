@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { AppHeader } from "./AppHeader";
+import { useUiModeEntitlement } from "@/hooks/useUiModeEntitlement";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -8,6 +9,9 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {
+  // Auto-correct uiMode if user lacks entitlement (e.g., localStorage says caregiver but DB says no)
+  useUiModeEntitlement();
+  
   return (
     <div className="min-h-screen flex flex-col">
       {!hideHeader && <AppHeader />}
