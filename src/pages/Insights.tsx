@@ -20,6 +20,9 @@ import { getRecommendedExerciseRoute } from "@/lib/recommendationRouter";
 // Recovery Snapshot (primary intelligence view)
 import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 
+// Unified Analytics Panel (adaptation timeline + insights)
+import { UnifiedAnalyticsPanel } from "@/components/UnifiedAnalyticsPanel";
+
 // Speech Analysis components (for Deep Dive)
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
 import { SpeechLabPanel } from "@/components/SpeechLabPanel";
@@ -65,6 +68,7 @@ export default function Insights() {
   const [speechLabExpanded, setSpeechLabExpanded] = useState(false);
   const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
+  const [adaptationsExpanded, setAdaptationsExpanded] = useState(false);
 
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
   
@@ -73,6 +77,9 @@ export default function Insights() {
     user?.id, 
     { profileId: activeProfile?.id }
   );
+
+  // Note: todayFocus comes from useDailyLesson (used in Dashboard)
+  // For Insights page, we pass null - the panel still shows timeline events
 
   // Gate tabs based on view mode
   const showDeepDive = isAtLeast('clinician');
@@ -218,6 +225,16 @@ export default function Insights() {
           {/* Recovery Snapshot Tab (Primary - Always visible) */}
           <TabsContent value="snapshot" className="space-y-6">
             <RecoverySnapshot userId={user!.id} />
+            
+            {/* Unified Analytics Panel - shows adaptation timeline for caregiver+ */}
+            {isAtLeast('caregiver') && (
+              <UnifiedAnalyticsPanel 
+                userId={user!.id} 
+                profileId={activeProfile?.id}
+                todayFocus={null}
+                defaultTab="adaptations"
+              />
+            )}
           </TabsContent>
 
           {/* Deep Dive Tab (Clinician+) */}
