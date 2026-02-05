@@ -31,9 +31,11 @@ import { formatPhonemeDisplay } from "@/hooks/useStrugglingPhonemes";
 
 interface OverviewSectionProps {
   userId: string;
+  profileId?: string; // Reserved for future use
 }
 
-export const OverviewSection = memo(function OverviewSection({ userId }: OverviewSectionProps) {
+export const OverviewSection = memo(function OverviewSection({ userId, profileId }: OverviewSectionProps) {
+  // Note: profileId will be used when useAnalyticsSnapshot supports it
   const snapshot = useAnalyticsSnapshot(userId);
 
   if (snapshot.isLoading) {

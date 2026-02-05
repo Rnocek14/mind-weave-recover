@@ -29,6 +29,7 @@ import {
 
 interface ProgressSectionProps {
   userId: string;
+  profileId?: string;
 }
 
 interface AggregatedDomain {
@@ -44,7 +45,8 @@ interface AggregatedDomain {
   isSignificant: boolean;
 }
 
-export function ProgressSection({ userId }: ProgressSectionProps) {
+export function ProgressSection({ userId, profileId }: ProgressSectionProps) {
+  // Note: profileId will be used when useLearningRate supports it
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
   const { trends: weeklyTrends, loading: trendsLoading } = useWeeklyTrends();
 
