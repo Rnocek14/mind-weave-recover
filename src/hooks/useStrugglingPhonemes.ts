@@ -15,9 +15,17 @@ export interface StrugglingPhoneme {
   trials: number;
 }
 
+export interface BuildingPhoneme {
+  phoneme: string;
+  accuracy: number;
+  trials: number;
+  neededTrials: number; // minTrials - trials
+}
+
 export interface StrugglingPhonemesResult {
   strugglingPhonemes: StrugglingPhoneme[];
   strongPhonemes: StrugglingPhoneme[];
+  buildingPhonemes: BuildingPhoneme[]; // Phonemes with 1-2 trials, not yet visible
   targetWords: string[];
   loading: boolean;
   error: Error | null;
@@ -28,6 +36,8 @@ export interface StrugglingPhonemesResult {
   trialsWithGopData: number;
   trialsWithPhonemes: number;
   trialsWithNonZeroAccuracy: number;
+  // Profile metadata for debug
+  trialCountAtComputation: number;
 }
 
 interface UseStrugglingPhonemesOptions {
@@ -62,6 +72,7 @@ export function useStrugglingPhonemes(
       return {
         strugglingPhonemes: [],
         strongPhonemes: [],
+        buildingPhonemes: [],
         targetWords: [],
         hasEnoughData: false,
         totalTrials: 0,
@@ -71,16 +82,30 @@ export function useStrugglingPhonemes(
     // Calculate total trials across all phonemes
     const totalTrials = Object.values(phonemeDifficultyMap).reduce((sum, p) => sum + p.trials, 0);
 
-    const allPhonemes: StrugglingPhoneme[] = Object.entries(phonemeDifficultyMap)
-      .filter(([_, stats]) => stats.trials >= minTrials)
-      .map(([phoneme, stats]) => ({
-        phoneme: normalizePhoneme(phoneme),
-        accuracy: stats.accuracy,
-        trials: stats.trials,
-      }));
+    // Split phonemes into "ready" (≥ minTrials) and "building" (< minTrials but > 0)
+    const readyPhonemes: StrugglingPhoneme[] = [];
+    const buildingPhonemes: BuildingPhoneme[] = [];
 
-    // Sort by accuracy ascending (weakest first)
-    const sorted = [...allPhonemes].sort((a, b) => a.accuracy - b.accuracy);
+    Object.entries(phonemeDifficultyMap).forEach(([phoneme, stats]) => {
+      const normalized = normalizePhoneme(phoneme);
+      if (stats.trials >= minTrials) {
+        readyPhonemes.push({
+          phoneme: normalized,
+          accuracy: stats.accuracy,
+          trials: stats.trials,
+        });
+      } else if (stats.trials > 0) {
+        buildingPhonemes.push({
+          phoneme: normalized,
+          accuracy: stats.accuracy,
+          trials: stats.trials,
+          neededTrials: minTrials - stats.trials,
+        });
+      }
+    });
+
+    // Sort ready phonemes by accuracy ascending (weakest first)
+    const sorted = [...readyPhonemes].sort((a, b) => a.accuracy - b.accuracy);
 
     // Split into struggling vs strong
     const struggling = sorted
@@ -92,6 +117,11 @@ export function useStrugglingPhonemes(
       .sort((a, b) => b.accuracy - a.accuracy) // Best first
       .slice(0, maxPhonemes);
 
+    // Sort building phonemes by accuracy (show weakest first as "priority")
+    const sortedBuilding = [...buildingPhonemes]
+      .sort((a, b) => a.accuracy - b.accuracy)
+      .slice(0, maxPhonemes);
+
     // Get words that target struggling phonemes
     const phonemeList = struggling.map(p => p.phoneme);
     const wordMatches = getWordsByPhonemeOverlap(phonemeList, maxTargetWords);
@@ -100,8 +130,9 @@ export function useStrugglingPhonemes(
     return {
       strugglingPhonemes: struggling,
       strongPhonemes: strong,
+      buildingPhonemes: sortedBuilding,
       targetWords,
-      hasEnoughData: allPhonemes.length >= 3,
+      hasEnoughData: readyPhonemes.length >= 3,
       totalTrials,
     };
   }, [profile, accuracyThreshold, minTrials, maxPhonemes, maxTargetWords]);
@@ -114,6 +145,7 @@ export function useStrugglingPhonemes(
     trialsWithGopData: profile?.trials_with_gop_data ?? 0,
     trialsWithPhonemes: profile?.trials_with_phonemes ?? 0,
     trialsWithNonZeroAccuracy: profile?.trials_with_nonzero_accuracy ?? 0,
+    trialCountAtComputation: profile?.trial_count_at_computation ?? 0,
   };
 }
 

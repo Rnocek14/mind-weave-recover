@@ -239,28 +239,28 @@ export default function Insights() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="mt-4">
-            <OverviewSection userId={user!.id} />
+            <OverviewSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
           {/* Progress Tab */}
           <TabsContent value="progress" className="mt-4">
-            <ProgressSection userId={user!.id} />
+            <ProgressSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
           {/* Challenges Tab (What's Hard) */}
           <TabsContent value="challenges" className="mt-4">
-            <ChallengesSection userId={user!.id} />
+            <ChallengesSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
           {/* Strategies Tab (What Helps) */}
           <TabsContent value="strategies" className="mt-4">
-            <StrategiesSection userId={user!.id} />
+            <StrategiesSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
           {/* Adaptations Tab (How It's Adapting) - caregiver+ */}
           {showAdaptations && (
             <TabsContent value="adaptations" className="mt-4">
-              <AdaptationsSection userId={user!.id} />
+              <AdaptationsSection userId={user!.id} profileId={activeProfile?.id} />
             </TabsContent>
           )}
 

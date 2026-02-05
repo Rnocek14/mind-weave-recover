@@ -13,9 +13,11 @@ import { cn } from '@/lib/utils';
 
 interface StrategiesSectionProps {
   userId: string;
+  profileId?: string;
 }
 
-export function StrategiesSection({ userId }: StrategiesSectionProps) {
+export function StrategiesSection({ userId, profileId }: StrategiesSectionProps) {
+  // Note: profileId will be used when useErrorPatternAnalytics supports it
   const { analytics, isLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
 
   const cueEfficacy = analytics?.cueEfficacy || [];

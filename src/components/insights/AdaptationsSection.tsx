@@ -16,10 +16,12 @@ import { cn } from '@/lib/utils';
 
 interface AdaptationsSectionProps {
   userId: string;
+  profileId?: string;
   todayFocus?: TodayFocus | null;
 }
 
-export function AdaptationsSection({ userId, todayFocus }: AdaptationsSectionProps) {
+export function AdaptationsSection({ userId, profileId, todayFocus }: AdaptationsSectionProps) {
+  // Note: profileId will be used when useAdaptationTimeline supports it
   const { events, isLoading } = useAdaptationTimeline(userId, 14);
 
   // Format adaptation description with "why"
