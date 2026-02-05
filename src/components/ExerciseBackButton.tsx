@@ -12,8 +12,7 @@ interface ExerciseBackButtonProps {
  * 
  * Priority:
  * 1. returnTo param (if valid internal path)
- * 2. Browser history (navigate(-1))
- * 3. defaultTo fallback
+ * 2. defaultTo fallback (more predictable than browser history for exercises)
  * 
  * Usage: Add ?returnTo=/insights?tab=progress when launching exercises
  * from places other than Dashboard.
@@ -28,17 +27,32 @@ export function ExerciseBackButton({
   const handleBack = () => {
     const params = new URLSearchParams(location.search);
     const raw = params.get("returnTo");
-    const decoded = raw ? decodeURIComponent(raw) : null;
     
-    // Only allow internal paths (starts with "/" but not "//")
-    const isSafeInternal = decoded && decoded.startsWith("/") && !decoded.startsWith("//");
+    // Safely decode - can throw on malformed input
+    let decoded: string | null = null;
+    try {
+      decoded = raw ? decodeURIComponent(raw) : null;
+    } catch {
+      decoded = null;
+    }
+    
+    // Security: only allow internal paths
+    // - Must start with "/"
+    // - Must NOT start with "//" (protocol-relative)
+    // - Must NOT contain backslashes (Windows path injection)
+    // - Must NOT contain control characters
+    const isSafeInternal = 
+      !!decoded &&
+      decoded.startsWith("/") &&
+      !decoded.startsWith("//") &&
+      !decoded.includes("\\") &&
+      !/[\u0000-\u001F\u007F]/.test(decoded);
     
     if (isSafeInternal) {
       navigate(decoded);
-    } else if (window.history.length > 1) {
-      // Use browser history if available
-      navigate(-1);
     } else {
+      // For exercises, defaultTo is more predictable than browser history
+      // which may point to auth redirects, modals, or other weird states
       navigate(defaultTo);
     }
   };

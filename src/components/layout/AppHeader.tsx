@@ -85,24 +85,32 @@ export function AppHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-popover">
-              <DropdownMenuItem asChild>
-                <Link to="/photo-library" className="flex items-center gap-2 cursor-pointer">
-                  <Camera className="h-4 w-4" />
-                  Photo Library
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/clinical-documents" className="flex items-center gap-2 cursor-pointer">
-                  <FileText className="h-4 w-4" />
-                  Clinical Documents
-                </Link>
-              </DropdownMenuItem>
+              {/* Privacy is always visible */}
               <DropdownMenuItem asChild>
                 <Link to="/settings/privacy" className="flex items-center gap-2 cursor-pointer">
                   <Shield className="h-4 w-4" />
                   Privacy
                 </Link>
               </DropdownMenuItem>
+              
+              {/* Photo Library and Clinical Docs for caregivers+ (reduces cognitive load for patients) */}
+              {isAtLeast('caregiver') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/photo-library" className="flex items-center gap-2 cursor-pointer">
+                      <Camera className="h-4 w-4" />
+                      Photo Library
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/clinical-documents" className="flex items-center gap-2 cursor-pointer">
+                      <FileText className="h-4 w-4" />
+                      Clinical Documents
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               
               {/* Show Profile History for caregivers+ */}
               {isAtLeast('caregiver') && (

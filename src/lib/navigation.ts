@@ -1,6 +1,16 @@
+import type { Location } from "react-router-dom";
+
 /**
  * Navigation utilities for consistent URL building
  */
+
+/**
+ * Get the full current route from a location object.
+ * Includes pathname, search params, and hash.
+ */
+export const currentRoute = (location: Location): string => {
+  return `${location.pathname}${location.search}${location.hash || ""}`;
+};
 
 /**
  * Build a path with returnTo parameter for smart back navigation.
@@ -17,10 +27,14 @@ export const withReturnTo = (path: string, returnTo: string): string => {
 /**
  * Build exercise path with returnTo from current location.
  * Useful when navigating to exercises from various pages.
+ * 
+ * @example
+ * const location = useLocation();
+ * navigate(exercisePathWithReturn("photo-naming", location));
  */
 export const exercisePathWithReturn = (
   exerciseSlug: string, 
-  currentPath: string
+  location: Location
 ): string => {
-  return withReturnTo(`/exercise/${exerciseSlug}`, currentPath);
+  return withReturnTo(`/exercise/${exerciseSlug}`, currentRoute(location));
 };
