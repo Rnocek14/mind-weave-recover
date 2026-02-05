@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { useUiMode } from '@/hooks/useUiMode';
 import { recomputeSpeechProfileNow } from '@/lib/recomputeSpeechProfile';
 import { useToast } from '@/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
+
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,7 +44,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  
   const { isAtLeast } = useUiMode();
   const returnPath = currentRoute(location);
   
@@ -54,6 +54,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   const { strugglingWords, focusWords, loading: wordsLoading } = useStrugglingWords({ userId });
   const { 
     strugglingPhonemes, 
+    strongPhonemes,
     buildingPhonemes,
     targetWords, 
     loading: phonemesLoading,
@@ -62,7 +63,9 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
     trialsWithGopData,
     trialsWithPhonemes,
     trialCountAtComputation,
-    hasEnoughData,
+    hasReadyPhonemes,
+    readyCount,
+    refresh: refreshPhonemeData,
   } = useStrugglingPhonemes(userId, { profileId });
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
 
@@ -78,8 +81,8 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
     try {
       const result = await recomputeSpeechProfileNow(userId, { force: true, profileId });
       
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['user-speech-profile', userId, profileId] });
+      // Refresh the hook data directly (useUserSpeechProfile uses useState, not React Query)
+      refreshPhonemeData();
       
       toast({
         title: "Profile Updated",
@@ -99,7 +102,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
   };
 
   // Get top error patterns - properly type the breakdown
-  const errorBreakdown = (errorAnalytics?.errorBreakdown || {}) as Record<string, number>;
+  const errorBreakdown = (errorAnalytics?.errorBreakdown ?? {}) as Record<string, number>;
   const topErrors = Object.entries(errorBreakdown)
     .filter(([type, count]) => type !== 'correct' && (count as number) > 0)
     .sort((a, b) => (b[1] as number) - (a[1] as number))
@@ -118,7 +121,8 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
     );
   }
 
-  const hasReadyData = strugglingWords.length > 0 || strugglingPhonemes.length > 0 || topErrors.length > 0;
+  // Include strongPhonemes so "What's Hard" still has content even if user is doing well
+  const hasReadyData = strugglingWords.length > 0 || strugglingPhonemes.length > 0 || strongPhonemes.length > 0 || topErrors.length > 0;
   const hasBuildingData = buildingPhonemes.length > 0;
 
   return (
@@ -138,30 +142,38 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
           </div>
         )}
 
-        {/* Building Phonemes - show progress toward visibility */}
-        {hasBuildingData && !hasEnoughData && (
+        {/* Building Phonemes - always show if there are any, adjust title based on state */}
+        {hasBuildingData && (
           <div className="p-4 rounded-lg border border-dashed bg-muted/30">
             <div className="flex items-center gap-2 mb-3">
               <Info className="w-4 h-4 text-muted-foreground" />
-              <h4 className="font-medium text-sm text-muted-foreground">Building Sound Data...</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">
+                {hasReadyPhonemes ? "More sounds building up…" : "Building Sound Data…"}
+              </h4>
             </div>
             <div className="flex flex-wrap gap-2">
-              {buildingPhonemes.map(p => (
-                <div 
-                  key={p.phoneme} 
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-sm"
-                >
-                  <span className="font-mono">/{formatPhonemeDisplay(p.phoneme)}/</span>
-                  <span className="text-muted-foreground">
-                    {p.trials} trial{p.trials !== 1 ? 's' : ''} 
-                    <span className="text-xs ml-1">(need {p.neededTrials} more)</span>
-                  </span>
-                </div>
-              ))}
+              {buildingPhonemes.map(p => {
+                const label = getPhonemeAccuracyLabel(p.accuracy);
+                return (
+                  <div 
+                    key={p.phoneme} 
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-sm"
+                  >
+                    <span className="font-mono">/{formatPhonemeDisplay(p.phoneme)}/</span>
+                    <span className={cn("font-medium", label.color)}>{Math.round(p.accuracy)}%</span>
+                    <span className="text-muted-foreground">
+                      · {p.trials} trial{p.trials !== 1 ? 's' : ''} 
+                      <span className="text-xs ml-1">(need {p.neededTrials} more)</span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Sound insights appear after 3+ trials per sound.
-            </p>
+            {!hasReadyPhonemes && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Sound insights appear after 3+ trials per sound.
+              </p>
+            )}
           </div>
         )}
 
@@ -332,7 +344,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
                   </div>
                   <div>
                     <span className="text-muted-foreground">Phonemes ready:</span>
-                    <span className="ml-2">{strugglingPhonemes.length + (hasEnoughData ? 0 : 0)}</span>
+                    <span className="ml-2">{readyCount}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Phonemes building:</span>
