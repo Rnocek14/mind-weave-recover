@@ -66,11 +66,8 @@ export const useCueTelemetry = (
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    if (!enabled || !userId) {
-      setLoading(false);
-      return;
-    }
-
+    // This function should only be called when enabled + userId are valid
+    // The useEffect handles the gating
     try {
       setLoading(true);
       setError(null);
@@ -205,8 +202,13 @@ export const useCueTelemetry = (
   }, [userId, daysBack, enabled]);
 
   useEffect(() => {
+    if (!enabled || !userId) {
+      setLoading(false);
+      setStats(null);
+      return;
+    }
     fetchStats();
-  }, [fetchStats]);
+  }, [enabled, userId, fetchStats]);
 
   return { stats, loading, error, refresh: fetchStats };
 };

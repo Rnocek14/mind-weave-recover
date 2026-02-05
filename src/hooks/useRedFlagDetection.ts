@@ -15,12 +15,13 @@ export const useRedFlagDetection = (
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchFlags = async () => {
-      if (!enabled || !userId) {
-        setIsLoading(false);
-        return;
-      }
+    if (!enabled || !userId) {
+      setIsLoading(false);
+      setFlags([]);
+      return;
+    }
 
+    const fetchFlags = async () => {
       try {
         setIsLoading(true);
         setError(null);
