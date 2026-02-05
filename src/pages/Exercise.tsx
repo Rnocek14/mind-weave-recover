@@ -6,8 +6,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
   Play, Pause, RotateCcw, CheckCircle2, 
-  Volume2, ChevronLeft, Trophy, TrendingUp, HelpCircle, SkipForward, XCircle 
+  Volume2, Trophy, TrendingUp, HelpCircle, SkipForward, XCircle 
 } from "lucide-react";
+import { ExerciseBackButton } from "@/components/ExerciseBackButton";
 import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
 import { useAuth } from "@/hooks/useAuth";
@@ -620,14 +621,10 @@ const Exercise = () => {
                 <RotateCcw className="w-5 h-5 mr-2" />
                 Try Again
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                size="lg"
-                onClick={() => navigate("/dashboard")}
-              >
-                Back to Dashboard
-              </Button>
+              <ExerciseBackButton 
+                defaultTo="/dashboard"
+                className="w-full"
+              />
             </div>
           </Card>
 
@@ -668,18 +665,10 @@ const Exercise = () => {
       <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col">
         {/* Compact navigation */}
         <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-4">
-          <Button 
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              trackBehavior('end_attempt');
-              navigate("/dashboard");
-            }}
+          <ExerciseBackButton 
+            defaultTo="/dashboard"
             className="px-2 sm:px-3"
-          >
-            <ChevronLeft className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Back to Dashboard</span>
-          </Button>
+          />
           
           {fromLesson && (
             <Button

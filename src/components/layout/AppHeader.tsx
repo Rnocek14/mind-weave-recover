@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useUiMode } from "@/hooks/useUiMode";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
@@ -33,7 +34,8 @@ const navItems = [
 export function AppHeader() {
   const location = useLocation();
   const { user } = useAuth();
-  const { isAdmin, isModerator } = useUserPermissions(user?.id);
+  const { isAdmin } = useUserPermissions(user?.id);
+  const { isAtLeast } = useUiMode();
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -103,7 +105,7 @@ export function AppHeader() {
               </DropdownMenuItem>
               
               {/* Show Profile History for caregivers+ */}
-              {isModerator && (
+              {isAtLeast('caregiver') && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
