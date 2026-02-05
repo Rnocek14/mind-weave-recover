@@ -37,16 +37,29 @@ import { calculateStreak } from "@/hooks/useStreakCalculation";
 export default function CaregiverPortal() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { setUiMode } = useUiMode();
+  const { uiMode, setUiMode, isAtLeast } = useUiMode();
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
   
   const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
-  // Set caregiver mode on mount
+  // Set caregiver mode on mount, restore previous on unmount
   useEffect(() => {
+    const prevMode = uiMode;
     setUiMode('caregiver');
-  }, [setUiMode]);
+    return () => {
+      // Only restore if we're actually leaving (not just re-rendering)
+      setUiMode(prevMode);
+    };
+  }, []); // Empty deps - only run on mount/unmount
+  
+  // Update active tab when flags load
+  useEffect(() => {
+    if (!flagsLoading) {
+      setActiveTab(redFlags.length > 0 ? 'alerts' : 'overview');
+    }
+  }, [flagsLoading, redFlags.length]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -70,8 +83,8 @@ export default function CaregiverPortal() {
     }
   };
 
-  // Default to alerts if there are any, else overview
-  const defaultTab = !flagsLoading && redFlags.length > 0 ? 'alerts' : 'overview';
+  // Gate: if somehow a patient lands here, redirect to dashboard
+  const isCaregiverPlus = isAtLeast('caregiver');
 
   if (authLoading || loading) {
     return (
@@ -103,34 +116,36 @@ export default function CaregiverPortal() {
             </div>
           </div>
           
-          {/* Quick action buttons */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate('/photo-library')}
-            >
-              Upload Photos
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate('/clinical-documents')}
-            >
-              Clinical Documents
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate('/profile-history')}
-            >
-              Profile History
-            </Button>
-          </div>
+          {/* Quick action buttons - only show to caregivers+ */}
+          {isCaregiverPlus && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/photo-library')}
+              >
+                Upload Photos
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/clinical-documents')}
+              >
+                Clinical Documents
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/profile-history')}
+              >
+                Profile History
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Main content tabs - reusing shared components */}
-        <Tabs defaultValue={defaultTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-muted/80 backdrop-blur-sm p-1 mb-4">
             <TabsTrigger value="overview" className="gap-1.5 flex-1">
               <LayoutGrid className="w-4 h-4" />
