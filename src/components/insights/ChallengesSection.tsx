@@ -125,11 +125,10 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
       const result = await recomputeSpeechProfileNow(userId, { force: true, profileId });
       
       // Explicitly refresh ALL data sources shown on this screen
-      // Don't rely on "auto-refresh" - be explicit about what needs updating
-      // Note: some refreshers return void, others Promise - handle both
+      // These refreshers trigger internal setState - they're synchronous kicks, not awaitable
       refreshPhonemeData();
       refreshWords();
-      if (refreshErrorAnalytics) await refreshErrorAnalytics();
+      if (refreshErrorAnalytics) refreshErrorAnalytics();
       
       // Reset cooldown state
       setCooldownTick(0);
