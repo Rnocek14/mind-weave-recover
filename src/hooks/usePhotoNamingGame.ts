@@ -166,19 +166,11 @@ function peekFromLanes(lanes: ContentLanes, level: number): MixedTrial | null {
   return null;
 }
 
-// Lane change callback type - exposed to consumers for logging
-export type LaneSwitchCallback = (
-  fromLane: keyof ContentLanes,
-  toLane: keyof ContentLanes,
-  difficulty: number,
-  trialIndex: number
-) => void;
-
 export const usePhotoNamingGame = (
   totalTrials: number = 10, 
   difficultyLevel: number = 1,
   customTrials?: MixedTrial[],
-  options?: PhotoNamingGameOptions & { onLaneSwitch?: LaneSwitchCallback }
+  options?: PhotoNamingGameOptions
 ) => {
   // ==========================================================================
   // State
@@ -198,12 +190,6 @@ export const usePhotoNamingGame = (
   const currentLevelRef = useRef(difficultyLevel);
   const isInitializedRef = useRef(false);
   const previousLaneRef = useRef<keyof ContentLanes | null>(null);
-  const onLaneSwitchRef = useRef(options?.onLaneSwitch);
-  
-  // Keep callback ref in sync
-  useEffect(() => {
-    onLaneSwitchRef.current = options?.onLaneSwitch;
-  }, [options?.onLaneSwitch]);
   
   // Session start level - captured once, used for pool building
   // Prevents edge case where difficulty changes before init runs
@@ -231,11 +217,13 @@ export const usePhotoNamingGame = (
 
   // ==========================================================================
   // Core pool builder - called from init AND reset
+  // Returns ACTUAL firstLane from pop (not inferred)
   // ==========================================================================
   const buildSessionPool = useCallback((level: number): { 
     lanes: ContentLanes; 
     firstTrial: MixedTrial | null;
     firstChoices: string[];
+    firstLane: keyof ContentLanes | null;
   } => {
     let lanes: ContentLanes;
     
@@ -256,33 +244,31 @@ export const usePhotoNamingGame = (
       lanes = partitionIntoLanes(broadPool as MixedTrial[]);
     }
     
-    // Pop first trial from appropriate lane
-    const firstTrial = popFromLanes(lanes, level);
+    // Pop first trial using popFromLanesWithInfo to get ACTUAL lane
+    const { trial: firstTrial, fromLane } = popFromLanesWithInfo(lanes, level);
     const firstChoices = firstTrial 
       ? generateChoices(firstTrial as PhotoTrial, level)
       : [];
     
-    return { lanes, firstTrial, firstChoices };
+    return { lanes, firstTrial, firstChoices, firstLane: fromLane };
   }, [customTrials, totalTrials, focusPhonemes, focusWords]);
 
   // ==========================================================================
-  // Initialize on mount - uses popFromLanesWithInfo for TRUE lane tracking
+  // Initialize on mount - uses ACTUAL firstLane from buildSessionPool
   // ==========================================================================
   useEffect(() => {
     if (isInitializedRef.current) return;
     
     // Use session start level for pool building (captured at first render)
     const buildLevel = startLevelRef.current ?? difficultyLevel;
-    const { lanes, firstTrial, firstChoices } = buildSessionPool(buildLevel);
+    const { lanes, firstTrial, firstChoices, firstLane } = buildSessionPool(buildLevel);
     
     lanesRef.current = lanes;
     trialNumberRef.current = firstTrial ? 1 : 0;
     
-    // Track initial lane (firstTrial came from buildSessionPool which uses popFromLanes)
-    // We need to track actual lane from the pop - recalculate for first trial
-    const initialLane = getLaneForLevel(buildLevel);
-    previousLaneRef.current = initialLane;
-    setCurrentLane(initialLane);
+    // Use ACTUAL lane from pop (not inferred from level)
+    previousLaneRef.current = firstLane;
+    setCurrentLane(firstLane);
     
     setCurrentTrial(firstTrial);
     setTrialNumber(trialNumberRef.current);
@@ -355,16 +341,7 @@ export const usePhotoNamingGame = (
     trialNumberRef.current += 1;
     const nextNum = trialNumberRef.current;
     
-    // Track actual lane switches (not inferred from difficulty)
-    if (previousLaneRef.current && previousLaneRef.current !== fromLane) {
-      // Lane switch occurred - fire callback
-      onLaneSwitchRef.current?.(
-        previousLaneRef.current,
-        fromLane,
-        currentLevel,
-        nextNum
-      );
-    }
+    // Track actual lane (component logs off currentLane state)
     previousLaneRef.current = fromLane;
     setCurrentLane(fromLane);
     
@@ -387,15 +364,14 @@ export const usePhotoNamingGame = (
     currentLevelRef.current = level;
     
     // Rebuild pool directly
-    const { lanes, firstTrial, firstChoices } = buildSessionPool(level);
+    const { lanes, firstTrial, firstChoices, firstLane } = buildSessionPool(level);
     
     lanesRef.current = lanes;
     trialNumberRef.current = firstTrial ? 1 : 0;
     
-    // Reset lane tracking
-    const initialLane = getLaneForLevel(level);
-    previousLaneRef.current = initialLane;
-    setCurrentLane(initialLane);
+    // Use ACTUAL lane from pop (not inferred from level)
+    previousLaneRef.current = firstLane;
+    setCurrentLane(firstLane);
     
     setCurrentTrial(firstTrial);
     setTrialNumber(trialNumberRef.current);
