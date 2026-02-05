@@ -12,7 +12,7 @@ import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
 import PhonologicalExercise from "./pages/PhonologicalExercise";
 import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import SessionHistory from "./pages/SessionHistory";
-import Caregiver from "./pages/Caregiver";
+import CaregiverPortal from "./pages/CaregiverPortal";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import AdminPipeline from "./pages/AdminPipeline";
@@ -91,7 +91,7 @@ const App = () => (
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
                   <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
                   <Route path="/history" element={<AppLayout><History /></AppLayout>} />
-                  <Route path="/caregiver" element={<AppLayout><Caregiver /></AppLayout>} />
+                  <Route path="/caregiver" element={<AppLayout><CaregiverPortal /></AppLayout>} />
                   
                   {/* Settings routes - with header */}
                   <Route path="/photo-library" element={<AppLayout><PhotoLibrary /></AppLayout>} />
@@ -111,6 +111,9 @@ const App = () => (
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
+                  <Route path="/caregiver/photos" element={<Navigate to="/photo-library" replace />} />
+                  <Route path="/caregiver/docs" element={<Navigate to="/clinical-documents" replace />} />
+                  <Route path="/caregiver/insights" element={<Navigate to="/insights?tab=alerts" replace />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
