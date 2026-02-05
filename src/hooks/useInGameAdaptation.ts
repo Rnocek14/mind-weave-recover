@@ -16,6 +16,10 @@ import { toast } from '@/hooks/use-toast';
 // Layer 1: Session Planning (Today's Lesson - what to play)
 // Layer 2: In-Game Adaptation (this hook - how to respond in real-time)
 // Layer 3: Game UI (exercise components - visual presentation)
+//
+// ARCHITECTURE NOTE: Uses refs as authoritative state inside recordTrial
+// to avoid stale closure issues when trials come quickly. State is synced
+// for React re-renders but refs are the source of truth for computations.
 // ============================================================================
 
 // Frustration levels for graduated response
@@ -56,10 +60,11 @@ export interface InGameAdaptationOptions {
   frustrationErrorThreshold?: number;   // Default: 3 consecutive errors
   stallThresholdMs?: number;            // Default: 7000ms (was 3000 - too aggressive)
   
-  // Feature flags
+  // Feature flags - SPLIT for granular control
   enableAutoHints?: boolean;            // Default: true
   enableDifficultyToasts?: boolean;     // Default: true
-  enableInterventions?: boolean;        // Default: false (opt-in)
+  enableDifficultyAutoStepDown?: boolean; // Default: true - difficulty steps down even without UI
+  enableInterventionUI?: boolean;       // Default: false - modals/confidence boosts opt-in
   
   // Callbacks
   onDifficultyChange?: (level: number, reason: string, direction: 'up' | 'down') => void;
@@ -95,10 +100,11 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     frustrationErrorThreshold = 3,
     stallThresholdMs = 7000,
     
-    // Feature flags
+    // Feature flags - split for granular control
     enableAutoHints = true,
     enableDifficultyToasts = true,
-    enableInterventions = false,
+    enableDifficultyAutoStepDown = true,  // Core adaptive behavior
+    enableInterventionUI = false,          // UI modals opt-in
     
     // Callbacks
     onDifficultyChange,
@@ -106,12 +112,23 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onInterventionRequired,
   } = options;
 
-  // Core state
+  // ===========================================================================
+  // AUTHORITATIVE REFS - these are the source of truth inside recordTrial
+  // to avoid stale closure issues when trials come quickly
+  // ===========================================================================
+  const currentDifficultyRef = useRef(initialDifficulty);
+  const consecutiveErrorsRef = useRef(0);
+  const frustrationLevelRef = useRef<FrustrationLevel>('none');
+  const trialCountRef = useRef(0);
+  const successRateRef = useRef(0);
+
+  // React state for UI re-renders (synced from refs)
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
   const [frustrationLevel, setFrustrationLevel] = useState<FrustrationLevel>('none');
   const [shouldShowIntervention, setShouldShowIntervention] = useState<InterventionType | null>(null);
   const [trialCount, setTrialCount] = useState(0);
+  const [recentSuccessRate, setRecentSuccessRate] = useState(0);
   
   // Reaction time tracking for fatigue detection
   const reactionTimesRef = useRef<number[]>([]);
@@ -135,16 +152,22 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
-  // =========================================================================
+  // ===========================================================================
   // Core API: Record a trial result
-  // =========================================================================
+  // 
+  // CRITICAL: All computations use refs, not state, to avoid stale closures.
+  // State is updated at the end for React re-renders.
+  // ===========================================================================
   const recordTrial = useCallback((result: TrialResult): { 
     difficultyAdjusted: boolean; 
     newDifficulty: number;
     frustrationTriggered: boolean;
+    consecutiveErrors: number;
   } => {
     const controller = controllerRef.current;
-    setTrialCount(prev => prev + 1);
+    
+    // Increment trial count (ref-first)
+    trialCountRef.current += 1;
     
     // Track reaction time for fatigue detection
     if (result.reactionTimeMs) {
@@ -156,39 +179,41 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     
     // Update controller's rolling window
     controller.update(result.correct);
+    successRateRef.current = controller.getSuccessRate();
     
-    // Track consecutive errors
-    let newConsecutiveErrors = consecutiveErrors;
+    // Track consecutive errors (ref-first, then sync state)
     if (result.correct) {
-      newConsecutiveErrors = 0;
-      setConsecutiveErrors(0);
+      consecutiveErrorsRef.current = 0;
     } else {
-      newConsecutiveErrors = consecutiveErrors + 1;
-      setConsecutiveErrors(newConsecutiveErrors);
+      consecutiveErrorsRef.current += 1;
     }
+    const newConsecutiveErrors = consecutiveErrorsRef.current;
     
-    // Compute frustration level
+    // Compute frustration level from fresh values
     const newFrustrationLevel = computeFrustrationLevel(
       newConsecutiveErrors,
-      controller.getSuccessRate(),
+      successRateRef.current,
       frustrationErrorThreshold
     );
     
-    if (newFrustrationLevel !== frustrationLevel) {
-      setFrustrationLevel(newFrustrationLevel);
+    const frustrationChanged = newFrustrationLevel !== frustrationLevelRef.current;
+    if (frustrationChanged) {
+      frustrationLevelRef.current = newFrustrationLevel;
       onFrustrationDetected?.(newFrustrationLevel);
     }
     
-    // Check if difficulty should adjust
+    // Difficulty adjustment logic
     let difficultyAdjusted = false;
-    let newDifficulty = currentDifficulty;
+    let newDifficulty = currentDifficultyRef.current;
     
     // Handle high frustration with emergency step-down
-    if (newFrustrationLevel === 'high' && enableInterventions) {
-      newDifficulty = controller.handleFrustration(currentDifficulty);
-      if (newDifficulty !== currentDifficulty) {
+    // Note: step-down happens if enableDifficultyAutoStepDown is true (core behavior)
+    // UI interventions (modals) only show if enableInterventionUI is true
+    if (newFrustrationLevel === 'high' && enableDifficultyAutoStepDown) {
+      newDifficulty = controller.handleFrustration(currentDifficultyRef.current);
+      if (newDifficulty !== currentDifficultyRef.current) {
         difficultyAdjusted = true;
-        setCurrentDifficulty(newDifficulty);
+        currentDifficultyRef.current = newDifficulty;
         onDifficultyChange?.(newDifficulty, 'Frustration detected - reducing difficulty', 'down');
         
         if (enableDifficultyToasts) {
@@ -200,19 +225,21 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
         }
       }
       
-      // Trigger confidence boost intervention
-      setShouldShowIntervention('confidence_boost');
-      onInterventionRequired?.('confidence_boost');
+      // Trigger confidence boost intervention (UI modal) if enabled
+      if (enableInterventionUI) {
+        setShouldShowIntervention('confidence_boost');
+        onInterventionRequired?.('confidence_boost');
+      }
     } 
     // Normal difficulty adjustment based on rolling window
     else {
-      const adjustedLevel = controller.adjustLevel(currentDifficulty);
-      if (adjustedLevel !== currentDifficulty) {
+      const adjustedLevel = controller.adjustLevel(currentDifficultyRef.current);
+      if (adjustedLevel !== currentDifficultyRef.current) {
         difficultyAdjusted = true;
         newDifficulty = adjustedLevel;
-        setCurrentDifficulty(adjustedLevel);
+        currentDifficultyRef.current = adjustedLevel;
         
-        const direction = adjustedLevel > currentDifficulty ? 'up' : 'down';
+        const direction = adjustedLevel > currentDifficultyRef.current ? 'up' : 'down';
         const successRate = controller.getSuccessRate();
         const reason = direction === 'up' 
           ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
@@ -232,26 +259,32 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       }
     }
     
+    // Sync all state from refs (single batch for React)
+    setTrialCount(trialCountRef.current);
+    setConsecutiveErrors(consecutiveErrorsRef.current);
+    setFrustrationLevel(frustrationLevelRef.current);
+    setCurrentDifficulty(currentDifficultyRef.current);
+    setRecentSuccessRate(successRateRef.current);
+    
     return {
       difficultyAdjusted,
       newDifficulty,
       frustrationTriggered: newFrustrationLevel !== 'none',
+      consecutiveErrors: newConsecutiveErrors,
     };
   }, [
-    currentDifficulty, 
-    consecutiveErrors, 
-    frustrationLevel, 
     frustrationErrorThreshold,
-    enableInterventions,
+    enableDifficultyAutoStepDown,
+    enableInterventionUI,
     enableDifficultyToasts,
     onDifficultyChange, 
     onFrustrationDetected,
     onInterventionRequired
   ]);
 
-  // =========================================================================
+  // ===========================================================================
   // Stall Detection: Start/stop stall timer
-  // =========================================================================
+  // ===========================================================================
   const startStallTimer = useCallback((onStall: () => void) => {
     // Clear existing timer
     if (stallTimerRef.current) {
@@ -284,25 +317,26 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     }
   }, [stallThresholdMs, enableAutoHints, clearStallTimer]);
 
-  // =========================================================================
+  // ===========================================================================
   // Intervention Management
-  // =========================================================================
+  // ===========================================================================
   const acknowledgeIntervention = useCallback(() => {
     setShouldShowIntervention(null);
   }, []);
   
   const requestBreak = useCallback(() => {
-    if (enableInterventions) {
+    if (enableInterventionUI) {
       setShouldShowIntervention('break_prompt');
       onInterventionRequired?.('break_prompt');
     }
-  }, [enableInterventions, onInterventionRequired]);
+  }, [enableInterventionUI, onInterventionRequired]);
 
-  // =========================================================================
+  // ===========================================================================
   // Manual difficulty controls (for external use)
-  // =========================================================================
+  // ===========================================================================
   const stepDown = useCallback((reason: string = 'Manual difficulty reduction'): number => {
-    const newLevel = controllerRef.current.handleFrustration(currentDifficulty);
+    const newLevel = controllerRef.current.handleFrustration(currentDifficultyRef.current);
+    currentDifficultyRef.current = newLevel;
     setCurrentDifficulty(newLevel);
     onDifficultyChange?.(newLevel, reason, 'down');
     
@@ -315,42 +349,55 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     }
     
     return newLevel;
-  }, [currentDifficulty, onDifficultyChange, enableDifficultyToasts]);
+  }, [onDifficultyChange, enableDifficultyToasts]);
   
   const setBoundsExternal = useCallback((newBounds: DifficultyBounds) => {
     controllerRef.current.setBounds(newBounds);
   }, []);
 
-  // =========================================================================
+  // ===========================================================================
   // Session Reset
-  // =========================================================================
+  // ===========================================================================
   const reset = useCallback((newInitialDifficulty?: number) => {
+    const startDifficulty = newInitialDifficulty ?? initialDifficulty;
+    
+    // Reset controller
     controllerRef.current.reset();
-    setCurrentDifficulty(newInitialDifficulty ?? initialDifficulty);
+    
+    // Reset all refs
+    currentDifficultyRef.current = startDifficulty;
+    consecutiveErrorsRef.current = 0;
+    frustrationLevelRef.current = 'none';
+    trialCountRef.current = 0;
+    successRateRef.current = 0;
+    reactionTimesRef.current = [];
+    
+    // Sync state
+    setCurrentDifficulty(startDifficulty);
     setConsecutiveErrors(0);
     setFrustrationLevel('none');
     setShouldShowIntervention(null);
     setTrialCount(0);
-    reactionTimesRef.current = [];
+    setRecentSuccessRate(0);
+    
     clearStallTimer();
   }, [initialDifficulty, clearStallTimer]);
 
-  // =========================================================================
+  // ===========================================================================
   // Computed State
-  // =========================================================================
+  // ===========================================================================
   const getState = useCallback((): InGameAdaptationState => {
-    const controller = controllerRef.current;
     return {
-      currentDifficulty,
-      frustrationLevel,
-      recentSuccessRate: controller.getSuccessRate(),
-      consecutiveErrors,
-      trialCount,
-      recommendedCueType: computeRecommendedCue(consecutiveErrors, frustrationLevel),
+      currentDifficulty: currentDifficultyRef.current,
+      frustrationLevel: frustrationLevelRef.current,
+      recentSuccessRate: successRateRef.current,
+      consecutiveErrors: consecutiveErrorsRef.current,
+      trialCount: trialCountRef.current,
+      recommendedCueType: computeRecommendedCue(consecutiveErrorsRef.current, frustrationLevelRef.current),
       shouldShowIntervention,
-      shouldSimplifyTask: frustrationLevel === 'medium' || frustrationLevel === 'high',
+      shouldSimplifyTask: frustrationLevelRef.current === 'medium' || frustrationLevelRef.current === 'high',
     };
-  }, [currentDifficulty, frustrationLevel, consecutiveErrors, trialCount, shouldShowIntervention]);
+  }, [shouldShowIntervention]);
   
   // Get cue level based on recent errors (delegate to controller)
   const getCueLevel = useCallback((recentErrorCount: number): number => {
@@ -381,17 +428,17 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   }, [clearStallTimer]);
 
   return {
-    // State
+    // State (synced from refs for React re-renders)
     currentDifficulty,
     frustrationLevel,
     consecutiveErrors,
     trialCount,
+    recentSuccessRate,
     shouldShowIntervention,
     
-    // Computed
+    // Computed (derived from refs for consistency)
     shouldSimplifyTask: frustrationLevel === 'medium' || frustrationLevel === 'high',
     recommendedCueType: computeRecommendedCue(consecutiveErrors, frustrationLevel),
-    recentSuccessRate: controllerRef.current.getSuccessRate(),
     
     // Core methods
     recordTrial,
