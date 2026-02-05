@@ -70,8 +70,8 @@ export default function Insights() {
   
   // PHASE 3: Fetch recommendations for top-level display
   const { analytics: crossDomainAnalytics } = useCapabilitySpeechCorrelation(
-    user?.id || '', 
-    activeProfile?.id
+    user?.id, 
+    { profileId: activeProfile?.id }
   );
 
   // Gate tabs based on view mode

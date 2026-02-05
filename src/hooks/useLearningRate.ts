@@ -25,7 +25,16 @@ export interface ClusterComparison {
   userCount: number;
 }
 
-export const useLearningRate = (userId: string | null, autoCalculate = true) => {
+interface UseLearningRateOptions {
+  autoCalculate?: boolean;
+  enabled?: boolean;
+}
+
+export const useLearningRate = (
+  userId: string | null | undefined,
+  options: UseLearningRateOptions = {}
+) => {
+  const { autoCalculate = true, enabled = true } = options;
   const [learningRates, setLearningRates] = useState<LearningRate[]>([]);
   const [clusterComparisons, setClusterComparisons] = useState<ClusterComparison[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +42,7 @@ export const useLearningRate = (userId: string | null, autoCalculate = true) => 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) {
+    if (!enabled || !userId) {
       setIsLoading(false);
       return;
     }
@@ -86,7 +95,7 @@ export const useLearningRate = (userId: string | null, autoCalculate = true) => 
     };
 
     fetchLearningRates();
-  }, [userId, autoCalculate]);
+  }, [userId, autoCalculate, enabled]);
 
   const fetchClusterComparisons = async (uid: string, userRates: LearningRate[]) => {
     try {

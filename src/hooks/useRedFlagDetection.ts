@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import { detectAllRedFlags, RedFlag } from '@/lib/redFlagDetector';
 
-export const useRedFlagDetection = (userId: string | null) => {
+interface UseRedFlagOptions {
+  enabled?: boolean;
+}
+
+export const useRedFlagDetection = (
+  userId: string | null | undefined,
+  options: UseRedFlagOptions = {}
+) => {
+  const { enabled = true } = options;
   const [flags, setFlags] = useState<RedFlag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFlags = async () => {
-      if (!userId) {
+      if (!enabled || !userId) {
         setIsLoading(false);
         return;
       }
@@ -27,7 +35,7 @@ export const useRedFlagDetection = (userId: string | null) => {
     };
 
     fetchFlags();
-  }, [userId]);
+  }, [userId, enabled]);
 
   const refresh = async () => {
     if (!userId) return;

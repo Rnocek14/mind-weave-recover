@@ -163,14 +163,14 @@ export const useUnifiedAnalytics = (
   const enabled = !!userId;
   
   // Fetch all data sources (properly gated)
-  const { learningRates, isLoading: learningLoading } = useLearningRate(enabled ? userId! : '');
+  const { learningRates, isLoading: learningLoading } = useLearningRate(userId, { enabled });
   const { trends: weeklyTrends, loading: trendsLoading } = useWeeklyTrends();
-  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(enabled ? userId! : '', 4);
-  const { stats: cueStats, loading: cueLoading } = useCueTelemetry(enabled ? userId! : '', daysBack);
-  const { profile: speechProfile, loading: speechLoading } = useUserSpeechProfile(enabled ? userId : undefined, { profileId });
-  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(enabled ? userId! : '', profileId);
-  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(enabled ? userId! : null);
-  const { events: adaptationEvents, isLoading: timelineLoading, refresh: refreshTimeline } = useAdaptationTimeline(enabled ? userId : undefined, daysBack);
+  const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4, enabled });
+  const { stats: cueStats, loading: cueLoading } = useCueTelemetry(userId, { daysBack, enabled });
+  const { profile: speechProfile, loading: speechLoading } = useUserSpeechProfile(userId, { profileId, enabled });
+  const { analytics: crossDomain, isLoading: crossLoading } = useCapabilitySpeechCorrelation(userId, { profileId, enabled });
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId, { enabled });
+  const { events: adaptationEvents, isLoading: timelineLoading, refresh: refreshTimeline } = useAdaptationTimeline(userId, daysBack);
 
   // Only loading if enabled and any source is loading
   const isLoading = enabled && (learningLoading || trendsLoading || errorLoading || cueLoading || 

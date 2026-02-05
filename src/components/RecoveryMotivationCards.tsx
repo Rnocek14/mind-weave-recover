@@ -29,7 +29,7 @@ interface MotivationCard {
 }
 
 export const RecoveryMotivationCards = memo(({ userId }: RecoveryMotivationCardsProps) => {
-  const { analytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, 4);
+  const { analytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
   const { learningRates, isLoading: ratesLoading } = useLearningRate(userId);
 
   if (errorLoading || ratesLoading) {

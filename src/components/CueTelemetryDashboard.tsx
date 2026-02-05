@@ -16,7 +16,7 @@ interface CueTelemetryDashboardProps {
 }
 
 export function CueTelemetryDashboard({ userId, daysBack = 7 }: CueTelemetryDashboardProps) {
-  const { stats, loading, error } = useCueTelemetry(userId, daysBack);
+  const { stats, loading, error } = useCueTelemetry(userId, { daysBack });
 
   if (loading) {
     return (

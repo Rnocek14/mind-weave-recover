@@ -41,13 +41,25 @@ interface CrossDomainAnalytics {
   recommendations: string[];
 }
 
-export const useCapabilitySpeechCorrelation = (userId: string, profileId?: string) => {
+interface UseCapabilitySpeechOptions {
+  profileId?: string;
+  enabled?: boolean;
+}
+
+export const useCapabilitySpeechCorrelation = (
+  userId: string | null | undefined,
+  options: UseCapabilitySpeechOptions = {}
+) => {
+  const { profileId, enabled = true } = options;
   const [analytics, setAnalytics] = useState<CrossDomainAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const analyze = useCallback(async () => {
-    if (!userId) return;
+    if (!enabled || !userId) {
+      setIsLoading(false);
+      return;
+    }
     
     try {
       setIsLoading(true);
@@ -262,7 +274,7 @@ export const useCapabilitySpeechCorrelation = (userId: string, profileId?: strin
     } finally {
       setIsLoading(false);
     }
-  }, [userId, profileId]);
+  }, [userId, profileId, enabled]);
 
   useEffect(() => {
     analyze();

@@ -15,7 +15,7 @@ interface CrossDomainInsightsDashboardProps {
 
 export const CrossDomainInsightsDashboard = ({ userId, profileId, hideRecommendations = false }: CrossDomainInsightsDashboardProps) => {
   const navigate = useNavigate();
-  const { analytics, isLoading, error } = useCapabilitySpeechCorrelation(userId, profileId);
+  const { analytics, isLoading, error } = useCapabilitySpeechCorrelation(userId, { profileId });
 
   if (isLoading) {
     return (

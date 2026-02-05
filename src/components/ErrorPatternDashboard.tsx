@@ -33,7 +33,7 @@ const ERROR_COLORS: Record<string, string> = {
 
 export const ErrorPatternDashboard = ({ userId, weeksBack = 12 }: ErrorPatternDashboardProps) => {
   const navigate = useNavigate();
-  const { analytics, isLoading, error } = useErrorPatternAnalytics(userId, weeksBack);
+  const { analytics, isLoading, error } = useErrorPatternAnalytics(userId, { weeksBack });
   const { uiMode } = useUiMode();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [showUpdateBadge, setShowUpdateBadge] = useState(false);
