@@ -1,12 +1,14 @@
 /**
- * Insights Page - Deep dive intelligence
+ * Insights Page - Unified intelligence hub
  * 
- * Question-based layout:
- * - Am I improving? (progress trends)
- * - What's hard for me? (challenges)
- * - What's helping? (strategies)
- * - How is the system adapting? (adaptations)
- * - Anything concerning? (alerts)
+ * Tab-based layout with patient-safe language:
+ * - Overview (at-a-glance snapshot)
+ * - Progress (am I improving?)
+ * - What's Hard (challenges)
+ * - What Helps (strategies)
+ * - How It's Adapting (adaptations)
+ * - Alerts (anything concerning?)
+ * - Clinical (clinician+ only)
  */
 
 import { useState, useEffect } from "react";
@@ -18,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Brain, Stethoscope, 
   Loader2, AlertCircle, FileText,
+  LayoutGrid, TrendingUp, Target, Lightbulb, Settings2, AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -27,6 +30,7 @@ import { ViewModeSelector } from "@/components/ViewModeSelector";
 
 // Question-based insight sections
 import { 
+  OverviewSection,
   ProgressSection, 
   ChallengesSection, 
   StrategiesSection, 
@@ -41,12 +45,23 @@ import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
 
 // Deep dive components (for clinician+)
 import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
-import { SpeechLabPanel } from "@/components/SpeechLabPanel";
 import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
 import { CueTelemetryHealth } from "@/components/CueTelemetryHealth";
 
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+
+// Tab configuration with patient-safe labels
+const INSIGHT_TABS = [
+  { id: 'overview', label: 'Overview', icon: LayoutGrid },
+  { id: 'progress', label: 'Progress', icon: TrendingUp },
+  { id: 'challenges', label: "What's Hard", icon: Target },
+  { id: 'strategies', label: 'What Helps', icon: Lightbulb },
+  { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
+  { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
+] as const;
+
+type InsightTabId = typeof INSIGHT_TABS[number]['id'];
 
 export default function Insights() {
   const navigate = useNavigate();
@@ -55,18 +70,22 @@ export default function Insights() {
   const { activeProfile } = useProfile();
   const { uiMode, isAtLeast } = useUiMode();
   
-  // Parse section from URL params (for deep linking from Analytics cards)
+  // Parse tab from URL params (for deep linking)
   const searchParams = new URLSearchParams(location.search);
-  const targetSection = searchParams.get('section');
+  const targetTab = searchParams.get('tab') as InsightTabId | 'clinical' | null;
+  // Legacy support: map old ?section= to ?tab=
+  const legacySection = searchParams.get('section');
   
-  // Read default tab from navigation state or localStorage
-  const [activeTab, setActiveTab] = useState(() => {
+  // Read default tab from URL, navigation state, or localStorage
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    // Priority: URL param > legacy section > nav state > localStorage
+    if (targetTab) return targetTab;
+    if (legacySection && INSIGHT_TABS.some(t => t.id === legacySection)) return legacySection;
     const stateTab = (location.state as any)?.defaultTab;
-    if (stateTab && ['insights', 'clinical'].includes(stateTab)) {
-      return stateTab;
-    }
-    return localStorage.getItem('insights-active-tab') || 'insights';
+    if (stateTab) return stateTab;
+    return localStorage.getItem('insights-active-tab') || 'overview';
   });
+  
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -74,6 +93,7 @@ export default function Insights() {
 
   // Gate tabs based on view mode
   const showClinical = isAtLeast('clinician');
+  const showAdaptations = isAtLeast('caregiver');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -86,24 +106,22 @@ export default function Insights() {
     }
   }, [user, authLoading, navigate]);
 
-  // Scroll to section if specified in URL
+  // Sync URL tab param with state
   useEffect(() => {
-    if (targetSection && !loading) {
-      const element = document.getElementById(targetSection);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-      }
+    if (targetTab && targetTab !== activeTab) {
+      setActiveTab(targetTab);
     }
-  }, [targetSection, loading]);
+  }, [targetTab]);
 
-  // Reset to insights tab if current tab is hidden
+  // Reset to overview if current tab is hidden
   useEffect(() => {
     if (!showClinical && activeTab === 'clinical') {
-      setActiveTab('insights');
+      setActiveTab('overview');
     }
-  }, [showClinical, activeTab]);
+    if (!showAdaptations && activeTab === 'adaptations') {
+      setActiveTab('overview');
+    }
+  }, [showClinical, showAdaptations, activeTab]);
 
   const loadData = async () => {
     if (!user) return;
@@ -128,6 +146,10 @@ export default function Insights() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     localStorage.setItem('insights-active-tab', value);
+    // Update URL without navigation
+    const newParams = new URLSearchParams(location.search);
+    newParams.set('tab', value);
+    window.history.replaceState({}, '', `${location.pathname}?${newParams.toString()}`);
   };
 
   if (authLoading || loading) {
@@ -138,13 +160,15 @@ export default function Insights() {
     );
   }
 
-  // Calculate grid columns based on visible tabs
-  const tabCount = 1 + (showClinical ? 1 : 0);
-  const gridCols = tabCount === 1 ? 'grid-cols-1' : 'grid-cols-2';
+  // Filter tabs based on role
+  const visibleTabs = INSIGHT_TABS.filter(tab => {
+    if (tab.id === 'adaptations') return showAdaptations;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-calm">
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -167,10 +191,7 @@ export default function Insights() {
                 Your Recovery
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                {uiMode === 'patient' && "Understand your progress and what's helping"}
-                {uiMode === 'caregiver' && "Track progress and support recovery"}
-                {uiMode === 'clinician' && "Diagnostic analysis and clinical insights"}
-                {uiMode === 'admin' && "Full system access and diagnostics"}
+                Understand how your recovery is progressing and what's helping most.
               </p>
             </div>
             
@@ -194,43 +215,69 @@ export default function Insights() {
           </div>
         </div>
 
-        {/* Tabbed Content */}
+        {/* Sticky Tab Navigation */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Only show tab bar if multiple tabs visible */}
-          {tabCount > 1 && (
-            <TabsList className={`grid w-full ${gridCols} mb-8`}>
-              <TabsTrigger value="insights" className="gap-2 text-xs md:text-sm">
-                <Brain className="w-4 h-4" />
-                <span>Insights</span>
-              </TabsTrigger>
+          <div className="sticky top-0 z-10 bg-gradient-calm pb-4 -mx-4 px-4">
+            <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-muted/80 backdrop-blur-sm p-1">
+              {visibleTabs.map(tab => (
+                <TabsTrigger 
+                  key={tab.id}
+                  value={tab.id} 
+                  className="gap-1.5 text-xs md:text-sm flex-1 min-w-fit px-2 md:px-3"
+                >
+                  <tab.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                  {tab.id === 'alerts' && !flagsLoading && redFlags.length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                      {redFlags.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ))}
               {showClinical && (
-                <TabsTrigger value="clinical" className="gap-2 text-xs md:text-sm">
-                  <Stethoscope className="w-4 h-4" />
+                <TabsTrigger 
+                  value="clinical" 
+                  className="gap-1.5 text-xs md:text-sm flex-1 min-w-fit px-2 md:px-3"
+                >
+                  <Stethoscope className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>Clinical</span>
                 </TabsTrigger>
               )}
             </TabsList>
+          </div>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="mt-4">
+            <OverviewSection userId={user!.id} />
+          </TabsContent>
+
+          {/* Progress Tab */}
+          <TabsContent value="progress" className="mt-4">
+            <ProgressSection userId={user!.id} />
+          </TabsContent>
+
+          {/* Challenges Tab (What's Hard) */}
+          <TabsContent value="challenges" className="mt-4">
+            <ChallengesSection userId={user!.id} />
+          </TabsContent>
+
+          {/* Strategies Tab (What Helps) */}
+          <TabsContent value="strategies" className="mt-4">
+            <StrategiesSection userId={user!.id} />
+          </TabsContent>
+
+          {/* Adaptations Tab (How It's Adapting) - caregiver+ */}
+          {showAdaptations && (
+            <TabsContent value="adaptations" className="mt-4">
+              <AdaptationsSection userId={user!.id} />
+            </TabsContent>
           )}
 
-          {/* Insights Tab - Question-based layout */}
-          <TabsContent value="insights" className="space-y-6">
-            {/* Q1: Am I improving? */}
-            <ProgressSection userId={user!.id} />
-
-            {/* Q2: What's hard for me? */}
-            <ChallengesSection userId={user!.id} />
-
-            {/* Q3: What's helping? */}
-            <StrategiesSection userId={user!.id} />
-
-            {/* Q4: How is the system adapting? (caregiver+) */}
-            {isAtLeast('caregiver') && (
-              <AdaptationsSection userId={user!.id} />
-            )}
-
-            {/* Q5: Anything concerning? */}
+          {/* Alerts Tab */}
+          <TabsContent value="alerts" className="mt-4 space-y-6">
             <AlertsSection userId={user!.id} />
-
+            
             {/* Detailed Speech Analysis - Available to caregivers+ */}
             {isAtLeast('caregiver') && (
               <Card className="p-6">
@@ -261,7 +308,7 @@ export default function Insights() {
 
           {/* Clinical Tab (Clinician+) */}
           {showClinical && (
-            <TabsContent value="clinical" className="space-y-6">
+            <TabsContent value="clinical" className="mt-4 space-y-6">
               {/* Stroke Profile */}
               {activeProfile && clinicalProfile && (
                 <>

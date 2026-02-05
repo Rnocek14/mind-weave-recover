@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trophy, Camera, TrendingUp, Flame, Award, Loader2, 
-  Settings, Brain, FileText, Activity, LineChart, Stethoscope, AlertCircle
+  Settings, Brain, FileText, Activity, Stethoscope, AlertCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,8 +23,8 @@ import type { AssessmentResult } from "@/lib/capabilityAssessor";
 import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { OverviewTab } from "@/components/dashboard/OverviewTab";
-import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
 import { ClinicalTab } from "@/components/dashboard/ClinicalTab";
+import { InsightsCTACard } from "@/components/dashboard/InsightsCTACard";
 import { QuickActionFAB } from "@/components/QuickActionFAB";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 import { useRecoverySummary } from "@/hooks/useRecoverySummary";
@@ -85,7 +85,7 @@ const Dashboard = () => {
   });
 
   // Swipe gestures for tab navigation
-  const tabs = ['overview', 'analytics', 'clinical'];
+  const tabs = ['overview', 'clinical'];
   const currentTabIndex = tabs.indexOf(activeTab);
 
   // Disable swipe gestures on mobile to prevent conflicts with game carousels
@@ -328,7 +328,7 @@ const Dashboard = () => {
               onClick={() => navigate("/insights")}
               className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
             >
-              <LineChart className="w-4 h-4" />
+              <TrendingUp className="w-4 h-4" />
               <span className="hidden sm:inline">Insights</span>
             </Button>
 
@@ -427,7 +427,7 @@ const Dashboard = () => {
         {/* Tabbed Dashboard */}
         <DashboardProvider value={dashboardContextValue}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="overview" className="gap-2">
                 <Activity className="w-4 h-4" />
                 Overview
@@ -436,10 +436,6 @@ const Dashboard = () => {
                     {redFlags.length}
                   </Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="gap-2">
-                <LineChart className="w-4 h-4" />
-                Analytics
               </TabsTrigger>
               <TabsTrigger value="clinical" className="gap-2">
                 <Stethoscope className="w-4 h-4" />
@@ -453,11 +449,13 @@ const Dashboard = () => {
             </TabsList>
 
             <TabsContent value="overview">
-              <OverviewTab />
-            </TabsContent>
-
-            <TabsContent value="analytics">
-              <AnalyticsTab />
+              <div className="space-y-6">
+                {/* Insights CTA Card */}
+                <InsightsCTACard />
+                
+                {/* Overview content */}
+                <OverviewTab />
+              </div>
             </TabsContent>
 
             <TabsContent value="clinical">
