@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
-import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
 import { selectOptimalCue as selectPersonalizedCue } from '@/lib/cueSelector';
@@ -103,10 +104,10 @@ export const PhotoNamingGame = ({
     semanticSimilarity?: number;
     phonemeAccuracy?: number;
   } | null>(null);
-  const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
+  // NOTE: currentDifficulty and consecutiveErrors now managed by useInGameAdaptation hook
+  // BUT we keep local timedOut state for UI control
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   const [timedOut, setTimedOut] = useState(false);
-  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
   const [currentCueText, setCurrentCueText] = useState('');
@@ -250,9 +251,37 @@ export const PhotoNamingGame = ({
     shownAt: number;
     trigger: 'stall' | 'consecutive_errors' | 'user_request';
   } | null>(null);
+  // Default bounds (will be overridden if capability data available)
+  const defaultBounds: DifficultyBounds = { floor: 1, ceiling: 10, suggestedStart: initialDifficulty };
   
-  // Adaptive controller (persists across renders)
-  const controllerRef = useRef(new AdaptiveDifficultyController());
+  // NEW: In-game adaptive layer - replaces manual AdaptiveDifficultyController
+  const {
+    currentDifficulty,
+    frustrationLevel,
+    consecutiveErrors: hookConsecutiveErrors,
+    recordTrial,
+    stepDown,
+    reset: resetAdaptation,
+    controller: adaptiveController,
+  } = useInGameAdaptation({
+    exerciseSlug: 'photo_naming',
+    sessionId: activeSessionId,
+    initialDifficulty,
+    bounds: defaultBounds,
+    enableAutoHints: autoHintsEnabled,
+    enableDifficultyToasts: true,
+    enableInterventions: false, // Start conservative, enable later
+    onDifficultyChange: (level, reason, direction) => {
+      setDifficultyChanged(direction);
+      if (direction === 'up') {
+        playLevelUp?.();
+      } else {
+        playLevelDown?.();
+      }
+      onDifficultyChange?.(level, reason);
+      setTimeout(() => setDifficultyChanged(null), 2000);
+    },
+  });
   
   // Ref to trigger voice restart after no-match
   const needsVoiceRestartRef = useRef(false);
@@ -352,11 +381,11 @@ export const PhotoNamingGame = ({
   // Watch consecutive errors and trigger cue if threshold reached
   // =============================================================================
   useEffect(() => {
-    if (autoHintsEnabled && consecutiveErrors >= CONSECUTIVE_ERROR_THRESHOLD && !autoCueShownThisTrialRef.current && !showFeedback && !timedOut) {
-      console.log('🔥 Consecutive errors threshold reached:', consecutiveErrors);
+    if (autoHintsEnabled && hookConsecutiveErrors >= CONSECUTIVE_ERROR_THRESHOLD && !autoCueShownThisTrialRef.current && !showFeedback && !timedOut) {
+      console.log('🔥 Consecutive errors threshold reached:', hookConsecutiveErrors);
       triggerAutoCue('consecutive_errors');
     }
-  }, [autoHintsEnabled, consecutiveErrors, showFeedback, timedOut, triggerAutoCue]);
+  }, [autoHintsEnabled, hookConsecutiveErrors, showFeedback, timedOut, triggerAutoCue]);
   
   // Helper function to match spoken words with choices (WITH NORMALIZATION)
   const findMatchingChoice = (spokenWord: string): string | null => {
@@ -1182,28 +1211,10 @@ export const PhotoNamingGame = ({
     // Play timeout sound
     playTimeout();
     
-    // Track consecutive errors
-    setConsecutiveErrors((prev) => prev + 1);
-
-    // Update adaptive controller
-    const controller = controllerRef.current;
-    controller.update(false);
     
-    // Check if difficulty should adjust
-    const newLevel = controller.adjustLevel(currentDifficulty);
-    if (newLevel !== currentDifficulty) {
-      const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      setDifficultyChanged(direction);
-      setCurrentDifficulty(newLevel);
-      
-      const reason = direction === 'up' 
-        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
-        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
-      
-      onDifficultyChange?.(newLevel, reason);
-      
-      setTimeout(() => setDifficultyChanged(null), 2000);
-    }
+    // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
+    const adaptationResult = recordTrial({ correct: false, timedOut: true });
+    console.log('⏱️ Timeout recorded via adaptation hook:', adaptationResult);
 
     // Log telemetry with cue level and audio
     const timeoutEncouragementScore = calculateEncouragementScore('timeout');
@@ -1475,38 +1486,17 @@ export const PhotoNamingGame = ({
     // Play sound IMMEDIATELY
     if (isCorrectAnswer) {
       playSuccess();
-      setConsecutiveErrors(0);
     } else {
       playError();
-      setConsecutiveErrors((prev) => prev + 1);
     }
     
-    // Update adaptive controller IMMEDIATELY  
-    const controller = controllerRef.current;
-    controller.update(isCorrectAnswer);
-    
-    // Check if difficulty should adjust
-    const newLevel = controller.adjustLevel(currentDifficulty);
-    if (newLevel !== currentDifficulty) {
-      const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      setDifficultyChanged(direction);
-      setCurrentDifficulty(newLevel);
-      
-      setTimeout(() => {
-        if (direction === 'up') {
-          playLevelUp();
-        } else {
-          playLevelDown();
-        }
-      }, 300);
-      
-      const reason = direction === 'up' 
-        ? `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - increasing challenge`
-        : `Success rate ${(controller.getSuccessRate() * 100).toFixed(0)}% - providing support`;
-      
-      onDifficultyChange?.(newLevel, reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
-    }
+    // Update via in-game adaptation hook (handles consecutive errors + difficulty)
+    const adaptationResult = recordTrial({ 
+      correct: isCorrectAnswer, 
+      reactionTimeMs: reactionTime,
+      errorType: isCorrectAnswer ? undefined : 'semantic_related'
+    });
+    console.log('🎯 Trial recorded via adaptation hook:', adaptationResult);
 
     // Compute cue efficacy immediately (before cueState is reset)
     let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
@@ -1819,24 +1809,12 @@ export const PhotoNamingGame = ({
       playError();
     }
 
-    // Update adaptive controller
-    const controller = controllerRef.current;
-    controller.update(correct);
-    
-    const newLevel = controller.adjustLevel(currentDifficulty);
-    if (newLevel !== currentDifficulty) {
-      const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      setDifficultyChanged(direction);
-      setCurrentDifficulty(newLevel);
-      
-      const reason = direction === 'up' 
-        ? 'Performance improving - increasing challenge'
-        : 'Providing more support';
-      
-      onDifficultyChange?.(newLevel, reason);
-      
-      setTimeout(() => setDifficultyChanged(null), 2000);
-    }
+    // Update via in-game adaptation hook (handles difficulty adjustment)
+    const adaptationResult = recordTrial({ 
+      correct,
+      reactionTimeMs: reactionTime
+    });
+    console.log('🏥 Caregiver response recorded via adaptation hook:', adaptationResult);
 
     // Calculate encouragement score for caregiver response
     const caregiverEncouragementScore = correct ? 100 : (responseType === 'tried' ? 50 : (responseType === 'looked' ? 25 : 0));
@@ -2258,7 +2236,7 @@ export const PhotoNamingGame = ({
       <CueDebugOverlay
         visible={showDebugOverlay}
         stallDetected={stallDetected}
-        consecutiveErrors={consecutiveErrors}
+        consecutiveErrors={hookConsecutiveErrors}
         autoCueShownThisTrial={autoCueShownThisTrialRef.current}
         cueLevel={cueLevel}
         cueType={cueState?.type || null}
