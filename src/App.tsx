@@ -114,6 +114,7 @@ const App = () => (
                   <Route path="/caregiver/photos" element={<Navigate to="/photo-library" replace />} />
                   <Route path="/caregiver/docs" element={<Navigate to="/clinical-documents" replace />} />
                   <Route path="/caregiver/insights" element={<Navigate to="/insights?tab=alerts" replace />} />
+                  <Route path="/caregiver/history" element={<Navigate to="/history" replace />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
