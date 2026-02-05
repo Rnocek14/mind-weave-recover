@@ -10,6 +10,11 @@ interface ExerciseBackButtonProps {
 /**
  * Smart back button for exercises that respects returnTo param.
  * 
+ * Priority:
+ * 1. returnTo param (if valid internal path)
+ * 2. Browser history (navigate(-1))
+ * 3. defaultTo fallback
+ * 
  * Usage: Add ?returnTo=/insights?tab=progress when launching exercises
  * from places other than Dashboard.
  */
@@ -22,8 +27,20 @@ export function ExerciseBackButton({
   
   const handleBack = () => {
     const params = new URLSearchParams(location.search);
-    const returnTo = params.get("returnTo") || defaultTo;
-    navigate(returnTo);
+    const raw = params.get("returnTo");
+    const decoded = raw ? decodeURIComponent(raw) : null;
+    
+    // Only allow internal paths (starts with "/" but not "//")
+    const isSafeInternal = decoded && decoded.startsWith("/") && !decoded.startsWith("//");
+    
+    if (isSafeInternal) {
+      navigate(decoded);
+    } else if (window.history.length > 1) {
+      // Use browser history if available
+      navigate(-1);
+    } else {
+      navigate(defaultTo);
+    }
   };
 
   return (
