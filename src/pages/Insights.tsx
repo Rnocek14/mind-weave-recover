@@ -231,15 +231,26 @@ export default function Insights() {
             {/* Q5: Anything concerning? */}
             <AlertsSection userId={user!.id} />
 
-            {/* Clinician Deep Dive - Additional detail */}
-            {isAtLeast('clinician') && (
+            {/* Detailed Speech Analysis - Available to caregivers+ */}
+            {isAtLeast('caregiver') && (
               <Card className="p-6">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Brain className="w-5 h-5" />
                   Detailed Speech Analysis
                 </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Breakdown of speech patterns, error types, and fluency metrics over time.
+                </p>
                 <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
               </Card>
+            )}
+
+            {/* Cross-domain insights - Available to caregivers+ */}
+            {isAtLeast('caregiver') && (
+              <CrossDomainInsightsDashboard 
+                userId={user!.id} 
+                profileId={activeProfile?.id}
+              />
             )}
 
             {/* Admin diagnostics */}
