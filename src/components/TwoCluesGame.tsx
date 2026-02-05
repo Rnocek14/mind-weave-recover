@@ -52,6 +52,7 @@ export function TwoCluesGame({
   const lastTranscriptRef = useRef<string>('');
   const rawTranscriptRef = useRef<string>(''); // Keep raw transcript for logging
   const finalizingRef = useRef(false); // Prevent double-finalization
+  const shouldScoreRef = useRef(false); // Track if we have a valid answer pending
   
   // Refs for cleanup functions (to avoid cleanup effect firing on callback changes)
   const stopListeningRef = useRef<() => void>(() => {});
@@ -109,6 +110,11 @@ export function TwoCluesGame({
   useEffect(() => {
     setIsListening(speechIsListening);
   }, [speechIsListening]);
+
+  // Track when we're in a valid scoring state
+  useEffect(() => {
+    shouldScoreRef.current = isListening || speechIsListening;
+  }, [isListening, speechIsListening]);
 
   // Helper: begin new attempt with audio recording (centralized lifecycle)
   const beginAttempt = useCallback((attemptNumber: number = 1) => {
@@ -216,19 +222,14 @@ export function TwoCluesGame({
     if (candidate === lastTranscriptRef.current) return;
     lastTranscriptRef.current = candidate;
 
-    // Clear existing timeout
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    // Capture current state at debounce setup time (not execution time)
-    const wasListening = isListening || speechIsListening;
+    // Mark that we have a valid answer pending (use ref to survive re-renders)
+    shouldScoreRef.current = true;
+    
+    // Only clear timeout if candidate actually changed
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
     // Debounce: wait for 750ms of stable extracted answer before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
-      // Guard: only score if was listening when debounce was set
-      // (prevents scoring if user stopped mic before timeout)
-      if (!wasListening) return;
       // Guard: don't score while feedback is showing (prevents scoring during auto-advance)
       if (showFeedback) return;
       // Guard: ignore filler-only transcripts ("um", "uh", "like")
@@ -236,6 +237,9 @@ export function TwoCluesGame({
       // Guard: need meaningful content
       if (candidate.length < 2) return;
       if (isProcessing) return;
+      
+      // Clear the pending flag
+      shouldScoreRef.current = false;
 
       setIsProcessing(true);
       const rawTranscript = rawTranscriptRef.current;
@@ -326,13 +330,8 @@ export function TwoCluesGame({
         setIsProcessing(false);
       }
     }, 750);
-
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [transcript, game, stopListening, isProcessing, isListening, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt]);
+    // NO cleanup - we want the timeout to survive isListening changes
+  }, [transcript, game, stopListening, isProcessing, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, speechIsListening]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(async () => {
