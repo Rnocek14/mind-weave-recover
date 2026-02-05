@@ -12,7 +12,8 @@ import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { useStrugglingPhonemes, formatPhonemeDisplay, getPhonemeAccuracyLabel } from '@/hooks/useStrugglingPhonemes';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { getErrorLabel } from '@/lib/insightLanguageMap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { currentRoute, withReturnTo } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
 interface ChallengesSectionProps {
@@ -21,6 +22,8 @@ interface ChallengesSectionProps {
 
 export function ChallengesSection({ userId }: ChallengesSectionProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = currentRoute(location);
   const { strugglingWords, focusWords, loading: wordsLoading } = useStrugglingWords({ userId });
   const { strugglingPhonemes, targetWords, loading: phonemesLoading } = useStrugglingPhonemes(userId);
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
@@ -77,7 +80,7 @@ export function ChallengesSection({ userId }: ChallengesSectionProps) {
                     size="sm" 
                     variant="outline" 
                     className="gap-1"
-                    onClick={() => navigate(`/exercise/photo-naming?targets=${focusWords.join(',')}`)}
+                    onClick={() => navigate(withReturnTo(`/exercise/photo-naming?targets=${focusWords.join(',')}`, returnPath))}
                   >
                     <Play className="w-3 h-3" />
                     Practice Now
@@ -114,7 +117,7 @@ export function ChallengesSection({ userId }: ChallengesSectionProps) {
                       size="sm" 
                       variant="outline" 
                       className="gap-1"
-                      onClick={() => navigate(`/exercise/photo-naming?targets=${targetWords.slice(0, 5).join(',')}`)}
+                      onClick={() => navigate(withReturnTo(`/exercise/photo-naming?targets=${targetWords.slice(0, 5).join(',')}`, returnPath))}
                     >
                       <Play className="w-3 h-3" />
                       Practice These Sounds

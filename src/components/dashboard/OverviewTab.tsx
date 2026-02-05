@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
 import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { useNavigate, useLocation } from "react-router-dom";
+import { currentRoute, withReturnTo } from "@/lib/navigation";
 import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { ExerciseGatingBadge } from "@/components/ExerciseGatingBadge";
@@ -130,6 +131,7 @@ export const OverviewTab = memo(function OverviewTab() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const returnPath = currentRoute(location);
   
   // Check if user arrived from error patterns with targeted practice info
   const targetedPractice = location.state?.targetedPractice as {
@@ -424,7 +426,7 @@ export const OverviewTab = memo(function OverviewTab() {
         ) : isMobile ? (
           <ExerciseCarousel
             exercises={recommendedExercises}
-            onStartExercise={(slug) => navigate(`/exercise/${slug}`)}
+            onStartExercise={(slug) => navigate(withReturnTo(`/exercise/${slug}`, returnPath))}
             gatingInfo={Object.fromEntries(
               recommendedExercises.map((ex) => {
                 const accessCheck = checkExerciseAccess(ex.id);
@@ -455,7 +457,7 @@ export const OverviewTab = memo(function OverviewTab() {
                     : 'hover:shadow-glow cursor-pointer hover:border-primary'
                 } group`}
                 style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => !isLocked && navigate(`/exercise/${exercise.id}`)}
+                onClick={() => !isLocked && navigate(withReturnTo(`/exercise/${exercise.id}`, returnPath))}
               >
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
