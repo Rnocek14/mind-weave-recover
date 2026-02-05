@@ -259,6 +259,7 @@ export const PhotoNamingGame = ({
     currentDifficulty,
     frustrationLevel,
     consecutiveErrors: hookConsecutiveErrors,
+    recentSuccessRate,
     recordTrial,
     stepDown,
     reset: resetAdaptation,
@@ -270,7 +271,8 @@ export const PhotoNamingGame = ({
     bounds: defaultBounds,
     enableAutoHints: autoHintsEnabled,
     enableDifficultyToasts: true,
-    enableInterventions: false, // Start conservative, enable later
+    enableDifficultyAutoStepDown: true, // Core: difficulty steps down on frustration
+    enableInterventionUI: false,         // UI modals disabled for now
     onDifficultyChange: (level, reason, direction) => {
       setDifficultyChanged(direction);
       if (direction === 'up') {
