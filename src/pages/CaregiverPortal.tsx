@@ -94,6 +94,11 @@ export default function CaregiverPortal() {
   };
 
 
+  // Short-circuit for patients - avoid rendering caregiver UI while redirect runs
+  if (!authLoading && user && !isCaregiverPlus) {
+    return null;
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
