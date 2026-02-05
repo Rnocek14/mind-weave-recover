@@ -86,8 +86,16 @@ function getLaneForLevel(level: number): keyof ContentLanes {
 /**
  * Pop a trial from the appropriate lane (removes it to prevent re-selection)
  * Falls back to other lanes if preferred is empty
+ * 
+ * Returns both the trial and which lane it came from (for debugging)
  */
-function popFromLanes(lanes: ContentLanes, level: number): MixedTrial | null {
+interface PopResult {
+  trial: MixedTrial | null;
+  fromLane: keyof ContentLanes | null;
+  remaining: { easy: number; mid: number; hard: number };
+}
+
+function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedTrial | null {
   const preferredLane = getLaneForLevel(level);
   const laneOrder: (keyof ContentLanes)[] = 
     preferredLane === 'easy' ? ['easy', 'mid', 'hard'] :
@@ -98,8 +106,28 @@ function popFromLanes(lanes: ContentLanes, level: number): MixedTrial | null {
   for (const laneName of laneOrder) {
     const lane = lanes[laneName];
     if (lane.length > 0) {
-      return lane.pop()!;
+      const trial = lane.pop()!;
+      
+      // Debug logging for lane switching verification
+      if (debug || import.meta.env.DEV) {
+        const remaining = {
+          easy: lanes.easy.length,
+          mid: lanes.mid.length,
+          hard: lanes.hard.length,
+        };
+        console.debug(
+          `[PhotoNaming] Lane: ${laneName} (preferred: ${preferredLane}) | ` +
+          `Level: ${level} | Target: "${trial.target}" | ` +
+          `Remaining: E:${remaining.easy} M:${remaining.mid} H:${remaining.hard}`
+        );
+      }
+      
+      return trial;
     }
+  }
+  
+  if (debug || import.meta.env.DEV) {
+    console.warn('[PhotoNaming] Pool exhausted - no trials in any lane');
   }
   
   return null; // Pool exhausted
