@@ -92,10 +92,11 @@ function getLaneForLevel(level: number): keyof ContentLanes {
 interface PopResult {
   trial: MixedTrial | null;
   fromLane: keyof ContentLanes | null;
+  preferredLane: keyof ContentLanes;
   remaining: { easy: number; mid: number; hard: number };
 }
 
-function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedTrial | null {
+function popFromLanesWithInfo(lanes: ContentLanes, level: number, debug = false): PopResult {
   const preferredLane = getLaneForLevel(level);
   const laneOrder: (keyof ContentLanes)[] = 
     preferredLane === 'easy' ? ['easy', 'mid', 'hard'] :
@@ -108,13 +109,14 @@ function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedT
     if (lane.length > 0) {
       const trial = lane.pop()!;
       
+      const remaining = {
+        easy: lanes.easy.length,
+        mid: lanes.mid.length,
+        hard: lanes.hard.length,
+      };
+      
       // Debug logging for lane switching verification
       if (debug || import.meta.env.DEV) {
-        const remaining = {
-          easy: lanes.easy.length,
-          mid: lanes.mid.length,
-          hard: lanes.hard.length,
-        };
         console.debug(
           `[PhotoNaming] Lane: ${laneName} (preferred: ${preferredLane}) | ` +
           `Level: ${level} | Target: "${trial.target}" | ` +
@@ -122,7 +124,7 @@ function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedT
         );
       }
       
-      return trial;
+      return { trial, fromLane: laneName, preferredLane, remaining };
     }
   }
   
@@ -130,7 +132,17 @@ function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedT
     console.warn('[PhotoNaming] Pool exhausted - no trials in any lane');
   }
   
-  return null; // Pool exhausted
+  return { 
+    trial: null, 
+    fromLane: null, 
+    preferredLane,
+    remaining: { easy: 0, mid: 0, hard: 0 } 
+  };
+}
+
+// Backwards-compatible wrapper
+function popFromLanes(lanes: ContentLanes, level: number, debug = false): MixedTrial | null {
+  return popFromLanesWithInfo(lanes, level, debug).trial;
 }
 
 /**

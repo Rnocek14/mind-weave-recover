@@ -28,6 +28,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
+import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -254,6 +255,24 @@ export const PhotoNamingGame = ({
   // Default bounds (will be overridden if capability data available)
   const defaultBounds: DifficultyBounds = { floor: 1, ceiling: 10, suggestedStart: initialDifficulty };
   
+  // ==========================================================================
+  // Adaptation Event Logger - tracks difficulty/cue events for analytics
+  // ==========================================================================
+  const {
+    logDifficultyChange,
+    logCueDelivered,
+    logLaneSwitch,
+    flushBatch,
+    resetSession: resetLoggerSession,
+  } = useAdaptationEventLogger({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    maxEventsPerSession: 50,
+  });
+
+  // Track previous difficulty to detect changes
+  const previousDifficultyRef = useRef(initialDifficulty);
+  
   // NEW: In-game adaptive layer - replaces manual AdaptiveDifficultyController
   const {
     currentDifficulty,
@@ -274,6 +293,20 @@ export const PhotoNamingGame = ({
     enableDifficultyAutoStepDown: true, // Core: difficulty steps down on frustration
     enableInterventionUI: false,         // UI modals disabled for now
     onDifficultyChange: (level, reason, direction) => {
+      // Log difficulty change to adaptation_events
+      const prevLevel = previousDifficultyRef.current;
+      logDifficultyChange(
+        direction,
+        prevLevel,
+        level,
+        recentSuccessRate,
+        hookConsecutiveErrors,
+        activeSessionId,
+        CANONICAL_SLUGS.PHOTO_NAMING,
+        state.trialNumber
+      );
+      previousDifficultyRef.current = level;
+      
       setDifficultyChanged(direction);
       if (direction === 'up') {
         playLevelUp?.();
@@ -294,6 +327,26 @@ export const PhotoNamingGame = ({
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
+  // Track lane switches when difficulty changes
+  const previousLaneRef = useRef<'easy' | 'mid' | 'hard'>('mid');
+  useEffect(() => {
+    // Compute current lane from difficulty level
+    const currentLane = currentDifficulty <= 3 ? 'easy' : currentDifficulty <= 6 ? 'mid' : 'hard';
+    
+    if (currentLane !== previousLaneRef.current) {
+      // Lane switch occurred - log it (batched via queueEvent)
+      logLaneSwitch(
+        previousLaneRef.current,
+        currentLane,
+        currentDifficulty,
+        activeSessionId,
+        CANONICAL_SLUGS.PHOTO_NAMING,
+        state.trialNumber
+      );
+      previousLaneRef.current = currentLane;
+    }
+  }, [currentDifficulty, activeSessionId, state.trialNumber, logLaneSwitch]);
+  
   // CRITICAL: Clean up stall timer AND debounce timer on trial change and unmount
   // Use trialNumber as dependency (unique per trial, unlike target which may repeat)
   useEffect(() => {
@@ -310,6 +363,13 @@ export const PhotoNamingGame = ({
       pendingTranscriptRef.current = null;
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
+  
+  // Flush adaptation events on session end
+  useEffect(() => {
+    if (state.isComplete) {
+      flushBatch();
+    }
+  }, [state.isComplete, flushBatch]);
 
   // Admin permissions for debug features
   const { isAdmin } = useUserPermissions(user?.id);
@@ -370,6 +430,17 @@ export const PhotoNamingGame = ({
       trigger
     });
     
+    // Log cue delivery to adaptation_events
+    logCueDelivered(
+      cueType,
+      1, // cue level
+      trigger,
+      hookConsecutiveErrors,
+      activeSessionId,
+      CANONICAL_SLUGS.PHOTO_NAMING,
+      state.trialNumber
+    );
+    
     // Only play hint sound for user-requested hints (not auto-cues)
     if (trigger === 'user_request') {
       playHint?.();
@@ -377,7 +448,7 @@ export const PhotoNamingGame = ({
     
     console.log('✅ Auto-cue delivered:', { trigger, cueType, cueText: autoCueDecision.cueText });
     return true;
-  }, [state.currentTrial, errorHistory, playHint]);
+  }, [state.currentTrial, errorHistory, playHint, logCueDelivered, hookConsecutiveErrors, activeSessionId, state.trialNumber]);
 
   // =============================================================================
   // Watch consecutive errors and trigger cue if threshold reached
