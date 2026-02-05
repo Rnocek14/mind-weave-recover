@@ -221,10 +221,14 @@ export function TwoCluesGame({
       clearTimeout(debounceTimeoutRef.current);
     }
 
+    // Capture current state at debounce setup time (not execution time)
+    const wasListening = isListening || speechIsListening;
+
     // Debounce: wait for 750ms of stable extracted answer before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
-      // Guard: only score if still listening (prevents double-score on stop)
-      if (!isListening) return;
+      // Guard: only score if was listening when debounce was set
+      // (prevents scoring if user stopped mic before timeout)
+      if (!wasListening) return;
       // Guard: don't score while feedback is showing (prevents scoring during auto-advance)
       if (showFeedback) return;
       // Guard: ignore filler-only transcripts ("um", "uh", "like")
