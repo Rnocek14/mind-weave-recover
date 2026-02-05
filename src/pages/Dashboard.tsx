@@ -4,8 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Trophy, Camera, TrendingUp, Flame, Award, Loader2, 
-  Settings, Brain, FileText, Activity, Stethoscope, AlertCircle
+  Trophy, TrendingUp, Flame, Award, Loader2, 
+  Brain, Activity, Stethoscope, AlertCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,7 +50,7 @@ const Dashboard = () => {
   const [achievementCount, setAchievementCount] = useState(0);
   const [todayProgress, setTodayProgress] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showCapabilityAssessment, setShowCapabilityAssessment] = useState(false);
@@ -112,7 +112,6 @@ const Dashboard = () => {
 
     if (user) {
       loadDashboardData();
-      checkAdminStatus();
       fetchLatestAssessment();
     }
   }, [user, authLoading, navigate]);
@@ -126,20 +125,6 @@ const Dashboard = () => {
     }
   }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate]);
 
-  const checkAdminStatus = async () => {
-    if (!user) return;
-    
-    try {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      setIsAdmin(roles?.some(r => r.role === "admin") || false);
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-    }
-  };
 
   const loadDashboardData = async () => {
     if (!user) return;
@@ -323,33 +308,6 @@ const Dashboard = () => {
             <ViewModeSelector />
             <ProfileSwitcher />
             
-            <Button
-              variant="outline"
-              onClick={() => navigate("/insights")}
-              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Insights</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => navigate("/clinical-documents")}
-              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Documents</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => navigate("/photo-library")}
-              className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
-            >
-              <Camera className="w-4 h-4" />
-              <span className="hidden sm:inline">Photo Library</span>
-            </Button>
-
             <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]">
@@ -371,17 +329,6 @@ const Dashboard = () => {
                 />
               </DialogContent>
             </Dialog>
-
-            {isAdmin && (
-              <Button
-                variant="outline"
-                onClick={() => navigate("/admin")}
-                className="gap-2 touch-manipulation min-h-[44px]"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden lg:inline">Admin</span>
-              </Button>
-            )}
           </div>
         </div>
 

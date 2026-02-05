@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
@@ -34,10 +34,12 @@ import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import TwoCluesExercise from "./pages/TwoCluesExercise";
+import ThoughtContinuationExercise from "./pages/ThoughtContinuationExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
+import { AppLayout } from "@/components/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -63,41 +65,56 @@ const App = () => (
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
-          <Toaster />
-          <Sonner />
-          <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/exercise/:exerciseId" element={<Exercise />} />
-          <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
-          <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
-          <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
-          <Route path="/history" element={<SessionHistory />} />
-          <Route path="/caregiver" element={<Caregiver />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/pipeline" element={<AdminPipeline />} />
-          <Route path="/admin/analytics" element={<ParserAnalytics />} />
-          <Route path="/admin/research-export" element={<ResearchExport />} />
-          <Route path="/analytics/cluster" element={<ClusterAnalytics />} />
-          <Route path="/settings/privacy" element={<PrivacySettings />} />
-          <Route path="/photo-library" element={<PhotoLibrary />} />
-          <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
-          <Route path="/clinical-documents" element={<ClinicalDocuments />} />
-          <Route path="/profile-history" element={<ProfileVersionHistory />} />
-          <Route path="/lesson" element={<Lesson />} />
-          <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
-          <Route path="/insights" element={<Insights />} />
-          <Route path="/clinician/report" element={<ClinicianReport />} />
-          <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
-          
-          <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
-          <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
-          <Route path="/exercise/two-clues" element={<TwoCluesExercise />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-          </Routes>
+                <Toaster />
+                <Sonner />
+                <Routes>
+                  {/* Public routes - no header */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  
+                  {/* Exercise routes - no header for immersive experience */}
+                  <Route path="/exercise/:exerciseId" element={<Exercise />} />
+                  <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
+                  <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
+                  <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
+                  <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
+                  <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
+                  <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
+                  <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
+                  <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
+                  <Route path="/exercise/two-clues" element={<TwoCluesExercise />} />
+                  <Route path="/exercise/thought-continuation" element={<ThoughtContinuationExercise />} />
+                  <Route path="/lesson" element={<Lesson />} />
+                  
+                  {/* Main app routes - with persistent header */}
+                  <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+                  <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
+                  <Route path="/history" element={<AppLayout><History /></AppLayout>} />
+                  <Route path="/caregiver" element={<AppLayout><Caregiver /></AppLayout>} />
+                  
+                  {/* Settings routes - with header */}
+                  <Route path="/photo-library" element={<AppLayout><PhotoLibrary /></AppLayout>} />
+                  <Route path="/clinical-documents" element={<AppLayout><ClinicalDocuments /></AppLayout>} />
+                  <Route path="/settings/privacy" element={<AppLayout><PrivacySettings /></AppLayout>} />
+                  <Route path="/profile-history" element={<AppLayout><ProfileVersionHistory /></AppLayout>} />
+                  
+                  {/* Clinician routes - with header */}
+                  <Route path="/clinician/report" element={<AppLayout><ClinicianReport /></AppLayout>} />
+                  
+                  {/* Admin routes - with header */}
+                  <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
+                  <Route path="/admin/pipeline" element={<AppLayout><AdminPipeline /></AppLayout>} />
+                  <Route path="/admin/analytics" element={<AppLayout><ParserAnalytics /></AppLayout>} />
+                  <Route path="/admin/research-export" element={<AppLayout><ResearchExport /></AppLayout>} />
+                  <Route path="/analytics/cluster" element={<AppLayout><ClusterAnalytics /></AppLayout>} />
+                  
+                  {/* Redirect old routes to canonical routes */}
+                  <Route path="/session-history" element={<Navigate to="/history" replace />} />
+                  
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
               </BrowserRouter>
             </AssessmentProviderWrapper>
           </ProfileProvider>

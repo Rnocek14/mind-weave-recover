@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft, Brain, Stethoscope, 
+  Brain, Stethoscope, 
   Loader2, AlertCircle, FileText,
   LayoutGrid, TrendingUp, Target, Lightbulb, Settings2, AlertTriangle
 } from "lucide-react";
@@ -171,20 +171,6 @@ export default function Insights() {
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-6 md:mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/dashboard")}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-            </Button>
-            
-            {/* View Mode Selector */}
-            <ViewModeSelector />
-          </div>
-          
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
@@ -196,6 +182,8 @@ export default function Insights() {
             </div>
             
             <div className="flex items-center gap-2">
+              <ViewModeSelector />
+              
               {isAtLeast('clinician') && (
                 <Button variant="outline" size="sm" asChild className="gap-2">
                   <Link to="/clinician/report">
