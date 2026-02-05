@@ -1237,6 +1237,93 @@ export type Database = {
           },
         ]
       }
+      shadow_events: {
+        Row: {
+          analysis_data: Json | null
+          attempt_id: string | null
+          created_at: string
+          domain: string | null
+          id: string
+          interaction_mode: string | null
+          latency_ms: number | null
+          outcome_correct: boolean | null
+          outcome_error_type: string | null
+          profile_id: string | null
+          session_id: string | null
+          system_action: string | null
+          system_confidence: number | null
+          system_guess: string | null
+          target_phrase: string | null
+          target_word: string | null
+          task_data: Json | null
+          task_type: string
+          user_id: string
+          user_spoke: boolean | null
+          user_transcript: string | null
+        }
+        Insert: {
+          analysis_data?: Json | null
+          attempt_id?: string | null
+          created_at?: string
+          domain?: string | null
+          id?: string
+          interaction_mode?: string | null
+          latency_ms?: number | null
+          outcome_correct?: boolean | null
+          outcome_error_type?: string | null
+          profile_id?: string | null
+          session_id?: string | null
+          system_action?: string | null
+          system_confidence?: number | null
+          system_guess?: string | null
+          target_phrase?: string | null
+          target_word?: string | null
+          task_data?: Json | null
+          task_type: string
+          user_id: string
+          user_spoke?: boolean | null
+          user_transcript?: string | null
+        }
+        Update: {
+          analysis_data?: Json | null
+          attempt_id?: string | null
+          created_at?: string
+          domain?: string | null
+          id?: string
+          interaction_mode?: string | null
+          latency_ms?: number | null
+          outcome_correct?: boolean | null
+          outcome_error_type?: string | null
+          profile_id?: string | null
+          session_id?: string | null
+          system_action?: string | null
+          system_confidence?: number | null
+          system_guess?: string | null
+          target_phrase?: string | null
+          target_word?: string | null
+          task_data?: Json | null
+          task_type?: string
+          user_id?: string
+          user_spoke?: boolean | null
+          user_transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shadow_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shadow_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       speech_profile_snapshots: {
         Row: {
           computed_at: string

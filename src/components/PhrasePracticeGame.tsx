@@ -155,6 +155,11 @@ export const PhrasePracticeGame = ({
     onDifficultyChange: (newLevel) => {
       onDifficultyChange?.(newLevel);
     },
+    // Enable adaptation event logging
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
   });
 
   // Initialize trials and load voice preference

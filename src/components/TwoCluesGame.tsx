@@ -21,6 +21,7 @@ import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage } from '@/li
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,24 @@ export function TwoCluesGame({
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
   
   const { speak } = useTextToSpeech();
+
+  // Adaptive difficulty with logging
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: 1,
+    bounds: { floor: 1, ceiling: 5, suggestedStart: 1 },
+    windowSize: 5,
+    targetSuccessRate: 0.75,
+    adjustmentThreshold: 0.15,
+    // Enable adaptation event logging
+    userId,
+    profileId,
+    sessionId: sessionId || undefined,
+    exerciseSlug: 'two_clues',
+  });
 
   // Utterance logging (same as PhotoNaming/PhrasePractice)
   const {
@@ -272,6 +291,11 @@ export function TwoCluesGame({
         
         // Submit the cleaned candidate, not raw transcript
         const result = await game.submitAnswer(candidate);
+        
+        // Update adaptive difficulty tracking
+        const isSuccess = result.tier === 'strong' || result.tier === 'related';
+        updateTrial(isSuccess);
+        checkAndAdjust();
         
         // Log utterance analysis (same full pattern as PhotoNaming)
         if (sessionId && currentAttemptId) {

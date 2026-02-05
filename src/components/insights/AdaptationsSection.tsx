@@ -133,6 +133,14 @@ export function AdaptationsSection({ userId, todayFocus }: AdaptationsSectionPro
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Two Clues
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Phrase Practice
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
                   Phonological Awareness
                 </li>
                 <li className="flex items-center gap-2">
