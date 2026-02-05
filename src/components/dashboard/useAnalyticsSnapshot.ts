@@ -59,7 +59,7 @@ export function useAnalyticsSnapshot(userId: string | undefined): AnalyticsSnaps
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId, { enabled });
   const { trends: weeklyTrends, loading: trendsLoading } = useWeeklyTrends();
   const { strugglingWords, focusWords, loading: wordsLoading } = useStrugglingWords({ userId, enabled });
-  const { strugglingPhonemes, targetWords, loading: phonemesLoading, hasEnoughData: phonemeDataOk } = useStrugglingPhonemes(userId, { profileId: undefined });
+  const { strugglingPhonemes, targetWords, loading: phonemesLoading, hasReadyPhonemes: phonemeDataOk } = useStrugglingPhonemes(userId, { profileId: undefined });
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(userId, { weeksBack: 4, enabled });
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(userId, { enabled });
 

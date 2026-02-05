@@ -29,7 +29,10 @@ export interface StrugglingPhonemesResult {
   targetWords: string[];
   loading: boolean;
   error: Error | null;
-  hasEnoughData: boolean;
+  // Clarity: separate "has anything" from "has enough for trends"
+  hasReadyPhonemes: boolean; // At least 1 phoneme with minTrials
+  hasEnoughDataForTrends: boolean; // 3+ phonemes for reliable patterns
+  readyCount: number; // Count of phonemes meeting minTrials threshold
   lastComputedAt: string | null;
   totalTrials: number;
   // Phoneme coverage metadata
@@ -38,6 +41,8 @@ export interface StrugglingPhonemesResult {
   trialsWithNonZeroAccuracy: number;
   // Profile metadata for debug
   trialCountAtComputation: number;
+  // Refresh function to re-fetch data
+  refresh: () => void;
 }
 
 interface UseStrugglingPhonemesOptions {
@@ -60,7 +65,7 @@ export function useStrugglingPhonemes(
     profileId,
   } = options;
 
-  const { profile, loading, error } = useUserSpeechProfile(userId, { profileId });
+  const { profile, loading, error, refresh } = useUserSpeechProfile(userId, { profileId });
 
   const result = useMemo(() => {
     const phonemeDifficultyMap = profile?.phoneme_difficulty_map as Record<
@@ -74,7 +79,9 @@ export function useStrugglingPhonemes(
         strongPhonemes: [],
         buildingPhonemes: [],
         targetWords: [],
-        hasEnoughData: false,
+        hasReadyPhonemes: false,
+        hasEnoughDataForTrends: false,
+        readyCount: 0,
         totalTrials: 0,
       };
     }
@@ -132,7 +139,9 @@ export function useStrugglingPhonemes(
       strongPhonemes: strong,
       buildingPhonemes: sortedBuilding,
       targetWords,
-      hasEnoughData: readyPhonemes.length >= 3,
+      hasReadyPhonemes: readyPhonemes.length > 0,
+      hasEnoughDataForTrends: readyPhonemes.length >= 3,
+      readyCount: readyPhonemes.length,
       totalTrials,
     };
   }, [profile, accuracyThreshold, minTrials, maxPhonemes, maxTargetWords]);
@@ -146,6 +155,7 @@ export function useStrugglingPhonemes(
     trialsWithPhonemes: profile?.trials_with_phonemes ?? 0,
     trialsWithNonZeroAccuracy: profile?.trials_with_nonzero_accuracy ?? 0,
     trialCountAtComputation: profile?.trial_count_at_computation ?? 0,
+    refresh,
   };
 }
 

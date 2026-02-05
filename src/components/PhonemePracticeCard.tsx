@@ -31,7 +31,7 @@ export const PhonemePracticeCard = memo(({ userId, profileId, className }: Phone
     strugglingPhonemes, 
     strongPhonemes,
     loading, 
-    hasEnoughData,
+    hasReadyPhonemes,
     lastComputedAt,
     totalTrials: profileTotalTrials,
   } = useStrugglingPhonemes(userId, {
@@ -104,7 +104,7 @@ export const PhonemePracticeCard = memo(({ userId, profileId, className }: Phone
     );
   }
 
-  if (!hasEnoughData) {
+  if (!hasReadyPhonemes) {
     return (
       <Card className={className}>
         <CardHeader className="pb-3">
