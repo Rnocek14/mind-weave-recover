@@ -8,6 +8,11 @@
  * - Audio recording per attempt
  * - Utterance analysis logging
  * - Transcript cleanup (filler removal)
+ * 
+ * Speech handling matches PhotoNaming pattern:
+ * - Immediate local matching for instant feedback
+ * - Processing ref guard prevents duplicate scoring
+ * - Visual "Processing..." state during async scoring
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -17,12 +22,12 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
-import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage } from '@/lib/twoCluesScorer';
+import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer } from '@/lib/twoCluesScorer';
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
-import { Mic, MicOff, SkipForward, Volume2, RotateCcw } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2 } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +39,63 @@ interface TwoCluesGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+}
+
+/**
+ * Quick local match check - no async, instant feedback for obvious matches
+ * Returns tier if matched, null if needs async scoring
+ */
+function quickLocalMatch(
+  spoken: string,
+  anchors: string[],
+  cluster: string[],
+  anchorAliases?: Record<string, string[]>,
+  clusterAliases?: Record<string, string[]>
+): { tier: 'strong' | 'related'; matchedWord: string } | null {
+  const normalized = spoken.toLowerCase().trim().replace(/[^\w\s]/g, '');
+  if (!normalized || normalized.length < 2) return null;
+
+  // Check anchors (exact + plurals)
+  for (const anchor of anchors) {
+    const a = anchor.toLowerCase();
+    if (normalized === a || normalized === a + 's' || normalized + 's' === a) {
+      return { tier: 'strong', matchedWord: anchor };
+    }
+  }
+  
+  // Check anchor aliases
+  if (anchorAliases) {
+    for (const [canonical, aliases] of Object.entries(anchorAliases)) {
+      for (const alias of aliases) {
+        const al = alias.toLowerCase();
+        if (normalized === al || normalized === al + 's' || normalized + 's' === al) {
+          return { tier: 'strong', matchedWord: canonical };
+        }
+      }
+    }
+  }
+
+  // Check cluster
+  for (const word of cluster) {
+    const w = word.toLowerCase();
+    if (normalized === w || normalized === w + 's' || normalized + 's' === w) {
+      return { tier: 'related', matchedWord: word };
+    }
+  }
+  
+  // Check cluster aliases
+  if (clusterAliases) {
+    for (const [canonical, aliases] of Object.entries(clusterAliases)) {
+      for (const alias of aliases) {
+        const al = alias.toLowerCase();
+        if (normalized === al || normalized === al + 's' || normalized + 's' === al) {
+          return { tier: 'related', matchedWord: canonical };
+        }
+      }
+    }
+  }
+
+  return null; // Need async semantic scoring
 }
 
 export function TwoCluesGame({
@@ -49,13 +111,15 @@ export function TwoCluesGame({
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
+  const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
+  
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef<string>('');
-  const rawTranscriptRef = useRef<string>(''); // Keep raw transcript for logging
-  const finalizingRef = useRef(false); // Prevent double-finalization
-  const shouldScoreRef = useRef(false); // Track if we have a valid answer pending
+  const rawTranscriptRef = useRef<string>('');
+  const finalizingRef = useRef(false);
+  const processingRef = useRef(false); // CRITICAL: Prevents re-entry during async scoring
   
-  // Refs for cleanup functions (to avoid cleanup effect firing on callback changes)
+  // Refs for cleanup functions
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
@@ -73,14 +137,13 @@ export function TwoCluesGame({
     windowSize: 5,
     targetSuccessRate: 0.75,
     adjustmentThreshold: 0.15,
-    // Enable adaptation event logging
     userId,
     profileId,
     sessionId: sessionId || undefined,
     exerciseSlug: 'two_clues',
   });
 
-  // Utterance logging (same as PhotoNaming/PhrasePractice)
+  // Utterance logging
   const {
     currentAttemptId,
     isFinalized,
@@ -90,7 +153,7 @@ export function TwoCluesGame({
     resetAttempt,
   } = useUtteranceLogger();
 
-  // Audio recording (same as PhotoNaming - includes upload)
+  // Audio recording
   const {
     isRecording,
     isSupported: isRecordingSupported,
@@ -109,7 +172,6 @@ export function TwoCluesGame({
   // Handle speech result
   const handleSpeechResult = useCallback((result: string) => {
     console.log('[TwoClues] Speech result:', result);
-    // Log browser transcript for utterance analysis
     logBrowserTranscript(result);
   }, [logBrowserTranscript]);
 
@@ -119,7 +181,7 @@ export function TwoCluesGame({
     startListening,
     stopListening,
     isSupported,
-   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening (same as PhotoNaming)
+   } = useSpeechRecognition(handleSpeechResult, false, true);
 
   // Keep refs updated for cleanup
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
@@ -130,12 +192,7 @@ export function TwoCluesGame({
     setIsListening(speechIsListening);
   }, [speechIsListening]);
 
-  // Track when we're in a valid scoring state
-  useEffect(() => {
-    shouldScoreRef.current = isListening || speechIsListening;
-  }, [isListening, speechIsListening]);
-
-  // Helper: begin new attempt with audio recording (centralized lifecycle)
+  // Helper: begin new attempt with audio recording
   const beginAttempt = useCallback((attemptNumber: number = 1) => {
     if (!sessionId || !userId || !game.currentPuzzle) return;
     
@@ -144,6 +201,8 @@ export function TwoCluesGame({
     lastTranscriptRef.current = '';
     rawTranscriptRef.current = '';
     setDisplayTranscript('');
+    setScoringPhase('idle');
+    processingRef.current = false;
     
     // Start utterance tracking
     const targetWord = game.currentPuzzle.anchors[0] || 'unknown';
@@ -165,7 +224,7 @@ export function TwoCluesGame({
     }
   }, [sessionId, userId, game.currentPuzzle, game.currentIndex, startAttempt, startListening, isRecordingSupported, startRecording]);
 
-  // Centralized terminal logging helper (exactly-once finalization guard)
+  // Centralized terminal logging helper
   const finalizeAttempt = useCallback(async (
     errorType: 'cancelled' | 'skipped' | 'abandoned',
     extra?: Record<string, any>
@@ -189,7 +248,6 @@ export function TwoCluesGame({
     }
   }, [currentAttemptId, isFinalized, logFinalAnalysis, resetAttempt]);
 
-  // Keep finalizeAttempt ref updated
   useEffect(() => { finalizeAttemptRef.current = finalizeAttempt; }, [finalizeAttempt]);
 
   // Helper: clear all transcript state
@@ -197,21 +255,21 @@ export function TwoCluesGame({
     setDisplayTranscript('');
     lastTranscriptRef.current = '';
     rawTranscriptRef.current = '';
+    setScoringPhase('idle');
   }, []);
 
-  // Start round timer, attempt tracking, and auto-start listening when puzzle changes
+  // Start round timer and auto-start listening when puzzle changes
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
     game.startRound();
 
-    // Auto-start attempt (match other speech games behavior)
     if (!showFeedback && sessionId && userId) {
       beginAttempt(1);
     }
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt]);
 
-  // Cleanup on unmount - uses refs to avoid firing on callback changes
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
@@ -219,63 +277,94 @@ export function TwoCluesGame({
       stopListeningRef.current();
       void finalizeAttemptRef.current('abandoned');
     };
-  }, []); // Empty deps = unmount only
+  }, []);
 
-  // Update display transcript and store raw
+  // Update display transcript
   useEffect(() => {
     if (transcript) {
       setDisplayTranscript(transcript);
-      rawTranscriptRef.current = transcript; // Keep raw for logging
+      rawTranscriptRef.current = transcript;
     }
   }, [transcript]);
 
-  // Handle transcript changes with debouncing and speech cleanup
+  // ==========================================================================
+  // CRITICAL: Debounced scoring with processing guard (matches PhotoNaming)
+  // ==========================================================================
   useEffect(() => {
-    if (!transcript) return;
+    if (!transcript || !game.currentPuzzle) return;
     
-    // Extract the candidate answer (handles "I think it's a bird" → "bird")
     const candidate = extractAnswerFromTranscript(transcript);
     
-    // Compare extracted candidate for stability (not raw transcript)
-    // This reduces rescore spam while ASR changes "i think bird" → "i think it's bird"
+    // Only re-score if candidate changed
     if (candidate === lastTranscriptRef.current) return;
     lastTranscriptRef.current = candidate;
-
-    // Mark that we have a valid answer pending (use ref to survive re-renders)
-    shouldScoreRef.current = true;
     
-    // Only clear timeout if candidate actually changed
+    // Clear existing timeout
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
-    // Debounce: wait for 750ms of stable extracted answer before scoring
+    // Debounce: wait 750ms of stable candidate before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
-      // Guard: don't score while feedback is showing (prevents scoring during auto-advance)
-      if (showFeedback) return;
-      // Guard: ignore filler-only transcripts ("um", "uh", "like")
-      if (isMostlyFiller(transcript)) return;
-      // Guard: need meaningful content
-      if (candidate.length < 2) return;
-      if (isProcessing) return;
+      // GUARD 1: Already processing or showing feedback
+      if (processingRef.current || showFeedback) {
+        console.log('[TwoClues] Skipping score - already processing or feedback showing');
+        return;
+      }
       
-      // Clear the pending flag
-      shouldScoreRef.current = false;
-
+      // GUARD 2: Filler-only or too short
+      if (isMostlyFiller(transcript) || candidate.length < 2) {
+        console.log('[TwoClues] Skipping score - filler or too short');
+        return;
+      }
+      
+      // CRITICAL: Set processing flag BEFORE any async work
+      processingRef.current = true;
       setIsProcessing(true);
+      setScoringPhase('checking');
+      
       const rawTranscript = rawTranscriptRef.current;
+      const puzzle = game.currentPuzzle!;
       
       try {
-        // Stop listening and recording first
+        // STEP 1: Quick local match (instant, no API call)
+        const quickMatch = quickLocalMatch(
+          candidate,
+          puzzle.anchors,
+          puzzle.cluster,
+          puzzle.anchorAliases,
+          puzzle.clusterAliases
+        );
+        
+        let result;
+        
+        if (quickMatch) {
+          // Instant match! No need for semantic API
+          console.log('[TwoClues] Quick match found:', quickMatch);
+          result = {
+            tier: quickMatch.tier,
+            score: quickMatch.tier === 'strong' ? 100 : 75,
+            matchedWord: quickMatch.matchedWord,
+            reachedAnchor: quickMatch.tier === 'strong',
+            semanticSimilarity: quickMatch.tier === 'strong' ? 1.0 : 0.85,
+            reasoning: quickMatch.tier === 'strong' ? 'Perfect match!' : 'Great related word!',
+          };
+        } else {
+          // STEP 2: Needs async semantic scoring
+          console.log('[TwoClues] No quick match, calling semantic scorer...');
+          setScoringPhase('scoring');
+          result = await scoreAnswer(candidate, puzzle);
+        }
+        
+        // Stop listening and recording AFTER scoring completes
         stopListening();
         setIsListening(false);
         
-        // Stop recording and get audio data (same pattern as PhotoNaming)
+        // Stop recording and upload
         let recordingDurationMs: number | undefined;
         let audioStoragePath: string | undefined;
         if (isRecording) {
           const recordingResult = await stopRecording();
           if (recordingResult && sessionId && userId) {
             recordingDurationMs = recordingResult.duration;
-            // Upload to storage (same as PhotoNaming)
             const uploadedPath = await uploadRecording(
               recordingResult.audioBlob,
               userId,
@@ -289,15 +378,15 @@ export function TwoCluesGame({
           }
         }
         
-        // Submit the cleaned candidate, not raw transcript
-        const result = await game.submitAnswer(candidate);
+        // Submit to game state (updates scores, etc.)
+        await game.submitAnswer(candidate);
         
-        // Update adaptive difficulty tracking
+        // Update adaptive difficulty
         const isSuccess = result.tier === 'strong' || result.tier === 'related';
         updateTrial(isSuccess);
         checkAndAdjust();
         
-        // Log utterance analysis (same full pattern as PhotoNaming)
+        // Log utterance analysis
         if (sessionId && currentAttemptId) {
           const isCorrect = result.tier === 'strong' || result.tier === 'related';
           const contentWordCount = getContentWordCount(rawTranscript);
@@ -309,10 +398,9 @@ export function TwoCluesGame({
             errorType: result.tier === 'uncertain' ? 'no_match' : 
                        result.tier === 'creative' ? 'creative_link' : 
                        result.tier === 'related' ? 'semantic_paraphasia' : undefined,
-            semanticSimilarity: result.semanticSimilarity,
+            semanticSimilarity: result.semanticSimilarity ?? undefined,
             recordingDurationMs,
-            audioStoragePath, // NOW INCLUDED - enables pronunciation/fluency analysis
-            // Two Clues specific structured data
+            audioStoragePath,
             reasoning: JSON.stringify({
               rawTranscript,
               cleanedAnswer: candidate,
@@ -320,11 +408,11 @@ export function TwoCluesGame({
               tier: result.tier,
               score: result.score,
               reachedAnchor: result.reachedAnchor,
-              puzzleId: game.currentPuzzle?.id,
-              clues: game.currentPuzzle?.clues,
+              puzzleId: puzzle.id,
+              clues: puzzle.clues,
               contentWordCount,
             }),
-            cueTypeGiven: 'none', // Phase 1: no cueing
+            cueTypeGiven: 'none',
             fluencyAvailable: !!audioStoragePath,
             fluencyUnavailableReason: !audioStoragePath ? 'no_recording' : undefined,
           });
@@ -334,28 +422,30 @@ export function TwoCluesGame({
         const message = getTierMessage(result.tier, result.matchedWord);
         setFeedbackMessage(result.coachResponse || message);
         setShowFeedback(true);
-        setDisplayTranscript('');
-        lastTranscriptRef.current = '';
-        rawTranscriptRef.current = '';
+        clearTranscriptState();
 
-        // Auto-advance after feedback for strong/related matches
+        // Auto-advance for strong/related matches
         if (result.tier === 'strong' || result.tier === 'related') {
           setTimeout(() => {
-            // Clear pending debounce before advancing
-            if (debounceTimeoutRef.current) {
-              clearTimeout(debounceTimeoutRef.current);
-            }
+            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
             setShowFeedback(false);
             resetAttempt();
+            processingRef.current = false;
             game.nextRound();
           }, 2000);
+        } else {
+          // Creative/uncertain - user decides
+          processingRef.current = false;
         }
+      } catch (error) {
+        console.error('[TwoClues] Scoring error:', error);
+        processingRef.current = false;
       } finally {
         setIsProcessing(false);
+        setScoringPhase('idle');
       }
     }, 750);
-    // NO cleanup - we want the timeout to survive isListening changes
-  }, [transcript, game, stopListening, isProcessing, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, speechIsListening]);
+  }, [transcript, game, stopListening, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, updateTrial, checkAndAdjust]);
 
   // Toggle microphone
   const handleToggleMic = useCallback(async () => {
@@ -513,16 +603,28 @@ export function TwoCluesGame({
           </Button>
         </div>
 
-        {/* Transcript display */}
-        {(isListening || speechIsListening) && (
+        {/* Transcript display - show during listening OR processing */}
+        {(isListening || speechIsListening || scoringPhase !== 'idle') && (
           <div className="text-center p-4 bg-muted/50 rounded-lg min-h-[60px] flex items-center justify-center">
-            <p className="text-lg">
-              {displayTranscript ? (
-                <>Heard: "{displayTranscript}"</>
-              ) : (
-                <span className="text-muted-foreground animate-pulse">Listening...</span>
-              )}
-            </p>
+            {scoringPhase === 'checking' ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Checking answer...</span>
+              </div>
+            ) : scoringPhase === 'scoring' ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Finding connections...</span>
+              </div>
+            ) : (
+              <p className="text-lg">
+                {displayTranscript ? (
+                  <>Heard: "<span className="font-medium">{displayTranscript}</span>"</>
+                ) : (
+                  <span className="text-muted-foreground animate-pulse">Listening...</span>
+                )}
+              </p>
+            )}
           </div>
         )}
 
