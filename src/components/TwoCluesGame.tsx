@@ -1,26 +1,24 @@
 /**
  * Two Clues Word Association Game - Main Game Component
  * 
- * Shows 2-3 clue words and accepts multiple valid spoken answers
- * with tiered scoring (strong/related/creative/uncertain).
- * 
  * Key design decisions for stroke survivors:
  * - 1500ms debounce (more thinking time than Photo Naming's 750ms)
  * - Clue words filtered from transcript before scoring
- * - Continuous listening with unlimited restarts (thinking time is essential)
+ * - Patient mode listening: unlimited restarts, no auto-end on silence
  * - Processing guard with 10s failsafe to prevent mic deadlock
- * - All exit paths use try/finally to guarantee processingRef reset
+ * - All exit paths use try/finally with local shouldHoldProcessing flag
  * - 2s cooldown after scoring to prevent re-scoring loops
+ * - Pre-computed result passed to submitAnswer (no double-scoring)
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
-import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer } from '@/lib/twoCluesScorer';
+import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -30,9 +28,9 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 1500; // Longer than Photo Naming (750ms) - thinking game
-const SCORING_COOLDOWN_MS = 2000; // Don't re-score for 2s after a score
-const PROCESSING_FAILSAFE_MS = 10000; // Auto-reset processingRef after 10s
+const SCORING_DEBOUNCE_MS = 1500;
+const SCORING_COOLDOWN_MS = 2000;
+const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
 
 interface TwoCluesGameProps {
@@ -54,10 +52,9 @@ function quickLocalMatch(
   anchorAliases?: Record<string, string[]>,
   clusterAliases?: Record<string, string[]>
 ): { tier: 'strong' | 'related'; matchedWord: string } | null {
-  const normalized = spoken.toLowerCase().trim().replace(/[^\w\s]/g, '');
+  const normalized = spoken.toLowerCase().trim().replace(/[^a-z\s]/g, '');
   if (!normalized || normalized.length < 2) return null;
 
-  // Check anchors (exact + plurals)
   for (const anchor of anchors) {
     const a = anchor.toLowerCase();
     if (normalized === a || normalized === a + 's' || normalized + 's' === a) {
@@ -65,7 +62,6 @@ function quickLocalMatch(
     }
   }
   
-  // Check anchor aliases
   if (anchorAliases) {
     for (const [canonical, aliases] of Object.entries(anchorAliases)) {
       for (const alias of aliases) {
@@ -77,7 +73,6 @@ function quickLocalMatch(
     }
   }
 
-  // Check cluster
   for (const word of cluster) {
     const w = word.toLowerCase();
     if (normalized === w || normalized === w + 's' || normalized + 's' === w) {
@@ -85,7 +80,6 @@ function quickLocalMatch(
     }
   }
   
-  // Check cluster aliases
   if (clusterAliases) {
     for (const [canonical, aliases] of Object.entries(clusterAliases)) {
       for (const alias of aliases) {
@@ -113,27 +107,25 @@ export function TwoCluesGame({
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
-  const [filteredDisplay, setFilteredDisplay] = useState(''); // Answer candidate after clue removal
+  const [filteredDisplay, setFilteredDisplay] = useState('');
   const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
   const [showThinkingHint, setShowThinkingHint] = useState(false);
   
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastScoredCandidateRef = useRef<string>(''); // Track what was last scored (not just last transcript)
+  const lastScoredCandidateRef = useRef<string>('');
   const rawTranscriptRef = useRef<string>('');
   const finalizingRef = useRef(false);
   const processingRef = useRef(false);
-  const processingSetAtRef = useRef<number>(0); // Timestamp for failsafe
-  const lastScoredAtRef = useRef<number>(0); // Cooldown timer
+  const processingSetAtRef = useRef<number>(0);
+  const lastScoredAtRef = useRef<number>(0);
   const thinkingHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Refs for cleanup functions
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
   
   const { speak } = useTextToSpeech();
 
-  // Adaptive difficulty
   const {
     currentDifficulty,
     updateTrial,
@@ -150,7 +142,6 @@ export function TwoCluesGame({
     exerciseSlug: 'two_clues',
   });
 
-  // Utterance logging
   const {
     currentAttemptId,
     isFinalized,
@@ -160,7 +151,6 @@ export function TwoCluesGame({
     resetAttempt,
   } = useUtteranceLogger();
 
-  // Audio recording
   const {
     isRecording,
     isSupported: isRecordingSupported,
@@ -176,31 +166,42 @@ export function TwoCluesGame({
     onGameComplete,
   });
 
-  // Handle speech result
+  // Stable refs for game values used in effects (avoids re-triggering on game object identity)
+  const currentPuzzleRef = useRef(game.currentPuzzle);
+  const currentIndexRef = useRef(game.currentIndex);
+  const currentAttemptNumRef = useRef(game.currentAttempt);
+  useEffect(() => { currentPuzzleRef.current = game.currentPuzzle; }, [game.currentPuzzle]);
+  useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
+  useEffect(() => { currentAttemptNumRef.current = game.currentAttempt; }, [game.currentAttempt]);
+
+  // Speech result callback
   const handleSpeechResult = useCallback((result: string) => {
     console.log('[TwoClues] Speech result:', result);
     logBrowserTranscript(result);
   }, [logBrowserTranscript]);
 
+  // Use PATIENT MODE: unlimited restarts, no auto-end on silence
   const {
     transcript,
     isListening: speechIsListening,
     startListening,
     stopListening,
     isSupported,
-   } = useSpeechRecognition(handleSpeechResult, false, true);
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    autoStart: false,
+    continuousListening: true,
+    patientMode: true, // Unlimited restarts, no restart cap
+  });
 
-  // Keep refs updated for cleanup
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
 
-  // Sync local isListening state with hook's state
   useEffect(() => {
     setIsListening(speechIsListening);
   }, [speechIsListening]);
 
-  // ── Processing guard failsafe ──────────────────────────────────────
-  // If processingRef has been true for > 10s, something went wrong — auto-reset
+  // ── Processing guard failsafe (10s auto-reset) ────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       if (processingRef.current && processingSetAtRef.current > 0) {
@@ -217,8 +218,7 @@ export function TwoCluesGame({
     return () => clearInterval(interval);
   }, []);
 
-  // ── Thinking hint timer ──────────────────────────────────────────
-  // Show gentle coaching hint after 10s of listening with no content
+  // ── Thinking hint (10s with no content) ────────────────────────────
   useEffect(() => {
     if (thinkingHintTimeoutRef.current) clearTimeout(thinkingHintTimeoutRef.current);
     
@@ -236,17 +236,14 @@ export function TwoCluesGame({
     };
   }, [isListening, showFeedback, isProcessing, filteredDisplay]);
 
-  // Helper: set processing with timestamp for failsafe
   const setProcessingGuard = useCallback((value: boolean) => {
     processingRef.current = value;
     processingSetAtRef.current = value ? Date.now() : 0;
   }, []);
 
-  // Helper: begin new attempt with audio recording
   const beginAttempt = useCallback((attemptNumber: number = 1) => {
-    if (!sessionId || !userId || !game.currentPuzzle) return;
+    if (!sessionId || !userId || !currentPuzzleRef.current) return;
     
-    // Clear pending debounce
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     lastScoredCandidateRef.current = '';
     rawTranscriptRef.current = '';
@@ -255,27 +252,24 @@ export function TwoCluesGame({
     setScoringPhase('idle');
     setProcessingGuard(false);
     
-    // Start utterance tracking
-    const targetWord = game.currentPuzzle.anchors[0] || 'unknown';
+    const targetWord = currentPuzzleRef.current.anchors[0] || 'unknown';
     startAttempt({
       sessionId,
       userId,
       exerciseSlug: 'two_clues',
-      trialIndex: game.currentIndex,
+      trialIndex: currentIndexRef.current,
       attemptNumber,
       targetWord,
-      category: game.currentPuzzle.category,
+      category: currentPuzzleRef.current.category,
     });
     
-    // Start listening + recording
     setIsListening(true);
     startListening();
     if (isRecordingSupported) {
       startRecording();
     }
-  }, [sessionId, userId, game.currentPuzzle, game.currentIndex, startAttempt, startListening, isRecordingSupported, startRecording, setProcessingGuard]);
+  }, [sessionId, userId, startAttempt, startListening, isRecordingSupported, startRecording, setProcessingGuard]);
 
-  // Centralized terminal logging helper
   const finalizeAttempt = useCallback(async (
     errorType: 'cancelled' | 'skipped' | 'abandoned',
     extra?: Record<string, any>
@@ -301,7 +295,6 @@ export function TwoCluesGame({
 
   useEffect(() => { finalizeAttemptRef.current = finalizeAttempt; }, [finalizeAttempt]);
 
-  // Helper: clear all transcript state
   const clearTranscriptState = useCallback(() => {
     setDisplayTranscript('');
     setFilteredDisplay('');
@@ -310,7 +303,7 @@ export function TwoCluesGame({
     setScoringPhase('idle');
   }, []);
 
-  // Start round timer and auto-start listening when puzzle changes
+  // Auto-start listening when puzzle changes
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
@@ -334,78 +327,84 @@ export function TwoCluesGame({
 
   // Update display transcript with clue-word filtering
   useEffect(() => {
-    if (transcript && game.currentPuzzle) {
+    if (transcript && currentPuzzleRef.current) {
       setDisplayTranscript(transcript);
       rawTranscriptRef.current = transcript;
       
-      // Show the filtered version (clue words removed)
-      const withoutClues = removeClueWords(transcript, game.currentPuzzle.clues);
+      const withoutClues = removeClueWords(transcript, currentPuzzleRef.current.clues);
       const answer = extractAnswerFromTranscript(withoutClues);
       setFilteredDisplay(answer);
     }
-  }, [transcript, game.currentPuzzle]);
+  }, [transcript]);
 
   // ==========================================================================
-  // CRITICAL: Debounced scoring with clue-word filtering + processing guard
+  // CRITICAL: Debounced scoring pipeline
+  // Uses currentPuzzleRef for stability — does NOT depend on `game` object
   // ==========================================================================
   useEffect(() => {
-    if (!transcript || !game.currentPuzzle) return;
+    const puzzle = currentPuzzleRef.current;
+    if (!transcript || !puzzle) return;
     
     // Step 1: Remove clue words from transcript
-    const withoutClues = removeClueWords(transcript, game.currentPuzzle.clues);
+    const withoutClues = removeClueWords(transcript, puzzle.clues);
     
     // Step 2: Extract answer candidate
     const candidate = extractAnswerFromTranscript(withoutClues);
     
-    // Guard: same candidate as last scored — don't re-score
+    // Guard: same candidate as last scored
     if (candidate === lastScoredCandidateRef.current && candidate.length > 0) return;
     
-    // Clear existing timeout
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
-    // Debounce: wait 1500ms of stable candidate before scoring
     debounceTimeoutRef.current = setTimeout(async () => {
+      // Re-read refs inside timeout (may have changed during debounce)
+      const currentPuzzle = currentPuzzleRef.current;
+      if (!currentPuzzle) return;
+      
       // GUARD 1: Already processing or showing feedback
-      if (processingRef.current || showFeedback) {
-        console.log('[TwoClues] Skipping score - already processing or feedback showing');
+      if (processingRef.current) {
+        console.log('[TwoClues] Skipping score - already processing');
         return;
       }
       
-      // GUARD 2: Filler-only or too short after clue removal
+      // GUARD 2: Filler-only or too short
       if (isMostlyFiller(withoutClues) || candidate.length < 2) {
-        console.log('[TwoClues] Skipping score - filler/clue-only or too short:', JSON.stringify(candidate));
+        console.log('[TwoClues] Skipping score - filler/clue-only:', JSON.stringify(candidate));
         return;
       }
       
-      // GUARD 3: Cooldown — don't re-score too soon after last score
+      // GUARD 3: Cooldown
       const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
       if (timeSinceLastScore < SCORING_COOLDOWN_MS && lastScoredCandidateRef.current) {
-        console.log('[TwoClues] Skipping score - in cooldown period');
+        console.log('[TwoClues] Skipping score - in cooldown');
         return;
       }
       
-      // CRITICAL: Set processing flag BEFORE any async work
+      // Lock processing
       setProcessingGuard(true);
       setIsProcessing(true);
       setScoringPhase('checking');
       
       const rawTranscript = rawTranscriptRef.current;
-      const puzzle = game.currentPuzzle!;
+      
+      // Local flag: should we keep processingRef locked after try/finally?
+      // (for creative/uncertain where user must click Try Again / Continue)
+      let shouldHoldProcessing = false;
       
       try {
-        // STEP 1: Quick local match (instant, no API call)
+        // Quick local match first (instant)
         const quickMatch = quickLocalMatch(
           candidate,
-          puzzle.anchors,
-          puzzle.cluster,
-          puzzle.anchorAliases,
-          puzzle.clusterAliases
+          currentPuzzle.anchors,
+          currentPuzzle.cluster,
+          currentPuzzle.anchorAliases,
+          currentPuzzle.clusterAliases
         );
         
-        let result;
+        let result: ScoringResult;
         
         if (quickMatch) {
-          console.log('[TwoClues] Quick match found:', quickMatch);
+          console.log('[TwoClues] Quick match:', quickMatch);
           result = {
             tier: quickMatch.tier,
             score: quickMatch.tier === 'strong' ? 100 : 75,
@@ -415,21 +414,19 @@ export function TwoCluesGame({
             reasoning: quickMatch.tier === 'strong' ? 'Perfect match!' : 'Great related word!',
           };
         } else {
-          // STEP 2: Async semantic scoring (now works — uses supabase client)
-          console.log('[TwoClues] No quick match, calling semantic scorer for:', candidate);
+          console.log('[TwoClues] Semantic scoring for:', candidate);
           setScoringPhase('scoring');
-          result = await scoreAnswer(candidate, puzzle);
+          result = await scoreAnswer(candidate, currentPuzzle);
         }
         
-        // Mark what we scored and when
+        // Mark scored
         lastScoredCandidateRef.current = candidate;
         lastScoredAtRef.current = Date.now();
         
-        // Stop listening and recording AFTER scoring completes
+        // Stop mic + recording
         stopListening();
         setIsListening(false);
         
-        // Stop recording and upload
         let recordingDurationMs: number | undefined;
         let audioStoragePath: string | undefined;
         if (isRecording) {
@@ -440,32 +437,29 @@ export function TwoCluesGame({
               recordingResult.audioBlob,
               userId,
               sessionId,
-              game.currentIndex + 1,
+              currentIndexRef.current + 1,
               recordingResult.mimeType
             );
-            if (uploadedPath) {
-              audioStoragePath = uploadedPath;
-            }
+            if (uploadedPath) audioStoragePath = uploadedPath;
           }
         }
         
-        // Submit to game state
-        await game.submitAnswer(candidate);
+        // Pass pre-computed result to game state (NO re-scoring)
+        game.submitAnswer(candidate, result);
         
-        // Update adaptive difficulty
+        // Adaptive difficulty
         const isSuccess = result.tier === 'strong' || result.tier === 'related';
         updateTrial(isSuccess);
         checkAndAdjust();
         
-        // Log utterance analysis
+        // Log utterance
         if (sessionId && currentAttemptId) {
-          const isCorrect = result.tier === 'strong' || result.tier === 'related';
           const contentWordCount = getContentWordCount(rawTranscript);
           
           await logFinalAnalysis({
             transcript: rawTranscript,
             transcriptSource: 'browser',
-            isCorrect,
+            isCorrect: isSuccess,
             errorType: result.tier === 'uncertain' ? 'no_match' : 
                        result.tier === 'creative' ? 'creative_link' : 
                        result.tier === 'related' ? 'semantic_paraphasia' : undefined,
@@ -474,14 +468,14 @@ export function TwoCluesGame({
             audioStoragePath,
             reasoning: JSON.stringify({
               rawTranscript,
-              cluesFiltered: game.currentPuzzle?.clues,
+              cluesFiltered: currentPuzzle.clues,
               afterClueRemoval: withoutClues,
               cleanedAnswer: candidate,
               matchedWord: result.matchedWord,
               tier: result.tier,
               score: result.score,
               reachedAnchor: result.reachedAnchor,
-              puzzleId: puzzle.id,
+              puzzleId: currentPuzzle.id,
               contentWordCount,
             }),
             cueTypeGiven: 'none',
@@ -496,8 +490,9 @@ export function TwoCluesGame({
         setShowFeedback(true);
         clearTranscriptState();
 
-        // Auto-advance for strong/related matches
         if (result.tier === 'strong' || result.tier === 'related') {
+          // Auto-advance — processing guard released in timeout
+          shouldHoldProcessing = true;
           setTimeout(() => {
             if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
             setShowFeedback(false);
@@ -505,25 +500,24 @@ export function TwoCluesGame({
             setProcessingGuard(false);
             game.nextRound();
           }, AUTO_ADVANCE_DELAY_MS);
+        } else {
+          // Creative/uncertain — user clicks Try Again / Continue
+          // Don't hold processing; use showFeedback + button gating for UX
+          shouldHoldProcessing = false;
         }
-        // Creative/uncertain: processing guard stays until user clicks Try Again/Continue
       } catch (error) {
         console.error('[TwoClues] Scoring error:', error);
+        shouldHoldProcessing = false;
       } finally {
-        // Always reset UI processing state (but NOT processingRef for auto-advance path)
         setIsProcessing(false);
         setScoringPhase('idle');
-        // For creative/uncertain, we need processingRef to stay true until user acts
-        // For strong/related, it's reset in the setTimeout above
-        // For errors, reset it now
-        if (!showFeedback) {
+        if (!shouldHoldProcessing) {
           setProcessingGuard(false);
         }
       }
     }, SCORING_DEBOUNCE_MS);
-  }, [transcript, game, stopListening, showFeedback, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, updateTrial, checkAndAdjust, setProcessingGuard]);
+  }, [transcript, stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, updateTrial, checkAndAdjust, setProcessingGuard, game]);
 
-  // Toggle microphone
   const handleToggleMic = useCallback(async () => {
     if (isListening) {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
@@ -533,29 +527,25 @@ export function TwoCluesGame({
       clearTranscriptState();
       await finalizeAttempt('cancelled');
     } else {
-      beginAttempt((game.currentAttempt || 0) + 1);
+      beginAttempt((currentAttemptNumRef.current || 0) + 1);
     }
-  }, [isListening, stopListening, cancelRecording, clearTranscriptState, finalizeAttempt, beginAttempt, game.currentAttempt]);
+  }, [isListening, stopListening, cancelRecording, clearTranscriptState, finalizeAttempt, beginAttempt]);
 
-  // Read clues aloud
   const handleReadClues = useCallback(() => {
-    if (game.currentPuzzle) {
-      const clueText = game.currentPuzzle.clues.join(' and ');
-      speak(clueText);
+    if (currentPuzzleRef.current) {
+      speak(currentPuzzleRef.current.clues.join(' and '));
     }
-  }, [game.currentPuzzle, speak]);
+  }, [speak]);
 
-  // Try again after uncertain/creative
   const handleTryAgain = useCallback(() => {
     setShowFeedback(false);
-    setProcessingGuard(false); // Reset processing guard
+    setProcessingGuard(false);
     resetAttempt();
     setTimeout(() => {
-      beginAttempt((game.currentAttempt || 0) + 1);
+      beginAttempt((currentAttemptNumRef.current || 0) + 1);
     }, 100);
-  }, [resetAttempt, beginAttempt, game.currentAttempt, setProcessingGuard]);
+  }, [resetAttempt, beginAttempt, setProcessingGuard]);
 
-  // Skip to next
   const handleSkip = useCallback(async () => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     cancelRecording();
@@ -568,7 +558,6 @@ export function TwoCluesGame({
     game.skipRound();
   }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
 
-  // Continue to next after feedback
   const handleContinue = useCallback(() => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     clearTranscriptState();
@@ -578,14 +567,14 @@ export function TwoCluesGame({
     game.nextRound();
   }, [game, resetAttempt, clearTranscriptState, setProcessingGuard]);
 
-  // Game complete screen
+  // ── Render ─────────────────────────────────────────────────────────
+
   if (game.isComplete) {
     return (
       <Card className="max-w-md mx-auto">
         <CardContent className="p-6 text-center space-y-4">
           <div className="text-4xl">🎉</div>
           <h2 className="text-2xl font-bold">Great Work!</h2>
-          
           <div className="space-y-2 text-sm">
             <p className="text-lg font-semibold">
               Total Score: {game.totalScore} points
@@ -602,7 +591,6 @@ export function TwoCluesGame({
               </Badge>
             </div>
           </div>
-
           <Button onClick={game.resetGame} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             Play Again
@@ -624,6 +612,49 @@ export function TwoCluesGame({
     );
   }
 
+  // Build token-level display: dim clue tokens, bold answer candidate
+  const renderTranscriptTokens = () => {
+    if (!displayTranscript || !currentPuzzle) return null;
+    
+    const clueSet = new Set<string>();
+    for (const clue of currentPuzzle.clues) {
+      for (const token of clue.toLowerCase().split(/\s+/)) {
+        const clean = token.replace(/[^a-z']/g, '');
+        if (clean.length >= 2) {
+          clueSet.add(clean);
+          clueSet.add(clean + 's');
+          if (clean.endsWith('s') && clean.length > 2) clueSet.add(clean.slice(0, -1));
+        }
+      }
+    }
+    
+    const FILLER_SET = new Set(['um', 'uh', 'umm', 'uhh', 'er', 'erm', 'ah', 'hmm', 'mm', 'like', 'well', 'so', 'okay', 'ok']);
+    
+    const tokens = displayTranscript.split(/\s+/);
+    return (
+      <span>
+        {tokens.map((token, i) => {
+          const clean = token.toLowerCase().replace(/[^a-z']/g, '');
+          const isClue = clueSet.has(clean);
+          const isFiller = FILLER_SET.has(clean);
+          
+          return (
+            <span key={i}>
+              {i > 0 && ' '}
+              <span className={cn(
+                isClue && 'text-muted-foreground/50 line-through',
+                isFiller && 'text-muted-foreground/40 italic',
+                !isClue && !isFiller && 'font-semibold text-foreground'
+              )}>
+                {token}
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    );
+  };
+
   return (
     <Card className="max-w-md mx-auto">
       <CardContent className="p-6 space-y-6">
@@ -637,13 +668,11 @@ export function TwoCluesGame({
           </Badge>
         </div>
 
-        {/* Progress bar */}
         <Progress value={progress} className="h-2" />
 
         {/* Clue words */}
         <div className="text-center space-y-4">
           <p className="text-sm text-muted-foreground">What word connects these clues?</p>
-          
           <div className="flex justify-center gap-3 flex-wrap">
             {currentPuzzle.clues.map((clue, i) => (
               <div
@@ -654,8 +683,6 @@ export function TwoCluesGame({
               </div>
             ))}
           </div>
-
-          {/* Read aloud button */}
           <Button
             variant="ghost"
             size="sm"
@@ -667,7 +694,7 @@ export function TwoCluesGame({
           </Button>
         </div>
 
-        {/* Transcript display - show during listening OR processing */}
+        {/* Transcript display */}
         {(isListening || speechIsListening || scoringPhase !== 'idle') && (
           <div className="text-center p-4 bg-muted/50 rounded-lg min-h-[60px] flex flex-col items-center justify-center gap-2">
             {scoringPhase === 'checking' ? (
@@ -685,11 +712,12 @@ export function TwoCluesGame({
                 <p className="text-lg">
                   {displayTranscript ? (
                     <>
-                      {/* Show raw transcript dimmed, answer candidate bold */}
-                      <span className="text-muted-foreground text-sm">Heard: "{displayTranscript}"</span>
-                      {filteredDisplay && filteredDisplay !== displayTranscript && (
-                        <span className="block mt-1 font-semibold text-foreground">
-                          → {filteredDisplay}
+                      <span className="text-sm">Heard: "</span>
+                      {renderTranscriptTokens()}
+                      <span className="text-sm">"</span>
+                      {filteredDisplay && (
+                        <span className="block mt-1 text-sm text-muted-foreground">
+                          Answer: <span className="font-bold text-foreground">{filteredDisplay}</span>
                         </span>
                       )}
                     </>
@@ -697,7 +725,6 @@ export function TwoCluesGame({
                     <span className="text-muted-foreground animate-pulse">Listening...</span>
                   )}
                 </p>
-                {/* Thinking hint after 10s of no answer */}
                 {showThinkingHint && !filteredDisplay && (
                   <p className="text-sm text-muted-foreground italic animate-in fade-in duration-500">
                     Take your time. What connects these clues?
@@ -708,7 +735,7 @@ export function TwoCluesGame({
           </div>
         )}
 
-        {/* Feedback display */}
+        {/* Feedback */}
         {showFeedback && lastResult && (
           <div className={cn(
             "p-4 rounded-lg text-center space-y-3",
@@ -722,10 +749,7 @@ export function TwoCluesGame({
                  lastResult.tier === 'creative' ? 'Interesting!' : 'Let me help...'}
               </span>
             </div>
-            
             <p className="text-sm">{feedbackMessage}</p>
-
-            {/* Action buttons based on tier */}
             <div className="flex justify-center gap-2 pt-2">
               {(lastResult.tier === 'creative' || lastResult.tier === 'uncertain') && (
                 <>
@@ -755,16 +779,9 @@ export function TwoCluesGame({
                 )}
               >
                 {isListening ? (
-                  <>
-                    <MicOff className="h-5 w-5" />
-                    Stop
-                  </>
+                  <><MicOff className="h-5 w-5" /> Stop</>
                 ) : (
-                  <>
-                    <Mic className="h-5 w-5" />
-                    {/* Recovery: if not listening and not processing, show "Tap to speak" */}
-                    Speak
-                  </>
+                  <><Mic className="h-5 w-5" /> Speak</>
                 )}
               </Button>
             ) : (
@@ -772,7 +789,6 @@ export function TwoCluesGame({
                 Speech recognition not supported in this browser
               </p>
             )}
-
             <Button
               variant="outline"
               size="lg"
@@ -784,13 +800,13 @@ export function TwoCluesGame({
           </div>
         )}
 
-        {/* Mic recovery button - shown if not listening, not processing, not showing feedback */}
-        {!isListening && !isProcessing && !showFeedback && !speechIsListening && displayTranscript === '' && isSupported && (
+        {/* Mic recovery button */}
+        {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && (
           <div className="text-center">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => beginAttempt((game.currentAttempt || 0) + 1)}
+              onClick={() => beginAttempt((currentAttemptNumRef.current || 0) + 1)}
               className="text-muted-foreground gap-2"
             >
               <Mic className="h-4 w-4" />
@@ -799,7 +815,6 @@ export function TwoCluesGame({
           </div>
         )}
 
-        {/* Unique answers bonus indicator */}
         {game.uniqueAnswersThisRound.size >= 3 && !showFeedback && (
           <div className="text-center">
             <Badge className="bg-primary text-primary-foreground">
