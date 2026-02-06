@@ -432,10 +432,13 @@ export function TwoCluesGame({
             resetAttempt();
             processingRef.current = false;
             game.nextRound();
+            // beginAttempt will be triggered by the puzzle change effect
           }, 2000);
         } else {
-          // Creative/uncertain - user decides
-          processingRef.current = false;
+          // Creative/uncertain - user decides, reset processing but keep feedback showing
+          setIsProcessing(false);
+          setScoringPhase('idle');
+          // DON'T reset processingRef here - let handleTryAgain/handleContinue do it
         }
       } catch (error) {
         console.error('[TwoClues] Scoring error:', error);
@@ -478,9 +481,12 @@ export function TwoCluesGame({
   // Try again after uncertain/creative
   const handleTryAgain = useCallback(() => {
     setShowFeedback(false);
+    processingRef.current = false; // Reset processing guard
     resetAttempt();
-    // Use centralized beginAttempt
-    beginAttempt((game.currentAttempt || 0) + 1);
+    // Slight delay to ensure state updates, then restart listening
+    setTimeout(() => {
+      beginAttempt((game.currentAttempt || 0) + 1);
+    }, 100);
   }, [resetAttempt, beginAttempt, game.currentAttempt]);
 
   // Skip to next
@@ -510,8 +516,10 @@ export function TwoCluesGame({
     lastTranscriptRef.current = '';
     rawTranscriptRef.current = '';
     setShowFeedback(false);
+    processingRef.current = false; // Reset processing guard
     resetAttempt();
     game.nextRound();
+    // beginAttempt will be triggered by the puzzle change effect
   }, [game, resetAttempt]);
 
   // Game complete screen
