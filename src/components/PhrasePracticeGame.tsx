@@ -384,6 +384,7 @@ export const PhrasePracticeGame = ({
         // Stop recording and upload audio
         let uploadedPath: string | undefined;
         let duration: number | undefined;
+        let pronunciationData: any = null;
         
         if (isRecording && user && activeSessionId) {
           const recordingResult = await stopRecording();
@@ -391,6 +392,7 @@ export const PhrasePracticeGame = ({
             duration = recordingResult.duration;
             
             // Run upload and Azure pronunciation in parallel
+            // referenceText = full target phrase (not a single word)
             const [path, pronResult] = await Promise.all([
               uploadRecording(
                 recordingResult.audioBlob,
@@ -399,7 +401,7 @@ export const PhrasePracticeGame = ({
                 trialIdx + 1,
                 recordingResult.mimeType
               ),
-              analyzePronunciation(recordingResult.audioBlob, trialData.phrase).catch(err => {
+              analyzePronunciation(recordingResult.audioBlob, trialData.phrase).catch((err: any) => {
                 console.warn('[PhrasePractice] Pronunciation analysis failed (non-blocking):', err);
                 return null;
               }),
@@ -407,6 +409,7 @@ export const PhrasePracticeGame = ({
             
             if (path) uploadedPath = path;
             if (pronResult?.ok) {
+              pronunciationData = pronResult.data;
               console.log('[PhrasePractice] Pronunciation scores:', {
                 pronunciation: pronResult.data.pronunciationScore,
                 accuracy: pronResult.data.accuracyScore,
@@ -473,6 +476,7 @@ export const PhrasePracticeGame = ({
         });
 
         // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
+        // Include gopData + alignmentData for word/phoneme-level analysis
         logFinalAnalysis({
           transcript: spokenTranscript,
           transcriptSource: 'browser',
@@ -484,6 +488,16 @@ export const PhrasePracticeGame = ({
           reasoning: `Phrase match: ${Math.round(wordAccuracy * 100)}% word accuracy`,
           audioStoragePath: uploadedPath,
           recordingDurationMs: duration,
+          // Azure pronunciation metrics + full gopData
+          ...(pronunciationData ? {
+            pronunciationScore: pronunciationData.pronunciationScore,
+            accuracyScore: pronunciationData.accuracyScore,
+            fluencyScore: pronunciationData.fluencyScore,
+            completenessScore: pronunciationData.completenessScore,
+            prosodyScore: pronunciationData.prosodyScore,
+            gopData: pronunciationData,
+            alignmentData: pronunciationData.alignmentData,
+          } : {}),
         });
       } catch (err) {
         console.error('Background analysis error:', err);
@@ -523,6 +537,7 @@ export const PhrasePracticeGame = ({
         // Stop recording and upload audio
         let uploadedPath: string | undefined;
         let duration: number | undefined;
+        let pronunciationData: any = null;
         
         if (isRecording && user && activeSessionId) {
           const recordingResult = await stopRecording();
@@ -541,6 +556,7 @@ export const PhrasePracticeGame = ({
             ]);
             
             if (path) uploadedPath = path;
+            if (pronResult?.ok) pronunciationData = pronResult.data;
           }
         }
         
@@ -552,6 +568,15 @@ export const PhrasePracticeGame = ({
           errorType: 'incorrect',
           audioStoragePath: uploadedPath,
           recordingDurationMs: duration,
+          ...(pronunciationData ? {
+            pronunciationScore: pronunciationData.pronunciationScore,
+            accuracyScore: pronunciationData.accuracyScore,
+            fluencyScore: pronunciationData.fluencyScore,
+            completenessScore: pronunciationData.completenessScore,
+            prosodyScore: pronunciationData.prosodyScore,
+            gopData: pronunciationData,
+            alignmentData: pronunciationData.alignmentData,
+          } : {}),
         });
       } catch (err) {
         console.error('Background analysis error:', err);
