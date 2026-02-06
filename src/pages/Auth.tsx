@@ -98,55 +98,6 @@ const Auth = () => {
     setSubmitting(false);
   };
 
-  const handleAdminLogin = async () => {
-    setSubmitting(true);
-    const adminEmail = "demo.admin@gmail.com";
-    const adminPassword = "Tomford8*";
-
-    try {
-      // Try to sign in first
-      let { error: signInError } = await signIn(adminEmail, adminPassword);
-
-      // If user doesn't exist, sign up
-      if (signInError?.message.includes("Invalid login credentials")) {
-        const { error: signUpError } = await signUp(adminEmail, adminPassword, "Admin");
-        if (signUpError) throw signUpError;
-        
-        // Wait a moment for the user to be created
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Set up admin role using the database function
-        const { error: roleError } = await supabase.rpc('setup_admin_user', {
-          admin_email: adminEmail
-        });
-        
-        if (roleError) {
-          console.error("Role setup error:", roleError);
-        }
-      } else if (signInError) {
-        throw signInError;
-      }
-
-      toast({
-        title: "Demo admin access ready!",
-        description: "Logged in as demo.admin@gmail.com"
-      });
-      
-      // Wait for auth state to update, then navigate
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 500);
-    } catch (error: any) {
-      console.error("Admin login error:", error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
@@ -231,14 +182,6 @@ const Auth = () => {
           Start Without Account
         </Button>
 
-        <Button 
-          variant="secondary" 
-          className="w-full"
-          onClick={handleAdminLogin}
-          disabled={submitting || loading}
-        >
-          🔑 Admin Login (Test)
-        </Button>
 
         <p className="text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
