@@ -521,6 +521,7 @@ export const PhrasePracticeGame = ({
     processingResultRef.current = true;
     
     const trialIdx = currentTrialIndex;
+    const capturedPhrase = currentTrial?.phrase || '';
     
     // ===== INSTANT FEEDBACK (< 100ms) =====
     playError();
@@ -552,7 +553,7 @@ export const PhrasePracticeGame = ({
                 trialIdx + 1,
                 recordingResult.mimeType
               ),
-              analyzePronunciation(recordingResult.audioBlob, currentTrial?.phrase || '').catch(() => null),
+              analyzePronunciation(recordingResult.audioBlob, capturedPhrase).catch(() => null),
             ]);
             
             if (path) uploadedPath = path;
