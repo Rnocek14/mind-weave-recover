@@ -59,7 +59,9 @@ export function getCapabilityDifficultyBounds(
     exerciseId.includes('naming') ||
     exerciseId.includes('semantic') ||
     exerciseId.includes('sentence') ||
-    exerciseId.includes('phrase');
+    exerciseId.includes('phrase') ||
+    exerciseId.includes('describe') ||
+    exerciseId.includes('fix_sentence');
 
   if (isLanguageHeavy && attention < 5) {
     ceiling = Math.min(ceiling, 5);
