@@ -136,6 +136,43 @@ export const isMostlyFiller = (raw: string): boolean => {
 };
 
 /**
+ * Remove clue/stimulus words from a transcript before scoring.
+ * Token-aware: tokenizes, normalizes, and removes exact matches only.
+ * Protects multi-word candidates (e.g., "hot dog" won't be mangled if clue is "hot")
+ * by only stripping tokens that appear ALONE (not part of a compound answer).
+ * Also handles basic morphological variants: plural -s/-es, -ing, -ed.
+ */
+export const removeClueWords = (transcript: string, clueWords: string[]): string => {
+  if (!transcript || clueWords.length === 0) return transcript;
+
+  // Build a set of clue variants (lowercase)
+  const clueSet = new Set<string>();
+  for (const clue of clueWords) {
+    const lower = clue.toLowerCase().trim();
+    if (!lower) continue;
+    clueSet.add(lower);
+    // Add morphological variants
+    clueSet.add(lower + 's');
+    clueSet.add(lower + 'es');
+    clueSet.add(lower + 'ing');
+    clueSet.add(lower + 'ed');
+    // Handle "flies" -> "fly" style (remove trailing -ies, add -y)
+    if (lower.endsWith('s')) clueSet.add(lower.slice(0, -1));
+    if (lower.endsWith('es')) clueSet.add(lower.slice(0, -2));
+    if (lower.endsWith('ies')) clueSet.add(lower.slice(0, -3) + 'y');
+    if (lower.endsWith('ing')) clueSet.add(lower.slice(0, -3));
+  }
+
+  const tokens = transcript.toLowerCase().split(/\s+/);
+  const cleaned = tokens.filter(token => {
+    const normalized = token.replace(/[^\w]/g, '');
+    return normalized.length > 0 && !clueSet.has(normalized);
+  });
+
+  return cleaned.join(' ').trim();
+};
+
+/**
  * Common homophones map - words that sound identical but are spelled differently
  * Maps each variant to all its homophones (including itself)
  */

@@ -3,6 +3,8 @@
  * Computes cosine similarity between word/phrase embeddings
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 interface EmbeddingCache {
   [key: string]: number[];
 }
@@ -11,7 +13,8 @@ interface EmbeddingCache {
 const embeddingCache: EmbeddingCache = {};
 
 /**
- * Get embedding vector for a text using OpenAI embeddings API
+ * Get embedding vector for a text using Supabase edge function
+ * Uses the supabase client (correct URL + anon key) instead of broken env vars
  */
 async function getEmbedding(text: string): Promise<number[] | null> {
   const normalized = text.toLowerCase().trim();
@@ -22,23 +25,17 @@ async function getEmbedding(text: string): Promise<number[] | null> {
   }
 
   try {
-    // Use Supabase edge function to get embedding (keeps API key secure)
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-embedding`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({ text: normalized }),
+    const { data, error } = await supabase.functions.invoke('get-embedding', {
+      body: { text: normalized },
     });
 
-    if (!response.ok) {
-      console.error('Embedding API error:', response.status);
+    if (error) {
+      console.error('Embedding API error:', error);
       return null;
     }
 
-    const data = await response.json();
-    const embedding = data.embedding;
+    const embedding = data?.embedding;
+    if (!embedding) return null;
 
     // Cache for future use
     embeddingCache[normalized] = embedding;
