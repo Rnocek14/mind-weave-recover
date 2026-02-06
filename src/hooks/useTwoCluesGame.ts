@@ -156,11 +156,14 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       };
     });
 
-    // Fire callback outside setState (safe from Strict Mode double-invoke)
-    if (pendingTrialRef.current) {
-      onTrialComplete?.(pendingTrialRef.current);
-      pendingTrialRef.current = null;
-    }
+    // Fire callback on microtask queue so setState updater has definitely run
+    queueMicrotask(() => {
+      const pending = pendingTrialRef.current;
+      if (pending) {
+        onTrialComplete?.(pending);
+        pendingTrialRef.current = null;
+      }
+    });
 
     return result;
   }, [playSuccess, playError, onTrialComplete]);
