@@ -122,6 +122,7 @@ export function TwoCluesGame({
   const processingSetAtRef = useRef<number>(0);
   const lastScoredAtRef = useRef<number>(0);
   const thinkingHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const attemptStartTimeRef = useRef<number>(Date.now());
   
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
@@ -269,6 +270,7 @@ export function TwoCluesGame({
     setFilteredDisplay('');
     setScoringPhase('idle');
     setProcessingGuard(false);
+    attemptStartTimeRef.current = Date.now();
     
     const targetWord = currentPuzzleRef.current.anchors[0] || 'unknown';
     startAttempt({
@@ -463,7 +465,7 @@ export function TwoCluesGame({
                 currentIndexRef.current + 1,
                 recordingResult.mimeType
               ),
-              analyzePronunciation(recordingResult.audioBlob, candidate).catch(err => {
+              analyzePronunciation(recordingResult.audioBlob, result.matchedWord || candidate).catch(err => {
                 console.warn('[TwoClues] Pronunciation analysis failed (non-blocking):', err);
                 return null;
               }),
@@ -488,12 +490,12 @@ export function TwoCluesGame({
         const isSuccess = result.tier === 'strong' || result.tier === 'related';
         recordAdaptiveTrial({
           correct: isSuccess,
-          reactionTimeMs: Date.now() - (lastScoredAtRef.current || Date.now()),
+          reactionTimeMs: Date.now() - attemptStartTimeRef.current,
           errorType: result.tier === 'uncertain' ? 'no_match' : 
                      result.tier === 'creative' ? 'creative_link' : undefined,
         });
         
-        // Log utterance with pronunciation data
+        // Log utterance with pronunciation data (including gopData for word/phoneme-level analysis)
         if (sessionId && currentAttemptId) {
           const contentWordCount = getContentWordCount(rawTranscript);
           
@@ -507,13 +509,15 @@ export function TwoCluesGame({
             semanticSimilarity: result.semanticSimilarity ?? undefined,
             recordingDurationMs,
             audioStoragePath,
-            // Azure pronunciation metrics
+            // Azure pronunciation metrics (individual scores + full gopData for word-level detail)
             ...(pronunciationData ? {
               pronunciationScore: pronunciationData.pronunciationScore,
               accuracyScore: pronunciationData.accuracyScore,
               fluencyScore: pronunciationData.fluencyScore,
               completenessScore: pronunciationData.completenessScore,
               prosodyScore: pronunciationData.prosodyScore,
+              gopData: pronunciationData,
+              alignmentData: pronunciationData.alignmentData,
             } : {}),
             reasoning: JSON.stringify({
               rawTranscript,
