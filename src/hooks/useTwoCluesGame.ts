@@ -95,8 +95,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     }));
   }, []);
 
-  // Submit an answer and get scored
-  const submitAnswer = useCallback(async (spokenWord: string): Promise<ScoringResult> => {
+  // Submit an answer with a pre-computed scoring result (avoids double-scoring)
+  const submitAnswer = useCallback((spokenWord: string, precomputedResult?: ScoringResult): ScoringResult => {
     const { currentPuzzle, currentAttempt, uniqueAnswersThisRound } = state;
     
     if (!currentPuzzle) {
@@ -109,16 +109,21 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       };
     }
 
+    // Use pre-computed result or create a minimal fallback
+    const result: ScoringResult = precomputedResult ?? {
+      tier: 'uncertain',
+      score: 0,
+      reasoning: 'No scoring result provided',
+      reachedAnchor: false,
+      semanticSimilarity: null,
+    };
+
     // Calculate reaction time
     const reactionTimeMs = roundStartTimeRef.current
       ? Date.now() - roundStartTimeRef.current
       : 0;
 
-    // Score the answer
-    const result = await scoreAnswer(spokenWord, currentPuzzle);
-
     // Track unique answers for bonus - use matchedWord for canonical deduplication
-    // This ensures aliases ("birds") count as "bird" for uniqueness
     const canonical = (result.matchedWord ?? spokenWord).toLowerCase().trim();
     const newUniqueAnswers = new Set(uniqueAnswersThisRound);
     if (result.tier !== 'uncertain') {

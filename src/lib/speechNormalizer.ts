@@ -138,34 +138,35 @@ export const isMostlyFiller = (raw: string): boolean => {
 /**
  * Remove clue/stimulus words from a transcript before scoring.
  * Token-aware: tokenizes, normalizes, and removes exact matches only.
- * Protects multi-word candidates (e.g., "hot dog" won't be mangled if clue is "hot")
- * by only stripping tokens that appear ALONE (not part of a compound answer).
- * Also handles basic morphological variants: plural -s/-es, -ing, -ed.
+ * Handles multi-word clues by splitting into individual tokens.
+ * Only adds safe morphological variants (plural -s/-es, reverse -ies→-y).
+ * Does NOT strip -ing (would mangle "ring" → "r").
  */
 export const removeClueWords = (transcript: string, clueWords: string[]): string => {
   if (!transcript || clueWords.length === 0) return transcript;
 
-  // Build a set of clue variants (lowercase)
+  // Build a set of clue token variants (lowercase, English-only)
   const clueSet = new Set<string>();
   for (const clue of clueWords) {
-    const lower = clue.toLowerCase().trim();
-    if (!lower) continue;
-    clueSet.add(lower);
-    // Add morphological variants
-    clueSet.add(lower + 's');
-    clueSet.add(lower + 'es');
-    clueSet.add(lower + 'ing');
-    clueSet.add(lower + 'ed');
-    // Handle "flies" -> "fly" style (remove trailing -ies, add -y)
-    if (lower.endsWith('s')) clueSet.add(lower.slice(0, -1));
-    if (lower.endsWith('es')) clueSet.add(lower.slice(0, -2));
-    if (lower.endsWith('ies')) clueSet.add(lower.slice(0, -3) + 'y');
-    if (lower.endsWith('ing')) clueSet.add(lower.slice(0, -3));
+    // Split multi-word clues ("ice cream" → ["ice", "cream"])
+    const clueTokens = clue.toLowerCase().trim().split(/\s+/);
+    for (const token of clueTokens) {
+      const clean = token.replace(/[^a-z']/g, '');
+      if (!clean || clean.length < 2) continue;
+      clueSet.add(clean);
+      // Safe plural variants only
+      clueSet.add(clean + 's');
+      clueSet.add(clean + 'es');
+      // Reverse: "flies" → also block "fly"
+      if (clean.endsWith('s') && clean.length > 2) clueSet.add(clean.slice(0, -1));
+      if (clean.endsWith('es') && clean.length > 3) clueSet.add(clean.slice(0, -2));
+      if (clean.endsWith('ies') && clean.length > 4) clueSet.add(clean.slice(0, -3) + 'y');
+    }
   }
 
   const tokens = transcript.toLowerCase().split(/\s+/);
   const cleaned = tokens.filter(token => {
-    const normalized = token.replace(/[^\w]/g, '');
+    const normalized = token.replace(/[^a-z']/g, '');
     return normalized.length > 0 && !clueSet.has(normalized);
   });
 
