@@ -631,12 +631,19 @@ export function TwoCluesGame({
       }
     }
     
-    // Build answer token set for bolding
+    // Build answer token set for bolding (with safe plural variants)
     const answerTokens = new Set<string>();
     if (filteredDisplay) {
       for (const t of filteredDisplay.toLowerCase().split(/\s+/)) {
         const c = t.replace(/[^a-z']/g, '');
-        if (c.length >= 2) answerTokens.add(c);
+        if (c.length >= 2) {
+          answerTokens.add(c);
+          answerTokens.add(c + 's');
+          const canStripS = c.length > 3 && c.endsWith('s') &&
+            !c.endsWith('ss') && !c.endsWith('us') &&
+            !c.endsWith('is') && !c.endsWith('as');
+          if (canStripS) answerTokens.add(c.slice(0, -1));
+        }
       }
     }
     
