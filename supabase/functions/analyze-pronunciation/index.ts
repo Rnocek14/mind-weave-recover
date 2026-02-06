@@ -5,15 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface NBestPhoneme {
+  phoneme: string;
+  score: number;
+}
+
+interface PronunciationPhoneme {
+  phoneme: string;
+  accuracyScore: number;
+  duration: number;
+  nbestPhonemes?: NBestPhoneme[];
+}
+
 interface PronunciationWord {
   word: string;
   accuracyScore: number;
   errorType: string;
-  phonemes: {
-    phoneme: string;
-    accuracyScore: number;
-    duration: number;
-  }[];
+  phonemes: PronunciationPhoneme[];
 }
 
 // Alignment data format compatible with micro-fluency analyzer
@@ -340,7 +348,7 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
   const phoneSegments: { phone: string; start: number; end: number }[] = [];
 
   for (const w of azureWords) {
-    const phonemes: { phoneme: string; accuracyScore: number; duration: number }[] = [];
+    const phonemes: PronunciationPhoneme[] = [];
     
     // Convert Azure timing to seconds for alignment
     const wordStart = (w.Offset || 0) / 10000000;
@@ -358,10 +366,17 @@ function parseAzureResponse(azureData: any, referenceText: string): Pronunciatio
         const phoneStart = (p.Offset || 0) / 10000000;
         const phoneEnd = phoneStart + ((p.Duration || 0) / 10000000);
         
+        // Extract NBest phoneme candidates (what was actually spoken)
+        // Azure returns these when NBestPhonemeCount > 0 in config
+        const nbestPhonemes: NBestPhoneme[] | undefined = p.NBestPhonemes?.map(
+          (nb: any) => ({ phoneme: nb.Phoneme || '', score: nb.Score ?? 0 })
+        );
+        
         phonemes.push({
           phoneme: p.Phoneme || '',
           accuracyScore: p.AccuracyScore || 0,
           duration: (p.Duration || 0) / 10000000,
+          ...(nbestPhonemes && nbestPhonemes.length > 0 ? { nbestPhonemes } : {}),
         });
         
         phoneSegments.push({

@@ -1,206 +1,78 @@
 
-# Two Clues Speech Recognition Fix
+# Azure Pronunciation Assessment — Full Clinical Data Capture
 
-## Problem Summary
+## Status
 
-The Two Clues game is not registering speech correctly. Based on the console logs, the microphone starts and **immediately stops**:
+| Phase | Description | Status |
+|-------|-------------|--------|
+| A | NBest phoneme capture + gop_data enrichment | ✅ Done |
+| B | Substitution pattern aggregation in compute-speech-profile | ⏳ Next |
+| C | Pronunciation diagnostics parity (Two Clues + Phrase Practice) | ⏳ Planned |
+| D | Prosody score surfacing | ⏳ Deferred |
 
-```
-🎤 Starting listening...
-🎤 Manually stopping listening...
-🎤 Speech recognition ended, state was: STOPPING
-```
+## Phase A — What Changed
 
-## Root Cause Analysis
+### 1. Edge Function (`analyze-pronunciation/index.ts`)
+- **NBest phoneme extraction**: Each phoneme now includes `nbestPhonemes` array (top 5 candidates Azure returns for what was actually spoken)
+- Each candidate has `{ phoneme: string, score: number }` — the `score` is Azure's confidence (0-1) that this phoneme was produced
+- Only included when Azure returns NBest data (non-empty array)
+- Word-level `errorType` (`None`/`Mispronunciation`/`Omission`/`Insertion`/`UnexpectedBreak`) was already captured
 
-I identified **3 critical bugs** in `src/components/TwoCluesGame.tsx`:
+### 2. gop_data Schema (`useUtteranceLogger.ts`)
+- Added `schemaVersion: 'azure-pa-v2'` to all new gop_data payloads
+- This distinguishes enriched payloads from legacy ones forever
+- NBest data flows through automatically since `words` array is stored verbatim from Azure response
 
-### Bug 1: Cleanup Effect Fires on Callback Changes (CRITICAL)
-
-```typescript
-// Lines 172-181 - THIS IS THE PRIMARY BUG
-useEffect(() => {
-  return () => {
-    cancelRecording();
-    stopListening();  // <-- This stops the mic!
-    void finalizeAttempt('abandoned');
-  };
-}, [cancelRecording, stopListening, finalizeAttempt]); // <-- Dependencies cause cleanup to fire!
-```
-
-When any of these callbacks (`cancelRecording`, `stopListening`, `finalizeAttempt`) are recreated during a re-render, React runs the cleanup function, which calls `stopListening()`. This causes the mic to stop immediately after starting.
-
-**PhotoNaming avoids this** by using `state.trialNumber` as the dependency (or empty array for true unmount-only cleanup), NOT callback functions.
-
-### Bug 2: Separate `isListening` State vs Hook State
-
-The component maintains its own `isListening` state:
-```typescript
-const [isListening, setIsListening] = useState(false);
-```
-
-But also gets `speechIsListening` from the hook:
-```typescript
-const { isListening: speechIsListening, ... } = useSpeechRecognition(...);
-```
-
-The UI displays based on the local `isListening` state, but the actual recognition state is `speechIsListening`. These can get out of sync.
-
-### Bug 3: Auto-Start Effect Missing `beginAttempt` Dependency
-
-```typescript
-// Lines 160-170
-useEffect(() => {
-  if (!game.currentPuzzle || game.isComplete) return;
-  game.startRound();
-  if (!showFeedback && sessionId && userId) {
-    beginAttempt(1);  // <-- Uses beginAttempt but not in deps
-  }
-}, [game.currentPuzzle?.id, showFeedback, sessionId, userId]);  // <-- Missing beginAttempt
+### Example gop_data (azure-pa-v2)
+```json
+{
+  "schemaVersion": "azure-pa-v2",
+  "source": "azure",
+  "pronunciationScore": 72,
+  "accuracyScore": 68,
+  "fluencyScore": 85,
+  "completenessScore": 100,
+  "prosodyScore": 55,
+  "words": [
+    {
+      "word": "three",
+      "accuracyScore": 68,
+      "errorType": "Mispronunciation",
+      "phonemes": [
+        {
+          "phoneme": "θ",
+          "accuracyScore": 32,
+          "duration": 0.12,
+          "nbestPhonemes": [
+            { "phoneme": "f", "score": 0.72 },
+            { "phoneme": "θ", "score": 0.18 },
+            { "phoneme": "v", "score": 0.05 }
+          ]
+        }
+      ]
+    }
+  ]
+}
 ```
 
-ESLint would flag this. When `beginAttempt` changes, the effect doesn't re-run with the fresh callback.
+## Phase B — Substitution Aggregation (Next)
 
-## Solution
+Update `compute-speech-profile` edge function to:
+1. Read `gop_data` where `schemaVersion = 'azure-pa-v2'`
+2. For each phoneme with `nbestPhonemes`, if top candidate differs from expected and confidence ≥ 0.5, count as substitution
+3. Aggregate into `common_substitutions` on `user_speech_profiles` table
+4. Aggregate word-level `errorType` distribution (% Mispronunciation, % Omission, etc.)
+5. Track prosody score average
 
-### Fix 1: Cleanup Effect - Use Refs for Unmount-Only Cleanup
+**Validation**: Run on one test user first, manually inspect before enabling globally.
 
-Store the cleanup functions in refs and use an empty dependency array for true unmount-only behavior:
+## Phase C — Diagnostics Parity
 
-```typescript
-// Store refs for cleanup
-const stopListeningRef = useRef(stopListening);
-const cancelRecordingRef = useRef(cancelRecording);
-const finalizeAttemptRef = useRef(finalizeAttempt);
+Ensure Two Clues and Phrase Practice log identical `pronunciationDiagnostics` metadata as Photo Naming:
+- `pronRequestId`, `pronunciationStatus`, `pronunciationErrorStage`
+- `pronunciationTimingsMs`, `audioMeta`
 
-// Keep refs updated
-useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
-useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-useEffect(() => { finalizeAttemptRef.current = finalizeAttempt; }, [finalizeAttempt]);
+## Phase D — Prosody Surfacing (Deferred)
 
-// True unmount cleanup - only runs when component unmounts
-useEffect(() => {
-  return () => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    cancelRecordingRef.current();
-    stopListeningRef.current();
-    void finalizeAttemptRef.current('abandoned');
-  };
-}, []); // Empty deps = unmount only
-```
-
-### Fix 2: Synchronize Listening States
-
-Use the hook's `speechIsListening` as the source of truth for display, or keep them synchronized:
-
-```typescript
-// Option A: Use hook's state directly for display
-{speechIsListening && (
-  <div className="text-center p-4 ...">
-    <p>{displayTranscript || <span>Listening...</span>}</p>
-  </div>
-)}
-
-// Option B: Keep local state synced
-useEffect(() => {
-  setIsListening(speechIsListening);
-}, [speechIsListening]);
-```
-
-### Fix 3: Add Missing Dependencies to Auto-Start Effect
-
-```typescript
-useEffect(() => {
-  if (!game.currentPuzzle || game.isComplete) return;
-  game.startRound();
-  if (!showFeedback && sessionId && userId) {
-    beginAttempt(1);
-  }
-}, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt, game.startRound]);
-```
-
-### Fix 4: Match PhotoNaming's Visual Feedback Pattern
-
-Add the same "Heard:" display that PhotoNaming uses:
-
-```typescript
-{/* Show what was heard in real-time */}
-{speechIsListening && displayTranscript && (
-  <div className="text-sm text-center p-2 bg-muted rounded">
-    Heard: "{displayTranscript}"
-  </div>
-)}
-```
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/TwoCluesGame.tsx` | Fix cleanup effect dependencies, sync listening states, add visual feedback |
-
-## Technical Details
-
-### Changes to TwoCluesGame.tsx
-
-1. **Add refs for cleanup functions** (around line 54):
-   ```typescript
-   const stopListeningRef = useRef<() => void>(() => {});
-   const cancelRecordingRef = useRef<() => void>(() => {});
-   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
-   ```
-
-2. **Add sync effects for refs** (after hook declarations):
-   ```typescript
-   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
-   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-   useEffect(() => { finalizeAttemptRef.current = finalizeAttempt; }, [finalizeAttempt]);
-   ```
-
-3. **Fix cleanup effect** (lines 172-181):
-   ```typescript
-   useEffect(() => {
-     return () => {
-       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-       cancelRecordingRef.current();
-       stopListeningRef.current();
-       void finalizeAttemptRef.current('abandoned');
-     };
-   }, []); // Empty array - unmount only
-   ```
-
-4. **Sync listening state with hook** (add new effect):
-   ```typescript
-   useEffect(() => {
-     setIsListening(speechIsListening);
-   }, [speechIsListening]);
-   ```
-
-5. **Update UI to show transcript preview** (lines 473-482):
-   ```typescript
-   {/* Transcript display - matches PhotoNaming pattern */}
-   {(isListening || speechIsListening) && (
-     <div className="text-center p-4 bg-muted/50 rounded-lg min-h-[60px] flex items-center justify-center">
-       <p className="text-lg">
-         {displayTranscript ? (
-           <>Heard: "{displayTranscript}"</>
-         ) : (
-           <span className="text-muted-foreground animate-pulse">Listening...</span>
-         )}
-       </p>
-     </div>
-   )}
-   ```
-
-6. **Add dependencies to auto-start effect** (line 170):
-   ```typescript
-   }, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt]);
-   ```
-
-## Verification Steps
-
-After implementing:
-1. Navigate to Two Clues exercise
-2. Verify microphone starts and stays active (console shows `🎤 Speech recognition started` without immediate stopping)
-3. Speak a word - verify transcript appears in the "Heard:" display
-4. Verify the spoken word is processed and scored after the 750ms debounce
-5. Verify the game shows proper feedback for matched answers
+Store prosody scores now (already done), surface trends later once real distributions are understood.
+Prosody is noisy early, varies by mic/environment, easy to misinterpret clinically.
