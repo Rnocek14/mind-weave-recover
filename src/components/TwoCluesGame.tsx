@@ -22,8 +22,10 @@ import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
-import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2 } from 'lucide-react';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
@@ -110,6 +112,7 @@ export function TwoCluesGame({
   const [filteredDisplay, setFilteredDisplay] = useState('');
   const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
   const [showThinkingHint, setShowThinkingHint] = useState(false);
+  const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScoredCandidateRef = useRef<string>('');
@@ -126,21 +129,36 @@ export function TwoCluesGame({
   
   const { speak } = useTextToSpeech();
 
+  // Capability-based difficulty bounds (null scores = safe defaults)
+  const bounds = useMemo(() => getCapabilityDifficultyBounds('two_clues', null), []);
+
+  // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
   const {
     currentDifficulty,
-    updateTrial,
-    checkAndAdjust,
-  } = useAdaptiveDifficulty({
-    initialDifficulty: 1,
-    bounds: { floor: 1, ceiling: 5, suggestedStart: 1 },
+    recordTrial: recordAdaptiveTrial,
+    frustrationLevel,
+    consecutiveErrors: adaptiveConsecutiveErrors,
+    startStallTimer,
+    clearStallTimer,
+    reset: resetAdaptation,
+  } = useInGameAdaptation({
+    exerciseSlug: 'two_clues',
+    sessionId: sessionId || null,
+    initialDifficulty: bounds.suggestedStart,
+    bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
-    adjustmentThreshold: 0.15,
-    userId,
-    profileId,
-    sessionId: sessionId || undefined,
-    exerciseSlug: 'two_clues',
+    enableDifficultyAutoStepDown: true,
+    enableDifficultyToasts: true,
+    enableAutoHints: false, // Two Clues has its own thinking hint
+    onDifficultyChange: (_level, _reason, direction) => {
+      setDifficultyChanged(direction);
+      setTimeout(() => setDifficultyChanged(null), 2500);
+    },
   });
+
+  // Azure Pronunciation Assessment (shared hook)
+  const { analyzePronunciation } = usePronunciationAnalysis();
 
   const {
     currentAttemptId,
@@ -429,30 +447,53 @@ export function TwoCluesGame({
         
         let recordingDurationMs: number | undefined;
         let audioStoragePath: string | undefined;
+        let pronunciationData: any = null;
+        
         if (isRecording) {
           const recordingResult = await stopRecording();
           if (recordingResult && sessionId && userId) {
             recordingDurationMs = recordingResult.duration;
-            const uploadedPath = await uploadRecording(
-              recordingResult.audioBlob,
-              userId,
-              sessionId,
-              currentIndexRef.current + 1,
-              recordingResult.mimeType
-            );
+            
+            // Run upload and Azure pronunciation analysis in parallel
+            const [uploadedPath, pronResult] = await Promise.all([
+              uploadRecording(
+                recordingResult.audioBlob,
+                userId,
+                sessionId,
+                currentIndexRef.current + 1,
+                recordingResult.mimeType
+              ),
+              analyzePronunciation(recordingResult.audioBlob, candidate).catch(err => {
+                console.warn('[TwoClues] Pronunciation analysis failed (non-blocking):', err);
+                return null;
+              }),
+            ]);
+            
             if (uploadedPath) audioStoragePath = uploadedPath;
+            if (pronResult?.ok) {
+              pronunciationData = pronResult.data;
+              console.log('[TwoClues] Pronunciation scores:', {
+                pronunciation: pronResult.data.pronunciationScore,
+                accuracy: pronResult.data.accuracyScore,
+                fluency: pronResult.data.fluencyScore,
+              });
+            }
           }
         }
         
         // Pass pre-computed result to game state (NO re-scoring)
         game.submitAnswer(candidate, result);
         
-        // Adaptive difficulty
+        // Layer 2 In-Game Adaptation (replaces old updateTrial + checkAndAdjust)
         const isSuccess = result.tier === 'strong' || result.tier === 'related';
-        updateTrial(isSuccess);
-        checkAndAdjust();
+        recordAdaptiveTrial({
+          correct: isSuccess,
+          reactionTimeMs: Date.now() - (lastScoredAtRef.current || Date.now()),
+          errorType: result.tier === 'uncertain' ? 'no_match' : 
+                     result.tier === 'creative' ? 'creative_link' : undefined,
+        });
         
-        // Log utterance
+        // Log utterance with pronunciation data
         if (sessionId && currentAttemptId) {
           const contentWordCount = getContentWordCount(rawTranscript);
           
@@ -466,6 +507,14 @@ export function TwoCluesGame({
             semanticSimilarity: result.semanticSimilarity ?? undefined,
             recordingDurationMs,
             audioStoragePath,
+            // Azure pronunciation metrics
+            ...(pronunciationData ? {
+              pronunciationScore: pronunciationData.pronunciationScore,
+              accuracyScore: pronunciationData.accuracyScore,
+              fluencyScore: pronunciationData.fluencyScore,
+              completenessScore: pronunciationData.completenessScore,
+              prosodyScore: pronunciationData.prosodyScore,
+            } : {}),
             reasoning: JSON.stringify({
               rawTranscript,
               cluesFiltered: currentPuzzle.clues,
@@ -477,6 +526,8 @@ export function TwoCluesGame({
               reachedAnchor: result.reachedAnchor,
               puzzleId: currentPuzzle.id,
               contentWordCount,
+              pronunciationScore: pronunciationData?.pronunciationScore,
+              accuracyScore: pronunciationData?.accuracyScore,
             }),
             cueTypeGiven: 'none',
             fluencyAvailable: !!audioStoragePath,
@@ -502,7 +553,6 @@ export function TwoCluesGame({
           }, AUTO_ADVANCE_DELAY_MS);
         } else {
           // Creative/uncertain — user clicks Try Again / Continue
-          // Don't hold processing; use showFeedback + button gating for UX
           shouldHoldProcessing = false;
         }
       } catch (error) {
@@ -516,7 +566,7 @@ export function TwoCluesGame({
         }
       }
     }, SCORING_DEBOUNCE_MS);
-  }, [transcript, stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, updateTrial, checkAndAdjust, setProcessingGuard, game]);
+  }, [transcript, stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, recordAdaptiveTrial, setProcessingGuard, game, analyzePronunciation]);
 
   const handleToggleMic = useCallback(async () => {
     if (isListening) {
