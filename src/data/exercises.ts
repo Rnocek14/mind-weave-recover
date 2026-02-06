@@ -1,6 +1,6 @@
 import {
   Camera, Hand, MessageSquare, Target,
-  Lightbulb, Volume2, List, Sparkles, MessageCircle, Link2, type LucideIcon
+  Lightbulb, Volume2, List, Sparkles, MessageCircle, Link2, Wrench, Search, type LucideIcon
 } from "lucide-react";
 
 export interface Exercise {
@@ -111,6 +111,24 @@ export const EXERCISES: Exercise[] = [
     category: "Language",
     duration: "5-8 min",
     difficulty: "Easy",
+    color: "bg-gradient-healing"
+  },
+  {
+    id: "fix-sentence",
+    title: "Fix the Sentence",
+    icon: Wrench,
+    category: "Language",
+    duration: "3-5 min",
+    difficulty: "Easy",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "describe-guess",
+    title: "Describe & Guess",
+    icon: Search,
+    category: "Speech",
+    duration: "5-8 min",
+    difficulty: "Medium",
     color: "bg-gradient-healing"
   }
 ];

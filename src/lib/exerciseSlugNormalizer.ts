@@ -11,10 +11,14 @@ export const CANONICAL_SLUGS = {
   PHOTO_NAMING: 'photo_naming',
   PHRASE_PRACTICE: 'phrase_practice',
   TWO_CLUES: 'two_clues',
+  DESCRIBE_GUESS: 'describe_guess',
   
   // Receptive/discrimination exercises (listening - no speech required)
   MINIMAL_PAIRS: 'minimal_pairs',
   SEMANTIC_FEATURES: 'semantic_features',
+  
+  // Self-monitoring exercises
+  FIX_SENTENCE: 'fix_sentence',
   
   // Motor/attention exercises
   REACH_TAP: 'reach_tap',
@@ -46,6 +50,8 @@ export const isSpeechExercise = (slug: string): boolean => {
     CANONICAL_SLUGS.PHOTO_NAMING,
     CANONICAL_SLUGS.PHRASE_PRACTICE,
     CANONICAL_SLUGS.TWO_CLUES,
+    CANONICAL_SLUGS.DESCRIBE_GUESS,
+    CANONICAL_SLUGS.FIX_SENTENCE,
   ].includes(normalized as any);
 };
 
