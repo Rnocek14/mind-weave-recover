@@ -155,11 +155,26 @@ export const removeClueWords = (transcript: string, clueWords: string[]): string
       if (!clean || clean.length < 2) continue;
       clueSet.add(clean);
       // Safe plural variants only
+      // Add -s plural only when base plausibly takes it
       clueSet.add(clean + 's');
-      clueSet.add(clean + 'es');
-      // Reverse: "flies" → also block "fly"
-      if (clean.endsWith('s') && clean.length > 2) clueSet.add(clean.slice(0, -1));
-      if (clean.endsWith('es') && clean.length > 3) clueSet.add(clean.slice(0, -2));
+      // Add -es only for words ending in s/x/z/ch/sh
+      if (/(?:s|x|z|ch|sh)$/.test(clean)) {
+        clueSet.add(clean + 'es');
+      }
+      // Reverse: strip -s to get singular, but only for safe cases
+      const canStripS =
+        clean.length > 3 &&
+        clean.endsWith('s') &&
+        !clean.endsWith('ss') &&
+        !clean.endsWith('us') &&
+        !clean.endsWith('is') &&
+        !clean.endsWith('as');
+      if (canStripS) clueSet.add(clean.slice(0, -1));
+      // Reverse -es: "boxes" → "box"
+      if (clean.endsWith('es') && clean.length > 3 && !clean.endsWith('ses')) {
+        clueSet.add(clean.slice(0, -2));
+      }
+      // Reverse -ies: "flies" → "fly"
       if (clean.endsWith('ies') && clean.length > 4) clueSet.add(clean.slice(0, -3) + 'y');
     }
   }

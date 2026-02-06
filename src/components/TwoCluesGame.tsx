@@ -623,8 +623,20 @@ export function TwoCluesGame({
         if (clean.length >= 2) {
           clueSet.add(clean);
           clueSet.add(clean + 's');
-          if (clean.endsWith('s') && clean.length > 2) clueSet.add(clean.slice(0, -1));
+          const canStripS = clean.length > 3 && clean.endsWith('s') &&
+            !clean.endsWith('ss') && !clean.endsWith('us') &&
+            !clean.endsWith('is') && !clean.endsWith('as');
+          if (canStripS) clueSet.add(clean.slice(0, -1));
         }
+      }
+    }
+    
+    // Build answer token set for bolding
+    const answerTokens = new Set<string>();
+    if (filteredDisplay) {
+      for (const t of filteredDisplay.toLowerCase().split(/\s+/)) {
+        const c = t.replace(/[^a-z']/g, '');
+        if (c.length >= 2) answerTokens.add(c);
       }
     }
     
@@ -637,6 +649,7 @@ export function TwoCluesGame({
           const clean = token.toLowerCase().replace(/[^a-z']/g, '');
           const isClue = clueSet.has(clean);
           const isFiller = FILLER_SET.has(clean);
+          const isAnswer = answerTokens.has(clean);
           
           return (
             <span key={i}>
@@ -644,7 +657,8 @@ export function TwoCluesGame({
               <span className={cn(
                 isClue && 'text-muted-foreground/50 line-through',
                 isFiller && 'text-muted-foreground/40 italic',
-                !isClue && !isFiller && 'font-semibold text-foreground'
+                isAnswer && !isClue && 'font-bold text-primary',
+                !isClue && !isFiller && !isAnswer && 'text-foreground'
               )}>
                 {token}
               </span>

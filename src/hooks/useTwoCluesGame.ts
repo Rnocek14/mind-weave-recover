@@ -96,19 +96,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   }, []);
 
   // Submit an answer with a pre-computed scoring result (avoids double-scoring)
+  // Uses functional setState to avoid stale state reads
   const submitAnswer = useCallback((spokenWord: string, precomputedResult?: ScoringResult): ScoringResult => {
-    const { currentPuzzle, currentAttempt, uniqueAnswersThisRound } = state;
-    
-    if (!currentPuzzle) {
-      return {
-        tier: 'uncertain',
-        score: 0,
-        reasoning: 'No puzzle active',
-        reachedAnchor: false,
-        semanticSimilarity: null,
-      };
-    }
-
     // Use pre-computed result or create a minimal fallback
     const result: ScoringResult = precomputedResult ?? {
       tier: 'uncertain',
@@ -123,13 +112,6 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       ? Date.now() - roundStartTimeRef.current
       : 0;
 
-    // Track unique answers for bonus - use matchedWord for canonical deduplication
-    const canonical = (result.matchedWord ?? spokenWord).toLowerCase().trim();
-    const newUniqueAnswers = new Set(uniqueAnswersThisRound);
-    if (result.tier !== 'uncertain') {
-      newUniqueAnswers.add(canonical);
-    }
-
     // Play sound based on tier
     if (result.tier === 'strong' || result.tier === 'related') {
       playSuccess();
@@ -137,37 +119,46 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       playError();
     }
 
-    // Create trial result
-    const trialResult: TwoCluesTrialResult = {
-      puzzleId: currentPuzzle.id,
-      clues: currentPuzzle.clues,
-      anchors: currentPuzzle.anchors,
-      spokenWord,
-      matchedWord: result.matchedWord,
-      tier: result.tier,
-      score: result.score,
-      reachedAnchor: result.reachedAnchor,
-      semanticSimilarity: result.semanticSimilarity,
-      reactionTimeMs,
-      coachResponse: result.coachResponse,
-      attemptNumber: currentAttempt,
-    };
+    // Functional setState: derives everything from prev, no stale reads
+    setState(prev => {
+      if (!prev.currentPuzzle) return prev;
 
-    // Update state
-    setState(prev => ({
-      ...prev,
-      results: [...prev.results, trialResult],
-      totalScore: prev.totalScore + result.score,
-      currentAttempt: prev.currentAttempt + 1,
-      lastResult: result,
-      uniqueAnswersThisRound: newUniqueAnswers,
-    }));
+      const canonical = (result.matchedWord ?? spokenWord).toLowerCase().trim();
+      const newUniqueAnswers = new Set(prev.uniqueAnswersThisRound);
+      if (result.tier !== 'uncertain') {
+        newUniqueAnswers.add(canonical);
+      }
 
-    // Notify callback
-    onTrialComplete?.(trialResult);
+      const trialResult: TwoCluesTrialResult = {
+        puzzleId: prev.currentPuzzle.id,
+        clues: prev.currentPuzzle.clues,
+        anchors: prev.currentPuzzle.anchors,
+        spokenWord,
+        matchedWord: result.matchedWord,
+        tier: result.tier,
+        score: result.score,
+        reachedAnchor: result.reachedAnchor,
+        semanticSimilarity: result.semanticSimilarity,
+        reactionTimeMs,
+        coachResponse: result.coachResponse,
+        attemptNumber: prev.currentAttempt,
+      };
+
+      // Notify callback (safe: doesn't affect state derivation)
+      onTrialComplete?.(trialResult);
+
+      return {
+        ...prev,
+        results: [...prev.results, trialResult],
+        totalScore: prev.totalScore + result.score,
+        currentAttempt: prev.currentAttempt + 1,
+        lastResult: result,
+        uniqueAnswersThisRound: newUniqueAnswers,
+      };
+    });
 
     return result;
-  }, [state, playSuccess, playError, onTrialComplete]);
+  }, [playSuccess, playError, onTrialComplete]);
 
   // Move to next puzzle
   const nextRound = useCallback(() => {
