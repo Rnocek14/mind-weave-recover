@@ -346,6 +346,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         fluency_unavailable_reason: analysis.fluencyUnavailableReason,
         // Azure Pronunciation Assessment: store normalized gop_data with source marker
         gop_data: analysis.gopData ? {
+          schemaVersion: 'azure-pa-v2', // Distinguishes enriched payloads (NBest + word ErrorType) from legacy
           source: 'azure',
           pronunciationScore: analysis.gopData.pronunciationScore ?? analysis.pronunciationScore ?? 0,
           accuracyScore: analysis.gopData.accuracyScore ?? analysis.accuracyScore ?? 0,
