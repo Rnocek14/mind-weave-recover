@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,12 +7,13 @@ import { Volume2, Mic, MicOff, Lightbulb, RotateCcw, MessageSquare, Loader2 } fr
 import { useToast } from '@/hooks/use-toast';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
-import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
-import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
-import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
 import { buildShadowEvent, toUtteranceAnalysis, type UtteranceAnalysis, type ShadowEvent } from '@/types/utteranceAnalysis';
 import { classifySpeechError } from '@/lib/errorClassifier';
 import { calculateEncouragementScore } from '@/lib/feedbackGenerator';
@@ -141,26 +142,33 @@ export const PhrasePracticeGame = ({
     uploadRecording 
   } = useAudioRecorder();
   
+  // Capability-based difficulty bounds
+  const bounds = useMemo(() => getCapabilityDifficultyBounds(CANONICAL_SLUGS.PHRASE_PRACTICE, null), []);
+
+  // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
   const {
     currentDifficulty,
-    updateTrial,
-    checkAndAdjust,
+    recordTrial: recordAdaptiveTrial,
     getCueLevel: getAdaptiveCueLevel,
-  } = useAdaptiveDifficulty({
+    frustrationLevel,
+    reset: resetAdaptation,
+  } = useInGameAdaptation({
+    exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
+    sessionId: activeSessionId,
     initialDifficulty,
-    bounds: { floor: 1, ceiling: 10, suggestedStart: 5 },
+    bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
-    adjustmentThreshold: 0.15,
+    enableDifficultyAutoStepDown: true,
+    enableDifficultyToasts: true,
+    enableAutoHints: false,
     onDifficultyChange: (newLevel) => {
       onDifficultyChange?.(newLevel);
     },
-    // Enable adaptation event logging
-    userId: user?.id,
-    profileId: standaloneProfileId || activeProfile?.id,
-    sessionId: activeSessionId,
-    exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
   });
+
+  // Azure Pronunciation Assessment (shared hook)
+  const { analyzePronunciation } = usePronunciationAnalysis();
 
   // Initialize trials and load voice preference
   useEffect(() => {
@@ -368,7 +376,7 @@ export const PhrasePracticeGame = ({
     if (isListening) stopListening();
     
     // Update adaptive difficulty tracking (fast, local)
-    updateTrial(true);
+    recordAdaptiveTrial({ correct: true, reactionTimeMs: reactionTime });
     
     // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
     const runBackgroundAnalysis = async () => {
@@ -382,16 +390,28 @@ export const PhrasePracticeGame = ({
           if (recordingResult) {
             duration = recordingResult.duration;
             
-            const path = await uploadRecording(
-              recordingResult.audioBlob,
-              user.id,
-              activeSessionId,
-              trialIdx + 1,
-              recordingResult.mimeType
-            );
+            // Run upload and Azure pronunciation in parallel
+            const [path, pronResult] = await Promise.all([
+              uploadRecording(
+                recordingResult.audioBlob,
+                user.id,
+                activeSessionId,
+                trialIdx + 1,
+                recordingResult.mimeType
+              ),
+              analyzePronunciation(recordingResult.audioBlob, trialData.phrase).catch(err => {
+                console.warn('[PhrasePractice] Pronunciation analysis failed (non-blocking):', err);
+                return null;
+              }),
+            ]);
             
-            if (path) {
-              uploadedPath = path;
+            if (path) uploadedPath = path;
+            if (pronResult?.ok) {
+              console.log('[PhrasePractice] Pronunciation scores:', {
+                pronunciation: pronResult.data.pronunciationScore,
+                accuracy: pronResult.data.accuracyScore,
+                fluency: pronResult.data.fluencyScore,
+              });
             }
           }
         }
@@ -495,7 +515,7 @@ export const PhrasePracticeGame = ({
     setAttempts(prev => prev + 1);
     
     // Update adaptive difficulty tracking (fast, local)
-    updateTrial(false);
+    recordAdaptiveTrial({ correct: false });
     
     // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
     const runBackgroundAnalysis = async () => {
@@ -509,17 +529,18 @@ export const PhrasePracticeGame = ({
           if (recordingResult) {
             duration = recordingResult.duration;
             
-            const path = await uploadRecording(
-              recordingResult.audioBlob,
-              user.id,
-              activeSessionId,
-              trialIdx + 1,
-              recordingResult.mimeType
-            );
+            const [path, pronResult] = await Promise.all([
+              uploadRecording(
+                recordingResult.audioBlob,
+                user.id,
+                activeSessionId,
+                trialIdx + 1,
+                recordingResult.mimeType
+              ),
+              analyzePronunciation(recordingResult.audioBlob, currentTrial?.phrase || '').catch(() => null),
+            ]);
             
-            if (path) {
-              uploadedPath = path;
-            }
+            if (path) uploadedPath = path;
           }
         }
         
@@ -558,12 +579,11 @@ export const PhrasePracticeGame = ({
       return;
     }
 
-    // Check and adjust difficulty
-    const { adjusted, newLevel } = checkAndAdjust();
-    
-    if (adjusted) {
-      // Regenerate trials at new difficulty
-      const newTrials = getTrialsForLevel(newLevel, totalTrials - currentTrialIndex - 1);
+    // useInGameAdaptation adjusts difficulty automatically via recordTrial
+    // Regenerate trials at current difficulty for remaining rounds
+    const remainingTrials = totalTrials - currentTrialIndex - 1;
+    if (remainingTrials > 0) {
+      const newTrials = getTrialsForLevel(currentDifficulty, remainingTrials);
       setTrials(prev => [...prev.slice(0, currentTrialIndex + 1), ...newTrials]);
     }
 
