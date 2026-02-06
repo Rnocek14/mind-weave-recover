@@ -96,9 +96,10 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   }, []);
 
   // Submit an answer with a pre-computed scoring result (avoids double-scoring)
-  // Uses functional setState to avoid stale state reads
+  // Uses functional setState for fresh state + fires callback outside updater
+  const pendingTrialRef = useRef<TwoCluesTrialResult | null>(null);
+
   const submitAnswer = useCallback((spokenWord: string, precomputedResult?: ScoringResult): ScoringResult => {
-    // Use pre-computed result or create a minimal fallback
     const result: ScoringResult = precomputedResult ?? {
       tier: 'uncertain',
       score: 0,
@@ -107,19 +108,17 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       semanticSimilarity: null,
     };
 
-    // Calculate reaction time
     const reactionTimeMs = roundStartTimeRef.current
       ? Date.now() - roundStartTimeRef.current
       : 0;
 
-    // Play sound based on tier
     if (result.tier === 'strong' || result.tier === 'related') {
       playSuccess();
     } else if (result.tier === 'uncertain') {
       playError();
     }
 
-    // Functional setState: derives everything from prev, no stale reads
+    // Pure state update — no side effects inside updater
     setState(prev => {
       if (!prev.currentPuzzle) return prev;
 
@@ -144,8 +143,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         attemptNumber: prev.currentAttempt,
       };
 
-      // Notify callback (safe: doesn't affect state derivation)
-      onTrialComplete?.(trialResult);
+      // Stash for callback outside updater
+      pendingTrialRef.current = trialResult;
 
       return {
         ...prev,
@@ -156,6 +155,12 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         uniqueAnswersThisRound: newUniqueAnswers,
       };
     });
+
+    // Fire callback outside setState (safe from Strict Mode double-invoke)
+    if (pendingTrialRef.current) {
+      onTrialComplete?.(pendingTrialRef.current);
+      pendingTrialRef.current = null;
+    }
 
     return result;
   }, [playSuccess, playError, onTrialComplete]);
