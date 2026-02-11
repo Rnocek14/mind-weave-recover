@@ -559,6 +559,317 @@ const peoplePuzzles: TwoCluesPuzzle[] = [
 ];
 
 // ============================================
+// CLOTHING PACK
+// ============================================
+const clothingPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-clothing-1',
+    clues: ['feet', 'laces'],
+    category: 'clothing',
+    difficulty: 1,
+    anchors: ['shoe'],
+    anchorAliases: { 'shoe': ['shoes', 'sneaker', 'sneakers'] },
+    cluster: ['boot', 'sandal', 'trainer', 'footwear', 'heel', 'sole'],
+    nearMisses: ['sock', 'foot', 'leg'],
+    coachHints: { 'sock': "Socks go on feet! What has laces?", 'foot': "Feet wear them! What has laces?" }
+  },
+  {
+    id: 'tc-clothing-2',
+    clues: ['head', 'shade'],
+    category: 'clothing',
+    difficulty: 1,
+    anchors: ['hat'],
+    anchorAliases: { 'hat': ['hats', 'cap'] },
+    cluster: ['cap', 'beanie', 'visor', 'helmet', 'brim', 'headwear'],
+    nearMisses: ['umbrella', 'sunglasses', 'hood'],
+    coachHints: { 'umbrella': "Umbrellas shade! What goes on your head?", 'sunglasses': "Sunglasses shade! What goes on your head?" }
+  },
+  {
+    id: 'tc-clothing-3',
+    clues: ['warm', 'zipper'],
+    category: 'clothing',
+    difficulty: 1,
+    anchors: ['jacket', 'coat'],
+    anchorAliases: { 'jacket': ['jackets'], 'coat': ['coats'] },
+    cluster: ['hoodie', 'parka', 'sweater', 'vest', 'fleece', 'windbreaker'],
+    nearMisses: ['blanket', 'scarf', 'bag'],
+    coachHints: { 'blanket': "Blankets are warm! What do you wear with a zipper?", 'scarf': "Scarves are warm! What has a zipper?" }
+  },
+  {
+    id: 'tc-clothing-4',
+    clues: ['legs', 'pockets'],
+    category: 'clothing',
+    difficulty: 1,
+    anchors: ['pants', 'trousers', 'jeans'],
+    anchorAliases: { 'pants': ['pant'], 'jeans': ['jean'] },
+    cluster: ['shorts', 'slacks', 'leggings', 'denim', 'khakis'],
+    nearMisses: ['skirt', 'dress', 'belt'],
+    coachHints: { 'skirt': "Skirts cover legs! What has pockets?", 'belt': "Belts go with them! What covers your legs?" }
+  },
+];
+
+// ============================================
+// NATURE PACK
+// ============================================
+const naturePuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-nature-1',
+    clues: ['grows', 'leaves'],
+    category: 'nature',
+    difficulty: 1,
+    anchors: ['tree'],
+    anchorAliases: { 'tree': ['trees'] },
+    cluster: ['plant', 'oak', 'maple', 'branch', 'trunk', 'roots', 'forest'],
+    nearMisses: ['flower', 'bush', 'grass'],
+    coachHints: { 'flower': "Flowers grow! What has leaves and a trunk?", 'bush': "Bushes grow! What's bigger with a trunk?" }
+  },
+  {
+    id: 'tc-nature-2',
+    clues: ['petals', 'smell'],
+    category: 'nature',
+    difficulty: 1,
+    anchors: ['flower'],
+    anchorAliases: { 'flower': ['flowers'] },
+    cluster: ['rose', 'daisy', 'tulip', 'bloom', 'blossom', 'garden', 'bouquet'],
+    nearMisses: ['perfume', 'plant', 'tree'],
+    coachHints: { 'perfume': "Perfume smells! What has petals?", 'plant': "Plants grow! What has petals?" }
+  },
+  {
+    id: 'tc-nature-3',
+    clues: ['flows', 'water'],
+    category: 'nature',
+    difficulty: 1,
+    anchors: ['river'],
+    anchorAliases: { 'river': ['rivers', 'creek', 'stream'] },
+    cluster: ['stream', 'creek', 'brook', 'current', 'lake', 'waterfall'],
+    nearMisses: ['ocean', 'faucet', 'hose'],
+    coachHints: { 'ocean': "Oceans have water! What flows through land?", 'faucet': "Faucets flow! What's in nature?" }
+  },
+  {
+    id: 'tc-nature-4',
+    clues: ['tall', 'rocky'],
+    category: 'nature',
+    difficulty: 2,
+    anchors: ['mountain'],
+    anchorAliases: { 'mountain': ['mountains', 'mount'] },
+    cluster: ['hill', 'cliff', 'peak', 'summit', 'ridge', 'volcano'],
+    nearMisses: ['building', 'tower', 'wall'],
+    coachHints: { 'building': "Buildings are tall! What's rocky in nature?", 'tower': "Towers are tall! What's natural and rocky?" }
+  },
+  {
+    id: 'tc-nature-5',
+    clues: ['shines', 'night'],
+    category: 'nature',
+    difficulty: 1,
+    anchors: ['moon', 'star'],
+    anchorAliases: { 'moon': ['moons'], 'star': ['stars'] },
+    cluster: ['moonlight', 'starlight', 'sky', 'glow', 'crescent', 'constellation'],
+    nearMisses: ['lamp', 'flashlight', 'sun'],
+    coachHints: { 'lamp': "Lamps shine! What shines at night in the sky?", 'sun': "Sun shines during the day! What shines at night?" }
+  },
+];
+
+// ============================================
+// FOOD PACK
+// ============================================
+const foodPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-food-1',
+    clues: ['yellow', 'peel'],
+    category: 'food',
+    difficulty: 1,
+    anchors: ['banana'],
+    anchorAliases: { 'banana': ['bananas', 'nana'] },
+    cluster: ['fruit', 'monkey', 'potassium', 'bunch', 'ripe'],
+    nearMisses: ['lemon', 'orange', 'mango'],
+    coachHints: { 'lemon': "Lemons are yellow! What do you peel?", 'orange': "Oranges peel! What's yellow?" }
+  },
+  {
+    id: 'tc-food-2',
+    clues: ['red', 'round'],
+    category: 'food',
+    difficulty: 1,
+    anchors: ['apple', 'tomato'],
+    anchorAliases: { 'apple': ['apples'], 'tomato': ['tomatoes'] },
+    cluster: ['cherry', 'berry', 'fruit', 'pie', 'sauce', 'ketchup'],
+    nearMisses: ['ball', 'balloon', 'strawberry'],
+    coachHints: { 'ball': "Balls are round! What red food?", 'strawberry': "Strawberries are red! What's also round?" }
+  },
+  {
+    id: 'tc-food-3',
+    clues: ['sliced', 'sandwich'],
+    category: 'food',
+    difficulty: 1,
+    anchors: ['bread'],
+    anchorAliases: { 'bread': ['breads', 'loaf'] },
+    cluster: ['toast', 'loaf', 'wheat', 'flour', 'crust', 'slice', 'bun'],
+    nearMisses: ['cheese', 'meat', 'butter'],
+    coachHints: { 'cheese': "Cheese goes in sandwiches! What's sliced around it?", 'meat': "Meat is sliced! What holds a sandwich together?" }
+  },
+  {
+    id: 'tc-food-4',
+    clues: ['melts', 'pizza'],
+    category: 'food',
+    difficulty: 1,
+    anchors: ['cheese'],
+    anchorAliases: { 'cheese': ['cheeses'] },
+    cluster: ['mozzarella', 'cheddar', 'dairy', 'slice', 'grated', 'parmesan'],
+    nearMisses: ['butter', 'ice cream', 'chocolate'],
+    coachHints: { 'butter': "Butter melts! What goes on pizza?", 'ice cream': "Ice cream melts! What goes on pizza?" }
+  },
+  {
+    id: 'tc-food-5',
+    clues: ['morning', 'crack'],
+    category: 'food',
+    difficulty: 2,
+    anchors: ['egg'],
+    anchorAliases: { 'egg': ['eggs'] },
+    cluster: ['scramble', 'omelette', 'yolk', 'shell', 'breakfast', 'fry', 'boil'],
+    nearMisses: ['cereal', 'pancake', 'dawn'],
+    coachHints: { 'cereal': "Cereal is for morning! What do you crack?", 'dawn': "Dawn is morning! What food do you crack?" }
+  },
+];
+
+// ============================================
+// TRANSPORT PACK
+// ============================================
+const transportPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-transport-1',
+    clues: ['wheels', 'pedals'],
+    category: 'transport',
+    difficulty: 1,
+    anchors: ['bicycle', 'bike'],
+    anchorAliases: { 'bicycle': ['bicycles'], 'bike': ['bikes', 'cycling'] },
+    cluster: ['cycle', 'ride', 'chain', 'handlebars', 'helmet'],
+    nearMisses: ['car', 'motorcycle', 'tricycle'],
+    coachHints: { 'car': "Cars have wheels! What has pedals?", 'motorcycle': "Motorcycles have wheels! What do you pedal?" }
+  },
+  {
+    id: 'tc-transport-2',
+    clues: ['flies', 'wings'],
+    category: 'transport',
+    difficulty: 1,
+    anchors: ['airplane', 'plane'],
+    anchorAliases: { 'airplane': ['airplanes', 'aeroplane'], 'plane': ['planes'] },
+    cluster: ['jet', 'flight', 'pilot', 'airport', 'runway', 'aircraft'],
+    nearMisses: ['bird', 'helicopter', 'kite'],
+    coachHints: { 'bird': "Birds fly with wings! What vehicle?", 'helicopter': "Helicopters fly! What has wings?" }
+  },
+  {
+    id: 'tc-transport-3',
+    clues: ['sails', 'water'],
+    category: 'transport',
+    difficulty: 1,
+    anchors: ['boat', 'ship'],
+    anchorAliases: { 'boat': ['boats'], 'ship': ['ships'] },
+    cluster: ['yacht', 'canoe', 'ferry', 'vessel', 'anchor', 'captain', 'deck'],
+    nearMisses: ['submarine', 'raft', 'surfboard'],
+    coachHints: { 'submarine': "Submarines go in water! What sails?", 'surfboard': "Surfboards ride water! What sails?" }
+  },
+  {
+    id: 'tc-transport-4',
+    clues: ['tracks', 'station'],
+    category: 'transport',
+    difficulty: 1,
+    anchors: ['train'],
+    anchorAliases: { 'train': ['trains'] },
+    cluster: ['railway', 'locomotive', 'conductor', 'platform', 'carriage', 'subway'],
+    nearMisses: ['bus', 'tram', 'taxi'],
+    coachHints: { 'bus': "Buses stop at stations! What runs on tracks?", 'tram': "Trams run on tracks! What's bigger?" }
+  },
+];
+
+// ============================================
+// BODY PACK
+// ============================================
+const bodyPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-body-1',
+    clues: ['sees', 'blinks'],
+    category: 'body',
+    difficulty: 1,
+    anchors: ['eye'],
+    anchorAliases: { 'eye': ['eyes'] },
+    cluster: ['vision', 'pupil', 'iris', 'sight', 'eyelid', 'retina'],
+    nearMisses: ['glasses', 'camera', 'face'],
+    coachHints: { 'glasses': "Glasses help you see! What body part sees?", 'camera': "Cameras capture! What body part blinks?" }
+  },
+  {
+    id: 'tc-body-2',
+    clues: ['beats', 'pumps'],
+    category: 'body',
+    difficulty: 1,
+    anchors: ['heart'],
+    anchorAliases: { 'heart': ['hearts'] },
+    cluster: ['pulse', 'blood', 'chest', 'organ', 'cardiac', 'rhythm'],
+    nearMisses: ['drum', 'engine', 'muscle'],
+    coachHints: { 'drum': "Drums beat! What body part pumps?", 'engine': "Engines pump! What's in your chest?" }
+  },
+  {
+    id: 'tc-body-3',
+    clues: ['thinks', 'remembers'],
+    category: 'body',
+    difficulty: 2,
+    anchors: ['brain'],
+    anchorAliases: { 'brain': ['brains'] },
+    cluster: ['mind', 'head', 'memory', 'thought', 'intelligence', 'skull'],
+    nearMisses: ['computer', 'book', 'diary'],
+    coachHints: { 'computer': "Computers think! What body part thinks?", 'book': "Books hold knowledge! What remembers?" }
+  },
+  {
+    id: 'tc-body-4',
+    clues: ['grabs', 'fingers'],
+    category: 'body',
+    difficulty: 1,
+    anchors: ['hand'],
+    anchorAliases: { 'hand': ['hands'] },
+    cluster: ['palm', 'fist', 'grip', 'thumb', 'wrist', 'knuckle'],
+    nearMisses: ['glove', 'claw', 'arm'],
+    coachHints: { 'glove': "Gloves cover them! What has fingers?", 'claw': "Claws grab! What human body part?" }
+  },
+];
+
+// ============================================
+// MUSIC PACK
+// ============================================
+const musicPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-music-1',
+    clues: ['strings', 'strums'],
+    category: 'music',
+    difficulty: 1,
+    anchors: ['guitar'],
+    anchorAliases: { 'guitar': ['guitars'] },
+    cluster: ['ukulele', 'banjo', 'chord', 'pick', 'acoustic', 'electric'],
+    nearMisses: ['violin', 'harp', 'bass'],
+    coachHints: { 'violin': "Violins have strings! What do you strum?", 'harp': "Harps have strings! What do you strum?" }
+  },
+  {
+    id: 'tc-music-2',
+    clues: ['keys', 'plays'],
+    category: 'music',
+    difficulty: 1,
+    anchors: ['piano'],
+    anchorAliases: { 'piano': ['pianos', 'keyboard'] },
+    cluster: ['keyboard', 'organ', 'notes', 'music', 'melody', 'ivories'],
+    nearMisses: ['lock', 'computer', 'typewriter'],
+    coachHints: { 'lock': "Locks have keys! What instrument plays?", 'computer': "Computers have keys! What makes music?" }
+  },
+  {
+    id: 'tc-music-3',
+    clues: ['hits', 'loud'],
+    category: 'music',
+    difficulty: 1,
+    anchors: ['drum'],
+    anchorAliases: { 'drum': ['drums', 'drumming'] },
+    cluster: ['cymbal', 'beat', 'stick', 'rhythm', 'percussion', 'snare', 'bongo'],
+    nearMisses: ['thunder', 'hammer', 'gong'],
+    coachHints: { 'thunder': "Thunder is loud! What instrument do you hit?", 'hammer': "Hammers hit! What musical instrument?" }
+  },
+];
+
+// ============================================
 // EXPORT ALL PUZZLES
 // ============================================
 export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
@@ -568,9 +879,15 @@ export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
   ...sportsPuzzles,
   ...homePuzzles,
   ...peoplePuzzles,
+  ...clothingPuzzles,
+  ...naturePuzzles,
+  ...foodPuzzles,
+  ...transportPuzzles,
+  ...bodyPuzzles,
+  ...musicPuzzles,
 ];
 
-export const PUZZLE_CATEGORIES = ['animals', 'kitchen', 'weather', 'sports', 'home', 'people'] as const;
+export const PUZZLE_CATEGORIES = ['animals', 'kitchen', 'weather', 'sports', 'home', 'people', 'clothing', 'nature', 'food', 'transport', 'body', 'music'] as const;
 export type PuzzleCategory = typeof PUZZLE_CATEGORIES[number];
 
 /**
