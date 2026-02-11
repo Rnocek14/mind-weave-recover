@@ -2,8 +2,8 @@
  * Two Clues Word Association Game - Main Game Component
  * 
  * Key design decisions for stroke survivors:
- * - 1500ms debounce (more thinking time than Photo Naming's 750ms)
- * - Clue words filtered from transcript before scoring
+ * - 3s debounce after last speech event before scoring (waits for full utterance)
+ * - Scoring via handleSpeechResult callback (Photo Naming pattern), not useEffect on transcript
  * - Patient mode listening: unlimited restarts, no auto-end on silence
  * - Processing guard with 10s failsafe to prevent mic deadlock
  * - All exit paths use try/finally with local shouldHoldProcessing flag
@@ -194,10 +194,34 @@ export function TwoCluesGame({
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
   useEffect(() => { currentAttemptNumRef.current = game.currentAttempt; }, [game.currentAttempt]);
 
-  // Speech result callback
+  // Speech result callback — placeholder, will be replaced after dependencies are declared
+  const processStableTranscriptRef = useRef<(t: string) => void>(() => {});
+  
   const handleSpeechResult = useCallback((result: string) => {
-    console.log('[TwoClues] Speech result:', result);
+    console.log('[TwoClues] Speech result (will debounce):', result);
+
+    // Update raw transcript immediately
+    rawTranscriptRef.current = result;
+    setDisplayTranscript(result);
     logBrowserTranscript(result);
+
+    // Update filtered display
+    if (currentPuzzleRef.current) {
+      const withoutClues = removeClueWords(result, currentPuzzleRef.current.clues);
+      const answer = extractAnswerFromTranscript(withoutClues);
+      setFilteredDisplay(answer);
+    }
+
+    // Clear existing debounce timer — every new speech event resets the clock
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Only score after SCORING_DEBOUNCE_MS of silence (no new speech events)
+    debounceTimeoutRef.current = setTimeout(() => {
+      debounceTimeoutRef.current = null;
+      processStableTranscriptRef.current(result);
+    }, SCORING_DEBOUNCE_MS);
   }, [logBrowserTranscript]);
 
   // Use PATIENT MODE: unlimited restarts, no auto-end on silence
@@ -346,247 +370,212 @@ export function TwoCluesGame({
     };
   }, []);
 
-  // Update display transcript with clue-word filtering
-  useEffect(() => {
-    if (transcript && currentPuzzleRef.current) {
-      setDisplayTranscript(transcript);
-      rawTranscriptRef.current = transcript;
-      
-      const withoutClues = removeClueWords(transcript, currentPuzzleRef.current.clues);
-      const answer = extractAnswerFromTranscript(withoutClues);
-      setFilteredDisplay(answer);
+  // ==========================================================================
+  // Stable transcript scoring (Photo Naming pattern)
+  // Only scores after SCORING_DEBOUNCE_MS of no new speech events
+  // ==========================================================================
+  const processStableTranscript = useCallback(async (stableTranscript: string) => {
+    const currentPuzzle = currentPuzzleRef.current;
+    if (!currentPuzzle) return;
+
+    // Re-extract from the latest raw transcript
+    const latestRaw = rawTranscriptRef.current;
+    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues);
+    const candidate = extractAnswerFromTranscript(latestWithoutClues);
+
+    // GUARD: Already processing or showing feedback
+    if (processingRef.current) {
+      console.log('[TwoClues] processStableTranscript blocked - already processing');
+      return;
     }
-  }, [transcript]);
 
-  // ==========================================================================
-  // CRITICAL: Debounced scoring pipeline
-  // Uses currentPuzzleRef for stability — does NOT depend on `game` object
-  // ==========================================================================
-  useEffect(() => {
-    const puzzle = currentPuzzleRef.current;
-    if (!transcript || !puzzle) return;
-    
-    // Step 1: Remove clue words from transcript
-    const withoutClues = removeClueWords(transcript, puzzle.clues);
-    
-    // Step 2: Extract answer candidate
-    const candidate = extractAnswerFromTranscript(withoutClues);
-    
-    // Guard: same candidate as last scored
-    if (candidate === lastScoredCandidateRef.current && candidate.length > 0) return;
-    
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    // GUARD: Same candidate already scored
+    if (candidate === lastScoredCandidateRef.current && candidate.length > 0) {
+      console.log('[TwoClues] processStableTranscript blocked - same candidate');
+      return;
+    }
 
-    debounceTimeoutRef.current = setTimeout(async () => {
-      // Re-read refs inside timeout (may have changed during debounce)
-      const currentPuzzle = currentPuzzleRef.current;
-      if (!currentPuzzle) return;
-      
-      // GUARD 0: Transcript changed during debounce — re-extract and compare
-      const latestWithoutClues = removeClueWords(rawTranscriptRef.current, currentPuzzle.clues);
-      const latestCandidate = extractAnswerFromTranscript(latestWithoutClues);
-      if (latestCandidate !== candidate) {
-        console.log('[TwoClues] Transcript changed during debounce, skipping stale candidate:', candidate, '→', latestCandidate);
-        return;
-      }
-      
-      // GUARD 1: Already processing or showing feedback
-      if (processingRef.current) {
-        console.log('[TwoClues] Skipping score - already processing');
-        return;
-      }
-      
-      // GUARD 2: Filler-only or too short
-      if (isMostlyFiller(latestWithoutClues) || latestCandidate.length < 2) {
-        console.log('[TwoClues] Skipping score - filler/clue-only:', JSON.stringify(latestCandidate));
-        return;
+    // GUARD: Filler-only or too short
+    if (isMostlyFiller(latestWithoutClues) || candidate.length < 2) {
+      console.log('[TwoClues] processStableTranscript blocked - filler/too short:', JSON.stringify(candidate));
+      return;
+    }
+
+    // GUARD: Too early in attempt
+    const speechDuration = Date.now() - attemptStartTimeRef.current;
+    if (speechDuration < MIN_SPEECH_DURATION_MS) {
+      console.log('[TwoClues] processStableTranscript blocked - too early:', speechDuration, 'ms');
+      return;
+    }
+
+    // GUARD: Cooldown
+    const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
+    if (timeSinceLastScore < SCORING_COOLDOWN_MS && lastScoredCandidateRef.current) {
+      console.log('[TwoClues] processStableTranscript blocked - cooldown');
+      return;
+    }
+
+    console.log('[TwoClues] ✅ Transcript stable, scoring:', candidate, '(full:', latestRaw, ')');
+
+    // Lock processing
+    setProcessingGuard(true);
+    setIsProcessing(true);
+    setScoringPhase('checking');
+
+    const rawTranscript = latestRaw;
+    let shouldHoldProcessing = false;
+
+    try {
+      // Quick local match first (instant)
+      const quickMatch = quickLocalMatch(
+        candidate,
+        currentPuzzle.anchors,
+        currentPuzzle.cluster,
+        currentPuzzle.anchorAliases,
+        currentPuzzle.clusterAliases
+      );
+
+      let result: ScoringResult;
+
+      if (quickMatch) {
+        console.log('[TwoClues] Quick match:', quickMatch);
+        result = {
+          tier: quickMatch.tier,
+          score: quickMatch.tier === 'strong' ? 100 : 75,
+          matchedWord: quickMatch.matchedWord,
+          reachedAnchor: quickMatch.tier === 'strong',
+          semanticSimilarity: quickMatch.tier === 'strong' ? 1.0 : 0.85,
+          reasoning: quickMatch.tier === 'strong' ? 'Perfect match!' : 'Great related word!',
+        };
+      } else {
+        console.log('[TwoClues] Semantic scoring for:', candidate);
+        setScoringPhase('scoring');
+        result = await scoreAnswer(candidate, currentPuzzle);
       }
 
-      // GUARD 3: Too early — wait for user to have spoken for a minimum duration
-      const speechDuration = Date.now() - attemptStartTimeRef.current;
-      if (speechDuration < MIN_SPEECH_DURATION_MS) {
-        console.log('[TwoClues] Skipping score - too early, only', speechDuration, 'ms into attempt');
-        return;
-      }
-      
-      // GUARD 4: Cooldown
-      const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
-      if (timeSinceLastScore < SCORING_COOLDOWN_MS && lastScoredCandidateRef.current) {
-        console.log('[TwoClues] Skipping score - in cooldown');
-        return;
-      }
-      
-      // Lock processing
-      setProcessingGuard(true);
-      setIsProcessing(true);
-      setScoringPhase('checking');
-      
-      const rawTranscript = rawTranscriptRef.current;
-      
-      // Local flag: should we keep processingRef locked after try/finally?
-      // (for creative/uncertain where user must click Try Again / Continue)
-      let shouldHoldProcessing = false;
-      
-      try {
-        // Quick local match first (instant)
-        const quickMatch = quickLocalMatch(
-          candidate,
-          currentPuzzle.anchors,
-          currentPuzzle.cluster,
-          currentPuzzle.anchorAliases,
-          currentPuzzle.clusterAliases
-        );
-        
-        let result: ScoringResult;
-        
-        if (quickMatch) {
-          console.log('[TwoClues] Quick match:', quickMatch);
-          result = {
-            tier: quickMatch.tier,
-            score: quickMatch.tier === 'strong' ? 100 : 75,
-            matchedWord: quickMatch.matchedWord,
-            reachedAnchor: quickMatch.tier === 'strong',
-            semanticSimilarity: quickMatch.tier === 'strong' ? 1.0 : 0.85,
-            reasoning: quickMatch.tier === 'strong' ? 'Perfect match!' : 'Great related word!',
-          };
-        } else {
-          console.log('[TwoClues] Semantic scoring for:', candidate);
-          setScoringPhase('scoring');
-          result = await scoreAnswer(candidate, currentPuzzle);
-        }
-        
-        // Mark scored
-        lastScoredCandidateRef.current = candidate;
-        lastScoredAtRef.current = Date.now();
-        
-        // Stop mic + recording
-        stopListening();
-        setIsListening(false);
-        
-        let recordingDurationMs: number | undefined;
-        let audioStoragePath: string | undefined;
-        let pronunciationData: any = null;
-        
-        if (isRecording) {
-          const recordingResult = await stopRecording();
-          if (recordingResult && sessionId && userId) {
-            recordingDurationMs = recordingResult.duration;
-            
-            // Run upload and Azure pronunciation analysis in parallel
-            const [uploadedPath, pronResult] = await Promise.all([
-              uploadRecording(
-                recordingResult.audioBlob,
-                userId,
-                sessionId,
-                currentIndexRef.current + 1,
-                recordingResult.mimeType
-              ),
-              analyzePronunciation(recordingResult.audioBlob, result.matchedWord || candidate).catch(err => {
-                console.warn('[TwoClues] Pronunciation analysis failed (non-blocking):', err);
-                return null;
-              }),
-            ]);
-            
-            if (uploadedPath) audioStoragePath = uploadedPath;
-            if (pronResult?.ok) {
-              pronunciationData = pronResult.data;
-              console.log('[TwoClues] Pronunciation scores:', {
-                pronunciation: pronResult.data.pronunciationScore,
-                accuracy: pronResult.data.accuracyScore,
-                fluency: pronResult.data.fluencyScore,
-              });
-            }
+      // Mark scored
+      lastScoredCandidateRef.current = candidate;
+      lastScoredAtRef.current = Date.now();
+
+      // Stop mic + recording
+      stopListening();
+      setIsListening(false);
+
+      let recordingDurationMs: number | undefined;
+      let audioStoragePath: string | undefined;
+      let pronunciationData: any = null;
+
+      if (isRecording) {
+        const recordingResult = await stopRecording();
+        if (recordingResult && sessionId && userId) {
+          recordingDurationMs = recordingResult.duration;
+
+          const [uploadedPath, pronResult] = await Promise.all([
+            uploadRecording(
+              recordingResult.audioBlob,
+              userId,
+              sessionId,
+              currentIndexRef.current + 1,
+              recordingResult.mimeType
+            ),
+            analyzePronunciation(recordingResult.audioBlob, result.matchedWord || candidate).catch(err => {
+              console.warn('[TwoClues] Pronunciation analysis failed (non-blocking):', err);
+              return null;
+            }),
+          ]);
+
+          if (uploadedPath) audioStoragePath = uploadedPath;
+          if (pronResult?.ok) {
+            pronunciationData = pronResult.data;
           }
         }
-        
-        // Pass pre-computed result to game state (NO re-scoring)
-        game.submitAnswer(candidate, result);
-        
-        // Layer 2 In-Game Adaptation (replaces old updateTrial + checkAndAdjust)
-        const isSuccess = result.tier === 'strong' || result.tier === 'related';
-        recordAdaptiveTrial({
-          correct: isSuccess,
-          reactionTimeMs: Date.now() - attemptStartTimeRef.current,
-          errorType: result.tier === 'uncertain' ? 'no_match' : 
-                     result.tier === 'creative' ? 'creative_link' : undefined,
-        });
-        
-        // Log utterance with pronunciation data (including gopData for word/phoneme-level analysis)
-        if (sessionId && currentAttemptId) {
-          const contentWordCount = getContentWordCount(rawTranscript);
-          
-          await logFinalAnalysis({
-            transcript: rawTranscript,
-            transcriptSource: 'browser',
-            isCorrect: isSuccess,
-            errorType: result.tier === 'uncertain' ? 'no_match' : 
-                       result.tier === 'creative' ? 'creative_link' : 
-                       result.tier === 'related' ? 'semantic_paraphasia' : undefined,
-            semanticSimilarity: result.semanticSimilarity ?? undefined,
-            recordingDurationMs,
-            audioStoragePath,
-            // Azure pronunciation metrics (individual scores + full gopData for word-level detail)
-            ...(pronunciationData ? {
-              pronunciationScore: pronunciationData.pronunciationScore,
-              accuracyScore: pronunciationData.accuracyScore,
-              fluencyScore: pronunciationData.fluencyScore,
-              completenessScore: pronunciationData.completenessScore,
-              prosodyScore: pronunciationData.prosodyScore,
-              gopData: pronunciationData,
-              alignmentData: pronunciationData.alignmentData,
-            } : {}),
-            reasoning: JSON.stringify({
-              rawTranscript,
-              cluesFiltered: currentPuzzle.clues,
-              afterClueRemoval: withoutClues,
-              cleanedAnswer: candidate,
-              matchedWord: result.matchedWord,
-              tier: result.tier,
-              score: result.score,
-              reachedAnchor: result.reachedAnchor,
-              puzzleId: currentPuzzle.id,
-              contentWordCount,
-              pronunciationScore: pronunciationData?.pronunciationScore,
-              accuracyScore: pronunciationData?.accuracyScore,
-            }),
-            cueTypeGiven: 'none',
-            fluencyAvailable: !!audioStoragePath,
-            fluencyUnavailableReason: !audioStoragePath ? 'no_recording' : undefined,
-          });
-        }
-        
-        // Show feedback
-        const message = getTierMessage(result.tier, result.matchedWord);
-        setFeedbackMessage(result.coachResponse || message);
-        setShowFeedback(true);
-        clearTranscriptState();
-
-        if (result.tier === 'strong' || result.tier === 'related') {
-          // Auto-advance — processing guard released in timeout
-          shouldHoldProcessing = true;
-          setTimeout(() => {
-            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-            setShowFeedback(false);
-            resetAttempt();
-            setProcessingGuard(false);
-            game.nextRound();
-          }, AUTO_ADVANCE_DELAY_MS);
-        } else {
-          // Creative/uncertain — user clicks Try Again / Continue
-          shouldHoldProcessing = false;
-        }
-      } catch (error) {
-        console.error('[TwoClues] Scoring error:', error);
-        shouldHoldProcessing = false;
-      } finally {
-        setIsProcessing(false);
-        setScoringPhase('idle');
-        if (!shouldHoldProcessing) {
-          setProcessingGuard(false);
-        }
       }
-    }, SCORING_DEBOUNCE_MS);
-  }, [transcript, stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, recordAdaptiveTrial, setProcessingGuard, game, analyzePronunciation]);
+
+      // Pass pre-computed result to game state
+      game.submitAnswer(candidate, result);
+
+      // Adaptive difficulty
+      const isSuccess = result.tier === 'strong' || result.tier === 'related';
+      recordAdaptiveTrial({
+        correct: isSuccess,
+        reactionTimeMs: Date.now() - attemptStartTimeRef.current,
+        errorType: result.tier === 'uncertain' ? 'no_match' :
+                   result.tier === 'creative' ? 'creative_link' : undefined,
+      });
+
+      // Log utterance
+      if (sessionId && currentAttemptId) {
+        const contentWordCount = getContentWordCount(rawTranscript);
+
+        await logFinalAnalysis({
+          transcript: rawTranscript,
+          transcriptSource: 'browser',
+          isCorrect: isSuccess,
+          errorType: result.tier === 'uncertain' ? 'no_match' :
+                     result.tier === 'creative' ? 'creative_link' :
+                     result.tier === 'related' ? 'semantic_paraphasia' : undefined,
+          semanticSimilarity: result.semanticSimilarity ?? undefined,
+          recordingDurationMs,
+          audioStoragePath,
+          ...(pronunciationData ? {
+            pronunciationScore: pronunciationData.pronunciationScore,
+            accuracyScore: pronunciationData.accuracyScore,
+            fluencyScore: pronunciationData.fluencyScore,
+            completenessScore: pronunciationData.completenessScore,
+            prosodyScore: pronunciationData.prosodyScore,
+            gopData: pronunciationData,
+            alignmentData: pronunciationData.alignmentData,
+          } : {}),
+          reasoning: JSON.stringify({
+            rawTranscript,
+            cluesFiltered: currentPuzzle.clues,
+            afterClueRemoval: latestWithoutClues,
+            cleanedAnswer: candidate,
+            matchedWord: result.matchedWord,
+            tier: result.tier,
+            score: result.score,
+            reachedAnchor: result.reachedAnchor,
+            puzzleId: currentPuzzle.id,
+            contentWordCount,
+          }),
+          cueTypeGiven: 'none',
+          fluencyAvailable: !!audioStoragePath,
+          fluencyUnavailableReason: !audioStoragePath ? 'no_recording' : undefined,
+        });
+      }
+
+      // Show feedback
+      const message = getTierMessage(result.tier, result.matchedWord);
+      setFeedbackMessage(result.coachResponse || message);
+      setShowFeedback(true);
+      clearTranscriptState();
+
+      if (result.tier === 'strong' || result.tier === 'related') {
+        shouldHoldProcessing = true;
+        setTimeout(() => {
+          if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+          setShowFeedback(false);
+          resetAttempt();
+          setProcessingGuard(false);
+          game.nextRound();
+        }, AUTO_ADVANCE_DELAY_MS);
+      } else {
+        shouldHoldProcessing = false;
+      }
+    } catch (error) {
+      console.error('[TwoClues] Scoring error:', error);
+      shouldHoldProcessing = false;
+    } finally {
+      setIsProcessing(false);
+      setScoringPhase('idle');
+      if (!shouldHoldProcessing) {
+        setProcessingGuard(false);
+      }
+    }
+  }, [stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, recordAdaptiveTrial, setProcessingGuard, game, analyzePronunciation]);
+
+  // Keep ref updated for use in handleSpeechResult's setTimeout
+  useEffect(() => { processStableTranscriptRef.current = processStableTranscript; }, [processStableTranscript]);
 
   const handleToggleMic = useCallback(async () => {
     if (isListening) {
