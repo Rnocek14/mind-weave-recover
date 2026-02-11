@@ -813,26 +813,58 @@ export function TwoCluesGame({
         {/* Feedback */}
         {showFeedback && lastResult && (
           <div className={cn(
-            "p-4 rounded-lg text-center space-y-3",
-            getTierBgColor(lastResult.tier)
+            "p-5 rounded-xl text-center space-y-3 border-2",
+            (lastResult.tier === 'strong' || lastResult.tier === 'related') && 'border-green-500 bg-green-50 dark:bg-green-950/30',
+            lastResult.tier === 'creative' && 'border-amber-500 bg-amber-50 dark:bg-amber-950/30',
+            lastResult.tier === 'uncertain' && 'border-destructive bg-destructive/10',
           )}>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-2xl">{getTierEmoji(lastResult.tier)}</span>
-              <span className={cn("font-medium", getTierColor(lastResult.tier))}>
-                {lastResult.tier === 'strong' ? 'Perfect!' : 
-                 lastResult.tier === 'related' ? 'Great!' :
-                 lastResult.tier === 'creative' ? 'Interesting!' : 'Let me help...'}
-              </span>
+            {/* Big clear icon */}
+            <div className="text-5xl">
+              {(lastResult.tier === 'strong' || lastResult.tier === 'related') ? '✅' :
+               lastResult.tier === 'creative' ? '🤔' : '❌'}
             </div>
-            <p className="text-sm">{feedbackMessage}</p>
+            
+            {/* Clear verdict */}
+            <p className={cn(
+              "text-xl font-bold",
+              (lastResult.tier === 'strong' || lastResult.tier === 'related') && 'text-green-700 dark:text-green-400',
+              lastResult.tier === 'creative' && 'text-amber-700 dark:text-amber-400',
+              lastResult.tier === 'uncertain' && 'text-destructive',
+            )}>
+              {lastResult.tier === 'strong' ? 'Correct!' : 
+               lastResult.tier === 'related' ? 'Correct — great word!' :
+               lastResult.tier === 'creative' ? 'Close, but not quite' : 'Not quite right'}
+            </p>
+
+            {/* Show matched word for correct answers */}
+            {(lastResult.tier === 'strong' || lastResult.tier === 'related') && lastResult.matchedWord && (
+              <p className="text-base text-green-600 dark:text-green-300">
+                "<span className="font-semibold">{lastResult.matchedWord}</span>" connects the clues!
+              </p>
+            )}
+
+            {/* Show hint for wrong answers */}
+            {lastResult.tier === 'uncertain' && (
+              <p className="text-sm text-muted-foreground">
+                Think about what word connects all the clues together.
+              </p>
+            )}
+            {lastResult.tier === 'creative' && (
+              <p className="text-sm text-muted-foreground">
+                Interesting connection! Try to find the main word that fits both clues.
+              </p>
+            )}
+
+            <p className="text-sm text-muted-foreground">{feedbackMessage}</p>
+
             <div className="flex justify-center gap-2 pt-2">
               {(lastResult.tier === 'creative' || lastResult.tier === 'uncertain') && (
                 <>
-                  <Button size="sm" variant="outline" onClick={handleTryAgain}>
-                    Try Again
+                  <Button size="sm" variant="outline" onClick={handleTryAgain} className="gap-1">
+                    <Mic className="h-4 w-4" /> Try Again
                   </Button>
                   <Button size="sm" onClick={handleContinue}>
-                    Next
+                    Next →
                   </Button>
                 </>
               )}
@@ -875,17 +907,20 @@ export function TwoCluesGame({
           </div>
         )}
 
-        {/* Mic recovery button */}
+        {/* Mic recovery button - prominent when mic dies */}
         {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && (
-          <div className="text-center">
+          <div className="text-center p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">
+              Microphone stopped — tap to continue
+            </p>
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="default"
               onClick={() => beginAttempt((currentAttemptNumRef.current || 0) + 1)}
-              className="text-muted-foreground gap-2"
+              className="gap-2 border-amber-300 dark:border-amber-700"
             >
               <Mic className="h-4 w-4" />
-              Tap to restart microphone
+              Restart Microphone
             </Button>
           </div>
         )}
