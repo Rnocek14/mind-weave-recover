@@ -30,10 +30,11 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 1500;
+const SCORING_DEBOUNCE_MS = 3000; // Wait 3s of silence after last speech before scoring
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
+const MIN_SPEECH_DURATION_MS = 1500; // Don't score until at least 1.5s of speech has occurred
 
 interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
@@ -381,6 +382,14 @@ export function TwoCluesGame({
       const currentPuzzle = currentPuzzleRef.current;
       if (!currentPuzzle) return;
       
+      // GUARD 0: Transcript changed during debounce — re-extract and compare
+      const latestWithoutClues = removeClueWords(rawTranscriptRef.current, currentPuzzle.clues);
+      const latestCandidate = extractAnswerFromTranscript(latestWithoutClues);
+      if (latestCandidate !== candidate) {
+        console.log('[TwoClues] Transcript changed during debounce, skipping stale candidate:', candidate, '→', latestCandidate);
+        return;
+      }
+      
       // GUARD 1: Already processing or showing feedback
       if (processingRef.current) {
         console.log('[TwoClues] Skipping score - already processing');
@@ -388,12 +397,19 @@ export function TwoCluesGame({
       }
       
       // GUARD 2: Filler-only or too short
-      if (isMostlyFiller(withoutClues) || candidate.length < 2) {
-        console.log('[TwoClues] Skipping score - filler/clue-only:', JSON.stringify(candidate));
+      if (isMostlyFiller(latestWithoutClues) || latestCandidate.length < 2) {
+        console.log('[TwoClues] Skipping score - filler/clue-only:', JSON.stringify(latestCandidate));
+        return;
+      }
+
+      // GUARD 3: Too early — wait for user to have spoken for a minimum duration
+      const speechDuration = Date.now() - attemptStartTimeRef.current;
+      if (speechDuration < MIN_SPEECH_DURATION_MS) {
+        console.log('[TwoClues] Skipping score - too early, only', speechDuration, 'ms into attempt');
         return;
       }
       
-      // GUARD 3: Cooldown
+      // GUARD 4: Cooldown
       const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
       if (timeSinceLastScore < SCORING_COOLDOWN_MS && lastScoredCandidateRef.current) {
         console.log('[TwoClues] Skipping score - in cooldown');
