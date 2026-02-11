@@ -127,10 +127,10 @@ export const useSpeechRecognition = (
     recognition.onerror = (event: any) => {
       console.error('🎤 Speech recognition error:', event.error);
       
-      // Handle 'aborted' errors - DO NOT auto-restart
+      // Handle 'aborted' errors - don't auto-restart but allow manual restart
       if (event.error === 'aborted') {
-        console.log('🎤 Recognition aborted - marking as manually stopped');
-        manuallyStoppedRef.current = true;
+        console.log('🎤 Recognition aborted - state reset (manual restart still allowed)');
+        // Don't set manuallyStoppedRef - allow user to restart via UI
         stateRef.current = 'IDLE';
         setIsListening(false);
         return;
