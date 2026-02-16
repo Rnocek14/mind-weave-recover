@@ -24,16 +24,20 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
-import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 750; // Wait 750ms of silence after last speech before scoring (matches Photo Naming)
+const SCORING_DEBOUNCE_MS = 750;
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
+const STALL_TIMER_DELAY_MS = 7000; // 7s before auto-cue (matches Photo Naming)
+const CONSECUTIVE_ERROR_THRESHOLD = 3; // Errors before auto-cue
 
 interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
@@ -114,6 +118,17 @@ export function TwoCluesGame({
   const [showThinkingHint, setShowThinkingHint] = useState(false);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   
+  // Cue ladder state
+  const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
+  const [showCue, setShowCue] = useState(false);
+  const [currentCueText, setCurrentCueText] = useState('');
+  const [cueState, setCueState] = useState<{
+    type: 'semantic' | 'phonemic' | 'full_word';
+    level: number;
+    shownAt: number;
+    trigger: 'stall' | 'consecutive_errors' | 'user_request';
+  } | null>(null);
+  
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScoredCandidateRef = useRef<string>('');
   const rawTranscriptRef = useRef<string>('');
@@ -124,16 +139,27 @@ export function TwoCluesGame({
   const thinkingHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const attemptStartTimeRef = useRef<number>(Date.now());
   
+  // Cue tracking refs
+  const autoCueShownThisTrialRef = useRef(false);
+  const showCueRef = useRef(false);
+  const showFeedbackRef = useRef(false);
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
   
   const { speak } = useTextToSpeech();
+  const { playHint } = useGameSounds();
+
+  // Sync refs for stale-closure safety
+  useEffect(() => { showCueRef.current = showCue; }, [showCue]);
+  useEffect(() => { showFeedbackRef.current = showFeedback; }, [showFeedback]);
 
   // Capability-based difficulty bounds (null scores = safe defaults)
   const bounds = useMemo(() => getCapabilityDifficultyBounds('two_clues', null), []);
 
-  // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
+  // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -151,12 +177,17 @@ export function TwoCluesGame({
     targetSuccessRate: 0.75,
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: true,
-    enableAutoHints: false, // Two Clues has its own thinking hint
+    enableAutoHints: false, // Cue ladder managed locally
     onDifficultyChange: (_level, _reason, direction) => {
       setDifficultyChanged(direction);
       setTimeout(() => setDifficultyChanged(null), 2500);
     },
   });
+
+  // Adaptation event logger for cue telemetry
+  const {
+    logCueDelivered,
+  } = useAdaptationEventLogger({ userId, profileId });
 
   // Azure Pronunciation Assessment (shared hook)
   const { analyzePronunciation } = usePronunciationAnalysis();
@@ -323,12 +354,16 @@ export function TwoCluesGame({
     finalizingRef.current = true;
 
     try {
+      // Use actual cue state for finalization
+      const activeCue = cueState;
       await logFinalAnalysis({
         transcript: rawTranscriptRef.current || undefined,
         transcriptSource: 'browser',
         isCorrect: false,
         errorType,
-        cueTypeGiven: 'none',
+        cueTypeGiven: activeCue ? activeCue.type : 'none',
+        cueWasEffective: activeCue ? false : undefined, // Had a cue but didn't help
+        cueTrigger: activeCue?.trigger,
         ...extra,
       });
     } finally {
@@ -363,11 +398,183 @@ export function TwoCluesGame({
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (thinkingHintTimeoutRef.current) clearTimeout(thinkingHintTimeoutRef.current);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
       void finalizeAttemptRef.current('abandoned');
     };
   }, []);
+
+  // ==========================================================================
+  // Two Clues Cue Generation
+  // Semantic: category hint, Phonemic: first letter of anchor, Full: reveal
+  // ==========================================================================
+  const generateTwoCluesCue = useCallback((level: number): { type: 'semantic' | 'phonemic' | 'full_word'; text: string } => {
+    const puzzle = currentPuzzleRef.current;
+    if (!puzzle) return { type: 'semantic', text: 'Think about what connects the clues.' };
+
+    const anchor = puzzle.anchors[0] || '';
+
+    switch (level) {
+      case 1: {
+        // Semantic: category-based hint
+        const categoryHints: Record<string, string> = {
+          animals: "Think of an animal",
+          food: "Think of something you eat",
+          kitchen: "Think of something in the kitchen",
+          transport: "Think of a way to travel",
+          body: "Think of a body part",
+          nature: "Think of something in nature",
+          home: "Think of something around the house",
+          clothing: "Think of something you wear",
+          weather: "Think of something about the weather",
+          tools: "Think of a tool or instrument",
+        };
+        const hint = categoryHints[puzzle.category] || `Think about ${puzzle.category}`;
+        return { type: 'semantic', text: hint };
+      }
+      case 2: {
+        // Phonemic: first letter + syllable count
+        const firstLetter = anchor.charAt(0).toUpperCase();
+        const syllables = anchor.replace(/[^aeiouy]/gi, '').length || 1;
+        return {
+          type: 'phonemic',
+          text: `It starts with "${firstLetter}" and has ${syllables === 1 ? 'one syllable' : `${syllables} syllables`}`,
+        };
+      }
+      case 3:
+      default:
+        // Full reveal
+        return { type: 'full_word', text: `The word is "${anchor}"` };
+    }
+  }, []);
+
+  // ==========================================================================
+  // Auto-Cue Trigger (stall or consecutive errors)
+  // ==========================================================================
+  const triggerAutoCue = useCallback((trigger: 'stall' | 'consecutive_errors') => {
+    if (showCueRef.current || autoCueShownThisTrialRef.current) return false;
+    if (!currentPuzzleRef.current) return false;
+    if (showFeedbackRef.current) return false;
+
+    console.log('[TwoClues] 💡 triggerAutoCue FIRING:', trigger);
+
+    const cue = generateTwoCluesCue(1);
+    setCueLevel(1);
+    setCurrentCueText(cue.text);
+    setShowCue(true);
+    autoCueShownThisTrialRef.current = true;
+    showCueRef.current = true;
+
+    setCueState({
+      type: cue.type,
+      level: 1,
+      shownAt: Date.now(),
+      trigger,
+    });
+
+    logCueDelivered(
+      cue.type,
+      1,
+      trigger,
+      adaptiveConsecutiveErrors,
+      sessionId,
+      'two_clues',
+      currentIndexRef.current
+    );
+
+    return true;
+  }, [generateTwoCluesCue, logCueDelivered, adaptiveConsecutiveErrors, sessionId]);
+
+  // ==========================================================================
+  // Reset cue state on trial change
+  // ==========================================================================
+  useEffect(() => {
+    setCueLevel(0);
+    setShowCue(false);
+    setCurrentCueText('');
+    setCueState(null);
+    autoCueShownThisTrialRef.current = false;
+    showCueRef.current = false;
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+  }, [game.currentIndex]);
+
+  // ==========================================================================
+  // Stall detection: 7s of silence → auto-cue
+  // ==========================================================================
+  useEffect(() => {
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+
+    const trialReady = isListening && !showFeedback && !isProcessing && !showCue;
+    if (trialReady) {
+      stallTimerRef.current = setTimeout(() => {
+        if (!showCueRef.current && !showFeedbackRef.current && !autoCueShownThisTrialRef.current) {
+          triggerAutoCue('stall');
+        }
+      }, STALL_TIMER_DELAY_MS);
+    }
+
+    return () => {
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+    };
+  }, [isListening, showFeedback, isProcessing, showCue, triggerAutoCue]);
+
+  // ==========================================================================
+  // Consecutive errors → auto-cue
+  // ==========================================================================
+  useEffect(() => {
+    if (
+      adaptiveConsecutiveErrors >= CONSECUTIVE_ERROR_THRESHOLD &&
+      !autoCueShownThisTrialRef.current &&
+      !showFeedback
+    ) {
+      triggerAutoCue('consecutive_errors');
+    }
+  }, [adaptiveConsecutiveErrors, showFeedback, triggerAutoCue]);
+
+  // ==========================================================================
+  // Manual hint request (user clicks "Need a hint?")
+  // ==========================================================================
+  const handleRequestHint = useCallback(() => {
+    if (cueLevel >= 3 || !currentPuzzleRef.current) return;
+
+    playHint?.();
+    const newLevel = cueLevel + 1;
+    const cue = generateTwoCluesCue(newLevel);
+
+    setCueLevel(newLevel);
+    setCurrentCueText(cue.text);
+    setShowCue(true);
+    showCueRef.current = true;
+
+    setCueState({
+      type: cue.type,
+      level: newLevel,
+      shownAt: Date.now(),
+      trigger: 'user_request',
+    });
+
+    logCueDelivered(
+      cue.type,
+      newLevel,
+      'user_request',
+      adaptiveConsecutiveErrors,
+      sessionId,
+      'two_clues',
+      currentIndexRef.current
+    );
+  }, [cueLevel, generateTwoCluesCue, playHint, logCueDelivered, adaptiveConsecutiveErrors, sessionId]);
+
+  // Reset stall timer when speech is detected
+  useEffect(() => {
+    if (displayTranscript && stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+  }, [displayTranscript]);
 
   // ==========================================================================
   // Stable transcript scoring (Photo Naming pattern)
@@ -495,6 +702,30 @@ export function TwoCluesGame({
                    result.tier === 'creative' ? 'creative_link' : undefined,
       });
 
+      // Compute cue efficacy before resetting cue state
+      let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
+      let cueWasEffective: boolean | null = null;
+      let timeToSuccessAfterCueMs: number | null = null;
+      const CUE_ATTRIBUTION_WINDOW_MS = 15000;
+      const capturedCueState = cueState;
+
+      if (capturedCueState) {
+        cueTypeGiven = capturedCueState.type;
+        const dt = Date.now() - capturedCueState.shownAt;
+
+        if (isSuccess && dt <= CUE_ATTRIBUTION_WINDOW_MS) {
+          cueWasEffective = true;
+          timeToSuccessAfterCueMs = dt;
+        } else if (isSuccess && dt > CUE_ATTRIBUTION_WINDOW_MS) {
+          cueWasEffective = null; // Ambiguous - too long after cue
+        } else {
+          cueWasEffective = false;
+        }
+      }
+
+      // Reset cue state after capturing
+      setCueState(null);
+
       // Log utterance
       if (sessionId && currentAttemptId) {
         const contentWordCount = getContentWordCount(rawTranscript);
@@ -530,7 +761,10 @@ export function TwoCluesGame({
             puzzleId: currentPuzzle.id,
             contentWordCount,
           }),
-          cueTypeGiven: 'none',
+          cueTypeGiven,
+          cueWasEffective: cueWasEffective ?? undefined,
+          timeToSuccessAfterCueMs: timeToSuccessAfterCueMs ?? undefined,
+          cueTrigger: capturedCueState?.trigger,
           fluencyAvailable: !!audioStoragePath,
           fluencyUnavailableReason: !audioStoragePath ? 'no_recording' : undefined,
         });
@@ -564,7 +798,7 @@ export function TwoCluesGame({
         setProcessingGuard(false);
       }
     }
-  }, [stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, recordAdaptiveTrial, setProcessingGuard, game, analyzePronunciation]);
+  }, [stopListening, sessionId, userId, currentAttemptId, logFinalAnalysis, isRecording, stopRecording, uploadRecording, resetAttempt, clearTranscriptState, recordAdaptiveTrial, setProcessingGuard, game, analyzePronunciation, cueState]);
 
   // Keep ref updated for use in handleSpeechResult's setTimeout
   useEffect(() => { processStableTranscriptRef.current = processStableTranscript; }, [processStableTranscript]);
@@ -804,6 +1038,44 @@ export function TwoCluesGame({
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* Cue display */}
+        {showCue && currentCueText && !showFeedback && (
+          <div className="bg-accent/10 border border-accent p-4 rounded-lg flex items-start gap-3 animate-in fade-in duration-300">
+            <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-accent-foreground">{currentCueText}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {cueLevel === 1 ? 'Category hint' : cueLevel === 2 ? 'Sound hint' : 'Answer revealed'}
+              </p>
+            </div>
+            {cueLevel < 3 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRequestHint}
+                className="text-xs text-muted-foreground hover:text-accent-foreground"
+              >
+                More help
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Hint button (when no cue showing yet) */}
+        {!showFeedback && !showCue && isListening && (
+          <div className="text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRequestHint}
+              className="gap-2 text-muted-foreground hover:text-primary"
+            >
+              <Lightbulb className="w-4 h-4" />
+              Need a hint?
+            </Button>
           </div>
         )}
 
