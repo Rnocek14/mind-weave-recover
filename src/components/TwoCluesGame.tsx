@@ -30,11 +30,10 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 3000; // Wait 3s of silence after last speech before scoring
+const SCORING_DEBOUNCE_MS = 750; // Wait 750ms of silence after last speech before scoring (matches Photo Naming)
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
-const MIN_SPEECH_DURATION_MS = 1500; // Don't score until at least 1.5s of speech has occurred
 
 interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
@@ -398,13 +397,6 @@ export function TwoCluesGame({
     // GUARD: Filler-only or too short
     if (isMostlyFiller(latestWithoutClues) || candidate.length < 2) {
       console.log('[TwoClues] processStableTranscript blocked - filler/too short:', JSON.stringify(candidate));
-      return;
-    }
-
-    // GUARD: Too early in attempt
-    const speechDuration = Date.now() - attemptStartTimeRef.current;
-    if (speechDuration < MIN_SPEECH_DURATION_MS) {
-      console.log('[TwoClues] processStableTranscript blocked - too early:', speechDuration, 'ms');
       return;
     }
 
