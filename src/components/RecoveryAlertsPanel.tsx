@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import type { RecoveryAlert } from "@/hooks/useRecoveryAlerts";
+import { AlertEvidenceBlock } from "@/components/AlertEvidenceBlock";
 
 interface RecoveryAlertsPanelProps {
   alerts: RecoveryAlert[];
@@ -126,6 +127,12 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
                     <p className="text-xs text-muted-foreground mt-1">
                       {alert.description}
                     </p>
+                    {alert.trigger_data && Object.keys(alert.trigger_data).length > 0 && (
+                      <AlertEvidenceBlock
+                        alertType={alert.alert_type}
+                        triggerData={alert.trigger_data}
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
