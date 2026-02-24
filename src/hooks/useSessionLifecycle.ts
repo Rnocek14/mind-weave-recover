@@ -119,6 +119,35 @@ export const useSessionLifecycle = ({
           }
         } else {
           console.log(`[SessionLifecycle] Session ended successfully: ${reason}`);
+          
+          // Auto-populate speech dose into recovery spine
+          if (durationSec > 0) {
+            const speechMinutes = Math.round(durationSec / 60);
+            if (speechMinutes > 0 && userRef.current && profileRef.current) {
+              try {
+                await (supabase as any)
+                  .from('dose_logs')
+                  .insert({
+                    user_id: userRef.current,
+                    profile_id: profileRef.current,
+                    domain_slug: 'speech',
+                    log_date: new Date().toISOString().slice(0, 10),
+                    dose_value: speechMinutes,
+                    source: 'system',
+                    metadata: {
+                      session_id: sid,
+                      exercise_slug: exerciseSlug,
+                      trials: stats.totalTrials,
+                      duration_sec: durationSec,
+                    },
+                  });
+                console.log(`[SessionLifecycle] Speech dose logged: ${speechMinutes}min`);
+              } catch (doseErr) {
+                console.warn('[SessionLifecycle] Failed to log speech dose:', doseErr);
+              }
+            }
+          }
+          
           onSessionEnded?.(reason);
         }
       } catch (err) {
