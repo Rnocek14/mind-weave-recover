@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity, Stethoscope, Clock, ClipboardList } from "lucide-react";
+import { CaregiverTodayCard } from "@/components/CaregiverTodayCard";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
@@ -133,6 +134,7 @@ const CollapsibleSection = ({
 export const OverviewTab = memo(function OverviewTab() {
   const { uiMode } = useUiMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
+  const isCaregiver = uiMode === "caregiver";
   const {
     userId,
     todayProgress,
@@ -255,6 +257,9 @@ export const OverviewTab = memo(function OverviewTab() {
       {/* ===== PATIENT PRIMARY ACTION — Top of page for patients ===== */}
       {!isClinician && (
         <>
+          {/* Caregiver Today Card — single actionable summary */}
+          {isCaregiver && <CaregiverTodayCard />}
+
           {/* Daily Readiness Check-In */}
           <ReadinessStatusCard
             checkin={todayCheckin}
@@ -375,20 +380,19 @@ export const OverviewTab = memo(function OverviewTab() {
         </CollapsibleSection>
       )}
 
-      {/* ===== CLINICAL SUMMARY — Goals + Sessions + Assessments in one place ===== */}
-      <CollapsibleSection
-        title="Clinical Summary"
-        icon={ClipboardList}
-        defaultOpen={isClinician}
-        hint="Goals, sessions & assessments"
-      >
-        <div className="space-y-6">
+      {/* ===== CLINICAL SUMMARY — Always visible for clinicians, collapsible for others ===== */}
+      {isClinician ? (
+        <div className="space-y-6 p-4 bg-card border rounded-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <ClipboardList className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-lg">Patient Context</span>
+          </div>
           <div>
             <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
               <Target className="w-4 h-4" />
               Functional Goals
             </h4>
-            <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
+            <FunctionalGoalsWidget userId={userId} compact={false} />
           </div>
           <div className="border-t border-border pt-4">
             <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -397,17 +401,39 @@ export const OverviewTab = memo(function OverviewTab() {
             </h4>
             <RecentSessionsSummary userId={userId} />
           </div>
-          {isClinician && (
+          <div className="border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Standardized Assessments
+            </h4>
+            <StandardizedAssessmentsCard userId={userId} />
+          </div>
+        </div>
+      ) : (
+        <CollapsibleSection
+          title="Clinical Summary"
+          icon={ClipboardList}
+          defaultOpen={false}
+          hint="Goals, sessions & assessments"
+        >
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Functional Goals
+              </h4>
+              <FunctionalGoalsWidget userId={userId} compact={true} />
+            </div>
             <div className="border-t border-border pt-4">
               <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                <ClipboardList className="w-4 h-4" />
-                Standardized Assessments
+                <Clock className="w-4 h-4" />
+                Recent Sessions
               </h4>
-              <StandardizedAssessmentsCard userId={userId} />
+              <RecentSessionsSummary userId={userId} />
             </div>
-          )}
-        </div>
-      </CollapsibleSection>
+          </div>
+        </CollapsibleSection>
+      )}
 
       {/* ===== PATIENT SECONDARY WIDGETS — Hidden in clinician mode ===== */}
       {!isClinician && (

@@ -9,7 +9,9 @@ import {
   Clock, 
   Activity, 
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Printer,
+  Target
 } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +21,60 @@ import { useDailyReadiness } from '@/hooks/useDailyReadiness';
 import { useNavigate } from 'react-router-dom';
 import { formatEhrSummary } from '@/lib/formatEhrSummary';
 import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface LastSessionData {
+  date: string;
+  durationMin: number;
+  accuracy: number | null;
+  exerciseCount: number;
+}
+
+function useLastSession(profileId: string | undefined): { lastSession: LastSessionData | null; isLoading: boolean } {
+  const [lastSession, setLastSession] = useState<LastSessionData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profileId) { setIsLoading(false); return; }
+
+    const load = async () => {
+      try {
+        const { data: sess } = await supabase
+          .from('sessions')
+          .select('id, ended_at, duration_sec')
+          .eq('profile_id', profileId)
+          .not('ended_at', 'is', null)
+          .order('ended_at', { ascending: false })
+          .limit(1);
+
+        if (!sess?.length) { setLastSession(null); setIsLoading(false); return; }
+
+        const s = sess[0];
+        const { data: events } = await supabase
+          .from('exercise_events')
+          .select('score')
+          .eq('session_id', s.id);
+
+        const scores = (events || []).filter(e => e.score !== null);
+        const avgAcc = scores.length > 0
+          ? Math.round(scores.reduce((sum, e) => sum + (e.score || 0), 0) / scores.length * 100)
+          : null;
+
+        setLastSession({
+          date: s.ended_at!,
+          durationMin: Math.round((s.duration_sec || 0) / 60),
+          accuracy: avgAcc,
+          exerciseCount: (events || []).length,
+        });
+      } catch { setLastSession(null); }
+      finally { setIsLoading(false); }
+    };
+    load();
+  }, [profileId]);
+
+  return { lastSession, isLoading };
+}
 
 export function ClinicianPatientHeader() {
   const { user } = useAuth();
@@ -29,6 +85,7 @@ export function ClinicianPatientHeader() {
   const { timeline, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, 14);
   const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline);
   const { todayCheckin } = useDailyReadiness(profileId);
+  const { lastSession } = useLastSession(profileId);
 
   // Derived data
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
@@ -55,6 +112,17 @@ export function ClinicianPatientHeader() {
   const engagementLabel = activeDays >= 5 ? 'High' : activeDays >= 3 ? 'Moderate' : activeDays >= 1 ? 'Low' : 'None';
   const engagementColor = activeDays >= 5 ? 'text-green-600 dark:text-green-400' : activeDays >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500';
 
+  // Last session label
+  const lastSessionLabel = (() => {
+    if (!lastSession) return null;
+    const d = new Date(lastSession.date);
+    const today = new Date();
+    const diff = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  })();
+
   const handleCopyEHR = () => {
     try {
       const summary = formatEhrSummary({
@@ -74,14 +142,14 @@ export function ClinicianPatientHeader() {
   if (snapshotLoading) {
     return (
       <Card className="p-4 animate-pulse">
-        <div className="h-16 bg-muted rounded" />
+        <div className="h-20 bg-muted rounded" />
       </Card>
     );
   }
 
   return (
     <Card className="p-4 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-      {/* Row 1: Patient identity + status */}
+      {/* Row 1: Patient identity + alerts */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <Stethoscope className="w-5 h-5 text-primary shrink-0" />
@@ -112,12 +180,19 @@ export function ClinicianPatientHeader() {
         )}
       </div>
 
-      {/* Row 2: Status chips */}
-      <div className="flex flex-wrap items-center gap-3 mb-3 text-sm">
+      {/* Row 2: Status chips — triage-critical data */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 text-sm">
         <div className="flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">Last active:</span>
+          <span className="text-muted-foreground">Active:</span>
           <span className="font-medium">{lastActiveLabel}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <CheckCircle className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">Engagement:</span>
+          <span className={`font-medium ${engagementColor}`}>{engagementLabel}</span>
+          <span className="text-muted-foreground text-xs">({activeDays}/7d)</span>
         </div>
 
         {todayCheckin && (
@@ -127,16 +202,29 @@ export function ClinicianPatientHeader() {
             <span className="font-medium">{todayCheckin.fatigue_rating}/5</span>
           </div>
         )}
-
-        <div className="flex items-center gap-1.5">
-          <CheckCircle className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">Engagement:</span>
-          <span className={`font-medium ${engagementColor}`}>{engagementLabel}</span>
-          <span className="text-muted-foreground text-xs">({activeDays}/7d)</span>
-        </div>
       </div>
 
-      {/* Row 3: Quick actions */}
+      {/* Row 3: Last session metrics — immediate clinical context */}
+      {lastSession && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 px-3 py-2 rounded-md bg-muted/50 text-sm">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last Session</span>
+          <span className="font-medium">{lastSessionLabel}</span>
+          <span className="text-muted-foreground">•</span>
+          <span>{lastSession.durationMin}min</span>
+          {lastSession.accuracy !== null && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <span className={`font-medium ${lastSession.accuracy >= 70 ? 'text-green-600 dark:text-green-400' : lastSession.accuracy >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}`}>
+                {lastSession.accuracy}% acc
+              </span>
+            </>
+          )}
+          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground">{lastSession.exerciseCount} trials</span>
+        </div>
+      )}
+
+      {/* Row 4: Quick actions */}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" onClick={() => navigate('/clinician-report')} className="gap-1.5">
           <FileText className="w-3.5 h-3.5" />
@@ -149,6 +237,10 @@ export function ClinicianPatientHeader() {
         <Button size="sm" variant="outline" onClick={handleCopyEHR} className="gap-1.5">
           <Copy className="w-3.5 h-3.5" />
           Copy EHR
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
+          <Printer className="w-3.5 h-3.5" />
+          Print
         </Button>
       </div>
     </Card>
