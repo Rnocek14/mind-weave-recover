@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
-import { buildSnapshotTimeline } from "@/lib/buildSnapshotTimeline";
+import { buildSnapshotTimeline, type PhysicalRow, type PhysicalMeta } from "@/lib/buildSnapshotTimeline";
 
 export interface SnapshotDay {
   date: string;
@@ -12,6 +12,11 @@ export interface SnapshotDay {
   totalMinutes: number;
   fatigueRating: number | null;
   hasAnySignal: boolean;
+  // Physical layer (objective device signals)
+  steps: number | null;
+  workoutMinutesObjective: number | null;
+  activeMinutesObjective: number | null;
+  sleepMinutes: number | null;
 }
 
 export interface RecoveryFlag {
@@ -26,6 +31,7 @@ export function useWeeklyRecoverySnapshot(
 ) {
   const { user } = useAuth();
   const [timeline, setTimeline] = useState<SnapshotDay[]>([]);
+  const [physicalMeta, setPhysicalMeta] = useState<PhysicalMeta>({ coverageDays: 0, sourcesSeen: [], lastSyncAtMax: null });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +49,7 @@ export function useWeeklyRecoverySnapshot(
     setError(null);
 
     try {
-      const [readinessRes, doseRes] = await Promise.all([
+      const [readinessRes, doseRes, physicalRes] = await Promise.all([
         (supabase as any)
           .from("daily_readiness")
           .select("checkin_date, fatigue_rating")
@@ -56,6 +62,12 @@ export function useWeeklyRecoverySnapshot(
           .eq("profile_id", profileId)
           .gte("log_date", start)
           .lte("log_date", today),
+        (supabase as any)
+          .from("physical_daily_metrics")
+          .select("metric_date, steps, active_minutes, workout_minutes, sleep_minutes, source, last_sync_at")
+          .eq("profile_id", profileId)
+          .gte("metric_date", start)
+          .lte("metric_date", today),
       ]);
 
       // Check for query errors
@@ -73,15 +85,19 @@ export function useWeeklyRecoverySnapshot(
         setIsLoading(false);
         return;
       }
+      // Physical is optional — don't fail if table doesn't exist yet
+      const physicalRows: PhysicalRow[] = physicalRes.error ? [] : (physicalRes.data || []);
 
       const result = buildSnapshotTimeline({
         startDate,
         days,
         readinessRows: readinessRes.data || [],
         doseRows: doseRes.data || [],
+        physicalRows,
       });
 
-      setTimeline(result);
+      setTimeline(result.timeline);
+      setPhysicalMeta(result.physicalMeta);
     } catch (err) {
       console.error("[useWeeklyRecoverySnapshot] fetch error:", err);
       setError("Failed to load recovery snapshot");
@@ -94,7 +110,6 @@ export function useWeeklyRecoverySnapshot(
   useEffect(() => {
     fetchSnapshot();
   }, [fetchSnapshot]);
-
   // Computed flags
   const flags = useMemo<RecoveryFlag[]>(() => {
     if (timeline.length === 0) return [];
@@ -149,6 +164,7 @@ export function useWeeklyRecoverySnapshot(
 
   return {
     timeline,
+    physicalMeta,
     flags,
     lastActiveDate,
     isLoading,
