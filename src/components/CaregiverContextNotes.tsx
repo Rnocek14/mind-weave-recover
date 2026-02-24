@@ -30,7 +30,7 @@ export function CaregiverContextNotes({ profileId }: { profileId: string | undef
     load();
   }, [profileId]);
 
-  if (isLoading || notes.length === 0) return null;
+  if (isLoading) return null;
 
   return (
     <div>
@@ -38,6 +38,9 @@ export function CaregiverContextNotes({ profileId }: { profileId: string | undef
         <MessageSquare className="w-4 h-4" />
         Caregiver Context
       </h4>
+      {notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">No caregiver context notes in the last 14 days.</p>
+      ) : (
       <div className="space-y-2">
         {notes.map(n => {
           const d = new Date(n.created_at);
@@ -51,6 +54,7 @@ export function CaregiverContextNotes({ profileId }: { profileId: string | undef
           );
         })}
       </div>
+      )}
     </div>
   );
 }
