@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { detectRecoveryAlerts, type DetectedAlert } from "@/lib/recoveryAlertDetector";
@@ -18,6 +18,12 @@ export interface RecoveryAlert {
   resolution_notes: string | null;
 }
 
+function timelineHash(timeline: SnapshotDay[]): string {
+  return timeline
+    .map((d) => `${d.date}-${d.totalMinutes}-${d.fatigueRating ?? "n"}`)
+    .join("|");
+}
+
 export function useRecoveryAlerts(
   profileId: string | undefined,
   timeline: SnapshotDay[]
@@ -25,6 +31,7 @@ export function useRecoveryAlerts(
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<RecoveryAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const lastHashRef = useRef<string>("");
 
   // Fetch existing unresolved alerts
   const fetchAlerts = useCallback(async () => {
@@ -54,6 +61,11 @@ export function useRecoveryAlerts(
   useEffect(() => {
     if (!user?.id || !profileId || timeline.length === 0) return;
 
+    // Write throttle: skip if timeline hasn't materially changed
+    const hash = timelineHash(timeline);
+    if (hash === lastHashRef.current) return;
+    lastHashRef.current = hash;
+
     const runDetection = async () => {
       const detected = detectRecoveryAlerts(timeline);
       if (detected.length === 0) return;
@@ -77,9 +89,13 @@ export function useRecoveryAlerts(
         const existing = existingByKey.get(key);
         if (existing) {
           await (supabase as any)
-
             .from("recovery_alerts")
-            .update({ trigger_data: alert.trigger_data, severity: alert.severity })
+            .update({
+              trigger_data: alert.trigger_data,
+              severity: alert.severity,
+              title: alert.title,
+              description: alert.description,
+            })
             .eq("id", existing.id);
         } else {
           await (supabase as any)
