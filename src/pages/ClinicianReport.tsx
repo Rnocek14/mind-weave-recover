@@ -20,7 +20,11 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
-  Volume2
+  Volume2,
+  Activity,
+  Footprints,
+  Moon,
+  Flame
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -31,6 +35,8 @@ import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorre
 import { useRedFlagDetection } from '@/hooks/useRedFlagDetection';
 import { useUiMode } from '@/hooks/useUiMode';
 import { useCuratedAudioSamples } from '@/hooks/useCuratedAudioSamples';
+import { useWeeklyRecoverySnapshot } from '@/hooks/useWeeklyRecoverySnapshot';
+import { useRecoveryAlerts } from '@/hooks/useRecoveryAlerts';
 import { buildClinicianReport, type ClinicianReport as ClinicianReportType } from '@/lib/clinicianReportBuilder';
 import { AudioPlaybackWithWaveform } from '@/components/AudioPlaybackWithWaveform';
 import { format } from 'date-fns';
@@ -75,8 +81,10 @@ export default function ClinicianReport() {
   const { analytics: correlations, isLoading: correlationsLoading } = useCapabilitySpeechCorrelation(user?.id, { profileId: activeProfile?.id });
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, 7);
+  const { timeline, physicalMeta, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(activeProfile?.id, 7);
+  const { alerts: recoveryAlerts } = useRecoveryAlerts(activeProfile?.id, timeline);
   
-  const isLoading = trendsLoading || learningLoading || errorLoading || correlationsLoading || flagsLoading || audioLoading;
+  const isLoading = trendsLoading || learningLoading || errorLoading || correlationsLoading || flagsLoading || audioLoading || snapshotLoading;
   
   // Require clinician+ mode
   if (!isAtLeast('clinician')) {
@@ -484,6 +492,108 @@ export default function ClinicianReport() {
             )}
           </CardContent>
         </Card>
+
+        {/* Physical Activity */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Physical Activity (7-Day)
+            </CardTitle>
+            <CardDescription>
+              Coverage: {physicalMeta.coverageDays}/7 days
+              {physicalMeta.sourcesSeen.length > 0 && ` • Sources: ${physicalMeta.sourcesSeen.join(', ')}`}
+              {physicalMeta.lastSyncAtMax && ` • Last sync: ${format(new Date(physicalMeta.lastSyncAtMax), 'MMM d')}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {timeline.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avg Steps</p>
+                    <p className="text-lg font-semibold">
+                      {(() => {
+                        const withSteps = timeline.filter(d => d.steps !== null);
+                        return withSteps.length > 0
+                          ? Math.round(withSteps.reduce((s, d) => s + (d.steps || 0), 0) / withSteps.length).toLocaleString()
+                          : '—';
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avg Active Min</p>
+                    <p className="text-lg font-semibold">
+                      {(() => {
+                        const withActive = timeline.filter(d => d.activeMinutesObjective !== null);
+                        return withActive.length > 0
+                          ? Math.round(withActive.reduce((s, d) => s + (d.activeMinutesObjective || 0), 0) / withActive.length)
+                          : '—';
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avg Sleep</p>
+                    <p className="text-lg font-semibold">
+                      {(() => {
+                        const withSleep = timeline.filter(d => d.sleepMinutes !== null);
+                        return withSleep.length > 0
+                          ? `${Math.round(withSleep.reduce((s, d) => s + (d.sleepMinutes || 0), 0) / withSleep.length / 60 * 10) / 10}h`
+                          : '—';
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avg Fatigue</p>
+                    <p className="text-lg font-semibold">
+                      {(() => {
+                        const withFatigue = timeline.filter(d => d.fatigueRating !== null);
+                        return withFatigue.length > 0
+                          ? `${(withFatigue.reduce((s, d) => s + (d.fatigueRating || 0), 0) / withFatigue.length).toFixed(1)}/5`
+                          : '—';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No physical data for this period.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recovery Alerts */}
+        {recoveryAlerts.length > 0 && (
+          <Card className="border-amber-500/50 bg-amber-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                Active Recovery Alerts ({recoveryAlerts.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {recoveryAlerts.map(alert => (
+                  <div key={alert.id} className="flex items-start gap-3 p-2 rounded bg-background">
+                    <Badge variant={alert.severity === 'critical' ? 'destructive' : 'secondary'} className="mt-0.5 text-xs shrink-0">
+                      {alert.severity}
+                    </Badge>
+                    <div>
+                      <p className="text-sm font-medium">{alert.title}</p>
+                      {alert.description && (
+                        <p className="text-xs text-muted-foreground">{alert.description}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Detected: {format(new Date(alert.created_at), 'MMM d, h:mm a')}
+                        {alert.acknowledged_at && ' • Acknowledged'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t">

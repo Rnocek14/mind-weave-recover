@@ -3,9 +3,9 @@ import { usePhysicalMetrics } from "@/hooks/usePhysicalMetrics";
 import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import {
   ResponsiveContainer,
-  BarChart,
   Bar,
   Line,
   XAxis,
@@ -27,6 +27,7 @@ export function ActivityTrendChart() {
   const endStr = localYYYYMMDD(end);
 
   const { physicalRows, isLoading } = usePhysicalMetrics(profileId, startStr, endStr);
+  const { timeline: snapshotTimeline } = useWeeklyRecoverySnapshot(profileId, 7);
 
   // Build 7-day contiguous array
   const days: { label: string; date: string; activeMin: number; fatigue: number | null }[] = [];
@@ -34,18 +35,17 @@ export function ActivityTrendChart() {
   for (let i = 0; i < 7; i++) {
     const d = localYYYYMMDD(cursor);
     const row = physicalRows.find((r) => r.metric_date === d);
+    const snapshotDay = snapshotTimeline.find((s) => s.date === d);
     days.push({
       date: d,
       label: cursor.toLocaleDateString(undefined, { weekday: "short" }),
       activeMin: row?.active_minutes != null ? Math.round(Number(row.active_minutes)) : 0,
-      fatigue: null, // filled below if available
+      fatigue: snapshotDay?.fatigueRating ?? null,
     });
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // Overlay fatigue from readiness hook (lightweight — reuses cached data if already mounted)
-  // We intentionally don't fetch readiness here to avoid extra queries;
-  // fatigue overlay will only show if DailyReadiness is available in context.
+  const hasFatigueData = days.some((d) => d.fatigue !== null);
 
   if (isLoading) {
     return (
@@ -60,17 +60,48 @@ export function ActivityTrendChart() {
 
   return (
     <Card className="p-5">
-      <h3 className="font-semibold text-lg mb-4">Activity — Last 7 Days</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-lg">Activity — Last 7 Days</h3>
+        {hasFatigueData && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-2 rounded-sm" style={{ background: "hsl(var(--primary))" }} />
+              Active min
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-0.5 rounded-sm bg-amber-500" />
+              Fatigue
+            </span>
+          </div>
+        )}
+      </div>
 
-      {!hasAnyData ? (
+      {!hasAnyData && !hasFatigueData ? (
         <p className="text-sm text-muted-foreground text-center py-8">
           No activity data yet. Log your first day above!
         </p>
       ) : (
-        <ResponsiveContainer width="100%" height={140}>
+        <ResponsiveContainer width="100%" height={160}>
           <ComposedChart data={days} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
             <XAxis dataKey="label" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+            {hasFatigueData && (
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 5]}
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={30}
+              />
+            )}
             <Tooltip
               contentStyle={{
                 borderRadius: "0.5rem",
@@ -79,16 +110,30 @@ export function ActivityTrendChart() {
                 background: "hsl(var(--card))",
                 color: "hsl(var(--card-foreground))",
               }}
-              formatter={(value: number, name: string) =>
-                name === "activeMin" ? [`${value} min`, "Active Minutes"] : [value, name]
-              }
+              formatter={(value: number, name: string) => {
+                if (name === "activeMin") return [`${value} min`, "Active Minutes"];
+                if (name === "fatigue") return [`${value}/5`, "Fatigue"];
+                return [value, name];
+              }}
             />
             <Bar
+              yAxisId="left"
               dataKey="activeMin"
               fill="hsl(var(--primary))"
               radius={[4, 4, 0, 0]}
               maxBarSize={32}
             />
+            {hasFatigueData && (
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="fatigue"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#f59e0b" }}
+                connectNulls
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       )}
