@@ -574,6 +574,7 @@ export type Database = {
           notes: string | null
           profile_id: string
           quality_score: number | null
+          session_id: string | null
           source: string
           user_id: string
         }
@@ -588,6 +589,7 @@ export type Database = {
           notes?: string | null
           profile_id: string
           quality_score?: number | null
+          session_id?: string | null
           source?: string
           user_id: string
         }
@@ -602,6 +604,7 @@ export type Database = {
           notes?: string | null
           profile_id?: string
           quality_score?: number | null
+          session_id?: string | null
           source?: string
           user_id?: string
         }
@@ -618,6 +621,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dose_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]

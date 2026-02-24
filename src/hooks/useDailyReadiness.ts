@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { localYYYYMMDD } from "@/lib/localDate";
 
 export interface DailyReadiness {
   id: string;
@@ -28,7 +29,7 @@ export function useDailyReadiness(profileId: string | undefined) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localYYYYMMDD();
 
   const fetchToday = useCallback(async () => {
     if (!user?.id || !profileId) {
