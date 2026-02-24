@@ -153,10 +153,12 @@ describe("Golden patient: EHR export consistency", () => {
     expect(ehr).toContain("3/7 days active");
   });
 
-  it("contains Physical ↔ Fatigue correlation block", () => {
+  it("contains Physical ↔ Fatigue correlation block with audit metadata", () => {
     expect(ehr).toContain("Physical ↔ Fatigue:");
     // Golden patient has physical days 8-11 + fatigue days 9-14 → paired: days 9,10,11 = 3
-    expect(ehr).toMatch(/n=\d+ days with both recorded/);
+    expect(ehr).toMatch(/n=\d+/);
+    expect(ehr).toContain("split=mean");
+    expect(ehr).toMatch(/basis=(activeMin|workoutMin|steps)/);
   });
 });
 

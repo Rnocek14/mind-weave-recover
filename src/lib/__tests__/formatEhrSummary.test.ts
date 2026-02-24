@@ -164,7 +164,7 @@ describe("formatEhrSummary", () => {
     expect(summary).toContain("insufficient paired data");
   });
 
-  it("shows correlation sentence with n= when enough paired data", () => {
+  it("shows correlation sentence with n=, split=mean, and basis= when enough paired data", () => {
     // Last 7 days (indices 7-13): alternate 50 and 5 active minutes with fatigue
     const physTimeline = baseTimeline.map((d, i) => ({
       ...d,
@@ -179,7 +179,9 @@ describe("formatEhrSummary", () => {
       engagement: baseEngagement,
     });
     expect(summary).toContain("Physical ↔ Fatigue:");
-    expect(summary).toMatch(/n=\d+ days with both recorded/);
+    expect(summary).toMatch(/n=\d+/);
+    expect(summary).toContain("split=mean");
+    expect(summary).toContain("basis=activeMin");
     expect(summary).toContain("/5 on higher-activity days");
   });
 });

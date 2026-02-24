@@ -115,6 +115,19 @@ export function formatEhrSummary({
     const highPhysDays = pairedDays.filter((d) => getPhysLoad(d)! > meanLoad);
     const lowPhysDays = pairedDays.filter((d) => getPhysLoad(d)! <= meanLoad);
 
+    // Determine which load signal was used most
+    const loadBasisCounts = { activeMin: 0, workoutMin: 0, steps: 0 };
+    for (const d of pairedDays) {
+      if (d.activeMinutesObjective !== null) loadBasisCounts.activeMin++;
+      else if (d.workoutMinutesObjective !== null) loadBasisCounts.workoutMin++;
+      else if (d.steps !== null) loadBasisCounts.steps++;
+    }
+    const loadBasis = loadBasisCounts.activeMin >= loadBasisCounts.workoutMin && loadBasisCounts.activeMin >= loadBasisCounts.steps
+      ? "activeMin"
+      : loadBasisCounts.workoutMin >= loadBasisCounts.steps
+        ? "workoutMin"
+        : "steps";
+
     const avgFatigueHigh = highPhysDays.length > 0
       ? avg(highPhysDays.map((d) => d.fatigueRating!))
       : null;
@@ -124,11 +137,11 @@ export function formatEhrSummary({
 
     if (avgFatigueHigh !== null && avgFatigueLow !== null) {
       lines.push(
-        `Physical ↔ Fatigue: fatigue avg was ${avgFatigueHigh.toFixed(1)}/5 on higher-activity days vs ${avgFatigueLow.toFixed(1)}/5 on lower-activity days (n=${pairedDays.length} days with both recorded).`
+        `Physical ↔ Fatigue: fatigue avg was ${avgFatigueHigh.toFixed(1)}/5 on higher-activity days vs ${avgFatigueLow.toFixed(1)}/5 on lower-activity days (n=${pairedDays.length}, split=mean, basis=${loadBasis}).`
       );
     } else {
       lines.push(
-        `Physical ↔ Fatigue: insufficient variation to compare (n=${pairedDays.length}).`
+        `Physical ↔ Fatigue: insufficient variation to compare (n=${pairedDays.length}, basis=${loadBasis}).`
       );
     }
   }
