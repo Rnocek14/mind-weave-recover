@@ -107,6 +107,16 @@ describe("Golden patient: alert detection", () => {
       expect(doseAlert.domain_slug).toBe("speech");
     }
   });
+
+  it("no deconditioning_risk (golden patient has adequate activity)", () => {
+    // Physical coverage days 5-11 in last 7 (days 8-14): days 8,9,10,11 = 4 days
+    // activeMinutesObjective for those days: 28,29,30,31 — all > 10
+    expect(alerts.find((a) => a.alert_type === "deconditioning_risk")).toBeUndefined();
+  });
+
+  it("no overexertion_risk (no activity spike in golden data)", () => {
+    expect(alerts.find((a) => a.alert_type === "overexertion_risk")).toBeUndefined();
+  });
 });
 
 describe("Golden patient: EHR export consistency", () => {
@@ -141,6 +151,12 @@ describe("Golden patient: EHR export consistency", () => {
     expect(ehr).toContain("Last 7 days");
     expect(ehr).toContain("Speech dose:");
     expect(ehr).toContain("3/7 days active");
+  });
+
+  it("contains Physical ↔ Fatigue correlation block", () => {
+    expect(ehr).toContain("Physical ↔ Fatigue:");
+    // Golden patient has physical days 8-11 + fatigue days 9-14 → paired: days 9,10,11 = 3
+    expect(ehr).toMatch(/n=\d+ days with both recorded/);
   });
 });
 

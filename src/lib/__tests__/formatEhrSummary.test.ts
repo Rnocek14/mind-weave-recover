@@ -151,4 +151,35 @@ describe("formatEhrSummary", () => {
     });
     expect(summary.toLowerCase()).toContain("assess fatigue drivers");
   });
+
+  it("shows 'insufficient paired data' when <3 days have both phys + fatigue", () => {
+    // baseTimeline has no physical data → 0 paired days
+    const summary = formatEhrSummary({
+      timeline: baseTimeline,
+      flags: [],
+      alerts: [],
+      lastActiveDate: "2025-01-14",
+      engagement: baseEngagement,
+    });
+    expect(summary).toContain("insufficient paired data");
+  });
+
+  it("shows correlation sentence with n= when enough paired data", () => {
+    // Last 7 days (indices 7-13): alternate 50 and 5 active minutes with fatigue
+    const physTimeline = baseTimeline.map((d, i) => ({
+      ...d,
+      activeMinutesObjective: i >= 7 ? (i % 2 === 0 ? 50 : 5) : null,
+      fatigueRating: i >= 7 ? (i % 2 === 0 ? 4 : 2) as number : null,
+    }));
+    const summary = formatEhrSummary({
+      timeline: physTimeline,
+      flags: [],
+      alerts: [],
+      lastActiveDate: "2025-01-14",
+      engagement: baseEngagement,
+    });
+    expect(summary).toContain("Physical ↔ Fatigue:");
+    expect(summary).toMatch(/n=\d+ days with both recorded/);
+    expect(summary).toContain("/5 on higher-activity days");
+  });
 });
