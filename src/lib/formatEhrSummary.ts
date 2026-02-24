@@ -84,13 +84,14 @@ export function formatEhrSummary({
     lines.push("");
   }
 
-  // Unresolved alerts
+  // Unresolved alerts with ack status
   const unresolvedAlerts = alerts.filter((a) => !a.resolved_at);
   if (unresolvedAlerts.length > 0) {
-    lines.push("Unresolved Alerts:");
+    lines.push("Active Alerts:");
     for (const a of unresolvedAlerts) {
       const sev = a.severity.toUpperCase();
-      lines.push(`- ${sev}: ${a.title}`);
+      const ackStatus = a.acknowledged_at ? "acknowledged" : "unacknowledged";
+      lines.push(`- ${sev} (${ackStatus}): ${a.title}`);
       if (a.description) {
         lines.push(`  ${a.description}`);
       }

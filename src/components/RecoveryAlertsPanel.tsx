@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   AlertTriangle,
   CheckCircle2,
+  Eye,
   ShieldAlert,
   Info,
   X,
@@ -14,6 +15,7 @@ import type { RecoveryAlert } from "@/hooks/useRecoveryAlerts";
 
 interface RecoveryAlertsPanelProps {
   alerts: RecoveryAlert[];
+  onAcknowledge: (id: string, notes?: string) => Promise<void>;
   onResolve: (id: string, notes?: string) => Promise<void>;
 }
 
@@ -35,19 +37,39 @@ const severityConfig = {
   },
 };
 
+type ActionMode = null | "acknowledge" | "resolve";
+
 export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
   alerts,
+  onAcknowledge,
   onResolve,
 }: RecoveryAlertsPanelProps) {
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [resolveNotes, setResolveNotes] = useState("");
+  const [activeAction, setActiveAction] = useState<{ id: string; mode: ActionMode }>({ id: "", mode: null });
+  const [notes, setNotes] = useState("");
 
   if (alerts.length === 0) return null;
 
-  const handleResolve = async (id: string) => {
-    await onResolve(id, resolveNotes || undefined);
-    setResolvingId(null);
-    setResolveNotes("");
+  const unackedCount = alerts.filter((a) => !a.acknowledged_at).length;
+
+  const handleSubmit = async () => {
+    if (!activeAction.mode || !activeAction.id) return;
+    if (activeAction.mode === "acknowledge") {
+      await onAcknowledge(activeAction.id, notes || undefined);
+    } else {
+      await onResolve(activeAction.id, notes || undefined);
+    }
+    setActiveAction({ id: "", mode: null });
+    setNotes("");
+  };
+
+  const toggleAction = (id: string, mode: ActionMode) => {
+    if (activeAction.id === id && activeAction.mode === mode) {
+      setActiveAction({ id: "", mode: null });
+      setNotes("");
+    } else {
+      setActiveAction({ id, mode });
+      setNotes("");
+    }
   };
 
   return (
@@ -59,6 +81,11 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
           <Badge variant="destructive" className="text-xs">
             {alerts.length}
           </Badge>
+          {unackedCount > 0 && unackedCount < alerts.length && (
+            <Badge variant="secondary" className="text-xs">
+              {unackedCount} new
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -67,12 +94,13 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
             severityConfig[alert.severity as keyof typeof severityConfig] ||
             severityConfig.info;
           const Icon = config.icon;
-          const isResolving = resolvingId === alert.id;
+          const isAcked = !!alert.acknowledged_at;
+          const isActive = activeAction.id === alert.id;
 
           return (
             <div
               key={alert.id}
-              className={`p-3 rounded-lg border ${config.borderClass} bg-card space-y-2`}
+              className={`p-3 rounded-lg border ${config.borderClass} bg-card space-y-2 ${isAcked ? "opacity-70" : ""}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0">
@@ -83,6 +111,12 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
                       <Badge variant={config.badgeVariant} className="text-xs">
                         {alert.severity}
                       </Badge>
+                      {isAcked && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Eye className="w-3 h-3" />
+                          Ack
+                        </Badge>
+                      )}
                       {alert.domain_slug && (
                         <Badge variant="outline" className="text-xs">
                           {alert.domain_slug}
@@ -94,37 +128,59 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 h-7 w-7 p-0"
-                  onClick={() =>
-                    setResolvingId(isResolving ? null : alert.id)
-                  }
-                >
-                  {isResolving ? (
-                    <X className="w-4 h-4" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isAcked && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Acknowledge"
+                      onClick={() => toggleAction(alert.id, "acknowledge")}
+                    >
+                      <Eye className={`w-4 h-4 ${isActive && activeAction.mode === "acknowledge" ? "text-primary" : "text-muted-foreground"}`} />
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    title="Resolve"
+                    onClick={() => toggleAction(alert.id, "resolve")}
+                  >
+                    {isActive && activeAction.mode === "resolve" ? (
+                      <X className="w-4 h-4" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
-              {isResolving && (
+              {isActive && activeAction.mode && (
                 <div className="flex gap-2 animate-fade-in">
                   <Input
-                    placeholder="Resolution notes (optional)"
-                    value={resolveNotes}
-                    onChange={(e) => setResolveNotes(e.target.value)}
+                    placeholder={activeAction.mode === "acknowledge" ? "Acknowledgement notes (optional)" : "Resolution notes (optional)"}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                     className="text-sm h-8"
                   />
                   <Button
                     size="sm"
                     className="h-8 shrink-0 gap-1"
-                    onClick={() => handleResolve(alert.id)}
+                    variant={activeAction.mode === "resolve" ? "default" : "secondary"}
+                    onClick={handleSubmit}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Resolve
+                    {activeAction.mode === "acknowledge" ? (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        Acknowledge
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Resolve
+                      </>
+                    )}
                   </Button>
                 </div>
               )}

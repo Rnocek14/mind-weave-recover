@@ -13,6 +13,9 @@ export interface RecoveryAlert {
   domain_slug: string | null;
   trigger_data: Record<string, unknown>;
   created_at: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  acknowledgement_notes: string | null;
   resolved_at: string | null;
   resolved_by: string | null;
   resolution_notes: string | null;
@@ -119,11 +122,38 @@ export function useRecoveryAlerts(
     runDetection();
   }, [user?.id, profileId, hash]);
 
-  // Resolve an alert
+  // Acknowledge an alert (clinician saw it)
+  const acknowledgeAlert = useCallback(
+    async (alertId: string, notes?: string) => {
+      if (!user?.id) return;
+      try {
+        const { error } = await (supabase as any)
+          .from("recovery_alerts")
+          .update({
+            acknowledged_at: new Date().toISOString(),
+            acknowledged_by: user.id,
+            acknowledgement_notes: notes || null,
+          })
+          .eq("id", alertId);
+        if (error) throw error;
+        setAlerts((prev) =>
+          prev.map((a) =>
+            a.id === alertId
+              ? { ...a, acknowledged_at: new Date().toISOString(), acknowledged_by: user.id, acknowledgement_notes: notes || null }
+              : a
+          )
+        );
+      } catch (err) {
+        console.error("[useRecoveryAlerts] acknowledge error:", err);
+      }
+    },
+    [user?.id]
+  );
+
+  // Resolve an alert (issue addressed)
   const resolveAlert = useCallback(
     async (alertId: string, notes?: string) => {
       if (!user?.id) return;
-
       try {
         const { error } = await (supabase as any)
           .from("recovery_alerts")
@@ -133,7 +163,6 @@ export function useRecoveryAlerts(
             resolution_notes: notes || null,
           })
           .eq("id", alertId);
-
         if (error) throw error;
         setAlerts((prev) => prev.filter((a) => a.id !== alertId));
       } catch (err) {
@@ -147,5 +176,10 @@ export function useRecoveryAlerts(
     fetchAlerts();
   }, [fetchAlerts]);
 
-  return { alerts, isLoading, resolveAlert, refetch: fetchAlerts };
+  const unacknowledgedCount = useMemo(
+    () => alerts.filter((a) => !a.acknowledged_at).length,
+    [alerts]
+  );
+
+  return { alerts, isLoading, acknowledgeAlert, resolveAlert, unacknowledgedCount, refetch: fetchAlerts };
 }

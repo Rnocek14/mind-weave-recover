@@ -1291,6 +1291,9 @@ export type Database = {
       }
       recovery_alerts: {
         Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledgement_notes: string | null
           alert_type: string
           created_at: string
           description: string | null
@@ -1306,6 +1309,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledgement_notes?: string | null
           alert_type: string
           created_at?: string
           description?: string | null
@@ -1321,6 +1327,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledgement_notes?: string | null
           alert_type?: string
           created_at?: string
           description?: string | null
