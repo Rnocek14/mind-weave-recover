@@ -68,24 +68,39 @@ const Onboarding = () => {
     // Persist screener + goals
     localStorage.setItem("recoveryGoals", JSON.stringify(selectedGoals));
     
-    // Save screener data to profile if we have answers
-    if (user?.id && (screener.strokeTiming || screener.mainDifficulty.length || screener.energyLevel)) {
+    // Save screener data to profile using merge_profile_pref RPC to avoid clobbering existing prefs
+    if (user?.id) {
       try {
+        // Save goals
         await supabase
           .from('profiles')
-          .update({
-            goals: selectedGoals,
-            accessibility_prefs: {
-              onboarding_screener: {
-                stroke_timing: screener.strokeTiming,
-                main_difficulty: screener.mainDifficulty,
-                energy_level: screener.energyLevel,
-                completed_at: new Date().toISOString(),
-              }
-            }
-          })
+          .update({ goals: selectedGoals })
           .eq('user_id', user.id)
           .eq('is_active', true);
+
+        // Merge screener into accessibility_prefs without overwriting other keys
+        if (screener.strokeTiming || screener.mainDifficulty.length || screener.energyLevel) {
+          await supabase.rpc('merge_profile_pref', {
+            p_key: 'onboarding_screener',
+            p_subkey: 'stroke_timing',
+            p_value: JSON.stringify(screener.strokeTiming),
+          });
+          await supabase.rpc('merge_profile_pref', {
+            p_key: 'onboarding_screener',
+            p_subkey: 'main_difficulty',
+            p_value: JSON.stringify(screener.mainDifficulty),
+          });
+          await supabase.rpc('merge_profile_pref', {
+            p_key: 'onboarding_screener',
+            p_subkey: 'energy_level',
+            p_value: JSON.stringify(screener.energyLevel),
+          });
+          await supabase.rpc('merge_profile_pref', {
+            p_key: 'onboarding_screener',
+            p_subkey: 'completed_at',
+            p_value: JSON.stringify(new Date().toISOString()),
+          });
+        }
       } catch {
         // Non-blocking — onboarding still completes
       }

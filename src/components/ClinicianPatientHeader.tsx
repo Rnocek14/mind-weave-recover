@@ -39,18 +39,19 @@ function useLastSession(profileId: string | undefined): { lastSession: LastSessi
 
     const load = async () => {
       try {
+        // Only fetch real therapy sessions (duration > 0) — exclude context-only records
         const { data: sess } = await supabase
           .from('sessions')
           .select('id, ended_at, duration_sec')
           .eq('profile_id', profileId)
           .not('ended_at', 'is', null)
+          .gt('duration_sec', 0)
           .order('ended_at', { ascending: false })
           .limit(1);
 
         if (!sess?.length) { setLastSession(null); setIsLoading(false); return; }
 
         const s = sess[0];
-        // Only fetch score column, filter nulls server-side
         const { data: events } = await supabase
           .from('exercise_events')
           .select('score')
@@ -58,8 +59,6 @@ function useLastSession(profileId: string | undefined): { lastSession: LastSessi
           .not('score', 'is', null);
 
         const scores = events || [];
-        // score is 0 or 1 (binary correct/incorrect), so multiply by 100
-        // If score > 1, it's already a percentage — don't inflate
         const avgAcc = scores.length > 0
           ? Math.round(
               scores.reduce((sum, e) => {
@@ -90,25 +89,25 @@ function deriveSpeechLabel(clinicalProfile: Record<string, any> | null): string 
   
   const speechImpairments: string[] = clinicalProfile?.impairments?.speech || [];
   
-  // Map common clinical terms to display labels
-  if (speechImpairments.includes('expressive') || speechImpairments.includes('broca')) {
+  // Normalize inputs: lowercase, strip non-alpha
+  const normalized = speechImpairments.map(s => s.toLowerCase().replace(/[^a-z]/g, ''));
+  
+  if (normalized.some(s => s.includes('broca') || s === 'expressive' || s === 'expressiveaphasia')) {
     return 'Expressive aphasia';
   }
-  if (speechImpairments.includes('receptive') || speechImpairments.includes('wernicke')) {
+  if (normalized.some(s => s.includes('wernicke') || s === 'receptive' || s === 'receptiveaphasia')) {
     return 'Receptive aphasia';
   }
-  if (speechImpairments.includes('global')) {
+  if (normalized.some(s => s.includes('global'))) {
     return 'Global aphasia';
   }
-  if (speechImpairments.includes('anomic')) {
+  if (normalized.some(s => s.includes('anomic'))) {
     return 'Anomic aphasia';
   }
   if (speechImpairments.length > 0) {
-    // Capitalize the first impairment as a fallback
     return `Speech: ${speechImpairments[0].replace(/_/g, ' ')}`;
   }
   
-  // Don't use stroke_location as aphasia type — it's misleading
   return null;
 }
 
@@ -117,7 +116,7 @@ export function ClinicianPatientHeader() {
   const profileId = activeProfile?.id;
   const navigate = useNavigate();
 
-  const { timeline, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, 14);
+  const { timeline, lastActiveDate, isLoading: snapshotLoading, flags } = useWeeklyRecoverySnapshot(profileId, 14);
   const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { lastSession } = useLastSession(profileId);
@@ -136,15 +135,15 @@ export function ClinicianPatientHeader() {
     [timeline]
   );
 
-  // Last active label
+  // Last active label — use UTC-consistent date slicing
   const lastActiveLabel = (() => {
     if (!lastActiveDate) return 'No activity';
-    const today = new Date().toISOString().slice(0, 10);
-    if (lastActiveDate === today) return 'Today';
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (lastActiveDate === yesterday.toISOString().slice(0, 10)) return 'Yesterday';
-    return new Date(lastActiveDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    if (lastActiveDate === todayUTC) return 'Today';
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    if (lastActiveDate === y.toISOString().slice(0, 10)) return 'Yesterday';
+    return new Date(lastActiveDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   })();
 
   // Engagement band from recent timeline
@@ -153,27 +152,33 @@ export function ClinicianPatientHeader() {
   const engagementLabel = activeDays >= 5 ? 'High' : activeDays >= 3 ? 'Moderate' : activeDays >= 1 ? 'Low' : 'None';
   const engagementColor = activeDays >= 5 ? 'text-green-600 dark:text-green-400' : activeDays >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500';
 
-  // Last session label
+  // Last session label — use ISO date comparison to avoid TZ mislabeling
   const lastSessionLabel = (() => {
     if (!lastSession) return null;
-    const d = new Date(lastSession.date);
-    const today = new Date();
-    const diff = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return 'Today';
-    if (diff === 1) return 'Yesterday';
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const sessionDate = lastSession.date.slice(0, 10);
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    if (sessionDate === todayUTC) return 'Today';
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    if (sessionDate === y.toISOString().slice(0, 10)) return 'Yesterday';
+    return new Date(lastSession.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   })();
 
   const handleCopyEHR = () => {
     try {
+      const unresolvedAlerts = alerts.filter(a => !a.resolved_at);
       const summary = formatEhrSummary({
         timeline,
-        flags: [],
+        flags: flags || [],
         alerts,
         lastActiveDate,
         engagement,
       });
-      navigator.clipboard.writeText(summary);
+      // Append explicit safety negative if no alerts
+      const safetyLine = unresolvedAlerts.length === 0
+        ? '\nSafety flags: none detected in past 14 days.\n'
+        : '';
+      navigator.clipboard.writeText(summary + safetyLine);
       toast.success('EHR summary copied to clipboard');
     } catch {
       toast.error('Failed to copy');
@@ -249,13 +254,15 @@ export function ClinicianPatientHeader() {
           <span className="text-muted-foreground text-xs">({activeDays}/7d)</span>
         </div>
 
-        {todayCheckin && (
-          <div className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-muted-foreground">Fatigue:</span>
+        <div className="flex items-center gap-1.5">
+          <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">Fatigue:</span>
+          {todayCheckin ? (
             <span className="font-medium">{todayCheckin.fatigue_rating}/5</span>
-          </div>
-        )}
+          ) : (
+            <span className="text-muted-foreground italic text-xs">— no check-in today</span>
+          )}
+        </div>
       </div>
 
       {/* Row 3: Last session metrics — immediate clinical context */}

@@ -39,7 +39,7 @@ export function CaregiverTodayCard() {
   const recent7 = timeline.slice(-7);
   const activeDays = recent7.filter(d => d.hasAnySignal).length;
 
-  // Missed yesterday?
+  // Missed yesterday? Use UTC-consistent date comparison
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
@@ -61,52 +61,18 @@ export function CaregiverTodayCard() {
     
     setIsSavingNote(true);
     try {
-      // Save to today's session caregiver_notes, or create a minimal session record
-      const today = new Date().toISOString().slice(0, 10);
-      
-      // Check for an existing session today
-      const { data: todaySession } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('profile_id', profileId)
-        .gte('started_at', `${today}T00:00:00`)
-        .order('started_at', { ascending: false })
-        .limit(1);
-
-      if (todaySession?.length) {
-        // Append to existing session's caregiver notes
-        const existing = todaySession[0];
-        const { data: full } = await supabase
-          .from('sessions')
-          .select('caregiver_notes')
-          .eq('id', existing.id)
-          .single();
-        
-        const updated = full?.caregiver_notes
-          ? `${full.caregiver_notes}\n[${new Date().toLocaleTimeString()}] ${noteText.trim()}`
-          : `[${new Date().toLocaleTimeString()}] ${noteText.trim()}`;
-        
-        await supabase
-          .from('sessions')
-          .update({ caregiver_notes: updated })
-          .eq('id', existing.id);
-      } else {
-        // Create a context-only session record
-        await supabase
-          .from('sessions')
-          .insert({
-            user_id: user.id,
-            profile_id: profileId,
-            caregiver_notes: `[${new Date().toLocaleTimeString()}] ${noteText.trim()}`,
-            started_at: new Date().toISOString(),
-            ended_at: new Date().toISOString(),
-            duration_sec: 0,
-          });
-      }
+      // Save to dedicated caregiver_context_notes table (never creates fake sessions)
+      await supabase
+        .from('caregiver_context_notes')
+        .insert({
+          user_id: user.id,
+          profile_id: profileId,
+          note: `[${new Date().toLocaleTimeString()}] ${noteText.trim()}`,
+        });
       
       setNoteSaved(true);
       setNoteText('');
-      toast.success('Note saved — clinician can see it in session history');
+      toast.success('Note saved — clinician can see it in patient context');
     } catch {
       toast.error('Could not save note');
     } finally {
@@ -179,7 +145,7 @@ export function CaregiverTodayCard() {
           </div>
         </div>
 
-        {/* 4. Quick context note — persists to session caregiver_notes */}
+        {/* 4. Quick context note — persists to caregiver_context_notes table */}
         <div className="p-3 rounded-lg bg-muted/50 border border-dashed space-y-2">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-muted-foreground" />
@@ -189,7 +155,7 @@ export function CaregiverTodayCard() {
           </div>
           {noteSaved ? (
             <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-              ✓ Note saved — clinician will see it in session history
+              ✓ Note saved — clinician will see it in patient context
             </p>
           ) : (
             <>
