@@ -1,9 +1,12 @@
 /* WeeklyRecoverySnapshot – recovery trend visualization */
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, AlertTriangle, Brain, Calendar, Dumbbell, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Zap } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useWeeklyRecoverySnapshot,
@@ -170,12 +173,28 @@ const SnapshotSkeleton = () => (
 /* ── Main component ────────────────────────────────── */
 export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const { activeProfile } = useProfile();
+  const { toast } = useToast();
   const { timeline, flags, lastActiveDate, isLoading, error } =
     useWeeklyRecoverySnapshot(activeProfile?.id, 14);
   const { alerts: persistedAlerts, resolveAlert } = useRecoveryAlerts(
     activeProfile?.id,
     timeline
   );
+
+  const handleCopyEhr = useCallback(async () => {
+    const summary = formatEhrSummary({
+      timeline,
+      flags,
+      alerts: persistedAlerts,
+      lastActiveDate,
+    });
+    try {
+      await navigator.clipboard.writeText(summary);
+      toast({ title: "Copied for EHR paste", description: "Weekly summary copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access clipboard.", variant: "destructive" });
+    }
+  }, [timeline, flags, persistedAlerts, lastActiveDate, toast]);
 
   if (isLoading) return <SnapshotSkeleton />;
 
@@ -237,9 +256,20 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
               14 days
             </Badge>
           </CardTitle>
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            Last active: {formatLastActive()}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Calendar className="w-3.5 h-3.5" />
+              Last active: {formatLastActive()}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={handleCopyEhr}
+            >
+              <ClipboardCopy className="w-3.5 h-3.5" />
+              Copy for EHR
+            </Button>
           </div>
         </div>
       </CardHeader>
