@@ -122,15 +122,64 @@ const Onboarding = () => {
       )
     },
     {
-      title: "Clinical Profile (Optional)",
-      subtitle: "Help us personalize your therapy by providing clinical information",
+      title: "Quick Clinical Info (Optional)",
+      subtitle: "Just 3 questions to personalize your experience",
       content: (
-        <div className="max-w-4xl mx-auto">
-          <ClinicalProfileForm 
-            onSubmit={handleClinicalProfileSubmit}
-            onCancel={() => setStep(step + 1)}
-          />
-          <div className="mt-4 text-center">
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="space-y-4">
+            <Card className="p-5 cursor-pointer hover:border-primary transition-colors border-2" onClick={() => {
+              /* Navigate to full clinical form later if needed */
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium block mb-2">When did the stroke happen?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Less than 3 months', '3–12 months', 'Over 1 year'].map(opt => (
+                      <Badge 
+                        key={opt}
+                        variant="outline"
+                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
+                      >
+                        {opt}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Main difficulty right now?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Finding words', 'Understanding others', 'Reading/Writing', 'Movement'].map(opt => (
+                      <Badge 
+                        key={opt}
+                        variant="outline"
+                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
+                      >
+                        {opt}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-2">Current energy level?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['😊 Good energy', '😐 Okay', '😫 Easily tired'].map(opt => (
+                      <Badge 
+                        key={opt}
+                        variant="outline"
+                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
+                      >
+                        {opt}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+            <p className="text-center text-xs text-muted-foreground">
+              Your clinician or caregiver can add detailed clinical info later.
+            </p>
+          </div>
+          <div className="text-center">
             <Button variant="ghost" onClick={() => setStep(step + 1)}>
               Skip for now
             </Button>
