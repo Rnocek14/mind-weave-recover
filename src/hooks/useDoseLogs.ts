@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { localYYYYMMDD } from "@/lib/localDate";
 
 export interface DoseLog {
   id: string;
@@ -39,10 +40,10 @@ export function useDoseLogs(profileId: string | undefined, days: number = 7) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localYYYYMMDD();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
-  const start = startDate.toISOString().slice(0, 10);
+  const start = localYYYYMMDD(startDate);
 
   const fetchDomains = useCallback(async () => {
     const { data, error } = await (supabase as any)

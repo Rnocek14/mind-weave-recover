@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { localYYYYMMDD } from '@/lib/localDate';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -127,20 +128,20 @@ export const useSessionLifecycle = ({
               try {
                 await (supabase as any)
                   .from('dose_logs')
-                  .insert({
+                  .upsert({
                     user_id: userRef.current,
                     profile_id: profileRef.current,
                     domain_slug: 'speech',
-                    log_date: new Date().toISOString().slice(0, 10),
+                    log_date: localYYYYMMDD(),
                     dose_value: speechMinutes,
                     source: 'system',
+                    session_id: sid,
                     metadata: {
-                      session_id: sid,
                       exercise_slug: exerciseSlug,
                       trials: stats.totalTrials,
                       duration_sec: durationSec,
                     },
-                  });
+                  }, { onConflict: 'session_id' });
                 console.log(`[SessionLifecycle] Speech dose logged: ${speechMinutes}min`);
               } catch (doseErr) {
                 console.warn('[SessionLifecycle] Failed to log speech dose:', doseErr);
