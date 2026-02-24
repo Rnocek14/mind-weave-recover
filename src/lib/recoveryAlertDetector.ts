@@ -37,6 +37,7 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
         streak_days: noSignalStreak,
         gap_start: gapStart,
         gap_end: localYYYYMMDD(),
+        rule_version: "alerts_v1",
       },
     });
   }
@@ -70,6 +71,7 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
           recent_avg_dose: recentAvgDose,
           prior_avg_dose: priorAvgDose,
           dose_drop_pct: Math.round((1 - recentAvgDose / priorAvgDose) * 100),
+          rule_version: "alerts_v1",
         },
       });
     }
@@ -89,6 +91,7 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
       trigger_data: {
         active_days: speechActiveDays,
         target_days: 5,
+        rule_version: "alerts_v1",
       },
     });
   }
@@ -118,6 +121,7 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
           coverage_days: physCoverageDays,
           threshold_active_minutes: 10,
           threshold_steps: 2500,
+          rule_version: "phys_alerts_v1",
         },
       });
     }
@@ -173,19 +177,22 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
         const doseDrop = avgDosePrev4 > 0 && avgDoseLast3 <= avgDosePrev4 * 0.7;
 
         if (fatigueSpike || doseDrop) {
+          const spikePctRounded = Math.round((avgPhysLast3 / avgPhysPrev4 - 1) * 100);
           alerts.push({
             alert_type: "overexertion_risk",
             severity: fatigueSpike && doseDrop ? "critical" : "warning",
             title: "Potential overexertion risk",
-            description: `Physical activity spiked ${Math.round((avgPhysLast3 / avgPhysPrev4 - 1) * 100)}% over the last 3 days${fatigueSpike ? " with rising fatigue" : ""}${doseDrop ? " and declining therapy dose" : ""}. Consider pacing adjustments.`,
+            description: `Physical activity spiked ${spikePctRounded}% over the last 3 days${fatigueSpike ? " with rising fatigue" : ""}${doseDrop ? " and declining therapy dose" : ""}. Consider pacing adjustments.`,
             domain_slug: "physical",
             trigger_data: {
               avg_phys_last3: Math.round(avgPhysLast3),
               avg_phys_prev4: Math.round(avgPhysPrev4),
+              spike_pct_rounded: spikePctRounded,
               avg_fatigue_last3: avgFatigueLast3,
               avg_fatigue_prev4: avgFatiguePrev4,
               avg_dose_last3: Math.round(avgDoseLast3),
               avg_dose_prev4: Math.round(avgDosePrev4),
+              rule_version: "phys_alerts_v1",
             },
           });
         }
