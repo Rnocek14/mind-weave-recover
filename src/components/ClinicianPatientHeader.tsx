@@ -39,13 +39,13 @@ function useLastSession(profileId: string | undefined): { lastSession: LastSessi
 
     const load = async () => {
       try {
-        // Only fetch real therapy sessions (duration > 0) — exclude context-only records
+        // Only fetch meaningful therapy sessions (≥60s) — exclude aborted + context-only records
         const { data: sess } = await supabase
           .from('sessions')
           .select('id, ended_at, duration_sec')
           .eq('profile_id', profileId)
           .not('ended_at', 'is', null)
-          .gt('duration_sec', 0)
+          .gte('duration_sec', 60)
           .order('ended_at', { ascending: false })
           .limit(1);
 
@@ -167,15 +167,17 @@ export function ClinicianPatientHeader() {
   const handleCopyEHR = () => {
     try {
       const unresolvedAlerts = alerts.filter(a => !a.resolved_at);
+      const activeFlags = flags || [];
       const summary = formatEhrSummary({
         timeline,
-        flags: flags || [],
+        flags: activeFlags,
         alerts,
         lastActiveDate,
         engagement,
       });
-      // Append explicit safety negative if no alerts
-      const safetyLine = unresolvedAlerts.length === 0
+      // Only append explicit safety negative when NO alerts AND NO flags
+      const hasConcerns = unresolvedAlerts.length > 0 || activeFlags.length > 0;
+      const safetyLine = !hasConcerns
         ? '\nSafety flags: none detected in past 14 days.\n'
         : '';
       navigator.clipboard.writeText(summary + safetyLine);
