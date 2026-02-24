@@ -176,7 +176,8 @@ export function ClinicianPatientHeader() {
         engagement,
       });
       // Only append explicit safety negative when NO alerts AND NO flags
-      const hasConcerns = unresolvedAlerts.length > 0 || activeFlags.length > 0;
+      const safetyFlagTypes = new Set(['fatigue_spike', 'overexertion_risk', 'deconditioning_risk', 'engagement_failure', 'no_signal']);
+      const hasConcerns = unresolvedAlerts.length > 0 || activeFlags.some(f => safetyFlagTypes.has(f.type));
       const safetyLine = !hasConcerns
         ? '\nSafety flags: none detected in past 14 days.\n'
         : '';
