@@ -3,7 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
+import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+import { useDailyReadiness } from "@/hooks/useDailyReadiness";
+import { useDoseLogs } from "@/hooks/useDoseLogs";
+import { ReadinessStatusCard } from "@/components/ReadinessStatusCard";
+import { DailyReadinessCheckin } from "@/components/DailyReadinessCheckin";
+import { DoseLogEntry } from "@/components/DoseLogEntry";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { useNavigate, useLocation } from "react-router-dom";
 import { currentRoute, withReturnTo } from "@/lib/navigation";
@@ -133,6 +140,13 @@ export const OverviewTab = memo(function OverviewTab() {
   const isMobile = useIsMobile();
   const returnPath = currentRoute(location);
   
+  // Recovery Spine: readiness + dose
+  const { activeProfile } = useProfile();
+  const profileId = activeProfile?.id;
+  const { todayCheckin, hasCheckedInToday, isLoading: readinessLoading, isSaving: readinessSaving, upsertReadiness } = useDailyReadiness(profileId);
+  const { domains, todayLogs, isSaving: doseSaving, upsertDoseLog } = useDoseLogs(profileId, 7);
+  const [showReadinessDialog, setShowReadinessDialog] = useState(false);
+  
   // Check if user arrived from error patterns with targeted practice info
   const targetedPractice = location.state?.targetedPractice as {
     words?: string[];
@@ -212,6 +226,42 @@ export const OverviewTab = memo(function OverviewTab() {
       {urgentFlags.length > 0 && (
         <RedFlagAlerts flags={urgentFlags} />
       )}
+
+      {/* ===== DAILY READINESS CHECK-IN ===== */}
+      <ReadinessStatusCard
+        checkin={todayCheckin}
+        onCheckIn={() => setShowReadinessDialog(true)}
+        isLoading={readinessLoading}
+      />
+
+      <Dialog open={showReadinessDialog} onOpenChange={setShowReadinessDialog}>
+        <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
+          <DailyReadinessCheckin
+            onSubmit={async (data) => {
+              const result = await upsertReadiness(data);
+              if (result) setShowReadinessDialog(false);
+              return result;
+            }}
+            onSkip={() => setShowReadinessDialog(false)}
+            isSaving={readinessSaving}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== DOSE LOGGING ===== */}
+      <CollapsibleSection
+        title="Log Today's Therapy"
+        icon={Plus}
+        defaultOpen={false}
+        hint="PT, OT, activity"
+      >
+        <DoseLogEntry
+          domains={domains}
+          todayLogs={todayLogs}
+          onSubmit={upsertDoseLog}
+          isSaving={doseSaving}
+        />
+      </CollapsibleSection>
 
       {/* ===== PRIMARY ACTION AREA - Always at top ===== */}
       <Card className="p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
