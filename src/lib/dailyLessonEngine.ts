@@ -64,6 +64,7 @@ export interface DailyLesson {
   targetDomains: string[];
   reasoning: string[];
   energyLevel: 'light' | 'moderate' | 'challenging';
+  doseReasoning?: DoseReasoning;
 }
 
 /**
@@ -165,70 +166,133 @@ export interface ReadinessInput {
 }
 
 /**
- * Determine today's dose based on fatigue, frustration, AND daily readiness
+ * Dose reasoning for clinician-grade explainability
+ */
+export interface DoseReasoning {
+  baselineMinutes: number;
+  readinessApplied: ReadinessInput | null;
+  multipliers: { source: string; value: number }[];
+  caps: { source: string; cap: number }[];
+  finalMinutes: number;
+}
+
+/** Clamp a value to [min, max], treating null/undefined as fallback */
+function clampInput(value: number | null | undefined, min: number, max: number, fallback: number): number {
+  if (value == null || typeof value !== 'number' || isNaN(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Determine today's dose based on fatigue, frustration, AND daily readiness.
+ * 
+ * Uses "max reduction source" pattern: readiness and performance each compute
+ * a single worst-case multiplier, then we apply only the larger reduction.
+ * This prevents stacking from cratering dose below useful levels.
  */
 export function calculateTodaysDose(
   performanceSignals: PerformanceSignals,
   baselineMinutes: number = 15,
   readiness?: ReadinessInput | null,
   sessionDurationCap?: number,
-): number {
+): { dose: number; reasoning: DoseReasoning } {
+  const multipliers: DoseReasoning['multipliers'] = [];
+  const caps: DoseReasoning['caps'] = [];
   let dose = baselineMinutes;
 
-  // === Daily Readiness Modulation (highest priority - user's subjective state) ===
+  // Track readiness and performance reductions separately to pick max
+  let readinessMultiplier = 1;
+  let performanceMultiplier = 1;
+
+  // === Daily Readiness Modulation ===
   if (readiness) {
-    const fatigue = readiness.fatigue_rating; // 1-5
+    const fatigue = clampInput(readiness.fatigue_rating, 1, 5, 3);
+    const sleep = clampInput(readiness.sleep_quality, 1, 5, 3);
+    const pain = clampInput(readiness.pain_level, 1, 5, 1);
 
     // Hard cap: user explicitly said fatigue limits practice
     if (readiness.fatigue_limited_practice) {
-      dose = Math.min(dose, 8);
+      caps.push({ source: 'fatigue_limited_practice', cap: 8 });
     }
 
-    // Fatigue-based reduction (1=fresh → no change, 5=exhausted → 40% of baseline)
+    // Fatigue-based reduction
     if (fatigue >= 4) {
-      dose *= 0.4;
+      readinessMultiplier *= 0.4;
+      multipliers.push({ source: 'readiness.fatigue', value: 0.4 });
     } else if (fatigue >= 3) {
-      dose *= 0.65;
+      readinessMultiplier *= 0.65;
+      multipliers.push({ source: 'readiness.fatigue', value: 0.65 });
     }
 
     // Poor sleep compounds fatigue
-    if (readiness.sleep_quality != null && readiness.sleep_quality <= 2) {
-      dose *= 0.8;
+    if (sleep <= 2) {
+      readinessMultiplier *= 0.8;
+      multipliers.push({ source: 'readiness.sleep', value: 0.8 });
     }
 
     // High pain reduces tolerance
-    if (readiness.pain_level != null && readiness.pain_level >= 4) {
-      dose *= 0.7;
+    if (pain >= 4) {
+      readinessMultiplier *= 0.7;
+      multipliers.push({ source: 'readiness.pain', value: 0.7 });
     }
   }
 
-  // === Performance-Based Modulation (from recent trial data) ===
-  // Reduce for high fatigue (RT drift)
+  // === Performance-Based Modulation ===
   if (performanceSignals.fatigueLevel === 'high') {
-    dose *= 0.5;
+    performanceMultiplier *= 0.5;
+    multipliers.push({ source: 'performance.fatigue', value: 0.5 });
   } else if (performanceSignals.fatigueLevel === 'medium') {
-    dose *= 0.75;
+    performanceMultiplier *= 0.75;
+    multipliers.push({ source: 'performance.fatigue', value: 0.75 });
   }
 
-  // Reduce for high frustration
   if (performanceSignals.frustrationLevel === 'high') {
-    dose *= 0.6;
+    performanceMultiplier *= 0.6;
+    multipliers.push({ source: 'performance.frustration', value: 0.6 });
   } else if (performanceSignals.frustrationLevel === 'medium') {
-    dose *= 0.85;
+    performanceMultiplier *= 0.85;
+    multipliers.push({ source: 'performance.frustration', value: 0.85 });
   }
+
+  // Apply the WORSE of readiness vs performance reduction (not both stacked)
+  // This prevents cratering dose when both signals are bad
+  const combinedMultiplier = Math.min(readinessMultiplier, performanceMultiplier);
+  
+  // Never reduce more than 70% in one step unless fatigue_limited_practice is true
+  const maxReduction = readiness?.fatigue_limited_practice ? 0.15 : 0.3;
+  const clampedMultiplier = Math.max(maxReduction, combinedMultiplier);
+  
+  dose *= clampedMultiplier;
 
   // Increase for high engagement (but cap at 25 min)
-  if (performanceSignals.engagementScore >= 8) {
+  if (performanceSignals.engagementScore >= 8 && clampedMultiplier >= 0.7) {
     dose = Math.min(dose * 1.2, 25);
+    multipliers.push({ source: 'engagement.boost', value: 1.2 });
   }
 
-  // === TodayFocus session cap (adaptive engine recommendation) ===
+  // === Apply caps (hard limits) ===
   if (sessionDurationCap && sessionDurationCap > 0) {
     dose = Math.min(dose, sessionDurationCap);
+    caps.push({ source: 'adaptive_engine.sessionDurationCap', cap: sessionDurationCap });
+  }
+
+  // fatigue_limited_practice hard cap (applied LAST so nothing can re-expand)
+  if (readiness?.fatigue_limited_practice) {
+    dose = Math.min(dose, 8);
   }
 
   // Floor at 5 minutes
-  return Math.max(5, Math.round(dose));
+  const finalDose = Math.max(5, Math.round(dose));
+
+  return {
+    dose: finalDose,
+    reasoning: {
+      baselineMinutes,
+      readinessApplied: readiness || null,
+      multipliers,
+      caps,
+      finalMinutes: finalDose,
+    },
+  };
 }
 
 /**
@@ -288,13 +352,22 @@ export function generateDailyLesson(
   todayFocusAdaptations?: { startDifficulty?: number; sessionDurationCap?: number; suggestedSessionMinutes?: number } | null,
 ): DailyLesson {
   const domainPriorities = calculateDomainPriorities(clinicalProfile);
-  let totalDuration = calculateTodaysDose(
+  const doseResult = calculateTodaysDose(
     performanceSignals,
     15,
     readiness,
     todayFocusAdaptations?.sessionDurationCap,
   );
+  let totalDuration = doseResult.dose;
   const reasoning: string[] = [];
+
+  // Telemetry: log dose reasoning for clinician transparency
+  console.log('[DailyLessonEngine] Dose reasoning:', {
+    adaptationEngineActive: true,
+    focusAdaptations: todayFocusAdaptations ?? null,
+    readiness: readiness ?? null,
+    doseReasoning: doseResult.reasoning,
+  });
 
   // Apply TodayFocus session minute suggestion if tighter than dose calc
   if (todayFocusAdaptations?.suggestedSessionMinutes) {
@@ -472,12 +545,16 @@ export function generateDailyLesson(
 
     if (duration < 1) continue;
 
+    // Use TodayFocus startDifficulty consistently (same source of truth as primary)
+    const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
+      ?? Math.max(1, capabilityScores.attention - 1);
+
     blocks.push({
       exerciseId: ex.id,
       duration,
       priority: 'secondary',
       adaptations: {
-        startDifficulty: Math.max(1, capabilityScores.attention - 1),
+        startDifficulty: effectiveStartDifficulty,
         cueLevel: 1,
         timeout: performanceSignals.avgReactionTime * 1.5,
         visualSupport: capabilityScores.vision < 6,
@@ -544,6 +621,7 @@ export function generateDailyLesson(
     targetDomains,
     reasoning,
     energyLevel,
+    doseReasoning: doseResult.reasoning,
   };
 }
 

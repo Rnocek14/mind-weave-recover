@@ -330,6 +330,7 @@ export const useDailyLesson = (
   };
 
   // Auto-generate lesson only once on mount (use cache thereafter)
+  // Wait for readiness to load so dose modulation is accurate
   useEffect(() => {
     // Skip if already built this mount
     if (hasBuiltRef.current && lesson) {
@@ -337,11 +338,14 @@ export const useDailyLesson = (
       return;
     }
     
+    // Don't build yet if readiness is still loading
+    if (readinessLoading) return;
+    
     // Only build if we have the required data (use effective assessment which handles fallback)
     if (userId && (capabilityScores || effectiveAssessment?.completed)) {
       buildLessonFromState();
     }
-  }, [userId, profileId, effectiveAssessment?.id]);
+  }, [userId, profileId, effectiveAssessment?.id, readinessLoading]);
 
   return {
     lesson,
