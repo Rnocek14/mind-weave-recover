@@ -58,19 +58,30 @@ export function useRecoveryAlerts(
       const detected = detectRecoveryAlerts(timeline);
       if (detected.length === 0) return;
 
-      // For each detected alert, check if an unresolved one of the same type exists
+      // Fresh-fetch unresolved alerts to avoid stale closure dedup
+      const { data: currentAlerts } = await (supabase as any)
+        .from("recovery_alerts")
+        .select("id, alert_type, domain_slug, resolved_at")
+        .eq("profile_id", profileId)
+        .is("resolved_at", null);
+
+      const dedupKey = (type: string, domain: string | null) =>
+        `${type}:${domain ?? "all"}`;
+
+      const existingByKey = new Map<string, { id: string; alert_type: string; domain_slug: string | null }>(
+        (currentAlerts ?? []).map((a: any) => [dedupKey(a.alert_type, a.domain_slug), a])
+      );
+
       for (const alert of detected) {
-        const existing = alerts.find(
-          (a) => a.alert_type === alert.alert_type && !a.resolved_at
-        );
+        const key = dedupKey(alert.alert_type, alert.domain_slug);
+        const existing = existingByKey.get(key);
         if (existing) {
-          // Update trigger_data on existing alert
           await (supabase as any)
+
             .from("recovery_alerts")
             .update({ trigger_data: alert.trigger_data, severity: alert.severity })
             .eq("id", existing.id);
         } else {
-          // Insert new alert
           await (supabase as any)
             .from("recovery_alerts")
             .insert({
@@ -86,7 +97,6 @@ export function useRecoveryAlerts(
         }
       }
 
-      // Re-fetch to get latest state
       await fetchAlerts();
     };
 

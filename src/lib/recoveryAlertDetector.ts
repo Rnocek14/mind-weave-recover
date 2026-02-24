@@ -77,11 +77,13 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
 
   // ── 3. Dose inadequacy: speech < 5 days in last 7 ──
   const speechActiveDays = recent7.filter((d) => d.speechMinutes > 0).length;
-  if (speechActiveDays > 0 && speechActiveDays < 3) {
+  if (speechActiveDays > 0 && speechActiveDays < 5) {
     alerts.push({
       alert_type: "dose_inadequacy",
-      severity: "info",
-      title: "Low speech practice frequency",
+      severity: speechActiveDays < 3 ? "warning" : "info",
+      title: speechActiveDays < 3
+        ? "Very low speech practice frequency"
+        : "Low speech practice frequency",
       description: `Speech practice logged on ${speechActiveDays}/7 days this week. Recommended: 5+ days.`,
       domain_slug: "speech",
       trigger_data: {
