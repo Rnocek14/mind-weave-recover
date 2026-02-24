@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity, Stethoscope } from "lucide-react";
+import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity, Stethoscope, Clock, ClipboardList } from "lucide-react";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
@@ -27,6 +27,10 @@ import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 import { WeeklyRecoverySnapshot } from "@/components/WeeklyRecoverySnapshot";
 import { TodaysActivityCard } from "@/components/TodaysActivityCard";
 import { ActivityTrendChart } from "@/components/ActivityTrendChart";
+import { ClinicianPatientHeader } from "@/components/ClinicianPatientHeader";
+import { FunctionalGoalsWidget } from "@/components/FunctionalGoalsWidget";
+import { RecentSessionsSummary } from "@/components/RecentSessionsSummary";
+import { StandardizedAssessmentsCard } from "@/components/StandardizedAssessmentsCard";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -240,6 +244,9 @@ export const OverviewTab = memo(function OverviewTab() {
         </div>
       )}
 
+      {/* ===== CLINICIAN HEADER CARD — 3-second patient summary ===== */}
+      {isClinician && <ClinicianPatientHeader />}
+
       {/* ===== URGENT RED FLAGS (red/orange) - Always visible ===== */}
       {urgentFlags.length > 0 && (
         <RedFlagAlerts flags={urgentFlags} />
@@ -269,6 +276,38 @@ export const OverviewTab = memo(function OverviewTab() {
           <ActivityTrendChart />
         </div>
       </CollapsibleSection>
+
+      {/* ===== FUNCTIONAL GOALS — Hospital currency ===== */}
+      <CollapsibleSection
+        title="Functional Goals"
+        icon={Target}
+        defaultOpen={isClinician}
+        hint="Discharge planning & progress"
+      >
+        <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
+      </CollapsibleSection>
+
+      {/* ===== RECENT SESSIONS — Last 3 + caregiver notes ===== */}
+      <CollapsibleSection
+        title="Recent Sessions"
+        icon={Clock}
+        defaultOpen={isClinician}
+        hint="Last 3 sessions"
+      >
+        <RecentSessionsSummary userId={userId} />
+      </CollapsibleSection>
+
+      {/* ===== STANDARDIZED ASSESSMENTS — Clinician only ===== */}
+      {isClinician && (
+        <CollapsibleSection
+          title="Standardized Assessments"
+          icon={ClipboardList}
+          defaultOpen={false}
+          hint="WAB, BNT, NIHSS scores"
+        >
+          <StandardizedAssessmentsCard userId={userId} />
+        </CollapsibleSection>
+      )}
 
       {/* ===== PATIENT / CAREGIVER WIDGETS — Hidden in clinician mode ===== */}
       {!isClinician && (
