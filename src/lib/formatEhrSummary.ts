@@ -23,7 +23,7 @@ export function formatEhrSummary({
 
   // Header
   lines.push("WEEKLY RECOVERY SNAPSHOT (Last 14 days)");
-  lines.push(`Generated: ${localYYYYMMDD()}`);
+  lines.push(`Generated: ${localYYYYMMDD()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`);
   lines.push(`Last active: ${formatLastActive(lastActiveDate)}`);
   lines.push("");
 
