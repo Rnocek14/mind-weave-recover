@@ -22,6 +22,7 @@ import { computeEngagementScore } from '@/lib/computeEngagementScore';
 import { toast } from 'sonner';
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isSafetyFlag } from '@/lib/safetyFlagTypes';
 
 interface LastSessionData {
   date: string;
@@ -176,8 +177,7 @@ export function ClinicianPatientHeader() {
         engagement,
       });
       // Only append explicit safety negative when NO alerts AND NO flags
-      const safetyFlagTypes = new Set(['fatigue_spike', 'overexertion_risk', 'deconditioning_risk', 'engagement_failure', 'no_signal']);
-      const hasConcerns = unresolvedAlerts.length > 0 || activeFlags.some(f => safetyFlagTypes.has(f.type));
+      const hasConcerns = unresolvedAlerts.length > 0 || activeFlags.some(f => isSafetyFlag(f.type));
       const safetyLine = !hasConcerns
         ? '\nSafety flags: none detected in past 14 days.\n'
         : '';
