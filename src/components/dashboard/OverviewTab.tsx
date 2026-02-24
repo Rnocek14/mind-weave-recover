@@ -75,8 +75,12 @@ const CollapsibleSection = ({
   hasNewData?: boolean;
   onOpen?: () => void;
 }) => {
-  // Smart default: open if hasNewData OR explicit defaultOpen
   const [isOpen, setIsOpen] = useState(defaultOpen || hasNewData);
+  
+  // Respond to defaultOpen changes (e.g., clinician mode toggle)
+  useEffect(() => {
+    if (defaultOpen) setIsOpen(true);
+  }, [defaultOpen]);
   
   // Call onOpen when section is opened (to mark as seen)
   const handleToggle = (open: boolean) => {
