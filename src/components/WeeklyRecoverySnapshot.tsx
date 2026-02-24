@@ -1,5 +1,5 @@
 /* WeeklyRecoverySnapshot – recovery trend visualization */
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
+import { computeEngagementScore } from "@/lib/computeEngagementScore";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useWeeklyRecoverySnapshot,
@@ -181,12 +182,18 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
     timeline
   );
 
+  const engagement = useMemo(
+    () => (timeline.length > 0 ? computeEngagementScore(timeline) : null),
+    [timeline]
+  );
+
   const handleCopyEhr = useCallback(async () => {
     const summary = formatEhrSummary({
       timeline,
       flags,
       alerts: persistedAlerts,
       lastActiveDate,
+      engagement,
     });
     try {
       await navigator.clipboard.writeText(summary);
@@ -194,7 +201,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
     } catch {
       toast({ title: "Copy failed", description: "Could not access clipboard.", variant: "destructive" });
     }
-  }, [timeline, flags, persistedAlerts, lastActiveDate, toast]);
+  }, [timeline, flags, persistedAlerts, lastActiveDate, engagement, toast]);
 
   if (isLoading) return <SnapshotSkeleton />;
 
@@ -255,6 +262,15 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
             <Badge variant="outline" className="text-xs font-normal">
               14 days
             </Badge>
+            {engagement && (
+              <Badge
+                variant={engagement.band === "Low" ? "destructive" : engagement.band === "Moderate" ? "secondary" : "default"}
+                className="text-xs font-semibold ml-1"
+                title={`Active ${engagement.breakdown.activeDays}/${engagement.breakdown.daysTotal} • Dose ${engagement.breakdown.doseDays}/${engagement.breakdown.daysTotal} • Readiness ${engagement.breakdown.readinessDays}/${engagement.breakdown.daysTotal} • Fatigue stable ${engagement.breakdown.fatigueStableDays}/${engagement.breakdown.fatigueDaysRecorded || 0}`}
+              >
+                Engagement: {engagement.score}/100
+              </Badge>
+            )}
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

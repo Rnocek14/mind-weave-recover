@@ -1,5 +1,6 @@
 import type { SnapshotDay, RecoveryFlag } from "@/hooks/useWeeklyRecoverySnapshot";
 import type { RecoveryAlert } from "@/hooks/useRecoveryAlerts";
+import type { EngagementResult } from "@/lib/computeEngagementScore";
 import { localYYYYMMDD } from "@/lib/localDate";
 
 /**
@@ -13,11 +14,13 @@ export function formatEhrSummary({
   flags,
   alerts,
   lastActiveDate,
+  engagement,
 }: {
   timeline: SnapshotDay[];
   flags: RecoveryFlag[];
   alerts: RecoveryAlert[];
   lastActiveDate: string | null;
+  engagement: EngagementResult | null;
 }): string {
   const lines: string[] = [];
 
@@ -26,6 +29,21 @@ export function formatEhrSummary({
   lines.push(`Generated: ${localYYYYMMDD()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`);
   lines.push(`Last active: ${formatLastActive(lastActiveDate)}`);
   lines.push("");
+
+  // Engagement score
+  if (engagement) {
+    const b = engagement.breakdown;
+    lines.push(`Engagement Score (14d): ${engagement.score}/100 (${engagement.band})`);
+    lines.push(`- Active days: ${b.activeDays}/${b.daysTotal}`);
+    lines.push(`- Dose days (≥10 min): ${b.doseDays}/${b.daysTotal}`);
+    lines.push(`- Readiness check-ins: ${b.readinessDays}/${b.daysTotal}`);
+    if (b.fatigueDaysRecorded > 0) {
+      lines.push(`- Fatigue stable (≤3/5): ${b.fatigueStableDays}/${b.fatigueDaysRecorded} recorded days`);
+    } else {
+      lines.push(`- Fatigue: not recorded`);
+    }
+    lines.push("");
+  }
 
   // 7-day averages
   const last7 = timeline.slice(-7);
