@@ -180,7 +180,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const { toast } = useToast();
   const { timeline, flags, lastActiveDate, isLoading, error } =
     useWeeklyRecoverySnapshot(activeProfile?.id, 14);
-  const { alerts: persistedAlerts, resolveAlert } = useRecoveryAlerts(
+  const { alerts: persistedAlerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(
     activeProfile?.id,
     timeline
   );
@@ -339,7 +339,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
     </Card>
 
     {/* Persisted recovery alerts with resolve UI */}
-    <RecoveryAlertsPanel alerts={persistedAlerts} onResolve={resolveAlert} />
+    <RecoveryAlertsPanel alerts={persistedAlerts} onAcknowledge={acknowledgeAlert} onResolve={resolveAlert} />
     </>
   );
 });
