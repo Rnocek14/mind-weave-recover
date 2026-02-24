@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus } from "lucide-react";
+import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useDoseLogs } from "@/hooks/useDoseLogs";
@@ -23,6 +23,7 @@ import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { TodaysSessionStats } from "@/components/TodaysSessionStats";
 import { WeeklyTrendsChart } from "@/components/WeeklyTrendsChart";
 import { RecoverySnapshot } from "@/components/RecoverySnapshot";
+import { WeeklyRecoverySnapshot } from "@/components/WeeklyRecoverySnapshot";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -378,6 +379,18 @@ export const OverviewTab = memo(function OverviewTab() {
           }
         >
           <RecoverySnapshot userId={userId} />
+        </CollapsibleSection>
+      )}
+
+      {/* Recovery Snapshot — 14-day sparklines */}
+      {showRecoveryIntel && (
+        <CollapsibleSection
+          title="Recovery Snapshot"
+          icon={Activity}
+          defaultOpen={true}
+          hint="14-day trends"
+        >
+          <WeeklyRecoverySnapshot />
         </CollapsibleSection>
       )}
 
