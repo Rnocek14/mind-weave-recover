@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity } from "lucide-react";
+import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity, Stethoscope } from "lucide-react";
+import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useDoseLogs } from "@/hooks/useDoseLogs";
@@ -120,6 +121,8 @@ const CollapsibleSection = ({
 };
 
 export const OverviewTab = memo(function OverviewTab() {
+  const { uiMode } = useUiMode();
+  const isClinician = uiMode === "clinician" || uiMode === "admin";
   const {
     userId,
     todayProgress,
@@ -223,46 +226,144 @@ export const OverviewTab = memo(function OverviewTab() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* ===== URGENT RED FLAGS (red/orange) - Above actions ===== */}
+      {/* ===== CLINICIAN VIEW LABEL ===== */}
+      {isClinician && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted border border-border">
+          <Stethoscope className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Clinician View (read-only)</span>
+        </div>
+      )}
+
+      {/* ===== URGENT RED FLAGS (red/orange) - Always visible ===== */}
       {urgentFlags.length > 0 && (
         <RedFlagAlerts flags={urgentFlags} />
       )}
 
-      {/* ===== DAILY READINESS CHECK-IN ===== */}
-      <ReadinessStatusCard
-        checkin={todayCheckin}
-        onCheckIn={() => setShowReadinessDialog(true)}
-        isLoading={readinessLoading}
-      />
+      {/* ===== RECOVERY SNAPSHOT — Always visible (engagement + EHR copy) ===== */}
+      {showRecoveryIntel && (
+        <CollapsibleSection
+          title="Recovery Snapshot"
+          icon={Activity}
+          defaultOpen={true}
+          hint="14-day trends"
+        >
+          <WeeklyRecoverySnapshot />
+        </CollapsibleSection>
+      )}
 
-      <Dialog open={showReadinessDialog} onOpenChange={setShowReadinessDialog}>
-        <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
-          <DailyReadinessCheckin
-            onSubmit={async (data) => {
-              const result = await upsertReadiness(data);
-              if (result) setShowReadinessDialog(false);
-              return result;
-            }}
-            onSkip={() => setShowReadinessDialog(false)}
-            isSaving={readinessSaving}
+      {/* ===== PATIENT / CAREGIVER WIDGETS — Hidden in clinician mode ===== */}
+      {!isClinician && (
+        <>
+          {/* Daily Readiness Check-In */}
+          <ReadinessStatusCard
+            checkin={todayCheckin}
+            onCheckIn={() => setShowReadinessDialog(true)}
+            isLoading={readinessLoading}
           />
-        </DialogContent>
-      </Dialog>
 
-      {/* ===== DOSE LOGGING ===== */}
-      <CollapsibleSection
-        title="Log Today's Therapy"
-        icon={Plus}
-        defaultOpen={false}
-        hint="PT, OT, activity"
-      >
-        <DoseLogEntry
-          domains={domains}
-          todayLogs={todayLogs}
-          onSubmit={upsertDoseLog}
-          isSaving={doseSaving}
-        />
-      </CollapsibleSection>
+          <Dialog open={showReadinessDialog} onOpenChange={setShowReadinessDialog}>
+            <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
+              <DailyReadinessCheckin
+                onSubmit={async (data) => {
+                  const result = await upsertReadiness(data);
+                  if (result) setShowReadinessDialog(false);
+                  return result;
+                }}
+                onSkip={() => setShowReadinessDialog(false)}
+                isSaving={readinessSaving}
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* Dose Logging */}
+          <CollapsibleSection
+            title="Log Today's Therapy"
+            icon={Plus}
+            defaultOpen={false}
+            hint="PT, OT, activity"
+          >
+            <DoseLogEntry
+              domains={domains}
+              todayLogs={todayLogs}
+              onSubmit={upsertDoseLog}
+              isSaving={doseSaving}
+            />
+          </CollapsibleSection>
+
+          {/* Primary Action Area */}
+          <Card className="p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Ready to Practice?</h2>
+                {doseCap.warningLevel !== 'safe' && doseCap.enforceCaps && (
+                  <Badge variant="secondary" className="gap-1">
+                    {doseCap.minutesRemaining > 0 ? `${doseCap.minutesRemaining}min left` : 'Goal reached!'}
+                  </Badge>
+                )}
+              </div>
+              
+              {targetedPractice?.words?.length && getTargetedPracticeRoute() && (
+                <Button 
+                  size="lg" 
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white text-lg h-14"
+                  onClick={() => navigate(getTargetedPracticeRoute()!)}
+                  disabled={doseCap.warningLevel === 'limit'}
+                >
+                  <Crosshair className="w-6 h-6 mr-2" />
+                  Continue Targeted Practice ({targetedPractice.words.length} words)
+                </Button>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  size="lg" 
+                  className="flex-1 bg-gradient-healing hover:opacity-90 text-lg h-14"
+                  onClick={() => {
+                    if (lesson) {
+                      navigate("/lesson", { state: { lesson, clinicalProfile } });
+                    }
+                  }}
+                  disabled={!lesson || doseCap.warningLevel === 'limit'}
+                >
+                  <Play className="w-6 h-6 mr-2" />
+                  Start Today's Session
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  className="flex-1 h-14"
+                  onClick={() => setShowGamePicker(true)}
+                  disabled={doseCap.warningLevel === 'limit'}
+                >
+                  <Gamepad2 className="w-5 h-5 mr-2" />
+                  Choose a Game
+                </Button>
+              </div>
+
+              {!hasAssessment && (
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-primary"
+                  onClick={onStartAssessment}
+                >
+                  <Brain className="w-4 h-4 mr-2" />
+                  Complete quick assessment to personalize exercises
+                </Button>
+              )}
+
+              {doseCap.warningLevel !== 'safe' && doseCap.warningLevel !== 'limit' && doseCap.enforceCaps && (
+                <div className="pt-2 border-t">
+                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                    <span>Today's progress</span>
+                    <span>{doseCap.todayMinutes} / {doseCap.dailyCapMinutes} min</span>
+                  </div>
+                  <Progress value={(doseCap.todayMinutes / doseCap.dailyCapMinutes) * 100} className="h-2" />
+                </div>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* ===== PRIMARY ACTION AREA - Always at top ===== */}
       <Card className="p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -341,64 +442,57 @@ export const OverviewTab = memo(function OverviewTab() {
         </div>
       </Card>
 
-      {/* ===== COLLAPSIBLE SECTIONS ===== */}
-      
-      {/* Today's Plan Section - shows adaptive engine shadow panel */}
-      {showPlan && lesson && (
-        <CollapsibleSection 
-          title="Today's Plan Details" 
-          icon={Target}
-          defaultOpen={false}
-          hint="View lesson breakdown + adaptive engine"
-        >
-          <TodaysPlanCard 
-            userId={userId}
-            clinicalProfile={clinicalProfile}
-            onStartAssessment={onStartAssessment}
-            onStartLesson={() => {
-              if (lesson) {
-                navigate("/lesson", { state: { lesson, clinicalProfile, todayFocus } });
+      {/* ===== PATIENT/CAREGIVER COLLAPSIBLE SECTIONS ===== */}
+      {!isClinician && (
+        <>
+          {/* Today's Plan Section */}
+          {showPlan && lesson && (
+            <CollapsibleSection 
+              title="Today's Plan Details" 
+              icon={Target}
+              defaultOpen={false}
+              hint="View lesson breakdown + adaptive engine"
+            >
+              <TodaysPlanCard 
+                userId={userId}
+                clinicalProfile={clinicalProfile}
+                onStartAssessment={onStartAssessment}
+                onStartLesson={() => {
+                  if (lesson) {
+                    navigate("/lesson", { state: { lesson, clinicalProfile, todayFocus } });
+                  }
+                }}
+                doseCapReached={doseCap.warningLevel === 'limit'}
+              />
+            </CollapsibleSection>
+          )}
+
+          {/* Insights Section - Key takeaways */}
+          {showRecoveryIntel && (
+            <CollapsibleSection 
+              title="Your Recovery Insights" 
+              icon={Lightbulb}
+              defaultOpen={false}
+              hint="See your progress summary"
+              hasNewData={insightsSection.hasNewData}
+              onOpen={insightsSection.markSeen}
+              badge={
+                <Badge variant="outline" className="text-xs">AI Summary</Badge>
               }
-            }}
-            doseCapReached={doseCap.warningLevel === 'limit'}
-          />
-        </CollapsibleSection>
+            >
+              <RecoverySnapshot userId={userId} />
+            </CollapsibleSection>
+          )}
+        </>
       )}
 
-      {/* Insights Section - Key takeaways */}
-      {showRecoveryIntel && (
-        <CollapsibleSection 
-          title="Your Recovery Insights" 
-          icon={Lightbulb}
-          defaultOpen={false}
-          hint="See your progress summary"
-          hasNewData={insightsSection.hasNewData}
-          onOpen={insightsSection.markSeen}
-          badge={
-            <Badge variant="outline" className="text-xs">AI Summary</Badge>
-          }
-        >
-          <RecoverySnapshot userId={userId} />
-        </CollapsibleSection>
-      )}
-
-      {/* Recovery Snapshot — 14-day sparklines */}
-      {showRecoveryIntel && (
-        <CollapsibleSection
-          title="Recovery Snapshot"
-          icon={Activity}
-          defaultOpen={true}
-          hint="14-day trends"
-        >
-          <WeeklyRecoverySnapshot />
-        </CollapsibleSection>
-      )}
+      {/* ===== SHARED SECTIONS (visible in all modes) ===== */}
 
       {/* Progress Section - Stats and trends */}
       <CollapsibleSection 
         title="Today's Stats & Trends" 
         icon={TrendingUp}
-        defaultOpen={false}
+        defaultOpen={isClinician}
         hint="View session data"
         hasNewData={statsSection.hasNewData}
         onOpen={statsSection.markSeen}
@@ -417,7 +511,7 @@ export const OverviewTab = memo(function OverviewTab() {
       <CollapsibleSection 
         title="Language Progress" 
         icon={MessageSquare}
-        defaultOpen={false}
+        defaultOpen={isClinician}
         hint="Track by exercise type"
         hasNewData={languageSection.hasNewData}
         onOpen={languageSection.markSeen}
@@ -449,153 +543,155 @@ export const OverviewTab = memo(function OverviewTab() {
         )}
       </CollapsibleSection>
 
-      {/* All Exercises Section */}
-      <CollapsibleSection 
-        title="All Exercises" 
-        icon={Target}
-        defaultOpen={false}
-        hint={`${recommendedExercises.length} available`}
-        badge={
-          clinicalProfile && (
-            <Badge variant="secondary" className="gap-1 text-xs">
-              <Brain className="w-3 h-3" />
-              Personalized
-            </Badge>
-          )
-        }
-      >
-        {showExercises && (
-          <div className="mb-4">
-            <CapabilityGatingInfo
-              hasAssessment={hasAssessment}
-              lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
-              adaptedCount={recommendedExercises.filter(ex => {
-                const access = checkExerciseAccess(ex.id);
-                const adaptations = getAdaptations(ex.id);
-                return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
-              }).length}
-              hasSoftOverride={hasSoftOverride}
-              onStartAssessment={onStartAssessment}
+      {/* All Exercises Section - Patient/Caregiver only */}
+      {!isClinician && (
+        <CollapsibleSection 
+          title="All Exercises" 
+          icon={Target}
+          defaultOpen={false}
+          hint={`${recommendedExercises.length} available`}
+          badge={
+            clinicalProfile && (
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <Brain className="w-3 h-3" />
+                Personalized
+              </Badge>
+            )
+          }
+        >
+          {showExercises && (
+            <div className="mb-4">
+              <CapabilityGatingInfo
+                hasAssessment={hasAssessment}
+                lockedCount={recommendedExercises.filter(ex => !checkExerciseAccess(ex.id).accessible).length}
+                adaptedCount={recommendedExercises.filter(ex => {
+                  const access = checkExerciseAccess(ex.id);
+                  const adaptations = getAdaptations(ex.id);
+                  return access.accessible && adaptations && getAdaptationSummary(adaptations).length > 0;
+                }).length}
+                hasSoftOverride={hasSoftOverride}
+                onStartAssessment={onStartAssessment}
+              />
+            </div>
+          )}
+          
+          {!showExercises ? (
+            <div className="grid md:grid-cols-3 gap-4">
+              <ExerciseCardSkeleton delay={0} />
+              <ExerciseCardSkeleton delay={100} />
+              <ExerciseCardSkeleton delay={200} />
+            </div>
+          ) : isMobile ? (
+            <ExerciseCarousel
+              exercises={recommendedExercises}
+              onStartExercise={(slug) => navigate(withReturnTo(`/exercise/${slug}`, returnPath))}
+              gatingInfo={Object.fromEntries(
+                recommendedExercises.map((ex) => {
+                  const accessCheck = checkExerciseAccess(ex.id);
+                  return [ex.id, {
+                    blocked: !accessCheck.accessible,
+                    reason: accessCheck.reason,
+                  }];
+                })
+              )}
             />
-          </div>
-        )}
-        
-        {!showExercises ? (
-          <div className="grid md:grid-cols-3 gap-4">
-            <ExerciseCardSkeleton delay={0} />
-            <ExerciseCardSkeleton delay={100} />
-            <ExerciseCardSkeleton delay={200} />
-          </div>
-        ) : isMobile ? (
-          <ExerciseCarousel
-            exercises={recommendedExercises}
-            onStartExercise={(slug) => navigate(withReturnTo(`/exercise/${slug}`, returnPath))}
-            gatingInfo={Object.fromEntries(
-              recommendedExercises.map((ex) => {
-                const accessCheck = checkExerciseAccess(ex.id);
-                return [ex.id, {
-                  blocked: !accessCheck.accessible,
-                  reason: accessCheck.reason,
-                }];
-              })
-            )}
-          />
-        ) : (
-          <div className="grid md:grid-cols-3 gap-4">
-            {recommendedExercises.map((exercise, index) => {
-            const Icon = exercise.icon;
-            const recommendation = recommendations.find(r => r.slug === exercise.id);
-            const accessCheck = checkExerciseAccess(exercise.id);
-            const adaptations = getAdaptations(exercise.id);
-            const adaptationSummary = adaptations ? getAdaptationSummary(adaptations) : [];
-            const isLocked = !accessCheck.accessible;
-            const inTodaysPlan = lesson?.blocks?.some(b => b.exerciseId === exercise.id);
-            
-            return (
-              <Card 
-                key={exercise.id}
-                className={`p-6 shadow-card transition-smooth border-2 animate-fade-in ${
-                  isLocked 
-                    ? 'opacity-60 cursor-not-allowed' 
-                    : 'hover:shadow-glow cursor-pointer hover:border-primary'
-                } group`}
-                style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => !isLocked && navigate(withReturnTo(`/exercise/${exercise.id}`, returnPath))}
-              >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className={`w-14 h-14 rounded-full ${exercise.color} flex items-center justify-center ${!isLocked && 'group-hover:scale-110'} transition-smooth`}>
-                      <Icon className="w-7 h-7 text-white" />
-                    </div>
-                    <ExerciseGatingBadge
-                      isAccessible={accessCheck.accessible}
-                      reason={accessCheck.reason}
-                      alternative={accessCheck.alternative}
-                      hasAdaptations={!!adaptations}
-                      adaptationCount={adaptationSummary.length}
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium px-2 py-1 bg-primary-glow text-primary rounded-full">
-                        {exercise.category}
-                      </span>
-                      {recommendation && (
-                        <Badge variant="outline" className="text-xs">
-                          {recommendation.priority} priority
-                        </Badge>
-                      )}
-                      {inTodaysPlan && (
-                        <Badge className="text-xs bg-blue-500 hover:bg-blue-600">
-                          In today's plan
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-semibold text-lg mb-1">{exercise.title}</h3>
-                    {recommendation ? (
-                      <p className="text-sm text-muted-foreground">{recommendation.reason}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Difficulty: {exercise.difficulty}
-                      </p>
-                    )}
-                    
-                    {!isLocked && adaptationSummary.length > 0 && (
-                      <div className="mt-2 pt-2 border-t">
-                        <p className="text-xs font-medium text-primary mb-1">Active Adaptations:</p>
-                        <ul className="text-xs text-muted-foreground space-y-0.5">
-                          {adaptationSummary.slice(0, 3).map((adaptation, idx) => (
-                            <li key={idx}>• {adaptation}</li>
-                          ))}
-                          {adaptationSummary.length > 3 && (
-                            <li className="text-primary">+ {adaptationSummary.length - 3} more</li>
-                          )}
-                        </ul>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-4">
+              {recommendedExercises.map((exercise, index) => {
+              const Icon = exercise.icon;
+              const recommendation = recommendations.find(r => r.slug === exercise.id);
+              const accessCheck = checkExerciseAccess(exercise.id);
+              const adaptations = getAdaptations(exercise.id);
+              const adaptationSummary = adaptations ? getAdaptationSummary(adaptations) : [];
+              const isLocked = !accessCheck.accessible;
+              const inTodaysPlan = lesson?.blocks?.some(b => b.exerciseId === exercise.id);
+              
+              return (
+                <Card 
+                  key={exercise.id}
+                  className={`p-6 shadow-card transition-smooth border-2 animate-fade-in ${
+                    isLocked 
+                      ? 'opacity-60 cursor-not-allowed' 
+                      : 'hover:shadow-glow cursor-pointer hover:border-primary'
+                  } group`}
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  onClick={() => !isLocked && navigate(withReturnTo(`/exercise/${exercise.id}`, returnPath))}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className={`w-14 h-14 rounded-full ${exercise.color} flex items-center justify-center ${!isLocked && 'group-hover:scale-110'} transition-smooth`}>
+                        <Icon className="w-7 h-7 text-white" />
                       </div>
-                    )}
+                      <ExerciseGatingBadge
+                        isAccessible={accessCheck.accessible}
+                        reason={accessCheck.reason}
+                        alternative={accessCheck.alternative}
+                        hasAdaptations={!!adaptations}
+                        adaptationCount={adaptationSummary.length}
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium px-2 py-1 bg-primary-glow text-primary rounded-full">
+                          {exercise.category}
+                        </span>
+                        {recommendation && (
+                          <Badge variant="outline" className="text-xs">
+                            {recommendation.priority} priority
+                          </Badge>
+                        )}
+                        {inTodaysPlan && (
+                          <Badge className="text-xs bg-blue-500 hover:bg-blue-600">
+                            In today's plan
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-lg mb-1">{exercise.title}</h3>
+                      {recommendation ? (
+                        <p className="text-sm text-muted-foreground">{recommendation.reason}</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Difficulty: {exercise.difficulty}
+                        </p>
+                      )}
+                      
+                      {!isLocked && adaptationSummary.length > 0 && (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs font-medium text-primary mb-1">Active Adaptations:</p>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {adaptationSummary.slice(0, 3).map((adaptation, idx) => (
+                              <li key={idx}>• {adaptation}</li>
+                            ))}
+                            {adaptationSummary.length > 3 && (
+                              <li className="text-primary">+ {adaptationSummary.length - 3} more</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <Button 
+                      className="w-full bg-gradient-healing hover:opacity-90"
+                      size="lg"
+                      disabled={isLocked}
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      {isLocked ? 'Locked' : 'Start Exercise'}
+                    </Button>
                   </div>
-                  <Button 
-                    className="w-full bg-gradient-healing hover:opacity-90"
-                    size="lg"
-                    disabled={isLocked}
-                  >
-                    <Play className="w-5 h-5 mr-2" />
-                    {isLocked ? 'Locked' : 'Start Exercise'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-          </div>
-        )}
-      </CollapsibleSection>
+                </Card>
+              );
+            })}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
 
-      {/* Safety Section - Yellow flags (informational, not urgent) */}
+      {/* Safety Section - Yellow flags (informational, not urgent) - always visible */}
       {informationalFlags.length > 0 && (
         <CollapsibleSection 
           title="Safety Notes" 
           icon={AlertTriangle}
-          defaultOpen={false}
+          defaultOpen={isClinician}
           hint="View non-urgent observations"
           alertCount={informationalFlags.length}
           hasNewData={safetySection.hasNewData}
@@ -605,12 +701,14 @@ export const OverviewTab = memo(function OverviewTab() {
         </CollapsibleSection>
       )}
 
-      {/* Game Picker Dialog */}
-      <GamePickerDialog 
-        open={showGamePicker} 
-        onOpenChange={setShowGamePicker}
-        userId={userId}
-      />
+      {/* Game Picker Dialog - Patient/Caregiver only */}
+      {!isClinician && (
+        <GamePickerDialog 
+          open={showGamePicker} 
+          onOpenChange={setShowGamePicker}
+          userId={userId}
+        />
+      )}
     </div>
   );
 });
