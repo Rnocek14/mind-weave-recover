@@ -48,9 +48,13 @@ export function formatEhrSummary({
     `- Therapy dose (PT/OT/Cog): ${avgTherapy.toFixed(0)} min/day`
   );
   lines.push(`- Activity dose: ${avgActivity.toFixed(0)} min/day`);
-  lines.push(
-    `- Fatigue: ${avgFatigue !== null ? `${avgFatigue.toFixed(1)}/5` : "not recorded"} (recorded ${fatigueDays.length}/7 days)`
-  );
+  if (fatigueDays.length === 0) {
+    lines.push(`- Fatigue: not recorded`);
+  } else {
+    lines.push(
+      `- Fatigue: ${avgFatigue!.toFixed(1)}/5 (recorded ${fatigueDays.length}/7 days)`
+    );
+  }
   lines.push("");
 
   // Flags
