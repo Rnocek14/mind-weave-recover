@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, AlertCircle, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Footprints, Smartphone, Pencil, Zap } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Activity, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Footprints, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
@@ -17,6 +16,7 @@ import {
 } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
+import { ProvenanceBadge } from "@/components/ProvenanceBadge";
 
 /* ── Mini sparkline with null-gap awareness (Option A: break on nulls) ── */
 const Sparkline = ({
@@ -348,53 +348,14 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
                 suffix="min/day"
                 latestValue={avgPhys > 0 ? avgPhys.toFixed(0) : "—"}
               />
-              {(() => {
-                const isStale = physicalMeta.lastSyncAtMax
-                  ? (Date.now() - new Date(physicalMeta.lastSyncAtMax).getTime()) > 72 * 60 * 60 * 1000
-                  : false;
-                return (
-                  <div className="flex items-center gap-2 pl-7">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className={`text-xs gap-1 cursor-help ${isStale ? "border-chart-4/60" : ""}`}>
-                            <Smartphone className="w-3 h-3" />
-                            Objective
-                            {isStale && <AlertCircle className="w-3 h-3 text-chart-4" />}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs max-w-64">
-                          <p>Device-synced data ({physicalMeta.sourcesSeen.join(", ") || "unknown"})</p>
-                          <p>{physicalMeta.coverageDays}/14 days synced</p>
-                          {physicalMeta.lastSyncAtMax && (
-                            <p>Last sync: {new Date(physicalMeta.lastSyncAtMax).toLocaleDateString()}{isStale ? " (stale)" : ""}</p>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <span className="text-xs text-muted-foreground">
-                      {physicalMeta.coverageDays}/14 days
-                      {physicalMeta.sourcesSeen.length > 0 && ` · ${physicalMeta.sourcesSeen.join(", ")}`}
-                      {physicalMeta.lastSyncAtMax && ` · Last sync: ${new Date(physicalMeta.lastSyncAtMax).toLocaleDateString()}${isStale ? " (stale)" : ""}`}
-                    </span>
-                  </div>
-                );
-              })()}
+              <ProvenanceBadge physicalMeta={physicalMeta} />
             </>
           );
         })()}
 
         {/* Clinician mode: no device data connected */}
         {isClinician && physicalMeta.coverageDays === 0 && (
-          <div className="flex items-center gap-2 pl-7">
-            <Badge variant="outline" className="text-xs gap-1 opacity-50">
-              <Pencil className="w-3 h-3" />
-              Manual
-            </Badge>
-            <span className="text-xs text-muted-foreground italic">
-              No device connected
-            </span>
-          </div>
+          <ProvenanceBadge physicalMeta={physicalMeta} />
         )}
 
         {flags.length > 0 && (
