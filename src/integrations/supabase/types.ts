@@ -468,6 +468,56 @@ export type Database = {
           },
         ]
       }
+      daily_readiness: {
+        Row: {
+          checkin_date: string
+          created_at: string
+          fatigue_limited_practice: boolean | null
+          fatigue_rating: number
+          id: string
+          mood_rating: number | null
+          notes: string | null
+          pain_level: number | null
+          profile_id: string
+          sleep_quality: number | null
+          user_id: string
+        }
+        Insert: {
+          checkin_date?: string
+          created_at?: string
+          fatigue_limited_practice?: boolean | null
+          fatigue_rating: number
+          id?: string
+          mood_rating?: number | null
+          notes?: string | null
+          pain_level?: number | null
+          profile_id: string
+          sleep_quality?: number | null
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          created_at?: string
+          fatigue_limited_practice?: boolean | null
+          fatigue_rating?: number
+          id?: string
+          mood_rating?: number | null
+          notes?: string | null
+          pain_level?: number | null
+          profile_id?: string
+          sleep_quality?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_readiness_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dismissed_flags: {
         Row: {
           dismissed_at: string | null
@@ -505,6 +555,120 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "dismissed_flags_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dose_logs: {
+        Row: {
+          created_at: string
+          domain_slug: string
+          dose_value: number
+          id: string
+          intensity_score: number | null
+          log_date: string
+          metadata: Json | null
+          notes: string | null
+          profile_id: string
+          quality_score: number | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_slug: string
+          dose_value: number
+          id?: string
+          intensity_score?: number | null
+          log_date?: string
+          metadata?: Json | null
+          notes?: string | null
+          profile_id: string
+          quality_score?: number | null
+          source?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_slug?: string
+          dose_value?: number
+          id?: string
+          intensity_score?: number | null
+          log_date?: string
+          metadata?: Json | null
+          notes?: string | null
+          profile_id?: string
+          quality_score?: number | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dose_logs_domain_slug_fkey"
+            columns: ["domain_slug"]
+            isOneToOne: false
+            referencedRelation: "recovery_domains"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "dose_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dose_targets: {
+        Row: {
+          created_at: string
+          domain_slug: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          prescribed_by: string | null
+          profile_id: string
+          target_frequency: string
+          target_value: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_slug: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          prescribed_by?: string | null
+          profile_id: string
+          target_frequency?: string
+          target_value: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_slug?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          prescribed_by?: string | null
+          profile_id?: string
+          target_frequency?: string
+          target_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dose_targets_domain_slug_fkey"
+            columns: ["domain_slug"]
+            isOneToOne: false
+            referencedRelation: "recovery_domains"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "dose_targets_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1114,6 +1278,102 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recovery_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          description: string | null
+          domain_slug: string | null
+          id: string
+          profile_id: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          title: string
+          trigger_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          description?: string | null
+          domain_slug?: string | null
+          id?: string
+          profile_id: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          title: string
+          trigger_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          description?: string | null
+          domain_slug?: string | null
+          id?: string
+          profile_id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          title?: string
+          trigger_data?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_alerts_domain_slug_fkey"
+            columns: ["domain_slug"]
+            isOneToOne: false
+            referencedRelation: "recovery_domains"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "recovery_alerts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recovery_domains: {
+        Row: {
+          created_at: string
+          display_name: string
+          dose_unit: string
+          icon_name: string | null
+          id: string
+          is_active: boolean
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          dose_unit?: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          dose_unit?: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       recovery_summaries: {
         Row: {
