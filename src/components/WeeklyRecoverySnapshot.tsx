@@ -6,11 +6,12 @@ import { Activity, AlertTriangle, Brain, Calendar, Dumbbell, Zap } from "lucide-
 import { useProfile } from "@/hooks/useProfile";
 import {
   useWeeklyRecoverySnapshot,
-  type SnapshotDay,
   type RecoveryFlag,
 } from "@/hooks/useWeeklyRecoverySnapshot";
+import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
+import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 
-/* ── Mini sparkline (pure SVG) ─────────────────────── */
+/* ── Mini sparkline with null-gap awareness (Option A: break on nulls) ── */
 const Sparkline = ({
   data,
   color,
@@ -27,44 +28,85 @@ const Sparkline = ({
   const safeMax = max || 1;
   const step = width / Math.max(data.length - 1, 1);
 
-  // Build polyline points, skip nulls
-  const points: string[] = [];
+  // Build segments — break on nulls so gaps don't get false lines
+  const segments: string[][] = [];
+  let current: string[] = [];
   data.forEach((v, i) => {
-    if (v === null || v === undefined) return;
+    if (v === null || v === undefined) {
+      if (current.length > 0) {
+        segments.push(current);
+        current = [];
+      }
+      return;
+    }
     const x = i * step;
     const y = height - (v / safeMax) * height;
-    points.push(`${x},${y}`);
+    current.push(`${x},${y}`);
   });
+  if (current.length > 0) segments.push(current);
 
-  if (points.length < 2) {
+  if (segments.length === 0 || segments.every((s) => s.length < 2)) {
+    // Show dots for single-point segments
+    const dots = segments.flat();
+    if (dots.length === 0) {
+      return (
+        <svg width={width} height={height} className="opacity-40">
+          <text
+            x={width / 2}
+            y={height / 2 + 4}
+            textAnchor="middle"
+            fontSize={10}
+            fill="currentColor"
+            className="text-muted-foreground"
+          >
+            No data
+          </text>
+        </svg>
+      );
+    }
     return (
-      <svg width={width} height={height} className="opacity-40">
-        <text x={width / 2} y={height / 2} textAnchor="middle" fontSize={10} fill="currentColor" className="text-muted-foreground">
-          No data
-        </text>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        {dots.map((pt, i) => {
+          const [cx, cy] = pt.split(",");
+          return <circle key={i} cx={cx} cy={cy} r={3} fill={color} />;
+        })}
       </svg>
     );
   }
 
+  // Last point across all segments for the end dot
+  const allPoints = segments.flat();
+  const lastPt = allPoints[allPoints.length - 1]?.split(",");
+
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-      <polyline
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={points.join(" ")}
-      />
-      {/* Dot on last real value */}
-      {points.length > 0 && (
-        <circle
-          cx={points[points.length - 1].split(",")[0]}
-          cy={points[points.length - 1].split(",")[1]}
-          r={3}
-          fill={color}
-        />
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="overflow-visible"
+    >
+      {segments.map((seg, i) =>
+        seg.length >= 2 ? (
+          <polyline
+            key={i}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={seg.join(" ")}
+          />
+        ) : (
+          <circle
+            key={i}
+            cx={seg[0].split(",")[0]}
+            cy={seg[0].split(",")[1]}
+            r={3}
+            fill={color}
+          />
+        )
       )}
+      {lastPt && <circle cx={lastPt[0]} cy={lastPt[1]} r={3} fill={color} />}
     </svg>
   );
 };
@@ -110,7 +152,7 @@ const FlagBadge = ({ flag }: { flag: RecoveryFlag }) => (
   </Badge>
 );
 
-/* ── Loading skeleton ──────────────────────────────── */
+/* ── Loading / error states ────────────────────────── */
 const SnapshotSkeleton = () => (
   <Card>
     <CardHeader className="pb-3">
@@ -127,28 +169,44 @@ const SnapshotSkeleton = () => (
 /* ── Main component ────────────────────────────────── */
 export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const { activeProfile } = useProfile();
-  const { timeline, flags, lastActiveDate, isLoading } =
+  const { timeline, flags, lastActiveDate, isLoading, error } =
     useWeeklyRecoverySnapshot(activeProfile?.id, 14);
+  const { alerts: persistedAlerts, resolveAlert } = useRecoveryAlerts(
+    activeProfile?.id,
+    timeline
+  );
 
   if (isLoading) return <SnapshotSkeleton />;
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center text-sm text-destructive">
+          {error} — check your connection and try again.
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (timeline.length === 0) return null;
 
-  // Compute per-row data arrays
-  const speechData = timeline.map((d) => (d.speechMinutes > 0 ? d.speechMinutes : null));
-  const therapyData = timeline.map((d) => (d.therapyMinutes > 0 ? d.therapyMinutes : null));
+  // Per-row data — zeros become null so sparkline breaks on "no data" days
+  const toNullIfZero = (v: number) => (v > 0 ? v : null);
+  const speechData = timeline.map((d) => toNullIfZero(d.speechMinutes));
+  const therapyData = timeline.map((d) => toNullIfZero(d.therapyMinutes));
   const fatigueData = timeline.map((d) => d.fatigueRating);
 
-  // Compute display values (last 7 days averages)
+  // Last 7 day averages
   const last7 = timeline.slice(-7);
   const avgSpeech = last7.reduce((s, d) => s + d.speechMinutes, 0) / 7;
   const avgTherapy = last7.reduce((s, d) => s + d.therapyMinutes, 0) / 7;
   const fatigueDays = last7.filter((d) => d.fatigueRating !== null);
   const avgFatigue =
     fatigueDays.length > 0
-      ? fatigueDays.reduce((s, d) => s + (d.fatigueRating || 0), 0) / fatigueDays.length
+      ? fatigueDays.reduce((s, d) => s + (d.fatigueRating || 0), 0) /
+        fatigueDays.length
       : 0;
 
-  // Max for sparkline scaling
   const maxMinutes = Math.max(
     ...timeline.map((d) => Math.max(d.speechMinutes, d.therapyMinutes, 1)),
     30
@@ -157,7 +215,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const formatLastActive = () => {
     if (!lastActiveDate) return "No activity yet";
     const today = new Date();
-    const last = new Date(lastActiveDate + "T12:00:00"); // avoid TZ shift
+    const last = new Date(lastActiveDate + "T12:00:00");
     const diffDays = Math.round(
       (today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -167,9 +225,10 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   };
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
             Recovery Snapshot
@@ -185,7 +244,6 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Sparkline rows */}
         <SparklineRow
           icon={Brain}
           label="Speech"
@@ -214,7 +272,6 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
           latestValue={avgFatigue > 0 ? avgFatigue.toFixed(1) : "—"}
         />
 
-        {/* Flags */}
         {flags.length > 0 && (
           <div className="pt-2 border-t flex flex-wrap gap-2">
             {flags.map((f, i) => (
@@ -224,5 +281,9 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
         )}
       </CardContent>
     </Card>
+
+    {/* Persisted recovery alerts with resolve UI */}
+    <RecoveryAlertsPanel alerts={persistedAlerts} onResolve={resolveAlert} />
+    </>
   );
 });

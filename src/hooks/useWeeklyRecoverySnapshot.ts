@@ -6,8 +6,9 @@ import { localYYYYMMDD } from "@/lib/localDate";
 export interface SnapshotDay {
   date: string;
   speechMinutes: number;
-  therapyMinutes: number; // PT + OT + cognitive + activity
-  totalMinutes: number;   // speech + therapy
+  therapyMinutes: number; // PT + OT + cognitive
+  activityMinutes: number; // activity domain
+  totalMinutes: number;
   fatigueRating: number | null;
   hasAnySignal: boolean;
 }
@@ -25,6 +26,7 @@ export function useWeeklyRecoverySnapshot(
   const { user } = useAuth();
   const [timeline, setTimeline] = useState<SnapshotDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const today = localYYYYMMDD();
   const startDate = new Date();
@@ -37,8 +39,9 @@ export function useWeeklyRecoverySnapshot(
       return;
     }
 
+    setError(null);
+
     try {
-      // Two range queries in parallel — no per-day fetching
       const [readinessRes, doseRes] = await Promise.all([
         (supabase as any)
           .from("daily_readiness")
@@ -54,6 +57,22 @@ export function useWeeklyRecoverySnapshot(
           .lte("log_date", today),
       ]);
 
+      // Check for query errors
+      if (readinessRes.error) {
+        console.error("[WeeklyRecoverySnapshot] readiness query failed:", readinessRes.error);
+        setError("Failed to load readiness data");
+        setTimeline([]);
+        setIsLoading(false);
+        return;
+      }
+      if (doseRes.error) {
+        console.error("[WeeklyRecoverySnapshot] dose_logs query failed:", doseRes.error);
+        setError("Failed to load dose data");
+        setTimeline([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Index readiness by date
       const fatigueMap = new Map<string, number>();
       if (readinessRes.data) {
@@ -62,15 +81,23 @@ export function useWeeklyRecoverySnapshot(
         }
       }
 
-      // Aggregate dose by date + domain category
+      // Aggregate dose by date, split: speech / therapy (pt+ot+cognitive) / activity
+      const THERAPY_DOMAINS = new Set(["pt", "ot", "cognitive"]);
       const speechMap = new Map<string, number>();
       const therapyMap = new Map<string, number>();
+      const activityMap = new Map<string, number>();
+
       if (doseRes.data) {
         for (const d of doseRes.data) {
           const val = Number(d.dose_value) || 0;
           if (d.domain_slug === "speech") {
             speechMap.set(d.log_date, (speechMap.get(d.log_date) || 0) + val);
+          } else if (d.domain_slug === "activity") {
+            activityMap.set(d.log_date, (activityMap.get(d.log_date) || 0) + val);
+          } else if (THERAPY_DOMAINS.has(d.domain_slug)) {
+            therapyMap.set(d.log_date, (therapyMap.get(d.log_date) || 0) + val);
           } else {
+            // Future domains default to therapy bucket
             therapyMap.set(d.log_date, (therapyMap.get(d.log_date) || 0) + val);
           }
         }
@@ -83,14 +110,16 @@ export function useWeeklyRecoverySnapshot(
         const d = localYYYYMMDD(cursor);
         const speech = speechMap.get(d) || 0;
         const therapy = therapyMap.get(d) || 0;
+        const activity = activityMap.get(d) || 0;
         const fatigue = fatigueMap.get(d) ?? null;
         result.push({
           date: d,
           speechMinutes: speech,
           therapyMinutes: therapy,
-          totalMinutes: speech + therapy,
+          activityMinutes: activity,
+          totalMinutes: speech + therapy + activity,
           fatigueRating: fatigue,
-          hasAnySignal: speech > 0 || therapy > 0 || fatigue !== null,
+          hasAnySignal: speech > 0 || therapy > 0 || activity > 0 || fatigue !== null,
         });
         cursor.setDate(cursor.getDate() + 1);
       }
@@ -98,6 +127,8 @@ export function useWeeklyRecoverySnapshot(
       setTimeline(result);
     } catch (err) {
       console.error("[useWeeklyRecoverySnapshot] fetch error:", err);
+      setError("Failed to load recovery snapshot");
+      setTimeline([]);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +143,7 @@ export function useWeeklyRecoverySnapshot(
     if (timeline.length === 0) return [];
     const result: RecoveryFlag[] = [];
 
-    // Flag 1: 3+ consecutive days with no signal (from most recent backwards)
+    // Flag 1: trailing no-signal streak
     let noSignalStreak = 0;
     for (let i = timeline.length - 1; i >= 0; i--) {
       if (!timeline[i].hasAnySignal) noSignalStreak++;
@@ -126,7 +157,7 @@ export function useWeeklyRecoverySnapshot(
       });
     }
 
-    // Flag 2: fatigue ≥4 for 3+ recent days AND dose dropped
+    // Flag 2: fatigue ≥4 for 3+ recent days AND dose dropped vs prior week
     const recent7 = timeline.slice(-7);
     const highFatigueDays = recent7.filter(
       (d) => d.fatigueRating !== null && d.fatigueRating >= 4
@@ -164,6 +195,7 @@ export function useWeeklyRecoverySnapshot(
     flags,
     lastActiveDate,
     isLoading,
+    error,
     refetch: fetchSnapshot,
   };
 }
