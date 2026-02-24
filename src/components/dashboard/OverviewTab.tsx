@@ -252,70 +252,7 @@ export const OverviewTab = memo(function OverviewTab() {
         <RedFlagAlerts flags={urgentFlags} />
       )}
 
-      {/* ===== RECOVERY & ACTIVITY — Single section for all trend data ===== */}
-      {showRecoveryIntel && (
-        <CollapsibleSection
-          title="Recovery & Activity"
-          icon={Activity}
-          defaultOpen={true}
-          hint="14-day trends + physical data"
-        >
-          <div className="space-y-6">
-            <WeeklyRecoverySnapshot />
-            <div className="border-t border-border pt-4">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Physical Activity
-              </h4>
-              <div className="space-y-4">
-                <TodaysActivityCard />
-                <ActivityTrendChart />
-              </div>
-            </div>
-          </div>
-        </CollapsibleSection>
-      )}
-
-      {/* ===== CLINICAL SUMMARY — Goals + Sessions + Assessments in one place ===== */}
-      <CollapsibleSection
-        title="Clinical Summary"
-        icon={ClipboardList}
-        defaultOpen={isClinician}
-        hint="Goals, sessions & assessments"
-      >
-        <div className="space-y-6">
-          {/* Functional Goals */}
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              Functional Goals
-            </h4>
-            <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
-          </div>
-
-          {/* Recent Sessions */}
-          <div className="border-t border-border pt-4">
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Recent Sessions
-            </h4>
-            <RecentSessionsSummary userId={userId} />
-          </div>
-
-          {/* Standardized Assessments — clinician only */}
-          {isClinician && (
-            <div className="border-t border-border pt-4">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                <ClipboardList className="w-4 h-4" />
-                Standardized Assessments
-              </h4>
-              <StandardizedAssessmentsCard userId={userId} />
-            </div>
-          )}
-        </div>
-      </CollapsibleSection>
-
-      {/* ===== PATIENT / CAREGIVER WIDGETS — Hidden in clinician mode ===== */}
+      {/* ===== PATIENT PRIMARY ACTION — Top of page for patients ===== */}
       {!isClinician && (
         <>
           {/* Daily Readiness Check-In */}
@@ -338,21 +275,6 @@ export const OverviewTab = memo(function OverviewTab() {
               />
             </DialogContent>
           </Dialog>
-
-          {/* Dose Logging */}
-          <CollapsibleSection
-            title="Log Today's Therapy"
-            icon={Plus}
-            defaultOpen={false}
-            hint="PT, OT, activity"
-          >
-            <DoseLogEntry
-              domains={domains}
-              todayLogs={todayLogs}
-              onSubmit={upsertDoseLog}
-              isSaving={doseSaving}
-            />
-          </CollapsibleSection>
 
           {/* Primary Action Area */}
           <Card className="p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -426,6 +348,83 @@ export const OverviewTab = memo(function OverviewTab() {
               )}
             </div>
           </Card>
+        </>
+      )}
+
+      {/* ===== RECOVERY & ACTIVITY — Single section for all trend data ===== */}
+      {showRecoveryIntel && (
+        <CollapsibleSection
+          title="Recovery & Activity"
+          icon={Activity}
+          defaultOpen={true}
+          hint="14-day trends + physical data"
+        >
+          <div className="space-y-6">
+            <WeeklyRecoverySnapshot />
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Physical Activity
+              </h4>
+              <div className="space-y-4">
+                <TodaysActivityCard />
+                <ActivityTrendChart />
+              </div>
+            </div>
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* ===== CLINICAL SUMMARY — Goals + Sessions + Assessments in one place ===== */}
+      <CollapsibleSection
+        title="Clinical Summary"
+        icon={ClipboardList}
+        defaultOpen={isClinician}
+        hint="Goals, sessions & assessments"
+      >
+        <div className="space-y-6">
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Functional Goals
+            </h4>
+            <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
+          </div>
+          <div className="border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Recent Sessions
+            </h4>
+            <RecentSessionsSummary userId={userId} />
+          </div>
+          {isClinician && (
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Standardized Assessments
+              </h4>
+              <StandardizedAssessmentsCard userId={userId} />
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* ===== PATIENT SECONDARY WIDGETS — Hidden in clinician mode ===== */}
+      {!isClinician && (
+        <>
+          <CollapsibleSection
+            title="Log Today's Therapy"
+            icon={Plus}
+            defaultOpen={false}
+            hint="PT, OT, activity"
+          >
+            <DoseLogEntry
+              domains={domains}
+              todayLogs={todayLogs}
+              onSubmit={upsertDoseLog}
+              isSaving={doseSaving}
+            />
+          </CollapsibleSection>
         </>
       )}
 
