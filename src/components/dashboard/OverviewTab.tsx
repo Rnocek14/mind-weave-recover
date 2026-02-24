@@ -25,6 +25,8 @@ import { TodaysSessionStats } from "@/components/TodaysSessionStats";
 import { WeeklyTrendsChart } from "@/components/WeeklyTrendsChart";
 import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 import { WeeklyRecoverySnapshot } from "@/components/WeeklyRecoverySnapshot";
+import { TodaysActivityCard } from "@/components/TodaysActivityCard";
+import { ActivityTrendChart } from "@/components/ActivityTrendChart";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -254,6 +256,19 @@ export const OverviewTab = memo(function OverviewTab() {
           <WeeklyRecoverySnapshot />
         </CollapsibleSection>
       )}
+
+      {/* ===== PHYSICAL ACTIVITY — visible in all modes ===== */}
+      <CollapsibleSection
+        title="Physical Activity"
+        icon={Activity}
+        defaultOpen={true}
+        hint="Steps, active min, sleep"
+      >
+        <div className="space-y-4">
+          <TodaysActivityCard />
+          <ActivityTrendChart />
+        </div>
+      </CollapsibleSection>
 
       {/* ===== PATIENT / CAREGIVER WIDGETS — Hidden in clinician mode ===== */}
       {!isClinician && (
