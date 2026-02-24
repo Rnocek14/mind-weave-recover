@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Brain, Calendar, ClipboardCopy, Dumbbell, Footprints, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
@@ -178,7 +178,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const { uiMode } = useUiMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
   const { toast } = useToast();
-  const { timeline, flags, lastActiveDate, isLoading, error } =
+  const { timeline, physicalMeta, flags, lastActiveDate, isLoading, error } =
     useWeeklyRecoverySnapshot(activeProfile?.id, 14);
   const { alerts: persistedAlerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(
     activeProfile?.id,
@@ -327,6 +327,41 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
           suffix="avg"
           latestValue={avgFatigue > 0 ? avgFatigue.toFixed(1) : "—"}
         />
+
+        {/* Physical layer: objective device data (clinician mode) */}
+        {isClinician && physicalMeta.coverageDays > 0 && (() => {
+          const physData = timeline.map((d) => d.activeMinutesObjective);
+          const physActiveDays = last7.filter((d) => d.activeMinutesObjective !== null && d.activeMinutesObjective > 0);
+          const avgPhys = physActiveDays.length > 0
+            ? physActiveDays.reduce((s, d) => s + (d.activeMinutesObjective || 0), 0) / 7
+            : 0;
+          const maxPhys = Math.max(...timeline.map((d) => d.activeMinutesObjective || 0), 60);
+          return (
+            <>
+              <SparklineRow
+                icon={Footprints}
+                label="Activity (obj)"
+                data={physData}
+                color="hsl(var(--chart-3))"
+                max={maxPhys}
+                suffix="min/day"
+                latestValue={avgPhys > 0 ? avgPhys.toFixed(0) : "—"}
+              />
+              <p className="text-xs text-muted-foreground pl-7">
+                Objective physical: {physicalMeta.coverageDays}/14 days synced
+                {physicalMeta.sourcesSeen.length > 0 && ` (${physicalMeta.sourcesSeen.join(", ")})`}
+                {physicalMeta.lastSyncAtMax && `. Last sync: ${new Date(physicalMeta.lastSyncAtMax).toLocaleDateString()}`}
+              </p>
+            </>
+          );
+        })()}
+
+        {/* Clinician mode: no device data connected */}
+        {isClinician && physicalMeta.coverageDays === 0 && (
+          <p className="text-xs text-muted-foreground pl-7 italic">
+            Objective physical: not connected
+          </p>
+        )}
 
         {flags.length > 0 && (
           <div className="pt-2 border-t flex flex-wrap gap-2">

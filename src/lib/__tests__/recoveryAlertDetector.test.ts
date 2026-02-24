@@ -16,6 +16,10 @@ function day(overrides: Partial<SnapshotDay> & { date: string }): SnapshotDay {
     totalMinutes: total,
     fatigueRating: fatigue,
     hasAnySignal: total > 0 || fatigue !== null,
+    steps: null,
+    workoutMinutesObjective: null,
+    activeMinutesObjective: null,
+    sleepMinutes: null,
   };
 }
 
