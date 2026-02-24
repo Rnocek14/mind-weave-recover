@@ -294,7 +294,7 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
         {/* Clinician-only: inline engagement breakdown */}
         {isClinician && engagement && (
           <p className="text-xs text-muted-foreground mt-1">
-            Active {engagement.breakdown.activeDays}/{engagement.breakdown.daysTotal} • Dose ≥10m {engagement.breakdown.doseDays}/{engagement.breakdown.daysTotal} • Readiness {engagement.breakdown.readinessDays}/{engagement.breakdown.daysTotal} • Fatigue stable {engagement.breakdown.fatigueStableDays}/{engagement.breakdown.fatigueDaysRecorded || 0}
+            Active {engagement.breakdown.activeDays}/{engagement.breakdown.daysTotal} • Dose ≥10m {engagement.breakdown.doseDays}/{engagement.breakdown.daysTotal} • Readiness {engagement.breakdown.readinessDays}/{engagement.breakdown.daysTotal} • {engagement.breakdown.fatigueDaysRecorded > 0 ? `Fatigue stable ${engagement.breakdown.fatigueStableDays}/${engagement.breakdown.fatigueDaysRecorded}` : "Fatigue not recorded"}
           </p>
         )}
       </CardHeader>
