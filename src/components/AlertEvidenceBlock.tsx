@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { useUiMode } from "@/hooks/useUiMode";
 
 interface AlertEvidenceBlockProps {
   alertType: string;
@@ -25,9 +26,11 @@ const EVIDENCE_RENDERERS: Record<string, (data: Record<string, unknown>) => Reac
       <dd>{String(data.avg_phys_prev4 ?? "—")} min</dd>
       <dt className="font-medium">Spike:</dt>
       <dd>
-        {data.avg_phys_prev4 && Number(data.avg_phys_prev4) > 0
-          ? `${Math.round((Number(data.avg_phys_last3) / Number(data.avg_phys_prev4) - 1) * 100)}%`
-          : "—"}
+        {data.spike_pct_rounded != null
+          ? `${data.spike_pct_rounded}%`
+          : data.avg_phys_prev4 && Number(data.avg_phys_prev4) > 0
+            ? `${Math.round((Number(data.avg_phys_last3) / Number(data.avg_phys_prev4) - 1) * 100)}%`
+            : "—"}
       </dd>
       <dt className="font-medium">Fatigue (last 3d):</dt>
       <dd>{data.avg_fatigue_last3 != null ? `${Number(data.avg_fatigue_last3).toFixed(1)}/5` : "insufficient data"}</dd>
@@ -90,9 +93,14 @@ export const AlertEvidenceBlock = memo(function AlertEvidenceBlock({
   triggerData,
 }: AlertEvidenceBlockProps) {
   const [open, setOpen] = useState(false);
+  const { uiMode } = useUiMode();
+  const isClinician = uiMode === "clinician" || uiMode === "admin";
 
   const renderer = EVIDENCE_RENDERERS[alertType];
   const content = renderer ? renderer(triggerData) : <GenericEvidence data={triggerData} />;
+
+  const ruleVersion = triggerData.rule_version ? ` (${triggerData.rule_version})` : "";
+  const label = isClinician ? `Evidence${ruleVersion}` : "Why am I seeing this?";
 
   return (
     <div className="mt-1">
@@ -102,7 +110,7 @@ export const AlertEvidenceBlock = memo(function AlertEvidenceBlock({
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        Why am I seeing this?
+        {label}
       </button>
       {open && (
         <div className="mt-1.5 pl-4 py-1.5 border-l-2 border-muted animate-fade-in">
