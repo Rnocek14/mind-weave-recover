@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { buildSnapshotTimeline } from "@/lib/buildSnapshotTimeline";
 
 export interface SnapshotDay {
   date: string;
@@ -73,56 +74,12 @@ export function useWeeklyRecoverySnapshot(
         return;
       }
 
-      // Index readiness by date
-      const fatigueMap = new Map<string, number>();
-      if (readinessRes.data) {
-        for (const r of readinessRes.data) {
-          fatigueMap.set(r.checkin_date, r.fatigue_rating);
-        }
-      }
-
-      // Aggregate dose by date, split: speech / therapy (pt+ot+cognitive) / activity
-      const THERAPY_DOMAINS = new Set(["pt", "ot", "cognitive"]);
-      const speechMap = new Map<string, number>();
-      const therapyMap = new Map<string, number>();
-      const activityMap = new Map<string, number>();
-
-      if (doseRes.data) {
-        for (const d of doseRes.data) {
-          const val = Number(d.dose_value) || 0;
-          if (d.domain_slug === "speech") {
-            speechMap.set(d.log_date, (speechMap.get(d.log_date) || 0) + val);
-          } else if (d.domain_slug === "activity") {
-            activityMap.set(d.log_date, (activityMap.get(d.log_date) || 0) + val);
-          } else if (THERAPY_DOMAINS.has(d.domain_slug)) {
-            therapyMap.set(d.log_date, (therapyMap.get(d.log_date) || 0) + val);
-          } else {
-            // Future domains default to therapy bucket
-            therapyMap.set(d.log_date, (therapyMap.get(d.log_date) || 0) + val);
-          }
-        }
-      }
-
-      // Build timeline array for every day in range
-      const result: SnapshotDay[] = [];
-      const cursor = new Date(startDate);
-      for (let i = 0; i < days; i++) {
-        const d = localYYYYMMDD(cursor);
-        const speech = speechMap.get(d) || 0;
-        const therapy = therapyMap.get(d) || 0;
-        const activity = activityMap.get(d) || 0;
-        const fatigue = fatigueMap.get(d) ?? null;
-        result.push({
-          date: d,
-          speechMinutes: speech,
-          therapyMinutes: therapy,
-          activityMinutes: activity,
-          totalMinutes: speech + therapy + activity,
-          fatigueRating: fatigue,
-          hasAnySignal: speech > 0 || therapy > 0 || activity > 0 || fatigue !== null,
-        });
-        cursor.setDate(cursor.getDate() + 1);
-      }
+      const result = buildSnapshotTimeline({
+        startDate,
+        days,
+        readinessRows: readinessRes.data || [],
+        doseRows: doseRes.data || [],
+      });
 
       setTimeline(result);
     } catch (err) {
