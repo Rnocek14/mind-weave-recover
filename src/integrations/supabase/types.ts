@@ -1139,6 +1139,65 @@ export type Database = {
           },
         ]
       }
+      physical_daily_metrics: {
+        Row: {
+          active_minutes: number | null
+          created_at: string
+          id: string
+          import_id: string | null
+          last_sync_at: string | null
+          metric_date: string
+          profile_id: string
+          resting_hr: number | null
+          sleep_minutes: number | null
+          source: string
+          steps: number | null
+          updated_at: string
+          user_id: string
+          workout_minutes: number | null
+        }
+        Insert: {
+          active_minutes?: number | null
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          last_sync_at?: string | null
+          metric_date: string
+          profile_id: string
+          resting_hr?: number | null
+          sleep_minutes?: number | null
+          source?: string
+          steps?: number | null
+          updated_at?: string
+          user_id: string
+          workout_minutes?: number | null
+        }
+        Update: {
+          active_minutes?: number | null
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          last_sync_at?: string | null
+          metric_date?: string
+          profile_id?: string
+          resting_hr?: number | null
+          sleep_minutes?: number | null
+          source?: string
+          steps?: number | null
+          updated_at?: string
+          user_id?: string
+          workout_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "physical_daily_metrics_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_merge_conflicts: {
         Row: {
           conflicts: Json
