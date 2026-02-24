@@ -93,5 +93,105 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
     });
   }
 
+  // ── 4. Deconditioning risk: objective physical inactivity despite engagement ──
+  const physCoverageDays = recent7.filter(
+    (d) => d.activeMinutesObjective !== null || d.steps !== null
+  ).length;
+
+  if (physCoverageDays >= 3) {
+    const inactiveDays = recent7.filter((d) => {
+      if (d.activeMinutesObjective !== null) return d.activeMinutesObjective < 10;
+      if (d.steps !== null) return d.steps < 2500;
+      return false; // no data → don't count as inactive
+    }).length;
+    const hasSignalDays = recent7.filter((d) => d.hasAnySignal).length;
+
+    if (inactiveDays >= 5 && hasSignalDays >= 3) {
+      alerts.push({
+        alert_type: "deconditioning_risk",
+        severity: inactiveDays >= 6 ? "warning" : "info",
+        title: "Physical deconditioning risk",
+        description: `Objective activity was very low on ${inactiveDays}/7 days despite continued app engagement (${hasSignalDays}/7 days). Consider PT/OT coordination.`,
+        domain_slug: "physical",
+        trigger_data: {
+          inactive_phys_days: inactiveDays,
+          coverage_days: physCoverageDays,
+          threshold_active_minutes: 10,
+          threshold_steps: 2500,
+        },
+      });
+    }
+  }
+
+  // ── 5. Overexertion risk: activity spike → fatigue spike or dose drop ──
+  if (recent7.length >= 7) {
+    const last3 = recent7.slice(-3);
+    const prev4 = recent7.slice(0, 4);
+
+    // physLoad helper: activeMinutes > workoutMinutes > steps/200 > null
+    const physLoad = (d: SnapshotDay): number | null => {
+      if (d.activeMinutesObjective !== null) return d.activeMinutesObjective;
+      if (d.workoutMinutesObjective !== null) return d.workoutMinutesObjective;
+      if (d.steps !== null) return d.steps / 200;
+      return null;
+    };
+
+    const physCovLast3 = last3.filter((d) => physLoad(d) !== null).length;
+    const physCovPrev4 = prev4.filter((d) => physLoad(d) !== null).length;
+    const fatigueLast3 = last3.filter((d) => d.fatigueRating !== null);
+    const fatiguePrev4 = prev4.filter((d) => d.fatigueRating !== null);
+    const totalFatigueDays = fatigueLast3.length + fatiguePrev4.length;
+
+    // Prereqs: enough physical coverage + enough fatigue data
+    if (physCovLast3 + physCovPrev4 >= 4 && (fatigueLast3.length >= 2 || totalFatigueDays >= 3)) {
+      const avgPhysLast3 = physCovLast3 > 0
+        ? last3.reduce((s, d) => s + (physLoad(d) ?? 0), 0) / physCovLast3
+        : 0;
+      const avgPhysPrev4 = physCovPrev4 > 0
+        ? prev4.reduce((s, d) => s + (physLoad(d) ?? 0), 0) / physCovPrev4
+        : 0;
+
+      const spikeCondition =
+        avgPhysPrev4 > 0 &&
+        avgPhysLast3 >= avgPhysPrev4 * 1.5 &&
+        avgPhysLast3 - avgPhysPrev4 >= 15;
+
+      if (spikeCondition) {
+        const avgFatigueLast3 = fatigueLast3.length > 0
+          ? fatigueLast3.reduce((s, d) => s + (d.fatigueRating ?? 0), 0) / fatigueLast3.length
+          : null;
+        const avgFatiguePrev4 = fatiguePrev4.length > 0
+          ? fatiguePrev4.reduce((s, d) => s + (d.fatigueRating ?? 0), 0) / fatiguePrev4.length
+          : null;
+
+        const fatigueSpike =
+          avgFatigueLast3 !== null && avgFatiguePrev4 !== null &&
+          avgFatigueLast3 - avgFatiguePrev4 >= 1.0;
+
+        const avgDoseLast3 = last3.reduce((s, d) => s + d.totalMinutes, 0) / 3;
+        const avgDosePrev4 = prev4.reduce((s, d) => s + d.totalMinutes, 0) / 4;
+        const doseDrop = avgDosePrev4 > 0 && avgDoseLast3 <= avgDosePrev4 * 0.7;
+
+        if (fatigueSpike || doseDrop) {
+          alerts.push({
+            alert_type: "overexertion_risk",
+            severity: fatigueSpike && doseDrop ? "critical" : "warning",
+            title: "Potential overexertion risk",
+            description: `Physical activity spiked ${Math.round((avgPhysLast3 / avgPhysPrev4 - 1) * 100)}% over the last 3 days${fatigueSpike ? " with rising fatigue" : ""}${doseDrop ? " and declining therapy dose" : ""}. Consider pacing adjustments.`,
+            domain_slug: "physical",
+            trigger_data: {
+              avg_phys_last3: Math.round(avgPhysLast3),
+              avg_phys_prev4: Math.round(avgPhysPrev4),
+              avg_fatigue_last3: avgFatigueLast3,
+              avg_fatigue_prev4: avgFatiguePrev4,
+              avg_dose_last3: Math.round(avgDoseLast3),
+              avg_dose_prev4: Math.round(avgDosePrev4),
+            },
+          });
+        }
+      }
+    }
+  }
+
   return alerts;
 }

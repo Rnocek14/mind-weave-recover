@@ -16,10 +16,10 @@ function day(overrides: Partial<SnapshotDay> & { date: string }): SnapshotDay {
     totalMinutes: total,
     fatigueRating: fatigue,
     hasAnySignal: total > 0 || fatigue !== null,
-    steps: null,
-    workoutMinutesObjective: null,
-    activeMinutesObjective: null,
-    sleepMinutes: null,
+    steps: overrides.steps ?? null,
+    workoutMinutesObjective: overrides.workoutMinutesObjective ?? null,
+    activeMinutesObjective: overrides.activeMinutesObjective ?? null,
+    sleepMinutes: overrides.sleepMinutes ?? null,
   };
 }
 
@@ -92,5 +92,60 @@ describe("detectRecoveryAlerts", () => {
     }));
     const alerts = detectRecoveryAlerts(timeline);
     expect(alerts.find((a) => a.alert_type === "dose_inadequacy")).toBeUndefined();
+  });
+
+  // ── Physical-aware alerts ──────────────────────────────
+
+  it("fires deconditioning_risk with 5+ inactive phys days + decent coverage + engagement", () => {
+    const timeline = makeDays(14, (i) => ({
+      speechMinutes: 10, // engaged
+      activeMinutesObjective: i >= 7 ? 5 : null, // last 7: all < 10
+      steps: i >= 7 ? 1000 : null, // coverage on last 7
+    }));
+    const alerts = detectRecoveryAlerts(timeline);
+    const decon = alerts.find((a) => a.alert_type === "deconditioning_risk");
+    expect(decon).toBeDefined();
+    expect(decon!.domain_slug).toBe("physical");
+    expect(decon!.severity).toBe("warning"); // 7 inactive >= 6
+  });
+
+  it("does NOT fire deconditioning_risk if phys coverage < 3", () => {
+    const timeline = makeDays(14, (i) => ({
+      speechMinutes: 10,
+      activeMinutesObjective: i === 13 ? 2 : null, // only 1 day coverage in last 7
+    }));
+    const alerts = detectRecoveryAlerts(timeline);
+    expect(alerts.find((a) => a.alert_type === "deconditioning_risk")).toBeUndefined();
+  });
+
+  it("fires overexertion_risk when activity spikes + fatigue spike", () => {
+    const timeline = makeDays(14, (i) => {
+      const inLast7 = i >= 7;
+      const inLast3 = i >= 11;
+      return {
+        speechMinutes: 20,
+        activeMinutesObjective: inLast7 ? (inLast3 ? 60 : 15) : null, // spike in last 3
+        fatigueRating: inLast7 ? (inLast3 ? 5 : 2) : null, // fatigue spike
+      };
+    });
+    const alerts = detectRecoveryAlerts(timeline);
+    const over = alerts.find((a) => a.alert_type === "overexertion_risk");
+    expect(over).toBeDefined();
+    expect(over!.domain_slug).toBe("physical");
+    expect(over!.severity).toBe("warning");
+  });
+
+  it("does NOT fire overexertion_risk without fatigue data or dose drop", () => {
+    const timeline = makeDays(14, (i) => {
+      const inLast7 = i >= 7;
+      const inLast3 = i >= 11;
+      return {
+        speechMinutes: 20, // consistent dose → no dose drop
+        activeMinutesObjective: inLast7 ? (inLast3 ? 60 : 15) : null,
+        // no fatigue recorded at all
+      };
+    });
+    const alerts = detectRecoveryAlerts(timeline);
+    expect(alerts.find((a) => a.alert_type === "overexertion_risk")).toBeUndefined();
   });
 });

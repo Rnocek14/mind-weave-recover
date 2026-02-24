@@ -99,6 +99,41 @@ export function formatEhrSummary({
     lines.push("");
   }
 
+  // Physical ↔ Fatigue correlation (last 7 days)
+  const pairedDays = last7.filter((d) => {
+    const load = getPhysLoad(d);
+    return load !== null && d.fatigueRating !== null;
+  });
+
+  if (pairedDays.length < 3) {
+    lines.push(
+      `Physical ↔ Fatigue: insufficient paired data (${pairedDays.length}/7 days with both recorded).`
+    );
+  } else {
+    const loads = pairedDays.map((d) => getPhysLoad(d)!);
+    const meanLoad = avg(loads);
+    const highPhysDays = pairedDays.filter((d) => getPhysLoad(d)! > meanLoad);
+    const lowPhysDays = pairedDays.filter((d) => getPhysLoad(d)! <= meanLoad);
+
+    const avgFatigueHigh = highPhysDays.length > 0
+      ? avg(highPhysDays.map((d) => d.fatigueRating!))
+      : null;
+    const avgFatigueLow = lowPhysDays.length > 0
+      ? avg(lowPhysDays.map((d) => d.fatigueRating!))
+      : null;
+
+    if (avgFatigueHigh !== null && avgFatigueLow !== null) {
+      lines.push(
+        `Physical ↔ Fatigue: fatigue avg was ${avgFatigueHigh.toFixed(1)}/5 on higher-activity days vs ${avgFatigueLow.toFixed(1)}/5 on lower-activity days (n=${pairedDays.length} days with both recorded).`
+      );
+    } else {
+      lines.push(
+        `Physical ↔ Fatigue: insufficient variation to compare (n=${pairedDays.length}).`
+      );
+    }
+  }
+  lines.push("");
+
   // Suggested clinician note
   const suggestions: string[] = [];
   if (flags.some((f) => f.type === "no_signal")) {
@@ -124,6 +159,20 @@ export function formatEhrSummary({
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return nums.reduce((s, n) => s + n, 0) / nums.length;
+}
+
+function sortedMedian(nums: number[]): number {
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** physLoad: activeMinutes > workoutMinutes > steps/200 > null */
+function getPhysLoad(d: SnapshotDay): number | null {
+  if (d.activeMinutesObjective !== null) return d.activeMinutesObjective;
+  if (d.workoutMinutesObjective !== null) return d.workoutMinutesObjective;
+  if (d.steps !== null) return d.steps / 200;
+  return null;
 }
 
 function formatLastActive(lastActiveDate: string | null): string {
