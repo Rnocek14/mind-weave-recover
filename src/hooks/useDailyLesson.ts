@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAssessmentContext } from '@/contexts/AssessmentContext';
 import { useExerciseGating } from './useExerciseGating';
 import { useAdaptiveDecisionLog } from './useAdaptiveDecisionLog';
+import { useDailyReadiness } from './useDailyReadiness';
 import { 
   generateDailyLesson, 
   aggregatePerformanceSignals,
   type DailyLesson,
   type PerformanceSignals,
-  type LearningRateData
+  type LearningRateData,
+  type ReadinessInput,
 } from '@/lib/dailyLessonEngine';
 import type { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { suggestInteractionMode, type CaregiverObservations } from '@/lib/capabilityScoreSmoothing';
@@ -58,6 +60,9 @@ export const useDailyLesson = (
   
   const hasBuiltRef = useRef(false);
   const { logDecision } = useAdaptiveDecisionLog();
+  
+  // Fetch today's readiness check-in for dose modulation
+  const { todayCheckin, isLoading: readinessLoading } = useDailyReadiness(profileId);
 
   const { currentAssessment, previousAssessment } = useAssessmentContext();
   const { capabilityScores, accessibleExercises } = useExerciseGating();
@@ -135,6 +140,15 @@ export const useDailyLesson = (
 
       if (sessionsError) throw sessionsError;
 
+      // Convert readiness check-in to ReadinessInput
+      const readinessInput: ReadinessInput | null = todayCheckin ? {
+        fatigue_rating: todayCheckin.fatigue_rating,
+        sleep_quality: todayCheckin.sleep_quality,
+        mood_rating: todayCheckin.mood_rating,
+        pain_level: todayCheckin.pain_level,
+        fatigue_limited_practice: todayCheckin.fatigue_limited_practice,
+      } : null;
+
       if (!recentSessions || recentSessions.length === 0) {
         // No recent activity - use defaults
         const defaultSignals = aggregatePerformanceSignals([], []);
@@ -150,7 +164,8 @@ export const useDailyLesson = (
           accessibleExercises,
           defaultSignals,
           [],
-          mode
+          mode,
+          readinessInput,
         );
         setLesson(defaultLesson);
         setLoading(false);
@@ -207,17 +222,7 @@ export const useDailyLesson = (
       const caregiverObs = assessmentToUse?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
       const mode = suggestInteractionMode(caregiverObs);
 
-      // Generate daily lesson
-      const dailyLesson = generateDailyLesson(
-        scores,
-        clinicalProfile,
-        accessibleExercises,
-        signals,
-        formattedLearningRates,
-        mode
-      );
-
-      // Compute TodayFocus (Shadow Mode) - fetch additional signal counts
+      // Compute TodayFocus FIRST so its adaptations feed into lesson generation
       let focus: TodayFocus | null = null;
       try {
         // Get utterance count with alignment data
@@ -259,23 +264,40 @@ export const useDailyLesson = (
         };
 
         focus = computeTodayFocus(engineInput);
-        console.log('[useDailyLesson] TodayFocus computed:', {
+        console.log('[useDailyLesson] TodayFocus computed (ACTIVE):', {
           confidence: focus.confidence,
           rulesApplied: focus.rulesApplied.map(r => r.ruleId),
+          adaptations: focus.adaptations,
         });
         
-        // Log decision idempotently (once per user per day) - fire and forget with error suppression
+        // Log decision idempotently (once per user per day)
         if (userId) {
           logDecision({
             userId,
             profileId,
             todayFocus: focus,
             performanceSignals: signals,
-          }).catch(() => {}); // Suppress unhandled promise rejection
+          }).catch(() => {});
         }
       } catch (focusErr) {
         console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);
       }
+
+      // Generate daily lesson WITH readiness + TodayFocus adaptations
+      const dailyLesson = generateDailyLesson(
+        scores,
+        clinicalProfile,
+        accessibleExercises,
+        signals,
+        formattedLearningRates,
+        mode,
+        readinessInput,
+        focus ? {
+          startDifficulty: focus.adaptations.startDifficulty,
+          sessionDurationCap: focus.adaptations.sessionDurationCap,
+          suggestedSessionMinutes: focus.suggestedSessionMinutes,
+        } : null,
+      );
 
       setLesson(dailyLesson);
       setPerformanceSignals(signals);

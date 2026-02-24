@@ -154,19 +154,60 @@ export function calculateDomainPriorities(
 }
 
 /**
- * Determine today's dose based on fatigue and frustration
+ * Daily readiness data from check-in (fatigue, sleep, mood, pain)
+ */
+export interface ReadinessInput {
+  fatigue_rating: number;       // 1-5 (1=fresh, 5=exhausted)
+  sleep_quality?: number | null; // 1-5
+  mood_rating?: number | null;   // 1-5
+  pain_level?: number | null;    // 1-5
+  fatigue_limited_practice?: boolean;
+}
+
+/**
+ * Determine today's dose based on fatigue, frustration, AND daily readiness
  */
 export function calculateTodaysDose(
   performanceSignals: PerformanceSignals,
-  baselineMinutes: number = 15
+  baselineMinutes: number = 15,
+  readiness?: ReadinessInput | null,
+  sessionDurationCap?: number,
 ): number {
   let dose = baselineMinutes;
 
-  // Reduce for high fatigue
+  // === Daily Readiness Modulation (highest priority - user's subjective state) ===
+  if (readiness) {
+    const fatigue = readiness.fatigue_rating; // 1-5
+
+    // Hard cap: user explicitly said fatigue limits practice
+    if (readiness.fatigue_limited_practice) {
+      dose = Math.min(dose, 8);
+    }
+
+    // Fatigue-based reduction (1=fresh → no change, 5=exhausted → 40% of baseline)
+    if (fatigue >= 4) {
+      dose *= 0.4;
+    } else if (fatigue >= 3) {
+      dose *= 0.65;
+    }
+
+    // Poor sleep compounds fatigue
+    if (readiness.sleep_quality != null && readiness.sleep_quality <= 2) {
+      dose *= 0.8;
+    }
+
+    // High pain reduces tolerance
+    if (readiness.pain_level != null && readiness.pain_level >= 4) {
+      dose *= 0.7;
+    }
+  }
+
+  // === Performance-Based Modulation (from recent trial data) ===
+  // Reduce for high fatigue (RT drift)
   if (performanceSignals.fatigueLevel === 'high') {
-    dose *= 0.5; // 50% of baseline
+    dose *= 0.5;
   } else if (performanceSignals.fatigueLevel === 'medium') {
-    dose *= 0.75; // 75% of baseline
+    dose *= 0.75;
   }
 
   // Reduce for high frustration
@@ -179,6 +220,11 @@ export function calculateTodaysDose(
   // Increase for high engagement (but cap at 25 min)
   if (performanceSignals.engagementScore >= 8) {
     dose = Math.min(dose * 1.2, 25);
+  }
+
+  // === TodayFocus session cap (adaptive engine recommendation) ===
+  if (sessionDurationCap && sessionDurationCap > 0) {
+    dose = Math.min(dose, sessionDurationCap);
   }
 
   // Floor at 5 minutes
@@ -237,11 +283,32 @@ export function generateDailyLesson(
   accessibleExercises: string[],
   performanceSignals: PerformanceSignals,
   learningRates: LearningRateData[],
-  suggestedMode?: 'independent' | 'assisted' | 'passive' | null
+  suggestedMode?: 'independent' | 'assisted' | 'passive' | null,
+  readiness?: ReadinessInput | null,
+  todayFocusAdaptations?: { startDifficulty?: number; sessionDurationCap?: number; suggestedSessionMinutes?: number } | null,
 ): DailyLesson {
   const domainPriorities = calculateDomainPriorities(clinicalProfile);
-  let totalDuration = calculateTodaysDose(performanceSignals);
+  let totalDuration = calculateTodaysDose(
+    performanceSignals,
+    15,
+    readiness,
+    todayFocusAdaptations?.sessionDurationCap,
+  );
   const reasoning: string[] = [];
+
+  // Apply TodayFocus session minute suggestion if tighter than dose calc
+  if (todayFocusAdaptations?.suggestedSessionMinutes) {
+    const suggested = todayFocusAdaptations.suggestedSessionMinutes;
+    if (suggested < totalDuration) {
+      totalDuration = suggested;
+      reasoning.push(`Adaptive engine capped session to ${suggested}min`);
+    }
+  }
+
+  // Log readiness influence
+  if (readiness) {
+    reasoning.push(`Daily readiness: fatigue=${readiness.fatigue_rating}/5${readiness.fatigue_limited_practice ? ' (limited practice)' : ''}`);
+  }
 
   // Adjust duration based on suggested interaction mode
   if (suggestedMode === 'assisted') {
@@ -367,12 +434,16 @@ export function generateDailyLesson(
 
     if (duration < 1) continue;
 
+    // Use TodayFocus startDifficulty if engine recommends it, else derive from capability
+    const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
+      ?? Math.max(1, capabilityScores.attention - 2);
+
     blocks.push({
       exerciseId: ex.id,
       duration,
       priority: 'primary',
       adaptations: {
-        startDifficulty: Math.max(1, capabilityScores.attention - 2),
+        startDifficulty: effectiveStartDifficulty,
         cueLevel: performanceSignals.frustrationLevel === 'high' ? 2 : 1,
         timeout: performanceSignals.avgReactionTime * 2,
         visualSupport: capabilityScores.vision < 5,
