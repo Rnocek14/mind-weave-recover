@@ -81,7 +81,7 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
           <Badge variant="destructive" className="text-xs">
             {alerts.length}
           </Badge>
-          {unackedCount > 0 && unackedCount < alerts.length && (
+          {unackedCount > 0 && (
             <Badge variant="secondary" className="text-xs">
               {unackedCount} new
             </Badge>
