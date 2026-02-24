@@ -11,10 +11,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 
+type ScreenerAnswers = {
+  strokeTiming: string | null;
+  mainDifficulty: string[];
+  energyLevel: string | null;
+};
+
 const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
+  const [screener, setScreener] = useState<ScreenerAnswers>({
+    strokeTiming: null,
+    mainDifficulty: [],
+    energyLevel: null,
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -31,10 +42,17 @@ const Onboarding = () => {
     );
   };
 
+  const toggleDifficulty = (opt: string) => {
+    setScreener(prev => ({
+      ...prev,
+      mainDifficulty: prev.mainDifficulty.includes(opt)
+        ? prev.mainDifficulty.filter(d => d !== opt)
+        : [...prev.mainDifficulty, opt],
+    }));
+  };
+
   const handleClinicalProfileSubmit = async (profile: ClinicalProfile) => {
     setClinicalProfile(profile);
-    // The ClinicalProfileForm now handles version creation via useClinicalProfileVersions
-    // The create_profile_version function updates profiles.clinical_profile automatically
     setStep(step + 1);
   };
 
@@ -47,8 +65,31 @@ const Onboarding = () => {
       return;
     }
 
-    // Store goals in localStorage for now (later: Supabase)
+    // Persist screener + goals
     localStorage.setItem("recoveryGoals", JSON.stringify(selectedGoals));
+    
+    // Save screener data to profile if we have answers
+    if (user?.id && (screener.strokeTiming || screener.mainDifficulty.length || screener.energyLevel)) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            goals: selectedGoals,
+            accessibility_prefs: {
+              onboarding_screener: {
+                stroke_timing: screener.strokeTiming,
+                main_difficulty: screener.mainDifficulty,
+                energy_level: screener.energyLevel,
+                completed_at: new Date().toISOString(),
+              }
+            }
+          })
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+      } catch {
+        // Non-blocking — onboarding still completes
+      }
+    }
     
     toast({
       title: "Welcome to your recovery journey! 🎉",
@@ -126,59 +167,70 @@ const Onboarding = () => {
       subtitle: "Just 3 questions to personalize your experience",
       content: (
         <div className="max-w-lg mx-auto space-y-6">
-          <div className="space-y-4">
-            <Card className="p-5 cursor-pointer hover:border-primary transition-colors border-2" onClick={() => {
-              /* Navigate to full clinical form later if needed */
-            }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium block mb-2">When did the stroke happen?</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['Less than 3 months', '3–12 months', 'Over 1 year'].map(opt => (
-                      <Badge 
-                        key={opt}
-                        variant="outline"
-                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
-                      >
-                        {opt}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">Main difficulty right now?</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['Finding words', 'Understanding others', 'Reading/Writing', 'Movement'].map(opt => (
-                      <Badge 
-                        key={opt}
-                        variant="outline"
-                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
-                      >
-                        {opt}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">Current energy level?</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['😊 Good energy', '😐 Okay', '😫 Easily tired'].map(opt => (
-                      <Badge 
-                        key={opt}
-                        variant="outline"
-                        className="cursor-pointer px-4 py-2 text-sm hover:bg-primary/10"
-                      >
-                        {opt}
-                      </Badge>
-                    ))}
-                  </div>
+          <Card className="p-5 border-2">
+            <div className="space-y-5">
+              <div>
+                <label className="text-sm font-medium block mb-2">When did the stroke happen?</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Less than 3 months', '3–12 months', 'Over 1 year'].map(opt => (
+                    <Badge 
+                      key={opt}
+                      variant={screener.strokeTiming === opt ? 'default' : 'outline'}
+                      className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
+                        screener.strokeTiming === opt 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'hover:bg-primary/10'
+                      }`}
+                      onClick={() => setScreener(prev => ({ ...prev, strokeTiming: opt }))}
+                    >
+                      {opt}
+                    </Badge>
+                  ))}
                 </div>
               </div>
-            </Card>
-            <p className="text-center text-xs text-muted-foreground">
-              Your clinician or caregiver can add detailed clinical info later.
-            </p>
-          </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">Main difficulty right now? <span className="text-muted-foreground font-normal">(select all that apply)</span></label>
+                <div className="flex flex-wrap gap-2">
+                  {['Finding words', 'Understanding others', 'Reading/Writing', 'Movement'].map(opt => (
+                    <Badge 
+                      key={opt}
+                      variant={screener.mainDifficulty.includes(opt) ? 'default' : 'outline'}
+                      className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
+                        screener.mainDifficulty.includes(opt) 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'hover:bg-primary/10'
+                      }`}
+                      onClick={() => toggleDifficulty(opt)}
+                    >
+                      {opt}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">Current energy level?</label>
+                <div className="flex flex-wrap gap-2">
+                  {['😊 Good energy', '😐 Okay', '😫 Easily tired'].map(opt => (
+                    <Badge 
+                      key={opt}
+                      variant={screener.energyLevel === opt ? 'default' : 'outline'}
+                      className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
+                        screener.energyLevel === opt 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'hover:bg-primary/10'
+                      }`}
+                      onClick={() => setScreener(prev => ({ ...prev, energyLevel: opt }))}
+                    >
+                      {opt}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+          <p className="text-center text-xs text-muted-foreground">
+            Your clinician or caregiver can add detailed clinical info later in Settings.
+          </p>
           <div className="text-center">
             <Button variant="ghost" onClick={() => setStep(step + 1)}>
               Skip for now
@@ -225,6 +277,17 @@ const Onboarding = () => {
                     </Badge>
                   ) : null;
                 })}
+              </div>
+            </div>
+          )}
+          {/* Show screener summary if filled */}
+          {(screener.strokeTiming || screener.mainDifficulty.length > 0 || screener.energyLevel) && (
+            <div className="bg-muted/30 border border-border rounded-lg p-4 text-sm">
+              <h4 className="font-medium mb-2">Your Quick Profile:</h4>
+              <div className="space-y-1 text-muted-foreground">
+                {screener.strokeTiming && <p>Stroke timing: {screener.strokeTiming}</p>}
+                {screener.mainDifficulty.length > 0 && <p>Main challenges: {screener.mainDifficulty.join(', ')}</p>}
+                {screener.energyLevel && <p>Energy: {screener.energyLevel}</p>}
               </div>
             </div>
           )}
