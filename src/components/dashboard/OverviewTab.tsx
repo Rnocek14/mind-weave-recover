@@ -32,6 +32,7 @@ import { ClinicianPatientHeader } from "@/components/ClinicianPatientHeader";
 import { FunctionalGoalsWidget } from "@/components/FunctionalGoalsWidget";
 import { RecentSessionsSummary } from "@/components/RecentSessionsSummary";
 import { StandardizedAssessmentsCard } from "@/components/StandardizedAssessmentsCard";
+import { CaregiverContextNotes } from "@/components/CaregiverContextNotes";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -407,6 +408,9 @@ export const OverviewTab = memo(function OverviewTab() {
               Standardized Assessments
             </h4>
             <StandardizedAssessmentsCard userId={userId} />
+          </div>
+          <div className="border-t border-border pt-4">
+            <CaregiverContextNotes profileId={profileId} />
           </div>
         </div>
       ) : (

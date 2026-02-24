@@ -62,12 +62,13 @@ export function CaregiverTodayCard() {
     setIsSavingNote(true);
     try {
       // Save to dedicated caregiver_context_notes table (never creates fake sessions)
+      // Store clean text — timestamp is in created_at column
       await supabase
         .from('caregiver_context_notes')
         .insert({
           user_id: user.id,
           profile_id: profileId,
-          note: `[${new Date().toLocaleTimeString()}] ${noteText.trim()}`,
+          note: noteText.trim(),
         });
       
       setNoteSaved(true);
