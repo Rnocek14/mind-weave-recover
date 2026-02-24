@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { detectRecoveryAlerts, type DetectedAlert } from "@/lib/recoveryAlertDetector";
@@ -32,6 +32,7 @@ export function useRecoveryAlerts(
   const [alerts, setAlerts] = useState<RecoveryAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const lastHashRef = useRef<string>("");
+  const hash = useMemo(() => timelineHash(timeline), [timeline]);
 
   // Fetch existing unresolved alerts
   const fetchAlerts = useCallback(async () => {
@@ -62,7 +63,6 @@ export function useRecoveryAlerts(
     if (!user?.id || !profileId || timeline.length === 0) return;
 
     // Write throttle: skip if timeline hasn't materially changed
-    const hash = timelineHash(timeline);
     if (hash === lastHashRef.current) return;
     lastHashRef.current = hash;
 
@@ -117,7 +117,7 @@ export function useRecoveryAlerts(
     };
 
     runDetection();
-  }, [user?.id, profileId, timeline.length]); // intentionally not depending on alerts to avoid loops
+  }, [user?.id, profileId, hash]);
 
   // Resolve an alert
   const resolveAlert = useCallback(
