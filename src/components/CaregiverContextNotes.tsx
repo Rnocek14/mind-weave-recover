@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface CaregiverNote {
   id: string;
@@ -12,6 +13,7 @@ interface CaregiverNote {
 export function CaregiverContextNotes({ profileId }: { profileId: string | undefined }) {
   const [notes, setNotes] = useState<CaregiverNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!profileId) { setIsLoading(false); return; }
@@ -39,21 +41,29 @@ export function CaregiverContextNotes({ profileId }: { profileId: string | undef
         Caregiver Context
       </h4>
       {notes.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">No caregiver context notes in the last 14 days.</p>
+        <p className="text-sm text-muted-foreground/70 italic">No caregiver context notes in the last 14 days.</p>
       ) : (
-      <div className="space-y-2">
-        {notes.map(n => {
-          const d = new Date(n.created_at);
-          const timeLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-            ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-          return (
-            <Card key={n.id} className="p-3 bg-muted/30">
-              <p className="text-sm">{n.note}</p>
-              <p className="text-xs text-muted-foreground mt-1">{timeLabel}</p>
-            </Card>
-          );
-        })}
-      </div>
+        <>
+          <div className="space-y-2">
+            {notes.map(n => {
+              const d = new Date(n.created_at);
+              const timeLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+                ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+              return (
+                <Card key={n.id} className="p-3 bg-muted/30">
+                  <p className="text-sm">{n.note}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{timeLabel}</p>
+                </Card>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => navigate('/clinician-report')}
+            className="text-xs text-primary hover:underline mt-2 inline-block"
+          >
+            View all →
+          </button>
+        </>
       )}
     </div>
   );
