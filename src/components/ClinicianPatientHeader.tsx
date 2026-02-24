@@ -11,24 +11,23 @@ import {
   AlertTriangle,
   CheckCircle,
   Printer,
-  Target
 } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
-import { useAuth } from '@/hooks/useAuth';
 import { useWeeklyRecoverySnapshot } from '@/hooks/useWeeklyRecoverySnapshot';
 import { useRecoveryAlerts } from '@/hooks/useRecoveryAlerts';
 import { useDailyReadiness } from '@/hooks/useDailyReadiness';
 import { useNavigate } from 'react-router-dom';
 import { formatEhrSummary } from '@/lib/formatEhrSummary';
+import { computeEngagementScore } from '@/lib/computeEngagementScore';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface LastSessionData {
   date: string;
   durationMin: number;
   accuracy: number | null;
-  exerciseCount: number;
+  trialCount: number;
 }
 
 function useLastSession(profileId: string | undefined): { lastSession: LastSessionData | null; isLoading: boolean } {
@@ -51,21 +50,30 @@ function useLastSession(profileId: string | undefined): { lastSession: LastSessi
         if (!sess?.length) { setLastSession(null); setIsLoading(false); return; }
 
         const s = sess[0];
+        // Only fetch score column, filter nulls server-side
         const { data: events } = await supabase
           .from('exercise_events')
           .select('score')
-          .eq('session_id', s.id);
+          .eq('session_id', s.id)
+          .not('score', 'is', null);
 
-        const scores = (events || []).filter(e => e.score !== null);
+        const scores = events || [];
+        // score is 0 or 1 (binary correct/incorrect), so multiply by 100
+        // If score > 1, it's already a percentage — don't inflate
         const avgAcc = scores.length > 0
-          ? Math.round(scores.reduce((sum, e) => sum + (e.score || 0), 0) / scores.length * 100)
+          ? Math.round(
+              scores.reduce((sum, e) => {
+                const normalized = (e.score! <= 1) ? e.score! * 100 : e.score!;
+                return sum + normalized;
+              }, 0) / scores.length
+            )
           : null;
 
         setLastSession({
           date: s.ended_at!,
           durationMin: Math.round((s.duration_sec || 0) / 60),
           accuracy: avgAcc,
-          exerciseCount: (events || []).length,
+          trialCount: scores.length,
         });
       } catch { setLastSession(null); }
       finally { setIsLoading(false); }
@@ -76,8 +84,35 @@ function useLastSession(profileId: string | undefined): { lastSession: LastSessi
   return { lastSession, isLoading };
 }
 
+/** Map clinical profile data to a human-readable speech impairment label */
+function deriveSpeechLabel(clinicalProfile: Record<string, any> | null): string | null {
+  if (!clinicalProfile) return null;
+  
+  const speechImpairments: string[] = clinicalProfile?.impairments?.speech || [];
+  
+  // Map common clinical terms to display labels
+  if (speechImpairments.includes('expressive') || speechImpairments.includes('broca')) {
+    return 'Expressive aphasia';
+  }
+  if (speechImpairments.includes('receptive') || speechImpairments.includes('wernicke')) {
+    return 'Receptive aphasia';
+  }
+  if (speechImpairments.includes('global')) {
+    return 'Global aphasia';
+  }
+  if (speechImpairments.includes('anomic')) {
+    return 'Anomic aphasia';
+  }
+  if (speechImpairments.length > 0) {
+    // Capitalize the first impairment as a fallback
+    return `Speech: ${speechImpairments[0].replace(/_/g, ' ')}`;
+  }
+  
+  // Don't use stroke_location as aphasia type — it's misleading
+  return null;
+}
+
 export function ClinicianPatientHeader() {
-  const { user } = useAuth();
   const { activeProfile } = useProfile();
   const profileId = activeProfile?.id;
   const navigate = useNavigate();
@@ -89,11 +124,17 @@ export function ClinicianPatientHeader() {
 
   // Derived data
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
-  const aphasiaType = clinicalProfile?.stroke_location || clinicalProfile?.impairments?.speech?.[0] || null;
+  const speechLabel = deriveSpeechLabel(clinicalProfile);
   const strokeDate = activeProfile?.stroke_date;
   const daysPostOnset = strokeDate
     ? Math.floor((Date.now() - new Date(strokeDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
+
+  // Compute engagement for EHR export
+  const engagement = useMemo(
+    () => (timeline.length > 0 ? computeEngagementScore(timeline) : null),
+    [timeline]
+  );
 
   // Last active label
   const lastActiveLabel = (() => {
@@ -130,7 +171,7 @@ export function ClinicianPatientHeader() {
         flags: [],
         alerts,
         lastActiveDate,
-        engagement: null,
+        engagement,
       });
       navigator.clipboard.writeText(summary);
       toast.success('EHR summary copied to clipboard');
@@ -139,10 +180,23 @@ export function ClinicianPatientHeader() {
     }
   };
 
+  const handlePrint = () => {
+    navigate('/clinician-report?print=1');
+  };
+
   if (snapshotLoading) {
     return (
       <Card className="p-4 animate-pulse">
-        <div className="h-20 bg-muted rounded" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-5 h-5 bg-muted rounded" />
+          <div className="h-6 w-32 bg-muted rounded" />
+        </div>
+        <div className="flex gap-4 mb-3">
+          <div className="h-4 w-24 bg-muted rounded" />
+          <div className="h-4 w-24 bg-muted rounded" />
+          <div className="h-4 w-20 bg-muted rounded" />
+        </div>
+        <div className="h-10 bg-muted rounded" />
       </Card>
     );
   }
@@ -161,10 +215,10 @@ export function ClinicianPatientHeader() {
               {daysPostOnset !== null && (
                 <span>{daysPostOnset}d post-stroke</span>
               )}
-              {aphasiaType && (
+              {speechLabel && (
                 <>
                   <span>•</span>
-                  <span className="capitalize">{aphasiaType}</span>
+                  <span>{speechLabel}</span>
                 </>
               )}
             </div>
@@ -220,7 +274,7 @@ export function ClinicianPatientHeader() {
             </>
           )}
           <span className="text-muted-foreground">•</span>
-          <span className="text-muted-foreground">{lastSession.exerciseCount} trials</span>
+          <span className="text-muted-foreground">{lastSession.trialCount} trials</span>
         </div>
       )}
 
@@ -238,7 +292,7 @@ export function ClinicianPatientHeader() {
           <Copy className="w-3.5 h-3.5" />
           Copy EHR
         </Button>
-        <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
+        <Button size="sm" variant="outline" onClick={handlePrint} className="gap-1.5">
           <Printer className="w-3.5 h-3.5" />
           Print
         </Button>
