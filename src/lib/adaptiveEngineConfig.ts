@@ -31,7 +31,7 @@ export interface AdaptiveEngineSettings {
 }
 
 const DEFAULT_SETTINGS: AdaptiveEngineSettings = {
-  enabled: false, // Start disabled - clinician enables explicitly
+  enabled: true, // Phase A adaptations are now active (exit shadow mode)
   adaptations: {
     // Phase A - Safe to enable
     timeoutMultiplier: true,
