@@ -252,62 +252,68 @@ export const OverviewTab = memo(function OverviewTab() {
         <RedFlagAlerts flags={urgentFlags} />
       )}
 
-      {/* ===== RECOVERY SNAPSHOT — Always visible (engagement + EHR copy) ===== */}
+      {/* ===== RECOVERY & ACTIVITY — Single section for all trend data ===== */}
       {showRecoveryIntel && (
         <CollapsibleSection
-          title="Recovery Snapshot"
+          title="Recovery & Activity"
           icon={Activity}
           defaultOpen={true}
-          hint="14-day trends"
+          hint="14-day trends + physical data"
         >
-          <WeeklyRecoverySnapshot />
+          <div className="space-y-6">
+            <WeeklyRecoverySnapshot />
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Physical Activity
+              </h4>
+              <div className="space-y-4">
+                <TodaysActivityCard />
+                <ActivityTrendChart />
+              </div>
+            </div>
+          </div>
         </CollapsibleSection>
       )}
 
-      {/* ===== PHYSICAL ACTIVITY — visible in all modes ===== */}
+      {/* ===== CLINICAL SUMMARY — Goals + Sessions + Assessments in one place ===== */}
       <CollapsibleSection
-        title="Physical Activity"
-        icon={Activity}
-        defaultOpen={true}
-        hint="Steps, active min, sleep"
+        title="Clinical Summary"
+        icon={ClipboardList}
+        defaultOpen={isClinician}
+        hint="Goals, sessions & assessments"
       >
-        <div className="space-y-4">
-          <TodaysActivityCard />
-          <ActivityTrendChart />
+        <div className="space-y-6">
+          {/* Functional Goals */}
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Functional Goals
+            </h4>
+            <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
+          </div>
+
+          {/* Recent Sessions */}
+          <div className="border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Recent Sessions
+            </h4>
+            <RecentSessionsSummary userId={userId} />
+          </div>
+
+          {/* Standardized Assessments — clinician only */}
+          {isClinician && (
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Standardized Assessments
+              </h4>
+              <StandardizedAssessmentsCard userId={userId} />
+            </div>
+          )}
         </div>
       </CollapsibleSection>
-
-      {/* ===== FUNCTIONAL GOALS — Hospital currency ===== */}
-      <CollapsibleSection
-        title="Functional Goals"
-        icon={Target}
-        defaultOpen={isClinician}
-        hint="Discharge planning & progress"
-      >
-        <FunctionalGoalsWidget userId={userId} compact={!isClinician} />
-      </CollapsibleSection>
-
-      {/* ===== RECENT SESSIONS — Last 3 + caregiver notes ===== */}
-      <CollapsibleSection
-        title="Recent Sessions"
-        icon={Clock}
-        defaultOpen={isClinician}
-        hint="Last 3 sessions"
-      >
-        <RecentSessionsSummary userId={userId} />
-      </CollapsibleSection>
-
-      {/* ===== STANDARDIZED ASSESSMENTS — Clinician only ===== */}
-      {isClinician && (
-        <CollapsibleSection
-          title="Standardized Assessments"
-          icon={ClipboardList}
-          defaultOpen={false}
-          hint="WAB, BNT, NIHSS scores"
-        >
-          <StandardizedAssessmentsCard userId={userId} />
-        </CollapsibleSection>
-      )}
 
       {/* ===== PATIENT / CAREGIVER WIDGETS — Hidden in clinician mode ===== */}
       {!isClinician && (
@@ -470,59 +476,57 @@ export const OverviewTab = memo(function OverviewTab() {
 
       {/* ===== SHARED SECTIONS (visible in all modes) ===== */}
 
-      {/* Progress Section - Stats and trends */}
+      {/* Performance — Stats + Language in one section */}
       <CollapsibleSection 
-        title="Today's Stats & Trends" 
+        title="Performance"
         icon={TrendingUp}
         defaultOpen={isClinician}
-        hint="View session data"
-        hasNewData={statsSection.hasNewData}
-        onOpen={statsSection.markSeen}
+        hint="Stats, trends & language progress"
+        hasNewData={statsSection.hasNewData || languageSection.hasNewData}
+        onOpen={() => { statsSection.markSeen(); languageSection.markSeen(); }}
       >
-        {!showProgress ? (
-          <ProgressCardSkeleton />
-        ) : (
-          <div className="space-y-4">
-            <TodaysSessionStats />
-            <WeeklyTrendsChart />
-          </div>
-        )}
-      </CollapsibleSection>
+        <div className="space-y-6">
+          {!showProgress ? (
+            <ProgressCardSkeleton />
+          ) : (
+            <div className="space-y-4">
+              <TodaysSessionStats />
+              <WeeklyTrendsChart />
+            </div>
+          )}
 
-      {/* Language Progress Section */}
-      <CollapsibleSection 
-        title="Language Progress" 
-        icon={MessageSquare}
-        defaultOpen={isClinician}
-        hint="Track by exercise type"
-        hasNewData={languageSection.hasNewData}
-        onOpen={languageSection.markSeen}
-      >
-        {!showLanguageStats ? (
-          <div className="grid md:grid-cols-3 gap-4">
-            <ExerciseStatsTileSkeleton delay={0} />
-            <ExerciseStatsTileSkeleton delay={100} />
-            <ExerciseStatsTileSkeleton delay={200} />
+          <div className="border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Language Progress
+            </h4>
+            {!showLanguageStats ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                <ExerciseStatsTileSkeleton delay={0} />
+                <ExerciseStatsTileSkeleton delay={100} />
+                <ExerciseStatsTileSkeleton delay={200} />
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-4">
+                <ExerciseStatsTile
+                  userId={userId}
+                  exerciseSlug="semantic-features"
+                  exerciseTitle="Semantic Features"
+                />
+                <ExerciseStatsTile
+                  userId={userId}
+                  exerciseSlug="phonological"
+                  exerciseTitle="Phonological"
+                />
+                <ExerciseStatsTile
+                  userId={userId}
+                  exerciseSlug="sentence-construction"
+                  exerciseTitle="Grammar"
+                />
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-4">
-            <ExerciseStatsTile
-              userId={userId}
-              exerciseSlug="semantic-features"
-              exerciseTitle="Semantic Features"
-            />
-            <ExerciseStatsTile
-              userId={userId}
-              exerciseSlug="phonological"
-              exerciseTitle="Phonological"
-            />
-            <ExerciseStatsTile
-              userId={userId}
-              exerciseSlug="sentence-construction"
-              exerciseTitle="Grammar"
-            />
-          </div>
-        )}
+        </div>
       </CollapsibleSection>
 
       {/* All Exercises Section - Patient/Caregiver only */}
