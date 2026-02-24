@@ -1,5 +1,6 @@
 /* WeeklyRecoverySnapshot – recovery trend visualization */
 import { memo, useCallback, useMemo } from "react";
+import { useUiMode } from "@/hooks/useUiMode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -174,6 +175,8 @@ const SnapshotSkeleton = () => (
 /* ── Main component ────────────────────────────────── */
 export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
   const { activeProfile } = useProfile();
+  const { uiMode } = useUiMode();
+  const isClinician = uiMode === "clinician" || uiMode === "admin";
   const { toast } = useToast();
   const { timeline, flags, lastActiveDate, isLoading, error } =
     useWeeklyRecoverySnapshot(activeProfile?.id, 14);
@@ -288,6 +291,12 @@ export const WeeklyRecoverySnapshot = memo(function WeeklyRecoverySnapshot() {
             </Button>
           </div>
         </div>
+        {/* Clinician-only: inline engagement breakdown */}
+        {isClinician && engagement && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Active {engagement.breakdown.activeDays}/{engagement.breakdown.daysTotal} • Dose ≥10m {engagement.breakdown.doseDays}/{engagement.breakdown.daysTotal} • Readiness {engagement.breakdown.readinessDays}/{engagement.breakdown.daysTotal} • Fatigue stable {engagement.breakdown.fatigueStableDays}/{engagement.breakdown.fatigueDaysRecorded || 0}
+          </p>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
