@@ -190,11 +190,23 @@ export const checkAchievements = async (userId: string) => {
 };
 
 export const awardAchievement = async (userId: string, type: string, value: number) => {
-  // Using upsert with onConflict to make it idempotent
+  // Must include profile_id for RLS policy
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!profile) {
+    console.error('Cannot award achievement: no active profile found');
+    return;
+  }
+
   const { error } = await supabase
     .from('achievements')
     .upsert(
-      { user_id: userId, type, value, awarded_at: new Date().toISOString() },
+      { user_id: userId, profile_id: profile.id, type, value, awarded_at: new Date().toISOString() },
       { onConflict: 'user_id,type', ignoreDuplicates: true }
     );
   
