@@ -41,13 +41,13 @@ export const calculateStreak = async (userId: string): Promise<number> => {
 };
 
 export const getTotalReps = async (userId: string): Promise<number> => {
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('exercise_events')
-    .select('id, session_id!inner(user_id)')
+    .select('id, session_id!inner(user_id)', { count: 'exact', head: true })
     .eq('session_id.user_id', userId);
 
-  if (error || !data) return 0;
-  return data.length;
+  if (error || count === null) return 0;
+  return count;
 };
 
 export const getTodayProgress = async (userId: string, dailyGoalMinutes: number = 20): Promise<number> => {
