@@ -92,21 +92,25 @@ export function ProgressSection({ userId, profileId }: ProgressSectionProps) {
       const isSignificant = Math.abs(slopePerWeek) > 2;
 
       // Generate interpretation
+      // Convert 0-1 fractions to 0-100 percentages
+      const endAccPct = Math.round(best.endAccuracy * 100);
+      const startAccPct = Math.round(best.startAccuracy * 100);
+
       let interpretation: string;
       if (best.trend === 'improving') {
         if (isSignificant) {
-          interpretation = `Strong progress: ${Math.round(best.endAccuracy)}% accuracy, up from ${Math.round(best.startAccuracy)}%`;
+          interpretation = `Strong progress: ${endAccPct}% accuracy, up from ${startAccPct}%`;
         } else {
           interpretation = `Gradual improvement in ${domain}`;
         }
       } else if (best.trend === 'declining') {
         if (isSignificant) {
-          interpretation = `Accuracy dropped from ${Math.round(best.startAccuracy)}% to ${Math.round(best.endAccuracy)}% - may need attention`;
+          interpretation = `Accuracy dropped from ${startAccPct}% to ${endAccPct}% - may need attention`;
         } else {
           interpretation = `Slight dip - normal variation`;
         }
       } else {
-        interpretation = `Holding steady at ${Math.round(best.endAccuracy)}% accuracy`;
+        interpretation = `Holding steady at ${endAccPct}% accuracy`;
       }
 
       // Display name mapping
@@ -123,8 +127,8 @@ export function ProgressSection({ userId, profileId }: ProgressSectionProps) {
       result.push({
         domain,
         displayName: displayNames[domain] || domain.charAt(0).toUpperCase() + domain.slice(1),
-        currentAccuracy: best.endAccuracy,
-        startAccuracy: best.startAccuracy,
+        currentAccuracy: endAccPct,
+        startAccuracy: startAccPct,
         slopePerWeek,
         trend: best.trend,
         trialCount: best.trialCount,
