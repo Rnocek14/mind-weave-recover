@@ -174,13 +174,14 @@ export interface DoseReasoning {
   readinessApplied: ReadinessInput | null;
   readiness: { multiplierComputed: number; factorsApplied: { source: string; value: number }[] };
   performance: { multiplierComputed: number; factorsApplied: { source: string; value: number }[] };
-  selected: { source: 'readiness' | 'performance' | 'equal'; multiplier: number; clamped: number };
+  selected: { source: 'none' | 'readiness' | 'performance' | 'equal'; multiplier: number; clamped: number };
   caps: { source: string; cap: number }[];
   finalMinutes: number;
 }
 
 /** Clamp a value to [min, max], coercing numeric strings. Treats null/undefined/NaN as fallback. */
 function clampInput(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value === 'boolean') return fallback;
   const n = typeof value === 'string' ? Number(value) : value;
   if (n == null || typeof n !== 'number' || Number.isNaN(n)) return fallback;
   return Math.max(min, Math.min(max, n));
@@ -260,7 +261,8 @@ export function calculateTodaysDose(
 
   // Apply the WORSE of readiness vs performance reduction (not both stacked)
   const combinedMultiplier = Math.min(readinessMultiplier, performanceMultiplier);
-  const selectedSource: 'readiness' | 'performance' | 'equal' =
+  const selectedSource: 'none' | 'readiness' | 'performance' | 'equal' =
+    !readiness ? (performanceMultiplier < 1 ? 'performance' : 'none') :
     readinessMultiplier < performanceMultiplier ? 'readiness' :
     performanceMultiplier < readinessMultiplier ? 'performance' : 'equal';
   
@@ -527,7 +529,7 @@ export function generateDailyLesson(
 
     // Use TodayFocus startDifficulty if engine recommends it, else derive from capability
     const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
-      ?? Math.max(1, capabilityScores.attention - 2);
+      ?? Math.max(0, capabilityScores.attention - 2);
 
     blocks.push({
       exerciseId: ex.id,
@@ -565,7 +567,7 @@ export function generateDailyLesson(
 
     // Use TodayFocus startDifficulty consistently (same source of truth as primary)
     const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
-      ?? Math.max(1, capabilityScores.attention - 2);
+      ?? Math.max(0, capabilityScores.attention - 2);
 
     blocks.push({
       exerciseId: ex.id,
