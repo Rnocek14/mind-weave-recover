@@ -71,7 +71,7 @@ export function useWeeklyTrends() {
               const dateKey = format(new Date(event.created_at!), "yyyy-MM-dd");
               if (dailyData[dateKey]) {
                 dailyData[dateKey].totalTrials += 1;
-                if (event.score === 100) {
+                if (event.score != null && event.score > 0) {
                   dailyData[dateKey].correctTrials += 1;
                 }
               }

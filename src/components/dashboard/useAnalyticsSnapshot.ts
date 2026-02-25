@@ -88,8 +88,11 @@ export function useAnalyticsSnapshot(userId: string | undefined): AnalyticsSnaps
       ? redFlags[0].message 
       : null;
     
-    // Total trials for data quality
-    const totalTrials = weeklyTrends.reduce((sum, t) => sum + t.totalTrials, 0);
+    // Total trials for data quality — use learning rate trial counts (lifetime)
+    // as weeklyTrends only covers 7 days
+    const recentTrials = weeklyTrends.reduce((sum, t) => sum + t.totalTrials, 0);
+    const lifetimeTrials = learningRates.reduce((max, lr) => Math.max(max, lr.trialCount || 0), 0);
+    const totalTrials = Math.max(recentTrials, lifetimeTrials);
     const hasEnoughData = totalTrials >= 10;
     
     return {
