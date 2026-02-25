@@ -337,7 +337,10 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
       <Card className="max-w-3xl w-full p-8 md:p-16 space-y-10 text-center shadow-2xl border-2">
         {/* Last Session Card - only show if there's a previous session */}
         {lastSession && (
-          <div className="bg-muted/50 rounded-xl p-4 text-left">
+          <button
+            onClick={() => navigate('/history')}
+            className="w-full bg-muted/50 rounded-xl p-4 text-left hover:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
               <Calendar className="h-4 w-4" />
               <span>Last time ({formatDistanceToNow(new Date(lastSession.endedAt || lastSession.startedAt), { addSuffix: true })})</span>
@@ -351,7 +354,6 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
                   </div>
                 )}
                 {(() => {
-                  // Guard against NaN: filter valid accuracies
                   const accuracies = lastSession.exercises
                     .map(ex => ex.accuracy)
                     .filter((v): v is number => typeof v === 'number' && !isNaN(v));
@@ -370,7 +372,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
                 {lastSession.exercises.reduce((sum, ex) => sum + (ex.totalTrials ?? 0), 0)} trials
               </span>
             </div>
-          </div>
+          </button>
         )}
 
         {/* Friendly greeting */}
