@@ -181,6 +181,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       "sentence-construction": "/exercise/sentence-construction",
       "phrase-practice": "/exercise/phrase-practice",
       "reach-tap": "/exercise/reach-tap",
+      "pattern-match": "/exercise/pattern-match",
+      "minimal-pairs": "/exercise/minimal-pairs",
+      "conversation-partner": "/exercise/conversation-partner",
+      "conversation-coach": "/exercise/conversation-coach",
+      "two-clues": "/exercise/two-clues",
+      "fix-sentence": "/exercise/fix-sentence",
+      "describe-guess": "/exercise/describe-guess",
+      "detective-mind": "/exercise/detective-mind",
+      "meaning-match": "/exercise/meaning-match",
     };
 
     const route = routeMap[exerciseId];

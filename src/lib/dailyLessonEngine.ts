@@ -422,6 +422,14 @@ export function generateDailyLesson(
     'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'semantic-game' },
     'phrase-practice': { domains: ['expressive_language', 'phonology'], baseMinutes: 4, baseComponent: 'phrase-game' },
     'sentence-construction': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
+    'minimal-pairs': { domains: ['phonology', 'receptive_language'], baseMinutes: 3, baseComponent: 'minimal-pairs-game' },
+    'two-clues': { domains: ['semantic_systems', 'expressive_language'], baseMinutes: 3, baseComponent: 'two-clues-game' },
+    'fix-sentence': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'fix-sentence-game' },
+    'describe-guess': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'describe-guess-game' },
+    'conversation-partner': { domains: ['expressive_language'], baseMinutes: 3, baseComponent: 'conversation-game' },
+    'conversation-coach': { domains: ['expressive_language'], baseMinutes: 4, baseComponent: 'conversation-game' },
+    'detective-mind': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'comprehension-game' },
+    'meaning-match': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'comprehension-game' },
   };
 
   // Score each accessible exercise
