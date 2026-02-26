@@ -225,9 +225,7 @@ export function useClinicianCaseload() {
           };
         });
 
-        // Filter out the clinician's own profile if they have one
-        const filtered = result.filter(p => p.userId !== user.id);
-        setPatients(filtered);
+        setPatients(result);
       } catch (err) {
         console.error("[useClinicianCaseload] error:", err);
         setError("Failed to load caseload");
