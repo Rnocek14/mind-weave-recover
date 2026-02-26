@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Play, CheckCircle2, Clock } from "lucide-react";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { useAuth } from "@/hooks/useAuth";
@@ -401,6 +402,11 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             <p className="text-muted-foreground text-lg">
               You completed all {lesson.blocks.length} exercises
             </p>
+            {lesson.reasoning?.[0]?.startsWith('Preset:') && (
+              <p className="text-sm text-muted-foreground">
+                {lesson.reasoning[0].replace('Preset: ', '')}
+              </p>
+            )}
           </div>
 
           <div className="bg-muted/50 rounded-lg p-6 space-y-3">
@@ -418,6 +424,26 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             <Button size="lg" className="w-full" onClick={handleFinish}>
               Back to Dashboard
             </Button>
+            {lesson.reasoning?.[0]?.startsWith('Preset:') && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const presetLesson = buildPresetLesson('comprehension_session');
+                  if (presetLesson) {
+                    sessionStorage.removeItem('lessonFlowState');
+                    navigate('/lesson', { 
+                      state: { lesson: presetLesson },
+                      replace: true,
+                    });
+                    window.location.reload();
+                  }
+                }}
+              >
+                🔄 Repeat Comprehension Session
+              </Button>
+            )}
             <Button 
               size="lg" 
               variant="outline" 

@@ -34,6 +34,7 @@ interface TodaysPlanCardProps {
   clinicalProfile: ClinicalProfile | null;
   onStartAssessment?: () => void;
   onStartLesson?: () => void;
+  onStartComprehensionSession?: () => void;
   doseCapReached?: boolean;
 }
 
@@ -42,6 +43,7 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
   clinicalProfile,
   onStartAssessment,
   onStartLesson,
+  onStartComprehensionSession,
   doseCapReached = false,
 }) => {
   const [shadowPanelOpen, setShadowPanelOpen] = useState(false);
@@ -460,8 +462,8 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
           </>
         )}
 
-        {/* Start Lesson Button */}
-        <div className="pt-4">
+        {/* Start Lesson Buttons */}
+        <div className="pt-4 space-y-2">
           <Button 
             size="lg" 
             className="w-full"
@@ -471,6 +473,20 @@ export const TodaysPlanCard: React.FC<TodaysPlanCardProps> = ({
             <Play className="w-5 h-5 mr-2" />
             Start Today's Lesson ({lesson.totalDuration} min)
           </Button>
+          
+          {onStartComprehensionSession && (
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="w-full"
+              onClick={onStartComprehensionSession}
+              disabled={doseCapReached || needsReassessment}
+            >
+              <Brain className="w-5 h-5 mr-2" />
+              🧠 Comprehension Session (7 min)
+            </Button>
+          )}
+          
           {doseCapReached && (
             <p className="text-xs text-muted-foreground text-center mt-2">
               Daily practice cap reached
