@@ -8,14 +8,14 @@ import {
   type EngagementFilter,
   type SortPreset,
 } from "@/components/clinician/CaseloadFilters";
-import { Stethoscope, Users, Info, AlertTriangle, Bell, Clock, X } from "lucide-react";
+import { Stethoscope, Users, Info, AlertTriangle, Bell, Clock, X, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
 import { localYYYYMMDD } from "@/lib/localDate";
 
 export default function ClinicianPanel() {
-  const { patients, isLoading, error } = useClinicianCaseload();
+  const { patients, isLoading, error, lastUpdatedAt, refetch } = useClinicianCaseload();
   const { switchProfile } = useProfile();
   const navigate = useNavigate();
 
@@ -63,10 +63,26 @@ export default function ClinicianPanel() {
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Caseload</h1>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>
+            {lastUpdatedAt
+              ? lastUpdatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+              : "—"}
+          </span>
+          <button
+            type="button"
+            onClick={refetch}
+            disabled={isLoading}
+            className="p-1 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+            aria-label="Refresh caseload"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 
