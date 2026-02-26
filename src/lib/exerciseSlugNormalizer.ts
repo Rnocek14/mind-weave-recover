@@ -20,6 +20,7 @@ export const CANONICAL_SLUGS = {
   // Self-monitoring exercises
   FIX_SENTENCE: 'fix_sentence',
   DETECTIVE_MIND: 'detective_mind',
+  MEANING_MATCH: 'meaning_match',
   
   // Motor/attention exercises
   REACH_TAP: 'reach_tap',
@@ -64,6 +65,8 @@ export const isReceptiveExercise = (slug: string): boolean => {
   return [
     CANONICAL_SLUGS.MINIMAL_PAIRS,
     CANONICAL_SLUGS.SEMANTIC_FEATURES,
+    CANONICAL_SLUGS.MEANING_MATCH,
+    CANONICAL_SLUGS.DETECTIVE_MIND,
   ].includes(normalized as any);
 };
 

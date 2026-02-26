@@ -139,5 +139,14 @@ export const EXERCISES: Exercise[] = [
     duration: "8-12 min",
     difficulty: "Medium",
     color: "bg-gradient-primary"
+  },
+  {
+    id: "meaning-match",
+    title: "Meaning Match",
+    icon: Sparkles,
+    category: "Comprehension",
+    duration: "5-8 min",
+    difficulty: "Easy",
+    color: "bg-gradient-healing"
   }
 ];

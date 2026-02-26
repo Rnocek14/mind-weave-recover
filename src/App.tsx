@@ -38,6 +38,7 @@ import ThoughtContinuationExercise from "./pages/ThoughtContinuationExercise";
 import FixSentenceExercise from "./pages/FixSentenceExercise";
 import DescribeGuessExercise from "./pages/DescribeGuessExercise";
 import DetectiveMindExercise from "./pages/DetectiveMindExercise";
+import MeaningMatchExercise from "./pages/MeaningMatchExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -91,6 +92,7 @@ const App = () => (
                   <Route path="/exercise/fix-sentence" element={<FixSentenceExercise />} />
                   <Route path="/exercise/describe-guess" element={<DescribeGuessExercise />} />
                   <Route path="/exercise/detective-mind" element={<DetectiveMindExercise />} />
+                  <Route path="/exercise/meaning-match" element={<MeaningMatchExercise />} />
                   <Route path="/lesson" element={<Lesson />} />
                   
                   {/* Main app routes - with persistent header */}
