@@ -34,6 +34,8 @@ export interface DualLoadTrialResult {
     namingAccuracy: number;
     recallAccuracy: number;
     interferenceIndex: number;
+    baselineSource: 'user_history' | 'heuristic';
+    baselineAcc: number;
   };
 }
 
@@ -92,8 +94,10 @@ export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1) 
     );
     const recallAccuracy = recalled.length / currentSet.memoryWords.length;
 
-    // Interference index: assume baseline naming ~0.9, measure drop
-    const interferenceIndex = Math.max(0, 0.9 - namingAccuracy);
+    // Interference index: v0 heuristic (0.9 baseline assumed)
+    // TODO: Replace with user's actual historical naming baseline
+    const heuristicBaseline = 0.9;
+    const interferenceIndex = Math.max(0, heuristicBaseline - namingAccuracy);
 
     const result: DualLoadTrialResult = {
       setId: currentSet.id,
@@ -108,6 +112,8 @@ export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1) 
         namingAccuracy,
         recallAccuracy,
         interferenceIndex,
+        baselineSource: 'heuristic' as const,
+        baselineAcc: heuristicBaseline,
       },
     };
 

@@ -192,6 +192,53 @@ function extractExplanationMetrics(trials: ExerciseTrialRow[]): {
   };
 }
 
+/**
+ * Extract depth-task metrics from trial outputs.depth
+ * Used for enhanced domain scoring (Phase 2)
+ */
+function extractDepthMetrics(trials: ExerciseTrialRow[]): {
+  avgCoherenceScore: number | null;
+  avgEventCoverage: number | null;
+  avgSequenceScore: number | null;
+  avgAbstractionLevel: number | null;
+  avgConceptCount: number | null;
+  avgInterferenceIndex: number | null;
+  avgMeanUtteranceLength: number | null;
+  depthTrialCount: number;
+} {
+  let coherenceSum = 0, coherenceCount = 0;
+  let eventCovSum = 0, eventCovCount = 0;
+  let seqSum = 0, seqCount = 0;
+  let absSum = 0, absCount = 0;
+  let conceptSum = 0, conceptCount = 0;
+  let interSum = 0, interCount = 0;
+  let mulSum = 0, mulCount = 0;
+
+  for (const t of trials) {
+    const depth = t.outputs?.depth;
+    if (!depth || typeof depth !== 'object') continue;
+
+    if (typeof depth.coherenceScore === 'number') { coherenceSum += depth.coherenceScore; coherenceCount++; }
+    if (typeof depth.eventCoverage === 'number') { eventCovSum += depth.eventCoverage; eventCovCount++; }
+    if (typeof depth.sequenceScore === 'number') { seqSum += depth.sequenceScore; seqCount++; }
+    if (typeof depth.abstractionLevel === 'number') { absSum += depth.abstractionLevel; absCount++; }
+    if (typeof depth.conceptCount === 'number') { conceptSum += depth.conceptCount; conceptCount++; }
+    if (typeof depth.interferenceIndex === 'number') { interSum += depth.interferenceIndex; interCount++; }
+    if (typeof depth.meanUtteranceLength === 'number') { mulSum += depth.meanUtteranceLength; mulCount++; }
+  }
+
+  return {
+    avgCoherenceScore: coherenceCount > 0 ? coherenceSum / coherenceCount : null,
+    avgEventCoverage: eventCovCount > 0 ? eventCovSum / eventCovCount : null,
+    avgSequenceScore: seqCount > 0 ? seqSum / seqCount : null,
+    avgAbstractionLevel: absCount > 0 ? absSum / absCount : null,
+    avgConceptCount: conceptCount > 0 ? conceptSum / conceptCount : null,
+    avgInterferenceIndex: interCount > 0 ? interSum / interCount : null,
+    avgMeanUtteranceLength: mulCount > 0 ? mulSum / mulCount : null,
+    depthTrialCount: Math.max(coherenceCount, eventCovCount, seqCount, absCount, interCount),
+  };
+}
+
 // ============ Per-Domain Scorers ============
 
 function scoreDomain(
@@ -226,40 +273,93 @@ function scoreDomain(
   let score = accuracy;
   const components: Record<string, number> = { accuracy };
 
-  // For semantic_depth and executive_function, blend in explanation metrics
+  // For semantic_depth and executive_function, blend in explanation + depth metrics
   if (domainSlug === 'semantic_depth' || domainSlug === 'executive_function') {
     const explanationMetrics = extractExplanationMetrics(domainTrials);
+    const depthMetrics = extractDepthMetrics(domainTrials);
     
     if (explanationMetrics.avgCoverageRatio !== null) {
       components.coverageRatio = explanationMetrics.avgCoverageRatio;
-      // Blend: 60% accuracy + 40% explanation depth
       score = accuracy * 0.6 + explanationMetrics.avgCoverageRatio * 0.4;
     }
     
     if (explanationMetrics.avgOnTopicScore !== null) {
       components.onTopicScore = explanationMetrics.avgOnTopicScore;
-      // For executive function, on-topic score is more important
-      if (domainSlug === 'executive_function' && explanationMetrics.avgCoverageRatio !== null) {
-        score = accuracy * 0.4 + explanationMetrics.avgOnTopicScore * 0.3 + explanationMetrics.avgCoverageRatio * 0.3;
+    }
+
+    components.explanationCount = explanationMetrics.explanationCount;
+
+    if (domainSlug === 'semantic_depth') {
+      // Blend in abstractionLevel and conceptCount from depth tasks
+      if (depthMetrics.avgAbstractionLevel !== null) {
+        components.abstractionLevel = depthMetrics.avgAbstractionLevel;
+        // Re-blend: 40% accuracy + 30% coverage + 30% abstraction
+        const coverage = explanationMetrics.avgCoverageRatio ?? accuracy;
+        score = accuracy * 0.4 + coverage * 0.3 + depthMetrics.avgAbstractionLevel * 0.3;
+      }
+      if (depthMetrics.avgConceptCount !== null) {
+        components.conceptCount = depthMetrics.avgConceptCount;
       }
     }
-    
-    components.explanationCount = explanationMetrics.explanationCount;
+
+    if (domainSlug === 'executive_function') {
+      // Blend sequenceScore + interferenceIndex from depth tasks
+      if (depthMetrics.avgSequenceScore !== null) {
+        components.sequenceScore = depthMetrics.avgSequenceScore;
+      }
+      if (depthMetrics.avgInterferenceIndex !== null) {
+        components.interferenceIndex = depthMetrics.avgInterferenceIndex;
+      }
+      // Re-blend with available depth signals
+      const onTopic = explanationMetrics.avgOnTopicScore ?? accuracy;
+      const seqScore = depthMetrics.avgSequenceScore;
+      const interference = depthMetrics.avgInterferenceIndex;
+      if (seqScore !== null && interference !== null) {
+        // Full blend: 30% accuracy + 25% onTopic + 25% sequence + 20% (1-interference)
+        score = accuracy * 0.3 + onTopic * 0.25 + seqScore * 0.25 + (1 - interference) * 0.2;
+      } else if (seqScore !== null) {
+        score = accuracy * 0.35 + onTopic * 0.3 + seqScore * 0.35;
+      } else if (explanationMetrics.avgCoverageRatio !== null) {
+        score = accuracy * 0.4 + onTopic * 0.3 + explanationMetrics.avgCoverageRatio * 0.3;
+      }
+      components.depthTrialCount = depthMetrics.depthTrialCount;
+    }
   }
 
-  // For discourse_organization, factor in reaction time as proxy for fluency
+  // For discourse_organization, blend coherence + event coverage from depth tasks
   if (domainSlug === 'discourse_organization') {
+    const depthMetrics = extractDepthMetrics(domainTrials);
+    
+    // Reaction time as fluency proxy (existing)
     const rts = domainTrials
       .map(t => t.reaction_time_ms)
       .filter((rt): rt is number => rt !== null && rt > 0);
     
     if (rts.length >= 5) {
       const medianRt = rts.sort((a, b) => a - b)[Math.floor(rts.length / 2)];
-      // Normalize: <3s = 1.0, >15s = 0.0
       const rtScore = Math.max(0, Math.min(1, 1 - (medianRt - 3000) / 12000));
       components.rtScore = rtScore;
       score = accuracy * 0.7 + rtScore * 0.3;
     }
+
+    // Depth signals override when available
+    if (depthMetrics.avgCoherenceScore !== null) {
+      components.coherenceScore = depthMetrics.avgCoherenceScore;
+    }
+    if (depthMetrics.avgEventCoverage !== null) {
+      components.eventCoverage = depthMetrics.avgEventCoverage;
+    }
+    if (depthMetrics.avgMeanUtteranceLength !== null) {
+      // Normalize MUL: 1-5 words → 0-1 (very rough proxy)
+      components.meanUtteranceLength = depthMetrics.avgMeanUtteranceLength;
+    }
+    // Re-blend with depth if available
+    if (depthMetrics.avgCoherenceScore !== null && depthMetrics.avgEventCoverage !== null) {
+      const rtScore = components.rtScore ?? 0.5;
+      // 30% accuracy + 25% coherence + 25% coverage + 20% fluency(RT)
+      score = accuracy * 0.3 + depthMetrics.avgCoherenceScore * 0.25 + depthMetrics.avgEventCoverage * 0.25 + rtScore * 0.2;
+    }
+    components.depthTrialCount = depthMetrics.depthTrialCount;
   }
 
   return {
