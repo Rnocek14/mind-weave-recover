@@ -8,10 +8,11 @@ import {
   type EngagementFilter,
   type SortPreset,
 } from "@/components/clinician/CaseloadFilters";
-import { Stethoscope, Users } from "lucide-react";
+import { Stethoscope, Users, Info, AlertTriangle, Bell, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
+import { localYYYYMMDD } from "@/lib/localDate";
 
 export default function ClinicianPanel() {
   const { patients, isLoading, error } = useClinicianCaseload();
@@ -28,6 +29,26 @@ export default function ClinicianPanel() {
     () => filterAndSortCaseload(patients, search, riskFilter, engagementFilter, sortPreset),
     [patients, search, riskFilter, engagementFilter, sortPreset]
   );
+
+  // Triage rollup counts
+  const triage = useMemo(() => {
+    const now = new Date();
+    const threeDaysAgo = new Date(now);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const threeDaysAgoStr = localYYYYMMDD(threeDaysAgo);
+
+    let critical = 0;
+    let hasAlerts = 0;
+    let inactive3d = 0;
+
+    for (const p of patients) {
+      if (p.criticalAlertCount > 0) critical++;
+      if (p.activeAlertCount > 0) hasAlerts++;
+      if (!p.lastActiveDate || p.lastActiveDate <= threeDaysAgoStr) inactive3d++;
+    }
+
+    return { critical, hasAlerts, inactive3d };
+  }, [patients]);
 
   const handlePatientClick = useCallback(async (profileId: string) => {
     try {
@@ -48,6 +69,36 @@ export default function ClinicianPanel() {
           <h1 className="text-xl font-bold">Caseload</h1>
         </div>
       </div>
+
+      {/* Mode A banner */}
+      <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+        <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Caseload is currently based on profiles visible via permissions (Mode A).
+          Clinician assignments will be enabled in Sprint 3.
+        </p>
+      </div>
+
+      {/* Triage rollup */}
+      {!isLoading && patients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs">
+            <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+            <span className="font-medium text-destructive">{triage.critical}</span>
+            <span className="text-muted-foreground">Critical</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <Bell className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-medium text-amber-600">{triage.hasAlerts}</span>
+            <span className="text-muted-foreground">Has alerts</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="font-medium">{triage.inactive3d}</span>
+            <span className="text-muted-foreground">Inactive ≥3d</span>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       {!isLoading && patients.length > 0 && (
