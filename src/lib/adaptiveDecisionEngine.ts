@@ -10,6 +10,7 @@
  */
 
 import type { PerformanceSignals } from './dailyLessonEngine';
+import type { DomainScore } from './cognitiveStateEngine';
 
 // ============ Input Schema ============
 
@@ -38,6 +39,7 @@ export interface AdaptiveEngineInput {
   performanceSignals: PerformanceSignals | null;
   speechProfile: SpeechProfileSummary | null;
   signalCounts: SignalCounts;
+  cognitiveDomainScores?: DomainScore[]; // Phase B: cognitive state engine scores
 }
 
 // ============ Output Schema ============
@@ -298,6 +300,78 @@ const PHASE_A_RULES: DecisionRule[] = [
   },
 ];
 
+// ============ Phase B Rules (Cognitive State Engine) ============
+
+const PHASE_B_RULES: DecisionRule[] = [
+  {
+    id: 'executive_weakness',
+    description: 'Executive function domain score is low',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const ef = input.cognitiveDomainScores?.find(d => d.domainSlug === 'executive_function');
+      return ef != null && ef.confidence !== 'low' && ef.score < 0.4;
+    },
+    conditionDescription: (input) => {
+      const ef = input.cognitiveDomainScores?.find(d => d.domainSlug === 'executive_function');
+      return `Executive Function: ${ef ? Math.round(ef.score * 100) : 'N/A'}%`;
+    },
+    apply: (focus) => {
+      if (!focus.primaryDomains.includes('executive')) {
+        focus.primaryDomains.push('executive');
+      }
+      focus.reasoning.push('Prioritizing reasoning exercises due to low executive function score');
+    },
+    adaptationDescription: 'Prioritize detective-mind and explanation-heavy exercises',
+  },
+  {
+    id: 'endurance_decline',
+    description: 'High fatigue sensitivity from cognitive endurance domain',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const endurance = input.cognitiveDomainScores?.find(d => d.domainSlug === 'cognitive_endurance');
+      return endurance != null && endurance.fatigueSensitivity != null && endurance.fatigueSensitivity > 0.3;
+    },
+    conditionDescription: (input) => {
+      const endurance = input.cognitiveDomainScores?.find(d => d.domainSlug === 'cognitive_endurance');
+      return `Fatigue sensitivity: ${endurance?.fatigueSensitivity != null ? Math.round(endurance.fatigueSensitivity * 100) : 'N/A'}%`;
+    },
+    apply: (focus) => {
+      focus.suggestedSessionMinutes = Math.min(focus.suggestedSessionMinutes, 10);
+      focus.energyLevel = 'light';
+      focus.reasoning.push('Shorter sessions due to measured cognitive endurance decline');
+    },
+    adaptationDescription: 'Cap session at 10 min, light energy level',
+  },
+  {
+    id: 'semantic_depth_gap',
+    description: 'Semantic depth domain score significantly below other domains',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const scores = input.cognitiveDomainScores?.filter(d => d.confidence !== 'low' && d.trialCount >= 10);
+      if (!scores || scores.length < 3) return false;
+      const semantic = scores.find(d => d.domainSlug === 'semantic_depth');
+      if (!semantic) return false;
+      const avgOthers = scores.filter(d => d.domainSlug !== 'semantic_depth')
+        .reduce((sum, d) => sum + d.score, 0) / (scores.length - 1);
+      return semantic.score < avgOthers - 0.15;
+    },
+    conditionDescription: (input) => {
+      const semantic = input.cognitiveDomainScores?.find(d => d.domainSlug === 'semantic_depth');
+      return `Semantic Depth: ${semantic ? Math.round(semantic.score * 100) : 'N/A'}% (gap vs other domains)`;
+    },
+    apply: (focus) => {
+      if (!focus.primaryDomains.includes('semantic')) {
+        focus.primaryDomains.push('semantic');
+      }
+      focus.reasoning.push('Semantic depth lags behind other domains — adding meaning-focused exercises');
+    },
+    adaptationDescription: 'Prioritize semantic depth exercises',
+  },
+];
+
 // ============ Engine Core ============
 
 const CONFIDENCE_ALLOWS: Record<ConfidenceLevel, ConfidenceLevel[]> = {
@@ -338,8 +412,9 @@ export function computeTodayFocus(input: AdaptiveEngineInput): TodayFocus {
     return focus;
   }
   
-  // Apply Phase A rules that meet confidence threshold
-  for (const rule of PHASE_A_RULES) {
+  // Apply Phase A + Phase B rules that meet confidence threshold
+  const allRules = [...PHASE_A_RULES, ...PHASE_B_RULES];
+  for (const rule of allRules) {
     // Check if confidence level allows this rule
     if (!CONFIDENCE_ALLOWS[confidence].includes(rule.minConfidence)) {
       continue;

@@ -503,6 +503,71 @@ export type Database = {
           },
         ]
       }
+      cognitive_domain_scores: {
+        Row: {
+          computed_at: string
+          confidence: string
+          domain_slug: string
+          domain_version: number
+          fatigue_sensitivity: number | null
+          granularity: string
+          id: string
+          profile_id: string | null
+          score: number
+          score_components: Json
+          transfer_components: Json | null
+          transfer_index: number | null
+          trial_count: number
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          computed_at?: string
+          confidence?: string
+          domain_slug: string
+          domain_version?: number
+          fatigue_sensitivity?: number | null
+          granularity?: string
+          id?: string
+          profile_id?: string | null
+          score: number
+          score_components?: Json
+          transfer_components?: Json | null
+          transfer_index?: number | null
+          trial_count?: number
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          computed_at?: string
+          confidence?: string
+          domain_slug?: string
+          domain_version?: number
+          fatigue_sensitivity?: number | null
+          granularity?: string
+          id?: string
+          profile_id?: string | null
+          score?: number
+          score_components?: Json
+          transfer_components?: Json | null
+          transfer_index?: number | null
+          trial_count?: number
+          user_id?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cognitive_domain_scores_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_readiness: {
         Row: {
           checkin_date: string
