@@ -168,7 +168,8 @@ function extractExplanationMetrics(trials: ExerciseTrialRow[]): {
   avgOnTopicScore: number | null;
   explanationCount: number;
 } {
-  let coverageSum = 0, topicSum = 0, count = 0;
+  let coverageSum = 0, coverageCount = 0;
+  let topicSum = 0, topicCount = 0;
 
   for (const t of trials) {
     const explanation = t.outputs?.explanation || t.inputs?.explanation;
@@ -176,17 +177,18 @@ function extractExplanationMetrics(trials: ExerciseTrialRow[]): {
 
     if (typeof explanation.coverageRatio === 'number') {
       coverageSum += explanation.coverageRatio;
-      count++;
+      coverageCount++;
     }
     if (typeof explanation.onTopicScore === 'number') {
       topicSum += explanation.onTopicScore;
+      topicCount++;
     }
   }
 
   return {
-    avgCoverageRatio: count > 0 ? coverageSum / count : null,
-    avgOnTopicScore: count > 0 ? topicSum / count : null,
-    explanationCount: count,
+    avgCoverageRatio: coverageCount > 0 ? coverageSum / coverageCount : null,
+    avgOnTopicScore: topicCount > 0 ? topicSum / topicCount : null,
+    explanationCount: Math.max(coverageCount, topicCount),
   };
 }
 

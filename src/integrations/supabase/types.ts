@@ -513,6 +513,7 @@ export type Database = {
           granularity: string
           id: string
           profile_id: string | null
+          profile_key: string | null
           score: number
           score_components: Json
           transfer_components: Json | null
@@ -531,6 +532,7 @@ export type Database = {
           granularity?: string
           id?: string
           profile_id?: string | null
+          profile_key?: string | null
           score: number
           score_components?: Json
           transfer_components?: Json | null
@@ -549,6 +551,7 @@ export type Database = {
           granularity?: string
           id?: string
           profile_id?: string | null
+          profile_key?: string | null
           score?: number
           score_components?: Json
           transfer_components?: Json | null
