@@ -96,7 +96,7 @@ export function useClinicianCaseload() {
           .gte("duration_sec", 60);
 
         // Group sessions by profile + window using date string comparison
-        const sessionsByProfile = new Map<string, { recent: typeof sessions14d; prior: typeof sessions14d }>();
+        const sessionsByProfile = new Map<string, { recent: any[]; prior: any[] }>();
         for (const p of profileIds) {
           sessionsByProfile.set(p, { recent: [], prior: [] });
         }
@@ -251,7 +251,9 @@ export function useClinicianCaseload() {
           };
         });
 
-        setPatients(result);
+        // Filter out the clinician's own profile to avoid confusion
+        const filtered = result.filter(x => x.userId !== user.id);
+        setPatients(filtered);
       } catch (err) {
         console.error("[useClinicianCaseload] error:", err);
         setError("Failed to load caseload");
