@@ -19,6 +19,16 @@ export interface MeaningMatchTrialResult {
   type: string;
   usedHint: boolean;
   points: number;
+  explanation?: {
+    transcript: string;
+    level: 'excellent' | 'good' | 'partial' | 'off-topic' | 'no-response';
+    score: number;
+    conceptsFound: number;
+    conceptsTotal: number;
+    matchedConcepts: string[];
+    durationMs: number;
+    skipped: boolean;
+  };
 }
 
 export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: number = 1) {
