@@ -123,7 +123,7 @@ const SYNONYM_MAP: Record<string, string[]> = {
   'understand': ['comprehend', 'grasp', 'follow', 'get'],
   'agree': ['concur', 'align', 'match', 'share'],
   'avoid': ['prevent', 'dodge', 'evade', 'skip'],
-  'learn': ['master', 'grasp', 'pick up', 'figure out'],
+  'learn': ['master', 'grasp', 'study', 'absorb'],
   'rain': ['raining', 'rained', 'rainy', 'wet', 'storm'],
   'coat': ['jacket', 'parka', 'hoodie', 'sweater'],
   'walk': ['walked', 'walking', 'stroll', 'hike'],

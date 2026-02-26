@@ -104,9 +104,9 @@ export function MeaningMatchGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
-      onTrialComplete(result);
+      // Do NOT emit onTrialComplete here — wait until after explanation phase
     }
-  }, [phase, selectedOption, usedHint, submitAnswer, onTrialComplete]);
+  }, [phase, selectedOption, usedHint, submitAnswer]);
 
   const handleHint = useCallback(() => {
     setUsedHint(true);
@@ -118,18 +118,16 @@ export function MeaningMatchGame({
     setPhase('explaining');
   }, []);
 
-  // Handle explanation completion — persist data into trial outputs
-  const handleExplainComplete = useCallback((result: ExplainWhyResult) => {
-    if (!result.skipped) {
-      setReasoningPoints(prev => prev + result.score.score);
+  // Handle explanation completion — emit single combined trial result
+  const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
+    if (!explainResult.skipped) {
+      setReasoningPoints(prev => prev + explainResult.score.score);
     }
-    // Attach explanation telemetry to the last trial result
     if (lastResult) {
       onTrialComplete({
         ...lastResult,
-        points: lastResult.points + result.score.score,
-        // The explanation data is available via result.explanationData
-        // for the session logger to persist
+        points: lastResult.points + explainResult.score.score,
+        explanation: explainResult.explanationData,
       });
     }
     nextItem();

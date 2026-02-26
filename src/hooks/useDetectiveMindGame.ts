@@ -20,6 +20,16 @@ export interface DetectiveTrialResult {
   tier: number;
   usedHint: boolean;
   points: number;
+  explanation?: {
+    transcript: string;
+    level: 'excellent' | 'good' | 'partial' | 'off-topic' | 'no-response';
+    score: number;
+    conceptsFound: number;
+    conceptsTotal: number;
+    matchedConcepts: string[];
+    durationMs: number;
+    skipped: boolean;
+  };
 }
 
 const RANK_THRESHOLDS: { rank: DetectiveRank; minPoints: number }[] = [
