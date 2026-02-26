@@ -97,16 +97,16 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
   type TriageStatus = "needs_attention" | "monitor" | "re_engage" | "on_track";
   const triageStatus: TriageStatus = hasCritical
     ? "needs_attention"
-    : trend === "down" && hasSufficientTrials
-    ? "monitor"
     : daysSinceActive >= 5
     ? "re_engage"
+    : trend === "down" && hasSufficientTrials
+    ? "monitor"
     : "on_track";
 
   const triageConfig: Record<TriageStatus, { label: string; className: string }> = {
     needs_attention: { label: "Needs attention", className: "bg-destructive/10 text-destructive border-destructive/30" },
     monitor: { label: "Monitor", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
-    re_engage: { label: "Re-engage", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
+    re_engage: { label: "Re-engage", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30" },
     on_track: { label: "On track", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30" },
   };
 
