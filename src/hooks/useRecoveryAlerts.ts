@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { detectRecoveryAlerts, type DetectedAlert } from "@/lib/recoveryAlertDetector";
+import { detectRecoveryAlerts, type DetectedAlert, type SessionAccuracyStats } from "@/lib/recoveryAlertDetector";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
 export interface RecoveryAlert {
@@ -29,7 +29,8 @@ function timelineHash(timeline: SnapshotDay[]): string {
 
 export function useRecoveryAlerts(
   profileId: string | undefined,
-  timeline: SnapshotDay[]
+  timeline: SnapshotDay[],
+  sessionStats?: SessionAccuracyStats
 ) {
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<RecoveryAlert[]>([]);
@@ -70,7 +71,7 @@ export function useRecoveryAlerts(
     lastHashRef.current = hash;
 
     const runDetection = async () => {
-      const detected = detectRecoveryAlerts(timeline);
+      const detected = detectRecoveryAlerts(timeline, sessionStats);
       if (detected.length === 0) return;
 
       // Fresh-fetch unresolved alerts to avoid stale closure dedup

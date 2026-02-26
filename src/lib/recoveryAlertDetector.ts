@@ -10,11 +10,30 @@ export interface DetectedAlert {
   trigger_data: Record<string, unknown>;
 }
 
+/** Optional session-level accuracy stats for performance-based alerts */
+export interface SessionAccuracyStats {
+  /** Average accuracy (0–100) over the recent window (e.g., last 7 days) */
+  recentAvgAccuracy: number | null;
+  /** Average accuracy (0–100) over the prior window */
+  priorAvgAccuracy: number | null;
+  /** Accuracy slope from learning_rates (per-session change) */
+  accuracySlope: number | null;
+  /** Total trials in recent window */
+  recentTrialCount: number;
+  /** Number of sessions in recent window */
+  recentSessionCount: number;
+  /** Total trials in prior window */
+  priorTrialCount: number;
+}
+
 /**
  * Pure function: evaluates a 14-day timeline and returns alerts to upsert.
  * No side effects — caller decides whether to persist.
  */
-export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
+export function detectRecoveryAlerts(
+  timeline: SnapshotDay[],
+  sessionStats?: SessionAccuracyStats
+): DetectedAlert[] {
   if (timeline.length < 3) return [];
 
   const alerts: DetectedAlert[] = [];
@@ -271,6 +290,76 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
           rule_version: "alerts_v2",
         },
       });
+    }
+  }
+
+  // ── 8. Performance plateau: accuracy slope ≈ 0 with sufficient dose ──
+  if (sessionStats) {
+    const {
+      recentAvgAccuracy,
+      priorAvgAccuracy,
+      accuracySlope,
+      recentTrialCount,
+      recentSessionCount,
+      priorTrialCount,
+    } = sessionStats;
+
+    // Only evaluate with sufficient data: ≥10 trials, ≥3 sessions, ≥60% adherence
+    const hasEnoughData =
+      recentTrialCount >= 10 &&
+      recentSessionCount >= 3 &&
+      priorTrialCount >= 10 &&
+      adherencePct >= 0.6;
+
+    if (hasEnoughData && accuracySlope !== null && recentAvgAccuracy !== null) {
+      // Performance plateau: slope near zero with reasonable dose
+      if (Math.abs(accuracySlope) <= 0.01 && recentAvgAccuracy < 85) {
+        alerts.push({
+          alert_type: "performance_plateau_risk",
+          severity: "info",
+          title: "Performance plateau detected",
+          description: `Accuracy has remained flat at ~${Math.round(recentAvgAccuracy)}% across ${recentSessionCount} sessions (slope: ${accuracySlope.toFixed(3)}). Consider adjusting exercise difficulty or introducing new task types.`,
+          domain_slug: "speech",
+          trigger_data: {
+            accuracy_slope: accuracySlope,
+            avg_accuracy: Math.round(recentAvgAccuracy),
+            session_count: recentSessionCount,
+            trial_count: recentTrialCount,
+            adherence_pct: Math.round(adherencePct * 100),
+            rule_version: "perf_alerts_v1",
+          },
+        });
+      }
+    }
+
+    // ── 9. Performance regression: accuracy drops >15% with sufficient dose ──
+    if (
+      hasEnoughData &&
+      recentAvgAccuracy !== null &&
+      priorAvgAccuracy !== null &&
+      priorAvgAccuracy >= 20 // avoid noise on very low baselines
+    ) {
+      const accDrop = priorAvgAccuracy - recentAvgAccuracy;
+      const accDropPct = (accDrop / priorAvgAccuracy) * 100;
+
+      if (accDropPct >= 15) {
+        alerts.push({
+          alert_type: "performance_regression_risk",
+          severity: accDropPct >= 25 ? "warning" : "info",
+          title: "Performance decline detected",
+          description: `Average accuracy dropped from ${Math.round(priorAvgAccuracy)}% to ${Math.round(recentAvgAccuracy)}% (−${Math.round(accDropPct)}%) despite adequate practice volume (${recentTrialCount} trials across ${recentSessionCount} sessions). This may indicate a clinical change or task mismatch.`,
+          domain_slug: "speech",
+          trigger_data: {
+            avg_accuracy_prior: Math.round(priorAvgAccuracy),
+            avg_accuracy_recent: Math.round(recentAvgAccuracy),
+            drop_pct: Math.round(accDropPct),
+            trial_count_recent: recentTrialCount,
+            trial_count_prior: priorTrialCount,
+            session_count: recentSessionCount,
+            rule_version: "perf_alerts_v1",
+          },
+        });
+      }
     }
   }
 

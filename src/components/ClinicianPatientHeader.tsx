@@ -127,10 +127,21 @@ export function ClinicianPatientHeader() {
   const navigate = useNavigate();
 
   const { timeline, lastActiveDate, isLoading: snapshotLoading, flags } = useWeeklyRecoverySnapshot(profileId, 14);
-  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline);
+  const sessionStats = useWeeklySessionStats(profileId);
+  const alertSessionStats = useMemo(() => {
+    if (sessionStats.isLoading) return undefined;
+    return {
+      recentAvgAccuracy: sessionStats.avgAccuracy,
+      priorAvgAccuracy: sessionStats.priorAvgAccuracy,
+      accuracySlope: sessionStats.accuracySlope,
+      recentTrialCount: sessionStats.trialCount,
+      recentSessionCount: sessionStats.sessionCount,
+      priorTrialCount: sessionStats.trialCount, // approximation — prior count not separately tracked yet
+    };
+  }, [sessionStats]);
+  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { lastSession } = useLastSession(profileId);
-  const sessionStats = useWeeklySessionStats(profileId);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 
   // Derived data
