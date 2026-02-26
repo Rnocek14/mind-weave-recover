@@ -11,18 +11,27 @@ import {
   AlertTriangle,
   CheckCircle,
   Printer,
+  ClipboardList,
 } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useWeeklyRecoverySnapshot } from '@/hooks/useWeeklyRecoverySnapshot';
 import { useRecoveryAlerts } from '@/hooks/useRecoveryAlerts';
 import { useDailyReadiness } from '@/hooks/useDailyReadiness';
+import { useWeeklySessionStats } from '@/hooks/useWeeklySessionStats';
 import { useNavigate } from 'react-router-dom';
 import { formatEhrSummary } from '@/lib/formatEhrSummary';
 import { computeEngagementScore } from '@/lib/computeEngagementScore';
+import { generateProgressNote } from '@/lib/generateProgressNote';
 import { toast } from 'sonner';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isSafetyFlag } from '@/lib/safetyFlagTypes';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface LastSessionData {
   date: string;
@@ -121,6 +130,8 @@ export function ClinicianPatientHeader() {
   const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { lastSession } = useLastSession(profileId);
+  const sessionStats = useWeeklySessionStats(profileId);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 
   // Derived data
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
@@ -191,6 +202,30 @@ export function ClinicianPatientHeader() {
   const handlePrint = () => {
     navigate('/clinician-report?print=1');
   };
+
+  const progressNote = useMemo(() => {
+    if (snapshotLoading || sessionStats.isLoading) return null;
+    return generateProgressNote({
+      timeline,
+      flags: flags || [],
+      alerts,
+      lastActiveDate,
+      engagement,
+      accuracySlope: sessionStats.accuracySlope,
+      trialCount: sessionStats.trialCount,
+      sessionCount: sessionStats.sessionCount,
+      avgAccuracy: sessionStats.avgAccuracy,
+      priorAvgAccuracy: sessionStats.priorAvgAccuracy,
+      prescribedDays: null,
+      profileName: activeProfile?.profile_name || undefined,
+    });
+  }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, snapshotLoading, activeProfile]);
+
+  const handleCopyNote = useCallback(() => {
+    if (!progressNote) return;
+    navigator.clipboard.writeText(progressNote.narrative);
+    toast.success('Progress note copied to clipboard');
+  }, [progressNote]);
 
   if (snapshotLoading) {
     return (
@@ -294,6 +329,10 @@ export function ClinicianPatientHeader() {
           <FileText className="w-3.5 h-3.5" />
           Report
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setNoteDialogOpen(true)} className="gap-1.5">
+          <ClipboardList className="w-3.5 h-3.5" />
+          Note
+        </Button>
         <Button size="sm" variant="outline" onClick={() => navigate('/insights')} className="gap-1.5">
           <Lightbulb className="w-3.5 h-3.5" />
           Insights
@@ -307,6 +346,63 @@ export function ClinicianPatientHeader() {
           Print
         </Button>
       </div>
+
+      {/* Progress Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Weekly Progress Note
+            </DialogTitle>
+          </DialogHeader>
+          {progressNote ? (
+            <div className="space-y-4">
+              {/* Headline */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm">{progressNote.headline}</span>
+                <Badge
+                  variant={
+                    progressNote.confidence === 'high' ? 'default' :
+                    progressNote.confidence === 'moderate' ? 'secondary' :
+                    'destructive'
+                  }
+                  className="text-xs"
+                >
+                  {progressNote.confidence} confidence
+                </Badge>
+              </div>
+
+              {/* Narrative */}
+              <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed whitespace-pre-wrap">
+                {progressNote.narrative}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleCopyNote} className="gap-1.5">
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy Note
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCopyEHR} className="gap-1.5">
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy Full EHR
+                </Button>
+              </div>
+
+              {progressNote.confidenceReason && (
+                <p className="text-xs text-muted-foreground">
+                  ⚠ {progressNote.confidenceReason}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground animate-pulse">
+              Generating note...
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

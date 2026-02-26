@@ -40,12 +40,49 @@ Actual dose delivered per domain per day.
 
 ### recovery_alerts ✅ Created
 Cross-domain actionable flags for clinicians.
-- `alert_type`: engagement_failure, fatigue_risk, deterioration, dose_inadequacy
+- `alert_type`: engagement_failure, fatigue_risk, deterioration, dose_inadequacy, plateau_risk, regression_risk
 - `severity`: info, warning, critical
 - `domain_slug`: nullable (NULL = cross-domain alert)
 - Resolvable with `resolved_at`, `resolved_by`, `resolution_notes`
 
-## Implementation Phases
+## Clinician Dashboard — Phased Build
+
+### Sprint 1: Single-Patient Intelligence ✅ In Progress
+
+#### Auto Progress Note Generator ✅ Done
+- `src/lib/generateProgressNote.ts` — template-driven, deterministic narrative
+- Numbers in, sentences out — no LLM, no clinical claims beyond data
+- Data confidence assessment (high/moderate/low/insufficient)
+- Headline generation for card display
+- `src/hooks/useWeeklySessionStats.ts` — fetches 7d + prior 7d session/trial aggregates
+- "Note" button in `ClinicianPatientHeader` with dialog showing narrative + copy
+
+#### Plateau & Regression Alerts ✅ Done
+- `plateau_risk` (info): dose + speech volume flat across 14d window, ≥60% adherence
+- `regression_risk` (info/warning): speech drops >40% WoW despite engagement (≥3/7 active days)
+- Both have adherence guardrails to avoid false alerts on under-dosing
+
+### Sprint 2: Multi-Patient Caseload UI ⏳ Next
+- [ ] `ClinicianPanel.tsx` — card grid for all assigned patients
+- [ ] `PatientCard.tsx` — compact summary (compliance, accuracy trend, flags, fatigue sparkline)
+- [ ] Temporary linking via admin-seeded list (dev phase)
+- [ ] Route: `/clinician/caseload`
+
+### Sprint 3: Clinician-Patient Linking + RLS
+- [ ] `clinician_patient_links` table (clinician_user_id, patient_profile_id, role, status, assigned_at, revoked_at)
+- [ ] RLS policies: clinician read-only, admin full, patient self
+- [ ] Swap caseload hook to query real links
+
+### Sprint 4: Cross-Domain Recovery Overlay
+- [ ] `CrossDomainOverlayChart.tsx` — speech accuracy + steps + fatigue on aligned axes
+- [ ] Daily aggregation rules (mean accuracy weighted by trials)
+- [ ] Missing data handling (visual gaps, not interpolation)
+
+### Sprint 5: Cue Effectiveness Summary
+- [ ] `CueEffectivenessSummary.tsx` — cue type, success rate, usage %, independence growth
+- [ ] Data from `exercise_events` (cue_type_given, cue_was_effective)
+
+## Implementation Phases (Data Capture)
 
 ### Phase 1: Data Capture ⏳ Next
 - [ ] Daily Readiness Check-in component (fatigue + optional fields)
@@ -53,19 +90,23 @@ Cross-domain actionable flags for clinicians.
 - [ ] Auto-log speech dose from existing session data (`source = 'system'`)
 - [ ] Wire existing `MoodCheckIn` into daily_readiness
 
-### Phase 2: Weekly Recovery Snapshot
-- [ ] `useRecoverySnapshot` hook — aggregates all domains
-- [ ] `WeeklyRecoverySnapshot` component with domain sparklines
-- [ ] Dose adequacy bars (target vs actual per domain)
-- [ ] Auto-interpretation text
-- [ ] Cross-domain overlay chart
+### Phase 2: Weekly Recovery Snapshot ✅ Done
+- [x] `useRecoverySnapshot` hook — aggregates all domains
+- [x] `WeeklyRecoverySnapshot` component with domain sparklines
+- [x] Dose adequacy bars (target vs actual per domain)
+- [x] Auto-interpretation text
+- [x] Cross-domain overlay chart (basic)
 
-### Phase 3: Alert Engine
-- [ ] `lib/recoveryAlertDetector.ts` — rule-based alert generation
-- [ ] 3-day engagement failure detection
-- [ ] Fatigue risk (high fatigue + dose drop)
-- [ ] Dose inadequacy flagging
-- [ ] Integration with existing RedFlagAlerts pattern
+### Phase 3: Alert Engine ✅ Done
+- [x] `lib/recoveryAlertDetector.ts` — rule-based alert generation
+- [x] 3-day engagement failure detection
+- [x] Fatigue risk (high fatigue + dose drop)
+- [x] Dose inadequacy flagging
+- [x] Deconditioning risk (physical inactivity)
+- [x] Overexertion risk (activity spike + fatigue/dose correlation)
+- [x] Plateau risk (flat dose + speech volume)
+- [x] Regression risk (speech dose drop despite engagement)
+- [x] Integration with existing RedFlagAlerts pattern
 
 ### Phase 4: Hospital Interface (After Pilot)
 - [ ] Clinician dashboard with patient list + traffic-light status

@@ -200,5 +200,79 @@ export function detectRecoveryAlerts(timeline: SnapshotDay[]): DetectedAlert[] {
     }
   }
 
+  // ── 6. Plateau risk: accuracy slope < 1% over 5+ sessions with sufficient data ──
+  // Guard: only evaluate if adherence is reasonable (≥60% active days)
+  // Note: this uses the timeline's hasAnySignal as a proxy; caller can provide
+  // richer data via the `sessionStats` parameter in future versions.
+  const activeDaysRecent = recent7.filter((d) => d.hasAnySignal).length;
+  const adherencePct = activeDaysRecent / 7;
+
+  // Timeline-based plateau proxy: check if total dose is flat across both halves
+  if (timeline.length >= 10 && adherencePct >= 0.6) {
+    const midpoint = Math.floor(timeline.length / 2);
+    const firstHalf = timeline.slice(0, midpoint);
+    const secondHalf = timeline.slice(midpoint);
+
+    const avgDoseFirst = firstHalf.reduce((s, d) => s + d.totalMinutes, 0) / firstHalf.length;
+    const avgDoseSecond = secondHalf.reduce((s, d) => s + d.totalMinutes, 0) / secondHalf.length;
+
+    // Both halves have meaningful dose but no improvement in volume
+    const bothActive = avgDoseFirst >= 5 && avgDoseSecond >= 5;
+    const flat = Math.abs(avgDoseSecond - avgDoseFirst) / Math.max(avgDoseFirst, 1) < 0.1;
+    // Check speech specifically: are speech minutes flat too?
+    const speechFirst = firstHalf.reduce((s, d) => s + d.speechMinutes, 0) / firstHalf.length;
+    const speechSecond = secondHalf.reduce((s, d) => s + d.speechMinutes, 0) / secondHalf.length;
+    const speechFlat = speechFirst >= 3 && speechSecond >= 3 &&
+      Math.abs(speechSecond - speechFirst) / Math.max(speechFirst, 1) < 0.15;
+
+    if (bothActive && flat && speechFlat) {
+      alerts.push({
+        alert_type: "plateau_risk",
+        severity: "info",
+        title: "Potential recovery plateau",
+        description: `Therapy dose and speech practice volume have been stable across the 14-day window with no measurable increase. Consider adjusting task difficulty or introducing new exercise types.`,
+        domain_slug: null,
+        trigger_data: {
+          avg_dose_first_half: Math.round(avgDoseFirst * 10) / 10,
+          avg_dose_second_half: Math.round(avgDoseSecond * 10) / 10,
+          avg_speech_first_half: Math.round(speechFirst * 10) / 10,
+          avg_speech_second_half: Math.round(speechSecond * 10) / 10,
+          adherence_pct: Math.round(adherencePct * 100),
+          rule_version: "alerts_v2",
+        },
+      });
+    }
+  }
+
+  // ── 7. Regression risk: speech dose drops >40% week-over-week despite engagement ──
+  if (prior7.length >= 5 && recent7.length >= 5) {
+    const speechRecent = recent7.reduce((s, d) => s + d.speechMinutes, 0);
+    const speechPrior = prior7.reduce((s, d) => s + d.speechMinutes, 0);
+    const recentActiveDays = recent7.filter((d) => d.hasAnySignal).length;
+
+    // Only flag regression if the patient is still engaging (not just absent)
+    if (
+      speechPrior >= 20 && // Had meaningful prior speech dose (≥20 min/week)
+      recentActiveDays >= 3 && // Still engaging with the app
+      speechRecent < speechPrior * 0.6 // >40% drop
+    ) {
+      const dropPct = Math.round((1 - speechRecent / speechPrior) * 100);
+      alerts.push({
+        alert_type: "regression_risk",
+        severity: dropPct >= 60 ? "warning" : "info",
+        title: "Speech practice regression",
+        description: `Speech practice dropped ${dropPct}% week-over-week (${Math.round(speechPrior)} min → ${Math.round(speechRecent)} min) despite continued app engagement (${recentActiveDays}/7 days). Assess barriers to speech practice.`,
+        domain_slug: "speech",
+        trigger_data: {
+          speech_minutes_prior: Math.round(speechPrior),
+          speech_minutes_recent: Math.round(speechRecent),
+          drop_pct: dropPct,
+          active_days_recent: recentActiveDays,
+          rule_version: "alerts_v2",
+        },
+      });
+    }
+  }
+
   return alerts;
 }
