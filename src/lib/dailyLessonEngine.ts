@@ -356,6 +356,34 @@ export function scoreExercise(
 }
 
 /**
+ * Preset lesson definitions for structured multi-exercise sessions.
+ * These bypass normal spacing/adjacency rules — block order is intentional.
+ */
+export type LessonPreset = 'comprehension_session';
+
+const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
+  comprehension_session: {
+    title: 'Comprehension Session',
+    blocks: [
+      {
+        exerciseId: 'detective-mind',
+        duration: 4,
+        trialLimit: 5,
+        priority: 'primary',
+        reasoning: 'Inference comprehension (5 trials)',
+      },
+      {
+        exerciseId: 'meaning-match',
+        duration: 3,
+        trialLimit: 5,
+        priority: 'primary',
+        reasoning: 'Semantic mapping comprehension (5 trials)',
+      },
+    ],
+  },
+};
+
+/**
  * Generate daily lesson plan
  */
 export function generateDailyLesson(
@@ -367,7 +395,35 @@ export function generateDailyLesson(
   suggestedMode?: 'independent' | 'assisted' | 'passive' | null,
   readiness?: ReadinessInput | null,
   todayFocusAdaptations?: { startDifficulty?: number; sessionDurationCap?: number; suggestedSessionMinutes?: number } | null,
+  preset?: LessonPreset | null,
 ): DailyLesson {
+  // If a preset is requested and all its exercises are accessible, return it directly
+  if (preset && PRESET_LESSONS[preset]) {
+    const presetDef = PRESET_LESSONS[preset];
+    const allAccessible = presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId));
+    if (allAccessible) {
+      const defaultAdaptations: ExerciseBlock['adaptations'] = {
+        startDifficulty: todayFocusAdaptations?.startDifficulty ?? 1,
+        cueLevel: 1,
+        timeout: 5000,
+        visualSupport: false,
+      };
+      const blocks: ExerciseBlock[] = presetDef.blocks.map(b => ({
+        ...b,
+        adaptations: { ...defaultAdaptations, ...b.adaptations },
+      }));
+      const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
+      console.log('[DailyLessonEngine] Using preset lesson:', preset, blocks.map(b => b.exerciseId).join(' → '));
+      return {
+        totalDuration,
+        blocks,
+        targetDomains: ['receptive_language', 'semantic_systems'],
+        reasoning: [`Preset: ${presetDef.title}`],
+        energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+      };
+    }
+  }
+
   const domainPriorities = calculateDomainPriorities(clinicalProfile);
   const doseResult = calculateTodaysDose(
     performanceSignals,
