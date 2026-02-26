@@ -30,6 +30,7 @@ import PatternMatchExercise from "./pages/PatternMatchExercise";
 import Insights from "./pages/Insights";
 import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
+import ClinicianPanel from "./pages/ClinicianPanel";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
@@ -108,6 +109,7 @@ const App = () => (
                   <Route path="/profile-history" element={<AppLayout><ProfileVersionHistory /></AppLayout>} />
                   
                   {/* Clinician routes - with header */}
+                  <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
                   <Route path="/clinician/report" element={<AppLayout><ClinicianReport /></AppLayout>} />
                   
                   {/* Admin routes - with header */}

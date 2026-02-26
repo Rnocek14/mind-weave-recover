@@ -17,7 +17,8 @@ import {
   Shield,
   History,
   ChevronDown,
-  Brain
+  Brain,
+  Stethoscope
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -124,6 +125,19 @@ export function AppHeader() {
                     <Link to="/profile-history" className="flex items-center gap-2 cursor-pointer">
                       <History className="h-4 w-4" />
                       Profile History
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+              
+              {/* Caseload for clinician+ */}
+              {isAtLeast('clinician') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/clinician/caseload" className="flex items-center gap-2 cursor-pointer">
+                      <Stethoscope className="h-4 w-4" />
+                      Caseload
                     </Link>
                   </DropdownMenuItem>
                 </>
