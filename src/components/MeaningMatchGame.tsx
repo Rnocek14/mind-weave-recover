@@ -1,7 +1,7 @@
 /**
  * Meaning Match Arena Game Component
  * 
- * Read a sentence → pick the correct meaning.
+ * Read a sentence → pick the correct meaning → explain WHY (generative layer).
  * Supports keyword highlight hints and tiered difficulty.
  */
 
@@ -12,6 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, XCircle, Lightbulb, Star, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
+import { deriveKeyConcepts } from '@/lib/explanationScorer';
 
 interface MeaningMatchGameProps {
   onTrialComplete: (result: MeaningMatchTrialResult) => void;
@@ -20,13 +22,12 @@ interface MeaningMatchGameProps {
   difficultyLevel?: number;
 }
 
-type Phase = 'reading' | 'answering' | 'feedback';
+type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
 
 /** Highlight keywords in a sentence */
 function highlightSentence(sentence: string, keywords?: string[]): React.ReactNode {
   if (!keywords || keywords.length === 0) return sentence;
   
-  // Build regex from keywords, escaping special chars
   const escaped = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
   const parts = sentence.split(regex);
@@ -66,6 +67,7 @@ export function MeaningMatchGame({
   const [lastResult, setLastResult] = useState<MeaningMatchTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [reasoningPoints, setReasoningPoints] = useState(0);
   const trialStartRef = useRef(Date.now());
 
   // Reset state when item changes
@@ -111,6 +113,19 @@ export function MeaningMatchGame({
     setShowHint(true);
   }, []);
 
+  // Transition from feedback → explaining
+  const handleProceedToExplain = useCallback(() => {
+    setPhase('explaining');
+  }, []);
+
+  // Handle explanation completion
+  const handleExplainComplete = useCallback((result: ExplainWhyResult) => {
+    if (!result.skipped) {
+      setReasoningPoints(prev => prev + result.score.score);
+    }
+    nextItem();
+  }, [nextItem]);
+
   const handleNext = useCallback(() => {
     nextItem();
   }, [nextItem]);
@@ -144,6 +159,11 @@ export function MeaningMatchGame({
             </CardContent>
           </Card>
         </div>
+        {reasoningPoints > 0 && (
+          <div className="text-sm text-muted-foreground">
+            🧠 Reasoning score: {reasoningPoints} pts
+          </div>
+        )}
       </div>
     );
   }
@@ -161,6 +181,9 @@ export function MeaningMatchGame({
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 text-yellow-500" />
           <span className="font-medium">{totalPoints}</span>
+          {reasoningPoints > 0 && (
+            <span className="text-xs text-muted-foreground ml-1">+🧠{reasoningPoints}</span>
+          )}
         </div>
       </div>
 
@@ -219,7 +242,7 @@ export function MeaningMatchGame({
         </div>
       )}
 
-      {/* Feedback phase */}
+      {/* Feedback phase — now transitions to explaining */}
       {phase === 'feedback' && lastResult && (
         <div className="space-y-4">
           <Card className={cn(
@@ -242,9 +265,6 @@ export function MeaningMatchGame({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                {currentItem.explanation}
-              </p>
               {!lastResult.correct && (
                 <p className="text-sm">
                   <span className="font-medium">Correct answer:</span>{' '}
@@ -254,10 +274,21 @@ export function MeaningMatchGame({
             </CardContent>
           </Card>
 
-          <Button onClick={handleNext} className="w-full" size="lg">
-            {currentIndex + 1 >= totalItems ? 'See Results' : 'Next →'}
+          <Button onClick={handleProceedToExplain} className="w-full" size="lg">
+            Now explain why →
           </Button>
         </div>
+      )}
+
+      {/* Explaining phase — generative "why" layer */}
+      {phase === 'explaining' && currentItem && (
+        <ExplainWhyPrompt
+          wasCorrect={lastResult?.correct ?? false}
+          correctAnswer={currentItem.options[currentItem.correctIndex]}
+          keyConcepts={deriveKeyConcepts(currentItem.explanation, currentItem.keywords)}
+          modelExplanation={currentItem.explanation}
+          onComplete={handleExplainComplete}
+        />
       )}
     </div>
   );

@@ -1,7 +1,8 @@
 /**
  * Detective Mind Game Component
  * 
- * Interactive mystery game UI with story cards, question options, and detective-themed feedback.
+ * Interactive mystery game UI with story cards, question options,
+ * detective-themed feedback, and generative "explain why" layer.
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -11,6 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
+import { deriveKeyConcepts } from '@/lib/explanationScorer';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -27,7 +30,7 @@ const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
   'Chief Detective': <Star className="h-5 w-5 text-yellow-500" />,
 };
 
-type Phase = 'reading' | 'answering' | 'feedback';
+type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
 
 export function DetectiveMindGame({ 
   onTrialComplete, 
@@ -52,6 +55,7 @@ export function DetectiveMindGame({
   const [lastResult, setLastResult] = useState<DetectiveTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [reasoningPoints, setReasoningPoints] = useState(0);
   const trialStartRef = useRef(Date.now());
 
   // Reset state when case changes
@@ -75,7 +79,7 @@ export function DetectiveMindGame({
 
   const handleReadyToAnswer = useCallback(() => {
     setPhase('answering');
-    trialStartRef.current = Date.now(); // Start timing from when they see the question
+    trialStartRef.current = Date.now();
   }, []);
 
   const handleSelectOption = useCallback((index: number) => {
@@ -96,6 +100,19 @@ export function DetectiveMindGame({
     setUsedHint(true);
     setShowHint(true);
   }, []);
+
+  // Transition from feedback → explaining
+  const handleProceedToExplain = useCallback(() => {
+    setPhase('explaining');
+  }, []);
+
+  // Handle explanation completion
+  const handleExplainComplete = useCallback((result: ExplainWhyResult) => {
+    if (!result.skipped) {
+      setReasoningPoints(prev => prev + result.score.score);
+    }
+    nextCase();
+  }, [nextCase]);
 
   const handleNext = useCallback(() => {
     nextCase();
@@ -132,6 +149,11 @@ export function DetectiveMindGame({
             </CardContent>
           </Card>
         </div>
+        {reasoningPoints > 0 && (
+          <div className="text-sm text-muted-foreground">
+            🧠 Reasoning score: {reasoningPoints} pts
+          </div>
+        )}
       </div>
     );
   }
@@ -152,6 +174,9 @@ export function DetectiveMindGame({
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 text-yellow-500" />
           <span className="font-medium">{totalPoints}</span>
+          {reasoningPoints > 0 && (
+            <span className="text-xs text-muted-foreground ml-1">+🧠{reasoningPoints}</span>
+          )}
         </div>
       </div>
 
@@ -212,7 +237,7 @@ export function DetectiveMindGame({
         </div>
       )}
 
-      {/* Phase: Feedback */}
+      {/* Phase: Feedback — now transitions to explaining */}
       {phase === 'feedback' && lastResult && (
         <div className="space-y-4">
           <Card className={cn(
@@ -236,9 +261,6 @@ export function DetectiveMindGame({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                {currentCase.explanation}
-              </p>
               {!lastResult.correct && (
                 <p className="text-sm">
                   <span className="font-medium">Correct answer:</span>{' '}
@@ -248,10 +270,26 @@ export function DetectiveMindGame({
             </CardContent>
           </Card>
 
-          <Button onClick={handleNext} className="w-full" size="lg">
-            {currentIndex + 1 >= totalCases ? 'See Results' : 'Next Case →'}
+          <Button onClick={handleProceedToExplain} className="w-full" size="lg">
+            Now explain why →
           </Button>
         </div>
+      )}
+
+      {/* Phase: Explaining — generative "why" layer */}
+      {phase === 'explaining' && currentCase && (
+        <ExplainWhyPrompt
+          wasCorrect={lastResult?.correct ?? false}
+          correctAnswer={currentCase.options[currentCase.correctIndex]}
+          keyConcepts={deriveKeyConcepts(currentCase.explanation)}
+          modelExplanation={currentCase.explanation}
+          onComplete={handleExplainComplete}
+          promptOverride={
+            lastResult?.correct 
+              ? "What clues in the story told you that? Explain your reasoning."
+              : `Why is "${currentCase.options[currentCase.correctIndex]}" the right answer? What clues support it?`
+          }
+        />
       )}
     </div>
   );
