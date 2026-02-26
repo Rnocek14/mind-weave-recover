@@ -191,6 +191,10 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       "describe-guess": "/exercise/describe-guess",
       "detective-mind": "/exercise/detective-mind",
       "meaning-match": "/exercise/meaning-match",
+      "narrative-retell": "/exercise/narrative-retell",
+      "abstract-compare": "/exercise/abstract-compare",
+      "multi-step-plan": "/exercise/multi-step-plan",
+      "dual-load-naming": "/exercise/dual-load-naming",
     };
 
     const route = routeMap[exerciseId];

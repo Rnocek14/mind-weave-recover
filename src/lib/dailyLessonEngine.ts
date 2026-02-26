@@ -359,7 +359,7 @@ export function scoreExercise(
  * Preset lesson definitions for structured multi-exercise sessions.
  * These bypass normal spacing/adjacency rules — block order is intentional.
  */
-export type LessonPreset = 'comprehension_session';
+export type LessonPreset = 'comprehension_session' | 'depth_battery_onboarding' | 'depth_battery_weekly';
 
 const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
   comprehension_session: {
@@ -379,6 +379,23 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
         priority: 'primary',
         reasoning: 'Semantic mapping comprehension (5 trials)',
       },
+    ],
+  },
+  depth_battery_onboarding: {
+    title: 'Depth Battery (Baseline)',
+    blocks: [
+      { exerciseId: 'abstract-compare', duration: 3, trialLimit: 3, priority: 'primary', reasoning: 'Semantic depth baseline (3 pairs)' },
+      { exerciseId: 'multi-step-plan', duration: 3, trialLimit: 2, priority: 'primary', reasoning: 'Executive sequencing baseline (2 goals)' },
+      { exerciseId: 'narrative-retell', duration: 4, trialLimit: 2, priority: 'primary', reasoning: 'Discourse organization baseline (2 stories)' },
+      { exerciseId: 'dual-load-naming', duration: 3, trialLimit: 1, priority: 'secondary', reasoning: 'Executive load tolerance baseline (1 set)' },
+    ],
+  },
+  depth_battery_weekly: {
+    title: 'Weekly Depth Check',
+    blocks: [
+      { exerciseId: 'abstract-compare', duration: 2, trialLimit: 2, priority: 'primary', reasoning: 'Semantic depth check (2 pairs)' },
+      { exerciseId: 'narrative-retell', duration: 3, trialLimit: 1, priority: 'primary', reasoning: 'Discourse check (1 story)' },
+      { exerciseId: 'dual-load-naming', duration: 2, trialLimit: 1, priority: 'secondary', reasoning: 'Load tolerance check (1 set)' },
     ],
   },
 };

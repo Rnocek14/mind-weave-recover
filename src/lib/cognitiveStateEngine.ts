@@ -15,7 +15,7 @@ export const COGNITIVE_DOMAINS = [
     slug: 'lexical_retrieval',
     label: 'Lexical Retrieval',
     description: 'Word finding and naming ability',
-    exerciseSlugs: ['photo-naming', 'word-finding', 'describe-guess'],
+    exerciseSlugs: ['photo-naming', 'word-finding', 'describe-guess', 'dual-load-naming'],
     icon: 'MessageSquare',
   },
   {
@@ -36,21 +36,21 @@ export const COGNITIVE_DOMAINS = [
     slug: 'semantic_depth',
     label: 'Semantic Depth',
     description: 'Meaning, categorization, and conceptual reasoning',
-    exerciseSlugs: ['meaning-match', 'semantic-features', 'category-sorting', 'odd-one-out'],
+    exerciseSlugs: ['meaning-match', 'semantic-features', 'category-sorting', 'odd-one-out', 'abstract-compare'],
     icon: 'Layers',
   },
   {
     slug: 'executive_function',
     label: 'Executive Function',
     description: 'Reasoning, planning, and cognitive flexibility',
-    exerciseSlugs: ['detective-mind', 'sequencing'],
+    exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming'],
     icon: 'Brain',
   },
   {
     slug: 'discourse_organization',
     label: 'Discourse Organization',
     description: 'Staying on topic, narrative structure, conversational flow',
-    exerciseSlugs: ['conversation-partner', 'describe-guess', 'thought-organization'],
+    exerciseSlugs: ['conversation-partner', 'describe-guess', 'thought-organization', 'narrative-retell'],
     icon: 'MessageCircle',
   },
   {
