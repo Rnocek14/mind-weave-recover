@@ -11,6 +11,7 @@ import {
   type PerformanceSignals,
   type LearningRateData,
   type ReadinessInput,
+  type LessonPreset,
 } from '@/lib/dailyLessonEngine';
 import type { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { suggestInteractionMode, type CaregiverObservations } from '@/lib/capabilityScoreSmoothing';
@@ -48,7 +49,8 @@ interface LessonCache {
 export const useDailyLesson = (
   userId: string | undefined,
   profileId: string | undefined,
-  clinicalProfile: ClinicalProfile | null
+  clinicalProfile: ClinicalProfile | null,
+  preset?: LessonPreset | null,
 ): UseDailyLessonResult => {
   const [lesson, setLesson] = useState<DailyLesson | null>(null);
   const [performanceSignals, setPerformanceSignals] = useState<PerformanceSignals | null>(null);
@@ -166,6 +168,8 @@ export const useDailyLesson = (
           [],
           mode,
           readinessInput,
+          null,
+          preset,
         );
         setLesson(defaultLesson);
         setLoading(false);
@@ -297,6 +301,7 @@ export const useDailyLesson = (
           sessionDurationCap: focus.adaptations.sessionDurationCap,
           suggestedSessionMinutes: focus.suggestedSessionMinutes,
         } : null,
+        preset,
       );
 
       setLesson(dailyLesson);

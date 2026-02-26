@@ -329,7 +329,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
                 <div className="flex-1">
                   <p className="font-medium capitalize">{block.exerciseId.replace(/-/g, ' ')}</p>
                   <p className="text-sm text-muted-foreground">
-                    {block.duration} min • {block.priority}
+                    {block.trialLimit ? `${block.trialLimit} rounds` : `${block.duration} min`} • {block.priority}
                   </p>
                 </div>
                 <Clock className="w-4 h-4 text-muted-foreground" />
