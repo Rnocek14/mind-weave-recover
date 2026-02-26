@@ -49,6 +49,10 @@ export interface ExplanationScore {
   level: 'excellent' | 'good' | 'partial' | 'off-topic' | 'no-response';
   /** Short feedback message */
   feedback: string;
+  /** Jaccard similarity to correct answer (0-1) */
+  onTopicScore: number;
+  /** Concept coverage ratio (0-1) */
+  coverageRatio: number;
 }
 
 export interface ExplanationResultData {
@@ -58,6 +62,8 @@ export interface ExplanationResultData {
   conceptsFound: number;
   conceptsTotal: number;
   matchedConcepts: string[];
+  onTopicScore: number;
+  coverageRatio: number;
   durationMs: number;
   skipped: boolean;
 }
@@ -213,6 +219,8 @@ export function scoreExplanation(
       matchedConcepts: [],
       level: 'no-response',
       feedback: "That's okay — try explaining in your own words next time!",
+      onTopicScore: 0,
+      coverageRatio: 0,
     };
   }
 
@@ -274,6 +282,8 @@ export function scoreExplanation(
     matchedConcepts,
     level,
     feedback,
+    onTopicScore: jaccard,
+    coverageRatio,
   };
 }
 
