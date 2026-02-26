@@ -48,6 +48,7 @@ export default function MeaningMatchExercise() {
   const trialLimit = Number(location.state?.trialLimit) || 10;
   const lessonSource = location.state?.lessonSource ?? null;
   const presetId = location.state?.presetId ?? null;
+  const blockIndex = location.state?.blockIndex ?? null;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -93,6 +94,7 @@ export default function MeaningMatchExercise() {
         hint_type: result.usedHint ? 'highlight_keywords' : null,
         points: result.points,
         trial_limit: trialLimit,
+        block_index: blockIndex,
         lesson_source: lessonSource,
         preset_id: presetId,
       },
