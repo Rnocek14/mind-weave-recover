@@ -121,9 +121,6 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
-  const handleNext = useCallback(() => {
-    nextCase();
-  }, [nextCase]);
 
   if (!currentCase || isComplete) {
     // Summary screen
