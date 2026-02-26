@@ -43,6 +43,8 @@ export interface TrialData {
   cueTypeGiven?: CueType;
   cueWasEffective?: boolean | null;
   timeToSuccessAfterCueMs?: number | null;
+  // Structured outputs for CSE consumption (explanation + depth)
+  trialOutputs?: Record<string, any>;
 }
 
 export const useExerciseTelemetry = (
@@ -84,6 +86,7 @@ export const useExerciseTelemetry = (
           outputs: {
             task_params: trial.taskParameters,
             timestamp: new Date().toISOString(),
+            ...(trial.trialOutputs ?? {}),
           },
         };
 

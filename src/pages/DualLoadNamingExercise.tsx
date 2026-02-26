@@ -61,6 +61,9 @@ export default function DualLoadNamingExercise() {
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
       },
+      trialOutputs: {
+        depth: result.depthTelemetry,
+      },
     });
   }, [activeSessionId, logTrial, trialLimit]);
 

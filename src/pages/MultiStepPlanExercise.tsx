@@ -59,6 +59,15 @@ export default function MultiStepPlanExercise() {
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
       },
+      trialOutputs: {
+        explanation: {
+          coverageRatio: result.goalCoverage,
+          onTopicScore: null,
+          conceptsFound: result.stepsFound,
+          conceptsTotal: result.stepsTotal,
+        },
+        depth: result.depthTelemetry,
+      },
     });
   }, [activeSessionId, logTrial, trialLimit]);
 

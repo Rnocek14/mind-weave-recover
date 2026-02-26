@@ -58,6 +58,15 @@ export default function AbstractCompareExercise() {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
       },
+      trialOutputs: {
+        explanation: {
+          coverageRatio: result.coverageRatio,
+          onTopicScore: result.onTopicScore,
+          conceptsFound: result.conceptCount,
+          conceptsTotal: result.conceptsTotal,
+        },
+        depth: result.depthTelemetry,
+      },
     });
   }, [activeSessionId, logTrial, trialLimit]);
 

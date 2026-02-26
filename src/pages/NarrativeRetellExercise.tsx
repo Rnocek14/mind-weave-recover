@@ -62,6 +62,15 @@ export default function NarrativeRetellExercise() {
         word_count: result.wordCount,
         trial_limit: trialLimit,
       },
+      trialOutputs: {
+        explanation: {
+          coverageRatio: result.eventCoverage,
+          onTopicScore: result.onTopicScore,
+          conceptsFound: result.eventsFound,
+          conceptsTotal: result.eventsTotal,
+        },
+        depth: result.depthTelemetry,
+      },
     });
   }, [activeSessionId, logTrial, trialLimit]);
 
