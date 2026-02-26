@@ -20,6 +20,7 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 const EXERCISE_SLUG = 'detective_mind';
+const DIFFICULTY_LEVEL = 1;
 
 export default function DetectiveMindExercise() {
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ export default function DetectiveMindExercise() {
         case_id: result.caseId,
         question_type: result.questionType,
         tier: result.tier,
-        difficulty_level: 1,
+        difficulty_level: DIFFICULTY_LEVEL,
         used_hint: result.usedHint,
         hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
@@ -164,7 +165,7 @@ export default function DetectiveMindExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={10}
-            difficultyLevel={1}
+            difficultyLevel={DIFFICULTY_LEVEL}
           />
         )}
       </main>
