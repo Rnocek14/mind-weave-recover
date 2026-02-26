@@ -8,7 +8,7 @@ import {
   type EngagementFilter,
   type SortPreset,
 } from "@/components/clinician/CaseloadFilters";
-import { Stethoscope, Users, Info, AlertTriangle, Bell, Clock } from "lucide-react";
+import { Stethoscope, Users, Info, AlertTriangle, Bell, Clock, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
@@ -84,11 +84,9 @@ export default function ClinicianPanel() {
         <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           <button
             type="button"
-            onClick={() => {
-              setRiskFilter(riskFilter === "critical" ? "all" : "critical");
-              setEngagementFilter("all");
-            }}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+            aria-pressed={riskFilter === "critical"}
+            onClick={() => setRiskFilter(riskFilter === "critical" ? "all" : "critical")}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
               riskFilter === "critical"
                 ? "border-destructive/40 bg-destructive/10"
                 : "border-transparent hover:bg-muted/60"
@@ -100,11 +98,9 @@ export default function ClinicianPanel() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setRiskFilter(riskFilter === "any_alert" ? "all" : "any_alert");
-              setEngagementFilter("all");
-            }}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+            aria-pressed={riskFilter === "any_alert"}
+            onClick={() => setRiskFilter(riskFilter === "any_alert" ? "all" : "any_alert")}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
               riskFilter === "any_alert"
                 ? "border-amber-400/40 bg-amber-500/10"
                 : "border-transparent hover:bg-muted/60"
@@ -116,11 +112,9 @@ export default function ClinicianPanel() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setEngagementFilter(engagementFilter === "inactive_3d" ? "all" : "inactive_3d");
-              setRiskFilter("all");
-            }}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+            aria-pressed={engagementFilter === "inactive_3d"}
+            onClick={() => setEngagementFilter(engagementFilter === "inactive_3d" ? "all" : "inactive_3d")}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
               engagementFilter === "inactive_3d"
                 ? "border-border bg-muted"
                 : "border-transparent hover:bg-muted/60"
@@ -130,6 +124,22 @@ export default function ClinicianPanel() {
             <span className="font-medium">{triage.inactive3d}</span>
             <span className="text-muted-foreground hidden sm:inline">Inactive ≥3d</span>
           </button>
+
+          {/* Clear filters — appears only when any filter is active */}
+          {(riskFilter !== "all" || engagementFilter !== "all" || search.trim()) && (
+            <button
+              type="button"
+              onClick={() => {
+                setRiskFilter("all");
+                setEngagementFilter("all");
+                setSearch("");
+              }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto sm:ml-0"
+            >
+              <X className="w-3 h-3" />
+              <span>Clear filters</span>
+            </button>
+          )}
         </div>
       )}
 
