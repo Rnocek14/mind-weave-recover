@@ -1,6 +1,6 @@
 import {
   Camera, Hand, MessageSquare, Target,
-  Lightbulb, Volume2, List, Sparkles, MessageCircle, Link2, Wrench, Search, type LucideIcon
+  Lightbulb, Volume2, List, Sparkles, MessageCircle, Link2, Wrench, Search, Shield, type LucideIcon
 } from "lucide-react";
 
 export interface Exercise {
@@ -130,5 +130,14 @@ export const EXERCISES: Exercise[] = [
     duration: "5-8 min",
     difficulty: "Medium",
     color: "bg-gradient-healing"
+  },
+  {
+    id: "detective-mind",
+    title: "Detective Mind",
+    icon: Shield,
+    category: "Comprehension",
+    duration: "8-12 min",
+    difficulty: "Medium",
+    color: "bg-gradient-primary"
   }
 ];

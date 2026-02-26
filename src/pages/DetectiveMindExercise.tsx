@@ -1,0 +1,170 @@
+/**
+ * Detective Mind Exercise Page
+ * 
+ * Wrapper with session lifecycle, telemetry, and navigation.
+ */
+
+import React, { useCallback, useState, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { DetectiveMindGame } from '@/components/DetectiveMindGame';
+import { DetectiveTrialResult } from '@/hooks/useDetectiveMindGame';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/hooks/useAuth';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Home } from 'lucide-react';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
+
+const EXERCISE_SLUG = 'detective_mind';
+
+export default function DetectiveMindExercise() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const { activeProfile } = useProfile();
+  const [completed, setCompleted] = useState(false);
+
+  const scoreRef = useRef(0);
+  const trialsRef = useRef(0);
+  const startTimeRef = useRef(Date.now());
+
+  const fromLesson = location.state?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId ?? null;
+
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+    user?.id,
+    providedSessionId,
+    EXERCISE_SLUG
+  );
+
+  const getSessionStats = useCallback(() => ({
+    score: scoreRef.current,
+    totalTrials: trialsRef.current,
+    startTime: startTimeRef.current,
+  }), []);
+
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    exerciseSlug: EXERCISE_SLUG,
+    getSessionStats,
+  });
+
+  const { logTrial } = useExerciseTelemetry(
+    activeSessionId,
+    normalizeExerciseSlug(EXERCISE_SLUG)
+  );
+
+  const handleTrialComplete = useCallback((result: DetectiveTrialResult) => {
+    if (!activeSessionId) return;
+
+    scoreRef.current += result.points;
+    trialsRef.current += 1;
+
+    logTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      errorType: result.correct ? undefined : 'wrong_option',
+      taskParameters: {
+        case_id: result.caseId,
+        question_type: result.questionType,
+        tier: result.tier,
+        used_hint: result.usedHint,
+        points: result.points,
+      },
+      cueTypeGiven: result.usedHint ? 'semantic' : 'none',
+      cueWasEffective: result.usedHint ? result.correct : null,
+    });
+  }, [activeSessionId, logTrial]);
+
+  const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
+    setCompleted(true);
+    completeSession();
+
+    if (fromLesson) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: {
+            exerciseSlug: EXERCISE_SLUG,
+            results,
+            totalScore: results.reduce((sum, r) => sum + r.points, 0),
+          }
+        }));
+      }, 2000);
+    }
+  }, [fromLesson, completeSession]);
+
+  const handleBack = useCallback(() => {
+    navigate(fromLesson ? '/lesson' : '/dashboard');
+  }, [navigate, fromLesson]);
+
+  const handleContinue = useCallback(() => {
+    if (fromLesson) {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: EXERCISE_SLUG }
+      }));
+    } else {
+      navigate('/dashboard');
+    }
+  }, [fromLesson, navigate]);
+
+  const isReady = !isCreatingSession && !!activeSessionId;
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">
+          Loading exercise...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+        <div className="container flex h-14 items-center justify-between px-4">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-lg font-semibold">🕵️ Detective Mind</h1>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {fromLesson && <SessionProgressBubble />}
+
+      <main className="container px-4 py-8">
+        {completed ? (
+          <div className="max-w-md mx-auto text-center space-y-6">
+            <div className="text-6xl">🕵️</div>
+            <h2 className="text-2xl font-bold">Investigation Complete!</h2>
+            <p className="text-muted-foreground">
+              Great detective work on those cases!
+            </p>
+            <Button onClick={handleContinue} size="lg">
+              Continue
+            </Button>
+          </div>
+        ) : (
+          <DetectiveMindGame
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+            roundCount={10}
+            difficultyLevel={1}
+          />
+        )}
+      </main>
+
+      {fromLesson && <SessionSidePanel />}
+    </div>
+  );
+}
