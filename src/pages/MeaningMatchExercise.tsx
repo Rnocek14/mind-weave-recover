@@ -5,7 +5,7 @@
  * Mirrors DetectiveMindExercise pattern.
  */
 
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MeaningMatchGame } from '@/components/MeaningMatchGame';
 import { MeaningMatchTrialResult } from '@/hooks/useMeaningMatchGame';
@@ -30,6 +30,14 @@ export default function MeaningMatchExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<number | null>(null);
+
+  // Cleanup stray timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (dispatchTimeoutRef.current) clearTimeout(dispatchTimeoutRef.current);
+    };
+  }, []);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -93,7 +101,7 @@ export default function MeaningMatchExercise() {
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
+      dispatchTimeoutRef.current = window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: {
             exerciseSlug: EXERCISE_SLUG,
