@@ -110,6 +110,50 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
     on_track: { label: "On track", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30" },
   };
 
+  // Auto-generated micro-summary
+  const summaryLine = (() => {
+    const parts: string[] = [];
+
+    // Performance clause
+    if (hasSufficientTrials && accuracyDelta7d !== null && accuracyDelta7d !== 0) {
+      const dir = accuracyDelta7d > 0 ? "Improving" : "Declining";
+      parts.push(`${dir} accuracy (${accuracyDelta7d > 0 ? "+" : ""}${accuracyDelta7d}%)`);
+    } else if (avgAccuracy7d !== null) {
+      parts.push(`Accuracy at ${avgAccuracy7d}%`);
+    } else {
+      parts.push("No accuracy data yet");
+    }
+
+    // Engagement clause
+    if (adherenceDays7d >= 5) {
+      parts.push(`consistent practice (${adherenceDays7d}/7 days)`);
+    } else if (adherenceDays7d >= 3) {
+      parts.push(`moderate practice (${adherenceDays7d}/7 days)`);
+    } else if (adherenceDays7d > 0) {
+      parts.push(`low engagement (${adherenceDays7d}/7 days)`);
+    } else if (daysSinceActive === Infinity) {
+      parts.push("no activity recorded");
+    } else {
+      parts.push("no practice this week");
+    }
+
+    // Safety/action clause
+    if (hasCritical) {
+      parts.push(`${criticalAlertCount} critical alert${criticalAlertCount > 1 ? "s" : ""} active`);
+    } else if (hasAlerts) {
+      parts.push(`${activeAlertCount} alert${activeAlertCount > 1 ? "s" : ""} active`);
+    } else if (daysSinceActive >= 5) {
+      parts.push("re-engagement recommended");
+    }
+
+    // Join: "Part1 with part2. Part3."
+    if (parts.length === 0) return "Insufficient data for summary.";
+    let sentence = parts[0];
+    if (parts.length > 1) sentence += " with " + parts[1];
+    if (parts[2]) sentence += ". " + parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
+    return sentence + ".";
+  })();
+
   return (
     <Card
       className={`p-0 cursor-pointer transition-all hover:shadow-md hover:bg-accent/30 overflow-hidden ${
@@ -252,6 +296,13 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Summary line */}
+      <div className="px-4 py-2 border-t">
+        <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+          {summaryLine}
+        </p>
       </div>
 
       {/* Footer: Last active */}
