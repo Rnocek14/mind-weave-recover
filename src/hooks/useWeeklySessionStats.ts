@@ -61,7 +61,8 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
 
           recentScores = (events || []).map((e) => {
             const s = e.score!;
-            return s <= 1 ? s * 100 : s;
+            const normalized = s <= 1 ? s * 100 : s;
+            return Math.max(0, Math.min(100, normalized));
           });
         }
 
@@ -86,7 +87,8 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
 
           priorScores = (priorEvents || []).map((e) => {
             const s = e.score!;
-            return s <= 1 ? s * 100 : s;
+            const normalized = s <= 1 ? s * 100 : s;
+            return Math.max(0, Math.min(100, normalized));
           });
         }
 

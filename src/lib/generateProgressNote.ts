@@ -65,7 +65,7 @@ export function generateProgressNote(input: ProgressNoteInput): ProgressNote {
 
   // 1. Trial volume
   if (trialCount !== null && trialCount > 0) {
-    const trialDelta = buildTrialDelta(trialCount, priorAvgAccuracy !== null);
+    // Trial volume sentence
     sentences.push(
       `Patient completed ${trialCount} speech trial${trialCount !== 1 ? "s" : ""} this week${sessionCount ? ` across ${sessionCount} session${sessionCount !== 1 ? "s" : ""}` : ""}.`
     );
@@ -97,7 +97,7 @@ export function generateProgressNote(input: ProgressNoteInput): ProgressNote {
     if (accuracySlope > 0.01) {
       sentences.push("Learning trajectory is positive.");
     } else if (accuracySlope < -0.01) {
-      sentences.push("Learning trajectory shows decline; further assessment may be warranted.");
+      sentences.push("Learning trajectory shows decline in app performance this week.");
     } else {
       sentences.push("Learning trajectory is flat (plateau pattern).");
     }
@@ -243,7 +243,3 @@ function buildHeadline(
   return parts.length > 0 ? parts.join(" · ") : "No data this week";
 }
 
-// Not used yet but reserved for trial delta logic
-function buildTrialDelta(trialCount: number, hasPrior: boolean): string {
-  return `${trialCount} trials`;
-}
