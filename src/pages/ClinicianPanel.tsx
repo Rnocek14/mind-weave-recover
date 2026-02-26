@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useClinicianCaseload } from "@/hooks/useClinicianCaseload";
 import { PatientCard } from "@/components/clinician/PatientCard";
 import {
@@ -10,6 +10,8 @@ import {
 } from "@/components/clinician/CaseloadFilters";
 import { Stethoscope, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function ClinicianPanel() {
   const { patients, isLoading, error } = useClinicianCaseload();
@@ -26,11 +28,19 @@ export default function ClinicianPanel() {
     [patients, search, riskFilter, engagementFilter, sortPreset]
   );
 
-  const handlePatientClick = (profileId: string) => {
-    // TODO Sprint 3: navigate to patient-specific dashboard
-    // For now, just navigate to dashboard (single-patient view)
-    navigate("/dashboard");
-  };
+  const handlePatientClick = useCallback(async (profileId: string) => {
+    try {
+      // Switch active profile to the clicked patient, then navigate
+      const { error } = await supabase.rpc("switch_active_profile", {
+        p_profile_id: profileId,
+      });
+      if (error) throw error;
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("[ClinicianPanel] profile switch failed:", err);
+      toast.error("Could not switch to patient profile");
+    }
+  }, [navigate]);
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">

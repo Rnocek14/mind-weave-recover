@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { localYYYYMMDD } from "@/lib/localDate";
 
 export interface CaseloadPatient {
   profileId: string;
@@ -12,9 +13,10 @@ export interface CaseloadPatient {
 
   // 7-day aggregates
   trials7d: number;
+  priorTrials7d: number;
   adherenceDays7d: number; // 0–7
   avgAccuracy7d: number | null;
-  accuracyDelta7d: number | null; // vs prior 7d (percentage points)
+  accuracyDelta7d: number | null; // vs prior 7d — null if insufficient trials
 
   // Safety / triage
   activeAlertCount: number;
@@ -39,7 +41,7 @@ function deriveAphasiaLabel(cp: Record<string, any> | null): string | null {
 /**
  * Sprint 2 caseload hook — Mode A (temporary linking).
  * 
- * For now, fetches profiles the current user can see via RLS.
+ * Fetches profiles the current user can see via RLS.
  * Admins see all profiles; regular users see only their own.
  * Sprint 3 will swap to clinician_patient_links.
  */
@@ -72,11 +74,17 @@ export function useClinicianCaseload() {
         }
 
         const profileIds = profiles.map(p => p.id);
+
+        // Use timezone-safe date boundaries
         const now = new Date();
-        const sevenAgo = new Date(now);
-        sevenAgo.setDate(sevenAgo.getDate() - 7);
-        const fourteenAgo = new Date(now);
-        fourteenAgo.setDate(fourteenAgo.getDate() - 14);
+        const sevenAgoDate = new Date(now);
+        sevenAgoDate.setDate(sevenAgoDate.getDate() - 7);
+        const fourteenAgoDate = new Date(now);
+        fourteenAgoDate.setDate(fourteenAgoDate.getDate() - 14);
+
+        const todayStr = localYYYYMMDD(now);
+        const sevenAgoStr = localYYYYMMDD(sevenAgoDate);
+        const fourteenAgoStr = localYYYYMMDD(fourteenAgoDate);
 
         // Step 2: Batch fetch 14d sessions for all profiles
         const { data: sessions14d } = await supabase
@@ -84,10 +92,10 @@ export function useClinicianCaseload() {
           .select("id, profile_id, ended_at, duration_sec")
           .in("profile_id", profileIds)
           .not("ended_at", "is", null)
-          .gte("ended_at", fourteenAgo.toISOString())
+          .gte("ended_at", fourteenAgoDate.toISOString())
           .gte("duration_sec", 60);
 
-        // Group sessions by profile + window
+        // Group sessions by profile + window using date string comparison
         const sessionsByProfile = new Map<string, { recent: typeof sessions14d; prior: typeof sessions14d }>();
         for (const p of profileIds) {
           sessionsByProfile.set(p, { recent: [], prior: [] });
@@ -95,20 +103,20 @@ export function useClinicianCaseload() {
         for (const s of sessions14d || []) {
           const bucket = sessionsByProfile.get(s.profile_id);
           if (!bucket) continue;
-          const endedAt = new Date(s.ended_at!);
-          if (endedAt >= sevenAgo) {
+          // Compare as local date strings to avoid TZ off-by-one
+          const sessionDateStr = localYYYYMMDD(new Date(s.ended_at!));
+          if (sessionDateStr >= sevenAgoStr) {
             bucket.recent!.push(s);
           } else {
             bucket.prior!.push(s);
           }
         }
 
-        // Step 3: Batch fetch events for all recent + prior sessions
+        // Step 3: Batch fetch events for all sessions
         const allSessionIds = (sessions14d || []).map(s => s.id);
-        let eventsBySession = new Map<string, number[]>();
+        const eventsBySession = new Map<string, number[]>();
 
         if (allSessionIds.length > 0) {
-          // Fetch in chunks of 100 to avoid huge IN() lists
           const chunks: string[][] = [];
           for (let i = 0; i < allSessionIds.length; i += 100) {
             chunks.push(allSessionIds.slice(i, i + 100));
@@ -148,26 +156,41 @@ export function useClinicianCaseload() {
           if (a.severity === "critical") bucket.critical++;
         }
 
-        // Step 5: Batch fetch dose_logs for last active date
+        // Step 5: Batch fetch dose_logs for adherence + last active (dose side)
         const { data: doseLogs } = await supabase
           .from("dose_logs")
           .select("profile_id, log_date")
           .in("profile_id", profileIds)
-          .gte("log_date", fourteenAgo.toISOString().slice(0, 10))
+          .gte("log_date", fourteenAgoStr)
           .order("log_date", { ascending: false });
 
-        const lastActiveDateByProfile = new Map<string, string>();
+        const lastDoseDateByProfile = new Map<string, string>();
         const activeDaysByProfile = new Map<string, Set<string>>();
         for (const d of doseLogs || []) {
-          if (!lastActiveDateByProfile.has(d.profile_id)) {
-            lastActiveDateByProfile.set(d.profile_id, d.log_date);
+          if (!lastDoseDateByProfile.has(d.profile_id)) {
+            lastDoseDateByProfile.set(d.profile_id, d.log_date);
           }
-          // Count unique active days in last 7
-          if (new Date(d.log_date) >= sevenAgo) {
+          // Count unique active days in last 7 using string comparison
+          if (d.log_date >= sevenAgoStr) {
             if (!activeDaysByProfile.has(d.profile_id)) {
               activeDaysByProfile.set(d.profile_id, new Set());
             }
             activeDaysByProfile.get(d.profile_id)!.add(d.log_date);
+          }
+        }
+
+        // Derive lastActiveDate = max(dose_logs.log_date, sessions.ended_at)
+        const lastActiveDateByProfile = new Map<string, string>();
+        // Seed from dose logs
+        for (const [pid, dateStr] of lastDoseDateByProfile) {
+          lastActiveDateByProfile.set(pid, dateStr);
+        }
+        // Compare with latest session ended_at (converted to local date)
+        for (const s of sessions14d || []) {
+          const sessionDateStr = localYYYYMMDD(new Date(s.ended_at!));
+          const existing = lastActiveDateByProfile.get(s.profile_id);
+          if (!existing || sessionDateStr > existing) {
+            lastActiveDateByProfile.set(s.profile_id, sessionDateStr);
           }
         }
 
@@ -179,8 +202,8 @@ export function useClinicianCaseload() {
             : null;
 
           const bucket = sessionsByProfile.get(p.id);
-          const recentSessionIds = (bucket?.recent || []).map(s => s.id);
-          const priorSessionIds = (bucket?.prior || []).map(s => s.id);
+          const recentSessionIds = (bucket?.recent || []).map((s: any) => s.id);
+          const priorSessionIds = (bucket?.prior || []).map((s: any) => s.id);
 
           // Aggregate scores
           const recentScores = recentSessionIds.flatMap(id => eventsBySession.get(id) || []);
@@ -193,7 +216,9 @@ export function useClinicianCaseload() {
             ? priorScores.reduce((a, b) => a + b, 0) / priorScores.length
             : null;
 
-          const delta = avgAcc !== null && priorAvg !== null
+          // Gate accuracy delta on sufficient trial count (≥10 in both windows)
+          const hasSufficientTrials = recentScores.length >= 10 && priorScores.length >= 10;
+          const delta = hasSufficientTrials && avgAcc !== null && priorAvg !== null
             ? Math.round(avgAcc - priorAvg)
             : null;
 
@@ -215,6 +240,7 @@ export function useClinicianCaseload() {
             daysPostStroke: daysPost,
             aphasiaLabel: deriveAphasiaLabel(cp),
             trials7d: recentScores.length,
+            priorTrials7d: priorScores.length,
             adherenceDays7d: adherenceDays,
             avgAccuracy7d: avgAcc !== null ? Math.round(avgAcc) : null,
             accuracyDelta7d: delta,
