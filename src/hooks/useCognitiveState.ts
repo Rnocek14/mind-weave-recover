@@ -53,10 +53,23 @@ export function useCognitiveState({
     setError(null);
 
     try {
-      // 1. Fetch exercise_events for this window
+      // 1. Fetch exercise_events for this window, filtered by user via session join
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', userId);
+
+      const sessionIds = (sessions || []).map(s => s.id);
+      if (sessionIds.length === 0) {
+        setSnapshot(null);
+        setIsLoading(false);
+        return;
+      }
+
       const { data: events, error: fetchError } = await supabase
         .from('exercise_events')
         .select('exercise_slug, score, reaction_time_ms, created_at, session_id, round, inputs, outputs')
+        .in('session_id', sessionIds)
         .gte('created_at', `${windowStart}T00:00:00Z`)
         .lte('created_at', `${windowEnd}T23:59:59Z`)
         .order('created_at', { ascending: true });
@@ -86,7 +99,7 @@ export function useCognitiveState({
         .eq('granularity', 'week')
         .lt('window_end', prevWindowEnd)
         .order('window_end', { ascending: false })
-        .limit(14); // Up to 2 weeks of prior data per domain
+        .limit(100); // Enough rows to cover all 7 domains with history
 
       // Group previous scores by domain
       const prevByDomain = new Map<string, number[]>();
@@ -152,24 +165,14 @@ async function persistScores(
 
   if (rows.length === 0) return;
 
-  // Upsert using the unique index
-  // Since PostgREST doesn't support expression indexes in onConflict,
-  // we delete-then-insert instead
-  for (const row of rows) {
-    await supabase
-      .from('cognitive_domain_scores')
-      .delete()
-      .eq('user_id', row.user_id)
-      .eq('domain_slug', row.domain_slug)
-      .eq('window_end', row.window_end)
-      .eq('granularity', row.granularity);
-  }
-
+  // Upsert using the generated profile_key column + real unique constraint
   const { error } = await supabase
     .from('cognitive_domain_scores')
-    .insert(rows);
+    .upsert(rows, {
+      onConflict: 'user_id,profile_key,domain_slug,window_end,granularity',
+    });
 
   if (error) {
-    console.error('[CognitiveState] Insert error:', error);
+    console.error('[CognitiveState] Upsert error:', error);
   }
 }
