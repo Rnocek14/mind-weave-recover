@@ -36,6 +36,7 @@ export default function DetectiveMindExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const trialLimit = Number(location.state?.trialLimit) || 10;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -164,7 +165,7 @@ export default function DetectiveMindExercise() {
           <DetectiveMindGame
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
-            roundCount={10}
+            roundCount={trialLimit}
             difficultyLevel={DIFFICULTY_LEVEL}
           />
         )}

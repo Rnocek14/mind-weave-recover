@@ -56,6 +56,7 @@ export interface ExerciseBlock {
     visualSupport: boolean;
   };
   reasoning: string;
+  trialLimit?: number; // Optional: override default round count (e.g. 5 for combined sessions)
 }
 
 export interface DailyLesson {
