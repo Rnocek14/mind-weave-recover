@@ -235,6 +235,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         adaptations: appliedAdaptations,
         focusWords: focusWords?.slice(0, 5),
         fromLesson: true,
+        trialLimit: currentBlock?.trialLimit ?? undefined,
       } 
     });
   };
