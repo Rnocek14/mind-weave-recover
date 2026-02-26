@@ -47,6 +47,40 @@ export interface TrialData {
   trialOutputs?: Record<string, any>;
 }
 
+/**
+ * Runtime guard: ensures trialOutputs has correct shape before persistence.
+ * - depth always includes taskType (inferred from slug if missing)
+ * - explanation numeric fields coerced or dropped
+ */
+function sanitizeTrialOutputs(
+  outputs: Record<string, any> | undefined,
+  exerciseSlug: string
+): Record<string, any> {
+  if (!outputs) return {};
+  const result = { ...outputs };
+
+  // Ensure depth.taskType is always present
+  if (result.depth && typeof result.depth === 'object') {
+    if (!result.depth.taskType) {
+      // Infer from exercise slug: "narrative-retell" → "narrative_retell"
+      result.depth = { ...result.depth, taskType: exerciseSlug.replace(/-/g, '_') };
+    }
+  }
+
+  // Coerce explanation numeric fields
+  if (result.explanation && typeof result.explanation === 'object') {
+    const exp = { ...result.explanation };
+    for (const key of ['coverageRatio', 'onTopicScore', 'conceptsFound', 'conceptsTotal'] as const) {
+      if (key in exp && exp[key] !== null && typeof exp[key] !== 'number') {
+        exp[key] = null; // Drop non-numeric values
+      }
+    }
+    result.explanation = exp;
+  }
+
+  return result;
+}
+
 export const useExerciseTelemetry = (
   sessionId: string | null,
   rawExerciseSlug: string
@@ -86,7 +120,7 @@ export const useExerciseTelemetry = (
           outputs: {
             task_params: trial.taskParameters,
             timestamp: new Date().toISOString(),
-            ...(trial.trialOutputs ?? {}),
+            ...sanitizeTrialOutputs(trial.trialOutputs, exerciseSlug),
           },
         };
 
