@@ -384,6 +384,34 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
 };
 
 /**
+ * Build a preset lesson directly (no engine context needed).
+ * Use this from UI components that want to launch a preset session.
+ */
+export function buildPresetLesson(preset: LessonPreset): DailyLesson | null {
+  const presetDef = PRESET_LESSONS[preset];
+  if (!presetDef) return null;
+  
+  const defaultAdaptations: ExerciseBlock['adaptations'] = {
+    startDifficulty: 1,
+    cueLevel: 1,
+    timeout: 5000,
+    visualSupport: false,
+  };
+  const blocks: ExerciseBlock[] = presetDef.blocks.map(b => ({
+    ...b,
+    adaptations: { ...defaultAdaptations, ...b.adaptations },
+  }));
+  const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
+  return {
+    totalDuration,
+    blocks,
+    targetDomains: ['receptive_language', 'semantic_systems'],
+    reasoning: [`Preset: ${presetDef.title}`],
+    energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+  };
+}
+
+/**
  * Generate daily lesson plan
  */
 export function generateDailyLesson(

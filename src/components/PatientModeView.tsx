@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Play, LogOut, Loader2, AlertCircle, Gamepad2, ArrowLeft, Clock, Trophy, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
@@ -402,6 +403,29 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
           <p id="session-help-text" className="sr-only">
             This button will start your personalized therapy exercises for today
           </p>
+
+          {/* Comprehension Session */}
+          <Button
+            onClick={() => {
+              const presetLesson = buildPresetLesson('comprehension_session');
+              if (presetLesson) {
+                navigate('/lesson', { 
+                  state: { 
+                    lesson: presetLesson, 
+                    clinicalProfile,
+                    skipDailyCheck: true,
+                    autoStart: true,
+                  }
+                });
+              }
+            }}
+            variant="outline"
+            size="lg"
+            className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
+          >
+            <span className="text-2xl">🧠</span>
+            <span>Comprehension Session</span>
+          </Button>
 
           {/* Secondary: Choose a game */}
           <Button
