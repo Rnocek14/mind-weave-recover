@@ -75,6 +75,7 @@ export default function DetectiveMindExercise() {
         question_type: result.questionType,
         tier: result.tier,
         used_hint: result.usedHint,
+        hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
       },
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',

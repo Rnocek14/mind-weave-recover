@@ -64,9 +64,11 @@ export function DetectiveMindGame({
     trialStartRef.current = Date.now();
   }, [currentIndex]);
 
-  // Check completion
+  // Check completion (fire once)
+  const completedRef = useRef(false);
   useEffect(() => {
-    if (isComplete && results.length > 0) {
+    if (isComplete && results.length > 0 && !completedRef.current) {
+      completedRef.current = true;
       onGameComplete(results);
     }
   }, [isComplete, results, onGameComplete]);
