@@ -4,6 +4,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Brain, Lightbulb, Gamepad2, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Target, AlertTriangle, Crosshair, Sparkles, Battery, Plus, Activity, Stethoscope, Clock, ClipboardList } from "lucide-react";
+import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
+import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { CaregiverTodayCard } from "@/components/CaregiverTodayCard";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
@@ -133,6 +135,22 @@ const CollapsibleSection = ({
     </Collapsible>
   );
 };
+
+// Small wrapper to call the hook at top level
+const CognitiveStateCardSection = memo(function CognitiveStateCardSection({ userId }: { userId: string }) {
+  const { activeProfile } = useProfile();
+  const { snapshot, isLoading } = useCognitiveState({ 
+    userId, 
+    profileId: activeProfile?.id 
+  });
+  
+  return (
+    <CognitiveStateCard 
+      domains={snapshot?.domains || []} 
+      isLoading={isLoading} 
+    />
+  );
+});
 
 export const OverviewTab = memo(function OverviewTab() {
   const { uiMode } = useUiMode();
@@ -357,6 +375,11 @@ export const OverviewTab = memo(function OverviewTab() {
             </div>
           </Card>
         </>
+      )}
+
+      {/* ===== COGNITIVE RECOVERY MAP ===== */}
+      {showRecoveryIntel && (
+        <CognitiveStateCardSection userId={userId} />
       )}
 
       {/* ===== RECOVERY & ACTIVITY — Single section for all trend data ===== */}
