@@ -4,7 +4,7 @@
  * Manages case selection, scoring, rank progression, and deduplication.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { DETECTIVE_CASES, DetectiveCase, levelToTier } from '@/data/detectiveMindCases';
 import { shuffleArray } from '@/lib/shuffle';
 
@@ -34,24 +34,20 @@ export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: n
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DetectiveTrialResult[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
-  const [seenCaseIds, setSeenCaseIds] = useState<Set<string>>(new Set());
+  const seenCaseIdsRef = useRef<Set<string>>(new Set());
 
   // Select cases based on difficulty tier, shuffled, deduplicated
   const cases = useMemo(() => {
     const tier = levelToTier(difficultyLevel);
-    // Get cases from target tier + adjacent tiers for variety
     const primary = DETECTIVE_CASES.filter(c => c.tier === tier);
     const adjacent = DETECTIVE_CASES.filter(c => Math.abs(c.tier - tier) === 1);
     
-    // Prioritize primary tier, fill with adjacent
     const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
-    const unique = pool.filter(c => !seenCaseIds.has(c.id));
+    const unique = pool.filter(c => !seenCaseIdsRef.current.has(c.id));
     
-    // If we've seen everything, reset and reshuffle
     const finalPool = unique.length >= roundCount ? unique : shuffleArray(pool);
     return finalPool.slice(0, roundCount);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficultyLevel, roundCount]); // Intentionally exclude seenCaseIds to prevent re-renders
+  }, [difficultyLevel, roundCount]);
 
   const currentCase: DetectiveCase | null = cases[currentIndex] ?? null;
   const isComplete = currentIndex >= cases.length || currentIndex >= roundCount;
@@ -85,7 +81,7 @@ export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: n
 
     setResults(prev => [...prev, result]);
     setTotalPoints(prev => prev + points);
-    setSeenCaseIds(prev => new Set([...prev, currentCase.id]));
+    seenCaseIdsRef.current.add(currentCase.id);
 
     return result;
   }, [currentCase]);
