@@ -240,6 +240,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         focusWords: focusWords?.slice(0, 5),
         fromLesson: true,
         trialLimit: currentBlock?.trialLimit ?? undefined,
+        blockIndex: currentBlockIndex,
         ...(isPreset ? { lessonSource: 'preset', presetId: 'comprehension_session' } : {}),
       } 
     });

@@ -39,6 +39,7 @@ export default function DetectiveMindExercise() {
   const trialLimit = Number(location.state?.trialLimit) || 10;
   const lessonSource = location.state?.lessonSource ?? null;
   const presetId = location.state?.presetId ?? null;
+  const blockIndex = location.state?.blockIndex ?? null;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -84,6 +85,7 @@ export default function DetectiveMindExercise() {
         hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
         trial_limit: trialLimit,
+        block_index: blockIndex,
         lesson_source: lessonSource,
         preset_id: presetId,
       },
