@@ -94,7 +94,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
   const trialDelta = hasSufficientTrials && priorTrials7d > 0
     ? Math.round(((trials7d - priorTrials7d) / priorTrials7d) * 100)
     : null;
-  const lowData = trials7d < 10;
+  const lowData = !hasSufficientTrials;
 
   return (
     <Card
@@ -189,9 +189,9 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
               }`}>
                 {trendLabel(trend)}
               </span>
-              {lowData && (
+              {lowData && trend !== "unknown" && (
                 <Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground border-muted-foreground/30">
-                  Low data
+                  &lt;10 trials
                 </Badge>
               )}
             </div>
