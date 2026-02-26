@@ -19,6 +19,7 @@ export const CANONICAL_SLUGS = {
   
   // Self-monitoring exercises
   FIX_SENTENCE: 'fix_sentence',
+  DETECTIVE_MIND: 'detective_mind',
   
   // Motor/attention exercises
   REACH_TAP: 'reach_tap',

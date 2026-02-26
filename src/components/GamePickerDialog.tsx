@@ -39,6 +39,7 @@ const GAME_INFO: Record<string, GameInfo> = {
   'minimal-pairs': { emoji: '👂', name: 'Minimal Pairs', desc: 'Hear and choose the right word', difficulty: 'medium', category: 'speech' },
   'fix-sentence': { emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking' },
   'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
+  'detective-mind': { emoji: '🕵️', name: 'Detective Mind', desc: 'Solve mysteries by reading short stories', difficulty: 'medium', category: 'thinking' },
 };
 
 const EXERCISE_ROUTES: Record<string, string> = {
@@ -56,6 +57,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'two-clues': '/exercise/two-clues',
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
+  'detective-mind': '/exercise/detective-mind',
 };
 
 interface GamePickerDialogProps {

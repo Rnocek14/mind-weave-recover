@@ -72,6 +72,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'phrase-practice': '/exercise/word-practice',
   'minimal-pairs': '/exercise/minimal-pairs',
   'two-clues': '/exercise/two-clues',
+  'detective-mind': '/exercise/detective-mind',
 };
 
 function getPatientViewState(
