@@ -79,24 +79,57 @@ export default function ClinicianPanel() {
         </p>
       </div>
 
-      {/* Triage rollup */}
+      {/* Triage rollup — clickable filters */}
       {!isLoading && patients.length > 0 && (
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5 text-xs">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter(riskFilter === "critical" ? "all" : "critical");
+              setEngagementFilter("all");
+            }}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+              riskFilter === "critical"
+                ? "border-destructive/40 bg-destructive/10"
+                : "border-transparent hover:bg-muted/60"
+            }`}
+          >
             <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
             <span className="font-medium text-destructive">{triage.critical}</span>
-            <span className="text-muted-foreground">Critical</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground hidden sm:inline">Critical</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter(riskFilter === "any_alert" ? "all" : "any_alert");
+              setEngagementFilter("all");
+            }}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+              riskFilter === "any_alert"
+                ? "border-amber-400/40 bg-amber-500/10"
+                : "border-transparent hover:bg-muted/60"
+            }`}
+          >
             <Bell className="w-3.5 h-3.5 text-amber-500" />
             <span className="font-medium text-amber-600">{triage.hasAlerts}</span>
-            <span className="text-muted-foreground">Has alerts</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground hidden sm:inline">Has alerts</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEngagementFilter(engagementFilter === "inactive_3d" ? "all" : "inactive_3d");
+              setRiskFilter("all");
+            }}
+            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs rounded-md px-2.5 py-1.5 transition-colors border ${
+              engagementFilter === "inactive_3d"
+                ? "border-border bg-muted"
+                : "border-transparent hover:bg-muted/60"
+            }`}
+          >
             <Clock className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="font-medium">{triage.inactive3d}</span>
-            <span className="text-muted-foreground">Inactive ≥3d</span>
-          </div>
+            <span className="text-muted-foreground hidden sm:inline">Inactive ≥3d</span>
+          </button>
         </div>
       )}
 
