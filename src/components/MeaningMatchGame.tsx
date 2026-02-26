@@ -133,9 +133,6 @@ export function MeaningMatchGame({
     nextItem();
   }, [nextItem, lastResult, onTrialComplete]);
 
-  const handleNext = useCallback(() => {
-    nextItem();
-  }, [nextItem]);
 
   // Summary screen
   if (!currentItem || isComplete) {
