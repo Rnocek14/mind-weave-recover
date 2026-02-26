@@ -41,6 +41,10 @@ const GAME_INFO: Record<string, GameInfo> = {
   'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
   'detective-mind': { emoji: '🕵️', name: 'Detective Mind', desc: 'Solve mysteries by reading short stories', difficulty: 'medium', category: 'thinking' },
   'meaning-match': { emoji: '🏟️', name: 'Meaning Match', desc: 'Read a sentence and pick what it means', difficulty: 'easy', category: 'thinking' },
+  'narrative-retell': { emoji: '📖', name: 'Narrative Retell', desc: 'Read a short story and retell it', difficulty: 'medium', category: 'thinking' },
+  'abstract-compare': { emoji: '🔗', name: 'Abstract Comparison', desc: 'Explain how two things are similar', difficulty: 'challenge', category: 'thinking' },
+  'multi-step-plan': { emoji: '📋', name: 'Step-by-Step Plan', desc: 'Plan the steps to complete a goal', difficulty: 'medium', category: 'thinking' },
+  'dual-load-naming': { emoji: '🧠', name: 'Dual-Load Naming', desc: 'Remember words while naming pictures', difficulty: 'challenge', category: 'thinking' },
 };
 
 const EXERCISE_ROUTES: Record<string, string> = {
@@ -60,6 +64,10 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'describe-guess': '/exercise/describe-guess',
   'detective-mind': '/exercise/detective-mind',
   'meaning-match': '/exercise/meaning-match',
+  'narrative-retell': '/exercise/narrative-retell',
+  'abstract-compare': '/exercise/abstract-compare',
+  'multi-step-plan': '/exercise/multi-step-plan',
+  'dual-load-naming': '/exercise/dual-load-naming',
 };
 
 interface GamePickerDialogProps {

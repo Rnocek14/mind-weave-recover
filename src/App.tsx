@@ -40,6 +40,10 @@ import FixSentenceExercise from "./pages/FixSentenceExercise";
 import DescribeGuessExercise from "./pages/DescribeGuessExercise";
 import DetectiveMindExercise from "./pages/DetectiveMindExercise";
 import MeaningMatchExercise from "./pages/MeaningMatchExercise";
+import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
+import AbstractCompareExercise from "./pages/AbstractCompareExercise";
+import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
+import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -94,6 +98,10 @@ const App = () => (
                   <Route path="/exercise/describe-guess" element={<DescribeGuessExercise />} />
                   <Route path="/exercise/detective-mind" element={<DetectiveMindExercise />} />
                   <Route path="/exercise/meaning-match" element={<MeaningMatchExercise />} />
+                  <Route path="/exercise/narrative-retell" element={<NarrativeRetellExercise />} />
+                  <Route path="/exercise/abstract-compare" element={<AbstractCompareExercise />} />
+                  <Route path="/exercise/multi-step-plan" element={<MultiStepPlanExercise />} />
+                  <Route path="/exercise/dual-load-naming" element={<DualLoadNamingExercise />} />
                   <Route path="/lesson" element={<Lesson />} />
                   
                   {/* Main app routes - with persistent header */}

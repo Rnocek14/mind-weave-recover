@@ -75,6 +75,10 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'two-clues': '/exercise/two-clues',
   'detective-mind': '/exercise/detective-mind',
   'meaning-match': '/exercise/meaning-match',
+  'narrative-retell': '/exercise/narrative-retell',
+  'abstract-compare': '/exercise/abstract-compare',
+  'multi-step-plan': '/exercise/multi-step-plan',
+  'dual-load-naming': '/exercise/dual-load-naming',
 };
 
 function getPatientViewState(
