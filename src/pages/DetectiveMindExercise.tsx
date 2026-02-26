@@ -27,6 +27,7 @@ export default function DetectiveMindExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const exerciseCompleteSentRef = useRef(false);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -74,6 +75,7 @@ export default function DetectiveMindExercise() {
         case_id: result.caseId,
         question_type: result.questionType,
         tier: result.tier,
+        difficulty_level: 1,
         used_hint: result.usedHint,
         hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
@@ -87,7 +89,8 @@ export default function DetectiveMindExercise() {
     setCompleted(true);
     completeSession();
 
-    if (fromLesson) {
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: {
@@ -105,11 +108,12 @@ export default function DetectiveMindExercise() {
   }, [navigate, fromLesson]);
 
   const handleContinue = useCallback(() => {
-    if (fromLesson) {
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
       window.dispatchEvent(new CustomEvent('exercise-complete', {
         detail: { exerciseSlug: EXERCISE_SLUG }
       }));
-    } else {
+    } else if (!fromLesson) {
       navigate('/dashboard');
     }
   }, [fromLesson, navigate]);

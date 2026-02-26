@@ -4,7 +4,7 @@
  * Manages case selection, scoring, rank progression, and deduplication.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { DETECTIVE_CASES, DetectiveCase, levelToTier } from '@/data/detectiveMindCases';
 import { shuffleArray } from '@/lib/shuffle';
 
@@ -35,6 +35,11 @@ export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: n
   const [results, setResults] = useState<DetectiveTrialResult[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const seenCaseIdsRef = useRef<Set<string>>(new Set());
+
+  // Reset seen state when difficulty/round changes (e.g. replay)
+  useEffect(() => {
+    seenCaseIdsRef.current = new Set();
+  }, [difficultyLevel, roundCount]);
 
   // Select cases based on difficulty tier, shuffled, deduplicated
   const cases = useMemo(() => {
