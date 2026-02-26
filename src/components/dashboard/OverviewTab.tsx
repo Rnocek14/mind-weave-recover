@@ -35,6 +35,7 @@ import { StandardizedAssessmentsCard } from "@/components/StandardizedAssessment
 import { CaregiverContextNotes } from "@/components/CaregiverContextNotes";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
+import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -484,6 +485,8 @@ export const OverviewTab = memo(function OverviewTab() {
                   const presetLesson = buildPresetLesson('comprehension_session');
                   if (presetLesson) {
                     navigate("/lesson", { state: { lesson: presetLesson, clinicalProfile, todayFocus } });
+                  } else {
+                    toast.error('Comprehension Session unavailable (missing exercises)');
                   }
                 }}
                 doseCapReached={doseCap.warningLevel === 'limit'}

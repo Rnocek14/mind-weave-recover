@@ -10,6 +10,9 @@ const Lesson = () => {
   const location = useLocation();
   const { user } = useAuth();
   
+  // runId forces LessonFlow remount on repeat (no reload needed)
+  const runId = location.state?.runId ?? 'default';
+  
   // Try to get lesson from location.state first
   let lesson = location.state?.lesson as DailyLesson | undefined;
   let clinicalProfile = location.state?.clinicalProfile as ClinicalProfile | null;
@@ -40,6 +43,7 @@ const Lesson = () => {
 
   return (
     <LessonFlow 
+      key={runId}
       lesson={lesson} 
       clinicalProfile={clinicalProfile}
       todayFocus={todayFocus}

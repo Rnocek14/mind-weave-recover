@@ -230,6 +230,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       }
     }
     
+    // Detect if this is a preset lesson for telemetry
+    const isPreset = lesson.reasoning?.[0]?.startsWith('Preset:');
+    
     navigate(route, { 
       state: { 
         sessionId,
@@ -237,6 +240,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         focusWords: focusWords?.slice(0, 5),
         fromLesson: true,
         trialLimit: currentBlock?.trialLimit ?? undefined,
+        ...(isPreset ? { lessonSource: 'preset', presetId: 'comprehension_session' } : {}),
       } 
     });
   };
@@ -434,10 +438,11 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
                   if (presetLesson) {
                     sessionStorage.removeItem('lessonFlowState');
                     navigate('/lesson', { 
-                      state: { lesson: presetLesson },
+                      state: { lesson: presetLesson, runId: Date.now() },
                       replace: true,
                     });
-                    window.location.reload();
+                  } else {
+                    toast.error('Comprehension Session unavailable');
                   }
                 }}
               >
