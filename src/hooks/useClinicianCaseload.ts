@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
@@ -50,21 +50,22 @@ export function useClinicianCaseload() {
   const [patients, setPatients] = useState<CaseloadPatient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!user?.id || loadingRef.current) return;
+    loadingRef.current = true;
+    setIsLoading(true);
+    setError(null);
 
-    const load = async () => {
-      try {
-        // Step 1: Get all accessible profiles (RLS-filtered)
-        const { data: profiles, error: profileErr } = await supabase
-          .from("profiles")
-          .select("id, user_id, profile_name, stroke_date, clinical_profile, is_active")
-          .eq("is_active", true)
-          .order("profile_name");
+    try {
+      // Step 1: Get all accessible profiles (RLS-filtered)
+      const { data: profiles, error: profileErr } = await supabase
+        .from("profiles")
+        .select("id, user_id, profile_name, stroke_date, clinical_profile, is_active")
+        .eq("is_active", true)
+        .order("profile_name");
 
         if (profileErr) throw profileErr;
         if (!profiles || profiles.length === 0) {
@@ -252,16 +253,19 @@ export function useClinicianCaseload() {
         });
 
         setPatients(result);
+        setLastUpdatedAt(new Date());
       } catch (err) {
         console.error("[useClinicianCaseload] error:", err);
         setError("Failed to load caseload");
       } finally {
         setIsLoading(false);
+        loadingRef.current = false;
       }
-    };
-
-    load();
   }, [user?.id]);
 
-  return { patients, isLoading, error };
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { patients, isLoading, error, lastUpdatedAt, refetch: load };
 }
