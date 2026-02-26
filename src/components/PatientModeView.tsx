@@ -417,6 +417,8 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
                     autoStart: true,
                   }
                 });
+              } else {
+                toast('Comprehension Session unavailable', { duration: 3000 });
               }
             }}
             variant="outline"

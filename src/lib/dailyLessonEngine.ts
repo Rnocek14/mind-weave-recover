@@ -386,10 +386,16 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
 /**
  * Build a preset lesson directly (no engine context needed).
  * Use this from UI components that want to launch a preset session.
+ * Pass accessibleExercises to gate availability; omit to skip the check.
  */
-export function buildPresetLesson(preset: LessonPreset): DailyLesson | null {
+export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: string[]): DailyLesson | null {
   const presetDef = PRESET_LESSONS[preset];
   if (!presetDef) return null;
+  
+  // If accessibility list provided, verify all exercises are accessible
+  if (accessibleExercises && !presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId))) {
+    return null;
+  }
   
   const defaultAdaptations: ExerciseBlock['adaptations'] = {
     startDifficulty: 1,

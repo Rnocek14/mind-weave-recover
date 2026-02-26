@@ -37,6 +37,8 @@ export default function DetectiveMindExercise() {
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 10;
+  const lessonSource = location.state?.lessonSource ?? null;
+  const presetId = location.state?.presetId ?? null;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -81,6 +83,9 @@ export default function DetectiveMindExercise() {
         used_hint: result.usedHint,
         hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
+        trial_limit: trialLimit,
+        lesson_source: lessonSource,
+        preset_id: presetId,
       },
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
