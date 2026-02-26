@@ -8,7 +8,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { scoreExplanation, ExplanationScore } from '@/lib/explanationScorer';
+import { scoreExplanation, ExplanationScore, ExplanationResultData } from '@/lib/explanationScorer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Brain, MessageCircle, SkipForward, ChevronRight } from 'lucide-react';
@@ -19,6 +19,8 @@ export interface ExplainWhyResult {
   score: ExplanationScore;
   skipped: boolean;
   durationMs: number;
+  /** Structured data for telemetry persistence */
+  explanationData: ExplanationResultData;
 }
 
 interface ExplainWhyPromptProps {
@@ -45,10 +47,12 @@ export function ExplainWhyPrompt({
   promptOverride,
 }: ExplainWhyPromptProps) {
   const [stage, setStage] = useState<'prompt' | 'listening' | 'scored'>('prompt');
-  const [finalTranscript, setFinalTranscript] = useState('');
+  const [collectedTranscript, setCollectedTranscript] = useState('');
   const [explanationScore, setExplanationScore] = useState<ExplanationScore | null>(null);
   const startTimeRef = useRef(Date.now());
   const hasProcessedRef = useRef(false);
+  // Track the latest transcript from speech hook via ref (avoids stale closure)
+  const latestTranscriptRef = useRef('');
 
   // Default prompt based on correctness
   const promptText = promptOverride 
@@ -56,10 +60,11 @@ export function ExplainWhyPrompt({
       ? "Why is that the right answer? Explain in your own words."
       : `Why do you think "${correctAnswer}" is correct? Try to explain.`);
 
-  // Handle speech result
+  // Handle speech result — just collect, don't score yet
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
-    setFinalTranscript(transcript);
+    setCollectedTranscript(transcript);
+    latestTranscriptRef.current = transcript;
   }, []);
 
   const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported } = useSpeechRecognition({
@@ -68,6 +73,13 @@ export function ExplainWhyPrompt({
     continuousListening: true,
   });
 
+  // Keep latestTranscriptRef in sync with live transcript too
+  useEffect(() => {
+    if (liveTranscript) {
+      latestTranscriptRef.current = liveTranscript;
+    }
+  }, [liveTranscript]);
+
   // Start recording
   const handleStartSpeaking = useCallback(() => {
     startTimeRef.current = Date.now();
@@ -75,37 +87,51 @@ export function ExplainWhyPrompt({
     startListening();
   }, [startListening]);
 
-  // Stop and score
+  // Stop and score — waits one tick for final transcript to settle
   const handleDoneSpeaking = useCallback(() => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     
     stopListening();
     
-    const transcriptToScore = finalTranscript || liveTranscript || '';
-    const score = scoreExplanation(transcriptToScore, keyConcepts, correctAnswer);
-    
-    setFinalTranscript(transcriptToScore);
-    setExplanationScore(score);
-    setStage('scored');
-  }, [stopListening, finalTranscript, liveTranscript, keyConcepts, correctAnswer]);
+    // Wait a tick for the speech hook's onend to fire and flush pending transcript
+    setTimeout(() => {
+      const transcriptToScore = collectedTranscript || latestTranscriptRef.current || '';
+      const score = scoreExplanation(transcriptToScore, keyConcepts, correctAnswer);
+      
+      setCollectedTranscript(transcriptToScore);
+      setExplanationScore(score);
+      setStage('scored');
+    }, 150);
+  }, [stopListening, collectedTranscript, keyConcepts, correctAnswer]);
 
   // Skip explanation
   const handleSkip = useCallback(() => {
     stopListening();
     const durationMs = Date.now() - startTimeRef.current;
+    const skipScore: ExplanationScore = {
+      score: 0,
+      conceptsFound: 0,
+      conceptsTotal: keyConcepts.length,
+      matchedConcepts: [],
+      level: 'no-response',
+      feedback: '',
+    };
     onComplete({
       transcript: '',
-      score: {
+      score: skipScore,
+      skipped: true,
+      durationMs,
+      explanationData: {
+        transcript: '',
+        level: 'no-response',
         score: 0,
         conceptsFound: 0,
         conceptsTotal: keyConcepts.length,
         matchedConcepts: [],
-        level: 'no-response',
-        feedback: '',
+        durationMs,
+        skipped: true,
       },
-      skipped: true,
-      durationMs,
     });
   }, [stopListening, onComplete, keyConcepts.length]);
 
@@ -114,24 +140,33 @@ export function ExplainWhyPrompt({
     if (!explanationScore) return;
     const durationMs = Date.now() - startTimeRef.current;
     onComplete({
-      transcript: finalTranscript,
+      transcript: collectedTranscript,
       score: explanationScore,
       skipped: false,
       durationMs,
+      explanationData: {
+        transcript: collectedTranscript,
+        level: explanationScore.level,
+        score: explanationScore.score,
+        conceptsFound: explanationScore.conceptsFound,
+        conceptsTotal: explanationScore.conceptsTotal,
+        matchedConcepts: explanationScore.matchedConcepts,
+        durationMs,
+        skipped: false,
+      },
     });
-  }, [explanationScore, finalTranscript, onComplete]);
+  }, [explanationScore, collectedTranscript, onComplete]);
 
-  // Auto-timeout: if listening for >30s with no speech, prompt to try or skip
+  // Auto-timeout: if listening for >30s with no speech, auto-score
   useEffect(() => {
     if (stage !== 'listening') return;
     const timeout = setTimeout(() => {
-      if (!hasProcessedRef.current && !finalTranscript && !liveTranscript) {
-        // No speech after 30s — auto-score as no-response
+      if (!hasProcessedRef.current && !collectedTranscript && !latestTranscriptRef.current) {
         handleDoneSpeaking();
       }
     }, 30000);
     return () => clearTimeout(timeout);
-  }, [stage, finalTranscript, liveTranscript, handleDoneSpeaking]);
+  }, [stage, collectedTranscript, handleDoneSpeaking]);
 
   const levelColors: Record<string, string> = {
     'excellent': 'border-green-500 bg-green-50 dark:bg-green-950/20',
@@ -203,10 +238,10 @@ export function ExplainWhyPrompt({
             </div>
             
             {/* Live transcript preview */}
-            {(liveTranscript || finalTranscript) && (
+            {(liveTranscript || collectedTranscript) && (
               <div className="bg-muted/50 rounded-lg p-3 min-h-[3rem]">
                 <p className="text-sm text-foreground italic">
-                  "{finalTranscript || liveTranscript}"
+                  "{collectedTranscript || liveTranscript}"
                 </p>
               </div>
             )}
@@ -231,16 +266,18 @@ export function ExplainWhyPrompt({
             <div className="flex items-center gap-2">
               <span className="text-lg">{levelEmoji[explanationScore.level]}</span>
               <span className="font-semibold text-sm">{explanationScore.feedback}</span>
-              <span className="ml-auto text-xs font-medium text-muted-foreground">
-                +{explanationScore.score} reasoning pts
-              </span>
+              {explanationScore.score > 0 && (
+                <span className="ml-auto text-xs font-medium text-muted-foreground">
+                  +{explanationScore.score} bonus
+                </span>
+              )}
             </div>
 
             {/* Show what they said */}
-            {finalTranscript && (
+            {collectedTranscript && (
               <div className="bg-muted/30 rounded-lg p-2">
                 <p className="text-xs text-muted-foreground mb-1">You said:</p>
-                <p className="text-sm italic">"{finalTranscript}"</p>
+                <p className="text-sm italic">"{collectedTranscript}"</p>
               </div>
             )}
 

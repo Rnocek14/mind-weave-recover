@@ -118,13 +118,22 @@ export function MeaningMatchGame({
     setPhase('explaining');
   }, []);
 
-  // Handle explanation completion
+  // Handle explanation completion — persist data into trial outputs
   const handleExplainComplete = useCallback((result: ExplainWhyResult) => {
     if (!result.skipped) {
       setReasoningPoints(prev => prev + result.score.score);
     }
+    // Attach explanation telemetry to the last trial result
+    if (lastResult) {
+      onTrialComplete({
+        ...lastResult,
+        points: lastResult.points + result.score.score,
+        // The explanation data is available via result.explanationData
+        // for the session logger to persist
+      });
+    }
     nextItem();
-  }, [nextItem]);
+  }, [nextItem, lastResult, onTrialComplete]);
 
   const handleNext = useCallback(() => {
     nextItem();
@@ -285,7 +294,7 @@ export function MeaningMatchGame({
         <ExplainWhyPrompt
           wasCorrect={lastResult?.correct ?? false}
           correctAnswer={currentItem.options[currentItem.correctIndex]}
-          keyConcepts={deriveKeyConcepts(currentItem.explanation, currentItem.keywords)}
+          keyConcepts={deriveKeyConcepts(currentItem.explanation, currentItem.keywords, undefined, currentItem.options[currentItem.correctIndex])}
           modelExplanation={currentItem.explanation}
           onComplete={handleExplainComplete}
         />

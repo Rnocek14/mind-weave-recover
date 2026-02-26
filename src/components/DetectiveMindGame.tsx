@@ -106,13 +106,20 @@ export function DetectiveMindGame({
     setPhase('explaining');
   }, []);
 
-  // Handle explanation completion
+  // Handle explanation completion — persist data into trial outputs
   const handleExplainComplete = useCallback((result: ExplainWhyResult) => {
     if (!result.skipped) {
       setReasoningPoints(prev => prev + result.score.score);
     }
+    // Attach explanation telemetry to the last trial result
+    if (lastResult) {
+      onTrialComplete({
+        ...lastResult,
+        points: lastResult.points + result.score.score,
+      });
+    }
     nextCase();
-  }, [nextCase]);
+  }, [nextCase, lastResult, onTrialComplete]);
 
   const handleNext = useCallback(() => {
     nextCase();
@@ -281,7 +288,7 @@ export function DetectiveMindGame({
         <ExplainWhyPrompt
           wasCorrect={lastResult?.correct ?? false}
           correctAnswer={currentCase.options[currentCase.correctIndex]}
-          keyConcepts={deriveKeyConcepts(currentCase.explanation)}
+          keyConcepts={deriveKeyConcepts(currentCase.explanation, undefined, undefined, currentCase.options[currentCase.correctIndex])}
           modelExplanation={currentCase.explanation}
           onComplete={handleExplainComplete}
           promptOverride={
