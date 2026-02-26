@@ -82,19 +82,33 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
 
   const hasCritical = criticalAlertCount > 0;
   const hasAlerts = activeAlertCount > 0;
-  const isInactive = (() => {
-    if (!lastActiveDate) return true;
-    const days = Math.floor(
-      (Date.now() - new Date(lastActiveDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return days >= 3;
-  })();
+  const daysSinceActive = lastActiveDate
+    ? Math.floor((Date.now() - new Date(lastActiveDate).getTime()) / (1000 * 60 * 60 * 24))
+    : Infinity;
+  const isInactive = daysSinceActive >= 3;
 
   const hasSufficientTrials = trials7d >= 10 && priorTrials7d >= 10;
   const trialDelta = hasSufficientTrials && priorTrials7d > 0
     ? Math.round(((trials7d - priorTrials7d) / priorTrials7d) * 100)
     : null;
   const lowData = !hasSufficientTrials;
+
+  // Composite triage status
+  type TriageStatus = "needs_attention" | "monitor" | "re_engage" | "on_track";
+  const triageStatus: TriageStatus = hasCritical
+    ? "needs_attention"
+    : trend === "down" && hasSufficientTrials
+    ? "monitor"
+    : daysSinceActive >= 5
+    ? "re_engage"
+    : "on_track";
+
+  const triageConfig: Record<TriageStatus, { label: string; className: string }> = {
+    needs_attention: { label: "Needs attention", className: "bg-destructive/10 text-destructive border-destructive/30" },
+    monitor: { label: "Monitor", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
+    re_engage: { label: "Re-engage", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
+    on_track: { label: "On track", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30" },
+  };
 
   return (
     <Card
@@ -113,7 +127,12 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
       }`}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-sm truncate">{name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-sm truncate">{name}</h3>
+              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${triageConfig[triageStatus].className}`}>
+                {triageConfig[triageStatus].label}
+              </Badge>
+            </div>
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
               {daysPostStroke !== null && (
                 <span className="flex items-center gap-0.5">
