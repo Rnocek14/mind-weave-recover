@@ -90,9 +90,11 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
     return days >= 3;
   })();
 
-  const trialDelta = priorTrials7d > 0
+  const hasSufficientTrials = trials7d >= 10 && priorTrials7d >= 10;
+  const trialDelta = hasSufficientTrials && priorTrials7d > 0
     ? Math.round(((trials7d - priorTrials7d) / priorTrials7d) * 100)
     : null;
+  const lowData = trials7d < 10;
 
   return (
     <Card
@@ -179,7 +181,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
           </div>
           <div className="text-right">
             <div className="text-[11px] text-muted-foreground mb-0.5">Trend</div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 justify-end">
               <TrendIcon trend={trend} />
               <span className={`text-xs font-medium ${
                 trend === "up" ? "text-green-600 dark:text-green-400" :
@@ -187,6 +189,11 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
               }`}>
                 {trendLabel(trend)}
               </span>
+              {lowData && (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground border-muted-foreground/30">
+                  Low data
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -194,7 +201,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
         {/* Row 2: Adherence bar */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] text-muted-foreground">Adherence</span>
+            <span className="text-[11px] text-muted-foreground">Days practiced</span>
             <span className={`text-xs font-semibold tabular-nums ${adherenceColor(adherenceDays7d)}`}>
               {adherenceDays7d}/7 days
             </span>
