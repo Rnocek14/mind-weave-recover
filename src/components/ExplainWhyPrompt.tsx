@@ -116,6 +116,8 @@ export function ExplainWhyPrompt({
       matchedConcepts: [],
       level: 'no-response',
       feedback: '',
+      onTopicScore: 0,
+      coverageRatio: 0,
     };
     onComplete({
       transcript: '',
@@ -129,6 +131,8 @@ export function ExplainWhyPrompt({
         conceptsFound: 0,
         conceptsTotal: keyConcepts.length,
         matchedConcepts: [],
+        onTopicScore: 0,
+        coverageRatio: 0,
         durationMs,
         skipped: true,
       },
@@ -151,6 +155,8 @@ export function ExplainWhyPrompt({
         conceptsFound: explanationScore.conceptsFound,
         conceptsTotal: explanationScore.conceptsTotal,
         matchedConcepts: explanationScore.matchedConcepts,
+        onTopicScore: explanationScore.onTopicScore,
+        coverageRatio: explanationScore.coverageRatio,
         durationMs,
         skipped: false,
       },
