@@ -248,6 +248,19 @@ const Dashboard = () => {
     (f) => f.severity === "red" || f.severity === "orange"
   ).length;
 
+  // Clinical identity for banner
+  const clinicalImpairments = (clinicalProfile as any)?.impairments?.speech || [];
+  const diagnosisLabel = (() => {
+    const norm = clinicalImpairments.map((s: string) => s.toLowerCase().replace(/[^a-z]/g, ''));
+    if (norm.some((s: string) => s.includes('broca') || s === 'expressive')) return 'Expressive Aphasia';
+    if (norm.some((s: string) => s.includes('wernicke') || s === 'receptive')) return 'Receptive Aphasia';
+    if (norm.some((s: string) => s.includes('global'))) return 'Global Aphasia';
+    if (norm.some((s: string) => s.includes('anomic'))) return 'Anomic Aphasia';
+    if (clinicalImpairments.length > 0) return clinicalImpairments[0].replace(/_/g, ' ');
+    return null;
+  })();
+  const handBias = activeProfile?.hand_bias;
+
   return (
     <div className="min-h-screen bg-gradient-calm">
       <DashboardQuickTour open={showQuickTour} onOpenChange={setShowQuickTour} />
@@ -268,13 +281,21 @@ const Dashboard = () => {
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-1">
                 Recovery Profile
               </h1>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
                 <span className="font-medium text-foreground">{profileName}</span>
+                {diagnosisLabel && (
+                  <Badge variant="secondary" className="text-xs">
+                    {diagnosisLabel}
+                  </Badge>
+                )}
                 {strokeDays !== null && (
                   <Badge variant="outline" className="gap-1 text-xs">
                     <Calendar className="w-3 h-3" />
                     Day {strokeDays}
                   </Badge>
+                )}
+                {handBias && (
+                  <span className="text-xs capitalize">{handBias}-handed</span>
                 )}
                 {alertCount > 0 && (
                   <Badge variant="destructive" className="gap-1 text-xs">

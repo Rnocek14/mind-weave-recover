@@ -1,6 +1,7 @@
-import { memo, useState, useEffect } from "react";
-import { MessageSquare, Activity, TrendingUp, Lightbulb } from "lucide-react";
+import { memo, useState, useEffect, useMemo } from "react";
+import { MessageSquare, Activity, TrendingUp, Lightbulb, CheckCircle, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { WeeklyRecoverySnapshot } from "@/components/WeeklyRecoverySnapshot";
 import { TodaysActivityCard } from "@/components/TodaysActivityCard";
 import { ActivityTrendChart } from "@/components/ActivityTrendChart";
@@ -10,6 +11,9 @@ import { ExerciseStatsTile } from "@/components/ExerciseStatsTile";
 import { RecoverySnapshot } from "@/components/RecoverySnapshot";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
 import { useUiMode } from "@/hooks/useUiMode";
+import { useProfile } from "@/hooks/useProfile";
+import { useDailyReadiness } from "@/hooks/useDailyReadiness";
+import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import {
   ProgressCardSkeleton,
   ExerciseStatsTileSkeleton,
@@ -19,6 +23,10 @@ export const ProgressTab = memo(function ProgressTab() {
   const { userId } = useDashboardContext();
   const { uiMode } = useUiMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
+  const { activeProfile } = useProfile();
+
+  const { timeline } = useWeeklyRecoverySnapshot(activeProfile?.id, 14);
+  const { todayCheckin } = useDailyReadiness(activeProfile?.id);
 
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -26,8 +34,70 @@ export const ProgressTab = memo(function ProgressTab() {
     return () => clearTimeout(t);
   }, []);
 
+  // Adherence: days with signal in last 7
+  const adherenceStats = useMemo(() => {
+    const last7 = timeline.slice(-7);
+    const activeDays = last7.filter((d) => d.hasAnySignal).length;
+    return { activeDays, total: last7.length };
+  }, [timeline]);
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Adherence & PRO strip */}
+      <section>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" /> Adherence (7d)
+            </div>
+            <div className="text-lg font-bold tabular-nums">
+              {adherenceStats.activeDays}/{adherenceStats.total}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {adherenceStats.activeDays >= 5
+                ? "Strong"
+                : adherenceStats.activeDays >= 3
+                ? "Moderate"
+                : "Low"}{" "}
+              engagement
+            </div>
+          </Card>
+          <Card className="p-3">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <Heart className="w-3 h-3" /> Today's Fatigue
+            </div>
+            <div className="text-lg font-bold tabular-nums">
+              {todayCheckin ? `${todayCheckin.fatigue_rating}/5` : "—"}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {todayCheckin
+                ? todayCheckin.fatigue_rating >= 4
+                  ? "High — shorter sessions recommended"
+                  : todayCheckin.fatigue_rating >= 3
+                  ? "Moderate"
+                  : "Good readiness"
+                : "No check-in today"}
+            </div>
+          </Card>
+          {todayCheckin?.mood_rating != null && (
+            <Card className="p-3">
+              <div className="text-xs text-muted-foreground mb-1">Mood</div>
+              <div className="text-lg font-bold tabular-nums">
+                {todayCheckin.mood_rating}/5
+              </div>
+            </Card>
+          )}
+          {todayCheckin?.sleep_quality != null && (
+            <Card className="p-3">
+              <div className="text-xs text-muted-foreground mb-1">Sleep</div>
+              <div className="text-lg font-bold tabular-nums">
+                {todayCheckin.sleep_quality}/5
+              </div>
+            </Card>
+          )}
+        </div>
+      </section>
+
       {/* Weekly Recovery Snapshot — 14-day trend view */}
       <section>
         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">

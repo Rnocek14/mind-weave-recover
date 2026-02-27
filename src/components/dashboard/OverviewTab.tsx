@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
+import { WeeklyDeltasCard } from "@/components/dashboard/WeeklyDeltasCard";
+import { DomainConfidenceSummary } from "@/components/dashboard/DomainConfidenceSummary";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { CaregiverTodayCard } from "@/components/CaregiverTodayCard";
 import { useUiMode } from "@/hooks/useUiMode";
@@ -217,6 +219,12 @@ export const OverviewTab = memo(function OverviewTab() {
           </Card>
         </>
       )}
+
+      {/* What Changed This Week */}
+      <WeeklyDeltasCard />
+
+      {/* Domain Confidence Summary */}
+      <DomainConfidenceSummary />
 
       {/* Cognitive Recovery Map — compact summary */}
       <CognitiveStateCard
