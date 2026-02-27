@@ -196,6 +196,17 @@ function extractExplanationMetrics(trials: ExerciseTrialRow[]): {
  * Extract depth-task metrics from trial outputs.depth
  * Used for enhanced domain scoring (Phase 2)
  */
+/** Clamp a value to [min, max] */
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+/** Minimum depth trials required before blending depth signals into domain scores */
+const MIN_DEPTH_TRIALS_FOR_BLEND = 2;
+
+/** Max mean utterance length for normalization (words) */
+const MAX_MUL = 12;
+
 function extractDepthMetrics(trials: ExerciseTrialRow[]): {
   avgCoherenceScore: number | null;
   avgEventCoverage: number | null;
@@ -204,6 +215,7 @@ function extractDepthMetrics(trials: ExerciseTrialRow[]): {
   avgConceptCount: number | null;
   avgInterferenceIndex: number | null;
   avgMeanUtteranceLength: number | null;
+  normalizedMUL: number | null;
   depthTrialCount: number;
 } {
   let coherenceSum = 0, coherenceCount = 0;
@@ -218,14 +230,16 @@ function extractDepthMetrics(trials: ExerciseTrialRow[]): {
     const depth = t.outputs?.depth;
     if (!depth || typeof depth !== 'object') continue;
 
-    if (typeof depth.coherenceScore === 'number') { coherenceSum += depth.coherenceScore; coherenceCount++; }
-    if (typeof depth.eventCoverage === 'number') { eventCovSum += depth.eventCoverage; eventCovCount++; }
-    if (typeof depth.sequenceScore === 'number') { seqSum += depth.sequenceScore; seqCount++; }
-    if (typeof depth.abstractionLevel === 'number') { absSum += depth.abstractionLevel; absCount++; }
+    if (typeof depth.coherenceScore === 'number') { coherenceSum += clamp(depth.coherenceScore, 0, 1); coherenceCount++; }
+    if (typeof depth.eventCoverage === 'number') { eventCovSum += clamp(depth.eventCoverage, 0, 1); eventCovCount++; }
+    if (typeof depth.sequenceScore === 'number') { seqSum += clamp(depth.sequenceScore, 0, 1); seqCount++; }
+    if (typeof depth.abstractionLevel === 'number') { absSum += clamp(depth.abstractionLevel, 0, 1); absCount++; }
     if (typeof depth.conceptCount === 'number') { conceptSum += depth.conceptCount; conceptCount++; }
-    if (typeof depth.interferenceIndex === 'number') { interSum += depth.interferenceIndex; interCount++; }
-    if (typeof depth.meanUtteranceLength === 'number') { mulSum += depth.meanUtteranceLength; mulCount++; }
+    if (typeof depth.interferenceIndex === 'number') { interSum += clamp(depth.interferenceIndex, 0, 1); interCount++; }
+    if (typeof depth.meanUtteranceLength === 'number') { mulSum += clamp(depth.meanUtteranceLength, 0, MAX_MUL); mulCount++; }
   }
+
+  const avgMUL = mulCount > 0 ? mulSum / mulCount : null;
 
   return {
     avgCoherenceScore: coherenceCount > 0 ? coherenceSum / coherenceCount : null,
@@ -234,7 +248,8 @@ function extractDepthMetrics(trials: ExerciseTrialRow[]): {
     avgAbstractionLevel: absCount > 0 ? absSum / absCount : null,
     avgConceptCount: conceptCount > 0 ? conceptSum / conceptCount : null,
     avgInterferenceIndex: interCount > 0 ? interSum / interCount : null,
-    avgMeanUtteranceLength: mulCount > 0 ? mulSum / mulCount : null,
+    avgMeanUtteranceLength: avgMUL,
+    normalizedMUL: avgMUL !== null ? avgMUL / MAX_MUL : null,
     depthTrialCount: Math.max(coherenceCount, eventCovCount, seqCount, absCount, interCount),
   };
 }
@@ -290,35 +305,35 @@ function scoreDomain(
     components.explanationCount = explanationMetrics.explanationCount;
 
     if (domainSlug === 'semantic_depth') {
-      // Blend in abstractionLevel and conceptCount from depth tasks
-      if (depthMetrics.avgAbstractionLevel !== null) {
+      // Only blend depth if enough trials exist to be meaningful
+      if (depthMetrics.depthTrialCount >= MIN_DEPTH_TRIALS_FOR_BLEND && depthMetrics.avgAbstractionLevel !== null) {
         components.abstractionLevel = depthMetrics.avgAbstractionLevel;
-        // Re-blend: 40% accuracy + 30% coverage + 30% abstraction
         const coverage = explanationMetrics.avgCoverageRatio ?? accuracy;
         score = accuracy * 0.4 + coverage * 0.3 + depthMetrics.avgAbstractionLevel * 0.3;
       }
       if (depthMetrics.avgConceptCount !== null) {
         components.conceptCount = depthMetrics.avgConceptCount;
       }
+      components.depthTrialCount = depthMetrics.depthTrialCount;
     }
 
     if (domainSlug === 'executive_function') {
-      // Blend sequenceScore + interferenceIndex from depth tasks
       if (depthMetrics.avgSequenceScore !== null) {
         components.sequenceScore = depthMetrics.avgSequenceScore;
       }
       if (depthMetrics.avgInterferenceIndex !== null) {
         components.interferenceIndex = depthMetrics.avgInterferenceIndex;
       }
-      // Re-blend with available depth signals
       const onTopic = explanationMetrics.avgOnTopicScore ?? accuracy;
-      const seqScore = depthMetrics.avgSequenceScore;
-      const interference = depthMetrics.avgInterferenceIndex;
-      if (seqScore !== null && interference !== null) {
-        // Full blend: 30% accuracy + 25% onTopic + 25% sequence + 20% (1-interference)
-        score = accuracy * 0.3 + onTopic * 0.25 + seqScore * 0.25 + (1 - interference) * 0.2;
-      } else if (seqScore !== null) {
-        score = accuracy * 0.35 + onTopic * 0.3 + seqScore * 0.35;
+      // Only blend depth signals if we have enough depth trials
+      if (depthMetrics.depthTrialCount >= MIN_DEPTH_TRIALS_FOR_BLEND) {
+        const seqScore = depthMetrics.avgSequenceScore;
+        const interference = depthMetrics.avgInterferenceIndex;
+        if (seqScore !== null && interference !== null) {
+          score = accuracy * 0.3 + onTopic * 0.25 + seqScore * 0.25 + (1 - interference) * 0.2;
+        } else if (seqScore !== null) {
+          score = accuracy * 0.35 + onTopic * 0.3 + seqScore * 0.35;
+        }
       } else if (explanationMetrics.avgCoverageRatio !== null) {
         score = accuracy * 0.4 + onTopic * 0.3 + explanationMetrics.avgCoverageRatio * 0.3;
       }
@@ -342,7 +357,7 @@ function scoreDomain(
       score = accuracy * 0.7 + rtScore * 0.3;
     }
 
-    // Depth signals override when available
+    // Record depth components even if below threshold (for visibility)
     if (depthMetrics.avgCoherenceScore !== null) {
       components.coherenceScore = depthMetrics.avgCoherenceScore;
     }
@@ -350,13 +365,15 @@ function scoreDomain(
       components.eventCoverage = depthMetrics.avgEventCoverage;
     }
     if (depthMetrics.avgMeanUtteranceLength !== null) {
-      // Normalize MUL: 1-5 words → 0-1 (very rough proxy)
       components.meanUtteranceLength = depthMetrics.avgMeanUtteranceLength;
     }
-    // Re-blend with depth if available
-    if (depthMetrics.avgCoherenceScore !== null && depthMetrics.avgEventCoverage !== null) {
+    if (depthMetrics.normalizedMUL !== null) {
+      components.normalizedMUL = depthMetrics.normalizedMUL;
+    }
+    // Only blend depth into score if enough trials
+    if (depthMetrics.depthTrialCount >= MIN_DEPTH_TRIALS_FOR_BLEND
+        && depthMetrics.avgCoherenceScore !== null && depthMetrics.avgEventCoverage !== null) {
       const rtScore = components.rtScore ?? 0.5;
-      // 30% accuracy + 25% coherence + 25% coverage + 20% fluency(RT)
       score = accuracy * 0.3 + depthMetrics.avgCoherenceScore * 0.25 + depthMetrics.avgEventCoverage * 0.25 + rtScore * 0.2;
     }
     components.depthTrialCount = depthMetrics.depthTrialCount;
