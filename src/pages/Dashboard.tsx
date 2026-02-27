@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Trophy, TrendingUp, Flame, Award, Loader2, 
-  Brain, Activity, Stethoscope, AlertCircle
+  Trophy, TrendingUp, Flame, Loader2,
+  Brain, Activity, Stethoscope, AlertCircle,
+  LayoutDashboard, Target, BarChart3, ClipboardList,
+  Calendar,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,13 +25,13 @@ import type { AssessmentResult } from "@/lib/capabilityAssessor";
 import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { OverviewTab } from "@/components/dashboard/OverviewTab";
-import { ClinicalTab } from "@/components/dashboard/ClinicalTab";
-import { InsightsCTACard } from "@/components/dashboard/InsightsCTACard";
+import { DomainsTab } from "@/components/dashboard/DomainsTab";
+import { ProgressTab } from "@/components/dashboard/ProgressTab";
+import { PlanTab } from "@/components/dashboard/PlanTab";
 import { QuickActionFAB } from "@/components/QuickActionFAB";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 import { useRecoverySummary } from "@/hooks/useRecoverySummary";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { EXERCISES } from "@/data/exercises";
@@ -41,6 +43,14 @@ import { ViewModeSelector } from "@/components/ViewModeSelector";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useProfile } from "@/hooks/useProfile";
 
+/** Compute days since stroke for the header */
+function daysSinceStroke(strokeDate: string | null | undefined): number | null {
+  if (!strokeDate) return null;
+  const d = new Date(strokeDate);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -50,32 +60,30 @@ const Dashboard = () => {
   const [achievementCount, setAchievementCount] = useState(0);
   const [todayProgress, setTodayProgress] = useState(0);
   const [loading, setLoading] = useState(true);
-  
+
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showCapabilityAssessment, setShowCapabilityAssessment] = useState(false);
   const [showQuickTour, setShowQuickTour] = useState(false);
-  const [assessmentOrigin, setAssessmentOrigin] = useState<'patient' | 'caregiver' | null>(null);
+  const [assessmentOrigin, setAssessmentOrigin] = useState<"patient" | "caregiver" | null>(null);
   const [pendingLessonNavigation, setPendingLessonNavigation] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('dashboard-active-tab') || 'overview';
+    return localStorage.getItem("dashboard-active-tab") || "overview";
   });
-  
+
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
   const { doseCap } = useDoseCap(user?.id);
   const { learningRates, clusterComparisons, isLoading: learningRatesLoading } = useLearningRate(user?.id || null);
-  
-  // Get active profile from ProfileContext
+
   const { activeProfile } = useProfile();
-  
+
   const { currentAssessment, previousAssessment, fetchLatestAssessment } = useCapabilityAssessment(user?.id, activeProfile?.id);
   const { checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride } = useExerciseGating(user?.id, activeProfile?.id);
   const { lesson, todayFocus, regenerateLesson } = useDailyLesson(user?.id || undefined, activeProfile?.id, clinicalProfile);
-  const { getLatestSummary } = useRecoverySummary(user?.id || '', 'progress');
-  const recoverySummary = getLatestSummary('progress');
+  const { getLatestSummary } = useRecoverySummary(user?.id || "", "progress");
+  const recoverySummary = getLatestSummary("progress");
   const isMobile = useIsMobile();
 
-  // Pull to refresh
   const { isRefreshing, pullDistance, pullProgress } = usePullToRefresh({
     onRefresh: async () => {
       await loadDashboardData();
@@ -84,176 +92,130 @@ const Dashboard = () => {
     enabled: isMobile,
   });
 
-  // Swipe gestures for tab navigation
-  const tabs = ['overview', 'clinical'];
-  const currentTabIndex = tabs.indexOf(activeTab);
-
-  // Disable swipe gestures on mobile to prevent conflicts with game carousels
-  // Tab switching is tap-only for better accessibility and UX
-  useSwipeGesture({
-    onSwipeLeft: () => {
-      if (currentTabIndex < tabs.length - 1) {
-        handleTabChange(tabs[currentTabIndex + 1]);
-      }
-    },
-    onSwipeRight: () => {
-      if (currentTabIndex > 0) {
-        handleTabChange(tabs[currentTabIndex - 1]);
-      }
-    },
-    enabled: false, // Disabled on all devices - tap-only navigation
-  });
-
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
       return;
     }
-
     if (user) {
       loadDashboardData();
       fetchLatestAssessment();
     }
   }, [user, authLoading, navigate]);
 
-  // Effect to handle pending lesson navigation after assessment completes
   useEffect(() => {
     if (pendingLessonNavigation && lesson && !showCapabilityAssessment) {
-      console.log('[Dashboard] Lesson ready after assessment, navigating to /lesson');
       setPendingLessonNavigation(false);
       navigate("/lesson", { state: { lesson, clinicalProfile } });
     }
   }, [pendingLessonNavigation, lesson, showCapabilityAssessment, navigate]);
 
-
   const loadDashboardData = async () => {
     if (!user) return;
-    
     try {
       const [streakVal, repsVal, progressVal] = await Promise.all([
         calculateStreak(user.id),
         getTotalReps(user.id),
-        getTodayProgress(user.id, 20)
+        getTodayProgress(user.id, 20),
       ]);
-
       const { data: achievements } = await supabase
-        .from('achievements')
-        .select('id')
-        .eq('user_id', user.id);
-
-      // Must query the ACTIVE profile, not just any profile for this user
+        .from("achievements")
+        .select("id")
+        .eq("user_id", user.id);
       const { data: profileData } = await supabase
-        .from('profiles')
-        .select('clinical_profile')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
+        .from("profiles")
+        .select("clinical_profile")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
         .maybeSingle();
-
       if (profileData?.clinical_profile) {
         setClinicalProfile(profileData.clinical_profile as unknown as ClinicalProfile);
       }
-
       setStreak(streakVal);
       setTotalReps(repsVal);
       setTodayProgress(progressVal);
       setAchievementCount(achievements?.length || 0);
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      console.error("Failed to load dashboard data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Memoize computed values for performance - MUST be before any conditional returns
   const recommendations = useMemo(
-    () => clinicalProfile ? getExerciseRecommendations(clinicalProfile) : [],
+    () => (clinicalProfile ? getExerciseRecommendations(clinicalProfile) : []),
     [clinicalProfile]
   );
-  
   const recommendedExercises = useMemo(
-    () => recommendations.length > 0 
-      ? EXERCISES.filter(ex => recommendations.some(r => r.slug === ex.id))
-      : EXERCISES,
+    () =>
+      recommendations.length > 0
+        ? EXERCISES.filter((ex) => recommendations.some((r) => r.slug === ex.id))
+        : EXERCISES,
     [recommendations]
   );
+  const recentAchievements = useMemo(
+    () => [
+      { label: "First Session Complete", icon: Trophy, date: "Today" },
+      { label: "3-Day Streak", icon: Flame, date: "Today" },
+    ],
+    []
+  );
 
-  const recentAchievements = useMemo(() => [
-    { label: "First Session Complete", icon: Trophy, date: "Today" },
-    { label: "3-Day Streak", icon: Flame, date: "Today" },
-    { label: "50 Reps Milestone", icon: Award, date: "Yesterday" }
-  ], []);
-
-  // Create context value
-  const dashboardContextValue = useMemo(() => ({
-    userId: user?.id || '',
-    streak,
-    totalReps,
-    achievementCount,
-    todayProgress,
-    clinicalProfile,
-    exercises: EXERCISES,
-    recommendations,
-    recommendedExercises,
-    checkExerciseAccess,
-    getAdaptations,
-    hasAssessment,
-    hasSoftOverride,
-    lesson,
-    todayFocus,
-    redFlags,
-    doseCap,
-    learningRates,
-    clusterComparisons,
-    learningRatesLoading,
-    currentAssessment,
-    previousAssessment,
-    onStartAssessment: () => setShowCapabilityAssessment(true),
-    recentAchievements
-  }), [
-    user?.id,
-    streak,
-    totalReps,
-    achievementCount,
-    todayProgress,
-    clinicalProfile,
-    recommendations,
-    recommendedExercises,
-    checkExerciseAccess,
-    getAdaptations,
-    hasAssessment,
-    hasSoftOverride,
-    lesson,
-    todayFocus,
-    redFlags,
-    doseCap,
-    learningRates,
-    clusterComparisons,
-    learningRatesLoading,
-    currentAssessment,
-    previousAssessment,
-    recentAchievements
-  ]);
+  const dashboardContextValue = useMemo(
+    () => ({
+      userId: user?.id || "",
+      streak,
+      totalReps,
+      achievementCount,
+      todayProgress,
+      clinicalProfile,
+      exercises: EXERCISES,
+      recommendations,
+      recommendedExercises,
+      checkExerciseAccess,
+      getAdaptations,
+      hasAssessment,
+      hasSoftOverride,
+      lesson,
+      todayFocus,
+      redFlags,
+      doseCap,
+      learningRates,
+      clusterComparisons,
+      learningRatesLoading,
+      currentAssessment,
+      previousAssessment,
+      onStartAssessment: () => setShowCapabilityAssessment(true),
+      recentAchievements,
+    }),
+    [
+      user?.id, streak, totalReps, achievementCount, todayProgress,
+      clinicalProfile, recommendations, recommendedExercises,
+      checkExerciseAccess, getAdaptations, hasAssessment, hasSoftOverride,
+      lesson, todayFocus, redFlags, doseCap, learningRates,
+      clusterComparisons, learningRatesLoading, currentAssessment,
+      previousAssessment, recentAchievements,
+    ]
+  );
 
   const handleProfileSubmit = async (profile: ClinicalProfile) => {
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ clinical_profile: profile as any })
-        .eq('user_id', user!.id);
-
+        .eq("user_id", user!.id);
       if (error) throw error;
-
       setClinicalProfile(profile);
       setShowProfileDialog(false);
       loadDashboardData();
     } catch (error) {
-      console.error('Error saving clinical profile:', error);
+      console.error("Error saving clinical profile:", error);
     }
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    localStorage.setItem('dashboard-active-tab', value);
+    localStorage.setItem("dashboard-active-tab", value);
   };
 
   if (authLoading || loading) {
@@ -264,28 +226,32 @@ const Dashboard = () => {
     );
   }
 
-  // Patient Mode: Simple one-button interface
-  if (uiMode === 'patient') {
+  // Patient Mode
+  if (uiMode === "patient") {
     return (
-      <PatientModeView 
+      <PatientModeView
         userId={user!.id}
         profileId={activeProfile?.id || ""}
         clinicalProfile={clinicalProfile}
         onStartAssessment={() => {
-          console.log('[Dashboard] Patient mode starting assessment');
-          setAssessmentOrigin('patient');
+          setAssessmentOrigin("patient");
           setShowCapabilityAssessment(true);
         }}
       />
     );
   }
 
-  // Caregiver Mode: Full dashboard with all features
+  // Profile identity for header
+  const profileName = activeProfile?.profile_name || "Patient";
+  const strokeDays = daysSinceStroke(activeProfile?.stroke_date);
+  const alertCount = redFlags.filter(
+    (f) => f.severity === "red" || f.severity === "orange"
+  ).length;
+
   return (
     <div className="min-h-screen bg-gradient-calm">
       <DashboardQuickTour open={showQuickTour} onOpenChange={setShowQuickTour} />
-      
-      {/* Pull to Refresh Indicator */}
+
       {isMobile && (
         <PullToRefreshIndicator
           pullDistance={pullDistance}
@@ -295,120 +261,138 @@ const Dashboard = () => {
       )}
 
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl touch-manipulation">
-        {/* Header */}
-        <div className="mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-              Welcome Back! 👋
-            </h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Ready to continue your recovery journey?
-            </p>
+        {/* ── Profile Hub Header ── */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-1">
+                Recovery Profile
+              </h1>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                <span className="font-medium text-foreground">{profileName}</span>
+                {strokeDays !== null && (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <Calendar className="w-3 h-3" />
+                    Day {strokeDays}
+                  </Badge>
+                )}
+                {alertCount > 0 && (
+                  <Badge variant="destructive" className="gap-1 text-xs">
+                    <AlertCircle className="w-3 h-3" />
+                    {alertCount} alert{alertCount !== 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <ViewModeSelector />
+              <ProfileSwitcher />
+              <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]"
+                  >
+                    <Brain className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {clinicalProfile ? "Update" : "Set"} Profile
+                    </span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Clinical Profile</DialogTitle>
+                    <DialogDescription>
+                      Set up your clinical stroke profile for personalized therapy
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ClinicalProfileForm
+                    initialProfile={clinicalProfile || undefined}
+                    onSubmit={handleProfileSubmit}
+                    onCancel={() => setShowProfileDialog(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <ViewModeSelector />
-            <ProfileSwitcher />
-            
-            <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2 flex-1 md:flex-none touch-manipulation min-h-[44px]">
-                  <Brain className="w-4 h-4" />
-                  <span className="hidden sm:inline">{clinicalProfile ? 'Update' : 'Set'} Profile</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Clinical Profile</DialogTitle>
-                  <DialogDescription>
-                    Set up your clinical stroke profile for personalized therapy
-                  </DialogDescription>
-                </DialogHeader>
-                <ClinicalProfileForm
-                  initialProfile={clinicalProfile || undefined}
-                  onSubmit={handleProfileSubmit}
-                  onCancel={() => setShowProfileDialog(false)}
-                />
-              </DialogContent>
-            </Dialog>
+
+          {/* Quick Stats Row */}
+          <div className="grid grid-cols-3 gap-3 md:gap-4 mt-4">
+            <Card className="p-3 md:p-4 shadow-card border hover:border-primary transition-smooth">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-celebrate flex items-center justify-center shrink-0">
+                  <Flame className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-xl md:text-2xl font-bold text-foreground">{streak}</div>
+                  <div className="text-xs text-muted-foreground">Streak</div>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 md:p-4 shadow-card border hover:border-primary transition-smooth">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-healing flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-xl md:text-2xl font-bold text-foreground">{totalReps}</div>
+                  <div className="text-xs text-muted-foreground">Reps</div>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 md:p-4 shadow-card border hover:border-primary transition-smooth">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-success flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-xl md:text-2xl font-bold text-foreground">{achievementCount}</div>
+                  <div className="text-xs text-muted-foreground">Wins</div>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
-            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-celebrate flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="text-2xl md:text-3xl font-bold text-foreground">{streak}</div>
-                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Day Streak</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
-            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-healing flex items-center justify-center shrink-0">
-                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="text-2xl md:text-3xl font-bold text-foreground">{totalReps}</div>
-                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Total Reps</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 md:p-6 shadow-card border-2 hover:border-primary transition-smooth touch-manipulation">
-            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-success flex items-center justify-center shrink-0">
-                <Trophy className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div className="text-center md:text-left">
-                <div className="text-2xl md:text-3xl font-bold text-foreground">{achievementCount}</div>
-                <div className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Wins</div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Tabbed Dashboard */}
+        {/* ── 4-Tab Profile Hub ── */}
         <DashboardProvider value={dashboardContextValue}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="overview" className="gap-2">
-                <Activity className="w-4 h-4" />
-                Overview
-                {!flagsLoading && redFlags.length > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                    {redFlags.length}
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
+                <LayoutDashboard className="w-4 h-4" />
+                <span className="hidden sm:inline">Overview</span>
+                {!flagsLoading && alertCount > 0 && (
+                  <Badge variant="destructive" className="ml-0.5 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                    {alertCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="clinical" className="gap-2">
-                <Stethoscope className="w-4 h-4" />
-                Clinical
-                {!clinicalProfile && (
-                  <Badge variant="secondary" className="ml-1">
-                    <AlertCircle className="w-3 h-3" />
-                  </Badge>
-                )}
+              <TabsTrigger value="domains" className="gap-1.5 text-xs sm:text-sm">
+                <Brain className="w-4 h-4" />
+                <span className="hidden sm:inline">Domains</span>
+              </TabsTrigger>
+              <TabsTrigger value="progress" className="gap-1.5 text-xs sm:text-sm">
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Progress</span>
+              </TabsTrigger>
+              <TabsTrigger value="plan" className="gap-1.5 text-xs sm:text-sm">
+                <ClipboardList className="w-4 h-4" />
+                <span className="hidden sm:inline">Plan</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
-              <div className="space-y-6">
-                {/* Insights CTA Card */}
-                <InsightsCTACard />
-                
-                {/* Overview content */}
-                <OverviewTab />
-              </div>
+              <OverviewTab />
             </TabsContent>
-
-            <TabsContent value="clinical">
-              <ClinicalTab />
+            <TabsContent value="domains">
+              <DomainsTab />
+            </TabsContent>
+            <TabsContent value="progress">
+              <ProgressTab />
+            </TabsContent>
+            <TabsContent value="plan">
+              <PlanTab />
             </TabsContent>
           </Tabs>
         </DashboardProvider>
@@ -421,42 +405,25 @@ const Dashboard = () => {
           profileId={activeProfile.id}
           clinicalProfile={clinicalProfile}
           onComplete={async (result: AssessmentResult) => {
-            console.log('[Dashboard] Assessment completed:', result);
             const origin = assessmentOrigin;
-            
-            // Close modal
             setShowCapabilityAssessment(false);
-            
-            // Await fresh assessment data (context will auto-update)
-            console.log('[Dashboard] Waiting for assessment context to refresh...');
             const freshAssessment = await fetchLatestAssessment();
-            console.log('[Dashboard] Assessment data refreshed:', !!freshAssessment);
-            
-            // If assessment started from patient mode, navigate directly to lesson with flags
-            if (origin === 'patient') {
-              console.log('[Dashboard] Patient mode origin - regenerating lesson with fresh scores');
-              
-              // Pass fresh assessment directly to bypass stale hook state
+            if (origin === "patient") {
               const freshLesson = await regenerateLesson(freshAssessment);
-              console.log('[Dashboard] Lesson regeneration result:', !!freshLesson);
-              
               if (freshLesson) {
-                console.log('[Dashboard] Navigating to lesson with skipDailyCheck and autoStart flags');
-                navigate('/lesson', {
+                navigate("/lesson", {
                   state: {
                     lesson: freshLesson,
                     clinicalProfile,
-                    skipDailyCheck: true,  // Skip daily check (just did full assessment)
-                    autoStart: true,       // Skip lesson overview (patient mode)
-                  }
+                    skipDailyCheck: true,
+                    autoStart: true,
+                  },
                 });
               } else {
-                console.warn('[Dashboard] No lesson generated after assessment; falling back to patient mode');
-                setUiMode('patient');
+                setUiMode("patient");
               }
               setAssessmentOrigin(null);
             } else {
-              // Caregiver mode: just show success toast
               toast.success("Assessment complete! Start an exercise when you're ready.");
               setAssessmentOrigin(null);
             }
