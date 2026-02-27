@@ -250,7 +250,7 @@ function extractDepthMetrics(trials: ExerciseTrialRow[]): {
     avgInterferenceIndex: interCount > 0 ? interSum / interCount : null,
     avgMeanUtteranceLength: avgMUL,
     normalizedMUL: avgMUL !== null ? avgMUL / MAX_MUL : null,
-    depthTrialCount: Math.max(coherenceCount, eventCovCount, seqCount, absCount, interCount),
+    depthTrialCount: Math.max(coherenceCount, eventCovCount, seqCount, absCount, interCount, mulCount),
   };
 }
 
