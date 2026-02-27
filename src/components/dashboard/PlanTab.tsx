@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Target, Brain, Play, Gamepad2, Plus, AlertCircle,
-  ClipboardList, Clock,
+  ClipboardList, Clock, Lightbulb,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -56,6 +56,81 @@ export const PlanTab = memo(function PlanTab() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Plan Rationale — why today's focus */}
+      {todayFocus && (
+        <Card className="p-4 bg-primary/5 border-primary/20">
+          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-primary" />
+            Today's Focus Rationale
+          </h4>
+          {todayFocus.reasoning && todayFocus.reasoning.length > 0 ? (
+            <ul className="text-sm text-muted-foreground space-y-1">
+              {todayFocus.reasoning.map((r: string, i: number) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>{r}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Plan generated based on your recovery profile and recent performance.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Dosing & Tolerance Guidance */}
+      {doseCap && (
+        <Card className="p-4">
+          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            Dosing Guidance
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+              <p className="text-muted-foreground text-xs">Today</p>
+              <p className="font-medium tabular-nums">
+                {doseCap.todayMinutes} / {doseCap.dailyCapMinutes} min
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Session cap</p>
+              <p className="font-medium tabular-nums">
+                {doseCap.sessionCapMinutes ?? 30} min
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Status</p>
+              <Badge
+                variant={
+                  doseCap.warningLevel === "safe"
+                    ? "default"
+                    : doseCap.warningLevel === "limit"
+                    ? "destructive"
+                    : "secondary"
+                }
+                className="text-xs"
+              >
+                {doseCap.warningLevel === "safe"
+                  ? "Ready"
+                  : doseCap.warningLevel === "limit"
+                  ? "Goal reached"
+                  : `${doseCap.minutesRemaining}min left`}
+              </Badge>
+            </div>
+            {doseCap.enforceCaps && (
+              <div>
+                <p className="text-muted-foreground text-xs">Caps</p>
+                <Badge variant="outline" className="text-xs">
+                  Enforced
+                </Badge>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Today's Plan — primary action */}
       {!isClinician && (
         <section>
