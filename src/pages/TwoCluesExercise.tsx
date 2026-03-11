@@ -210,6 +210,7 @@ export default function TwoCluesExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
           />
         )}
       </main>
