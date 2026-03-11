@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   BarChart3,
+  MessageSquareText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PHOTO_BANK } from '@/data/photoBank';
