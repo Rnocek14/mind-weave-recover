@@ -248,7 +248,10 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
       </Card>
 
       {/* Coverage Gap Recommendations */}
-      <AdaptationCoverageGaps summary={summary} />
+      <AdaptationCoverageGaps summary={summary} onExerciseClick={(slug) => {
+        setExerciseFilter(slug);
+        document.getElementById('outcomes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }} />
     </div>
   );
 };
