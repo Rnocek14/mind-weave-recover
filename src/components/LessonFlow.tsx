@@ -237,11 +237,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     // Detect if this is a preset lesson for telemetry
     const isPreset = lesson.reasoning?.[0]?.startsWith('Preset:');
     
+    // Pass focusPhonemes and preferredCueType from adaptive engine
+    const focusPhonemes = todayFocus?.adaptations?.focusPhonemes;
+    const preferredCueType = todayFocus?.adaptations?.preferredCueType;
+    
     navigate(route, { 
       state: { 
         sessionId,
         adaptations: appliedAdaptations,
         focusWords: focusWords?.slice(0, 5),
+        focusPhonemes: focusPhonemes?.length ? focusPhonemes : undefined,
+        preferredCueType: preferredCueType || undefined,
         fromLesson: true,
         trialLimit: currentBlock?.trialLimit ?? undefined,
         blockIndex: currentBlockIndex,
