@@ -108,6 +108,7 @@ export function TwoCluesGame({
   sessionId,
   userId,
   profileId,
+  focusPhonemes,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
