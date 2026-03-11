@@ -3,13 +3,23 @@
  * 
  * Shows adapted vs non-adapted accuracy comparisons
  * to prove adaptation is improving performance.
+ * 
+ * Includes per-game filtering via exercise selector.
  */
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TrendingUp, TrendingDown, Minus, BarChart3, Info } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { TrendingUp, TrendingDown, Minus, BarChart3, Info, Filter } from 'lucide-react';
 import { useAdaptationOutcomes, type OutcomeComparison } from '@/hooks/useAdaptationOutcomes';
 import { cn } from '@/lib/utils';
 
@@ -18,8 +28,16 @@ interface AdaptationOutcomesPanelProps {
   daysBack?: number;
 }
 
+function formatSlug(slug: string): string {
+  return slug
+    .replace(/-/g, ' ')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export const AdaptationOutcomesPanel = ({ userId, daysBack = 14 }: AdaptationOutcomesPanelProps) => {
-  const { outcomes, isLoading } = useAdaptationOutcomes(userId, daysBack);
+  const [exerciseFilter, setExerciseFilter] = useState<string | undefined>(undefined);
+  const { outcomes, isLoading } = useAdaptationOutcomes(userId, daysBack, exerciseFilter);
 
   if (isLoading) {
     return (
@@ -54,8 +72,44 @@ export const AdaptationOutcomesPanel = ({ userId, daysBack = 14 }: AdaptationOut
     );
   }
 
+  const hasExercises = outcomes.availableExercises.length > 1;
+
   return (
     <div className="space-y-4">
+      {/* Header with Exercise Filter */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">
+            Adaptation vs Outcomes
+          </h3>
+          {exerciseFilter && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <Filter className="w-3 h-3" />
+              {formatSlug(exerciseFilter)}
+            </Badge>
+          )}
+        </div>
+        {hasExercises && (
+          <Select
+            value={exerciseFilter || '__all__'}
+            onValueChange={(v) => setExerciseFilter(v === '__all__' ? undefined : v)}
+          >
+            <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectValue placeholder="All exercises" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All exercises</SelectItem>
+              {outcomes.availableExercises.map(slug => (
+                <SelectItem key={slug} value={slug}>
+                  {formatSlug(slug)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
       {/* Hero Lift Card */}
       <Card className={cn(
         'border-2',
@@ -64,7 +118,9 @@ export const AdaptationOutcomesPanel = ({ userId, daysBack = 14 }: AdaptationOut
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Overall Adaptation Lift</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                {exerciseFilter ? `${formatSlug(exerciseFilter)} Lift` : 'Overall Adaptation Lift'}
+              </p>
               <p className={cn(
                 'text-3xl font-bold mt-1',
                 outcomes.overallLift > 0 ? 'text-primary' : 
@@ -98,7 +154,7 @@ export const AdaptationOutcomesPanel = ({ userId, daysBack = 14 }: AdaptationOut
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            Limited data: need ≥10 adapted and ≥10 non-adapted trials for reliable comparisons. Results are preliminary.
+            Limited data{exerciseFilter ? ` for ${formatSlug(exerciseFilter)}` : ''}: need ≥10 adapted and ≥10 non-adapted trials for reliable comparisons. Results are preliminary.
           </AlertDescription>
         </Alert>
       )}
