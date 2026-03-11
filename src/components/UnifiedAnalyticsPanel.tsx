@@ -33,6 +33,7 @@ import {
   Sparkles,
   RefreshCw,
   Fingerprint,
+  BookOpen,
 } from 'lucide-react';
 import { useUnifiedAnalytics, type ActiveAdaptation } from '@/hooks/useUnifiedAnalytics';
 import { useUiMode } from '@/hooks/useUiMode';
