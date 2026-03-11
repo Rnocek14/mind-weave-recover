@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings2, Clock, ChevronRight, Info } from 'lucide-react';
 import { useAdaptationTimeline } from '@/hooks/useAdaptationTimeline';
+import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
 import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
 import { cn } from '@/lib/utils';
