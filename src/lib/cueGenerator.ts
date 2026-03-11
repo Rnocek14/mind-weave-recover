@@ -209,7 +209,7 @@ export const generateFullCue = (target: string): string => {
 
 /**
  * Legacy function for backward compatibility
- * Uses basic cueing without error-pattern adaptation
+ * Now checks cueBank before falling back to generated cues
  */
 export const getCueText = (
   cueLevel: number,
