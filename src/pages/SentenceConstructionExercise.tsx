@@ -308,6 +308,7 @@ const SentenceConstructionExercise = () => {
           config={config}
           bounds={bounds}
           difficultyLevel={level}
+          focusPhonemes={adaptation.focusPhonemes}
           adaptations={getAdaptations('sentence-construction')}
           onTrialComplete={handleTrialComplete}
           onGameComplete={handleGameComplete}
