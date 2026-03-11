@@ -199,6 +199,11 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
         )}
       </CardContent>
     </Card>
+
+      {/* Evidence & Outcomes Panel - clinician+ only */}
+      {showEvidencePanel && (
+        <AdaptationProofPanel userId={userId} daysBack={14} />
+      )}
     </div>
   );
 }
