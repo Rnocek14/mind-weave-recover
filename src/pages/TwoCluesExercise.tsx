@@ -2,6 +2,7 @@
  * Two Clues Word Association Exercise Page
  * 
  * Wrapper page for the Two Clues game with session lifecycle management.
+ * Now uses shared AdaptationContract for phoneme targeting and cue personalization.
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -15,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
