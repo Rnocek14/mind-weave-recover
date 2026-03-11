@@ -158,6 +158,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
         </div>
       </div>
 
+      {/* Executive Summary Card */}
+      <AdaptationExecutiveSummary userId={userId} daysBack={daysBack} />
+
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <MiniKPI
