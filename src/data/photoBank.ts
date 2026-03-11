@@ -80,6 +80,22 @@ import yesImg from '@/assets/photos/yes.jpg';
 import yardImg from '@/assets/photos/yard.jpg';
 import yawnImg from '@/assets/photos/yawn.jpg';
 import yellImg from '@/assets/photos/yell.jpg';
+// Phoneme gap expansion - Batch 1
+import gateImg from '@/assets/photos/gate.jpg';
+import grapeImg from '@/assets/photos/grape.jpg';
+import gloveImg from '@/assets/photos/glove.jpg';
+import zooImg from '@/assets/photos/zoo.jpg';
+import zipImg from '@/assets/photos/zip.jpg';
+import lionImg from '@/assets/photos/lion.jpg';
+import lemonImg from '@/assets/photos/lemon.jpg';
+import duckImg from '@/assets/photos/duck.jpg';
+import drumImg from '@/assets/photos/drum.jpg';
+import ropeImg from '@/assets/photos/rope.jpg';
+import roseImg from '@/assets/photos/rose.jpg';
+import netImg from '@/assets/photos/net.jpg';
+import nutImg from '@/assets/photos/nut.jpg';
+import webImg from '@/assets/photos/web.jpg';
+import pieImg from '@/assets/photos/pie.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
