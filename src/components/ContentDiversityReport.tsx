@@ -133,6 +133,7 @@ function computeInventory() {
     cueStats,
     wordsWithCues: wordsWithCues.length,
     wordsWithoutCues,
+    phonemeMapCoverage,
     minimalPairsCount,
     phonemeCoverage: coverageArray,
     positionGaps: gaps.slice(0, 8),
