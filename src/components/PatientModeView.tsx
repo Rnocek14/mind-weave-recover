@@ -59,6 +59,12 @@ const PATIENT_GAME_INFO: Record<string, GameInfo> = {
   'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes', difficulty: 'challenge', category: 'thinking' },
   'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech' },
   'minimal-pairs': { emoji: '👂', name: 'Minimal Pairs', desc: 'Hear and choose the right word', difficulty: 'medium', category: 'speech' },
+  'detective-mind': { emoji: '🔍', name: 'Detective Mind', desc: 'Solve clues and figure things out', difficulty: 'challenge', category: 'thinking' },
+  'meaning-match': { emoji: '💡', name: 'Meaning Match', desc: 'Match words with their meanings', difficulty: 'easy', category: 'thinking' },
+  'narrative-retell': { emoji: '📖', name: 'Story Retell', desc: 'Listen to a story and retell it', difficulty: 'challenge', category: 'speech' },
+  'abstract-compare': { emoji: '⚖️', name: 'Compare Ideas', desc: 'Find what things have in common', difficulty: 'challenge', category: 'thinking' },
+  'multi-step-plan': { emoji: '📋', name: 'Plan Steps', desc: 'Put steps in the right order', difficulty: 'medium', category: 'thinking' },
+  'dual-load-naming': { emoji: '🔄', name: 'Quick Name', desc: 'Name things while multitasking', difficulty: 'challenge', category: 'speech' },
 };
 
 // Route map for exercises
