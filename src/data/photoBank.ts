@@ -112,6 +112,19 @@ import puppyImg from '@/assets/photos/puppy.jpg';
 import pigImg from '@/assets/photos/pig.jpg';
 import frogImg from '@/assets/photos/frog.jpg';
 import towelImg from '@/assets/photos/towel.jpg';
+// Phoneme gap expansion - Batch 3 (medial position gaps)
+import fingerImg from '@/assets/photos/finger.jpg';
+import rabbitImg from '@/assets/photos/rabbit.jpg';
+import ovenImg from '@/assets/photos/oven.jpg';
+import basketImg from '@/assets/photos/basket.jpg';
+import coffeeImg from '@/assets/photos/coffee.jpg';
+import kitchenImg from '@/assets/photos/kitchen.jpg';
+import bridgeImg from '@/assets/photos/bridge.jpg';
+import buttonImg from '@/assets/photos/button.jpg';
+import pigeonImg from '@/assets/photos/pigeon.jpg';
+import monkeyImg from '@/assets/photos/monkey.jpg';
+import garageImg from '@/assets/photos/garage.jpg';
+import birthdayImg from '@/assets/photos/birthday.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {

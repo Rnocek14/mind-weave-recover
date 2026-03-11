@@ -260,6 +260,20 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'candle': ['/k/', '/æ/', '/n/', '/d/', '/l/'],
   'puppy': ['/p/', '/ʌ/', '/p/', '/i/'],
   'towel': ['/t/', '/aʊ/', '/l/'],
+
+  // Batch 3 - medial position gap fills
+  'finger': ['/f/', '/ɪ/', '/ŋ/', '/g/', '/ɚ/'],
+  'rabbit': ['/r/', '/æ/', '/b/', '/ɪ/', '/t/'],
+  'oven': ['/ʌ/', '/v/', '/ə/', '/n/'],
+  'basket': ['/b/', '/æ/', '/s/', '/k/', '/ɪ/', '/t/'],
+  'coffee': ['/k/', '/ɔ/', '/f/', '/i/'],
+  'kitchen': ['/k/', '/ɪ/', '/tʃ/', '/ə/', '/n/'],
+  'bridge': ['/b/', '/r/', '/ɪ/', '/dʒ/'],
+  'button': ['/b/', '/ʌ/', '/t/', '/ə/', '/n/'],
+  'pigeon': ['/p/', '/ɪ/', '/dʒ/', '/ə/', '/n/'],
+  'monkey': ['/m/', '/ʌ/', '/ŋ/', '/k/', '/i/'],
+  'garage': ['/g/', '/ə/', '/r/', '/ɑ/', '/ʒ/'],
+  'birthday': ['/b/', '/ɜ/', '/r/', '/θ/', '/d/', '/eɪ/'],
 };
 
 // Normalize Azure phoneme output to match our map

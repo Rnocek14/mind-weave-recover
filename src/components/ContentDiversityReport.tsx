@@ -278,6 +278,37 @@ export function ContentDiversityReport() {
         </Card>
       )}
 
+      {/* Recommended Next Batch */}
+      {inventory.positionGaps.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              Recommended Next Batch
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Priority words to fill zero-coverage positions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1.5 text-xs">
+              {inventory.positionGaps.map((gap, i) => {
+                const suggestion = getGapSuggestion(gap.phoneme, gap.position);
+                if (!suggestion) return null;
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] border-primary/40 min-w-[80px] justify-center">
+                      {gap.phoneme} {gap.position}
+                    </Badge>
+                    <span className="text-muted-foreground">{suggestion}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Category breakdown */}
       <Card>
         <CardHeader className="pb-2">
@@ -295,6 +326,87 @@ export function ContentDiversityReport() {
       </Card>
     </div>
   );
+}
+
+// ─── Gap suggestions ─────────────────────────────────────────
+
+const GAP_SUGGESTIONS: Record<string, Record<string, string>> = {
+  '/θ/': {
+    initial: 'think, thank, thin',
+    medial: 'birthday, bathtub, toothbrush',
+    final: 'bath, mouth, cloth',
+  },
+  '/ð/': {
+    initial: 'this, that, the (function words — low priority)',
+    medial: 'brother, weather, feather',
+    final: 'breathe, bathe, smooth',
+  },
+  '/ʒ/': {
+    initial: '(does not occur in English)',
+    medial: 'treasure, measure, vision',
+    final: 'beige, garage, massage',
+  },
+  '/ŋ/': {
+    initial: '(does not occur in English)',
+    medial: 'finger, monkey, hanger',
+    final: 'ring, king, swing',
+  },
+  '/h/': {
+    initial: 'house, hat, hen',
+    medial: '(rare in English)',
+    final: '(does not occur in English)',
+  },
+  '/w/': {
+    initial: 'watch, web, wagon',
+    medial: '(treated as onset in English)',
+    final: '(does not occur in English)',
+  },
+  '/j/': {
+    initial: 'yellow, yes, yard',
+    medial: '(treated as onset in English)',
+    final: '(does not occur in English)',
+  },
+  '/v/': {
+    initial: 'van, vase, vest',
+    medial: 'oven, river, seven',
+    final: 'glove, five, dove',
+  },
+  '/tʃ/': {
+    initial: 'chair, cheese, chip',
+    medial: 'kitchen, ketchup, teacher',
+    final: 'watch, match, beach',
+  },
+  '/dʒ/': {
+    initial: 'jar, jug, jet',
+    medial: 'pigeon, magic, soldier',
+    final: 'bridge, fridge, badge',
+  },
+  '/s/': {
+    initial: 'star, spoon, sun',
+    medial: 'basket, pencil, whistle',
+    final: 'house, bus, dress',
+  },
+  '/f/': {
+    initial: 'fan, fish, flower',
+    medial: 'coffee, muffin, dolphin',
+    final: 'leaf, knife, roof',
+  },
+  '/b/': {
+    initial: 'ball, book, bed',
+    medial: 'rabbit, ribbon, elbow',
+    final: 'cab, web, crab',
+  },
+  '/t/': {
+    initial: 'tree, towel, tiger',
+    medial: 'button, water, kitten',
+    final: 'cat, hat, net',
+  },
+};
+
+function getGapSuggestion(phoneme: string, position: string): string | null {
+  const suggestions = GAP_SUGGESTIONS[phoneme];
+  if (!suggestions) return `Add words with ${phoneme} in ${position} position`;
+  return suggestions[position] || `Add words with ${phoneme} in ${position} position`;
 }
 
 // ─── Sub-components ──────────────────────────────────────────
