@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings2, Clock, ChevronRight, Info } from 'lucide-react';
 import { useAdaptationTimeline } from '@/hooks/useAdaptationTimeline';
+import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
 import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,11 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
   }
 
   return (
-    <Card id="adaptations">
+    <div className="space-y-4">
+      {/* Executive Summary */}
+      <AdaptationExecutiveSummary userId={userId} daysBack={14} />
+
+      <Card id="adaptations">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Settings2 className="w-5 h-5" />
@@ -191,5 +196,6 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
