@@ -24,8 +24,9 @@ interface AdaptationsSectionProps {
 }
 
 export function AdaptationsSection({ userId, profileId, todayFocus }: AdaptationsSectionProps) {
-  // Note: profileId will be used when useAdaptationTimeline supports it
   const { events, isLoading } = useAdaptationTimeline(userId, 14);
+  const { isAtLeast } = useUiMode();
+  const showEvidencePanel = isAtLeast('clinician');
 
   // Format adaptation description with "why"
   const formatEvent = (event: any) => {
