@@ -240,14 +240,12 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
 
   // /d/ - alveolar plosive (initial, expanded)
   'drum': ['/d/', '/r/', '/ʌ/', '/m/'],
-  'duck': ['/d/', '/ʌ/', '/k/'],
   'desk': ['/d/', '/ɛ/', '/s/', '/k/'],
   'dish': ['/d/', '/ɪ/', '/ʃ/'],
   'dot': ['/d/', '/ɑ/', '/t/'],
 
   // /l/ - expanded
   'lemon': ['/l/', '/ɛ/', '/m/', '/ə/', '/n/'],
-  'lock': ['/l/', '/ɑ/', '/k/'],
 };
 
 // Normalize Azure phoneme output to match our map
