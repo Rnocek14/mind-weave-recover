@@ -37,8 +37,13 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } from '@/hooks/useAdaptationProof';
+import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
+import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
+import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
+import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 interface AdaptationProofPanelProps {
   userId: string;
