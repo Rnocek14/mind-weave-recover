@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, Minus, BarChart3, Info, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, BarChart3, Info, Filter, X } from 'lucide-react';
 import { useAdaptationOutcomes, type OutcomeComparison } from '@/hooks/useAdaptationOutcomes';
 import { cn } from '@/lib/utils';
 
