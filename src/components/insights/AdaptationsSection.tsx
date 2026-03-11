@@ -26,7 +26,7 @@ interface AdaptationsSectionProps {
 export function AdaptationsSection({ userId, profileId, todayFocus }: AdaptationsSectionProps) {
   const { events, isLoading } = useAdaptationTimeline(userId, 14);
   const { isAtLeast } = useUiMode();
-  const showEvidencePanel = isAtLeast('clinician');
+  const showEvidencePanel = isAtLeast('caregiver');
 
   // Format adaptation description with "why"
   const formatEvent = (event: any) => {
