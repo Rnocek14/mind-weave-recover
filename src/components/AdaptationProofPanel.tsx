@@ -193,7 +193,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
       </div>
 
       {/* Adaptation vs Outcomes */}
-      <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} />
+      <div id="outcomes-panel">
+        <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} exerciseFilter={exerciseFilter} onExerciseFilterChange={setExerciseFilter} />
+      </div>
 
       {/* Data Quality Warnings */}
       {summary.globalDataQuality.length > 0 && (
