@@ -41,6 +41,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     category: 'bathroom',
     difficulty: 1,
     errorType: 'category_error',
+    phonemeTargets: ['/s/', '/p/', '/t/'],
   },
   {
     id: 'fs_2',
