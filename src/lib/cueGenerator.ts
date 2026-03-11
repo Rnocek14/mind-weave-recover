@@ -181,6 +181,10 @@ export const generateSemanticCue = (
  * Enhanced phonemic cue using linguistic features
  */
 export const generatePhonologicalCue = (target: string, features?: LinguisticFeatures): string => {
+  // Try cueBank first
+  const bankCue = getCueBankText(target, 'phonemic');
+  if (bankCue) return bankCue;
+
   if (features) {
     const firstSound = features.first_phoneme;
     
