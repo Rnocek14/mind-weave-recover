@@ -96,6 +96,22 @@ import netImg from '@/assets/photos/net.jpg';
 import nutImg from '@/assets/photos/nut.jpg';
 import webImg from '@/assets/photos/web.jpg';
 import pieImg from '@/assets/photos/pie.jpg';
+// Phoneme gap expansion - Batch 2 (medial/final positions)
+import wagonImg from '@/assets/photos/wagon.jpg';
+import tigerImg from '@/assets/photos/tiger.jpg';
+import bagImg from '@/assets/photos/bag.jpg';
+import puzzleImg from '@/assets/photos/puzzle.jpg';
+import pillowImg from '@/assets/photos/pillow.jpg';
+import bellImg from '@/assets/photos/bell.jpg';
+import carrotImg from '@/assets/photos/carrot.jpg';
+import mirrorImg from '@/assets/photos/mirror.jpg';
+import ladderImg from '@/assets/photos/ladder.jpg';
+import bananaImg from '@/assets/photos/banana.jpg';
+import candleImg from '@/assets/photos/candle.jpg';
+import puppyImg from '@/assets/photos/puppy.jpg';
+import pigImg from '@/assets/photos/pig.jpg';
+import frogImg from '@/assets/photos/frog.jpg';
+import towelImg from '@/assets/photos/towel.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -2378,6 +2394,401 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 1,
     minLevel: 1,
     maxLevel: 4,
+  },
+  // ============================================
+  // PHONEME GAP EXPANSION - BATCH 2
+  // Focus: Medial and final position coverage
+  // ============================================
+  
+  // /g/ medial - wagon
+  {
+    id: 'wagon_1',
+    imageUrl: wagonImg,
+    target: 'wagon',
+    semanticFoils: ['cart', 'truck', 'sled', 'trailer'],
+    phonologicalFoils: ['dragon', 'flagon', 'ribbon'],
+    category: 'transportation',
+    features: {
+      frequency_rank: 5000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/w/',
+      semantic_category: 'vehicle',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /g/ medial - tiger
+  {
+    id: 'tiger_1',
+    imageUrl: tigerImg,
+    target: 'tiger',
+    semanticFoils: ['lion', 'leopard', 'cheetah', 'panther'],
+    phonologicalFoils: ['finger', 'liger', 'dagger'],
+    category: 'animals',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/t/',
+      semantic_category: 'wild_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  // /g/ final - bag
+  {
+    id: 'bag_1',
+    imageUrl: bagImg,
+    target: 'bag',
+    semanticFoils: ['box', 'basket', 'sack', 'case'],
+    phonologicalFoils: ['tag', 'rag', 'flag'],
+    category: 'objects',
+    features: {
+      frequency_rank: 2000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'container',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  // /z/ medial - puzzle
+  {
+    id: 'puzzle_1',
+    imageUrl: puzzleImg,
+    target: 'puzzle',
+    semanticFoils: ['game', 'riddle', 'maze', 'toy'],
+    phonologicalFoils: ['muzzle', 'nuzzle', 'guzzle'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 6,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/p/',
+      semantic_category: 'game',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /l/ medial - pillow
+  {
+    id: 'pillow_1',
+    imageUrl: pillowImg,
+    target: 'pillow',
+    semanticFoils: ['blanket', 'cushion', 'mattress', 'sheet'],
+    phonologicalFoils: ['willow', 'billow', 'fellow'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/p/',
+      semantic_category: 'bedding',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  // /l/ final - bell
+  {
+    id: 'bell_1',
+    imageUrl: bellImg,
+    target: 'bell',
+    semanticFoils: ['horn', 'drum', 'chime', 'gong'],
+    phonologicalFoils: ['well', 'tell', 'sell'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/b/',
+      semantic_category: 'sound_maker',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  // /r/ medial - carrot
+  {
+    id: 'carrot_1',
+    imageUrl: carrotImg,
+    target: 'carrot',
+    semanticFoils: ['potato', 'celery', 'turnip', 'beet'],
+    phonologicalFoils: ['parrot', 'ferret', 'merit'],
+    category: 'food',
+    features: {
+      frequency_rank: 5000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/k/',
+      semantic_category: 'vegetable',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /r/ medial - mirror
+  {
+    id: 'mirror_1',
+    imageUrl: mirrorImg,
+    target: 'mirror',
+    semanticFoils: ['window', 'glass', 'picture', 'frame'],
+    phonologicalFoils: ['river', 'dinner', 'winner'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/m/',
+      semantic_category: 'reflective_surface',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /d/ medial - ladder
+  {
+    id: 'ladder_1',
+    imageUrl: ladderImg,
+    target: 'ladder',
+    semanticFoils: ['stairs', 'step', 'ramp', 'elevator'],
+    phonologicalFoils: ['matter', 'batter', 'scatter'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/l/',
+      semantic_category: 'climbing_tool',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /n/ medial - banana
+  {
+    id: 'banana_1',
+    imageUrl: bananaImg,
+    target: 'banana',
+    semanticFoils: ['apple', 'orange', 'mango', 'peach'],
+    phonologicalFoils: ['bandana', 'cabana', 'iguana'],
+    category: 'food',
+    features: {
+      frequency_rank: 3500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 3,
+      phoneme_count: 6,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/b/',
+      semantic_category: 'fruit',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  // /n/ medial + /d/ medial - candle
+  {
+    id: 'candle_1',
+    imageUrl: candleImg,
+    target: 'candle',
+    semanticFoils: ['lamp', 'torch', 'lantern', 'light'],
+    phonologicalFoils: ['handle', 'sandal', 'vandal'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/k/',
+      semantic_category: 'light_source',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  // /p/ medial - puppy
+  {
+    id: 'puppy_1',
+    imageUrl: puppyImg,
+    target: 'puppy',
+    semanticFoils: ['kitten', 'bunny', 'cub', 'dog'],
+    phonologicalFoils: ['guppy', 'yuppie', 'happy'],
+    category: 'animals',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/p/',
+      semantic_category: 'baby_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  // /p/ initial + /g/ final - pig
+  {
+    id: 'pig_1',
+    imageUrl: pigImg,
+    target: 'pig',
+    semanticFoils: ['cow', 'sheep', 'horse', 'goat'],
+    phonologicalFoils: ['big', 'dig', 'wig'],
+    category: 'animals',
+    features: {
+      frequency_rank: 3000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/p/',
+      semantic_category: 'farm_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  // /r/ initial + /g/ final - frog
+  {
+    id: 'frog_1',
+    imageUrl: frogImg,
+    target: 'frog',
+    semanticFoils: ['toad', 'lizard', 'snake', 'turtle'],
+    phonologicalFoils: ['log', 'dog', 'fog'],
+    category: 'animals',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/f/',
+      semantic_category: 'amphibian',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  // /l/ final - towel
+  {
+    id: 'towel_1',
+    imageUrl: towelImg,
+    target: 'towel',
+    semanticFoils: ['cloth', 'blanket', 'napkin', 'sheet'],
+    phonologicalFoils: ['vowel', 'trowel', 'bowel'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/t/',
+      semantic_category: 'fabric',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
   },
 ];
 /**

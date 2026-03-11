@@ -39,7 +39,10 @@ const PHOTO_WORDS = new Set([
   'yellow', 'treasure', 'measure', 'yes', 'yard', 'yawn', 'yell',
   // Phoneme gap expansion - Batch 1
   'gate', 'grape', 'glove', 'zoo', 'zip', 'lion', 'lemon',
-  'duck', 'drum', 'rope', 'rose', 'net', 'nut', 'web', 'pie'
+  'duck', 'drum', 'rope', 'rose', 'net', 'nut', 'web', 'pie',
+  // Phoneme gap expansion - Batch 2
+  'wagon', 'tiger', 'bag', 'puzzle', 'pillow', 'bell', 'carrot',
+  'mirror', 'ladder', 'banana', 'candle', 'puppy', 'pig', 'frog', 'towel'
 ]);
 
 // Semantic categories for foil generation
