@@ -84,6 +84,7 @@ const App = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/about" element={<About />} />
                   
                   {/* Exercise routes - no header for immersive experience */}
                   <Route path="/exercise/:exerciseId" element={<Exercise />} />
