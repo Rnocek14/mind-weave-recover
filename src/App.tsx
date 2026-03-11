@@ -14,6 +14,7 @@ import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import SessionHistory from "./pages/SessionHistory";
 import CaregiverPortal from "./pages/CaregiverPortal";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import AdminPipeline from "./pages/AdminPipeline";
 import ParserAnalytics from "./pages/ParserAnalytics";
@@ -81,6 +82,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   
                   {/* Exercise routes - no header for immersive experience */}
                   <Route path="/exercise/:exerciseId" element={<Exercise />} />

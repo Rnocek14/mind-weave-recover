@@ -27,6 +27,24 @@ const Auth = () => {
     }
   }, [user, loading, navigate]);
 
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setResetSent(true);
+      toast({ title: "Check your email", description: "We sent a password reset link." });
+    }
+    setSubmitting(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -110,10 +128,39 @@ const Auth = () => {
           </div>
           <h1 className="text-2xl font-bold">Welcome to NeuroRecover</h1>
           <p className="text-muted-foreground">
-            {isSignUp ? "Create an account to save your progress" : "Sign in to continue your journey"}
+            {forgotMode
+              ? (resetSent ? "Check your email for a reset link" : "Enter your email to reset your password")
+              : isSignUp ? "Create an account to save your progress" : "Sign in to continue your journey"}
           </p>
         </div>
 
+        {forgotMode ? (
+          resetSent ? (
+            <Button variant="outline" className="w-full" onClick={() => { setForgotMode(false); setResetSent(false); }}>
+              Back to Sign In
+            </Button>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full bg-gradient-healing" disabled={submitting}>
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Reset Link"}
+              </Button>
+              <button type="button" className="text-sm text-primary hover:underline w-full text-center" onClick={() => setForgotMode(false)}>
+                Back to Sign In
+              </button>
+            </form>
+          )
+        ) : (
+        <>
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSignUp && (
             <div className="space-y-2">
@@ -151,6 +198,12 @@ const Auth = () => {
             />
           </div>
 
+          {!isSignUp && (
+            <button type="button" className="text-sm text-primary hover:underline" onClick={() => setForgotMode(true)}>
+              Forgot password?
+            </button>
+          )}
+
           <Button 
             type="submit" 
             className="w-full bg-gradient-healing"
@@ -182,7 +235,6 @@ const Auth = () => {
           Start Without Account
         </Button>
 
-
         <p className="text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
           <button
@@ -193,6 +245,8 @@ const Auth = () => {
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>
         </p>
+        </>
+        )}
       </Card>
     </div>
   );
