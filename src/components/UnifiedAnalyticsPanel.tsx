@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   Sparkles,
   RefreshCw,
+  Fingerprint,
 } from 'lucide-react';
 import { useUnifiedAnalytics, type ActiveAdaptation } from '@/hooks/useUnifiedAnalytics';
 import { useUiMode } from '@/hooks/useUiMode';
@@ -39,6 +40,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus, ConfidenceLevel } from '@/lib/adaptiveDecisionEngine';
 import { getConfidenceBadgeColor } from '@/lib/adaptiveDecisionEngine';
 import { cn } from '@/lib/utils';
+import { AdaptationProofPanel } from '@/components/AdaptationProofPanel';
 
 interface UnifiedAnalyticsPanelProps {
   userId: string;
@@ -91,6 +93,12 @@ export const UnifiedAnalyticsPanel = ({
                 )}
               </TabsTrigger>
             )}
+            {showAdaptationsTab && (
+              <TabsTrigger value="proof" className="gap-2">
+                <Fingerprint className="w-4 h-4" />
+                Evidence
+              </TabsTrigger>
+            )}
           </TabsList>
           
           <Button variant="ghost" size="sm" onClick={refresh} className="gap-2">
@@ -118,6 +126,13 @@ export const UnifiedAnalyticsPanel = ({
               showEvidence={showDetailedEvidence}
               showAdmin={showAdminDiagnostics}
             />
+          </TabsContent>
+        )}
+
+        {/* Tab 3: Adaptation Evidence */}
+        {showAdaptationsTab && (
+          <TabsContent value="proof" className="space-y-4">
+            <AdaptationProofPanel userId={userId} daysBack={14} />
           </TabsContent>
         )}
       </Tabs>
