@@ -11,8 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings2, Clock, ChevronRight, Info } from 'lucide-react';
 import { useAdaptationTimeline } from '@/hooks/useAdaptationTimeline';
 import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
+import { AdaptationProofPanel } from '@/components/AdaptationProofPanel';
 import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
+import { useUiMode } from '@/hooks/useUiMode';
 import { cn } from '@/lib/utils';
 
 interface AdaptationsSectionProps {
@@ -22,8 +24,9 @@ interface AdaptationsSectionProps {
 }
 
 export function AdaptationsSection({ userId, profileId, todayFocus }: AdaptationsSectionProps) {
-  // Note: profileId will be used when useAdaptationTimeline supports it
   const { events, isLoading } = useAdaptationTimeline(userId, 14);
+  const { isAtLeast } = useUiMode();
+  const showEvidencePanel = isAtLeast('clinician');
 
   // Format adaptation description with "why"
   const formatEvent = (event: any) => {
@@ -196,6 +199,11 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
         )}
       </CardContent>
     </Card>
+
+      {/* Evidence & Outcomes Panel - clinician+ only */}
+      {showEvidencePanel && (
+        <AdaptationProofPanel userId={userId} daysBack={14} />
+      )}
     </div>
   );
 }
