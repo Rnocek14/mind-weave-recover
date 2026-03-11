@@ -16,7 +16,8 @@ import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner'
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
-import { getTrialsByTargetWords } from '@/data/phonologicalBank';
+import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
