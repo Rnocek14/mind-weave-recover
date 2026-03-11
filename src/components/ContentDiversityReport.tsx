@@ -48,6 +48,9 @@ function computeInventory() {
   const wordsWithCues = photoWords.filter(w => hasCueCoverage(w));
   const wordsWithoutCues = photoWords.filter(w => !hasCueCoverage(w));
   
+  // Phoneme-map coverage
+  const phonemeMapCoverage = getPhonemeMapCoverage(photoWords);
+  
   // Minimal pairs
   const minimalPairsCount = MINIMAL_PAIRS.length;
   
