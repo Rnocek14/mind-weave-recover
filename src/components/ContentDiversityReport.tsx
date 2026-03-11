@@ -128,6 +128,9 @@ function computeInventory() {
     categories.set(cat, (categories.get(cat) || 0) + 1);
   }
   
+  // Graded sentence stats
+  const sentenceStats = getGradedSentenceBankStats();
+  
   return {
     photoWords,
     photoWordCount: photoWords.length,
@@ -140,6 +143,7 @@ function computeInventory() {
     phonemeCoverage: coverageArray,
     positionGaps: gaps.slice(0, 8),
     categories: [...categories.entries()].sort((a, b) => b[1] - a[1]),
+    sentenceStats,
   };
 }
 
