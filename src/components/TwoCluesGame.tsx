@@ -214,6 +214,7 @@ export function TwoCluesGame({
 
   const game = useTwoCluesGame({
     roundCount,
+    focusPhonemes,
     onTrialComplete,
     onGameComplete,
   });
