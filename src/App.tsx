@@ -14,6 +14,7 @@ import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import SessionHistory from "./pages/SessionHistory";
 import CaregiverPortal from "./pages/CaregiverPortal";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import AdminPipeline from "./pages/AdminPipeline";
 import ParserAnalytics from "./pages/ParserAnalytics";
