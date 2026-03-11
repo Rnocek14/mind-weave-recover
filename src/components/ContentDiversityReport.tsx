@@ -28,6 +28,7 @@ import { PHOTO_BANK } from '@/data/photoBank';
 import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBank';
 import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
 import { WORD_PHONEME_MAP, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
+import { getGradedSentenceBankStats } from '@/data/gradedSentenceBank';
 
 interface PhonemePositionCoverage {
   phoneme: string;
