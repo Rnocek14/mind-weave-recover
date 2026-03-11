@@ -261,6 +261,26 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'puppy': ['/p/', '/ʌ/', '/p/', '/i/'],
   'towel': ['/t/', '/aʊ/', '/l/'],
 
+  // Legacy photo-bank words (previously unmapped)
+  'hat': ['/h/', '/æ/', '/t/'],
+  'van': ['/v/', '/æ/', '/n/'],
+  'hen': ['/h/', '/ɛ/', '/n/'],
+  'nail': ['/n/', '/eɪ/', '/l/'],
+  'vase': ['/v/', '/eɪ/', '/z/'],
+  'vest': ['/v/', '/ɛ/', '/s/', '/t/'],
+  'spider': ['/s/', '/p/', '/aɪ/', '/d/', '/ɚ/'],
+  'stick': ['/s/', '/t/', '/ɪ/', '/k/'],
+  'block': ['/b/', '/l/', '/ɑ/', '/k/'],
+  'cap': ['/k/', '/æ/', '/p/'],
+  'cab': ['/k/', '/æ/', '/b/'],
+  'teeth': ['/t/', '/i/', '/θ/'],
+  'teethe': ['/t/', '/i/', '/ð/'],
+  'pin': ['/p/', '/ɪ/', '/n/'],
+  'bin': ['/b/', '/ɪ/', '/n/'],
+  'feather': ['/f/', '/ɛ/', '/ð/', '/ɚ/'],
+  'mother': ['/m/', '/ʌ/', '/ð/', '/ɚ/'],
+  'weather': ['/w/', '/ɛ/', '/ð/', '/ɚ/'],
+
   // Batch 3 - medial position gap fills
   'finger': ['/f/', '/ɪ/', '/ŋ/', '/g/', '/ɚ/'],
   'rabbit': ['/r/', '/æ/', '/b/', '/ɪ/', '/t/'],
