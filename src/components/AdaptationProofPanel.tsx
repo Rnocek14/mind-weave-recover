@@ -35,6 +35,8 @@ import {
   Database,
   ShieldCheck,
   Clock,
+  Download,
+  Copy,
 } from 'lucide-react';
 import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } from '@/hooks/useAdaptationProof';
 import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
