@@ -196,5 +196,6 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
