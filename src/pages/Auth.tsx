@@ -235,7 +235,6 @@ const Auth = () => {
           Start Without Account
         </Button>
 
-
         <p className="text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
           <button
@@ -246,6 +245,8 @@ const Auth = () => {
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>
         </p>
+        </>
+        )}
       </Card>
     </div>
   );
