@@ -1,0 +1,330 @@
+/**
+ * ContentDiversityReport
+ * 
+ * Internal stimulus inventory report showing:
+ * - Total photo words & cue coverage
+ * - Phoneme coverage by position (initial/medial/final)
+ * - Minimal pairs count
+ * - Top gaps for next expansion
+ * 
+ * Designed for clinician/admin view in the Evidence tab.
+ */
+
+import { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  BookOpen,
+  Mic,
+  Layers,
+  AlertTriangle,
+  CheckCircle2,
+  BarChart3,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { PHOTO_BANK } from '@/data/photoBank';
+import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBank';
+import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
+import { WORD_PHONEME_MAP } from '@/lib/phonemeWordMap';
+
+interface PhonemePositionCoverage {
+  phoneme: string;
+  initial: number;
+  medial: number;
+  final: number;
+  total: number;
+}
+
+function computeInventory() {
+  // Unique photo words
+  const photoWords = [...new Set(PHOTO_BANK.map(t => t.target.toLowerCase()))];
+  
+  // Cue bank stats
+  const cueStats = getCueBankStats();
+  
+  // Words with vs without cue coverage
+  const wordsWithCues = photoWords.filter(w => hasCueCoverage(w));
+  const wordsWithoutCues = photoWords.filter(w => !hasCueCoverage(w));
+  
+  // Minimal pairs
+  const minimalPairsCount = MINIMAL_PAIRS.length;
+  
+  // Phoneme position coverage from photoBank features
+  const phonemePositions = new Map<string, { initial: Set<string>; medial: Set<string>; final: Set<string> }>();
+  
+  for (const trial of PHOTO_BANK) {
+    const word = trial.target.toLowerCase();
+    const phonemes = WORD_PHONEME_MAP[word];
+    if (!phonemes || phonemes.length === 0) continue;
+    
+    // First phoneme = initial position
+    const firstPhoneme = phonemes[0];
+    if (!phonemePositions.has(firstPhoneme)) {
+      phonemePositions.set(firstPhoneme, { initial: new Set(), medial: new Set(), final: new Set() });
+    }
+    phonemePositions.get(firstPhoneme)!.initial.add(word);
+    
+    // Last phoneme = final position
+    if (phonemes.length > 1) {
+      const lastPhoneme = phonemes[phonemes.length - 1];
+      if (!phonemePositions.has(lastPhoneme)) {
+        phonemePositions.set(lastPhoneme, { initial: new Set(), medial: new Set(), final: new Set() });
+      }
+      phonemePositions.get(lastPhoneme)!.final.add(word);
+    }
+    
+    // Middle phonemes = medial position
+    for (let i = 1; i < phonemes.length - 1; i++) {
+      const midPhoneme = phonemes[i];
+      if (!phonemePositions.has(midPhoneme)) {
+        phonemePositions.set(midPhoneme, { initial: new Set(), medial: new Set(), final: new Set() });
+      }
+      phonemePositions.get(midPhoneme)!.medial.add(word);
+    }
+  }
+  
+  // Build coverage array sorted by total
+  const coverageArray: PhonemePositionCoverage[] = [];
+  // Only include consonant phonemes (clinical focus)
+  const consonantPhonemes = ['/k/', '/g/', '/t/', '/d/', '/p/', '/b/', '/f/', '/v/', '/s/', '/z/',
+    '/ʃ/', '/ʒ/', '/tʃ/', '/dʒ/', '/θ/', '/ð/', '/h/', '/m/', '/n/', '/ŋ/', '/l/', '/r/', '/w/', '/j/'];
+  
+  for (const ph of consonantPhonemes) {
+    const data = phonemePositions.get(ph);
+    if (data) {
+      coverageArray.push({
+        phoneme: ph,
+        initial: data.initial.size,
+        medial: data.medial.size,
+        final: data.final.size,
+        total: data.initial.size + data.medial.size + data.final.size,
+      });
+    } else {
+      coverageArray.push({ phoneme: ph, initial: 0, medial: 0, final: 0, total: 0 });
+    }
+  }
+  
+  coverageArray.sort((a, b) => a.total - b.total);
+  
+  // Find top 5 weakest position gaps
+  const gaps: { phoneme: string; position: string; count: number }[] = [];
+  for (const entry of coverageArray) {
+    if (entry.initial === 0) gaps.push({ phoneme: entry.phoneme, position: 'initial', count: 0 });
+    if (entry.medial === 0) gaps.push({ phoneme: entry.phoneme, position: 'medial', count: 0 });
+    if (entry.final === 0) gaps.push({ phoneme: entry.phoneme, position: 'final', count: 0 });
+  }
+  
+  // Categories breakdown
+  const categories = new Map<string, number>();
+  for (const trial of PHOTO_BANK) {
+    const cat = trial.category;
+    categories.set(cat, (categories.get(cat) || 0) + 1);
+  }
+  
+  return {
+    photoWords,
+    photoWordCount: photoWords.length,
+    totalPhotoTrials: PHOTO_BANK.length,
+    cueStats,
+    wordsWithCues: wordsWithCues.length,
+    wordsWithoutCues,
+    minimalPairsCount,
+    phonemeCoverage: coverageArray,
+    positionGaps: gaps.slice(0, 8),
+    categories: [...categories.entries()].sort((a, b) => b[1] - a[1]),
+  };
+}
+
+export function ContentDiversityReport() {
+  const inventory = useMemo(computeInventory, []);
+  
+  const cueCoveragePercent = Math.round((inventory.wordsWithCues / inventory.photoWordCount) * 100);
+  const fullCueCoveragePercent = Math.round(
+    (inventory.cueStats.wordsWithFullCoverage / inventory.cueStats.totalWords) * 100
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Headline stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard
+          icon={<BookOpen className="w-4 h-4" />}
+          label="Photo Words"
+          value={inventory.photoWordCount}
+          sub={`${inventory.totalPhotoTrials} trials total`}
+        />
+        <StatCard
+          icon={<Layers className="w-4 h-4" />}
+          label="Cue Variants"
+          value={inventory.cueStats.totalCues}
+          sub={`${inventory.cueStats.totalWords} words covered`}
+        />
+        <StatCard
+          icon={<Mic className="w-4 h-4" />}
+          label="Minimal Pairs"
+          value={inventory.minimalPairsCount}
+          sub="phoneme contrasts"
+        />
+        <StatCard
+          icon={<BarChart3 className="w-4 h-4" />}
+          label="Cue Coverage"
+          value={`${cueCoveragePercent}%`}
+          sub={`${inventory.wordsWithoutCues.length} gaps`}
+          alert={inventory.wordsWithoutCues.length > 5}
+        />
+      </div>
+
+      {/* Cue type breakdown */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Cue Type Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(['phonemic', 'semantic', 'sentence_completion', 'repetition'] as CueBankType[]).map(type => (
+              <div key={type} className="text-center">
+                <div className="text-lg font-bold text-foreground">
+                  {inventory.cueStats.byType[type]}
+                </div>
+                <div className="text-xs text-muted-foreground capitalize">
+                  {type.replace('_', ' ')}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>Full 4-type coverage</span>
+              <span>{fullCueCoveragePercent}%</span>
+            </div>
+            <Progress value={fullCueCoveragePercent} className="h-2" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Phoneme Position Coverage */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Phoneme Coverage by Position</CardTitle>
+          <CardDescription className="text-xs">
+            Consonant phonemes in photo bank (initial / medial / final)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[280px]">
+            <div className="space-y-1.5">
+              {inventory.phonemeCoverage.map(entry => (
+                <div key={entry.phoneme} className="flex items-center gap-2 text-sm">
+                  <code className="w-10 text-xs font-mono text-muted-foreground">
+                    {entry.phoneme}
+                  </code>
+                  <div className="flex gap-1 flex-1">
+                    <PositionPill label="I" count={entry.initial} />
+                    <PositionPill label="M" count={entry.medial} />
+                    <PositionPill label="F" count={entry.final} />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-6 text-right">
+                    {entry.total}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* Position Gaps */}
+      {inventory.positionGaps.length > 0 && (
+        <Card className="border-warning/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+              Top Position Gaps
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Phoneme × position combos with zero photo words
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {inventory.positionGaps.map((gap, i) => (
+                <Badge key={i} variant="outline" className="text-xs border-warning/50">
+                  {gap.phoneme} {gap.position}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Words missing cue coverage */}
+      {inventory.wordsWithoutCues.length > 0 && (
+        <Card className="border-warning/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+              Words Missing Cue Coverage ({inventory.wordsWithoutCues.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {inventory.wordsWithoutCues.map(w => (
+                <Badge key={w} variant="secondary" className="text-xs">{w}</Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Category breakdown */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Category Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {inventory.categories.map(([cat, count]) => (
+              <Badge key={cat} variant="outline" className="text-xs gap-1">
+                {cat} <span className="font-bold">{count}</span>
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────
+
+function StatCard({ icon, label, value, sub, alert }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub: string;
+  alert?: boolean;
+}) {
+  return (
+    <Card className={cn(alert && 'border-warning/30')}>
+      <CardContent className="p-3 text-center">
+        <div className="flex justify-center mb-1 text-muted-foreground">{icon}</div>
+        <div className="text-xl font-bold text-foreground">{value}</div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PositionPill({ label, count }: { label: string; count: number }) {
+  const color = count === 0 ? 'bg-destructive/20 text-destructive' :
+                count <= 2 ? 'bg-warning/20 text-warning' :
+                'bg-primary/10 text-primary';
+  return (
+    <span className={cn('text-[10px] font-mono rounded px-1.5 py-0.5 min-w-[28px] text-center', color)}>
+      {label}:{count}
+    </span>
+  );
+}
