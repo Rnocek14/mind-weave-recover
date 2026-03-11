@@ -82,6 +82,9 @@ export const generateSemanticCue = (
   target: string,
   features?: LinguisticFeatures
 ): string => {
+  // Try cueBank first
+  const bankCue = getCueBankText(target, 'semantic');
+  if (bankCue) return bankCue;
   // Fine-grained semantic category descriptions
   const categoryHints: Record<string, string[]> = {
     // Animals
