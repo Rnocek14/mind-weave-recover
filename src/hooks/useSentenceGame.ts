@@ -26,7 +26,8 @@ interface GameState {
 
 export const useSentenceGame = (
   totalTrials: number = 10,
-  difficultyLevel: number = 1
+  difficultyLevel: number = 1,
+  focusPhonemes: string[] = []
 ) => {
   const shownTrialsRef = useRef<Set<string>>(new Set());
   
