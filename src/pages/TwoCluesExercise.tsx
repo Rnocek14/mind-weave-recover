@@ -103,10 +103,15 @@ export default function TwoCluesExercise() {
         matched_word: result.matchedWord,
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
+        // Adaptation telemetry
+        focus_phonemes: adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined,
+        adaptation_reasons: adaptation.adaptationReasons.length > 0 ? adaptation.adaptationReasons : undefined,
+        profile_confidence: adaptation.profileConfidence,
+        recommended_cue_type: adaptation.recommendedCueType,
       },
-      cueTypeGiven: 'none', // Phase 1: no cueing yet
+      cueTypeGiven: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
     });
-  }, [activeSessionId, logTrial]);
+  }, [activeSessionId, logTrial, adaptation]);
 
   // Handle game completion
   const handleGameComplete = useCallback((results: TwoCluesTrialResult[]) => {
