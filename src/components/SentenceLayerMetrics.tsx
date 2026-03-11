@@ -177,6 +177,8 @@ export function SentenceLayerMetrics({ events }: SentenceLayerMetricsProps) {
                 label="Matched vs Unmatched"
                 a={phonemeMatch.matchedAccuracy}
                 b={phonemeMatch.unmatchedAccuracy}
+                nA={phonemeMatch.matched}
+                nB={phonemeMatch.unmatched}
               />
             )}
           </div>
