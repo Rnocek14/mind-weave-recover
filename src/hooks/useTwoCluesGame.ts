@@ -43,6 +43,7 @@ interface UseTwoCluesGameOptions {
   roundCount?: number;
   category?: string;
   difficulty?: 1 | 2 | 3;
+  focusPhonemes?: string[];
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
   onGameComplete?: (results: TwoCluesTrialResult[]) => void;
 }
@@ -52,6 +53,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     roundCount = 10,
     category,
     difficulty,
+    focusPhonemes,
     onTrialComplete,
     onGameComplete,
   } = options;
@@ -59,15 +61,16 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   const { playSuccess, playError } = useGameSounds();
   const roundStartTimeRef = useRef<number | null>(null);
 
-  // Initialize puzzles
+  // Initialize puzzles with phoneme targeting
   const initialPuzzles = useMemo(() => {
     let puzzles = getPuzzles({
       category: category as any,
       difficulty,
+      focusPhonemes,
     });
     puzzles = shufflePuzzles(puzzles).slice(0, roundCount);
     return puzzles;
-  }, [category, difficulty, roundCount]);
+  }, [category, difficulty, roundCount, focusPhonemes?.join(',')]);
 
   const [state, setState] = useState<TwoCluesGameState>(() => ({
     puzzles: initialPuzzles,
