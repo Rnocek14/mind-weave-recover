@@ -268,5 +268,5 @@ export const useAdaptationProof = (
     };
   }, [rawEvents]);
 
-  return { summary, isLoading, refresh };
+  return { summary, rawEvents, isLoading, refresh };
 };
