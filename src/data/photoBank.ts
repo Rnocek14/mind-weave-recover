@@ -96,6 +96,22 @@ import netImg from '@/assets/photos/net.jpg';
 import nutImg from '@/assets/photos/nut.jpg';
 import webImg from '@/assets/photos/web.jpg';
 import pieImg from '@/assets/photos/pie.jpg';
+// Phoneme gap expansion - Batch 2 (medial/final positions)
+import wagonImg from '@/assets/photos/wagon.jpg';
+import tigerImg from '@/assets/photos/tiger.jpg';
+import bagImg from '@/assets/photos/bag.jpg';
+import puzzleImg from '@/assets/photos/puzzle.jpg';
+import pillowImg from '@/assets/photos/pillow.jpg';
+import bellImg from '@/assets/photos/bell.jpg';
+import carrotImg from '@/assets/photos/carrot.jpg';
+import mirrorImg from '@/assets/photos/mirror.jpg';
+import ladderImg from '@/assets/photos/ladder.jpg';
+import bananaImg from '@/assets/photos/banana.jpg';
+import candleImg from '@/assets/photos/candle.jpg';
+import puppyImg from '@/assets/photos/puppy.jpg';
+import pigImg from '@/assets/photos/pig.jpg';
+import frogImg from '@/assets/photos/frog.jpg';
+import towelImg from '@/assets/photos/towel.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
