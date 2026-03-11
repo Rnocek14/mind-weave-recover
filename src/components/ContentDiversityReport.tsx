@@ -148,6 +148,7 @@ export function ContentDiversityReport() {
   const fullCueCoveragePercent = Math.round(
     (inventory.cueStats.wordsWithFullCoverage / inventory.cueStats.totalWords) * 100
   );
+  const phonemeMapPct = Math.round(inventory.phonemeMapCoverage.coverage);
 
   return (
     <div className="space-y-4">
