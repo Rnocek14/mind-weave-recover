@@ -183,6 +183,7 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'gold': ['/g/', '/oʊ/', '/l/', '/d/'],
   'grape': ['/g/', '/r/', '/eɪ/', '/p/'],
   'green': ['/g/', '/r/', '/i/', '/n/'],
+  'glove': ['/g/', '/l/', '/ʌ/', '/v/'],
   
   // /m/ - bilabial nasal
   'man': ['/m/', '/æ/', '/n/'],
@@ -230,6 +231,21 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'wing': ['/w/', '/ɪ/', '/ŋ/'],
   'wood': ['/w/', '/ʊ/', '/d/'],
   'worm': ['/w/', '/ɜ/', '/r/', '/m/'],
+
+  // /z/ - alveolar fricative (initial)
+  'zoo': ['/z/', '/u/'],
+  'zip': ['/z/', '/ɪ/', '/p/'],
+  'zone': ['/z/', '/oʊ/', '/n/'],
+  'zero': ['/z/', '/ɪ/', '/r/', '/oʊ/'],
+
+  // /d/ - alveolar plosive (initial, expanded)
+  'drum': ['/d/', '/r/', '/ʌ/', '/m/'],
+  'desk': ['/d/', '/ɛ/', '/s/', '/k/'],
+  'dish': ['/d/', '/ɪ/', '/ʃ/'],
+  'dot': ['/d/', '/ɑ/', '/t/'],
+
+  // /l/ - expanded
+  'lemon': ['/l/', '/ɛ/', '/m/', '/ə/', '/n/'],
 };
 
 // Normalize Azure phoneme output to match our map

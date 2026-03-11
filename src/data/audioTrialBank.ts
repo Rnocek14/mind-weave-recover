@@ -34,7 +34,12 @@ const PHOTO_WORDS = new Set([
   // New minimal pairs
   'pin', 'bin', 'cap', 'cab', 'teeth', 'teethe',
   // Consonant clusters
-  'spider', 'stick', 'block', 'flag'
+  'spider', 'stick', 'block', 'flag',
+  // /ʒ/ and /j/ phonemes
+  'yellow', 'treasure', 'measure', 'yes', 'yard', 'yawn', 'yell',
+  // Phoneme gap expansion - Batch 1
+  'gate', 'grape', 'glove', 'zoo', 'zip', 'lion', 'lemon',
+  'duck', 'drum', 'rope', 'rose', 'net', 'nut', 'web', 'pie'
 ]);
 
 // Semantic categories for foil generation

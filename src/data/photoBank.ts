@@ -80,6 +80,22 @@ import yesImg from '@/assets/photos/yes.jpg';
 import yardImg from '@/assets/photos/yard.jpg';
 import yawnImg from '@/assets/photos/yawn.jpg';
 import yellImg from '@/assets/photos/yell.jpg';
+// Phoneme gap expansion - Batch 1
+import gateImg from '@/assets/photos/gate.jpg';
+import grapeImg from '@/assets/photos/grape.jpg';
+import gloveImg from '@/assets/photos/glove.jpg';
+import zooImg from '@/assets/photos/zoo.jpg';
+import zipImg from '@/assets/photos/zip.jpg';
+import lionImg from '@/assets/photos/lion.jpg';
+import lemonImg from '@/assets/photos/lemon.jpg';
+import duckImg from '@/assets/photos/duck.jpg';
+import drumImg from '@/assets/photos/drum.jpg';
+import ropeImg from '@/assets/photos/rope.jpg';
+import roseImg from '@/assets/photos/rose.jpg';
+import netImg from '@/assets/photos/net.jpg';
+import nutImg from '@/assets/photos/nut.jpg';
+import webImg from '@/assets/photos/web.jpg';
+import pieImg from '@/assets/photos/pie.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -1968,8 +1984,402 @@ export const PHOTO_BANK: PhotoTrial[] = [
     minLevel: 3,
     maxLevel: 7,
   },
+  // ============================================
+  // PHONEME GAP EXPANSION - BATCH 1
+  // Targeting: /g/, /z/, /l/, /d/, /r/, /n/, /w/, /p/
+  // ============================================
+  
+  // /g/ - velar plosive (initial)
+  {
+    id: 'gate_1',
+    imageUrl: gateImg,
+    target: 'gate',
+    semanticFoils: ['door', 'fence', 'wall', 'lock'],
+    phonologicalFoils: ['late', 'date', 'Kate'],
+    category: 'structures',
+    features: {
+      frequency_rank: 3200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/g/',
+      semantic_category: 'barrier',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'grape_1',
+    imageUrl: grapeImg,
+    target: 'grape',
+    semanticFoils: ['apple', 'cherry', 'plum', 'berry'],
+    phonologicalFoils: ['drape', 'cape', 'tape'],
+    category: 'food',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/g/',
+      semantic_category: 'fruit',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'glove_1',
+    imageUrl: gloveImg,
+    target: 'glove',
+    semanticFoils: ['sock', 'hat', 'scarf', 'mitten'],
+    phonologicalFoils: ['love', 'dove', 'shove'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 4500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/g/',
+      semantic_category: 'hand_covering',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // /z/ - alveolar fricative (initial) - CRITICAL GAP
+  {
+    id: 'zoo_1',
+    imageUrl: zooImg,
+    target: 'zoo',
+    semanticFoils: ['park', 'farm', 'circus', 'garden'],
+    phonologicalFoils: ['shoe', 'boo', 'two'],
+    category: 'places',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 6,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 2,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/z/',
+      semantic_category: 'animal_place',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  {
+    id: 'zip_1',
+    imageUrl: zipImg,
+    target: 'zip',
+    semanticFoils: ['button', 'buckle', 'clasp', 'snap'],
+    phonologicalFoils: ['tip', 'sip', 'dip'],
+    category: 'objects',
+    features: {
+      frequency_rank: 6000,
+      imageability: 6,
+      concreteness: 6,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/z/',
+      semantic_category: 'fastener',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // /l/ - lateral approximant (initial)
+  {
+    id: 'lion_1',
+    imageUrl: lionImg,
+    target: 'lion',
+    semanticFoils: ['tiger', 'bear', 'wolf', 'leopard'],
+    phonologicalFoils: ['line', 'lime', 'light'],
+    category: 'animals',
+    features: {
+      frequency_rank: 3800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/l/',
+      semantic_category: 'wild_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'lemon_1',
+    imageUrl: lemonImg,
+    target: 'lemon',
+    semanticFoils: ['lime', 'orange', 'apple', 'peach'],
+    phonologicalFoils: ['melon', 'demon', 'seven'],
+    category: 'food',
+    features: {
+      frequency_rank: 5000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/l/',
+      semantic_category: 'fruit',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // /d/ - alveolar plosive (initial)
+  {
+    id: 'duck_1',
+    imageUrl: duckImg,
+    target: 'duck',
+    semanticFoils: ['chicken', 'goose', 'swan', 'bird'],
+    phonologicalFoils: ['truck', 'luck', 'buck'],
+    category: 'animals',
+    features: {
+      frequency_rank: 3000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/d/',
+      semantic_category: 'bird',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
+  {
+    id: 'drum_1',
+    imageUrl: drumImg,
+    target: 'drum',
+    semanticFoils: ['guitar', 'piano', 'trumpet', 'flute'],
+    phonologicalFoils: ['plum', 'gum', 'thumb'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/d/',
+      semantic_category: 'instrument',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // /r/ - approximant (initial)
+  {
+    id: 'rope_1',
+    imageUrl: ropeImg,
+    target: 'rope',
+    semanticFoils: ['chain', 'string', 'wire', 'thread'],
+    phonologicalFoils: ['hope', 'soap', 'cope'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/r/',
+      semantic_category: 'binding',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  {
+    id: 'rose_1',
+    imageUrl: roseImg,
+    target: 'rose',
+    semanticFoils: ['tulip', 'daisy', 'lily', 'flower'],
+    phonologicalFoils: ['nose', 'hose', 'toes'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/r/',
+      semantic_category: 'flower',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  
+  // /n/ - nasal (initial)
+  {
+    id: 'net_1',
+    imageUrl: netImg,
+    target: 'net',
+    semanticFoils: ['rope', 'basket', 'trap', 'cage'],
+    phonologicalFoils: ['pet', 'wet', 'set'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4200,
+      imageability: 6,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/n/',
+      semantic_category: 'catching_tool',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  {
+    id: 'nut_1',
+    imageUrl: nutImg,
+    target: 'nut',
+    semanticFoils: ['seed', 'acorn', 'bean', 'pea'],
+    phonologicalFoils: ['cut', 'hut', 'but'],
+    category: 'food',
+    features: {
+      frequency_rank: 4800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/n/',
+      semantic_category: 'food',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 5,
+  },
+  
+  // /w/ - approximant (initial)
+  {
+    id: 'web_1',
+    imageUrl: webImg,
+    target: 'web',
+    semanticFoils: ['net', 'spider', 'thread', 'silk'],
+    phonologicalFoils: ['bed', 'red', 'fed'],
+    category: 'nature',
+    features: {
+      frequency_rank: 3000,
+      imageability: 6,
+      concreteness: 6,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 3,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/w/',
+      semantic_category: 'spider_structure',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+  
+  // /p/ - bilabial plosive (initial)
+  {
+    id: 'pie_1',
+    imageUrl: pieImg,
+    target: 'pie',
+    semanticFoils: ['cake', 'tart', 'bread', 'cookie'],
+    phonologicalFoils: ['tie', 'die', 'fly'],
+    category: 'food',
+    features: {
+      frequency_rank: 4000,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 1,
+      phoneme_count: 2,
+      phonological_complexity: 0,
+      neighborhood_density: 'dense',
+      first_phoneme: '/p/',
+      semantic_category: 'baked_food',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 1,
+    minLevel: 1,
+    maxLevel: 4,
+  },
 ];
-
 /**
  * Calculate difficulty score (1-5) from linguistic features
  * Based on research: frequency, imageability, AoA, length, typicality
