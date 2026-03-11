@@ -5,6 +5,7 @@ import {
   getMixedTrials,
   analyzeSentenceErrors
 } from "@/data/sentenceBank";
+import { getAdaptiveGradedTrials } from "@/lib/gradedSentenceAdapter";
 import { shuffleArray } from "@/lib/shuffle";
 import { filterRecentlyShown, markItemShown } from "@/lib/sessionHistory";
 
