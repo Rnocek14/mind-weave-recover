@@ -38,6 +38,17 @@ export default function TwoCluesExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
+  const lessonFocusWords = location.state?.focusWords as string[] | undefined;
+
+  // Shared adaptation contract - provides focusPhonemes, cue type, difficulty
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    lessonFocusPhonemes,
+    lessonFocusWords,
+    defaultErrorType: 'semantic_paraphasia',
+  });
 
   // Session management
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
