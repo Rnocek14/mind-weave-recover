@@ -100,6 +100,12 @@ export const UnifiedAnalyticsPanel = ({
                 Evidence
               </TabsTrigger>
             )}
+            {showAdminDiagnostics && (
+              <TabsTrigger value="content" className="gap-2">
+                <BookOpen className="w-4 h-4" />
+                Content
+              </TabsTrigger>
+            )}
           </TabsList>
           
           <Button variant="ghost" size="sm" onClick={refresh} className="gap-2">
@@ -134,6 +140,13 @@ export const UnifiedAnalyticsPanel = ({
         {showAdaptationsTab && (
           <TabsContent value="proof" className="space-y-4">
             <AdaptationProofPanel userId={userId} daysBack={14} />
+          </TabsContent>
+        )}
+
+        {/* Tab 4: Content Diversity */}
+        {showAdminDiagnostics && (
+          <TabsContent value="content" className="space-y-4">
+            <ContentDiversityReport />
           </TabsContent>
         )}
       </Tabs>
