@@ -147,6 +147,7 @@ const SentenceConstructionExercise = () => {
       taskParameters: {
         difficulty: level,
         grammarFocus: data.grammarFocus,
+        trial_source: data.trialSource,
         ...adaptationTelemetry,
       }
     });

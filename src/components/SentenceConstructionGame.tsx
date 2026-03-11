@@ -132,7 +132,8 @@ export const SentenceConstructionGame = ({
         correct: result.correct,
         reactionTime,
         errorType: result.errorAnalysis.errorType,
-        grammarFocus: result.trial.grammarFocus
+        grammarFocus: result.trial.grammarFocus,
+        trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
       });
     }
   };
