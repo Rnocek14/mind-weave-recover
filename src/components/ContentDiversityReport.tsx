@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBank';
 import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
-import { WORD_PHONEME_MAP } from '@/lib/phonemeWordMap';
+import { WORD_PHONEME_MAP, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 interface PhonemePositionCoverage {
   phoneme: string;
