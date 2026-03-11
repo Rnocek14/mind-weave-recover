@@ -198,6 +198,13 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
         <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} exerciseFilter={exerciseFilter} onExerciseFilterChange={setExerciseFilter} />
       </div>
 
+      {/* Sentence Layer Evidence */}
+      <SentenceLayerMetrics events={rawEvents.map(e => ({
+        exercise_slug: e.exercise_slug || '',
+        task_parameters: e.task_parameters as Record<string, any> | null,
+        score: e.score ?? null,
+      }))} />
+
       {/* Data Quality Warnings */}
       {summary.globalDataQuality.length > 0 && (
         <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
