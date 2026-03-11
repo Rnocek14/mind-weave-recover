@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   Sparkles,
   RefreshCw,
+  Fingerprint,
 } from 'lucide-react';
 import { useUnifiedAnalytics, type ActiveAdaptation } from '@/hooks/useUnifiedAnalytics';
 import { useUiMode } from '@/hooks/useUiMode';
