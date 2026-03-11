@@ -30,6 +30,7 @@ interface SentenceConstructionGameProps {
     reactionTime: number;
     errorType: string | null;
     grammarFocus: string;
+    trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
   }) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
 }
