@@ -174,12 +174,34 @@ export function ContentDiversityReport() {
         />
         <StatCard
           icon={<BarChart3 className="w-4 h-4" />}
-          label="Cue Coverage"
-          value={`${cueCoveragePercent}%`}
-          sub={`${inventory.wordsWithoutCues.length} gaps`}
-          alert={inventory.wordsWithoutCues.length > 5}
+          label="Phoneme Map"
+          value={`${phonemeMapPct}%`}
+          sub={`${inventory.phonemeMapCoverage.unmapped.length} unmapped`}
+          alert={inventory.phonemeMapCoverage.unmapped.length > 3}
         />
       </div>
+
+      {/* Unmapped words warning */}
+      {inventory.phonemeMapCoverage.unmapped.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              Unmapped Words ({inventory.phonemeMapCoverage.unmapped.length})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Photo words missing phoneme mappings — affects targeting accuracy
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {inventory.phonemeMapCoverage.unmapped.map(w => (
+                <Badge key={w} variant="destructive" className="text-xs">{w}</Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cue type breakdown */}
       <Card>
