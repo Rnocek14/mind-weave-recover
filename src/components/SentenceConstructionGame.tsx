@@ -72,7 +72,7 @@ export const SentenceConstructionGame = ({
     nextTrial,
     getWeakestGrammarArea,
     getAnswerAsWords
-  } = useSentenceGame(10, difficultyLevel);
+  } = useSentenceGame(10, difficultyLevel, focusPhonemes);
 
   const { speak, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
