@@ -40,6 +40,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus, ConfidenceLevel } from '@/lib/adaptiveDecisionEngine';
 import { getConfidenceBadgeColor } from '@/lib/adaptiveDecisionEngine';
 import { cn } from '@/lib/utils';
+import { AdaptationProofPanel } from '@/components/AdaptationProofPanel';
 
 interface UnifiedAnalyticsPanelProps {
   userId: string;
