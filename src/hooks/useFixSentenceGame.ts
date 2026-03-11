@@ -24,6 +24,7 @@ export interface FixSentenceTrialResult {
   reactionTimeMs: number;
   attemptNumber: number;
   difficulty: number;
+  phonemeTargets: string[];
 }
 
 interface UseFixSentenceGameOptions {
@@ -117,6 +118,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         reactionTimeMs,
         attemptNumber: currentAttempt,
         difficulty: currentTrial.difficulty,
+        phonemeTargets: currentTrial.phonemeTargets,
       };
       return result;
     }
@@ -154,6 +156,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       reactionTimeMs,
       attemptNumber: currentAttempt,
       difficulty: currentTrial.difficulty,
+      phonemeTargets: currentTrial.phonemeTargets,
     };
   }, [currentTrial, currentAttempt, localMatch, playSuccess, playError]);
 

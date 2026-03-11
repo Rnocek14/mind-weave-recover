@@ -62,6 +62,7 @@ export interface AdaptationProofSummary {
 
 export interface UseAdaptationProofResult {
   summary: AdaptationProofSummary | null;
+  rawEvents: any[];
   isLoading: boolean;
   refresh: () => void;
 }
@@ -267,5 +268,5 @@ export const useAdaptationProof = (
     };
   }, [rawEvents]);
 
-  return { summary, isLoading, refresh };
+  return { summary, rawEvents, isLoading, refresh };
 };

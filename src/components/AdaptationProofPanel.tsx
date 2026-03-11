@@ -42,6 +42,7 @@ import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } f
 import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
 import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
 import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
+import { SentenceLayerMetrics } from '@/components/SentenceLayerMetrics';
 import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
 import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,7 @@ function getDominantMode(modes: Record<string, number>): string {
 
 export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofPanelProps) => {
   const [exerciseFilter, setExerciseFilter] = useState<string | undefined>(undefined);
-  const { summary, isLoading } = useAdaptationProof(userId, daysBack);
+  const { summary, rawEvents, isLoading } = useAdaptationProof(userId, daysBack);
   const { outcomes, isLoading: outcomesLoading } = useAdaptationOutcomes(userId, daysBack);
 
   const handleExportCSV = () => {
@@ -196,6 +197,13 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
       <div id="outcomes-panel">
         <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} exerciseFilter={exerciseFilter} onExerciseFilterChange={setExerciseFilter} />
       </div>
+
+      {/* Sentence Layer Evidence */}
+      <SentenceLayerMetrics events={rawEvents.map(e => ({
+        exercise_slug: e.exercise_slug || '',
+        task_parameters: e.task_parameters as Record<string, any> | null,
+        score: e.score ?? null,
+      }))} />
 
       {/* Data Quality Warnings */}
       {summary.globalDataQuality.length > 0 && (
