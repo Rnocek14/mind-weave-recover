@@ -714,8 +714,82 @@ export function getCueText(
   return match?.text ?? null;
 }
 
+  // ── Batch 3: Medial position gap fills ────────────────────
+  finger: [
+    { type: 'phonemic', text: 'It starts with /f/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A part of your hand. You have five on each hand.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'She pointed her ___ at the map.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: finger.', difficulty: 1 },
+  ],
+  rabbit: [
+    { type: 'phonemic', text: 'It starts with /r/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A small furry animal with long ears that hops.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'The ___ hopped across the garden.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: rabbit.', difficulty: 1 },
+  ],
+  oven: [
+    { type: 'phonemic', text: 'It starts with a vowel /ʌ/ and has two syllables.', difficulty: 2 },
+    { type: 'semantic', text: 'A kitchen appliance used for baking and roasting food.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'She baked the cake in the ___.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: oven.', difficulty: 1 },
+  ],
+  basket: [
+    { type: 'phonemic', text: 'It starts with /b/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A woven container used to carry or store things.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'She put the fruit in the ___.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: basket.', difficulty: 1 },
+  ],
+  coffee: [
+    { type: 'phonemic', text: 'It starts with /k/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A hot brown drink made from roasted beans.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'He drank a cup of ___ every morning.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: coffee.', difficulty: 1 },
+  ],
+  kitchen: [
+    { type: 'phonemic', text: 'It starts with /k/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'The room in a house where you cook food.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'She prepared dinner in the ___.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: kitchen.', difficulty: 1 },
+  ],
+  bridge: [
+    { type: 'phonemic', text: 'It starts with /br/ and has one syllable.', difficulty: 2 },
+    { type: 'semantic', text: 'A structure built over a river or road to cross it.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'They walked across the ___ over the river.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: bridge.', difficulty: 1 },
+  ],
+  button: [
+    { type: 'phonemic', text: 'It starts with /b/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A small round fastener on clothing, or something you press.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'She sewed the ___ back onto the shirt.', difficulty: 2 },
+    { type: 'repetition', text: 'Say: button.', difficulty: 1 },
+  ],
+  pigeon: [
+    { type: 'phonemic', text: 'It starts with /p/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A common grey bird often seen in cities.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'A ___ landed on the park bench.', difficulty: 2 },
+    { type: 'repetition', text: 'Say: pigeon.', difficulty: 1 },
+  ],
+  monkey: [
+    { type: 'phonemic', text: 'It starts with /m/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'An animal that climbs trees and eats bananas.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'The ___ swung from branch to branch.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: monkey.', difficulty: 1 },
+  ],
+  garage: [
+    { type: 'phonemic', text: 'It starts with /g/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'A building or part of a house where you park a car.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'He parked the car in the ___.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: garage.', difficulty: 1 },
+  ],
+  birthday: [
+    { type: 'phonemic', text: 'It starts with /b/ and has two syllables.', difficulty: 1 },
+    { type: 'semantic', text: 'The day each year that celebrates when you were born.', difficulty: 1 },
+    { type: 'sentence_completion', text: 'They sang "Happy ___" and blew out the candles.', difficulty: 1 },
+    { type: 'repetition', text: 'Say: birthday.', difficulty: 1 },
+  ],
+};
+
 /**
- * Check whether a word has cue coverage in the bank.
  */
 export function hasCueCoverage(word: string): boolean {
   return word.toLowerCase() in cueBank;
