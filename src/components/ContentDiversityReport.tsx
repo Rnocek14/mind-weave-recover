@@ -404,6 +404,75 @@ export function ContentDiversityReport() {
         </CardContent>
       </Card>
 
+      {/* Fully Integrated Stimulus Metric */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-primary" />
+            Stimulus Integration Depth
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Per-word coverage across all content layers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            const sentenceWords = new Set(GRADED_SENTENCE_BANK.map(s => s.targetWord));
+            const tiers = {
+              photoOnly: [] as string[],
+              photoCue: [] as string[],
+              photoCueSentence: [] as string[],
+              fullyIntegrated: [] as string[],
+            };
+            for (const word of inventory.photoWords) {
+              const hasCue = hasCueCoverage(word);
+              const hasPhoneme = !!WORD_PHONEME_MAP[word];
+              const hasSentence = sentenceWords.has(word);
+              if (hasCue && hasPhoneme && hasSentence) {
+                tiers.fullyIntegrated.push(word);
+              } else if (hasCue && hasSentence) {
+                tiers.photoCueSentence.push(word);
+              } else if (hasCue) {
+                tiers.photoCue.push(word);
+              } else {
+                tiers.photoOnly.push(word);
+              }
+            }
+            const total = inventory.photoWords.length;
+            const fullPct = Math.round((tiers.fullyIntegrated.length / total) * 100);
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <div className="text-lg font-bold text-destructive">{tiers.photoOnly.length}</div>
+                    <div className="text-[10px] text-muted-foreground">Photo only</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-warning">{tiers.photoCue.length}</div>
+                    <div className="text-[10px] text-muted-foreground">+ Cue</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-foreground">{tiers.photoCueSentence.length}</div>
+                    <div className="text-[10px] text-muted-foreground">+ Sentence</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-primary">{tiers.fullyIntegrated.length}</div>
+                    <div className="text-[10px] text-muted-foreground">Fully integrated</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Photo + Cue + Phoneme + Sentence</span>
+                    <span>{fullPct}%</span>
+                  </div>
+                  <Progress value={fullPct} className="h-2" />
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
       {/* Category breakdown */}
       <Card>
         <CardHeader className="pb-2">
