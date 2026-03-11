@@ -1,11 +1,14 @@
 /**
  * Generate progressive cues for photo-naming tasks
  * Enhanced with error-pattern adaptive cueing
+ * 
+ * Priority: cueBank lookup → generated fallback
  */
 
 import type { LinguisticFeatures } from '@/data/photoBank';
 import type { ErrorClassificationResult } from './errorClassifier';
 import { analyzeErrorPatterns } from './errorClassifier';
+import { getCueText as getCueBankText, hasCueCoverage } from '@/data/cueBank';
 
 export interface CueDecision {
   cueType: 'semantic' | 'phonemic' | 'full' | 'none';
@@ -79,6 +82,9 @@ export const generateSemanticCue = (
   target: string,
   features?: LinguisticFeatures
 ): string => {
+  // Try cueBank first
+  const bankCue = getCueBankText(target, 'semantic');
+  if (bankCue) return bankCue;
   // Fine-grained semantic category descriptions
   const categoryHints: Record<string, string[]> = {
     // Animals
@@ -175,6 +181,10 @@ export const generateSemanticCue = (
  * Enhanced phonemic cue using linguistic features
  */
 export const generatePhonologicalCue = (target: string, features?: LinguisticFeatures): string => {
+  // Try cueBank first
+  const bankCue = getCueBankText(target, 'phonemic');
+  if (bankCue) return bankCue;
+
   if (features) {
     const firstSound = features.first_phoneme;
     
@@ -199,7 +209,7 @@ export const generateFullCue = (target: string): string => {
 
 /**
  * Legacy function for backward compatibility
- * Uses basic cueing without error-pattern adaptation
+ * Now checks cueBank before falling back to generated cues
  */
 export const getCueText = (
   cueLevel: number,
