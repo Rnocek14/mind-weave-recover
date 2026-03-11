@@ -41,6 +41,7 @@ import type { TodayFocus, ConfidenceLevel } from '@/lib/adaptiveDecisionEngine';
 import { getConfidenceBadgeColor } from '@/lib/adaptiveDecisionEngine';
 import { cn } from '@/lib/utils';
 import { AdaptationProofPanel } from '@/components/AdaptationProofPanel';
+import { ContentDiversityReport } from '@/components/ContentDiversityReport';
 
 interface UnifiedAnalyticsPanelProps {
   userId: string;
