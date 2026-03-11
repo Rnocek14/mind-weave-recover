@@ -101,9 +101,10 @@ function formatSlug(slug: string): string {
 
 interface AdaptationCoverageGapsProps {
   summary: AdaptationProofSummary;
+  onExerciseClick?: (slug: string) => void;
 }
 
-export const AdaptationCoverageGaps = ({ summary }: AdaptationCoverageGapsProps) => {
+export const AdaptationCoverageGaps = ({ summary, onExerciseClick }: AdaptationCoverageGapsProps) => {
   const gaps = detectGaps(summary);
   const criticalCount = gaps.filter(g => g.severity === 'critical').length;
 

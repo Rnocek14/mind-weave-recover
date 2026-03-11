@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils';
 interface AdaptationOutcomesPanelProps {
   userId: string;
   daysBack?: number;
+  exerciseFilter?: string;
+  onExerciseFilterChange?: (slug: string | undefined) => void;
 }
 
 function formatSlug(slug: string): string {
@@ -35,8 +37,10 @@ function formatSlug(slug: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export const AdaptationOutcomesPanel = ({ userId, daysBack = 14 }: AdaptationOutcomesPanelProps) => {
-  const [exerciseFilter, setExerciseFilter] = useState<string | undefined>(undefined);
+export const AdaptationOutcomesPanel = ({ userId, daysBack = 14, exerciseFilter: controlledFilter, onExerciseFilterChange }: AdaptationOutcomesPanelProps) => {
+  const [internalFilter, setInternalFilter] = useState<string | undefined>(undefined);
+  const exerciseFilter = controlledFilter !== undefined ? controlledFilter : internalFilter;
+  const setExerciseFilter = onExerciseFilterChange || setInternalFilter;
   const { outcomes, isLoading } = useAdaptationOutcomes(userId, daysBack, exerciseFilter);
 
   if (isLoading) {
