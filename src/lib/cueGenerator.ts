@@ -1,11 +1,14 @@
 /**
  * Generate progressive cues for photo-naming tasks
  * Enhanced with error-pattern adaptive cueing
+ * 
+ * Priority: cueBank lookup → generated fallback
  */
 
 import type { LinguisticFeatures } from '@/data/photoBank';
 import type { ErrorClassificationResult } from './errorClassifier';
 import { analyzeErrorPatterns } from './errorClassifier';
+import { getCueText as getCueBankText, hasCueCoverage } from '@/data/cueBank';
 
 export interface CueDecision {
   cueType: 'semantic' | 'phonemic' | 'full' | 'none';
