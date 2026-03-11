@@ -118,6 +118,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         reactionTimeMs,
         attemptNumber: currentAttempt,
         difficulty: currentTrial.difficulty,
+        phonemeTargets: currentTrial.phonemeTargets,
       };
       return result;
     }
