@@ -29,6 +29,7 @@ export interface FixSentenceTrialResult {
 interface UseFixSentenceGameOptions {
   trialCount?: number;
   difficulty?: 1 | 2 | 3;
+  focusPhonemes?: string[];
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
   onGameComplete?: (results: FixSentenceTrialResult[]) => void;
 }
@@ -37,6 +38,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const {
     trialCount = 5,
     difficulty = 2,
+    focusPhonemes = [],
     onTrialComplete,
     onGameComplete,
   } = options;
@@ -46,8 +48,8 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const pendingTrialRef = useRef<FixSentenceTrialResult | null>(null);
 
   const initialTrials = useMemo(
-    () => getFixSentenceTrials({ difficulty, count: trialCount }),
-    [difficulty, trialCount]
+    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes }),
+    [difficulty, trialCount, focusPhonemes.join(',')]
   );
 
   const [trials] = useState(initialTrials);

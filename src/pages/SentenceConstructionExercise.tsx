@@ -118,6 +118,7 @@ const SentenceConstructionExercise = () => {
     reactionTime: number;
     errorType: string | null;
     grammarFocus: string;
+    trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
   }) => {
     startTrial();
 
@@ -146,6 +147,7 @@ const SentenceConstructionExercise = () => {
       taskParameters: {
         difficulty: level,
         grammarFocus: data.grammarFocus,
+        trial_source: data.trialSource,
         ...adaptationTelemetry,
       }
     });

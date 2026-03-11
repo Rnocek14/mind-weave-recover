@@ -32,6 +32,7 @@ interface FixSentenceGameProps {
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
   onGameComplete?: (results: FixSentenceTrialResult[]) => void;
   trialCount?: number;
+  focusPhonemes?: string[];
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
@@ -41,6 +42,7 @@ export function FixSentenceGame({
   onTrialComplete,
   onGameComplete,
   trialCount = 5,
+  focusPhonemes = [],
   sessionId,
   userId,
   profileId,
@@ -99,6 +101,7 @@ export function FixSentenceGame({
   const game = useFixSentenceGame({
     trialCount,
     difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))) as 1 | 2 | 3,
+    focusPhonemes,
     onTrialComplete,
     onGameComplete,
   });

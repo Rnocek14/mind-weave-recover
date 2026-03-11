@@ -30,6 +30,7 @@ interface SentenceConstructionGameProps {
     reactionTime: number;
     errorType: string | null;
     grammarFocus: string;
+    trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
   }) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
 }
@@ -131,7 +132,8 @@ export const SentenceConstructionGame = ({
         correct: result.correct,
         reactionTime,
         errorType: result.errorAnalysis.errorType,
-        grammarFocus: result.trial.grammarFocus
+        grammarFocus: result.trial.grammarFocus,
+        trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
       });
     }
   };
