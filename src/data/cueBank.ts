@@ -681,38 +681,6 @@ export const cueBank: Record<string, CueVariant[]> = {
     { type: 'sentence_completion', text: 'She dried her hands with a ___.', difficulty: 1 },
     { type: 'repetition', text: 'Say: towel.', difficulty: 1 },
   ],
-};
-
-// ─── Helpers ─────────────────────────────────────────────────
-
-/**
- * Look up cue variants for a word. Case-insensitive.
- * Optionally filter by preferred cue type.
- */
-export function getCuesForWord(
-  word: string,
-  preferredType?: CueBankType
-): CueVariant[] {
-  const variants = cueBank[word.toLowerCase()] ?? [];
-  if (!preferredType) return variants;
-  
-  // Return preferred type first, then fall back to all
-  const preferred = variants.filter(v => v.type === preferredType);
-  return preferred.length > 0 ? preferred : variants;
-}
-
-/**
- * Get a single cue text for a word by type. Falls back gracefully.
- */
-export function getCueText(
-  word: string,
-  type: CueBankType
-): string | null {
-  const variants = cueBank[word.toLowerCase()];
-  if (!variants) return null;
-  const match = variants.find(v => v.type === type);
-  return match?.text ?? null;
-}
 
   // ── Batch 3: Medial position gap fills ────────────────────
   finger: [
@@ -788,8 +756,6 @@ export function getCueText(
     { type: 'repetition', text: 'Say: birthday.', difficulty: 1 },
   ],
 };
-
-/**
  */
 export function hasCueCoverage(word: string): boolean {
   return word.toLowerCase() in cueBank;
