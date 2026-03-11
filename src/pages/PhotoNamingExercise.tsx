@@ -395,6 +395,9 @@ export default function PhotoNamingExercise() {
         // Store unified analysis for future co-pilot
         utterance_analysis: result.utteranceAnalysis,
         shadow_event: result.shadowEvent,
+        
+        // Shared adaptation contract telemetry
+        ...adaptationTelemetry,
       },
     });
     
