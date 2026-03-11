@@ -80,6 +80,11 @@ export default function FixSentenceExercise() {
     scoreRef.current += result.isCorrect ? 100 : (result.isPartialCredit ? 50 : 0);
     trialsRef.current += 1;
 
+    // Check if trial phonemes matched the adaptation focus
+    const focusSet = new Set(adaptation.focusPhonemes);
+    const phonemeMatched = result.phonemeTargets.length > 0 && 
+      result.phonemeTargets.some(p => focusSet.has(p));
+
     logTrial({
       correct: result.isCorrect,
       reactionTimeMs: result.reactionTimeMs,
@@ -93,11 +98,14 @@ export default function FixSentenceExercise() {
         self_corrected: result.selfCorrected,
         semantic_similarity: result.semanticSimilarity,
         difficulty: result.difficulty,
+        trial_source: 'fix_sentence_bank',
+        phoneme_matched: phonemeMatched,
+        phoneme_targets: result.phonemeTargets,
         // Shared adaptation telemetry
         ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry]);
+  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
   const handleGameComplete = useCallback((results: FixSentenceTrialResult[]) => {
     setCompleted(true);
