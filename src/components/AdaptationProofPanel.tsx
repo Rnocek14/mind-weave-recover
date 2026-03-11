@@ -42,6 +42,7 @@ import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } f
 import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
 import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
 import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
+import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
 import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
