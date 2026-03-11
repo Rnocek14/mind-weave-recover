@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Table,
@@ -34,10 +35,17 @@ import {
   Database,
   ShieldCheck,
   Clock,
+  Download,
+  Copy,
 } from 'lucide-react';
 import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } from '@/hooks/useAdaptationProof';
+import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
+import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
+import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
+import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 interface AdaptationProofPanelProps {
   userId: string;
@@ -75,6 +83,21 @@ function getDominantMode(modes: Record<string, number>): string {
 
 export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofPanelProps) => {
   const { summary, isLoading } = useAdaptationProof(userId, daysBack);
+  const { outcomes, isLoading: outcomesLoading } = useAdaptationOutcomes(userId, daysBack);
+
+  const handleExportCSV = () => {
+    if (!summary) return;
+    const csv = buildAdaptationCSV(summary, outcomes);
+    downloadCSV(csv, `adaptation-evidence-${daysBack}d.csv`);
+    toast.success('CSV exported');
+  };
+
+  const handleCopySummary = () => {
+    if (!summary) return;
+    const text = buildTextSummary(summary, outcomes, daysBack);
+    navigator.clipboard.writeText(text);
+    toast.success('Summary copied to clipboard');
+  };
 
   if (isLoading) {
     return (
@@ -111,17 +134,27 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
 
   return (
     <div className="space-y-4">
-      {/* Provenance Banner */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
-        <Database className="w-3.5 h-3.5 flex-shrink-0" />
-        <span>Evidence window: last <strong className="text-foreground">{daysBack} days</strong></span>
-        <span className="text-border">|</span>
-        <span>Source: <code className="px-1 py-0.5 rounded bg-muted">exercise_events.task_parameters</code></span>
-        <span className="text-border">|</span>
-        <span>Schema: shared adaptation contract</span>
-        <span className="text-border">|</span>
-        <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
-        <span>User-scoped via session ownership</span>
+      {/* Provenance Banner + Export */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground flex-1">
+          <Database className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Evidence window: last <strong className="text-foreground">{daysBack} days</strong></span>
+          <span className="text-border">|</span>
+          <span>Source: <code className="px-1 py-0.5 rounded bg-muted">exercise_events.task_parameters</code></span>
+          <span className="text-border">|</span>
+          <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>User-scoped</span>
+        </div>
+        <div className="flex gap-1">
+          <Button variant="outline" size="sm" onClick={handleCopySummary} className="gap-1.5 text-xs">
+            <Copy className="w-3.5 h-3.5" />
+            Copy
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5 text-xs">
+            <Download className="w-3.5 h-3.5" />
+            CSV
+          </Button>
+        </div>
       </div>
 
       {/* Summary KPIs */}
@@ -153,6 +186,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
           detail={`${summary.totalTrials} total trials`}
         />
       </div>
+
+      {/* Adaptation vs Outcomes */}
+      <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} />
 
       {/* Data Quality Warnings */}
       {summary.globalDataQuality.length > 0 && (
@@ -203,6 +239,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
           </Table>
         </CardContent>
       </Card>
+
+      {/* Coverage Gap Recommendations */}
+      <AdaptationCoverageGaps summary={summary} />
     </div>
   );
 };
