@@ -246,6 +246,23 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
 
   // /l/ - expanded
   'lemon': ['/l/', '/ɛ/', '/m/', '/ə/', '/n/'],
+
+  // Batch 2 - medial/final position words
+  'wagon': ['/w/', '/æ/', '/g/', '/ə/', '/n/'],
+  'tiger': ['/t/', '/aɪ/', '/g/', '/ɚ/'],
+  'bag': ['/b/', '/æ/', '/g/'],
+  'puzzle': ['/p/', '/ʌ/', '/z/', '/l/'],
+  'pillow': ['/p/', '/ɪ/', '/l/', '/oʊ/'],
+  'bell': ['/b/', '/ɛ/', '/l/'],
+  'carrot': ['/k/', '/æ/', '/r/', '/ə/', '/t/'],
+  'mirror': ['/m/', '/ɪ/', '/r/', '/ɚ/'],
+  'ladder': ['/l/', '/æ/', '/d/', '/ɚ/'],
+  'banana': ['/b/', '/ə/', '/n/', '/æ/', '/n/', '/ə/'],
+  'candle': ['/k/', '/æ/', '/n/', '/d/', '/l/'],
+  'puppy': ['/p/', '/ʌ/', '/p/', '/i/'],
+  'pig': ['/p/', '/ɪ/', '/g/'],
+  'frog': ['/f/', '/r/', '/ɑ/', '/g/'],
+  'towel': ['/t/', '/aʊ/', '/l/'],
 };
 
 // Normalize Azure phoneme output to match our map
