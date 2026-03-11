@@ -32,6 +32,7 @@ interface FixSentenceGameProps {
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
   onGameComplete?: (results: FixSentenceTrialResult[]) => void;
   trialCount?: number;
+  focusPhonemes?: string[];
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
