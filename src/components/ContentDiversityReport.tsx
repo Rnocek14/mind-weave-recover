@@ -22,12 +22,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   BarChart3,
+  MessageSquareText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBank';
 import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
 import { WORD_PHONEME_MAP, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
+import { getGradedSentenceBankStats } from '@/data/gradedSentenceBank';
 
 interface PhonemePositionCoverage {
   phoneme: string;
@@ -126,6 +128,9 @@ function computeInventory() {
     categories.set(cat, (categories.get(cat) || 0) + 1);
   }
   
+  // Graded sentence stats
+  const sentenceStats = getGradedSentenceBankStats();
+  
   return {
     photoWords,
     photoWordCount: photoWords.length,
@@ -138,6 +143,7 @@ function computeInventory() {
     phonemeCoverage: coverageArray,
     positionGaps: gaps.slice(0, 8),
     categories: [...categories.entries()].sort((a, b) => b[1] - a[1]),
+    sentenceStats,
   };
 }
 
@@ -153,7 +159,7 @@ export function ContentDiversityReport() {
   return (
     <div className="space-y-4">
       {/* Headline stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard
           icon={<BookOpen className="w-4 h-4" />}
           label="Photo Words"
@@ -171,6 +177,12 @@ export function ContentDiversityReport() {
           label="Minimal Pairs"
           value={inventory.minimalPairsCount}
           sub="phoneme contrasts"
+        />
+        <StatCard
+          icon={<MessageSquareText className="w-4 h-4" />}
+          label="Sentence Layers"
+          value={inventory.sentenceStats.totalSentences}
+          sub={`${inventory.sentenceStats.uniqueWords} words × 4 levels`}
         />
         <StatCard
           icon={<BarChart3 className="w-4 h-4" />}
@@ -335,6 +347,61 @@ export function ContentDiversityReport() {
           </CardContent>
         </Card>
       )}
+
+      {/* Graded Sentence Coverage */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <MessageSquareText className="w-4 h-4 text-primary" />
+            Graded Sentence Coverage
+          </CardTitle>
+          <CardDescription className="text-xs">
+            4-level sentence progression per target word (isolation → complex)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            {([1, 2, 3, 4] as const).map(level => (
+              <div key={level} className="text-center">
+                <div className="text-lg font-bold text-foreground">
+                  {inventory.sentenceStats.byLevel[level]}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {level === 1 ? 'L1: Word' : level === 2 ? 'L2: Simple' : level === 3 ? 'L3: Expanded' : 'L4: Complex'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>Words with full 4-level coverage</span>
+              <span>{inventory.sentenceStats.fullCoveragePercent}%</span>
+            </div>
+            <Progress value={inventory.sentenceStats.fullCoveragePercent} className="h-2" />
+          </div>
+          {/* Words without sentence coverage */}
+          {(() => {
+            const sentenceWords = new Set(inventory.sentenceStats.wordList);
+            const photoWordsWithout = inventory.photoWords.filter((w: string) => !sentenceWords.has(w));
+            if (photoWordsWithout.length === 0) return null;
+            return (
+              <div className="mt-3">
+                <div className="text-xs text-muted-foreground mb-1.5">
+                  Photo words without sentences ({photoWordsWithout.length}):
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {photoWordsWithout.slice(0, 20).map((w: string) => (
+                    <Badge key={w} variant="secondary" className="text-[10px]">{w}</Badge>
+                  ))}
+                  {photoWordsWithout.length > 20 && (
+                    <Badge variant="secondary" className="text-[10px]">+{photoWordsWithout.length - 20} more</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
       {/* Category breakdown */}
       <Card>
