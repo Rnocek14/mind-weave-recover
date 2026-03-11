@@ -30,6 +30,7 @@ import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBan
 import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
 import { WORD_PHONEME_MAP, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 import { getGradedSentenceBankStats } from '@/data/gradedSentenceBank';
+import { GRADED_SENTENCE_BANK } from '@/data/gradedSentenceBank';
 
 interface PhonemePositionCoverage {
   phoneme: string;
