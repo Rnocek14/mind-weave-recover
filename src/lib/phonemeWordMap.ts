@@ -272,7 +272,6 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'button': ['/b/', '/ʌ/', '/t/', '/ə/', '/n/'],
   'pigeon': ['/p/', '/ɪ/', '/dʒ/', '/ə/', '/n/'],
   'monkey': ['/m/', '/ʌ/', '/ŋ/', '/k/', '/i/'],
-  'garage': ['/g/', '/ə/', '/r/', '/ɑ/', '/ʒ/'],
   'birthday': ['/b/', '/ɜ/', '/r/', '/θ/', '/d/', '/eɪ/'],
 };
 
