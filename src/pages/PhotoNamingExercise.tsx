@@ -5,6 +5,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
