@@ -2,6 +2,7 @@
  * Two Clues Word Association Exercise Page
  * 
  * Wrapper page for the Two Clues game with session lifecycle management.
+ * Now uses shared AdaptationContract for phoneme targeting and cue personalization.
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -15,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -36,6 +38,17 @@ export default function TwoCluesExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
+  const lessonFocusWords = location.state?.focusWords as string[] | undefined;
+
+  // Shared adaptation contract - provides focusPhonemes, cue type, difficulty
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    lessonFocusPhonemes,
+    lessonFocusWords,
+    defaultErrorType: 'semantic_paraphasia',
+  });
 
   // Session management
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -90,10 +103,15 @@ export default function TwoCluesExercise() {
         matched_word: result.matchedWord,
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
+        // Adaptation telemetry
+        focus_phonemes: adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined,
+        adaptation_reasons: adaptation.adaptationReasons.length > 0 ? adaptation.adaptationReasons : undefined,
+        profile_confidence: adaptation.profileConfidence,
+        recommended_cue_type: adaptation.recommendedCueType,
       },
-      cueTypeGiven: 'none', // Phase 1: no cueing yet
+      cueTypeGiven: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
     });
-  }, [activeSessionId, logTrial]);
+  }, [activeSessionId, logTrial, adaptation]);
 
   // Handle game completion
   const handleGameComplete = useCallback((results: TwoCluesTrialResult[]) => {
@@ -192,6 +210,7 @@ export default function TwoCluesExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
           />
         )}
       </main>

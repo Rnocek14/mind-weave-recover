@@ -46,6 +46,7 @@ interface TwoCluesGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  focusPhonemes?: string[];
 }
 
 /**
@@ -107,6 +108,7 @@ export function TwoCluesGame({
   sessionId,
   userId,
   profileId,
+  focusPhonemes,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -212,6 +214,7 @@ export function TwoCluesGame({
 
   const game = useTwoCluesGame({
     roundCount,
+    focusPhonemes,
     onTrialComplete,
     onGameComplete,
   });

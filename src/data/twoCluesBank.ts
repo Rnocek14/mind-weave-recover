@@ -897,6 +897,7 @@ export function getPuzzles(options?: {
   category?: PuzzleCategory; 
   difficulty?: 1 | 2 | 3;
   limit?: number;
+  focusPhonemes?: string[];
 }): TwoCluesPuzzle[] {
   let puzzles = [...TWO_CLUES_PUZZLES];
   
@@ -908,11 +909,39 @@ export function getPuzzles(options?: {
     puzzles = puzzles.filter(p => p.difficulty === options.difficulty);
   }
   
+  // Phoneme-targeted sorting: prioritize puzzles whose anchors contain focus phonemes
+  if (options?.focusPhonemes && options.focusPhonemes.length > 0) {
+    const normalizedFocus = new Set(options.focusPhonemes.map(p => p.replace(/\//g, '').toLowerCase()));
+    
+    puzzles.sort((a, b) => {
+      const aScore = countAnchorPhonemeOverlap(a.anchors, normalizedFocus);
+      const bScore = countAnchorPhonemeOverlap(b.anchors, normalizedFocus);
+      if (aScore !== bScore) return bScore - aScore;
+      return Math.random() - 0.5;
+    });
+  }
+  
   if (options?.limit) {
     puzzles = puzzles.slice(0, options.limit);
   }
   
   return puzzles;
+}
+
+/**
+ * Count phoneme overlap between anchor words and focus phonemes.
+ * Uses simple substring matching on the word characters.
+ */
+function countAnchorPhonemeOverlap(anchors: string[], normalizedFocus: Set<string>): number {
+  let score = 0;
+  for (const anchor of anchors) {
+    const chars = anchor.toLowerCase();
+    for (const phoneme of normalizedFocus) {
+      // Simple heuristic: check if phoneme grapheme appears in word
+      if (chars.includes(phoneme.charAt(0))) score++;
+    }
+  }
+  return score;
 }
 
 /**

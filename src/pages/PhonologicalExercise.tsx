@@ -16,7 +16,8 @@ import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner'
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
-import { getTrialsByTargetWords } from '@/data/phonologicalBank';
+import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
@@ -28,6 +29,13 @@ export default function PhonologicalExercise() {
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
+  
+  // Shared adaptation contract - provides focusPhonemes from profile/engine
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    lessonFocusPhonemes,
+  });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);
@@ -38,14 +46,19 @@ export default function PhonologicalExercise() {
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
   
-  // Generate custom trials if targeted practice
+  // Generate custom trials - with phoneme targeting if available
   const customTrials = useMemo(() => {
     if (targetedWords.length > 0) {
       console.log('🎯 Phonological targeted practice:', { targetedWords, source: practiceSource });
       return getTrialsByTargetWords(targetedWords, 10);
     }
+    // If we have focusPhonemes from adaptation, pre-generate phoneme-targeted trials
+    if (adaptation.focusPhonemes.length > 0 && !adaptation.loading) {
+      console.log('🎯 Phonological phoneme-targeted selection:', { focusPhonemes: adaptation.focusPhonemes });
+      return getMixedTrials(adaptation.difficultyTier, 30, { focusPhonemes: adaptation.focusPhonemes });
+    }
     return undefined;
-  }, [targetedWords.join(',')]);
+  }, [targetedWords.join(','), adaptation.focusPhonemes.join(','), adaptation.difficultyTier, adaptation.loading]);
 
   // Fetch clinical profile
   useEffect(() => {

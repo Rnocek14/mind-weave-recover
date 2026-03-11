@@ -42,7 +42,7 @@ export const usePhonoGame = (
   useEffect(() => {
     let allTrials = customTrials && customTrials.length > 0
       ? customTrials
-      : getMixedTrials(difficultyLevel, totalTrials * 3); // Get extra to filter
+      : getMixedTrials(difficultyLevel, totalTrials * 3, { focusPhonemes: undefined }); // Extra to filter
     
     // Filter out recently shown (cross-session)
     allTrials = filterRecentlyShown(allTrials, 'phono_game', 2);
