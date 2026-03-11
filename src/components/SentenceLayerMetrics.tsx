@@ -184,6 +184,9 @@ export function SentenceLayerMetrics({ events }: SentenceLayerMetricsProps) {
   );
 }
 
+const LOW_N_WARN = 10;
+const LOW_N_OK = 20;
+
 function SourceCard({ label, count, total, accuracy, variant }: {
   label: string;
   count: number;
@@ -192,13 +195,24 @@ function SourceCard({ label, count, total, accuracy, variant }: {
   variant: 'primary' | 'secondary';
 }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const isLowN = count < LOW_N_WARN;
   return (
-    <div className="p-3 rounded-lg border bg-card space-y-2">
+    <div className={cn(
+      "p-3 rounded-lg border bg-card space-y-2",
+      isLowN && "opacity-60"
+    )}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">{label}</span>
-        <Badge variant={variant === 'primary' ? 'default' : 'secondary'} className="text-xs">
-          {pct}%
-        </Badge>
+        <div className="flex items-center gap-1">
+          {isLowN && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+              Low n
+            </Badge>
+          )}
+          <Badge variant={variant === 'primary' ? 'default' : 'secondary'} className="text-xs">
+            {pct}%
+          </Badge>
+        </div>
       </div>
       <Progress value={pct} className="h-1.5" />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -212,22 +226,41 @@ function SourceCard({ label, count, total, accuracy, variant }: {
   );
 }
 
-function LiftIndicator({ label, a, b }: { label: string; a: number; b: number }) {
+function LiftIndicator({ label, a, b, nA, nB }: { label: string; a: number; b: number; nA: number; nB: number }) {
   const diff = a - b;
   const diffPct = Math.round(Math.abs(diff) * 100);
   const positive = diff > 0;
+  const insufficientData = nA < LOW_N_WARN || nB < LOW_N_WARN;
   
   if (diffPct === 0) return null;
+
+  // Hide lift when either side has fewer than threshold trials
+  if (insufficientData) {
+    return (
+      <div className="px-3 py-2 rounded-md text-xs flex items-center gap-2 bg-muted/50 text-muted-foreground border border-border opacity-60">
+        <span className="font-medium">⏳</span>
+        <span>{label} — need ≥{LOW_N_WARN} trials per side</span>
+      </div>
+    );
+  }
+
+  const confident = nA >= LOW_N_OK && nB >= LOW_N_OK;
 
   return (
     <div className={cn(
       'px-3 py-2 rounded-md text-xs flex items-center gap-2',
-      positive ? 'bg-primary/5 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-border'
+      positive ? 'bg-primary/5 text-primary border border-primary/20' : 'bg-muted text-muted-foreground border border-border',
+      !confident && 'opacity-75'
     )}>
       <span className="font-medium">
         {positive ? '↑' : '↓'} {diffPct}pp
       </span>
       <span>{label}</span>
+      {!confident && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">
+          preliminary
+        </Badge>
+      )}
     </div>
   );
 }
