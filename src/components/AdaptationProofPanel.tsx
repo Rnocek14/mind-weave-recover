@@ -83,6 +83,7 @@ function getDominantMode(modes: Record<string, number>): string {
 }
 
 export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofPanelProps) => {
+  const [exerciseFilter, setExerciseFilter] = useState<string | undefined>(undefined);
   const { summary, isLoading } = useAdaptationProof(userId, daysBack);
   const { outcomes, isLoading: outcomesLoading } = useAdaptationOutcomes(userId, daysBack);
 
