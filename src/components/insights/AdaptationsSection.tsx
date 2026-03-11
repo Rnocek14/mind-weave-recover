@@ -85,7 +85,11 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
   }
 
   return (
-    <Card id="adaptations">
+    <div className="space-y-4">
+      {/* Executive Summary */}
+      <AdaptationExecutiveSummary userId={userId} daysBack={14} />
+
+      <Card id="adaptations">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Settings2 className="w-5 h-5" />
