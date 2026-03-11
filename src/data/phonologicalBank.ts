@@ -695,7 +695,8 @@ export function getTrialsForDifficulty(level: number, count: number = 10): Phono
  */
 export function getMixedTrials(
   targetLevel: number,
-  totalTrials: number
+  totalTrials: number,
+  options?: { focusPhonemes?: string[] }
 ): PhonologicalTrial[] {
   const currentLevel = PHONO_TRIALS.filter(t => t.difficulty === targetLevel);
   const easierLevel = targetLevel > 1 
@@ -705,10 +706,40 @@ export function getMixedTrials(
     ? PHONO_TRIALS.filter(t => t.difficulty === targetLevel + 1)
     : [];
   
-  const pool = [...currentLevel, ...easierLevel, ...harderLevel];
-  const shuffled = pool.sort(() => Math.random() - 0.5);
+  let pool = [...currentLevel, ...easierLevel, ...harderLevel];
   
-  return shuffled.slice(0, Math.min(totalTrials, shuffled.length));
+  // Phoneme-targeted sorting: prioritize trials containing focus phonemes
+  const focusPhonemes = options?.focusPhonemes;
+  if (focusPhonemes && focusPhonemes.length > 0) {
+    const normalizedFocus = new Set(focusPhonemes.map(p => p.replace(/\//g, '').toLowerCase()));
+    
+    pool.sort((a, b) => {
+      const aScore = countPhonemeOverlap(a, normalizedFocus);
+      const bScore = countPhonemeOverlap(b, normalizedFocus);
+      if (aScore !== bScore) return bScore - aScore; // Higher overlap first
+      return Math.random() - 0.5; // Random among equal
+    });
+  } else {
+    pool = pool.sort(() => Math.random() - 0.5);
+  }
+  
+  return pool.slice(0, Math.min(totalTrials, pool.length));
+}
+
+/**
+ * Count how many focus phonemes appear in a trial's phoneme differences
+ */
+function countPhonemeOverlap(
+  trial: PhonologicalTrial,
+  normalizedFocus: Set<string>
+): number {
+  let count = 0;
+  for (const diff of trial.phonemeDifferences) {
+    const from = diff.from.replace(/\//g, '').toLowerCase();
+    const to = diff.to.replace(/\//g, '').toLowerCase();
+    if (normalizedFocus.has(from) || normalizedFocus.has(to)) count++;
+  }
+  return count;
 }
 
 /**
