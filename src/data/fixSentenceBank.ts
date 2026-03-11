@@ -25,6 +25,8 @@ export interface FixSentenceTrial {
   category: string;
   difficulty: 1 | 2 | 3;
   errorType: 'semantic_swap' | 'category_error' | 'function_error' | 'multiple_valid_repairs';
+  /** Phoneme targets for adaptive phoneme-aware selection */
+  phonemeTargets: string[];
 }
 
 export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
