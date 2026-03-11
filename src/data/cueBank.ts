@@ -767,6 +767,35 @@ export function hasCueCoverage(word: string): boolean {
 }
 
 /**
+ * Get all cue variants for a word (case-insensitive).
+ */
+export function getCuesForWord(
+  word: string,
+  preferredType?: CueBankType
+): CueVariant[] {
+  const variants = cueBank[word.toLowerCase()];
+  if (!variants) return [];
+  if (preferredType) {
+    const preferred = variants.filter(v => v.type === preferredType);
+    return preferred.length > 0 ? preferred : variants;
+  }
+  return variants;
+}
+
+/**
+ * Get a single cue text for a word by type. Falls back gracefully.
+ */
+export function getCueText(
+  word: string,
+  type: CueBankType
+): string | null {
+  const variants = cueBank[word.toLowerCase()];
+  if (!variants) return null;
+  const match = variants.find(v => v.type === type);
+  return match?.text ?? null;
+}
+
+/**
  * Get inventory stats for coverage reporting.
  */
 export function getCueBankStats(): {
