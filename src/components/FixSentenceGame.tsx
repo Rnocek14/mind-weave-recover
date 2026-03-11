@@ -42,6 +42,7 @@ export function FixSentenceGame({
   onTrialComplete,
   onGameComplete,
   trialCount = 5,
+  focusPhonemes = [],
   sessionId,
   userId,
   profileId,
