@@ -348,6 +348,61 @@ export function ContentDiversityReport() {
         </Card>
       )}
 
+      {/* Graded Sentence Coverage */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <MessageSquareText className="w-4 h-4 text-primary" />
+            Graded Sentence Coverage
+          </CardTitle>
+          <CardDescription className="text-xs">
+            4-level sentence progression per target word (isolation → complex)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            {([1, 2, 3, 4] as const).map(level => (
+              <div key={level} className="text-center">
+                <div className="text-lg font-bold text-foreground">
+                  {inventory.sentenceStats.byLevel[level]}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {level === 1 ? 'L1: Word' : level === 2 ? 'L2: Simple' : level === 3 ? 'L3: Expanded' : 'L4: Complex'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>Words with full 4-level coverage</span>
+              <span>{inventory.sentenceStats.fullCoveragePercent}%</span>
+            </div>
+            <Progress value={inventory.sentenceStats.fullCoveragePercent} className="h-2" />
+          </div>
+          {/* Words without sentence coverage */}
+          {(() => {
+            const sentenceWords = new Set(inventory.sentenceStats.wordList);
+            const photoWordsWithout = inventory.photoWords.filter((w: string) => !sentenceWords.has(w));
+            if (photoWordsWithout.length === 0) return null;
+            return (
+              <div className="mt-3">
+                <div className="text-xs text-muted-foreground mb-1.5">
+                  Photo words without sentences ({photoWordsWithout.length}):
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {photoWordsWithout.slice(0, 20).map((w: string) => (
+                    <Badge key={w} variant="secondary" className="text-[10px]">{w}</Badge>
+                  ))}
+                  {photoWordsWithout.length > 20 && (
+                    <Badge variant="secondary" className="text-[10px]">+{photoWordsWithout.length - 20} more</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
       {/* Category breakdown */}
       <Card>
         <CardHeader className="pb-2">
