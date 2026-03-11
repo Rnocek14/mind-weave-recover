@@ -101,9 +101,10 @@ function formatSlug(slug: string): string {
 
 interface AdaptationCoverageGapsProps {
   summary: AdaptationProofSummary;
+  onExerciseClick?: (slug: string) => void;
 }
 
-export const AdaptationCoverageGaps = ({ summary }: AdaptationCoverageGapsProps) => {
+export const AdaptationCoverageGaps = ({ summary, onExerciseClick }: AdaptationCoverageGapsProps) => {
   const gaps = detectGaps(summary);
   const criticalCount = gaps.filter(g => g.severity === 'critical').length;
 
@@ -137,8 +138,10 @@ export const AdaptationCoverageGaps = ({ summary }: AdaptationCoverageGapsProps)
               'flex items-start gap-3 p-3 rounded-lg border text-sm',
               gap.severity === 'critical'
                 ? 'bg-destructive/5 border-destructive/20'
-                : 'bg-muted/30 border-border/50'
+                : 'bg-muted/30 border-border/50',
+              onExerciseClick && 'cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow'
             )}
+            onClick={() => onExerciseClick?.(gap.exerciseSlug)}
           >
             <AlertTriangle className={cn(
               'w-4 h-4 mt-0.5 flex-shrink-0',
@@ -153,6 +156,7 @@ export const AdaptationCoverageGaps = ({ summary }: AdaptationCoverageGapsProps)
             </div>
           </div>
         ))}
+
       </CardContent>
     </Card>
   );

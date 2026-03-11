@@ -83,6 +83,7 @@ function getDominantMode(modes: Record<string, number>): string {
 }
 
 export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofPanelProps) => {
+  const [exerciseFilter, setExerciseFilter] = useState<string | undefined>(undefined);
   const { summary, isLoading } = useAdaptationProof(userId, daysBack);
   const { outcomes, isLoading: outcomesLoading } = useAdaptationOutcomes(userId, daysBack);
 
@@ -192,7 +193,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
       </div>
 
       {/* Adaptation vs Outcomes */}
-      <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} />
+      <div id="outcomes-panel">
+        <AdaptationOutcomesPanel userId={userId} daysBack={daysBack} exerciseFilter={exerciseFilter} onExerciseFilterChange={setExerciseFilter} />
+      </div>
 
       {/* Data Quality Warnings */}
       {summary.globalDataQuality.length > 0 && (
@@ -245,7 +248,10 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
       </Card>
 
       {/* Coverage Gap Recommendations */}
-      <AdaptationCoverageGaps summary={summary} />
+      <AdaptationCoverageGaps summary={summary} onExerciseClick={(slug) => {
+        setExerciseFilter(slug);
+        document.getElementById('outcomes-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }} />
     </div>
   );
 };
