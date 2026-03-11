@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
+import About from "./pages/About";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
@@ -83,6 +84,7 @@ const App = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/about" element={<About />} />
                   
                   {/* Exercise routes - no header for immersive experience */}
                   <Route path="/exercise/:exerciseId" element={<Exercise />} />
