@@ -1,5 +1,6 @@
 /**
  * Dual-Load Naming Exercise Page — wrapper with session lifecycle.
+ * Now consumes shared adaptation contract.
  */
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,6 +11,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -32,6 +35,18 @@ export default function DualLoadNamingExercise() {
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 2;
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'phonemic_paraphasia',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,   // naming task benefits from phoneme targeting
+    cueSensitive: false,
+  });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
@@ -60,12 +75,13 @@ export default function DualLoadNamingExercise() {
         recall_accuracy: result.recallAccuracy,
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: DualLoadTrialResult[]) => {
     setCompleted(true);

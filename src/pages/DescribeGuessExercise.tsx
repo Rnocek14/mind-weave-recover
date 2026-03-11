@@ -2,6 +2,7 @@
  * Describe & Guess Exercise Page
  * 
  * Flagship circumlocution training — wrapper with session lifecycle.
+ * Now consumes shared adaptation contract.
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -13,6 +14,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -34,6 +37,18 @@ export default function DescribeGuessExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'semantic_paraphasia',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,  // circumlocution is semantic, not phonemic
+    cueSensitive: true,
+  });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -83,9 +98,11 @@ export default function DescribeGuessExercise() {
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected,
         difficulty: result.difficulty,
+        // Shared adaptation telemetry
+        ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial]);
+  }, [activeSessionId, logTrial, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: DescribeGuessTrialResult[]) => {
     setCompleted(true);

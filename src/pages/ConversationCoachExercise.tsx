@@ -4,6 +4,7 @@ import { ArrowLeft, MessageCircle, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 
 interface SessionSummary {
@@ -18,17 +19,20 @@ export default function ConversationCoachExercise() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   
+  // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
+  const adaptation = useSessionAdaptation({
+    defaultErrorType: 'no_response',
+  });
+  
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
-  // Redirect to auth if not logged in - only after auth has loaded
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
 
-  // Show loading while auth is initializing
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -37,7 +41,6 @@ export default function ConversationCoachExercise() {
     );
   }
 
-  // Return null while redirecting
   if (!user) {
     return null;
   }

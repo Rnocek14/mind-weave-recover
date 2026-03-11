@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
 import { useExerciseConfig } from '@/hooks/useExerciseConfig';
 import { useExerciseGating } from '@/hooks/useExerciseGating';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -28,6 +30,18 @@ export default function SemanticFeatureExercise() {
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'semantic_paraphasia',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,  // semantic features, not phoneme-targeted
+    cueSensitive: true,
+  });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);
@@ -75,7 +89,6 @@ export default function SemanticFeatureExercise() {
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
 
   const handleSkipExercise = async () => {
-    // Log skip analytics with clinical profile snapshot
     if (user?.id) {
       try {
         const { data: profile } = await supabase
@@ -104,7 +117,6 @@ export default function SemanticFeatureExercise() {
       description: "Moving to next activity",
     });
     
-    // Dispatch event and navigate back to lesson
     window.dispatchEvent(new CustomEvent('exercise-complete'));
     navigate('/lesson', { state: { resuming: true } });
   };
@@ -112,11 +124,9 @@ export default function SemanticFeatureExercise() {
   const handleGameStart = async () => {
     if (!user?.id) return;
     
-    // If coming from lesson, use the passed sessionId
     if (fromLesson && lessonSessionId) {
       setSessionId(lessonSessionId);
     } else {
-      // Create new session
       const session = await startSession(user.id, {
         blocks: [{ exercise: 'semantic-features', duration: 10 }],
       });
@@ -142,11 +152,9 @@ export default function SemanticFeatureExercise() {
     });
     
     if (fromLesson) {
-      // Return to lesson flow
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate('/lesson', { state: { resuming: true } });
     } else {
-      // Standalone mode - go to dashboard
       setTimeout(() => navigate('/dashboard'), 2000);
     }
   };
@@ -190,21 +198,15 @@ export default function SemanticFeatureExercise() {
               </Button>
             )}
           </div>
-          <DifficultyInfoBadge level={config.startDifficulty || 1} floor={bounds.floor} ceiling={bounds.ceiling} />
+          <DifficultyInfoBadge level={adaptation.difficultyTier} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
 
-        {/* Active adaptations debug badges */}
-        {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
+        {/* Adaptation badges */}
+        {adaptation.adaptationReasons.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {lessonAdaptations.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1 && (
-              <Badge variant="secondary" className="text-xs">Timeout ×{lessonAdaptations.timeoutMultiplier}</Badge>
-            )}
-            {lessonAdaptations.startDifficulty && (
-              <Badge variant="secondary" className="text-xs">Start Lv {lessonAdaptations.startDifficulty}</Badge>
-            )}
-            {lessonAdaptations.slowerTTS && (
-              <Badge variant="secondary" className="text-xs">Slower TTS</Badge>
-            )}
+            {adaptation.adaptationReasons.slice(0, 3).map((reason, i) => (
+              <Badge key={i} variant="secondary" className="text-xs">{reason}</Badge>
+            ))}
           </div>
         )}
 
@@ -240,7 +242,7 @@ export default function SemanticFeatureExercise() {
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
-            console.log('Trial complete:', data);
+            console.log('Trial complete:', { ...data, ...adaptationTelemetry });
           }}
         />
       </div>

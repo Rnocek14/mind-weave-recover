@@ -2,7 +2,7 @@
  * MinimalPairsExercise Page
  * 
  * Dedicated exercise for phoneme discrimination using minimal pairs.
- * Presents two images side-by-side and asks user to identify the target word.
+ * Now consumes shared adaptation contract for phoneme targeting + telemetry.
  */
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,9 @@ import { MinimalPairsGame } from '@/components/MinimalPairsGame';
 import { getMinimalPairStats } from '@/data/minimalPairsBank';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Info } from 'lucide-react';
 
@@ -24,13 +27,27 @@ export default function MinimalPairsExercise() {
   const { activeProfile } = useProfile();
   
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState(1);
   const [isStarted, setIsStarted] = useState(false);
+  
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'phonemic_paraphasia',
+  });
+  
+  const difficulty = adaptation.difficultyTier;
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,
+    cueSensitive: false,
+  });
   
   // Get stats about available pairs
   const stats = getMinimalPairStats();
   
-  // Initialize session with 'listening' modality to avoid speech-related red flags
+  const { startTrial, logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
+  
+  // Initialize session
   useEffect(() => {
     const initSession = async () => {
       if (!user?.id) return;
@@ -58,7 +75,6 @@ export default function MinimalPairsExercise() {
     accuracy: number;
   }) => {
     console.log('Minimal pairs exercise complete:', results);
-    // Could log to telemetry here
   };
   
   const handleTrialComplete = (trialData: {
@@ -67,25 +83,29 @@ export default function MinimalPairsExercise() {
     isCorrect: boolean;
     pair: { word1: string; word2: string };
   }) => {
-    console.log('Trial complete:', trialData);
-    // Could log individual trials to telemetry here
+    startTrial();
+    logTrial({
+      correct: trialData.isCorrect,
+      reactionTimeMs: 0,
+      errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
+      taskParameters: {
+        target_word: trialData.targetWord,
+        selected_word: trialData.selectedWord,
+        pair: trialData.pair,
+        ...adaptationTelemetry,
+      },
+    });
   };
   
   if (!isStarted) {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          {/* Back button */}
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(-1)}
-            className="gap-2"
-          >
+          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Back
           </Button>
           
-          {/* Header */}
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
             <CardHeader className="text-center pb-4">
               <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
@@ -98,7 +118,14 @@ export default function MinimalPairsExercise() {
             </CardHeader>
             
             <CardContent className="space-y-6">
-              {/* How it works */}
+              {/* Adaptation info */}
+              {adaptation.focusPhonemes.length > 0 && (
+                <div className="bg-primary/5 rounded-lg p-3 text-sm">
+                  <span className="font-medium">Targeting sounds: </span>
+                  {adaptation.focusPhonemes.join(', ')}
+                </div>
+              )}
+              
               <div className="bg-muted/50 rounded-lg p-4">
                 <h3 className="font-semibold flex items-center gap-2 mb-2">
                   <Info className="w-4 h-4" />
@@ -112,7 +139,6 @@ export default function MinimalPairsExercise() {
                 </ol>
               </div>
               
-              {/* Stats */}
               <div className="flex justify-center gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{stats.total}</div>
@@ -124,24 +150,6 @@ export default function MinimalPairsExercise() {
                 </div>
               </div>
               
-              {/* Difficulty selector */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">Difficulty</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3].map((level) => (
-                    <Button
-                      key={level}
-                      variant={difficulty === level ? "default" : "outline"}
-                      onClick={() => setDifficulty(level)}
-                      className="flex-1"
-                    >
-                      {level === 1 ? 'Easy' : level === 2 ? 'Medium' : 'Hard'}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Example pairs */}
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Example pairs you'll practice:</p>
                 <div className="flex flex-wrap gap-2">
@@ -152,7 +160,6 @@ export default function MinimalPairsExercise() {
                 </div>
               </div>
               
-              {/* Start button */}
               <Button 
                 size="lg" 
                 className="w-full"
@@ -177,12 +184,7 @@ export default function MinimalPairsExercise() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Back button */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)}
-          className="gap-2"
-        >
+        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
           Exit
         </Button>

@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useExerciseConfig } from "@/hooks/useExerciseConfig";
 import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
+import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
+import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
@@ -35,6 +37,18 @@ const SentenceConstructionExercise = () => {
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'semantic_paraphasia',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,
+    cueSensitive: false,  // grammar-focused, not cue-driven
+  });
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState<number>(Date.now());
@@ -68,7 +82,7 @@ const SentenceConstructionExercise = () => {
   );
   
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
-  const level = manualDifficulty ?? config.startDifficulty ?? 1;
+  const level = manualDifficulty ?? adaptation.difficultyTier;
   
   const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
     sessionId || "temp",
@@ -85,11 +99,9 @@ const SentenceConstructionExercise = () => {
     if (!user) return;
 
     try {
-      // If coming from lesson, use the passed sessionId
       if (fromLesson && lessonSessionId) {
         setSessionId(lessonSessionId);
       } else {
-        // Create new session
         const session = await startSession(user.id, {
           blocks: [{ exercise: "sentence-construction", duration: 600 }]
         });
@@ -133,7 +145,8 @@ const SentenceConstructionExercise = () => {
       errorType: data.errorType,
       taskParameters: {
         difficulty: level,
-        grammarFocus: data.grammarFocus
+        grammarFocus: data.grammarFocus,
+        ...adaptationTelemetry,
       }
     });
   };
@@ -155,17 +168,14 @@ const SentenceConstructionExercise = () => {
     });
     
     if (fromLesson) {
-      // Return to lesson flow
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate('/lesson', { state: { resuming: true } });
     } else {
-      // Standalone mode - go to dashboard
       setTimeout(() => navigate('/dashboard'), 2000);
     }
   };
 
   const handleSkipExercise = async () => {
-    // Log skip analytics with clinical profile snapshot
     if (user?.id) {
       try {
         const { data: profile } = await supabase
@@ -191,7 +201,6 @@ const SentenceConstructionExercise = () => {
     
     toast.info("Exercise skipped - moving to next activity");
     
-    // Dispatch event and navigate back to lesson
     window.dispatchEvent(new CustomEvent('exercise-complete'));
     navigate('/lesson', { state: { resuming: true } });
   };
@@ -278,6 +287,9 @@ const SentenceConstructionExercise = () => {
           <div className="flex gap-2 mt-4">
             <Badge variant="secondary">Grammar Focus</Badge>
             <Badge variant="outline">Level {level}</Badge>
+            {adaptation.adaptationReasons.length > 0 && (
+              <Badge variant="secondary" className="text-xs">Adapted</Badge>
+            )}
           </div>
         </div>
 

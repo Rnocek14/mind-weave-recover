@@ -2,6 +2,7 @@
  * Fix the Sentence Exercise Page
  * 
  * Wrapper with session lifecycle, telemetry, and navigation.
+ * Now consumes shared adaptation contract.
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -13,6 +14,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -34,6 +37,18 @@ export default function FixSentenceExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes,
+    defaultErrorType: 'semantic_paraphasia',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,  // sentence-level, not phoneme
+    cueSensitive: true,
+  });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -78,9 +93,11 @@ export default function FixSentenceExercise() {
         self_corrected: result.selfCorrected,
         semantic_similarity: result.semanticSimilarity,
         difficulty: result.difficulty,
+        // Shared adaptation telemetry
+        ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial]);
+  }, [activeSessionId, logTrial, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: FixSentenceTrialResult[]) => {
     setCompleted(true);
