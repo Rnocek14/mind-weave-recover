@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { getCueBankStats, hasCueCoverage, type CueBankType } from '@/data/cueBank';
 import { MINIMAL_PAIRS } from '@/data/minimalPairsBank';
-import { WORD_PHONEME_MAP } from '@/lib/phonemeWordMap';
+import { WORD_PHONEME_MAP, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 interface PhonemePositionCoverage {
   phoneme: string;
@@ -47,6 +47,9 @@ function computeInventory() {
   // Words with vs without cue coverage
   const wordsWithCues = photoWords.filter(w => hasCueCoverage(w));
   const wordsWithoutCues = photoWords.filter(w => !hasCueCoverage(w));
+  
+  // Phoneme-map coverage
+  const phonemeMapCoverage = getPhonemeMapCoverage(photoWords);
   
   // Minimal pairs
   const minimalPairsCount = MINIMAL_PAIRS.length;
@@ -130,6 +133,7 @@ function computeInventory() {
     cueStats,
     wordsWithCues: wordsWithCues.length,
     wordsWithoutCues,
+    phonemeMapCoverage,
     minimalPairsCount,
     phonemeCoverage: coverageArray,
     positionGaps: gaps.slice(0, 8),
@@ -144,6 +148,7 @@ export function ContentDiversityReport() {
   const fullCueCoveragePercent = Math.round(
     (inventory.cueStats.wordsWithFullCoverage / inventory.cueStats.totalWords) * 100
   );
+  const phonemeMapPct = Math.round(inventory.phonemeMapCoverage.coverage);
 
   return (
     <div className="space-y-4">
@@ -169,12 +174,34 @@ export function ContentDiversityReport() {
         />
         <StatCard
           icon={<BarChart3 className="w-4 h-4" />}
-          label="Cue Coverage"
-          value={`${cueCoveragePercent}%`}
-          sub={`${inventory.wordsWithoutCues.length} gaps`}
-          alert={inventory.wordsWithoutCues.length > 5}
+          label="Phoneme Map"
+          value={`${phonemeMapPct}%`}
+          sub={`${inventory.phonemeMapCoverage.unmapped.length} unmapped`}
+          alert={inventory.phonemeMapCoverage.unmapped.length > 3}
         />
       </div>
+
+      {/* Unmapped words warning */}
+      {inventory.phonemeMapCoverage.unmapped.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              Unmapped Words ({inventory.phonemeMapCoverage.unmapped.length})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Photo words missing phoneme mappings — affects targeting accuracy
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {inventory.phonemeMapCoverage.unmapped.map(w => (
+                <Badge key={w} variant="destructive" className="text-xs">{w}</Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cue type breakdown */}
       <Card>
