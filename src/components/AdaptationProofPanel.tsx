@@ -42,6 +42,7 @@ import { useAdaptationProof, type GameAdaptationRow, type RecentAdaptedTrial } f
 import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
 import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
 import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
+import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
 import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -156,6 +157,9 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
           </Button>
         </div>
       </div>
+
+      {/* Executive Summary Card */}
+      <AdaptationExecutiveSummary userId={userId} daysBack={daysBack} />
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
