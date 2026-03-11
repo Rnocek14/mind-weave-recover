@@ -24,6 +24,7 @@ export interface FixSentenceTrialResult {
   reactionTimeMs: number;
   attemptNumber: number;
   difficulty: number;
+  phonemeTargets: string[];
 }
 
 interface UseFixSentenceGameOptions {
