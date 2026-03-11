@@ -90,9 +90,23 @@ export default function PhotoNamingExercise() {
   const lessonSessionId = location.state?.sessionId as string | undefined;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
-  const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
   const isTargetedPractice = location.state?.is_targeted_practice === true;
   const statePracticeSource = location.state?.practice_source as string | undefined;
+  
+  // Shared adaptation contract — single source of truth for phonemes, cues, difficulty
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    lessonFocusPhonemes: location.state?.focusPhonemes as string[] | undefined,
+    lessonFocusWords,
+    defaultErrorType: 'phonemic_paraphasia',
+  });
+  
+  // Use contract-derived values
+  const lessonFocusPhonemes = adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined;
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,
+    cueSensitive: true,
+  });
   
   // Extract targeted practice from URL params or lesson state
   const searchParams = new URLSearchParams(location.search);
@@ -105,13 +119,14 @@ export default function PhotoNamingExercise() {
     enabled: !fromLesson && urlTargets.length === 0  // Only fetch when standalone and no URL targets
   });
   
-  // Priority: lesson focus words > URL targets > struggling words fallback
+  // Priority: lesson focus words > contract target words > URL targets > struggling words fallback
   const targetedWords = lessonFocusWords?.length ? lessonFocusWords 
+    : adaptation.targetWords.length > 0 ? adaptation.targetWords
     : urlTargets.length ? urlTargets 
     : strugglingWordsFallback?.slice(0, 5) || [];
   
-  // Extract adaptations for game configuration
-  const initialDifficulty = lessonAdaptations?.startDifficulty ?? 1;
+  // Extract adaptations for game configuration — use contract difficulty
+  const initialDifficulty = adaptation.difficultyTier;
   const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
   const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
