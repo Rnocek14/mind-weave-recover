@@ -51,6 +51,7 @@ export const SentenceConstructionGame = ({
   config,
   bounds,
   difficultyLevel,
+  focusPhonemes = [],
   adaptations,
   onTrialComplete,
   onGameComplete
