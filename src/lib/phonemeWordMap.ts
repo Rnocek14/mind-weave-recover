@@ -183,6 +183,7 @@ export const WORD_PHONEME_MAP: Record<string, string[]> = {
   'gold': ['/g/', '/oʊ/', '/l/', '/d/'],
   'grape': ['/g/', '/r/', '/eɪ/', '/p/'],
   'green': ['/g/', '/r/', '/i/', '/n/'],
+  'glove': ['/g/', '/l/', '/ʌ/', '/v/'],
   
   // /m/ - bilabial nasal
   'man': ['/m/', '/æ/', '/n/'],
