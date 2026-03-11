@@ -23,6 +23,7 @@ interface SentenceConstructionGameProps {
   config: ExerciseConfig;
   bounds: DifficultyBounds;
   difficultyLevel: number;
+  focusPhonemes?: string[];
   adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: {
     correct: boolean;
@@ -50,6 +51,7 @@ export const SentenceConstructionGame = ({
   config,
   bounds,
   difficultyLevel,
+  focusPhonemes = [],
   adaptations,
   onTrialComplete,
   onGameComplete
@@ -70,7 +72,7 @@ export const SentenceConstructionGame = ({
     nextTrial,
     getWeakestGrammarArea,
     getAnswerAsWords
-  } = useSentenceGame(10, difficultyLevel);
+  } = useSentenceGame(10, difficultyLevel, focusPhonemes);
 
   const { speak, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
