@@ -42,23 +42,34 @@ export const useSentenceGame = (
     recentErrors: []
   });
 
-  // Initialize trials with deduplication
+  // Initialize trials with graded sentence injection
   useEffect(() => {
-    let allTrials = getMixedTrials(difficultyLevel, totalTrials * 2);
-    allTrials = filterRecentlyShown(allTrials, 'sentence_game', 2);
-    const available = allTrials.filter(t => !shownTrialsRef.current.has(t.id));
-    const trialsToUse = available.length >= totalTrials ? available : allTrials;
-    const selectedTrials = shuffleArray(trialsToUse).slice(0, totalTrials);
+    // Get phoneme-targeted graded trials (up to 40% of total)
+    const gradedCount = focusPhonemes.length > 0 ? Math.ceil(totalTrials * 0.4) : 0;
+    const gradedTrials = gradedCount > 0
+      ? getAdaptiveGradedTrials(difficultyLevel, focusPhonemes, gradedCount)
+      : [];
+    
+    // Fill remaining with standard sentence bank trials
+    const standardCount = totalTrials - gradedTrials.length;
+    let standardTrials = getMixedTrials(difficultyLevel, standardCount * 2);
+    standardTrials = filterRecentlyShown(standardTrials, 'sentence_game', 2);
+    const available = standardTrials.filter(t => !shownTrialsRef.current.has(t.id));
+    const trialsToUse = available.length >= standardCount ? available : standardTrials;
+    const selectedStandard = shuffleArray(trialsToUse).slice(0, standardCount);
+    
+    // Merge and shuffle
+    const allTrials = shuffleArray([...gradedTrials, ...selectedStandard]);
     
     setGameState(prev => ({
       ...prev,
-      trials: selectedTrials,
+      trials: allTrials,
       currentTrial: 0,
       score: 0,
       completed: false,
       currentAnswer: []
     }));
-  }, [difficultyLevel, totalTrials]);
+  }, [difficultyLevel, totalTrials, focusPhonemes.join(',')]);
 
   const getCurrentTrial = (): SentenceTrial | null => {
     if (gameState.trials.length === 0) return null;
