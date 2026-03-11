@@ -756,6 +756,11 @@ export const cueBank: Record<string, CueVariant[]> = {
     { type: 'repetition', text: 'Say: birthday.', difficulty: 1 },
   ],
 };
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Check whether a word has cue coverage in the bank.
  */
 export function hasCueCoverage(word: string): boolean {
   return word.toLowerCase() in cueBank;
