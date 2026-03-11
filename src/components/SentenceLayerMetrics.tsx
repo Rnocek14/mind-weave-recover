@@ -142,6 +142,8 @@ export function SentenceLayerMetrics({ events }: SentenceLayerMetricsProps) {
                 label="Graded vs Standard"
                 a={sourceBreakdown.gradedAccuracy}
                 b={sourceBreakdown.standardAccuracy}
+                nA={sourceBreakdown.graded}
+                nB={sourceBreakdown.standard}
               />
             )}
           </div>
