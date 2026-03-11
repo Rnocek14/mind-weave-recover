@@ -101,6 +101,7 @@ export function FixSentenceGame({
   const game = useFixSentenceGame({
     trialCount,
     difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))) as 1 | 2 | 3,
+    focusPhonemes,
     onTrialComplete,
     onGameComplete,
   });

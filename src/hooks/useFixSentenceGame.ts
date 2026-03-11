@@ -48,8 +48,8 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const pendingTrialRef = useRef<FixSentenceTrialResult | null>(null);
 
   const initialTrials = useMemo(
-    () => getFixSentenceTrials({ difficulty, count: trialCount }),
-    [difficulty, trialCount]
+    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes }),
+    [difficulty, trialCount, focusPhonemes.join(',')]
   );
 
   const [trials] = useState(initialTrials);

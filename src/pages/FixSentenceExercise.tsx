@@ -165,6 +165,7 @@ export default function FixSentenceExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             trialCount={5}
+            focusPhonemes={adaptation.focusPhonemes}
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
