@@ -1,5 +1,6 @@
 /**
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
+ * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
  */
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,6 +11,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -32,6 +35,17 @@ export default function NarrativeRetellExercise() {
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 3;
+
+  // Shared adaptation contract — profile-aware, not directly phoneme-targeted
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: location.state?.adaptations,
+    defaultErrorType: 'no_response',
+  });
+
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,
+    cueSensitive: true,  // narrative prompting can benefit from cue personalization
+  });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
@@ -61,6 +75,7 @@ export default function NarrativeRetellExercise() {
         events_total: result.eventsTotal,
         word_count: result.wordCount,
         trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         explanation: {
@@ -72,7 +87,7 @@ export default function NarrativeRetellExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
     setCompleted(true);
