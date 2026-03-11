@@ -88,10 +88,14 @@ export const AdaptationOutcomesPanel = ({ userId, daysBack = 14, exerciseFilter:
             Adaptation vs Outcomes
           </h3>
           {exerciseFilter && (
-            <Badge variant="secondary" className="text-xs gap-1">
+            <button
+              onClick={() => setExerciseFilter(undefined)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
               <Filter className="w-3 h-3" />
               {formatSlug(exerciseFilter)}
-            </Badge>
+              <X className="w-3 h-3 opacity-60 hover:opacity-100" />
+            </button>
           )}
         </div>
         {hasExercises && (
