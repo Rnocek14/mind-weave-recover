@@ -159,7 +159,7 @@ export function ContentDiversityReport() {
   return (
     <div className="space-y-4">
       {/* Headline stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard
           icon={<BookOpen className="w-4 h-4" />}
           label="Photo Words"
@@ -177,6 +177,12 @@ export function ContentDiversityReport() {
           label="Minimal Pairs"
           value={inventory.minimalPairsCount}
           sub="phoneme contrasts"
+        />
+        <StatCard
+          icon={<MessageSquareText className="w-4 h-4" />}
+          label="Sentence Layers"
+          value={inventory.sentenceStats.totalSentences}
+          sub={`${inventory.sentenceStats.uniqueWords} words × 4 levels`}
         />
         <StatCard
           icon={<BarChart3 className="w-4 h-4" />}
