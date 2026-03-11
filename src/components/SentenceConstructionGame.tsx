@@ -23,6 +23,7 @@ interface SentenceConstructionGameProps {
   config: ExerciseConfig;
   bounds: DifficultyBounds;
   difficultyLevel: number;
+  focusPhonemes?: string[];
   adaptations?: ExerciseAdaptation | null;
   onTrialComplete?: (data: {
     correct: boolean;
