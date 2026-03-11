@@ -46,6 +46,7 @@ interface TwoCluesGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  focusPhonemes?: string[];
 }
 
 /**
