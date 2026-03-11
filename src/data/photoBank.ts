@@ -112,6 +112,19 @@ import puppyImg from '@/assets/photos/puppy.jpg';
 import pigImg from '@/assets/photos/pig.jpg';
 import frogImg from '@/assets/photos/frog.jpg';
 import towelImg from '@/assets/photos/towel.jpg';
+// Phoneme gap expansion - Batch 3 (medial position gaps)
+import fingerImg from '@/assets/photos/finger.jpg';
+import rabbitImg from '@/assets/photos/rabbit.jpg';
+import ovenImg from '@/assets/photos/oven.jpg';
+import basketImg from '@/assets/photos/basket.jpg';
+import coffeeImg from '@/assets/photos/coffee.jpg';
+import kitchenImg from '@/assets/photos/kitchen.jpg';
+import bridgeImg from '@/assets/photos/bridge.jpg';
+import buttonImg from '@/assets/photos/button.jpg';
+import pigeonImg from '@/assets/photos/pigeon.jpg';
+import monkeyImg from '@/assets/photos/monkey.jpg';
+import garageImg from '@/assets/photos/garage.jpg';
+import birthdayImg from '@/assets/photos/birthday.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
@@ -2789,6 +2802,332 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 2,
     minLevel: 2,
     maxLevel: 6,
+  },
+
+  // ── Batch 3: Medial position gap fills ──────────────────────
+
+  // /ŋ/ medial - finger
+  {
+    id: 'finger_1',
+    imageUrl: fingerImg,
+    target: 'finger',
+    semanticFoils: ['thumb', 'hand', 'toe', 'knuckle'],
+    phonologicalFoils: ['singer', 'linger', 'ringer'],
+    category: 'body',
+    features: {
+      frequency_rank: 2100,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/f/',
+      semantic_category: 'body_part',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /b/ medial - rabbit
+  {
+    id: 'rabbit_1',
+    imageUrl: rabbitImg,
+    target: 'rabbit',
+    semanticFoils: ['mouse', 'squirrel', 'hamster', 'bunny'],
+    phonologicalFoils: ['habit', 'cabinet', 'ribbit'],
+    category: 'animals',
+    features: {
+      frequency_rank: 4200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/r/',
+      semantic_category: 'small_animal',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /v/ medial - oven
+  {
+    id: 'oven_1',
+    imageUrl: ovenImg,
+    target: 'oven',
+    semanticFoils: ['stove', 'microwave', 'toaster', 'grill'],
+    phonologicalFoils: ['open', 'even', 'woven'],
+    category: 'kitchenware',
+    features: {
+      frequency_rank: 5500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/ʌ/',
+      semantic_category: 'kitchen_appliance',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /s/ medial - basket
+  {
+    id: 'basket_1',
+    imageUrl: basketImg,
+    target: 'basket',
+    semanticFoils: ['bucket', 'box', 'bag', 'bin'],
+    phonologicalFoils: ['biscuit', 'casket', 'gasket'],
+    category: 'objects',
+    features: {
+      frequency_rank: 5200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 6,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/b/',
+      semantic_category: 'container',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /f/ medial - coffee
+  {
+    id: 'coffee_1',
+    imageUrl: coffeeImg,
+    target: 'coffee',
+    semanticFoils: ['tea', 'juice', 'cocoa', 'milk'],
+    phonologicalFoils: ['toffee', 'coughing', 'coffin'],
+    category: 'food',
+    features: {
+      frequency_rank: 2800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 6,
+      syllable_count: 2,
+      phoneme_count: 4,
+      phonological_complexity: 0,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/k/',
+      semantic_category: 'beverage',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /tʃ/ medial - kitchen
+  {
+    id: 'kitchen_1',
+    imageUrl: kitchenImg,
+    target: 'kitchen',
+    semanticFoils: ['bedroom', 'bathroom', 'dining room', 'living room'],
+    phonologicalFoils: ['kitten', 'chicken', 'mitten'],
+    category: 'home',
+    features: {
+      frequency_rank: 2500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/k/',
+      semantic_category: 'room',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /dʒ/ final - bridge
+  {
+    id: 'bridge_1',
+    imageUrl: bridgeImg,
+    target: 'bridge',
+    semanticFoils: ['road', 'tunnel', 'path', 'overpass'],
+    phonologicalFoils: ['fridge', 'ridge', 'badge'],
+    category: 'buildings',
+    features: {
+      frequency_rank: 3200,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 1,
+      phoneme_count: 4,
+      phonological_complexity: 1,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/b/',
+      semantic_category: 'structure',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /t/ medial - button
+  {
+    id: 'button_1',
+    imageUrl: buttonImg,
+    target: 'button',
+    semanticFoils: ['zipper', 'buckle', 'snap', 'clasp'],
+    phonologicalFoils: ['mutton', 'glutton', 'cotton'],
+    category: 'objects',
+    features: {
+      frequency_rank: 4800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 4,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 0,
+      neighborhood_density: 'moderate',
+      first_phoneme: '/b/',
+      semantic_category: 'fastener',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /dʒ/ medial - pigeon
+  {
+    id: 'pigeon_1',
+    imageUrl: pigeonImg,
+    target: 'pigeon',
+    semanticFoils: ['sparrow', 'crow', 'dove', 'robin'],
+    phonologicalFoils: ['region', 'legion', 'surgeon'],
+    category: 'animals',
+    features: {
+      frequency_rank: 8500,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/p/',
+      semantic_category: 'bird',
+      typicality_rating: 2,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /ŋ/ medial (reinforcement) - monkey
+  {
+    id: 'monkey_1',
+    imageUrl: monkeyImg,
+    target: 'monkey',
+    semanticFoils: ['gorilla', 'chimp', 'ape', 'baboon'],
+    phonologicalFoils: ['donkey', 'hockey', 'turkey'],
+    category: 'animals',
+    features: {
+      frequency_rank: 5800,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/m/',
+      semantic_category: 'primate',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 2,
+    minLevel: 2,
+    maxLevel: 6,
+  },
+
+  // /ʒ/ final - garage
+  {
+    id: 'garage_1',
+    imageUrl: garageImg,
+    target: 'garage',
+    semanticFoils: ['shed', 'driveway', 'carport', 'barn'],
+    phonologicalFoils: ['mirage', 'massage', 'collage'],
+    category: 'buildings',
+    features: {
+      frequency_rank: 5600,
+      imageability: 7,
+      concreteness: 7,
+      age_of_acquisition: 5,
+      syllable_count: 2,
+      phoneme_count: 5,
+      phonological_complexity: 1,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/g/',
+      semantic_category: 'structure',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 7,
+  },
+
+  // /θ/ medial - birthday
+  {
+    id: 'birthday_1',
+    imageUrl: birthdayImg,
+    target: 'birthday',
+    semanticFoils: ['party', 'celebration', 'anniversary', 'holiday'],
+    phonologicalFoils: ['earthday', 'worthwhile'],
+    category: 'events',
+    features: {
+      frequency_rank: 3200,
+      imageability: 6,
+      concreteness: 5,
+      age_of_acquisition: 3,
+      syllable_count: 2,
+      phoneme_count: 6,
+      phonological_complexity: 2,
+      neighborhood_density: 'sparse',
+      first_phoneme: '/b/',
+      semantic_category: 'celebration',
+      typicality_rating: 1,
+      part_of_speech: 'noun'
+    },
+    computed_difficulty: 3,
+    minLevel: 3,
+    maxLevel: 8,
   },
 ];
 /**
