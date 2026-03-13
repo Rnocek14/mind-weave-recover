@@ -34,12 +34,19 @@ export interface SignalCounts {
   assessmentAgeDays: number;
 }
 
+export interface DomainExposure7d {
+  domainSlug: string;
+  sessionCount: number;
+  trialCount: number;
+}
+
 export interface AdaptiveEngineInput {
   capabilityScores: CapabilityScores | null;
   performanceSignals: PerformanceSignals | null;
   speechProfile: SpeechProfileSummary | null;
   signalCounts: SignalCounts;
   cognitiveDomainScores?: DomainScore[]; // Phase B: cognitive state engine scores
+  domainExposure7d?: DomainExposure7d[]; // Phase B: real 7-day session exposure
 }
 
 // ============ Output Schema ============
@@ -406,35 +413,70 @@ const PHASE_B_RULES: DecisionRule[] = [
     minConfidence: 'MEDIUM',
     phase: 'B',
     condition: (input) => {
-      // This rule checks if any domains are underexposed
-      // The actual exposure data is injected via cognitiveDomainScores trialCount
+      // Use real 7-day session exposure data when available
+      const exposure = input.domainExposure7d;
+      if (exposure && exposure.length > 0) {
+        const totalTrials = exposure.reduce((sum, d) => sum + d.trialCount, 0);
+        if (totalTrials < 30) return false;
+        return exposure.some(
+          d => d.domainSlug !== 'cognitive_endurance' && d.sessionCount < 2
+        );
+      }
+      // Fallback: use cognitiveDomainScores trialCount as rough proxy
       const scores = input.cognitiveDomainScores;
       if (!scores) return false;
       const totalTrials = scores.reduce((sum, d) => sum + d.trialCount, 0);
       if (totalTrials < 30) return false;
-      // Check if any non-endurance domain has < 3 trials (proxy for underexposure)
       return scores.some(
-        d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3 && totalTrials >= 30
+        d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3
       );
     },
     conditionDescription: (input) => {
+      const exposure = input.domainExposure7d;
+      if (exposure && exposure.length > 0) {
+        const underexposed = exposure
+          .filter(d => d.domainSlug !== 'cognitive_endurance' && d.sessionCount < 2)
+          .map(d => `${d.domainSlug} (${d.sessionCount} sessions)`);
+        return `Underexposed (7d sessions): ${underexposed.join(', ') || 'none'}`;
+      }
       const underexposed = input.cognitiveDomainScores
         ?.filter(d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3)
         ?.map(d => d.domainSlug) || [];
-      return `Underexposed domains: ${underexposed.join(', ') || 'none'}`;
+      return `Underexposed (trial proxy): ${underexposed.join(', ') || 'none'}`;
     },
     apply: (focus, input) => {
-      const underexposed = input.cognitiveDomainScores
-        ?.filter(d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3)
-        ?.map(d => d.domainSlug) || [];
-      for (const domain of underexposed.slice(0, 2)) {
+      let underexposedSlugs: string[] = [];
+      
+      const exposure = input.domainExposure7d;
+      if (exposure && exposure.length > 0) {
+        // Use real session exposure — but don't override severe weakness domains
+        const domainScores = input.cognitiveDomainScores;
+        underexposedSlugs = exposure
+          .filter(d => {
+            if (d.domainSlug === 'cognitive_endurance') return false;
+            if (d.sessionCount >= 2) return false;
+            // Don't flag if severe weakness rules are already handling it
+            const score = domainScores?.find(s => s.domainSlug === d.domainSlug);
+            const isSeverelyWeak = score && score.confidence !== 'low' && score.score < 0.35;
+            return !isSeverelyWeak;
+          })
+          .map(d => d.domainSlug);
+      } else {
+        underexposedSlugs = input.cognitiveDomainScores
+          ?.filter(d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3)
+          ?.map(d => d.domainSlug) || [];
+      }
+      
+      for (const domain of underexposedSlugs.slice(0, 2)) {
         if (!focus.primaryDomains.includes(domain)) {
           focus.primaryDomains.push(domain);
         }
       }
-      focus.reasoning.push(
-        `Ensuring balanced recovery: adding underexposed domains (${underexposed.join(', ')})`
-      );
+      if (underexposedSlugs.length > 0) {
+        focus.reasoning.push(
+          `Ensuring balanced recovery: adding underexposed domains (${underexposedSlugs.join(', ')})`
+        );
+      }
     },
     adaptationDescription: 'Add underexposed domains to session plan for balanced coverage',
   },

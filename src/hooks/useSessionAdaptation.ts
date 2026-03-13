@@ -115,17 +115,27 @@ export function useSessionAdaptation(
     }
 
     // 3. Spaced repetition: get words due for practice today
+    // Cap at 3 injected words per session to avoid contaminating domain goals
+    const MAX_REPETITION_INJECTION = 3;
     const todayDate = new Date().toISOString().slice(0, 10);
     const scheduledRepetitionWords = getScheduledWords(strugglingWords, todayDate, 5);
     if (scheduledRepetitionWords.length > 0) {
       reasons.push(
         `Spaced repetition: ${scheduledRepetitionWords.length} words due (${scheduledRepetitionWords.map(w => w.word).join(', ')})`
       );
-      // Merge scheduled words into targetWords if not already present
+      // Merge scheduled words into targetWords, capped to avoid crowding out domain goals
+      let injected = 0;
       for (const sw of scheduledRepetitionWords) {
+        if (injected >= MAX_REPETITION_INJECTION) break;
         if (!targetWords.includes(sw.word)) {
           targetWords.push(sw.word);
+          injected++;
         }
+      }
+      if (injected < scheduledRepetitionWords.length) {
+        reasons.push(
+          `Repetition injection capped at ${MAX_REPETITION_INJECTION} to preserve domain balance`
+        );
       }
     }
 
