@@ -5,9 +5,12 @@
  * The hook evaluates pivot rules every 5 trials and returns a recommendation.
  * 
  * Feature-flagged: disabled by default. Enable with `enabled: true`.
+ * 
+ * State timing: Uses refs for mutable state accessed in recordTrial()
+ * to avoid stale closures during rapid trial completion.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   evaluateMidSessionPivot,
   createPivotState,
@@ -51,15 +54,23 @@ export function useMidSessionPivot(
     domainScores,
   } = options;
 
-  const [pivotState, setPivotState] = useState<MidSessionPivotState>(createPivotState());
-  const [pivotRecommendation, setPivotRecommendation] = useState<PivotRecommendation | null>(null);
+  // Use refs for mutable state to avoid stale closures in recordTrial
+  const pivotStateRef = useRef<MidSessionPivotState>(createPivotState());
+  const pendingRecommendationRef = useRef<PivotRecommendation | null>(null);
   const recentTrialsRef = useRef<RecentTrialData[]>([]);
 
-  // Compute strength domains from scores
-  const strengthDomains = (domainScores || [])
-    .filter(d => d.confidence !== 'low' && d.score >= 0.7)
-    .sort((a, b) => b.score - a.score)
-    .map(d => d.domainSlug);
+  // React state for rendering (synced from refs)
+  const [pivotState, setPivotState] = useState<MidSessionPivotState>(pivotStateRef.current);
+  const [pivotRecommendation, setPivotRecommendation] = useState<PivotRecommendation | null>(null);
+
+  // Compute strength domains from scores (memoized to avoid recalc)
+  const strengthDomains = useMemo(() => 
+    (domainScores || [])
+      .filter(d => d.confidence !== 'low' && d.score >= 0.7)
+      .sort((a, b) => b.score - a.score)
+      .map(d => d.domainSlug),
+    [domainScores]
+  );
 
   const recordTrial = useCallback((trial: RecentTrialData) => {
     if (!enabled) return;
@@ -70,15 +81,16 @@ export function useMidSessionPivot(
       recentTrialsRef.current.shift();
     }
 
-    // Update state
-    const newState = updatePivotState(pivotState);
-    setPivotState(newState);
+    // Update state via ref (always current, no stale closure)
+    const newState = updatePivotState(pivotStateRef.current);
+    pivotStateRef.current = newState;
+    setPivotState(newState); // Sync to React for rendering
 
     // Only check every N trials
     if (newState.totalTrials % checkInterval !== 0) return;
 
     // Don't check if there's already a pending recommendation
-    if (pivotRecommendation !== null) return;
+    if (pendingRecommendationRef.current !== null) return;
 
     const recommendation = evaluateMidSessionPivot(
       recentTrialsRef.current,
@@ -88,16 +100,20 @@ export function useMidSessionPivot(
     );
 
     if (recommendation.action !== 'none') {
+      pendingRecommendationRef.current = recommendation;
       setPivotRecommendation(recommendation);
     }
-  }, [enabled, pivotState, pivotRecommendation, checkInterval, strengthDomains]);
+  }, [enabled, checkInterval, strengthDomains]);
 
   const acknowledgePivot = useCallback(() => {
-    if (pivotRecommendation && pivotRecommendation.action !== 'none') {
-      setPivotState(prev => updatePivotState(prev, true));
+    if (pendingRecommendationRef.current && pendingRecommendationRef.current.action !== 'none') {
+      const newState = updatePivotState(pivotStateRef.current, true);
+      pivotStateRef.current = newState;
+      setPivotState(newState);
     }
+    pendingRecommendationRef.current = null;
     setPivotRecommendation(null);
-  }, [pivotRecommendation]);
+  }, []);
 
   return {
     pivotRecommendation,
