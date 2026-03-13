@@ -844,3 +844,11 @@ function PhotoNamingExerciseInner() {
     </div>
   );
 }
+
+export default function PhotoNamingExercise() {
+  return (
+    <LiveAnalysisProvider>
+      <PhotoNamingExerciseInner />
+    </LiveAnalysisProvider>
+  );
+}
