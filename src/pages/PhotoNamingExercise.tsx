@@ -405,79 +405,83 @@ function PhotoNamingExerciseInner() {
       hasShadowEvent: !!result.shadowEvent,
     });
     
-    await logTrial({
-      correct: result.correct,
-      reactionTimeMs: result.reactionTimeMs,
-      cueLevel: result.cueLevel,
-      errorType: result.errorType,
-      errorClassification: result.errorClassification,
-      whisperTranscript: result.whisperTranscript,
-      whisperConfidence: result.whisperConfidence,
-      acousticMetrics: result.acousticMetrics,
-      audioStoragePath: result.audioStoragePath,
-      audioMimeType: result.audioMimeType,
-      recordingDurationMs: result.recordingDurationMs,
-      cueTypeGiven: result.cueTypeGiven,
-      cueWasEffective: result.cueWasEffective,
-      timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
-      taskParameters: {
-        // Condition tags for experimental analysis
-        photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
-        interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
-        difficulty_level: result.difficultyLevel,
-        custom_photo_id: trial.id,           // Useful for per-photo analysis
-        is_custom_photo: trial.category === 'personal',
-        target_word: trial.target,
-        encouragement_score: result.encouragementScore,
-        effortful_speech: result.effortfulSpeech,
-        
-        // Targeted practice tracking (closed loop measurement)
-        practice_source: practiceSource,     // 'error_pattern_dashboard' | null
-        targeted_words: targetedWords.length > 0 ? targetedWords : null,
-        is_targeted_practice: targetedWords.length > 0,
-        
-        // Store unified analysis for future co-pilot
-        utterance_analysis: result.utteranceAnalysis,
-        shadow_event: result.shadowEvent,
-        
-        // Shared adaptation contract telemetry
-        ...adaptationTelemetry,
-      },
-    });
-
-    // Log pivot telemetry if a pivot was recommended
-    if (hasPendingPivot && pivotRecommendation) {
-      console.log('🔄 Mid-session pivot triggered:', {
-        action: pivotRecommendation.action,
-        reason: pivotRecommendation.reason,
-        confidence: pivotRecommendation.confidence,
-        pivotState,
+    if (hasSession) {
+      await logTrial({
+        correct: result.correct,
+        reactionTimeMs: result.reactionTimeMs,
+        cueLevel: result.cueLevel,
+        errorType: result.errorType,
+        errorClassification: result.errorClassification,
+        whisperTranscript: result.whisperTranscript,
+        whisperConfidence: result.whisperConfidence,
+        acousticMetrics: result.acousticMetrics,
+        audioStoragePath: result.audioStoragePath,
+        audioMimeType: result.audioMimeType,
+        recordingDurationMs: result.recordingDurationMs,
+        cueTypeGiven: result.cueTypeGiven,
+        cueWasEffective: result.cueWasEffective,
+        timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
+        taskParameters: {
+          // Condition tags for experimental analysis
+          photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
+          interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
+          difficulty_level: result.difficultyLevel,
+          custom_photo_id: trial.id,           // Useful for per-photo analysis
+          is_custom_photo: trial.category === 'personal',
+          target_word: trial.target,
+          encouragement_score: result.encouragementScore,
+          effortful_speech: result.effortfulSpeech,
+          
+          // Targeted practice tracking (closed loop measurement)
+          practice_source: practiceSource,     // 'error_pattern_dashboard' | null
+          targeted_words: targetedWords.length > 0 ? targetedWords : null,
+          is_targeted_practice: targetedWords.length > 0,
+          
+          // Store unified analysis for future co-pilot
+          utterance_analysis: result.utteranceAnalysis,
+          shadow_event: result.shadowEvent,
+          
+          // Shared adaptation contract telemetry
+          ...adaptationTelemetry,
+        },
       });
-      
-      // Log to adaptation_events
-      if (user?.id) {
-        supabase.from('adaptation_events').insert([{
-          user_id: user.id,
-          profile_id: activeProfile?.id ?? null,
-          session_id: sessionId,
-          layer: 'mid_session',
-          adaptation_type: `pivot_${pivotRecommendation.action}`,
-          trigger_type: 'rule_based',
-          trigger_condition: pivotRecommendation.reason,
+
+      // Log pivot telemetry if a pivot was recommended
+      if (hasPendingPivot && pivotRecommendation) {
+        console.log('🔄 Mid-session pivot triggered:', {
+          action: pivotRecommendation.action,
+          reason: pivotRecommendation.reason,
           confidence: pivotRecommendation.confidence,
-          evidence: JSON.parse(JSON.stringify({
-            recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
-            pivot_state: pivotState,
-          })),
-          exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
-          trial_index: pivotState.totalTrials,
-        }]).then(({ error }) => {
-          if (error) console.warn('[PivotTelemetry] Log failed:', error);
+          pivotState,
         });
+        
+        // Log to adaptation_events
+        if (user?.id) {
+          supabase.from('adaptation_events').insert([{
+            user_id: user.id,
+            profile_id: activeProfile?.id ?? null,
+            session_id: sessionId,
+            layer: 'mid_session',
+            adaptation_type: `pivot_${pivotRecommendation.action}`,
+            trigger_type: 'rule_based',
+            trigger_condition: pivotRecommendation.reason,
+            confidence: pivotRecommendation.confidence,
+            evidence: JSON.parse(JSON.stringify({
+              recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
+              pivot_state: pivotState,
+            })),
+            exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
+            trial_index: pivotState.totalTrials,
+          }]).then(({ error }) => {
+            if (error) console.warn('[PivotTelemetry] Log failed:', error);
+          });
+        }
       }
+      
+      console.log('✅ Trial logged successfully to exercise_events');
+    } else {
+      console.warn('[LiveAnalysis] sessionId missing; skipping persistence but updating live snapshot');
     }
-    
-    console.log('✅ Trial logged successfully to exercise_events');
 
     // ===== Push data to Live Analysis Panel =====
     const ua = result.utteranceAnalysis;
