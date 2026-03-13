@@ -161,7 +161,7 @@ async function persistScores(
       window_end: snapshot.windowEnd,
       computed_at: snapshot.computedAt,
       transfer_index: d.transferIndex,
-      transfer_components: d.transferComponents,
+      transfer_components: d.transferComponents as Record<string, any> | null,
     }));
 
   if (rows.length === 0) return;
