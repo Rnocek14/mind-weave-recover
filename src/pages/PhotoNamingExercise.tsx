@@ -463,6 +463,65 @@ function PhotoNamingExerciseInner() {
     }
     
     console.log('✅ Trial logged successfully to exercise_events');
+
+    // ===== Push data to Live Analysis Panel =====
+    const ua = result.utteranceAnalysis;
+    setLiveSnapshot({
+      transcript: result.whisperTranscript || ua?.transcript,
+      targetWord: trial.target,
+      asrConfidence: result.whisperConfidence ?? ua?.asrConfidence,
+      errorType: result.errorType || ua?.errorType,
+      phonologicalSimilarity: ua?.phonologicalSimilarity,
+      semanticSimilarity: ua?.semanticSimilarity,
+      pronunciationScore: ua?.pronunciationScore,
+      accuracyScore: ua?.accuracyScore,
+      fluencyScore: ua?.fluencyScore,
+      meaningAccuracy: ua?.meaningAccuracy,
+      circumlocutionDetected: ua?.circumlocutionDetected,
+      effortfulSpeech: result.effortfulSpeech,
+      reasoning: ua?.reasoning,
+      classificationConfidence: ua?.classificationConfidence,
+      encouragementScore: result.encouragementScore,
+      encouragementLevel: ua?.encouragementLevel,
+      // Adaptation state
+      currentDomain: 'lexical_retrieval',
+      difficultyTier: result.difficultyLevel,
+      cueType: result.cueTypeGiven,
+      cueLevel: result.cueLevel,
+      focusPhonemes: adaptation.focusPhonemes,
+      scheduledRepetitionWords: adaptation.scheduledRepetitionWords.map(w => w.word),
+      adaptationReasons: adaptation.adaptationReasons,
+      profileConfidence: adaptation.profileConfidence,
+      // Session state
+      consecutiveErrors: pivotState.consecutiveErrors,
+      pivotRecommendation: pivotRecommendation ? {
+        action: pivotRecommendation.action,
+        reason: pivotRecommendation.reason,
+        confidence: pivotRecommendation.confidence,
+      } : null,
+      exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      sessionId: sessionId || undefined,
+    });
+
+    // Decision chain card
+    setDecisionChain({
+      transcript: result.whisperTranscript || ua?.transcript || '(no speech)',
+      detected: result.errorType || 'unknown',
+      confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : '—',
+      cueChosen: result.cueTypeGiven || 'none',
+      difficultyAction: `Level ${result.difficultyLevel}`,
+      reason: adaptation.adaptationReasons[0] || 'Default settings',
+      timestamp: Date.now(),
+    });
+
+    // Audit event
+    appendAuditEvent({
+      source: 'utterance_analyzer',
+      eventType: 'trial_scored',
+      label: `${result.correct ? '✓' : '✗'} "${trial.target}" → ${result.errorType || 'unknown'}`,
+      detail: result.whisperTranscript ? `Heard: "${result.whisperTranscript}"` : undefined,
+      confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : undefined,
+    });
   };
 
   const handleSkipExercise = async () => {
