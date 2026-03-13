@@ -179,7 +179,7 @@ export const OverviewTab = memo(function OverviewTab() {
                   variant="outline"
                   className="flex-1 h-14"
                   onClick={() => setShowGamePicker(true)}
-                  disabled={doseCap.warningLevel === "limit"}
+                  disabled={false}
                 >
                   <Gamepad2 className="w-5 h-5 mr-2" />
                   Choose a Game
