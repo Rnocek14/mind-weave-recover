@@ -6,13 +6,14 @@ import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
+import { ArrowLeft, Camera, SkipForward, Target, AlertTriangle, Coffee, ChevronDown } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
 import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
@@ -24,6 +25,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import type { RecentTrialData } from '@/lib/midSessionPivot';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
 // Extended trial type that supports both photo and audio-only trials
