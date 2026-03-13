@@ -79,8 +79,8 @@ export function LiveAnalysisPanel() {
       )}
 
       {/* Panel sheet */}
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="right" className="w-[340px] sm:w-[380px] p-0 flex flex-col">
+      <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
+        <SheetContent side="right" className="w-[340px] sm:w-[380px] p-0 flex flex-col shadow-xl border-l" hideOverlay onInteractOutside={(e) => e.preventDefault()}>
           <SheetHeader className="px-4 pt-4 pb-2 border-b shrink-0">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-sm font-semibold flex items-center gap-2">
