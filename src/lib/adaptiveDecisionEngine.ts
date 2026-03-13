@@ -34,12 +34,19 @@ export interface SignalCounts {
   assessmentAgeDays: number;
 }
 
+export interface DomainExposure7d {
+  domainSlug: string;
+  sessionCount: number;
+  trialCount: number;
+}
+
 export interface AdaptiveEngineInput {
   capabilityScores: CapabilityScores | null;
   performanceSignals: PerformanceSignals | null;
   speechProfile: SpeechProfileSummary | null;
   signalCounts: SignalCounts;
   cognitiveDomainScores?: DomainScore[]; // Phase B: cognitive state engine scores
+  domainExposure7d?: DomainExposure7d[]; // Phase B: real 7-day session exposure
 }
 
 // ============ Output Schema ============
