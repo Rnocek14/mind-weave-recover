@@ -332,6 +332,8 @@ function scoreDomain(
       fatigueSensitivity: null,
       scoreComponents: {},
       trend: 'insufficient',
+      transferIndex: null,
+      transferComponents: null,
     };
   }
 
