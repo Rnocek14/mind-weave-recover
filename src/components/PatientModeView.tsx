@@ -170,13 +170,9 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     }
   };
 
-  // Show ALL games in free play mode - gating is for guided lessons only
-  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
-    id,
-    ...info,
-  }));
 
-  // Loading state (initial load)
+  // Game Picker View - check BEFORE viewState early returns so it works from any state
+  if (showGamePicker) {
   if (viewState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
