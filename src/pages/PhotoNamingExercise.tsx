@@ -493,14 +493,7 @@ function PhotoNamingExerciseInner() {
       adaptationReasons: adaptation.adaptationReasons,
       profileConfidence: adaptation.profileConfidence,
       // Session state
-      consecutiveErrors: pivotState.recentTrials.filter((_, i, arr) => {
-        // Count trailing consecutive errors
-        let count = 0;
-        for (let j = arr.length - 1; j >= 0; j--) {
-          if (!arr[j].wasCorrect) count++; else break;
-        }
-        return i >= arr.length - count;
-      }).length,
+      trialIndex: pivotState.totalTrials,
       pivotRecommendation: pivotRecommendation ? {
         action: pivotRecommendation.action,
         reason: pivotRecommendation.reason,
