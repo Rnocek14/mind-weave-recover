@@ -476,9 +476,6 @@ function scoreCognitiveEndurance(allTrials: ExerciseTrialRow[]): DomainScore {
     transferIndex: null,
     transferComponents: null,
   };
-    },
-    trend: 'insufficient',
-  };
 }
 
 // ============ Main Computation ============
