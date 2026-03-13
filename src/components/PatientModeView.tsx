@@ -112,6 +112,12 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
 
   const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
 
+  // Show ALL games in free play mode - gating is for guided lessons only
+  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
+    id,
+    ...info,
+  }));
+
   const handleStartSession = () => {
     if (!lesson) return;
     
