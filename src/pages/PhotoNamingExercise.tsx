@@ -380,7 +380,19 @@ function PhotoNamingExerciseInner() {
     cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
     cueWasEffective?: boolean | null;
     timeToSuccessAfterCueMs?: number | null;
+    // Adaptation state for Live Analysis
+    latencyMs?: number;
+    consecutiveErrors?: number;
+    frustrationLevel?: string;
+    recentSuccessRate?: number;
+    trialCount?: number;
   }, trial: PhotoTrial) => {
+    // Track recent accuracies for Live Analysis dots
+    setRecentAccuracies(prev => {
+      const next = [...prev, result.correct ? 1 : 0];
+      return next.length > 10 ? next.slice(-10) : next;
+    });
+
     const hasSession = Boolean(sessionId);
 
     // Record trial for mid-session pivot evaluation
