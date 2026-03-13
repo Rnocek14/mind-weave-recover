@@ -473,6 +473,11 @@ function scoreCognitiveEndurance(allTrials: ExerciseTrialRow[]): DomainScore {
       sessionsAnalyzed: new Set(allTrials.map(t => t.session_id)).size,
     },
     trend: 'insufficient',
+    transferIndex: null,
+    transferComponents: null,
+  };
+    },
+    trend: 'insufficient',
   };
 }
 
