@@ -340,6 +340,18 @@ export const PhotoNamingGame = ({
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
   
+  // Push micState transitions to Live Analysis panel
+  useEffect(() => {
+    if (isListening) {
+      micStartTimeRef.current = Date.now();
+      setLiveSnapshot({ micState: 'listening' });
+    } else if (utteranceState === 'processing') {
+      setLiveSnapshot({ micState: 'processing' });
+    } else {
+      setLiveSnapshot({ micState: 'idle' });
+    }
+  }, [isListening, utteranceState, setLiveSnapshot]);
+  
   // Track lane switches using ACTUAL lane from hook (not inferred from difficulty)
   const previousActualLaneRef = useRef<'easy' | 'mid' | 'hard' | null>(null);
   useEffect(() => {
