@@ -1822,6 +1822,25 @@ export const PhotoNamingGame = ({
         console.log('✅ [PhotoNaming] Background analysis complete for:', capturedTrial.target);
       } catch (error) {
         console.error('❌ [PhotoNaming] Background analysis error:', error);
+
+        // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
+        onTrialComplete?.({
+          correct: isCorrectAnswer,
+          reactionTimeMs: reactionTime,
+          errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
+          difficultyLevel: capturedDifficulty,
+          cueLevel: capturedCueLevel,
+          whisperTranscript: undefined,
+          whisperConfidence: undefined,
+          acousticMetrics: undefined,
+          encouragementScore: undefined,
+          effortfulSpeech: false,
+          utteranceAnalysis: undefined,
+          shadowEvent: undefined,
+          cueTypeGiven,
+          cueWasEffective,
+          timeToSuccessAfterCueMs,
+        }, capturedTrial);
       }
     })();
   };
