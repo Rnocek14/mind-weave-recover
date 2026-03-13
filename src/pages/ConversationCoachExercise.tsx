@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -16,8 +18,13 @@ interface SessionSummary {
 
 export default function ConversationCoachExercise() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
+  
+  // Lesson flow integration
+  const fromLesson = location.state?.fromLesson ?? false;
+  const exerciseCompleteSentRef = useRef(false);
   
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
@@ -52,10 +59,33 @@ export default function ConversationCoachExercise() {
 
   const handleComplete = (metrics: SessionSummary) => {
     setSessionSummary(metrics);
+    
+    // Auto-return to lesson flow
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'conversation-coach', results: metrics },
+        }));
+        navigate('/lesson', { state: { resuming: true } });
+      }, 2000);
+    }
   };
 
   const handleExit = () => {
-    navigate('/dashboard');
+    navigate(fromLesson ? '/lesson' : '/dashboard');
+  };
+
+  const handleContinue = () => {
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'conversation-coach' },
+      }));
+      navigate('/lesson', { state: { resuming: true } });
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const handlePlayAgain = () => {
@@ -68,6 +98,7 @@ export default function ConversationCoachExercise() {
   if (sessionSummary && !gameStarted) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
+        {fromLesson && <SessionProgressBubble />}
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
@@ -110,15 +141,24 @@ export default function ConversationCoachExercise() {
             </div>
 
             <div className="flex flex-col gap-3 pt-4">
-              <Button size="lg" onClick={handlePlayAgain} className="w-full">
-                Practice Again
-              </Button>
-              <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
-                Back to Dashboard
-              </Button>
+              {fromLesson ? (
+                <Button size="lg" onClick={handleContinue} className="w-full">
+                  Continue Lesson
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" onClick={handlePlayAgain} className="w-full">
+                    Practice Again
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
+                    Back to Dashboard
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
+        {fromLesson && <SessionSidePanel />}
       </div>
     );
   }
@@ -173,6 +213,7 @@ export default function ConversationCoachExercise() {
   // Active game
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {fromLesson && <SessionProgressBubble />}
       <header className="p-4 flex items-center gap-3 border-b">
         <Button variant="ghost" size="icon" onClick={handleExit}>
           <ArrowLeft className="w-5 h-5" />
@@ -189,6 +230,7 @@ export default function ConversationCoachExercise() {
           onExit={handleExit}
         />
       </div>
+      {fromLesson && <SessionSidePanel />}
     </div>
   );
 }

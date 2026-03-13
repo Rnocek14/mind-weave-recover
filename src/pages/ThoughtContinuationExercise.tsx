@@ -5,19 +5,26 @@
  * No right or wrong answers - only momentum and continuation.
  */
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ThoughtContinuationGame } from '@/components/ThoughtContinuationGame';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 export default function ThoughtContinuationExercise() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  
+  // Lesson flow integration
+  const fromLesson = location.state?.fromLesson ?? false;
+  const exerciseCompleteSentRef = useRef(false);
   
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionId] = useState<string | null>(() => crypto.randomUUID());
@@ -40,11 +47,38 @@ export default function ThoughtContinuationExercise() {
   }) => {
     setSessionSummary(summary);
     setGameStarted(false);
+    
+    // Auto-return to lesson flow
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'thought-continuation', results: summary },
+        }));
+        navigate('/lesson', { state: { resuming: true } });
+      }, 2000);
+    }
   };
 
   const handleExit = () => {
-    navigate(-1);
+    navigate(fromLesson ? '/lesson' : '/dashboard');
   };
+
+  const handleBack = useCallback(() => {
+    navigate(fromLesson ? '/lesson' : '/dashboard');
+  }, [navigate, fromLesson]);
+
+  const handleContinue = useCallback(() => {
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'thought-continuation' },
+      }));
+      navigate('/lesson', { state: { resuming: true } });
+    } else if (!fromLesson) {
+      navigate('/dashboard');
+    }
+  }, [fromLesson, navigate]);
 
   const handlePlayAgain = () => {
     setSessionSummary(null);
@@ -75,6 +109,7 @@ export default function ThoughtContinuationExercise() {
     
     return (
       <div className="min-h-screen bg-background p-4">
+        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto pt-12">
           <Card className="border-2 border-primary/20">
             <CardHeader className="text-center pb-2">
@@ -109,17 +144,26 @@ export default function ThoughtContinuationExercise() {
               </p>
               
               <div className="flex flex-col gap-3">
-                <Button onClick={handlePlayAgain} className="w-full gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Practice More
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/dashboard')} className="w-full">
-                  Back to Dashboard
-                </Button>
+                {fromLesson ? (
+                  <Button onClick={handleContinue} className="w-full gap-2">
+                    Continue Lesson
+                  </Button>
+                ) : (
+                  <>
+                    <Button onClick={handlePlayAgain} className="w-full gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Practice More
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/dashboard')} className="w-full">
+                      Back to Dashboard
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
+        {fromLesson && <SessionSidePanel />}
       </div>
     );
   }
@@ -128,6 +172,7 @@ export default function ThoughtContinuationExercise() {
   if (gameStarted) {
     return (
       <div className="min-h-screen bg-background">
+        {fromLesson && <SessionProgressBubble />}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
           <div className="flex items-center justify-between max-w-xl mx-auto">
             <Button variant="ghost" size="sm" onClick={handleExit}>
@@ -148,6 +193,7 @@ export default function ThoughtContinuationExercise() {
             onExit={handleExit}
           />
         </main>
+        {fromLesson && <SessionSidePanel />}
       </div>
     );
   }
@@ -158,11 +204,11 @@ export default function ThoughtContinuationExercise() {
       <div className="max-w-md mx-auto pt-8">
         <Button 
           variant="ghost" 
-          onClick={() => navigate(-1)} 
+          onClick={handleBack} 
           className="mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          {fromLesson ? 'Back to Lesson' : 'Back'}
         </Button>
         
         <Card className="border-2 border-primary/20">

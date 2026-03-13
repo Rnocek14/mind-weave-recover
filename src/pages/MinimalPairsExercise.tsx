@@ -5,7 +5,7 @@
  * Now consumes shared adaptation contract for phoneme targeting + telemetry.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,19 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Info } from 'lucide-react';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  
+  // Lesson flow integration
+  const fromLesson = location.state?.fromLesson ?? false;
+  const lessonSessionId = location.state?.sessionId ?? null;
+  const exerciseCompleteSentRef = useRef(false);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isStarted, setIsStarted] = useState(false);
@@ -52,6 +59,12 @@ export default function MinimalPairsExercise() {
     const initSession = async () => {
       if (!user?.id) return;
       
+      // Use lesson session if provided
+      if (fromLesson && lessonSessionId) {
+        setSessionId(lessonSessionId);
+        return;
+      }
+      
       const session = await startSession(
         user.id, 
         { blocks: [{ exercise: 'minimal_pairs', duration: 10 }] },
@@ -66,16 +79,31 @@ export default function MinimalPairsExercise() {
     if (isStarted) {
       initSession();
     }
-  }, [user?.id, isStarted]);
+  }, [user?.id, isStarted, fromLesson, lessonSessionId]);
+
+  const handleBack = useCallback(() => {
+    navigate(fromLesson ? '/lesson' : '/dashboard');
+  }, [navigate, fromLesson]);
   
-  const handleComplete = (results: {
+  const handleComplete = useCallback((results: {
     score: number;
     correctCount: number;
     incorrectCount: number;
     accuracy: number;
   }) => {
     console.log('Minimal pairs exercise complete:', results);
-  };
+    
+    // Return to lesson flow
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'minimal-pairs', results },
+        }));
+        navigate('/lesson', { state: { resuming: true } });
+      }, 2000);
+    }
+  }, [fromLesson, navigate]);
   
   const handleTrialComplete = (trialData: {
     targetWord: string;
@@ -101,9 +129,9 @@ export default function MinimalPairsExercise() {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+          <Button variant="ghost" onClick={handleBack} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {fromLesson ? 'Back to Lesson' : 'Back'}
           </Button>
           
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
@@ -183,10 +211,11 @@ export default function MinimalPairsExercise() {
   
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
+      {fromLesson && <SessionProgressBubble />}
       <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+        <Button variant="ghost" onClick={handleBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
-          Exit
+          {fromLesson ? 'Back to Lesson' : 'Exit'}
         </Button>
         
         <MinimalPairsGame
@@ -196,6 +225,7 @@ export default function MinimalPairsExercise() {
           onTrialComplete={handleTrialComplete}
         />
       </div>
+      {fromLesson && <SessionSidePanel />}
     </div>
   );
 }
