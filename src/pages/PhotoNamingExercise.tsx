@@ -25,6 +25,8 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
+import { LiveAnalysisPanel } from '@/components/LiveAnalysisPanel';
 import type { RecentTrialData } from '@/lib/midSessionPivot';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
