@@ -438,9 +438,9 @@ export default function PhotoNamingExercise() {
       
       // Log to adaptation_events
       if (user?.id) {
-        supabase.from('adaptation_events').insert({
+        supabase.from('adaptation_events').insert([{
           user_id: user.id,
-          profile_id: activeProfile?.id,
+          profile_id: activeProfile?.id ?? null,
           session_id: sessionId,
           layer: 'mid_session',
           adaptation_type: `pivot_${pivotRecommendation.action}`,
@@ -450,10 +450,10 @@ export default function PhotoNamingExercise() {
           evidence: {
             recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
             pivot_state: pivotState,
-          },
+          } as Record<string, unknown>,
           exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
           trial_index: pivotState.totalTrials,
-        }).then(({ error }) => {
+        }]).then(({ error }) => {
           if (error) console.warn('[PivotTelemetry] Log failed:', error);
         });
       }
