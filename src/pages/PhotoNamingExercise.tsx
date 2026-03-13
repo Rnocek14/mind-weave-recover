@@ -181,6 +181,21 @@ function PhotoNamingExerciseInner() {
     initSession();
   }, [user?.id, fromLesson, lessonSessionId]);
 
+  // Push initial snapshot so the panel isn't empty before first trial
+  useEffect(() => {
+    setLiveSnapshot({
+      micState: 'idle',
+      currentDomain: 'lexical_retrieval',
+      difficultyTier: adaptation.difficultyTier,
+      focusPhonemes: adaptation.focusPhonemes,
+      adaptationReasons: adaptation.adaptationReasons,
+      profileConfidence: adaptation.profileConfidence,
+      exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      sessionId: sessionId || undefined,
+      trialIndex: 0,
+    });
+  }, [sessionId, adaptation.difficultyTier]);
+
   useEffect(() => {
     if (isLoading) return;
 
