@@ -1342,6 +1342,11 @@ export const PhotoNamingGame = ({
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
+      latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: state.trialNumber,
     }, state.currentTrial);
 
     // Compute cue efficacy for timeout (cue was NOT effective since user didn't respond)
