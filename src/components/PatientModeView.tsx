@@ -94,6 +94,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'conversation-coach': '/exercise/conversation-coach',
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
+  'thought-continuation': '/exercise/thought-continuation',
 };
 
 function getPatientViewState(
