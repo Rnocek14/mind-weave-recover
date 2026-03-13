@@ -154,6 +154,8 @@ function PhotoNamingExerciseInner() {
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [caregiverNotes, setCaregiverNotes] = useState('');
+  const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
+  const sessionStartRef = useRef(Date.now());
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
