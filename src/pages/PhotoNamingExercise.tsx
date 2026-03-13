@@ -426,6 +426,38 @@ export default function PhotoNamingExercise() {
         ...adaptationTelemetry,
       },
     });
+
+    // Log pivot telemetry if a pivot was recommended
+    if (hasPendingPivot && pivotRecommendation) {
+      console.log('🔄 Mid-session pivot triggered:', {
+        action: pivotRecommendation.action,
+        reason: pivotRecommendation.reason,
+        confidence: pivotRecommendation.confidence,
+        pivotState,
+      });
+      
+      // Log to adaptation_events
+      if (user?.id) {
+        supabase.from('adaptation_events').insert({
+          user_id: user.id,
+          profile_id: activeProfile?.id,
+          session_id: sessionId,
+          layer: 'mid_session',
+          adaptation_type: `pivot_${pivotRecommendation.action}`,
+          trigger_type: 'rule_based',
+          trigger_condition: pivotRecommendation.reason,
+          confidence: pivotRecommendation.confidence,
+          evidence: {
+            recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
+            pivot_state: pivotState,
+          },
+          exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
+          trial_index: pivotState.totalTrials,
+        }).then(({ error }) => {
+          if (error) console.warn('[PivotTelemetry] Log failed:', error);
+        });
+      }
+    }
     
     console.log('✅ Trial logged successfully to exercise_events');
   };
