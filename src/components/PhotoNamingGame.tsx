@@ -29,6 +29,7 @@ import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
+import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -56,6 +57,12 @@ interface PhotoNamingGameProps {
     cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
     cueWasEffective?: boolean | null;
     timeToSuccessAfterCueMs?: number | null;
+    // Adaptation state for Live Analysis
+    latencyMs?: number;
+    consecutiveErrors?: number;
+    frustrationLevel?: string;
+    recentSuccessRate?: number;
+    trialCount?: number;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
