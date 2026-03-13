@@ -685,6 +685,65 @@ export default function PhotoNamingExercise() {
           </div>
         </Card>
 
+        {/* Mid-session pivot suggestion banner */}
+        {hasPendingPivot && pivotRecommendation && (
+          <Card className="p-3 mb-3 border-accent bg-accent/10 animate-in slide-in-from-top-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                {pivotRecommendation.action === 'rest_prompt' ? (
+                  <Coffee className="h-4 w-4 text-accent-foreground shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-accent-foreground shrink-0" />
+                )}
+                <span className="text-accent-foreground font-medium">
+                  {pivotRecommendation.action === 'rest_prompt'
+                    ? "You seem tired — want to take a short break?"
+                    : pivotRecommendation.action === 'step_down'
+                    ? "This seems tough — we can make it a bit easier"
+                    : "Let's try a different activity for a change of pace"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs h-7 px-2"
+                  onClick={() => {
+                    acknowledgePivot();
+                    toast.info("Continuing current exercise");
+                  }}
+                >
+                  Keep Going
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="text-xs h-7 px-2"
+                  onClick={() => {
+                    acknowledgePivot();
+                    if (pivotRecommendation.action === 'rest_prompt') {
+                      toast.info("Take a break — come back when you're ready! 💪");
+                    } else if (pivotRecommendation.action === 'step_down') {
+                      toast.success("Making things a bit easier");
+                      // Difficulty step-down would be handled by the game internally
+                    } else {
+                      // Switch to strength domain — navigate back to lesson to pick next exercise
+                      if (fromLesson) {
+                        window.dispatchEvent(new CustomEvent('exercise-complete'));
+                        navigate('/lesson', { state: { resuming: true } });
+                      }
+                    }
+                  }}
+                >
+                  {pivotRecommendation.action === 'rest_prompt' ? 'Take a Break'
+                    : pivotRecommendation.action === 'step_down' ? 'Make Easier'
+                    : 'Switch Activity'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Game area - fills remaining space */}
         <div className="flex-1 min-h-0">
         {trials.length > 0 ? (
