@@ -309,6 +309,15 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
               Creating a personalized lesson plan
             </p>
           </div>
+          <Button
+            onClick={() => setShowGamePicker(true)}
+            variant="outline"
+            size="lg"
+            className="min-h-[64px] text-lg sm:text-xl font-semibold px-6 py-4 rounded-xl border-2 flex items-center justify-center gap-3"
+          >
+            <Gamepad2 className="w-6 h-6 shrink-0" />
+            <span>Play a game while waiting</span>
+          </Button>
         </Card>
       </div>
     );
