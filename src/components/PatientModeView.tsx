@@ -89,6 +89,10 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'abstract-compare': '/exercise/abstract-compare',
   'multi-step-plan': '/exercise/multi-step-plan',
   'dual-load-naming': '/exercise/dual-load-naming',
+  'conversation-partner': '/exercise/conversation-partner',
+  'conversation-coach': '/exercise/conversation-coach',
+  'fix-sentence': '/exercise/fix-sentence',
+  'describe-guess': '/exercise/describe-guess',
 };
 
 function getPatientViewState(
