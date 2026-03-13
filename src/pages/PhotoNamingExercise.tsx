@@ -363,6 +363,17 @@ export default function PhotoNamingExercise() {
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
+    // Record trial for mid-session pivot evaluation
+    const pivotTrialData: RecentTrialData = {
+      wasCorrect: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      wasTimeout: result.errorType === 'timeout',
+      cueLevel: result.cueLevel,
+      exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      domainSlug: 'lexical_retrieval',
+    };
+    recordPivotTrial(pivotTrialData);
+
     const interactionMode = mode === 'caregiver' 
       ? 'caregiver_assisted' 
       : 'independent';
