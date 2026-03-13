@@ -103,6 +103,19 @@ export default function PhotoNamingExercise() {
     defaultErrorType: 'phonemic_paraphasia',
   });
   
+  // Mid-session pivot — feature-flagged, conservative (max 1 pivot, 8-trial cooldown)
+  const {
+    pivotRecommendation,
+    recordTrial: recordPivotTrial,
+    acknowledgePivot,
+    hasPendingPivot,
+    pivotState,
+  } = useMidSessionPivot({
+    enabled: fromLesson, // Only active during lesson flow (controlled rollout)
+    currentDomainSlug: 'lexical_retrieval',
+    checkInterval: 5,
+  });
+  
   // Use contract-derived values
   const lessonFocusPhonemes = adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
