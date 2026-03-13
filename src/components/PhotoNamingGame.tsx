@@ -1968,6 +1968,11 @@ export const PhotoNamingGame = ({
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
+      latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: state.trialNumber,
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
