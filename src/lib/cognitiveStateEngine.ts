@@ -435,6 +435,9 @@ function scoreDomain(
     components.depthTrialCount = depthMetrics.depthTrialCount;
   }
 
+  // Compute transfer index for this domain
+  const { transferIndex, transferComponents } = computeTransferIndex(domainTrials);
+
   return {
     domainSlug,
     score: Math.max(0, Math.min(1, score)),
@@ -443,6 +446,8 @@ function scoreDomain(
     fatigueSensitivity,
     scoreComponents: components,
     trend: 'insufficient', // Computed later from historical data
+    transferIndex,
+    transferComponents,
   };
 }
 
