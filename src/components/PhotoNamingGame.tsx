@@ -1772,6 +1772,11 @@ export const PhotoNamingGame = ({
           cueTypeGiven,
           cueWasEffective,
           timeToSuccessAfterCueMs,
+          latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+          consecutiveErrors: hookConsecutiveErrors,
+          frustrationLevel,
+          recentSuccessRate,
+          trialCount: state.trialNumber,
         }, capturedTrial);
 
         // Determine fluency availability
