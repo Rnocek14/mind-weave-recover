@@ -83,6 +83,7 @@ const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
 });
 
 function PhotoNamingExerciseInner() {
+  const { setLiveSnapshot, appendAuditEvent, setDecisionChain } = useLiveAnalysis();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const queryClient = useQueryClient();
