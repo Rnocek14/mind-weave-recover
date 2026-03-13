@@ -65,6 +65,10 @@ const PATIENT_GAME_INFO: Record<string, GameInfo> = {
   'abstract-compare': { emoji: '⚖️', name: 'Compare Ideas', desc: 'Find what things have in common', difficulty: 'challenge', category: 'thinking' },
   'multi-step-plan': { emoji: '📋', name: 'Plan Steps', desc: 'Put steps in the right order', difficulty: 'medium', category: 'thinking' },
   'dual-load-naming': { emoji: '🔄', name: 'Quick Name', desc: 'Name things while multitasking', difficulty: 'challenge', category: 'speech' },
+  'conversation-partner': { emoji: '🎙️', name: 'Free Talk', desc: 'Have a short conversation', difficulty: 'easy', category: 'speech' },
+  'conversation-coach': { emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises', difficulty: 'easy', category: 'speech' },
+  'fix-sentence': { emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking' },
+  'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
 };
 
 // Route map for exercises
@@ -85,6 +89,10 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'abstract-compare': '/exercise/abstract-compare',
   'multi-step-plan': '/exercise/multi-step-plan',
   'dual-load-naming': '/exercise/dual-load-naming',
+  'conversation-partner': '/exercise/conversation-partner',
+  'conversation-coach': '/exercise/conversation-coach',
+  'fix-sentence': '/exercise/fix-sentence',
+  'describe-guess': '/exercise/describe-guess',
 };
 
 function getPatientViewState(
@@ -111,6 +119,12 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   const lastSession = sessions[0];
 
   const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
+
+  // Show ALL games in free play mode - gating is for guided lessons only
+  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
+    id,
+    ...info,
+  }));
 
   const handleStartSession = () => {
     if (!lesson) return;
@@ -156,11 +170,65 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     }
   };
 
-  // Show ALL games in free play mode - gating is for guided lessons only
-  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
-    id,
-    ...info,
-  }));
+
+  // Game Picker View - check BEFORE viewState early returns so it works from any state
+  if (showGamePicker) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute top-4 right-4 z-10">
+          <UiModeToggle />
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => setShowGamePicker(false)}
+            className="mb-4 min-h-[48px] text-lg"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Back
+          </Button>
+
+          <Card className="p-6 md:p-8 shadow-xl border-2">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                Choose a Game
+              </h1>
+              <p className="text-muted-foreground">
+                Pick any exercise you'd like to practice
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {availableGames.map((game) => {
+                const difficultyInfo = DIFFICULTY_LABELS[game.difficulty];
+                return (
+                  <button
+                    key={game.id}
+                    onClick={() => handleSelectGame(game.id)}
+                    className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
+                      hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
+                      min-h-[90px] touch-manipulation"
+                  >
+                    <span className="text-3xl">{game.emoji}</span>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground">{game.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyInfo.className}`}>
+                          {difficultyInfo.text}
+                        </span>
+                      </div>
+                      <span className="text-sm text-muted-foreground block">{game.desc}</span>
+                      <span className="text-xs text-muted-foreground/70">{CATEGORY_LABELS[game.category]}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state (initial load)
   if (viewState === 'loading') {
@@ -274,72 +342,6 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
-  // Game Picker View
-  if (showGamePicker) {
-    return (
-      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
-          <UiModeToggle />
-        </div>
-        <div className="max-w-2xl mx-auto">
-          {/* Back button */}
-          <Button
-            variant="ghost"
-            onClick={() => setShowGamePicker(false)}
-            className="mb-4 min-h-[48px] text-lg"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back
-          </Button>
-
-          <Card className="p-6 md:p-8 shadow-xl border-2">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                Choose a Game
-              </h1>
-              <p className="text-muted-foreground">
-                Pick any exercise you'd like to practice
-              </p>
-            </div>
-
-            {/* Game grid - 1 column on mobile, 2 on larger */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {availableGames.map((game) => {
-                const difficultyInfo = DIFFICULTY_LABELS[game.difficulty];
-                return (
-                  <button
-                    key={game.id}
-                    onClick={() => handleSelectGame(game.id)}
-                    className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
-                      hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
-                      min-h-[90px] touch-manipulation"
-                  >
-                    <span className="text-3xl">{game.emoji}</span>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-foreground">{game.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyInfo.className}`}>
-                          {difficultyInfo.text}
-                        </span>
-                      </div>
-                      <span className="text-sm text-muted-foreground block">{game.desc}</span>
-                      <span className="text-xs text-muted-foreground/70">{CATEGORY_LABELS[game.category]}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {availableGames.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                Complete the initial assessment to unlock games.
-              </p>
-            )}
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   // Main Patient Mode view - ready state
   return (
