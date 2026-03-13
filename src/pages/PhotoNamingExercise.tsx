@@ -6,13 +6,14 @@ import { useCustomPhotoTrials } from '@/hooks/useCustomPhotoTrials';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Camera, SkipForward, Target } from 'lucide-react';
+import { ArrowLeft, Camera, SkipForward, Target, AlertTriangle, Coffee, ChevronDown } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
 import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
@@ -24,6 +25,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import type { RecentTrialData } from '@/lib/midSessionPivot';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
 // Extended trial type that supports both photo and audio-only trials
@@ -99,6 +101,19 @@ export default function PhotoNamingExercise() {
     lessonFocusPhonemes: location.state?.focusPhonemes as string[] | undefined,
     lessonFocusWords,
     defaultErrorType: 'phonemic_paraphasia',
+  });
+  
+  // Mid-session pivot — feature-flagged, conservative (max 1 pivot, 8-trial cooldown)
+  const {
+    pivotRecommendation,
+    recordTrial: recordPivotTrial,
+    acknowledgePivot,
+    hasPendingPivot,
+    pivotState,
+  } = useMidSessionPivot({
+    enabled: fromLesson, // Only active during lesson flow (controlled rollout)
+    currentDomainSlug: 'lexical_retrieval',
+    checkInterval: 5,
   });
   
   // Use contract-derived values
@@ -348,6 +363,17 @@ export default function PhotoNamingExercise() {
   }, trial: PhotoTrial) => {
     if (!sessionId) return;
 
+    // Record trial for mid-session pivot evaluation
+    const pivotTrialData: RecentTrialData = {
+      wasCorrect: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      wasTimeout: result.errorType === 'timeout',
+      cueLevel: result.cueLevel,
+      exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      domainSlug: 'lexical_retrieval',
+    };
+    recordPivotTrial(pivotTrialData);
+
     const interactionMode = mode === 'caregiver' 
       ? 'caregiver_assisted' 
       : 'independent';
@@ -400,6 +426,38 @@ export default function PhotoNamingExercise() {
         ...adaptationTelemetry,
       },
     });
+
+    // Log pivot telemetry if a pivot was recommended
+    if (hasPendingPivot && pivotRecommendation) {
+      console.log('🔄 Mid-session pivot triggered:', {
+        action: pivotRecommendation.action,
+        reason: pivotRecommendation.reason,
+        confidence: pivotRecommendation.confidence,
+        pivotState,
+      });
+      
+      // Log to adaptation_events
+      if (user?.id) {
+        supabase.from('adaptation_events').insert([{
+          user_id: user.id,
+          profile_id: activeProfile?.id ?? null,
+          session_id: sessionId,
+          layer: 'mid_session',
+          adaptation_type: `pivot_${pivotRecommendation.action}`,
+          trigger_type: 'rule_based',
+          trigger_condition: pivotRecommendation.reason,
+          confidence: pivotRecommendation.confidence,
+          evidence: JSON.parse(JSON.stringify({
+            recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
+            pivot_state: pivotState,
+          })),
+          exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
+          trial_index: pivotState.totalTrials,
+        }]).then(({ error }) => {
+          if (error) console.warn('[PivotTelemetry] Log failed:', error);
+        });
+      }
+    }
     
     console.log('✅ Trial logged successfully to exercise_events');
   };
@@ -626,6 +684,65 @@ export default function PhotoNamingExercise() {
             />
           </div>
         </Card>
+
+        {/* Mid-session pivot suggestion banner */}
+        {hasPendingPivot && pivotRecommendation && (
+          <Card className="p-3 mb-3 border-accent bg-accent/10 animate-in slide-in-from-top-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                {pivotRecommendation.action === 'rest_prompt' ? (
+                  <Coffee className="h-4 w-4 text-accent-foreground shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-accent-foreground shrink-0" />
+                )}
+                <span className="text-accent-foreground font-medium">
+                  {pivotRecommendation.action === 'rest_prompt'
+                    ? "You seem tired — want to take a short break?"
+                    : pivotRecommendation.action === 'step_down'
+                    ? "This seems tough — we can make it a bit easier"
+                    : "Let's try a different activity for a change of pace"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs h-7 px-2"
+                  onClick={() => {
+                    acknowledgePivot();
+                    toast.info("Continuing current exercise");
+                  }}
+                >
+                  Keep Going
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="text-xs h-7 px-2"
+                  onClick={() => {
+                    acknowledgePivot();
+                    if (pivotRecommendation.action === 'rest_prompt') {
+                      toast.info("Take a break — come back when you're ready! 💪");
+                    } else if (pivotRecommendation.action === 'step_down') {
+                      toast.success("Making things a bit easier");
+                      // Difficulty step-down would be handled by the game internally
+                    } else {
+                      // Switch to strength domain — navigate back to lesson to pick next exercise
+                      if (fromLesson) {
+                        window.dispatchEvent(new CustomEvent('exercise-complete'));
+                        navigate('/lesson', { state: { resuming: true } });
+                      }
+                    }
+                  }}
+                >
+                  {pivotRecommendation.action === 'rest_prompt' ? 'Take a Break'
+                    : pivotRecommendation.action === 'step_down' ? 'Make Easier'
+                    : 'Switch Activity'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Game area - fills remaining space */}
         <div className="flex-1 min-h-0">
