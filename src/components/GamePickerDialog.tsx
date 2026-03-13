@@ -69,6 +69,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'abstract-compare': '/exercise/abstract-compare',
   'multi-step-plan': '/exercise/multi-step-plan',
   'dual-load-naming': '/exercise/dual-load-naming',
+  'thought-continuation': '/exercise/thought-continuation',
 };
 
 interface GamePickerDialogProps {
