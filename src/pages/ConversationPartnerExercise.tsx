@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, MessageCircle, Volume2, Mic } from 'lucide-react';
@@ -7,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -17,14 +19,20 @@ interface SessionSummary {
 
 export default function ConversationPartnerExercise() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile, loading: profileLoading } = useProfile();
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
+  // Lesson flow integration
+  const fromLesson = location.state?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId ?? null;
+  const exerciseCompleteSentRef = useRef(false);
+
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
-    null, // No provided session ID - standalone mode
+    providedSessionId,
     'conversation-partner'
   );
 
@@ -47,10 +55,33 @@ export default function ConversationPartnerExercise() {
 
   const handleComplete = (summary: SessionSummary) => {
     setSessionSummary(summary);
+    
+    // Auto-return to lesson flow
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'conversation-partner', results: summary },
+        }));
+        navigate('/lesson', { state: { resuming: true } });
+      }, 2000);
+    }
   };
 
   const handleExit = () => {
-    navigate('/');
+    navigate(fromLesson ? '/lesson' : '/dashboard');
+  };
+
+  const handleContinue = () => {
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'conversation-partner' },
+      }));
+      navigate('/lesson', { state: { resuming: true } });
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const handlePlayAgain = () => {
@@ -62,15 +93,16 @@ export default function ConversationPartnerExercise() {
   if (sessionSummary) {
     return (
       <div className="min-h-screen bg-background p-4">
+        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto space-y-6 pt-8">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={handleExit}
             className="gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {fromLesson ? 'Back to Lesson' : 'Back'}
           </Button>
 
           <Card>
@@ -108,16 +140,25 @@ export default function ConversationPartnerExercise() {
               </div>
 
               <div className="flex gap-3 justify-center">
-                <Button onClick={handlePlayAgain}>
-                  Talk Again
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/')}>
-                  Done
-                </Button>
+                {fromLesson ? (
+                  <Button onClick={handleContinue}>
+                    Continue Lesson
+                  </Button>
+                ) : (
+                  <>
+                    <Button onClick={handlePlayAgain}>
+                      Talk Again
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                      Done
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
+        {fromLesson && <SessionSidePanel />}
       </div>
     );
   }
@@ -130,11 +171,11 @@ export default function ConversationPartnerExercise() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={handleExit}
             className="gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {fromLesson ? 'Back to Lesson' : 'Back'}
           </Button>
 
           <div className="text-center space-y-4">
@@ -187,6 +228,7 @@ export default function ConversationPartnerExercise() {
   // Game screen
   return (
     <div className="min-h-screen bg-background p-4">
+      {fromLesson && <SessionProgressBubble />}
       <div className="max-w-md mx-auto pt-4">
         <div className="flex items-center gap-2 mb-6">
           <MessageCircle className="w-5 h-5 text-primary" />
@@ -201,6 +243,7 @@ export default function ConversationPartnerExercise() {
           onExit={handleExit}
         />
       </div>
+      {fromLesson && <SessionSidePanel />}
     </div>
   );
 }
