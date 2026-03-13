@@ -2,7 +2,8 @@
  * Shared Adaptation Contract
  * 
  * Provides a unified decision surface that every exercise can consume.
- * Combines: focusPhonemes, recommendedCueType, difficultyTier, and reasoning.
+ * Combines: focusPhonemes, recommendedCueType, difficultyTier, reasoning,
+ * spaced repetition words, and mid-session pivot capabilities.
  * 
  * This replaces per-game adaptation logic with one source of truth.
  */
@@ -11,14 +12,19 @@ import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useStrugglingPhonemes } from '@/hooks/useStrugglingPhonemes';
+import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { useUserSpeechProfile, type UserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { selectOptimalCue, type CueType, type CueRecommendation } from '@/lib/cueSelector';
+import { getScheduledWords, type ScheduledWord } from '@/lib/spacedRepetitionScheduler';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
 
 export interface AdaptationContract {
   // Phoneme targeting
   focusPhonemes: string[];
   targetWords: string[];
+  
+  // Spaced repetition
+  scheduledRepetitionWords: ScheduledWord[];
   
   // Cue personalization
   recommendedCueType: CueType;
@@ -78,6 +84,12 @@ export function useSessionAdaptation(
     loading: phonemesLoading,
   } = useStrugglingPhonemes(user?.id, { profileId: activeProfile?.id });
 
+  // Fetch struggling words for spaced repetition
+  const {
+    strugglingWords,
+    loading: wordsLoading,
+  } = useStrugglingWords({ userId: user?.id });
+
   return useMemo(() => {
     const reasons: string[] = [];
     
@@ -102,7 +114,22 @@ export function useSessionAdaptation(
       targetWords = profileTargetWords.slice(0, 10);
     }
 
-    // 3. Recommended cue type from speech profile
+    // 3. Spaced repetition: get words due for practice today
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const scheduledRepetitionWords = getScheduledWords(strugglingWords, todayDate, 5);
+    if (scheduledRepetitionWords.length > 0) {
+      reasons.push(
+        `Spaced repetition: ${scheduledRepetitionWords.length} words due (${scheduledRepetitionWords.map(w => w.word).join(', ')})`
+      );
+      // Merge scheduled words into targetWords if not already present
+      for (const sw of scheduledRepetitionWords) {
+        if (!targetWords.includes(sw.word)) {
+          targetWords.push(sw.word);
+        }
+      }
+    }
+
+    // 4. Recommended cue type from speech profile
     let cueRec: CueRecommendation = {
       cueType: 'none',
       reasoning: 'No profile data',
@@ -124,7 +151,7 @@ export function useSessionAdaptation(
       }
     }
 
-    // 4. Difficulty tier: lesson override > adaptive engine > default
+    // 5. Difficulty tier: lesson override > adaptive engine > default
     let difficultyTier = 1;
     if (lessonAdaptations?.startDifficulty) {
       difficultyTier = lessonAdaptations.startDifficulty;
@@ -134,7 +161,7 @@ export function useSessionAdaptation(
       reasons.push(`Engine start difficulty: ${difficultyTier}`);
     }
 
-    // 5. Profile confidence
+    // 6. Profile confidence
     let profileConfidence: 'high' | 'medium' | 'low' | 'none' = 'none';
     if (speechProfile) {
       const totalTrials = speechProfile.trials_with_phonemes ?? 0;
@@ -146,13 +173,14 @@ export function useSessionAdaptation(
     return {
       focusPhonemes,
       targetWords,
+      scheduledRepetitionWords,
       recommendedCueType: cueRec.cueType,
       cueConfidence: cueRec.confidence,
       difficultyTier,
       adaptationReasons: reasons,
       profileConfidence,
       speechProfile,
-      loading: profileLoading || phonemesLoading,
+      loading: profileLoading || phonemesLoading || wordsLoading,
     };
   }, [
     lessonFocusPhonemes,
@@ -161,9 +189,11 @@ export function useSessionAdaptation(
     todayFocus,
     strugglingPhonemes,
     profileTargetWords,
+    strugglingWords,
     speechProfile,
     profileLoading,
     phonemesLoading,
+    wordsLoading,
     defaultErrorType,
   ]);
 }
