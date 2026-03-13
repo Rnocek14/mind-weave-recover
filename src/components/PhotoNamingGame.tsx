@@ -110,6 +110,8 @@ export const PhotoNamingGame = ({
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
+  const micStartTimeRef = useRef<number>(0); // For latency measurement
+  const { setLiveSnapshot } = useLiveAnalysis();
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
