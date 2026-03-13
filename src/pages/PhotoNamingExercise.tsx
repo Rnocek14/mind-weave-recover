@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -154,6 +154,8 @@ function PhotoNamingExerciseInner() {
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [caregiverNotes, setCaregiverNotes] = useState('');
+  const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
+  const sessionStartRef = useRef(Date.now());
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
@@ -378,7 +380,19 @@ function PhotoNamingExerciseInner() {
     cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
     cueWasEffective?: boolean | null;
     timeToSuccessAfterCueMs?: number | null;
+    // Adaptation state for Live Analysis
+    latencyMs?: number;
+    consecutiveErrors?: number;
+    frustrationLevel?: string;
+    recentSuccessRate?: number;
+    trialCount?: number;
   }, trial: PhotoTrial) => {
+    // Track recent accuracies for Live Analysis dots
+    setRecentAccuracies(prev => {
+      const next = [...prev, result.correct ? 1 : 0];
+      return next.length > 10 ? next.slice(-10) : next;
+    });
+
     const hasSession = Boolean(sessionId);
 
     // Record trial for mid-session pivot evaluation
@@ -486,7 +500,8 @@ function PhotoNamingExerciseInner() {
     // ===== Push data to Live Analysis Panel =====
     const ua = result.utteranceAnalysis;
     setLiveSnapshot({
-      transcript: result.whisperTranscript || ua?.transcript,
+      // Transcript: fallback to target word if ASR didn't return text (direct match short-circuit)
+      transcript: result.whisperTranscript || ua?.transcript || trial.target,
       targetWord: trial.target,
       asrConfidence: result.whisperConfidence ?? ua?.asrConfidence,
       errorType: result.errorType || ua?.errorType,
@@ -495,6 +510,8 @@ function PhotoNamingExerciseInner() {
       pronunciationScore: ua?.pronunciationScore,
       accuracyScore: ua?.accuracyScore,
       fluencyScore: ua?.fluencyScore,
+      completenessScore: ua?.completenessScore,
+      prosodyScore: ua?.prosodyScore,
       meaningAccuracy: ua?.meaningAccuracy,
       circumlocutionDetected: ua?.circumlocutionDetected,
       effortfulSpeech: result.effortfulSpeech,
@@ -511,8 +528,15 @@ function PhotoNamingExerciseInner() {
       scheduledRepetitionWords: adaptation.scheduledRepetitionWords.map(w => w.word),
       adaptationReasons: adaptation.adaptationReasons,
       profileConfidence: adaptation.profileConfidence,
-      // Session state
+      // Session state — now populated from in-game adaptation hook
       trialIndex: pivotState.totalTrials,
+      trialTotal: 10,
+      consecutiveErrors: result.consecutiveErrors ?? 0,
+      frustrationLevel: result.frustrationLevel ?? 'none',
+      recentAccuracies: recentAccuracies,
+      fatigueFlag: (result.consecutiveErrors ?? 0) >= 5 || (Date.now() - sessionStartRef.current) > 15 * 60 * 1000,
+      latencyMs: result.latencyMs,
+      micState: 'processing',
       pivotRecommendation: pivotRecommendation ? {
         action: pivotRecommendation.action,
         reason: pivotRecommendation.reason,

@@ -29,6 +29,7 @@ import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
+import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -56,6 +57,12 @@ interface PhotoNamingGameProps {
     cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
     cueWasEffective?: boolean | null;
     timeToSuccessAfterCueMs?: number | null;
+    // Adaptation state for Live Analysis
+    latencyMs?: number;
+    consecutiveErrors?: number;
+    frustrationLevel?: string;
+    recentSuccessRate?: number;
+    trialCount?: number;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -103,6 +110,8 @@ export const PhotoNamingGame = ({
   const [showFeedback, setShowFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
+  const micStartTimeRef = useRef<number>(0); // For latency measurement
+  const { setLiveSnapshot } = useLiveAnalysis();
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -718,6 +727,18 @@ export const PhotoNamingGame = ({
     }
   }, [transcript]);
   
+  // Push micState transitions to Live Analysis panel
+  useEffect(() => {
+    if (isListening) {
+      micStartTimeRef.current = Date.now();
+      setLiveSnapshot({ micState: 'listening' });
+    } else if (utteranceState === 'processing') {
+      setLiveSnapshot({ micState: 'processing' });
+    } else {
+      setLiveSnapshot({ micState: 'idle' });
+    }
+  }, [isListening, utteranceState, setLiveSnapshot]);
+
   // Centralized safe startListening to prevent race conditions
   const safeStartListening = useCallback((delayMs: number = 0) => {
     // Clear any pending timeout
@@ -1321,6 +1342,11 @@ export const PhotoNamingGame = ({
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
+      latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: state.trialNumber,
     }, state.currentTrial);
 
     // Compute cue efficacy for timeout (cue was NOT effective since user didn't respond)
@@ -1746,6 +1772,11 @@ export const PhotoNamingGame = ({
           cueTypeGiven,
           cueWasEffective,
           timeToSuccessAfterCueMs,
+          latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+          consecutiveErrors: hookConsecutiveErrors,
+          frustrationLevel,
+          recentSuccessRate,
+          trialCount: state.trialNumber,
         }, capturedTrial);
 
         // Determine fluency availability
@@ -1840,6 +1871,11 @@ export const PhotoNamingGame = ({
           cueTypeGiven,
           cueWasEffective,
           timeToSuccessAfterCueMs,
+          latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+          consecutiveErrors: hookConsecutiveErrors,
+          frustrationLevel,
+          recentSuccessRate,
+          trialCount: state.trialNumber,
         }, capturedTrial);
       }
     })();
@@ -1932,6 +1968,11 @@ export const PhotoNamingGame = ({
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
+      latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: state.trialNumber,
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
