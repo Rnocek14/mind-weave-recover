@@ -262,11 +262,29 @@ export const useDailyLesson = (
           mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
         } : null;
 
+        // Compute 7-day domain exposure from recent trials
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+        const domainExposure7d: DomainExposure7d[] = COGNITIVE_DOMAINS
+          .filter(d => d.exerciseSlugs.length > 0)
+          .map(domain => {
+            const domainTrials = (recentTrials || []).filter(
+              (t: any) => (domain.exerciseSlugs as readonly string[]).includes(t.exercise_slug) &&
+                t.created_at >= sevenDaysAgoStr
+            );
+            const uniqueSessions = new Set(domainTrials.map((t: any) => t.session_id));
+            return {
+              domainSlug: domain.slug,
+              sessionCount: uniqueSessions.size,
+              trialCount: domainTrials.length,
+            };
+          });
+
         const engineInput: AdaptiveEngineInput = {
           capabilityScores: scores,
           performanceSignals: signals,
           speechProfile: speechProfileSummary,
           signalCounts,
+          domainExposure7d,
         };
 
         focus = computeTodayFocus(engineInput);
