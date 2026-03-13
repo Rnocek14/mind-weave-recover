@@ -68,6 +68,13 @@ export const DOMAIN_VERSION = 1;
 
 // ============ Types ============
 
+export interface TransferComponents {
+  independentAccuracy: number;
+  scaffoldedAccuracy: number;
+  nIndependent: number;
+  nScaffolded: number;
+}
+
 export interface DomainScore {
   domainSlug: DomainSlug;
   score: number; // 0-1
@@ -76,6 +83,8 @@ export interface DomainScore {
   fatigueSensitivity: number | null;
   scoreComponents: Record<string, number>;
   trend: 'improving' | 'stable' | 'declining' | 'insufficient';
+  transferIndex: number | null;
+  transferComponents: TransferComponents | null;
 }
 
 export interface CognitiveStateSnapshot {
