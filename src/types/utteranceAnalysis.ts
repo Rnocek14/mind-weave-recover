@@ -59,6 +59,13 @@ export interface UtteranceAnalysis {
   totalDurationMs?: number;
   effortfulSpeech?: boolean;        // Derived flag: slow rate OR long pauses OR many pauses
 
+  // ===== Azure Pronunciation Assessment =====
+  pronunciationScore?: number;       // 0-100, overall pronunciation quality
+  accuracyScore?: number;            // 0-100, phoneme-level accuracy
+  fluencyScore?: number;             // 0-100, speech flow and rhythm
+  completenessScore?: number;        // 0-100, how much of the target was spoken
+  prosodyScore?: number;             // 0-100, intonation and stress patterns
+
   // ===== Scoring / Feedback =====
   encouragementScore: number;        // 0-100, WAB-inspired partial credit
   encouragementLevel?: EncouragementLevel; // excellent/good/fair/keep-trying

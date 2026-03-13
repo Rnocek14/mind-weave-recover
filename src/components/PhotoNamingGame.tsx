@@ -1849,6 +1849,26 @@ export const PhotoNamingGame = ({
           pronunciationError: pronError ? `${pronError.stage}: ${pronError.message}` : undefined,
           pronunciationDiagnostics,
         });
+
+        // ── Secondary Live Analysis push: Azure PA scores ──
+        // onTrialComplete fires before pronunciation analysis finishes,
+        // so we push Azure PA data to the panel as soon as it arrives.
+        if (pronData) {
+          setLiveSnapshot({
+            pronunciationScore: pronData.pronunciationScore,
+            accuracyScore: pronData.accuracyScore,
+            fluencyScore: pronData.fluencyScore,
+            completenessScore: pronData.completenessScore,
+            prosodyScore: pronData.prosodyScore,
+          });
+          console.log('🎯 [LiveAnalysis] Azure PA scores pushed to panel', {
+            pronunciationScore: pronData.pronunciationScore,
+            accuracyScore: pronData.accuracyScore,
+            fluencyScore: pronData.fluencyScore,
+            completenessScore: pronData.completenessScore,
+            prosodyScore: pronData.prosodyScore,
+          });
+        }
         
         console.log('✅ [PhotoNaming] Background analysis complete for:', capturedTrial.target);
       } catch (error) {
