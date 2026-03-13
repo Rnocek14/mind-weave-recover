@@ -160,7 +160,8 @@ async function persistScores(
       window_start: snapshot.windowStart,
       window_end: snapshot.windowEnd,
       computed_at: snapshot.computedAt,
-      // transfer_index and transfer_components left null for Phase 1
+      transfer_index: d.transferIndex,
+      transfer_components: d.transferComponents,
     }));
 
   if (rows.length === 0) return;

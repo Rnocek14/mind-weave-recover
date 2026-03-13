@@ -370,6 +370,74 @@ const PHASE_B_RULES: DecisionRule[] = [
     },
     adaptationDescription: 'Prioritize semantic depth exercises',
   },
+  {
+    id: 'low_transfer_index',
+    description: 'Transfer index indicates gains are not generalizing',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const scores = input.cognitiveDomainScores?.filter(
+        d => d.transferIndex !== null && d.trialCount >= 15
+      );
+      if (!scores || scores.length < 2) return false;
+      const avgTransfer = scores.reduce((sum, d) => sum + (d.transferIndex ?? 0), 0) / scores.length;
+      return avgTransfer < 0.4;
+    },
+    conditionDescription: (input) => {
+      const scores = input.cognitiveDomainScores?.filter(d => d.transferIndex !== null);
+      if (!scores || scores.length === 0) return 'No transfer data';
+      const avgTransfer = scores.reduce((sum, d) => sum + (d.transferIndex ?? 0), 0) / scores.length;
+      return `Avg Transfer Index: ${Math.round(avgTransfer * 100)}% across ${scores.length} domains`;
+    },
+    apply: (focus) => {
+      // Increase conversational/generative tasks, reduce drills
+      if (!focus.primaryDomains.includes('discourse')) {
+        focus.primaryDomains.push('discourse');
+      }
+      focus.reasoning.push(
+        'Low transfer index (<40%) — increasing conversational tasks to improve generalization'
+      );
+    },
+    adaptationDescription: 'Prioritize conversational and generative exercises over drills',
+  },
+  {
+    id: 'domain_rotation_guardrail',
+    description: 'Ensure all domains get minimum weekly exposure',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      // This rule checks if any domains are underexposed
+      // The actual exposure data is injected via cognitiveDomainScores trialCount
+      const scores = input.cognitiveDomainScores;
+      if (!scores) return false;
+      const totalTrials = scores.reduce((sum, d) => sum + d.trialCount, 0);
+      if (totalTrials < 30) return false;
+      // Check if any non-endurance domain has < 3 trials (proxy for underexposure)
+      return scores.some(
+        d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3 && totalTrials >= 30
+      );
+    },
+    conditionDescription: (input) => {
+      const underexposed = input.cognitiveDomainScores
+        ?.filter(d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3)
+        ?.map(d => d.domainSlug) || [];
+      return `Underexposed domains: ${underexposed.join(', ') || 'none'}`;
+    },
+    apply: (focus, input) => {
+      const underexposed = input.cognitiveDomainScores
+        ?.filter(d => d.domainSlug !== 'cognitive_endurance' && d.trialCount < 3)
+        ?.map(d => d.domainSlug) || [];
+      for (const domain of underexposed.slice(0, 2)) {
+        if (!focus.primaryDomains.includes(domain)) {
+          focus.primaryDomains.push(domain);
+        }
+      }
+      focus.reasoning.push(
+        `Ensuring balanced recovery: adding underexposed domains (${underexposed.join(', ')})`
+      );
+    },
+    adaptationDescription: 'Add underexposed domains to session plan for balanced coverage',
+  },
 ];
 
 // ============ Engine Core ============
