@@ -263,6 +263,51 @@ function extractDepthMetrics(trials: ExerciseTrialRow[]): {
   };
 }
 
+// ============ Transfer Index ============
+
+/**
+ * Compute Transfer Index for a domain.
+ * Compares independent (cue_level=0) vs scaffolded (cue_level≥1) accuracy.
+ * Low index (<0.4) = gains aren't generalizing to independent performance.
+ * 
+ * Stores both raw values for interpretability per reviewer feedback.
+ */
+function computeTransferIndex(
+  domainTrials: ExerciseTrialRow[]
+): { transferIndex: number | null; transferComponents: TransferComponents | null } {
+  const independent = domainTrials.filter(t => {
+    const cueLevel = t.inputs?.cue_level ?? t.outputs?.cue_level ?? 0;
+    return cueLevel === 0;
+  });
+  const scaffolded = domainTrials.filter(t => {
+    const cueLevel = t.inputs?.cue_level ?? t.outputs?.cue_level;
+    return cueLevel != null && cueLevel >= 1;
+  });
+
+  // Need minimum samples in both groups
+  if (independent.length < 3 || scaffolded.length < 3) {
+    return { transferIndex: null, transferComponents: null };
+  }
+
+  const independentAcc = computeAccuracy(independent);
+  const scaffoldedAcc = computeAccuracy(scaffolded);
+
+  // Avoid division by zero; if scaffolded accuracy is 0, transfer is 0
+  const transferIndex = scaffoldedAcc > 0
+    ? Math.min(1, independentAcc / scaffoldedAcc)
+    : (independentAcc > 0 ? 1 : 0);
+
+  return {
+    transferIndex: Math.max(0, Math.min(1, transferIndex)),
+    transferComponents: {
+      independentAccuracy: independentAcc,
+      scaffoldedAccuracy: scaffoldedAcc,
+      nIndependent: independent.length,
+      nScaffolded: scaffolded.length,
+    },
+  };
+}
+
 // ============ Per-Domain Scorers ============
 
 function scoreDomain(
