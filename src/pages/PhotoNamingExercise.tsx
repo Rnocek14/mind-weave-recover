@@ -82,7 +82,7 @@ const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
   maxLevel: 10,
 });
 
-export default function PhotoNamingExercise() {
+function PhotoNamingExerciseInner() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const queryClient = useQueryClient();
