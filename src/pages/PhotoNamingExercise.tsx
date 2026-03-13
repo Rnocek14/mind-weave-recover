@@ -25,6 +25,8 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
+import { LiveAnalysisPanel } from '@/components/LiveAnalysisPanel';
 import type { RecentTrialData } from '@/lib/midSessionPivot';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
@@ -80,7 +82,8 @@ const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
   maxLevel: 10,
 });
 
-export default function PhotoNamingExercise() {
+function PhotoNamingExerciseInner() {
+  const { setLiveSnapshot, appendAuditEvent, setDecisionChain } = useLiveAnalysis();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const queryClient = useQueryClient();
@@ -460,6 +463,65 @@ export default function PhotoNamingExercise() {
     }
     
     console.log('✅ Trial logged successfully to exercise_events');
+
+    // ===== Push data to Live Analysis Panel =====
+    const ua = result.utteranceAnalysis;
+    setLiveSnapshot({
+      transcript: result.whisperTranscript || ua?.transcript,
+      targetWord: trial.target,
+      asrConfidence: result.whisperConfidence ?? ua?.asrConfidence,
+      errorType: result.errorType || ua?.errorType,
+      phonologicalSimilarity: ua?.phonologicalSimilarity,
+      semanticSimilarity: ua?.semanticSimilarity,
+      pronunciationScore: ua?.pronunciationScore,
+      accuracyScore: ua?.accuracyScore,
+      fluencyScore: ua?.fluencyScore,
+      meaningAccuracy: ua?.meaningAccuracy,
+      circumlocutionDetected: ua?.circumlocutionDetected,
+      effortfulSpeech: result.effortfulSpeech,
+      reasoning: ua?.reasoning,
+      classificationConfidence: ua?.classificationConfidence,
+      encouragementScore: result.encouragementScore,
+      encouragementLevel: ua?.encouragementLevel,
+      // Adaptation state
+      currentDomain: 'lexical_retrieval',
+      difficultyTier: result.difficultyLevel,
+      cueType: result.cueTypeGiven,
+      cueLevel: result.cueLevel,
+      focusPhonemes: adaptation.focusPhonemes,
+      scheduledRepetitionWords: adaptation.scheduledRepetitionWords.map(w => w.word),
+      adaptationReasons: adaptation.adaptationReasons,
+      profileConfidence: adaptation.profileConfidence,
+      // Session state
+      trialIndex: pivotState.totalTrials,
+      pivotRecommendation: pivotRecommendation ? {
+        action: pivotRecommendation.action,
+        reason: pivotRecommendation.reason,
+        confidence: pivotRecommendation.confidence,
+      } : null,
+      exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      sessionId: sessionId || undefined,
+    });
+
+    // Decision chain card
+    setDecisionChain({
+      transcript: result.whisperTranscript || ua?.transcript || '(no speech)',
+      detected: result.errorType || 'unknown',
+      confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : '—',
+      cueChosen: result.cueTypeGiven || 'none',
+      difficultyAction: `Level ${result.difficultyLevel}`,
+      reason: adaptation.adaptationReasons[0] || 'Default settings',
+      timestamp: Date.now(),
+    });
+
+    // Audit event
+    appendAuditEvent({
+      source: 'utterance_analyzer',
+      eventType: 'trial_scored',
+      label: `${result.correct ? '✓' : '✗'} "${trial.target}" → ${result.errorType || 'unknown'}`,
+      detail: result.whisperTranscript ? `Heard: "${result.whisperTranscript}"` : undefined,
+      confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : undefined,
+    });
   };
 
   const handleSkipExercise = async () => {
@@ -573,6 +635,7 @@ export default function PhotoNamingExercise() {
     <div className="min-h-screen bg-background flex flex-col">
       {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
+      <LiveAnalysisPanel />
       <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 max-w-4xl flex-1 flex flex-col">
         {/* Compact header on mobile */}
         <div className="flex flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4">
@@ -779,5 +842,13 @@ export default function PhotoNamingExercise() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PhotoNamingExercise() {
+  return (
+    <LiveAnalysisProvider>
+      <PhotoNamingExerciseInner />
+    </LiveAnalysisProvider>
   );
 }
