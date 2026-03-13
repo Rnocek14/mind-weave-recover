@@ -447,10 +447,10 @@ export default function PhotoNamingExercise() {
           trigger_type: 'rule_based',
           trigger_condition: pivotRecommendation.reason,
           confidence: pivotRecommendation.confidence,
-          evidence: {
+          evidence: JSON.parse(JSON.stringify({
             recent_accuracy: pivotTrialData.wasCorrect ? 1 : 0,
             pivot_state: pivotState,
-          } as Record<string, unknown>,
+          })),
           exercise_slug: CANONICAL_SLUGS.PHOTO_NAMING,
           trial_index: pivotState.totalTrials,
         }]).then(({ error }) => {
