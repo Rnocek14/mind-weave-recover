@@ -727,6 +727,18 @@ export const PhotoNamingGame = ({
     }
   }, [transcript]);
   
+  // Push micState transitions to Live Analysis panel
+  useEffect(() => {
+    if (isListening) {
+      micStartTimeRef.current = Date.now();
+      setLiveSnapshot({ micState: 'listening' });
+    } else if (utteranceState === 'processing') {
+      setLiveSnapshot({ micState: 'processing' });
+    } else {
+      setLiveSnapshot({ micState: 'idle' });
+    }
+  }, [isListening, utteranceState, setLiveSnapshot]);
+
   // Centralized safe startListening to prevent race conditions
   const safeStartListening = useCallback((delayMs: number = 0) => {
     // Clear any pending timeout
