@@ -69,6 +69,7 @@ const PATIENT_GAME_INFO: Record<string, GameInfo> = {
   'conversation-coach': { emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises', difficulty: 'easy', category: 'speech' },
   'fix-sentence': { emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking' },
   'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
+  'thought-continuation': { emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences and ideas', difficulty: 'easy', category: 'speech' },
 };
 
 // Route map for exercises
@@ -93,6 +94,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'conversation-coach': '/exercise/conversation-coach',
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
+  'thought-continuation': '/exercise/thought-continuation',
 };
 
 function getPatientViewState(
@@ -307,6 +309,15 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
               Creating a personalized lesson plan
             </p>
           </div>
+          <Button
+            onClick={() => setShowGamePicker(true)}
+            variant="outline"
+            size="lg"
+            className="min-h-[64px] text-lg sm:text-xl font-semibold px-6 py-4 rounded-xl border-2 flex items-center justify-center gap-3"
+          >
+            <Gamepad2 className="w-6 h-6 shrink-0" />
+            <span>Play a game while waiting</span>
+          </Button>
         </Card>
       </div>
     );

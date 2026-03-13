@@ -148,5 +148,59 @@ export const EXERCISES: Exercise[] = [
     duration: "5-8 min",
     difficulty: "Easy",
     color: "bg-gradient-healing"
-  }
+  },
+  {
+    id: "minimal-pairs",
+    title: "Minimal Pairs",
+    icon: Volume2,
+    category: "Language",
+    duration: "5-8 min",
+    difficulty: "Medium",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "narrative-retell",
+    title: "Narrative Retell",
+    icon: MessageSquare,
+    category: "Speech",
+    duration: "8-12 min",
+    difficulty: "Hard",
+    color: "bg-gradient-healing"
+  },
+  {
+    id: "abstract-compare",
+    title: "Abstract Compare",
+    icon: Lightbulb,
+    category: "Cognition",
+    duration: "8-12 min",
+    difficulty: "Hard",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "multi-step-plan",
+    title: "Multi-Step Planning",
+    icon: List,
+    category: "Cognition",
+    duration: "8-10 min",
+    difficulty: "Medium",
+    color: "bg-gradient-healing"
+  },
+  {
+    id: "dual-load-naming",
+    title: "Dual-Load Naming",
+    icon: Target,
+    category: "Speech",
+    duration: "5-8 min",
+    difficulty: "Hard",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "thought-continuation",
+    title: "Thought Continuation",
+    icon: MessageCircle,
+    category: "Expression",
+    duration: "3-5 min",
+    difficulty: "Easy",
+    color: "bg-gradient-healing"
+  },
 ];
