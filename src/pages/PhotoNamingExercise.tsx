@@ -379,7 +379,7 @@ function PhotoNamingExerciseInner() {
     cueWasEffective?: boolean | null;
     timeToSuccessAfterCueMs?: number | null;
   }, trial: PhotoTrial) => {
-    if (!sessionId) return;
+    const hasSession = Boolean(sessionId);
 
     // Record trial for mid-session pivot evaluation
     const pivotTrialData: RecentTrialData = {
