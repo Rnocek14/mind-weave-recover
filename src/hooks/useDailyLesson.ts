@@ -20,8 +20,10 @@ import {
   type TodayFocus, 
   type AdaptiveEngineInput,
   type SignalCounts,
-  type SpeechProfileSummary
+  type SpeechProfileSummary,
+  type DomainExposure7d,
 } from '@/lib/adaptiveDecisionEngine';
+import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
