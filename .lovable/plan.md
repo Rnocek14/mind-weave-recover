@@ -1,135 +1,65 @@
 
-# Recovery Intelligence Platform — Implementation Plan
 
-## Strategic Position
+## Live Analysis Panel -- Data Gap Assessment & Fix Plan
 
-**From:** Speech therapy app
-**To:** Out-of-Hospital Recovery Intelligence Layer
+### Current State
 
-Speech is the first vertical module. PT, OT, cognitive, cardiac are future modules plugged into the same spine.
+Based on the console logs and code review, here is what is working and what is not:
 
-## Architecture: Three-Layer Model
+**Working (populated after each trial):**
+- `errorType` -- correct, phonemic_paraphasia, etc.
+- `targetWord` -- the current target
+- `asrConfidence` -- from whisper/ASR
+- `currentDomain`, `difficultyTier`, `cueType`, `cueLevel`
+- `focusPhonemes`, `scheduledRepetitionWords`, `adaptationReasons`, `profileConfidence`
+- `encouragementScore`, `reasoning`, `classificationConfidence`
+- Decision Chain card and Audit Trail events
 
-| Layer | Purpose | Changes With New Disciplines? |
-|-------|---------|-------------------------------|
-| **Core Recovery Spine** | Readiness, dose tracking, trends, alerts, snapshot | No — therapy-agnostic |
-| **Discipline Modules** | Speech telemetry, PT exercises, cognitive tasks | Yes — one module per discipline |
-| **Hospital Interface** | Weekly Snapshot, team export, RTM docs, risk dashboard | No — consumes spine data |
+**Not populated (always null/undefined):**
 
-## Database Schema (Recovery Spine)
+| Field | Why | Fix |
+|-------|-----|-----|
+| `transcript` | Logged as `""` -- the whisperTranscript is empty on direct matches because scoring short-circuits before ASR returns full text | Use the matched word as transcript fallback |
+| `micState` | Only set to `'idle'` on mount; never updated to `'listening'`/`'processing'` during recording lifecycle | Push micState from PhotoNamingGame's recording state changes |
+| `latencyMs` | Never computed or pushed | Measure time from mic-start to stable-transcript |
+| `trialTotal` | Never pushed (only `trialIndex`) | Pass total trial count from game config |
+| `recentAccuracies` | Never pushed | Build from adaptation hook's recent trial history |
+| `consecutiveErrors` | Available from adaptation hook but not pushed | Add to snapshot from `adaptation.consecutiveErrors` |
+| `frustrationLevel` | Available from adaptation hook but not pushed | Add to snapshot |
+| `fatigueFlag` | Never computed | Derive from session duration or consecutive errors |
+| `completenessScore`, `prosodyScore` | Available from Azure PA but not mapped through | Thread through utterance analysis pipeline |
+| `pronunciationScore`, `accuracyScore`, `fluencyScore` | Defined on snapshot but Azure PA data not reaching the panel | Same -- thread from utterance analysis |
 
-### recovery_domains ✅ Created
-Registry of discipline modules. Each domain has a `slug`, `display_name`, `dose_unit`, and `icon_name`.
-Seeded: `speech`, `pt`, `ot`, `cognitive`, `activity`.
+### Plan
 
-### daily_readiness ✅ Created
-Patient self-report (discipline-agnostic). One row per profile per day.
-- `fatigue_rating` (1-5), `fatigue_limited_practice` (bool)
-- Optional: `sleep_quality`, `pain_level`, `mood_rating`, `notes`
-- Unique on `(profile_id, checkin_date)` — upsert-friendly
+#### 1. Fix empty transcript on direct matches
+In `PhotoNamingExercise.tsx` `handleTrialComplete`, change the transcript line:
+```
+transcript: result.whisperTranscript || ua?.transcript || trial.target,
+```
+This ensures the panel always shows what word was matched.
 
-### dose_targets ✅ Created
-Prescribed dose per domain per patient. Supports time-windowed targets.
-- `domain_slug` → recovery_domains, `target_value`, `target_frequency`
-- `effective_from` / `effective_until` for versioned prescriptions
+#### 2. Push micState transitions from PhotoNamingGame
+In `PhotoNamingGame.tsx`, where recording starts/stops (`🎙️ Recording started`, `🎤 Speech recognition started`, `Manually stopping listening`), call `setLiveSnapshot({ micState: 'listening' })` / `{ micState: 'processing' }` / `{ micState: 'idle' }`. This requires passing `setLiveSnapshot` down or using `useLiveAnalysis()` directly in the game component.
 
-### dose_logs ✅ Created
-Actual dose delivered per domain per day.
-- `domain_slug`, `log_date`, `dose_value`, `source` (manual/auto/wearable/system)
-- Optional: `intensity_score`, `quality_score`, `metadata` (jsonb)
+#### 3. Fill session state fields in the snapshot push
+In the `setLiveSnapshot` call at line 488, add:
+- `trialTotal` from the game's total trial count
+- `recentAccuracies` from the adaptation hook's history
+- `consecutiveErrors` from `adaptation.consecutiveErrors`
+- `frustrationLevel` from the adaptation hook's frustration state
+- `micState: 'processing'` (since we just finished scoring)
 
-### recovery_alerts ✅ Created
-Cross-domain actionable flags for clinicians.
-- `alert_type`: engagement_failure, fatigue_risk, deterioration, dose_inadequacy, plateau_risk, regression_risk
-- `severity`: info, warning, critical
-- `domain_slug`: nullable (NULL = cross-domain alert)
-- Resolvable with `resolved_at`, `resolved_by`, `resolution_notes`
+#### 4. Compute and push latencyMs
+Capture `Date.now()` when recording starts (mic goes live), store in a ref, then compute `latencyMs: Date.now() - recordingStartTime` when the trial completes. Push it in the snapshot.
 
-## Clinician Dashboard — Phased Build
+#### 5. Thread Azure PA scores when available
+If `ua?.pronunciationScore`, `ua?.completenessScore`, `ua?.prosodyScore` exist (from Azure PA pipeline), they are already being pushed for pronunciation/accuracy/fluency but the upstream analysis may not be populating them. This is gated by the `fluencyUnavailableReason: "not_authed"` log -- meaning Azure PA isn't configured. No code fix needed; these will auto-populate once Azure PA is connected.
 
-### Sprint 1: Single-Patient Intelligence ✅ In Progress
+### Files to Edit
+- `src/pages/PhotoNamingExercise.tsx` -- enrich the `setLiveSnapshot` call with missing fields, fix transcript fallback
+- `src/components/PhotoNamingGame.tsx` -- push `micState` transitions via `useLiveAnalysis()` hook, capture recording start timestamp for latency
 
-#### Auto Progress Note Generator ✅ Done
-- `src/lib/generateProgressNote.ts` — template-driven, deterministic narrative
-- Numbers in, sentences out — no LLM, no clinical claims beyond data
-- Data confidence assessment (high/moderate/low/insufficient)
-- Headline generation for card display
-- `src/hooks/useWeeklySessionStats.ts` — fetches 7d + prior 7d session/trial aggregates
-- "Note" button in `ClinicianPatientHeader` with dialog showing narrative + copy
+### What This Unblocks
+After these changes, all sections of the Live Analysis Panel will populate with real data during gameplay: mic state will pulse live, session progress will show trial X/Y with accuracy dots, consecutive errors and frustration flags will appear when relevant, and the transcript will never be empty.
 
-#### Plateau & Regression Alerts ✅ Done
-- `plateau_risk` (info): dose + speech volume flat across 14d window, ≥60% adherence
-- `regression_risk` (info/warning): speech drops >40% WoW despite engagement (≥3/7 active days)
-- Both have adherence guardrails to avoid false alerts on under-dosing
-
-### Sprint 2: Multi-Patient Caseload UI ⏳ Next
-- [ ] `ClinicianPanel.tsx` — card grid for all assigned patients
-- [ ] `PatientCard.tsx` — compact summary (compliance, accuracy trend, flags, fatigue sparkline)
-- [ ] Temporary linking via admin-seeded list (dev phase)
-- [ ] Route: `/clinician/caseload`
-
-### Sprint 3: Clinician-Patient Linking + RLS
-- [ ] `clinician_patient_links` table (clinician_user_id, patient_profile_id, role, status, assigned_at, revoked_at)
-- [ ] RLS policies: clinician read-only, admin full, patient self
-- [ ] Swap caseload hook to query real links
-
-### Sprint 4: Cross-Domain Recovery Overlay
-- [ ] `CrossDomainOverlayChart.tsx` — speech accuracy + steps + fatigue on aligned axes
-- [ ] Daily aggregation rules (mean accuracy weighted by trials)
-- [ ] Missing data handling (visual gaps, not interpolation)
-
-### Sprint 5: Cue Effectiveness Summary
-- [ ] `CueEffectivenessSummary.tsx` — cue type, success rate, usage %, independence growth
-- [ ] Data from `exercise_events` (cue_type_given, cue_was_effective)
-
-## Implementation Phases (Data Capture)
-
-### Phase 1: Data Capture ⏳ Next
-- [ ] Daily Readiness Check-in component (fatigue + optional fields)
-- [ ] Manual dose logging UI (PT/OT minutes, activity)
-- [ ] Auto-log speech dose from existing session data (`source = 'system'`)
-- [ ] Wire existing `MoodCheckIn` into daily_readiness
-
-### Phase 2: Weekly Recovery Snapshot ✅ Done
-- [x] `useRecoverySnapshot` hook — aggregates all domains
-- [x] `WeeklyRecoverySnapshot` component with domain sparklines
-- [x] Dose adequacy bars (target vs actual per domain)
-- [x] Auto-interpretation text
-- [x] Cross-domain overlay chart (basic)
-
-### Phase 3: Alert Engine ✅ Done
-- [x] `lib/recoveryAlertDetector.ts` — rule-based alert generation
-- [x] 3-day engagement failure detection
-- [x] Fatigue risk (high fatigue + dose drop)
-- [x] Dose inadequacy flagging
-- [x] Deconditioning risk (physical inactivity)
-- [x] Overexertion risk (activity spike + fatigue/dose correlation)
-- [x] Plateau risk (flat dose + speech volume)
-- [x] Regression risk (speech dose drop despite engagement)
-- [x] Integration with existing RedFlagAlerts pattern
-
-### Phase 4: Hospital Interface (After Pilot)
-- [ ] Clinician dashboard with patient list + traffic-light status
-- [ ] Weekly report export (PDF / clipboard)
-- [ ] RTM documentation support
-- [ ] Population risk dashboard
-
-### Phase 5: Module Expansion (After Validation)
-- [ ] Wearable integration (Apple Health / Google Fit → dose_logs)
-- [ ] Additional discipline modules
-- [ ] Exercise-before-speech correlation analysis
-
----
-
-## Prior Work (Speech Telemetry)
-
-### Azure Pronunciation Assessment
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| A | NBest phoneme capture + gop_data enrichment | ✅ Done |
-| B | Substitution pattern aggregation in compute-speech-profile | ⏳ Next |
-| C | Pronunciation diagnostics parity (Two Clues + Phrase Practice) | ⏳ Planned |
-| D | Prosody score surfacing | ⏳ Deferred |
-
-See git history for Phase A details (NBest extraction, azure-pa-v2 schema).
