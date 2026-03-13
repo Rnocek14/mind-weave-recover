@@ -180,7 +180,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       "phonological-awareness": "/exercise/phonological-awareness",
       "semantic-features": "/exercise/semantic-features",
       "sentence-construction": "/exercise/sentence-construction",
-      "phrase-practice": "/exercise/phrase-practice",
+      "phrase-practice": "/exercise/word-practice",
       "reach-tap": "/exercise/reach-tap",
       "pattern-match": "/exercise/pattern-match",
       "minimal-pairs": "/exercise/minimal-pairs",

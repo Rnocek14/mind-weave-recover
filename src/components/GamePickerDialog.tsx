@@ -45,6 +45,7 @@ const GAME_INFO: Record<string, GameInfo> = {
   'abstract-compare': { emoji: '🔗', name: 'Abstract Comparison', desc: 'Explain how two things are similar', difficulty: 'challenge', category: 'thinking' },
   'multi-step-plan': { emoji: '📋', name: 'Step-by-Step Plan', desc: 'Plan the steps to complete a goal', difficulty: 'medium', category: 'thinking' },
   'dual-load-naming': { emoji: '🧠', name: 'Dual-Load Naming', desc: 'Remember words while naming pictures', difficulty: 'challenge', category: 'thinking' },
+  'thought-continuation': { emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences and ideas', difficulty: 'easy', category: 'speech' },
 };
 
 const EXERCISE_ROUTES: Record<string, string> = {
