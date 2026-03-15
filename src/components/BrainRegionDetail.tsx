@@ -278,37 +278,37 @@ function ClinicalInterpretationStrip({
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
-          {severityLabel && (
-            <Badge variant="outline" className="text-[10px] font-normal">{severityLabel}</Badge>
-          )}
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant={conf.variant} className="text-[10px] cursor-help">
-              {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="max-w-[200px]">
-            <p className="text-xs">{conf.tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <div className="divide-y divide-border">
-        {rows.map(({ icon: Icon, label, value }) => (
-          <div key={label} className="flex gap-3 px-3 py-2.5">
-            <Icon className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-              <p className="text-xs text-foreground leading-relaxed mt-0.5">{value}</p>
-            </div>
+      <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+            {severityLabel && (
+              <Badge variant="outline" className="text-[10px] font-normal">{severityLabel}</Badge>
+            )}
           </div>
-        ))}
-    </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant={conf.variant} className="text-[10px] cursor-help">
+                {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[200px]">
+              <p className="text-xs">{conf.tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="divide-y divide-border">
+          {rows.map(({ icon: Icon, label, value }) => (
+            <div key={label} className="flex gap-3 px-3 py-2.5">
+              <Icon className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+                <p className="text-xs text-foreground leading-relaxed mt-0.5">{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </TooltipProvider>
-    </div>
   );
 }
