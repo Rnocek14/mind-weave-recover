@@ -228,9 +228,19 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                       onClick={() => onSelectRegion?.(regionId)}
                       tabIndex={0}
                       role="button"
-                      aria-label={`${brainRegion?.displayName || region.label} region`}
+                      aria-label={`${brainRegion?.displayName || region.label} region${hasData ? `, ${Math.round(score!.currentScore)}% function` : ''}`}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRegion?.(regionId); } }}
                     >
+                      {/* Invisible expanded hit area for small overlay regions (min 44px touch target) */}
+                      {isOverlay && (
+                        <path
+                          d={region.d}
+                          fill="transparent"
+                          stroke="transparent"
+                          strokeWidth="16"
+                          className="pointer-events-auto"
+                        />
+                      )}
                       {/* Region fill path */}
                       <path
                         d={region.d}
@@ -240,14 +250,14 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         strokeWidth={isSelected ? 3 : 1.2}
                         strokeDasharray={!hasData && mode !== 'injury' ? "3,2" : "none"}
                         filter={isSelected ? "url(#sel-glow)" : "url(#depth)"}
-                        className="transition-all duration-300 ease-out"
+                        className="transition-all duration-300 ease-out group-focus-visible:stroke-[hsl(var(--ring))] group-focus-visible:stroke-[2.5]"
                       />
                       {/* Hover overlay */}
                       <path
                         d={region.d}
                         fill="white"
                         fillOpacity="0"
-                        className="transition-all duration-200 hover:fill-opacity-[0.12] dark:hover:fill-opacity-[0.08]"
+                        className="transition-all duration-200 hover:fill-opacity-[0.12] dark:hover:fill-opacity-[0.08] group-focus-visible:fill-opacity-[0.1]"
                         style={{ cursor: 'pointer' }}
                       />
 
