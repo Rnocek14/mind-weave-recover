@@ -6,8 +6,12 @@
  * 
  * Queries recent exercise_events to determine:
  * - Which exercises were used in the last N days
- * - Which base components dominated recent sessions
+ * - Which base components dominated recent sessions (distinct session count)
  * - Per-exercise session count for penalty scaling
+ * 
+ * Data scoping: exercise_events RLS uses a session→profile→auth.uid() join,
+ * so the anon client only sees the current user's events. We additionally
+ * join through sessions to enforce profile-level scoping explicitly.
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +22,8 @@ export interface ExerciseUsageRecord {
   trialCount: number;         // total trials in window
   lastUsedDate: string;       // ISO date of most recent use
   daysAgo: number;            // days since last use
+  /** Session IDs this exercise appeared in (needed for family dedup) */
+  sessionIds: Set<string>;
 }
 
 export interface RecencyPenalties {
@@ -31,6 +37,9 @@ export interface RecencyPenalties {
 
 /**
  * Fetch recent exercise usage for a user within a time window.
+ * 
+ * Explicitly joins through sessions table to guarantee user+profile scoping,
+ * rather than relying solely on RLS (belt-and-suspenders).
  */
 export async function fetchRecentExerciseUsage(
   userId: string,
@@ -40,25 +49,33 @@ export async function fetchRecentExerciseUsage(
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - windowDays);
 
-  const { data, error } = await supabase
+  // Use a join through sessions to explicitly scope by user_id (and profile_id if available).
+  // This makes the scoping verifiable from code, not just from RLS policy inspection.
+  let query = supabase
     .from('exercise_events')
     .select(`
       exercise_slug,
       session_id,
-      created_at
+      created_at,
+      sessions!inner(user_id, profile_id)
     `)
     .not('exercise_slug', 'is', null)
     .gte('created_at', cutoffDate.toISOString())
+    .eq('sessions.user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1000);
+
+  // Further scope to active profile if available
+  if (profileId) {
+    query = query.eq('sessions.profile_id', profileId);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     console.warn('[ExerciseRecency] Failed to fetch usage:', error?.message);
     return [];
   }
-
-  // Filter to user's sessions via a separate query for profile-scoped access
-  // The RLS policy already handles this, so data is pre-filtered
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -100,6 +117,7 @@ export async function fetchRecentExerciseUsage(
       trialCount: usage.trialCount,
       lastUsedDate: usage.lastUsed.toISOString().slice(0, 10),
       daysAgo,
+      sessionIds: usage.sessions,
     };
   });
 }
@@ -142,9 +160,9 @@ export const EXERCISE_COMPONENT_MAP: Record<string, string> = {
  * - Used 2 days ago: -1 (mild avoidance)
  * - 3+ days ago:      0 (no penalty)
  * 
- * Additional component-family penalty:
- * - If a base component was used in 3+ sessions this week: -2
- * - If a base component was used in 2 sessions this week:  -1
+ * Component-family penalty (using DISTINCT session count per family):
+ * - If a base component family was used in 3+ distinct sessions this week: -2
+ * - If a base component family was used in 2 distinct sessions this week:  -1
  */
 export function calculateRecencyPenalties(
   usageRecords: ExerciseUsageRecord[],
@@ -175,20 +193,27 @@ export function calculateRecencyPenalties(
     }
   }
 
-  // 2. Per-component family penalty (weekly saturation)
-  const componentSessionCounts = new Map<string, number>();
+  // 2. Per-component family penalty using DISTINCT sessions
+  // Collect all unique session IDs per component family (not summed per-slug)
+  const componentDistinctSessions = new Map<string, Set<string>>();
   for (const record of usageRecords) {
     const component = EXERCISE_COMPONENT_MAP[record.exerciseSlug];
     if (!component) continue;
-    const current = componentSessionCounts.get(component) || 0;
-    componentSessionCounts.set(component, current + record.sessionCount);
+    
+    const existing = componentDistinctSessions.get(component) || new Set<string>();
+    // Union the session IDs from this exercise into the family set
+    for (const sid of record.sessionIds) {
+      existing.add(sid);
+    }
+    componentDistinctSessions.set(component, existing);
   }
 
-  for (const [component, sessionCount] of componentSessionCounts) {
+  for (const [component, sessions] of componentDistinctSessions) {
+    const distinctCount = sessions.size;
     let penalty = 0;
-    if (sessionCount >= 3) {
+    if (distinctCount >= 3) {
       penalty = -2;
-    } else if (sessionCount >= 2) {
+    } else if (distinctCount >= 2) {
       penalty = -1;
     }
     if (penalty !== 0) {
@@ -201,7 +226,8 @@ export function calculateRecencyPenalties(
     const compPenalty = componentPenalties.get(component);
     if (compPenalty) {
       const existing = reasons.get(slug) || '';
-      const compReason = `component-family "${component}" overused (${componentSessionCounts.get(component)} sessions/7d) → ${compPenalty}`;
+      const distinctCount = componentDistinctSessions.get(component)?.size || 0;
+      const compReason = `component-family "${component}" overused (${distinctCount} distinct sessions/7d) → ${compPenalty}`;
       reasons.set(slug, existing ? `${existing}; ${compReason}` : compReason);
     }
   }
