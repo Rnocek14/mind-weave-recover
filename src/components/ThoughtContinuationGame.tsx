@@ -122,6 +122,12 @@ export function ThoughtContinuationGame({
     logFinalAnalysis, 
     resetAttempt,
   } = useUtteranceLogger();
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    uploadRecording,
+  } = useAudioRecorder();
   const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
   
   // Speech recognition with callback - PATIENT MODE enabled
