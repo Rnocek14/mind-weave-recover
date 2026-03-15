@@ -2,8 +2,8 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  Play, LogOut, Loader2, AlertCircle, Gamepad2,
-  Clock, Trophy, Calendar, Home, BarChart3,
+  Play, Loader2, AlertCircle, Gamepad2,
+  Flame, Home, BarChart3, Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
