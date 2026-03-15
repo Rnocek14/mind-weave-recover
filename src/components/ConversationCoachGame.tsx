@@ -376,6 +376,18 @@ export function ConversationCoachGame({
     setShowSkipPrompt(false);
     lastAudioBlobRef.current = null;
     
+    // Start a new utterance attempt for clinical logging
+    turnCountRef.current += 1;
+    startAttempt({
+      sessionId: sessionId || 'standalone',
+      userId,
+      exerciseSlug: 'conversation-coach',
+      trialIndex: turnCountRef.current - 1,
+      attemptNumber: 1,
+      targetWord: currentTopic || 'conversation',
+      category: 'conversation',
+    });
+    
     // Start audio recording for pronunciation analysis
     await startRecording();
     
@@ -399,7 +411,7 @@ export function ConversationCoachGame({
         return newVal;
       });
     }, 1000);
-  }, [speechEndDetection, startListening, startRecording]);
+  }, [speechEndDetection, startListening, startRecording, startAttempt, sessionId, userId, currentTopic]);
   
   useEffect(() => {
     return () => {
