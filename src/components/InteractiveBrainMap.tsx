@@ -132,13 +132,13 @@ const LEGENDS: Record<MapMode, { color: string; label: string }[]> = {
     { color: "hsl(38 92% 55%)", label: "Moderate (50–70%)" },
     { color: "hsl(25 95% 55%)", label: "Weak (30–50%)" },
     { color: "hsl(0 84% 55%)", label: "Impaired (<30%)" },
-    { color: "hsl(210 40% 92%)", label: "No data" },
+    { color: "hsl(var(--muted))", label: "No data" },
   ],
   progress: [
     { color: "hsl(205 85% 55%)", label: "Improving" },
-    { color: "hsl(210 40% 88%)", label: "Stable" },
+    { color: "hsl(var(--muted))", label: "Stable" },
     { color: "hsl(25 95% 55%)", label: "Declining" },
-    { color: "hsl(210 40% 92%)", label: "No data" },
+    { color: "hsl(var(--muted))", label: "No data" },
   ],
 };
 
