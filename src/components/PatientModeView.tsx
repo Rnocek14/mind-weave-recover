@@ -271,8 +271,9 @@ export function PatientModeView({
         {/* ── Home Tab ── */}
         {activeTab === "home" && (
           <div className="space-y-6 animate-fade-in">
-            {/* Greeting */}
-            <div className="text-center space-y-3 py-6">
+            {/* Greeting + orientation */}
+            <div className="text-center space-y-2 py-6">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Start here</p>
               <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight">
                 Ready to practice?
               </h1>

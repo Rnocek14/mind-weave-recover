@@ -17,8 +17,8 @@ interface PatientProgressViewProps {
 /** Map a 0–1 score to plain-language state */
 function scoreToPlainState(score: number): { text: string; className: string } {
   if (score >= 0.7) return { text: "Getting stronger", className: "text-success" };
-  if (score >= 0.4) return { text: "Steady", className: "text-primary" };
-  return { text: "Needs more practice", className: "text-warning" };
+  if (score >= 0.4) return { text: "Keeping steady", className: "text-primary" };
+  return { text: "Let's keep practicing", className: "text-warning" };
 }
 
 /**
@@ -92,8 +92,9 @@ export const PatientProgressView = memo(function PatientProgressView({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Encouraging headline */}
+      {/* Orientation cue + encouraging headline */}
       <div className="text-center space-y-2 py-4">
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">See how you're doing</p>
         <p className="text-xl md:text-2xl font-semibold text-foreground">
           {encouragement}
         </p>
