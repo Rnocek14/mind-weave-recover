@@ -281,13 +281,16 @@ export function ThoughtContinuationGame({
         category: currentPrompt.theme,
       });
       
+      // Start audio recording for clinical persistence
+      startRecording();
+      
       // Start listening
       startListening();
       
       // Start silence timer
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
