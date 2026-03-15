@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+
+const EXERCISE_SLUG = 'thought-continuation';
 
 export default function ThoughtContinuationExercise() {
   const navigate = useNavigate();
@@ -24,10 +27,12 @@ export default function ThoughtContinuationExercise() {
   
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId as string | undefined;
   const exerciseCompleteSentRef = useRef(false);
   
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  
   const [gameStarted, setGameStarted] = useState(false);
-  const [sessionId] = useState<string | null>(() => crypto.randomUUID());
   const [sessionSummary, setSessionSummary] = useState<{
     totalPrompts: number;
     promptsSpoken: number;
