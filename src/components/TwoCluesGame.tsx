@@ -1146,23 +1146,30 @@ export function TwoCluesGame({
 
         {/* Controls */}
         {!showFeedback && (
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center gap-3 items-center">
             {isSupported ? (
-              <Button
-                size="lg"
-                onClick={handleToggleMic}
-                disabled={isProcessing}
-                className={cn(
-                  "gap-2 min-w-[140px]",
-                  isListening && "bg-destructive hover:bg-destructive/90"
+              <div className="relative">
+                {/* Listening pulse ring — matches PhotoNaming */}
+                {isListening && (
+                  <div className="absolute inset-0 rounded-lg animate-pulse">
+                    <div className="absolute inset-0 rounded-lg bg-primary/20 animate-ping" />
+                  </div>
                 )}
-              >
-                {isListening ? (
-                  <><MicOff className="h-5 w-5" /> Stop</>
-                ) : (
-                  <><Mic className="h-5 w-5" /> Speak</>
-                )}
-              </Button>
+                <Button
+                  size="lg"
+                  onClick={handleToggleMic}
+                  disabled={isProcessing}
+                  className={cn(
+                    "gap-2 min-w-[140px] relative z-10",
+                    isListening && "ring-2 ring-primary/50 ring-offset-2 bg-destructive hover:bg-destructive/90"
+                  )}
+                >
+                  <div className={isListening ? 'animate-pulse' : ''}>
+                    {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  </div>
+                  {isListening ? 'Stop' : 'Speak'}
+                </Button>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Speech recognition not supported in this browser
