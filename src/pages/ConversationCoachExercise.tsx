@@ -8,6 +8,9 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+
+const EXERCISE_SLUG = 'conversation-coach';
 
 interface SessionSummary {
   turnsCompleted: number;
