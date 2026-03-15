@@ -426,6 +426,7 @@ export function ThoughtContinuationGame({
       promptIntentType: currentPrompt.intentType,
       promptTheme: currentPrompt.theme,
       recordingDurationMs: speechDuration,
+      audioStoragePath: audioStoragePath || undefined,
       stuckType, // NEW: Log stuck type
     });
     
