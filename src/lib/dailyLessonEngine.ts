@@ -777,10 +777,36 @@ export function generateDailyLesson(
     }
   }
 
-  // Log lesson structure for QA verification
+  // Log lesson structure with selection reasoning for inspectability
   console.log('[DailyLessonEngine] Generated lesson blocks:', 
     blocks.map(b => `${b.priority}: ${b.exerciseId}`).join(' → ')
   );
+  
+  // Log selection reasoning (Phase 3 debug output)
+  if (selectionReasons.length > 0) {
+    const top10 = selectionReasons
+      .sort((a, b) => b.finalScore - a.finalScore)
+      .slice(0, 10);
+    console.log('[DailyLessonEngine] Exercise scoring (top 10):', 
+      top10.map(r => ({
+        exercise: r.id,
+        base: r.baseScore,
+        recency: r.recencyPenalty,
+        component: r.componentPenalty,
+        final: r.finalScore,
+        reason: r.reason,
+      }))
+    );
+    
+    // Log selected vs penalized for quick diagnosis
+    const selected = new Set(blocks.map(b => b.exerciseId));
+    const penalized = selectionReasons.filter(r => r.recencyPenalty < 0 || r.componentPenalty < 0);
+    if (penalized.length > 0) {
+      console.log('[DailyLessonEngine] Recency penalties applied:', 
+        penalized.map(r => `${r.id}: ${r.reason} (${selected.has(r.id) ? 'still selected' : 'deprioritized'})`).join(', ')
+      );
+    }
+  }
 
   const targetDomains = Array.from(
     new Set(blocks.flatMap(b => exerciseMetadata[b.exerciseId]?.domains || []))
