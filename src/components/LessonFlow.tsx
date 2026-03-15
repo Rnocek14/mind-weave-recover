@@ -195,6 +195,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       "abstract-compare": "/exercise/abstract-compare",
       "multi-step-plan": "/exercise/multi-step-plan",
       "dual-load-naming": "/exercise/dual-load-naming",
+      "left-side-hunt": "/exercise/left-side-hunt",
+      "thought-continuation": "/exercise/thought-continuation",
     };
 
     const route = routeMap[exerciseId];
