@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
+import { SessionSummaryScreen } from "./SessionSummaryScreen";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
