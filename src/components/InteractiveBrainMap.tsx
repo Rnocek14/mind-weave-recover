@@ -81,7 +81,7 @@ const REGION_PATHS: Record<RegionId, { d: string; label: string; labelPos: { x: 
   },
   brainstem: {
     d: "M 254,282 C 252,298 248,312 240,324 C 234,334 226,340 218,338 C 212,336 208,328 206,318 C 204,308 206,296 212,286 C 218,278 228,272 240,270 C 248,268 252,272 254,282 Z",
-    label: "Stem",
+    label: "Brainstem",
     labelPos: { x: 230, y: 305 },
   },
   subcortical: {
@@ -161,6 +161,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
       <div className="w-full max-w-2xl mx-auto space-y-3">
         {/* SVG Brain */}
         <div className="relative rounded-2xl bg-card border border-border overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <p className="text-[11px] text-muted-foreground text-center pt-2 pb-0">Tap a region for function details</p>
           <svg
             viewBox="0 0 500 365"
             preserveAspectRatio="xMidYMid meet"
@@ -223,8 +224,12 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                 <Tooltip key={regionId}>
                   <TooltipTrigger asChild>
                     <g
-                      className="cursor-pointer group"
+                      className="cursor-pointer group focus:outline-none"
                       onClick={() => onSelectRegion?.(regionId)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${brainRegion?.displayName || region.label} region`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRegion?.(regionId); } }}
                     >
                       {/* Region fill path */}
                       <path
@@ -236,11 +241,6 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         strokeDasharray={!hasData && mode !== 'injury' ? "3,2" : "none"}
                         filter={isSelected ? "url(#sel-glow)" : "url(#depth)"}
                         className="transition-all duration-300 ease-out"
-                        style={{
-                          transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                          transformOrigin: `${region.labelPos.x}px ${region.labelPos.y}px`,
-                          transformBox: 'fill-box',
-                        }}
                       />
                       {/* Hover overlay */}
                       <path
@@ -279,7 +279,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                           textAnchor="middle"
                           dominantBaseline="central"
                           className={`pointer-events-none select-none transition-opacity duration-200 ${
-                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-80'
+                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-80 group-focus-within:opacity-80'
                           }`}
                           style={{
                             fontSize: '7.5px',
