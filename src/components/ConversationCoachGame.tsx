@@ -289,6 +289,36 @@ export function ConversationCoachGame({
       ? Date.now() - turnStartTimeRef.current 
       : null;
 
+    // Upload audio recording for clinical persistence
+    let audioStoragePath: string | null = null;
+    if (audioBlob && sessionId && userId) {
+      audioStoragePath = await uploadRecording(
+        audioBlob,
+        userId,
+        sessionId,
+        turnCountRef.current,
+        recordingResult?.mimeType || audioBlob.type
+      );
+    }
+
+    // Log utterance to utterance_analyses for clinical data persistence
+    if (currentAttemptId) {
+      await logFinalAnalysis({
+        transcript: transcript || undefined,
+        transcriptSource: 'browser',
+        evaluationModel: 'flow',
+        isCorrect: null, // Conversation doesn't have correctness
+        didSpeak: transcript.trim().length > 0,
+        utteranceComplete: transcript.trim().length > 0,
+        latencyToFirstWordMs: latencyMs || undefined,
+        recordingDurationMs: totalDurationMs || undefined,
+        audioStoragePath: audioStoragePath || undefined,
+        fluencyAvailable: false,
+        fluencyUnavailableReason: 'no_recording',
+      });
+      resetAttempt();
+    }
+
     // Pass audio blob for pronunciation analysis
     const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
     
@@ -329,7 +359,7 @@ export function ConversationCoachGame({
     setUserTranscript('');
     setShowHelpers(false);
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentPhase]);
+  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentPhase, currentAttemptId, logFinalAnalysis, resetAttempt, uploadRecording, userId, sessionId]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
