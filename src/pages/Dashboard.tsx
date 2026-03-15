@@ -101,7 +101,7 @@ const Dashboard = () => {
       loadDashboardData();
       fetchLatestAssessment();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, activeProfile?.id]);
 
   useEffect(() => {
     if (pendingLessonNavigation && lesson && !showCapabilityAssessment) {

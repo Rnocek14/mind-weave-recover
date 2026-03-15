@@ -104,7 +104,7 @@ export default function Insights() {
     if (user) {
       loadData();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, activeProfile?.id]);
 
   // Sync URL tab param with state
   useEffect(() => {
