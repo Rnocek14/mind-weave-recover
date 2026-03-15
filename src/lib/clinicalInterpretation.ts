@@ -133,8 +133,8 @@ export function interpretRegion(
   score: RegionFunctionalScore | null | undefined,
   isAffected: boolean
 ): ClinicalInterpretation {
-  const hasData = !!score && score.trialCount >= 10;
-  const trialCount = score?.trialCount || 0;
+  const hasData = !!score && score.contributingMetrics.trialCount >= 10;
+  const trialCount = score?.contributingMetrics.trialCount || 0;
   const currentScore = score?.currentScore || 0;
   const trend = score?.trend || 'stable';
 
