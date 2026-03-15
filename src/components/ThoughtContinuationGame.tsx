@@ -517,7 +517,11 @@ export function ThoughtContinuationGame({
     selectAndSetNextPrompt();
   }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt]);
 
-  const handleSkipPrompt = useCallback(() => {
+  const handleSkipPrompt = useCallback(async () => {
+    // Stop mic + recording to prevent leaks
+    stopListening();
+    await stopRecording();
+    
     // Log skip as no_speech
     const tierAMetrics: TierAMetrics = {
       didSpeak: false,
@@ -531,7 +535,7 @@ export function ThoughtContinuationGame({
     const stuckResult = classifyStuckType(tierAMetrics);
     setLastStuckType(stuckResult.stuckType);
     
-    logFinalAnalysis({
+    await logFinalAnalysis({
       transcript: '',
       transcriptSource: 'browser',
       evaluationModel: 'flow',
@@ -543,6 +547,8 @@ export function ThoughtContinuationGame({
       promptIntentType: currentPrompt?.intentType,
       promptTheme: currentPrompt?.theme,
       stuckType: stuckResult.stuckType,
+      fluencyAvailable: false,
+      fluencyUnavailableReason: 'no_recording',
     });
     
     // Update history with skip
@@ -561,7 +567,7 @@ export function ThoughtContinuationGame({
     }
     
     moveToNextPrompt();
-  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt]);
+  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording]);
 
   const handleHintRequest = useCallback(() => {
     if (!currentPrompt) return;

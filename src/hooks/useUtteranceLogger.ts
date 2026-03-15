@@ -36,7 +36,8 @@ export type FluencyUnavailableReason =
   | 'recorder_error'
   | 'analysis_error'
   | 'wav_conversion_failed'
-  | 'azure_api_error';
+  | 'azure_api_error'
+  | 'discourse_task';
 
 // Structured pronunciation diagnostics for admin debugging
 export interface PronunciationDiagnostics {

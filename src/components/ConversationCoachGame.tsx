@@ -314,7 +314,7 @@ export function ConversationCoachGame({
         recordingDurationMs: totalDurationMs || undefined,
         audioStoragePath: audioStoragePath || undefined,
         fluencyAvailable: false,
-        fluencyUnavailableReason: 'no_recording',
+        fluencyUnavailableReason: 'discourse_task',
       });
       resetAttempt();
     }
