@@ -104,7 +104,7 @@ export default function Insights() {
     if (user) {
       loadData();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, activeProfile?.id]);
 
   // Sync URL tab param with state
   useEffect(() => {
@@ -304,7 +304,9 @@ export default function Insights() {
                 <>
                   <StrokeProfileSummary profile={clinicalProfile} />
                   <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={user!.id} />
-                  <MechanismSessionPlanner profile={clinicalProfile} />
+                  {(clinicalProfile as any).stroke_mechanism && (
+                    <MechanismSessionPlanner profile={clinicalProfile} />
+                  )}
                 </>
               )}
 
