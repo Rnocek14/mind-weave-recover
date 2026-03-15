@@ -211,7 +211,7 @@ export function ClinicianPatientHeader() {
   };
 
   const handlePrint = () => {
-    navigate('/clinician-report?print=1');
+    navigate('/clinician/report?print=1');
   };
 
   const progressNote = useMemo(() => {
@@ -336,7 +336,7 @@ export function ClinicianPatientHeader() {
 
       {/* Row 4: Quick actions */}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={() => navigate('/clinician-report')} className="gap-1.5">
+        <Button size="sm" variant="outline" onClick={() => navigate('/clinician/report')} className="gap-1.5">
           <FileText className="w-3.5 h-3.5" />
           Report
         </Button>

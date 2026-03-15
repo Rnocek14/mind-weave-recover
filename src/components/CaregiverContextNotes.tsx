@@ -58,7 +58,7 @@ export function CaregiverContextNotes({ profileId }: { profileId: string | undef
             })}
           </div>
           <button
-            onClick={() => navigate('/clinician-report')}
+            onClick={() => navigate('/clinician/report')}
             className="text-xs text-primary hover:underline mt-2 inline-block"
           >
             View all →
