@@ -17,7 +17,7 @@ import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
+
 
 interface PatientModeViewProps {
   userId: string;
