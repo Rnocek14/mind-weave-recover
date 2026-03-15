@@ -164,7 +164,7 @@ export function ExplainWhyPrompt({
           audioStoragePath: audioStoragePath || undefined,
           coherenceScore: score.onTopicScore,
           fluencyAvailable: false,
-          fluencyUnavailableReason: 'no_recording',
+          fluencyUnavailableReason: 'discourse_task',
         });
         resetAttempt();
       }

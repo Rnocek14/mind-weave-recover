@@ -64,15 +64,21 @@ export function DualLoadNamingGame({
 
   const { analyzePronunciation } = usePronunciationAnalysis();
 
+  // Capture the target word at speech start to avoid stale closure issues
+  const activeTargetWordRef = useRef<string>('');
+
   // Speech recognition for naming
   const handleNamingResult = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return;
     const reactionTimeMs = Date.now() - namingStartRef.current;
     
+    // Capture the target word NOW (before any state changes)
+    const targetWord = activeTargetWordRef.current;
+    
     // Stop recording and capture audio
     const recordingResult = await stopRecording();
     
-    // Submit naming result
+    // Submit naming result (this advances internal state to next target)
     submitNaming(transcript.trim(), reactionTimeMs);
     
     // Upload audio + run pronunciation analysis for clinical data
@@ -88,46 +94,52 @@ export function DualLoadNamingGame({
       );
       
       // Run pronunciation analysis (naming tasks = high value for phoneme analysis)
-      if (currentNamingTarget) {
-        const pronResult = await analyzePronunciation(recordingResult.audioBlob, currentNamingTarget.word);
+      if (targetWord) {
+        const pronResult = await analyzePronunciation(recordingResult.audioBlob, targetWord);
         
         if (currentAttemptId) {
-          const analysisData: Record<string, any> = {
-            transcript: transcript.trim(),
-            transcriptSource: 'browser',
-            isCorrect: transcript.trim().toLowerCase() === currentNamingTarget.word.toLowerCase(),
-            recordingDurationMs: recordingResult.duration,
-            audioStoragePath: audioStoragePath || undefined,
-          };
-          
           if (pronResult.ok) {
-            analysisData.pronunciationScore = pronResult.data.pronunciationScore;
-            analysisData.accuracyScore = pronResult.data.accuracyScore;
-            analysisData.fluencyScore = pronResult.data.fluencyScore;
-            analysisData.completenessScore = pronResult.data.completenessScore;
-            analysisData.prosodyScore = pronResult.data.prosodyScore;
-            analysisData.gopData = pronResult.data.words;
-            analysisData.alignmentData = pronResult.data.alignmentData;
-            analysisData.fluencyAvailable = true;
-            analysisData.pronunciationDiagnostics = {
-              pronRequestId: pronResult.pronRequestId,
-              pronunciationStatus: 'complete' as const,
-              pronunciationTimingsMs: pronResult.timingsMs,
-              audioMeta: pronResult.audioMeta,
-            };
+            await logFinalAnalysis({
+              transcript: transcript.trim(),
+              transcriptSource: 'browser',
+              isCorrect: transcript.trim().toLowerCase() === targetWord.toLowerCase(),
+              recordingDurationMs: recordingResult.duration,
+              audioStoragePath: audioStoragePath || undefined,
+              pronunciationScore: pronResult.data.pronunciationScore,
+              accuracyScore: pronResult.data.accuracyScore,
+              fluencyScore: pronResult.data.fluencyScore,
+              completenessScore: pronResult.data.completenessScore,
+              prosodyScore: pronResult.data.prosodyScore,
+              gopData: pronResult.data.words,
+              alignmentData: pronResult.data.alignmentData,
+              fluencyAvailable: true,
+              pronunciationDiagnostics: {
+                pronRequestId: pronResult.pronRequestId,
+                pronunciationStatus: 'complete',
+                pronunciationTimingsMs: pronResult.timingsMs,
+                audioMeta: pronResult.audioMeta,
+              },
+            });
           } else {
-            analysisData.fluencyAvailable = false;
-            analysisData.fluencyUnavailableReason = 'analysis_error';
-            analysisData.pronunciationDiagnostics = {
-              pronRequestId: pronResult.pronRequestId,
-              pronunciationStatus: 'failed' as const,
-              pronunciationErrorStage: (pronResult as any).error?.stage,
-              pronunciationTimingsMs: pronResult.timingsMs,
-              audioMeta: pronResult.audioMeta,
-            };
+            const errorResult = pronResult as import('@/hooks/usePronunciationAnalysis').PronunciationErrorResult;
+            const errorStage = errorResult.error?.stage;
+            await logFinalAnalysis({
+              transcript: transcript.trim(),
+              transcriptSource: 'browser',
+              isCorrect: transcript.trim().toLowerCase() === targetWord.toLowerCase(),
+              recordingDurationMs: recordingResult.duration,
+              audioStoragePath: audioStoragePath || undefined,
+              fluencyAvailable: false,
+              fluencyUnavailableReason: 'analysis_error',
+              pronunciationDiagnostics: {
+                pronRequestId: pronResult.pronRequestId,
+                pronunciationStatus: 'failed',
+                pronunciationErrorStage: errorStage,
+                pronunciationTimingsMs: pronResult.timingsMs,
+                audioMeta: pronResult.audioMeta,
+              },
+            });
           }
-          
-          await logFinalAnalysis(analysisData as any);
           resetAttempt();
         }
       }
@@ -136,7 +148,7 @@ export function DualLoadNamingGame({
       await logFinalAnalysis({
         transcript: transcript.trim(),
         transcriptSource: 'browser',
-        isCorrect: currentNamingTarget ? transcript.trim().toLowerCase() === currentNamingTarget.word.toLowerCase() : undefined,
+        isCorrect: targetWord ? transcript.trim().toLowerCase() === targetWord.toLowerCase() : undefined,
         recordingDurationMs: reactionTimeMs,
         fluencyAvailable: false,
         fluencyUnavailableReason: 'no_recording',
@@ -146,12 +158,15 @@ export function DualLoadNamingGame({
     
     namingTrialIndexRef.current += 1;
     namingStartRef.current = Date.now();
-    
-    // Start new attempt + recording for next naming target
-    if (phase === 'naming' && currentNamingTarget) {
+  }, [submitNaming, stopRecording, uploadRecording, userId, sessionId, analyzePronunciation, currentAttemptId, logFinalAnalysis, resetAttempt]);
+
+  // Start new attempt + recording when naming target changes
+  useEffect(() => {
+    if (phase === 'naming' && currentNamingTarget && userId) {
+      activeTargetWordRef.current = currentNamingTarget.word;
       startAttempt({
         sessionId: sessionId || 'standalone',
-        userId: userId || 'anonymous',
+        userId,
         exerciseSlug: 'dual-load-naming',
         trialIndex: namingTrialIndexRef.current,
         attemptNumber: 1,
@@ -160,7 +175,7 @@ export function DualLoadNamingGame({
       });
       startRecording();
     }
-  }, [submitNaming, stopRecording, uploadRecording, userId, sessionId, currentNamingTarget, analyzePronunciation, currentAttemptId, logFinalAnalysis, resetAttempt, startAttempt, startRecording, phase]);
+  }, [phase, currentNamingTarget, userId, sessionId, startAttempt, startRecording]);
 
   const { isListening, startListening, stopListening, isSupported } =
     useSpeechRecognition({ onResult: handleNamingResult, patientMode: true });
@@ -183,26 +198,9 @@ export function DualLoadNamingGame({
     startNaming();
     namingStartRef.current = Date.now();
     namingTrialIndexRef.current = 0;
-    
-    // Start clinical pipeline for first naming target
-    if (currentSet && userId) {
-      const firstTarget = currentSet.namingTargets[0];
-      if (firstTarget) {
-        startAttempt({
-          sessionId: sessionId || 'standalone',
-          userId,
-          exerciseSlug: 'dual-load-naming',
-          trialIndex: 0,
-          attemptNumber: 1,
-          targetWord: firstTarget.word,
-          category: 'naming',
-        });
-        startRecording();
-      }
-    }
-    
+    // Attempt + recording start is handled by the useEffect watching phase/currentNamingTarget
     if (isSupported) startListening();
-  }, [startNaming, startListening, isSupported, startAttempt, startRecording, userId, sessionId, currentSet]);
+  }, [startNaming, startListening, isSupported]);
 
   // For naming: if speech doesn't capture, allow manual skip
   const handleSkipNaming = useCallback(async () => {
@@ -227,21 +225,8 @@ export function DualLoadNamingGame({
     submitNaming('', reactionTimeMs);
     namingTrialIndexRef.current += 1;
     namingStartRef.current = Date.now();
-    
-    // Start new attempt for next target
-    if (phase === 'naming' && currentNamingTarget) {
-      startAttempt({
-        sessionId: sessionId || 'standalone',
-        userId: userId || 'anonymous',
-        exerciseSlug: 'dual-load-naming',
-        trialIndex: namingTrialIndexRef.current,
-        attemptNumber: 1,
-        targetWord: currentNamingTarget.word,
-        category: 'naming',
-      });
-      startRecording();
-    }
-  }, [submitNaming, stopRecording, currentAttemptId, logFinalAnalysis, resetAttempt, startAttempt, startRecording, userId, sessionId, phase, currentNamingTarget]);
+    // Next attempt + recording handled by useEffect watching currentNamingTarget
+  }, [submitNaming, stopRecording, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   // Stop listening when entering recall phase
   useEffect(() => {
