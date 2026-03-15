@@ -285,9 +285,16 @@ function ClinicalInterpretationStrip({
             <Badge variant="outline" className="text-[10px] font-normal">{severityLabel}</Badge>
           )}
         </div>
-        <Badge variant={conf.variant} className="text-[10px]">
-          {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
-        </Badge>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant={conf.variant} className="text-[10px] cursor-help">
+              {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[200px]">
+            <p className="text-xs">{conf.tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
       <div className="divide-y divide-border">
         {rows.map(({ icon: Icon, label, value }) => (
