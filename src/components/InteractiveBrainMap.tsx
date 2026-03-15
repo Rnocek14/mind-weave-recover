@@ -223,8 +223,12 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                 <Tooltip key={regionId}>
                   <TooltipTrigger asChild>
                     <g
-                      className="cursor-pointer group"
+                      className="cursor-pointer group focus:outline-none"
                       onClick={() => onSelectRegion?.(regionId)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${brainRegion?.displayName || region.label} region`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRegion?.(regionId); } }}
                     >
                       {/* Region fill path */}
                       <path
