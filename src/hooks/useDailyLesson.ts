@@ -319,7 +319,22 @@ export const useDailyLesson = (
         console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);
       }
 
-      // Generate daily lesson WITH readiness + TodayFocus adaptations
+      // Fetch exercise recency for variety optimization
+      let recency: RecencyPenalties | null = null;
+      try {
+        const usage = await fetchRecentExerciseUsage(userId, profileId, 7);
+        if (usage.length > 0) {
+          recency = calculateRecencyPenalties(usage);
+          console.log('[useDailyLesson] Recency penalties computed:', {
+            penalizedExercises: Array.from(recency.exercisePenalties.entries()),
+            penalizedComponents: Array.from(recency.componentPenalties.entries()),
+          });
+        }
+      } catch (e) {
+        console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
+      }
+
+      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency
       const dailyLesson = generateDailyLesson(
         scores,
         clinicalProfile,
@@ -334,6 +349,7 @@ export const useDailyLesson = (
           suggestedSessionMinutes: focus.suggestedSessionMinutes,
         } : null,
         preset,
+        recency,
       );
 
       setLesson(dailyLesson);
