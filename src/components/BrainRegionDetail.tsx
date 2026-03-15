@@ -252,15 +252,21 @@ const CONFIDENCE_STYLES: Record<string, { variant: 'default' | 'secondary' | 'ou
 function ClinicalInterpretationStrip({
   region,
   score,
-  affectedTerritories,
+  isRegionAffected,
 }: {
   region: BrainRegion;
   score: RegionFunctionalScore;
-  affectedTerritories: string[];
+  isRegionAffected: boolean;
 }) {
-  const isAffected = affectedTerritories.length > 0;
-  const interpretation = interpretRegion(region, score, isAffected);
+  const interpretation = interpretRegion(region, score, isRegionAffected);
   const conf = CONFIDENCE_STYLES[interpretation.confidence] || CONFIDENCE_STYLES.none;
+
+  // Severity label derived from score
+  const severityLabel = score.contributingMetrics.trialCount < 10 ? null
+    : score.currentScore < 30 ? 'Severe impairment'
+    : score.currentScore < 50 ? 'Moderate impairment'
+    : score.currentScore < 70 ? 'Mild impairment'
+    : 'Strong function';
 
   const rows = [
     { icon: Brain, label: 'Likely role', value: interpretation.likelyRole },
