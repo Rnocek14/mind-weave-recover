@@ -56,25 +56,25 @@ function generateInterpretation(
     return 'No exercise-derived estimate yet. Complete exercises targeting this area to generate a functional signal.';
   }
 
-  // Low function (<30%)
+  // Severe impairment (<30%)
   if (score < 30) {
-    if (trend === 'improving') return 'Impaired but showing recovery response. Recent exercise performance suggests emerging functional gains. Continue current therapy approach.';
-    if (trend === 'declining') return 'Significant impairment with recent decline. Consider reviewing task difficulty, fatigue levels, and adherence patterns before adjusting therapy.';
-    return 'Persistently weak with limited recent change. May benefit from increased practice intensity or modified task parameters.';
+    if (trend === 'improving') return 'Severe impairment but showing recovery response. Recent exercise performance suggests emerging functional gains. Continue current therapy approach.';
+    if (trend === 'declining') return 'Severe impairment with recent decline. Consider reviewing task difficulty, fatigue levels, and adherence patterns before adjusting therapy.';
+    return 'Severe impairment with limited recent change. May benefit from increased practice intensity or modified task parameters.';
   }
 
-  // Below expected (<50%)
+  // Moderate impairment (30–49%)
   if (score < 50) {
-    if (trend === 'improving') return 'Below expected range but trending upward with recent exercise exposure. Current therapy approach appears effective.';
-    if (trend === 'declining') return 'Recent regression from moderate baseline. May warrant review of fatigue, difficulty calibration, or adherence.';
-    return 'Moderately impaired with stable performance. Consider adjusting difficulty or adding variety to stimulate further gains.';
+    if (trend === 'improving') return 'Moderate impairment but trending upward with recent exercise exposure. Current therapy approach appears effective.';
+    if (trend === 'declining') return 'Moderate impairment with recent regression. May warrant review of fatigue, difficulty calibration, or adherence.';
+    return 'Moderate impairment with stable performance. Consider adjusting difficulty or adding variety to stimulate further gains.';
   }
 
-  // Moderate (50-70%)
+  // Mild impairment (50–69%)
   if (score < 70) {
-    if (trend === 'improving') return 'Moderate function with active recovery trajectory. Performance is approaching functional threshold.';
-    if (trend === 'declining') return 'Previously stronger performance showing recent softening. Monitor for fatigue or task ceiling effects.';
-    return 'Moderate function holding steady. May benefit from increased task complexity to drive further recovery.';
+    if (trend === 'improving') return 'Mild impairment with active recovery trajectory. Performance is approaching functional threshold.';
+    if (trend === 'declining') return 'Mild impairment with recent softening. Monitor for fatigue or task ceiling effects.';
+    return 'Mild impairment holding steady. May benefit from increased task complexity to drive further recovery.';
   }
 
   // Strong (70%+)
