@@ -197,8 +197,8 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
               </filter>
             </defs>
 
-            {/* Background */}
-            <rect x="0" y="0" width="500" height="365" fill="url(#brain-bg)" rx="16" />
+            {/* Background - inherits from parent bg-card */}
+            <rect x="0" y="0" width="500" height="365" className="fill-card" rx="16" />
 
             {/* Brain outline silhouette for context */}
             <path
