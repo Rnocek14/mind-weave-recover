@@ -15,10 +15,9 @@ interface SessionWithEvents {
   };
   events: Array<{
     session_id: string;
-    exercise_slug: string;
-    round: number;
-    score?: number;
-    created_at: string;
+    exercise_slug: string | null;
+    is_correct: boolean | null;
+    created_at: string | null;
   }>;
 }
 
@@ -56,18 +55,18 @@ export default function History() {
       }
 
       const sessionIds = sessions.map((s) => s.id);
-      const { data: events } = await supabase
-        .from("exercise_events")
-        .select("session_id, exercise_slug, round, score, created_at")
+      const { data: utterances } = await supabase
+        .from("utterance_analyses")
+        .select("session_id, exercise_slug, is_correct, created_at")
         .in("session_id", sessionIds);
 
       const bySession: Record<string, SessionWithEvents> = {};
       sessions.forEach((s) => {
         bySession[s.id] = { session: s, events: [] };
       });
-      (events ?? []).forEach((e) => {
-        if (bySession[e.session_id]) {
-          bySession[e.session_id].events.push(e);
+      (utterances ?? []).forEach((u) => {
+        if (bySession[u.session_id!]) {
+          bySession[u.session_id!].events.push(u);
         }
       });
 
@@ -120,12 +119,11 @@ export default function History() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {history.map(({ session, events }) => {
-              const exercises = Array.from(new Set(events.map((e) => e.exercise_slug)));
-              const scores = events.map((e) => e.score ?? 0).filter((s) => s > 0);
-              const avgScore = scores.length > 0
-                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-                : 0;
+          {history.map(({ session, events }) => {
+              const exercises = Array.from(new Set(events.map((e) => e.exercise_slug).filter(Boolean)));
+              const correctCount = events.filter((e) => e.is_correct === true).length;
+              const totalTrials = events.length;
+              const accuracy = totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
 
               return (
                 <Card key={session.id} className="p-6 shadow-card hover:shadow-glow transition-shadow">
@@ -147,42 +145,22 @@ export default function History() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
                         <div className="text-2xl font-bold text-primary">{events.length}</div>
-                        <div className="text-xs text-muted-foreground">Rounds</div>
+                        <div className="text-xs text-muted-foreground">Trials</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-success">{exercises.length}</div>
                         <div className="text-xs text-muted-foreground">Exercises</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-accent">{avgScore}</div>
-                        <div className="text-xs text-muted-foreground">Avg Score</div>
+                        <div className="text-2xl font-bold text-accent">{accuracy}%</div>
+                        <div className="text-xs text-muted-foreground">Accuracy</div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Simple sparkline for score progression */}
-                  {scores.length > 1 && (
-                    <div className="mt-4">
-                      <svg className="w-full h-12" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <polyline
-                          points={scores.map((s, i) => {
-                            const x = (i / (scores.length - 1)) * 100;
-                            const max = Math.max(...scores, 1);
-                            const y = 100 - (s / max) * 80;
-                            return `${x},${y}`;
-                          }).join(" ")}
-                          fill="none"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth="2"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      </svg>
-                    </div>
-                  )}
-
                   <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                     <TrendingUp className="w-4 h-4" />
-                    <span>{exercises.map(e => e.replace(/-/g, " ")).join(" • ")}</span>
+                    <span>{exercises.map((e: string) => e.replace(/-/g, " ")).join(" • ") || "No exercises"}</span>
                   </div>
                 </Card>
               );
