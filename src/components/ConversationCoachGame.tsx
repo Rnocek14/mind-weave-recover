@@ -19,6 +19,7 @@ import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
 import { useSpeechEndDetection } from '@/hooks/useSpeechEndDetection';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
 import { ConversationHelpers, getRandomIdea } from '@/components/coach/ConversationHelpers';
