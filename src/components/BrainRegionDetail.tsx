@@ -97,10 +97,14 @@ export const BrainRegionDetail = ({ region, score, profile, affectedTerritories 
               </div>
             )}
           </div>
-          <p className="text-sm text-blue-600 font-medium">{getTrendLabel(score.trend)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">{getTrendLabel(score.trend)}</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* ── Clinical Interpretation Strip ── */}
+        <ClinicalInterpretationStrip region={region} score={score} affectedTerritories={affectedTerritories} />
         {/* Functional Score */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-2">
