@@ -46,7 +46,9 @@ export default function History() {
         .from("sessions")
         .select("id, started_at, ended_at, duration_sec, summary")
         .eq("user_id", user.id)
-        .order("started_at", { ascending: false });
+        .not("ended_at", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(50);
 
       if (sessionsError) throw sessionsError;
 
