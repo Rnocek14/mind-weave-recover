@@ -274,7 +274,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                           textAnchor="middle"
                           dominantBaseline="central"
                           className={`pointer-events-none select-none transition-opacity duration-200 ${
-                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-80'
+                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-80 group-focus-within:opacity-80'
                           }`}
                           style={{
                             fontSize: '7.5px',
