@@ -805,6 +805,30 @@ export function generateDailyLesson(
         penalized.map(r => `${r.id}: ${r.reason} (${selected.has(r.id) ? 'still selected' : 'deprioritized'})`).join(', ')
       );
     }
+    
+    // SUPPRESSION DETECTION: warn if the clinically top-ranked exercise for any
+    // high-priority domain was pushed out entirely by recency penalties
+    const highPriorityDomains = Object.entries(domainPriorities)
+      .filter(([, level]) => level === 'high')
+      .map(([domain]) => domain);
+    
+    for (const domain of highPriorityDomains) {
+      // Find the exercise that would have been #1 for this domain without penalties
+      const domainExercises = selectionReasons
+        .filter(r => exerciseMetadata[r.id]?.domains.includes(domain))
+        .sort((a, b) => b.baseScore - a.baseScore);
+      
+      const topByBase = domainExercises[0];
+      if (topByBase && !selected.has(topByBase.id) && (topByBase.recencyPenalty < 0 || topByBase.componentPenalty < 0)) {
+        const totalPenalty = topByBase.recencyPenalty + topByBase.componentPenalty;
+        console.warn(
+          `[DailyLessonEngine] ⚠️ SUPPRESSION: Top exercise for high-priority domain "${domain}" ` +
+          `(${topByBase.id}, base=${topByBase.baseScore}) was deprioritized by recency (${totalPenalty}). ` +
+          `Final=${topByBase.finalScore}. Check if domain coverage is adequate.`
+        );
+        reasoning.push(`⚠️ ${topByBase.id} suppressed for "${domain}" by recency (${totalPenalty})`);
+      }
+    }
   }
 
   const targetDomains = Array.from(
