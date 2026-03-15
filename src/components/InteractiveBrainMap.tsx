@@ -101,11 +101,11 @@ function getRegionFill(
     if (isAffected) {
       return { fill: "hsl(0 84% 60%)", stroke: "hsl(0 84% 45%)", opacity: 0.7 };
     }
-    return { fill: "hsl(210 40% 96%)", stroke: "hsl(210 30% 82%)", opacity: 0.5 };
+    return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.5 };
   }
 
   if (!score || score.trialCount < 10) {
-    return { fill: "hsl(210 40% 92%)", stroke: "hsl(210 30% 82%)", opacity: 0.6 };
+    return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.6 };
   }
 
   if (mode === "function") {
