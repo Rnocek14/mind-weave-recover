@@ -4,6 +4,12 @@ import { BRAIN_REGIONS } from '@/lib/brainRegionMapper';
 
 type MapMode = "injury" | "function" | "progress";
 
+const MODE_LABELS: Record<MapMode, { title: string; description: string }> = {
+  progress: { title: "Recovery Trend", description: "Tracking change over time based on exercise data" },
+  function: { title: "Functional Performance", description: "Current estimated function by region" },
+  injury: { title: "Stroke Injury Map", description: "Regions likely affected based on clinical data" },
+};
+
 export type RegionId =
   | "frontal_lobe"
   | "motor_cortex"
@@ -161,7 +167,13 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
       <div className="w-full max-w-2xl mx-auto space-y-3">
         {/* SVG Brain */}
         <div className="relative rounded-2xl bg-card border border-border overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
-          <p className="text-[11px] text-muted-foreground text-center pt-2 pb-0">Tap a region for function details</p>
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <div>
+              <p className="text-xs font-medium text-foreground">{MODE_LABELS[mode].title}</p>
+              <p className="text-[10px] text-muted-foreground">{MODE_LABELS[mode].description}</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">Tap a region for details</p>
+          </div>
           <svg
             viewBox="0 0 500 365"
             preserveAspectRatio="xMidYMid meet"
