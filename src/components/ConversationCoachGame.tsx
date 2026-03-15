@@ -82,7 +82,18 @@ export function ConversationCoachGame({
     isRecording, 
     startRecording, 
     stopRecording: stopAudioRecording,
+    uploadRecording,
   } = useAudioRecorder();
+  
+  // Utterance logger for persisted clinical data
+  const {
+    startAttempt,
+    logFinalAnalysis,
+    resetAttempt,
+    currentAttemptId,
+  } = useUtteranceLogger();
+  
+  const turnCountRef = useRef(0);
   
   // Map speech profile to session props - include full profile data for AI
   const userSpeechProfileForSession = speechProfile ? {
