@@ -1,10 +1,11 @@
-import { BrainRegion } from '@/lib/brainRegionMapper';
+import { BrainRegion, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { RegionFunctionalScore } from '@/lib/functionalScoreCalculator';
+import { interpretRegion } from '@/lib/clinicalInterpretation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, Minus, Activity, Target, Clock, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Activity, Target, Clock, Zap, Brain, Stethoscope, Lightbulb, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface BrainRegionDetailProps {
@@ -96,10 +97,14 @@ export const BrainRegionDetail = ({ region, score, profile, affectedTerritories 
               </div>
             )}
           </div>
-          <p className="text-sm text-blue-600 font-medium">{getTrendLabel(score.trend)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">{getTrendLabel(score.trend)}</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* ── Clinical Interpretation Strip ── */}
+        <ClinicalInterpretationStrip region={region} score={score} affectedTerritories={affectedTerritories} />
         {/* Functional Score */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-2">
@@ -233,3 +238,55 @@ export const BrainRegionDetail = ({ region, score, profile, affectedTerritories 
     </Card>
   );
 };
+
+// ── Clinical Interpretation Strip ─────────────────────────────────────────
+
+const CONFIDENCE_STYLES: Record<string, { variant: 'default' | 'secondary' | 'outline'; label: string }> = {
+  high: { variant: 'default', label: 'High confidence' },
+  moderate: { variant: 'secondary', label: 'Moderate confidence' },
+  low: { variant: 'outline', label: 'Low confidence' },
+  none: { variant: 'outline', label: 'No data' },
+};
+
+function ClinicalInterpretationStrip({
+  region,
+  score,
+  affectedTerritories,
+}: {
+  region: BrainRegion;
+  score: RegionFunctionalScore;
+  affectedTerritories: string[];
+}) {
+  const isAffected = affectedTerritories.length > 0;
+  const interpretation = interpretRegion(region, score, isAffected);
+  const conf = CONFIDENCE_STYLES[interpretation.confidence] || CONFIDENCE_STYLES.none;
+
+  const rows = [
+    { icon: Brain, label: 'Likely role', value: interpretation.likelyRole },
+    { icon: BarChart3, label: 'Current signal', value: interpretation.currentSignal },
+    { icon: Stethoscope, label: 'Interpretation', value: interpretation.interpretation },
+    { icon: Lightbulb, label: 'Therapy focus', value: interpretation.therapyFocus },
+  ];
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
+        <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+        <Badge variant={conf.variant} className="text-[10px]">
+          {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
+        </Badge>
+      </div>
+      <div className="divide-y divide-border">
+        {rows.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex gap-3 px-3 py-2.5">
+            <Icon className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+              <p className="text-xs text-foreground leading-relaxed mt-0.5">{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
