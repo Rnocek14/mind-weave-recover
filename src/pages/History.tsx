@@ -23,18 +23,21 @@ interface SessionWithEvents {
 }
 
 export default function History() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [history, setHistory] = useState<SessionWithEvents[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!user) {
       navigate("/auth");
       return;
     }
+
     fetchHistory();
-  }, [user, navigate]);
+  }, [authLoading, user, navigate]);
 
   const fetchHistory = async () => {
     if (!user) return;
