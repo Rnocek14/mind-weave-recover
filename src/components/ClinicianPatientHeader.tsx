@@ -211,7 +211,7 @@ export function ClinicianPatientHeader() {
   };
 
   const handlePrint = () => {
-    navigate('/clinician-report?print=1');
+    navigate('/clinician/report?print=1');
   };
 
   const progressNote = useMemo(() => {
