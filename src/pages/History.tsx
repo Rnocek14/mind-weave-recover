@@ -55,18 +55,18 @@ export default function History() {
       }
 
       const sessionIds = sessions.map((s) => s.id);
-      const { data: events } = await supabase
-        .from("exercise_events")
-        .select("session_id, exercise_slug, round, score, created_at")
+      const { data: utterances } = await supabase
+        .from("utterance_analyses")
+        .select("session_id, exercise_slug, is_correct, created_at")
         .in("session_id", sessionIds);
 
       const bySession: Record<string, SessionWithEvents> = {};
       sessions.forEach((s) => {
         bySession[s.id] = { session: s, events: [] };
       });
-      (events ?? []).forEach((e) => {
-        if (bySession[e.session_id]) {
-          bySession[e.session_id].events.push(e);
+      (utterances ?? []).forEach((u) => {
+        if (bySession[u.session_id!]) {
+          bySession[u.session_id!].events.push(u);
         }
       });
 
