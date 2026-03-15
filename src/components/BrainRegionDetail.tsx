@@ -1,10 +1,11 @@
-import { BrainRegion } from '@/lib/brainRegionMapper';
+import { BrainRegion, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { RegionFunctionalScore } from '@/lib/functionalScoreCalculator';
+import { interpretRegion } from '@/lib/clinicalInterpretation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, Minus, Activity, Target, Clock, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Activity, Target, Clock, Zap, Brain, Stethoscope, Lightbulb, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface BrainRegionDetailProps {
