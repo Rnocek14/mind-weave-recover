@@ -22,6 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
