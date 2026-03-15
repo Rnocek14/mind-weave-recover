@@ -307,7 +307,8 @@ function ClinicalInterpretationStrip({
             </div>
           </div>
         ))}
-      </div>
+    </div>
+    </TooltipProvider>
     </div>
   );
 }
