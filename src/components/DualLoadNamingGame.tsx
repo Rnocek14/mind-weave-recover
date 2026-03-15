@@ -121,6 +121,7 @@ export function DualLoadNamingGame({
               },
             });
           } else {
+            const errorStage = pronResult.error?.stage;
             await logFinalAnalysis({
               transcript: transcript.trim(),
               transcriptSource: 'browser',
@@ -132,7 +133,7 @@ export function DualLoadNamingGame({
               pronunciationDiagnostics: {
                 pronRequestId: pronResult.pronRequestId,
                 pronunciationStatus: 'failed',
-                pronunciationErrorStage: pronResult.error?.stage,
+                pronunciationErrorStage: errorStage,
                 pronunciationTimingsMs: pronResult.timingsMs,
                 audioMeta: pronResult.audioMeta,
               },
