@@ -161,6 +161,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
       <div className="w-full max-w-2xl mx-auto space-y-3">
         {/* SVG Brain */}
         <div className="relative rounded-2xl bg-card border border-border overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <p className="text-[11px] text-muted-foreground text-center pt-2 pb-0">Tap a region for function details</p>
           <svg
             viewBox="0 0 500 365"
             preserveAspectRatio="xMidYMid meet"
