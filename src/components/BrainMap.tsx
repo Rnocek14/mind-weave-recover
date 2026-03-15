@@ -106,6 +106,7 @@ export const BrainMap = ({ profile, userId }: BrainMapProps) => {
               score={selectedScore} 
               profile={profile}
               affectedTerritories={strokeLocations}
+              affectedRegionIds={affectedRegionIds}
             />
           ) : (
             <Card>

@@ -28,16 +28,16 @@ const REGION_ROLES: Record<string, string> = {
 // ── Region → therapy focus mapping (deterministic) ────────────────────────
 
 const THERAPY_FOCUS: Record<string, string> = {
-  frontal_lobe: 'Naming drills, phrase completion, supported expressive language, sequencing tasks',
-  motor_cortex: 'Repetitive movement practice, graded motor activation, precision exercises',
-  somatosensory_cortex: 'Sensory discrimination tasks, feedback-guided exercises, proprioceptive training',
-  parietal_lobe: 'Visual scanning, spatial awareness tasks, cross-midline activities',
-  temporal_lobe: 'Auditory comprehension exercises, word retrieval, category fluency',
-  language_areas: 'Naming drills, sentence building, cue-based retrieval, phonological tasks',
-  occipital_lobe: 'Visual matching, letter recognition, reading exercises',
-  cerebellum: 'Coordination drills, timed movements, balance-integrated tasks',
-  brainstem: 'Oral motor exercises, swallowing protocols, sustained phonation',
-  subcortical: 'Initiation support, dual-task training, paced cognitive-motor activities',
+  frontal_lobe: 'Prioritize naming drills, phrase completion, and sequencing tasks. Support expressive language with structured cues.',
+  motor_cortex: 'Focus on repetitive movement practice, graded motor activation, and precision-targeted exercises.',
+  somatosensory_cortex: 'Prioritize sensory discrimination tasks, feedback-guided exercises, and proprioceptive training.',
+  parietal_lobe: 'Focus on visual scanning, spatial awareness tasks, and cross-midline activities.',
+  temporal_lobe: 'Prioritize auditory comprehension drills, word retrieval practice, and category fluency tasks.',
+  language_areas: 'Focus on naming drills, sentence building, cue-based retrieval, and phonological awareness tasks.',
+  occipital_lobe: 'Prioritize visual matching, letter recognition, and graded reading exercises.',
+  cerebellum: 'Focus on coordination drills, timed movement sequences, and balance-integrated tasks.',
+  brainstem: 'Prioritize oral motor exercises, sustained phonation tasks, and swallowing protocol support.',
+  subcortical: 'Focus on initiation support, dual-task training, and paced cognitive-motor activities.',
 };
 
 // ── Interpretation rules (deterministic, rule-based) ──────────────────────

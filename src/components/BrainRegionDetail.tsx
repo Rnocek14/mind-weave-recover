@@ -13,9 +13,10 @@ interface BrainRegionDetailProps {
   score: RegionFunctionalScore;
   profile?: { clinical_profile?: any };
   affectedTerritories?: string[];
+  affectedRegionIds?: string[];
 }
 
-export const BrainRegionDetail = ({ region, score, profile, affectedTerritories = [] }: BrainRegionDetailProps) => {
+export const BrainRegionDetail = ({ region, score, profile, affectedTerritories = [], affectedRegionIds = [] }: BrainRegionDetailProps) => {
   const navigate = useNavigate();
 
   // Find vascular territory for this region
@@ -104,7 +105,7 @@ export const BrainRegionDetail = ({ region, score, profile, affectedTerritories 
       </CardHeader>
       <CardContent className="space-y-6">
         {/* ── Clinical Interpretation Strip ── */}
-        <ClinicalInterpretationStrip region={region} score={score} affectedTerritories={affectedTerritories} />
+        <ClinicalInterpretationStrip region={region} score={score} isRegionAffected={affectedRegionIds.includes(region.id)} />
         {/* Functional Score */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-2">
@@ -251,15 +252,21 @@ const CONFIDENCE_STYLES: Record<string, { variant: 'default' | 'secondary' | 'ou
 function ClinicalInterpretationStrip({
   region,
   score,
-  affectedTerritories,
+  isRegionAffected,
 }: {
   region: BrainRegion;
   score: RegionFunctionalScore;
-  affectedTerritories: string[];
+  isRegionAffected: boolean;
 }) {
-  const isAffected = affectedTerritories.length > 0;
-  const interpretation = interpretRegion(region, score, isAffected);
+  const interpretation = interpretRegion(region, score, isRegionAffected);
   const conf = CONFIDENCE_STYLES[interpretation.confidence] || CONFIDENCE_STYLES.none;
+
+  // Severity label derived from score
+  const severityLabel = score.contributingMetrics.trialCount < 10 ? null
+    : score.currentScore < 30 ? 'Severe impairment'
+    : score.currentScore < 50 ? 'Moderate impairment'
+    : score.currentScore < 70 ? 'Mild impairment'
+    : 'Strong function';
 
   const rows = [
     { icon: Brain, label: 'Likely role', value: interpretation.likelyRole },
@@ -271,7 +278,12 @@ function ClinicalInterpretationStrip({
   return (
     <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
-        <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+          {severityLabel && (
+            <Badge variant="outline" className="text-[10px] font-normal">{severityLabel}</Badge>
+          )}
+        </div>
         <Badge variant={conf.variant} className="text-[10px]">
           {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
         </Badge>
