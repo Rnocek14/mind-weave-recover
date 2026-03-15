@@ -302,6 +302,9 @@ export function ThoughtContinuationGame({
     setPhase('processing');
     stopListening();
     
+    // Stop audio recording and capture blob
+    const recordingResult = await stopRecording();
+    
     // Clear timers
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -311,6 +314,18 @@ export function ThoughtContinuationGame({
     const speechDuration = speechStartTimeRef.current 
       ? Date.now() - speechStartTimeRef.current 
       : 0;
+    
+    // Upload audio for clinical persistence
+    let audioStoragePath: string | null = null;
+    if (recordingResult?.audioBlob && sessionId && userId) {
+      audioStoragePath = await uploadRecording(
+        recordingResult.audioBlob,
+        userId,
+        sessionId || 'standalone',
+        promptCount,
+        recordingResult.mimeType
+      );
+    }
     
     // =========================================================================
     // TIER A METRICS - Locally measurable, no alignment required
