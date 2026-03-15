@@ -231,7 +231,7 @@ export default function ConversationCoachExercise() {
         <ConversationCoachGame
           userId={user.id}
           profileId={activeProfile?.id || ''}
-          sessionId={null}
+          sessionId={activeSessionId}
           onComplete={handleComplete}
           onExit={handleExit}
         />
