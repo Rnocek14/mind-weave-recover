@@ -118,7 +118,7 @@ function getRegionFill(
   // Progress mode
   if (score.trend === "improving") return { fill: "hsl(205 85% 55%)", stroke: "hsl(205 85% 40%)", opacity: 0.65 };
   if (score.trend === "declining") return { fill: "hsl(25 95% 55%)", stroke: "hsl(25 95% 42%)", opacity: 0.65 };
-  return { fill: "hsl(210 40% 88%)", stroke: "hsl(210 30% 75%)", opacity: 0.55 };
+  return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.55 };
 }
 
 // Legend items per mode
