@@ -121,7 +121,8 @@ export function DualLoadNamingGame({
               },
             });
           } else {
-            const errorStage = !pronResult.ok ? pronResult.error?.stage : undefined;
+            const errorResult = pronResult as import('@/hooks/usePronunciationAnalysis').PronunciationErrorResult;
+            const errorStage = errorResult.error?.stage;
             await logFinalAnalysis({
               transcript: transcript.trim(),
               transcriptSource: 'browser',
