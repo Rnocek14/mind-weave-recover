@@ -121,7 +121,7 @@ export function DualLoadNamingGame({
             analysisData.pronunciationDiagnostics = {
               pronRequestId: pronResult.pronRequestId,
               pronunciationStatus: 'failed' as const,
-              pronunciationErrorStage: pronResult.error.stage,
+              pronunciationErrorStage: (pronResult as any).error?.stage,
               pronunciationTimingsMs: pronResult.timingsMs,
               audioMeta: pronResult.audioMeta,
             };
