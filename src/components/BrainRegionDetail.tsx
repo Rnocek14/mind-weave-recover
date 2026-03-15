@@ -16,7 +16,7 @@ interface BrainRegionDetailProps {
   affectedRegionIds?: string[];
 }
 
-export const BrainRegionDetail = ({ region, score, profile, affectedTerritories = [] }: BrainRegionDetailProps) => {
+export const BrainRegionDetail = ({ region, score, profile, affectedTerritories = [], affectedRegionIds = [] }: BrainRegionDetailProps) => {
   const navigate = useNavigate();
 
   // Find vascular territory for this region
