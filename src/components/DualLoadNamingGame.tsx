@@ -198,26 +198,9 @@ export function DualLoadNamingGame({
     startNaming();
     namingStartRef.current = Date.now();
     namingTrialIndexRef.current = 0;
-    
-    // Start clinical pipeline for first naming target
-    if (currentSet && userId) {
-      const firstTarget = currentSet.namingTargets[0];
-      if (firstTarget) {
-        startAttempt({
-          sessionId: sessionId || 'standalone',
-          userId,
-          exerciseSlug: 'dual-load-naming',
-          trialIndex: 0,
-          attemptNumber: 1,
-          targetWord: firstTarget.word,
-          category: 'naming',
-        });
-        startRecording();
-      }
-    }
-    
+    // Attempt + recording start is handled by the useEffect watching phase/currentNamingTarget
     if (isSupported) startListening();
-  }, [startNaming, startListening, isSupported, startAttempt, startRecording, userId, sessionId, currentSet]);
+  }, [startNaming, startListening, isSupported]);
 
   // For naming: if speech doesn't capture, allow manual skip
   const handleSkipNaming = useCallback(async () => {
