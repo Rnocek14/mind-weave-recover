@@ -304,7 +304,9 @@ export default function Insights() {
                 <>
                   <StrokeProfileSummary profile={clinicalProfile} />
                   <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={user!.id} />
-                  <MechanismSessionPlanner profile={clinicalProfile} />
+                  {(clinicalProfile as any).stroke_mechanism && (
+                    <MechanismSessionPlanner profile={clinicalProfile} />
+                  )}
                 </>
               )}
 
