@@ -530,6 +530,7 @@ export function generateDailyLesson(
     'pattern-match': { domains: ['attention', 'visual_processing'], baseMinutes: 2, baseComponent: 'pattern-match-game' },
     'photo-naming': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'photo-naming-game' },
     'phonological': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
+    'phonological-awareness': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
     'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'semantic-game' },
     'phrase-practice': { domains: ['expressive_language', 'phonology'], baseMinutes: 4, baseComponent: 'phrase-game' },
     'sentence-construction': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
@@ -541,22 +542,58 @@ export function generateDailyLesson(
     'conversation-coach': { domains: ['expressive_language'], baseMinutes: 4, baseComponent: 'conversation-game' },
     'detective-mind': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'comprehension-game' },
     'meaning-match': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'comprehension-game' },
+    // Depth tasks — previously only reachable via presets, now in organic selection pool
+    'narrative-retell': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'discourse-game' },
+    'abstract-compare': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'abstraction-game' },
+    'multi-step-plan': { domains: ['attention', 'semantic_systems'], baseMinutes: 3, baseComponent: 'planning-game' },
+    'dual-load-naming': { domains: ['expressive_language', 'attention'], baseMinutes: 3, baseComponent: 'dual-load-game' },
+    'thought-continuation': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'thought-game' },
   };
 
   // Score each accessible exercise
+  const selectionReasons: Array<{ id: string; baseScore: number; recencyPenalty: number; componentPenalty: number; finalScore: number; reason: string }> = [];
+
   const scoredExercises = accessibleExercises
     .map(id => {
       const meta = exerciseMetadata[id];
       if (!meta) return null;
+
+      const baseScore = scoreExercise(
+        id,
+        meta.domains,
+        domainPriorities,
+        learningRates,
+        performanceSignals.errorTypes
+      );
+
+      // Apply recency penalties
+      let recencyPenalty = 0;
+      let componentPenalty = 0;
+      let penaltyReason = '';
+
+      if (recencyPenalties) {
+        recencyPenalty = recencyPenalties.exercisePenalties.get(id) || 0;
+        const component = meta.baseComponent;
+        if (component) {
+          componentPenalty = recencyPenalties.componentPenalties.get(component) || 0;
+        }
+        penaltyReason = recencyPenalties.reasons.get(id) || '';
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty;
+
+      selectionReasons.push({
+        id,
+        baseScore,
+        recencyPenalty,
+        componentPenalty,
+        finalScore,
+        reason: penaltyReason || 'no recency penalty',
+      });
+
       return {
         id,
-        score: scoreExercise(
-          id,
-          meta.domains,
-          domainPriorities,
-          learningRates,
-          performanceSignals.errorTypes
-        ),
+        score: finalScore,
         domains: meta.domains,
         baseMinutes: meta.baseMinutes,
         baseComponent: meta.baseComponent,
