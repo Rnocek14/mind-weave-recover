@@ -123,14 +123,19 @@ export function PatientModeView({
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex-1 flex flex-col items-center py-3 min-h-[56px] transition-colors touch-manipulation
+            className={`flex-1 flex flex-col items-center py-3 min-h-[56px] transition-colors touch-manipulation relative
               ${activeTab === id
-                ? "text-primary"
+                ? "text-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
               }`}
           >
-            <Icon className="w-6 h-6" />
-            <span className="text-xs font-medium mt-1">{label}</span>
+            {activeTab === id && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-primary rounded-b-full" />
+            )}
+            <Icon className={`${activeTab === id ? "w-7 h-7" : "w-6 h-6"} transition-all`} />
+            <span className={`${activeTab === id ? "text-sm" : "text-xs"} font-medium mt-1 transition-all`}>
+              {label}
+            </span>
           </button>
         ))}
       </div>
