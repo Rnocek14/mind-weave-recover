@@ -550,7 +550,7 @@ export function ThoughtContinuationGame({
       promptTheme: currentPrompt?.theme,
       stuckType: stuckResult.stuckType,
       fluencyAvailable: false,
-      fluencyUnavailableReason: 'no_recording',
+      fluencyUnavailableReason: 'discourse_task',
     });
     
     // Update history with skip
