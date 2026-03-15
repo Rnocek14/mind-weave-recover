@@ -4,6 +4,12 @@ import { BRAIN_REGIONS } from '@/lib/brainRegionMapper';
 
 type MapMode = "injury" | "function" | "progress";
 
+const MODE_LABELS: Record<MapMode, { title: string; description: string }> = {
+  progress: { title: "Recovery Trend", description: "Tracking change over time based on exercise data" },
+  function: { title: "Functional Performance", description: "Current estimated function by region" },
+  injury: { title: "Stroke Injury Map", description: "Regions likely affected based on clinical data" },
+};
+
 export type RegionId =
   | "frontal_lobe"
   | "motor_cortex"
