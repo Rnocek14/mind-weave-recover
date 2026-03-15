@@ -272,71 +272,8 @@ export function PatientModeView({
         {/* ── Home Tab ── */}
         {activeTab === "home" && (
           <div className="space-y-6 animate-fade-in">
-            {/* Last session card */}
-            {lastSession && (
-              <button
-                onClick={() => navigate("/history")}
-                className="w-full bg-muted/50 rounded-xl p-4 text-left hover:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer min-h-[56px]"
-              >
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Last time (
-                    {formatDistanceToNow(
-                      new Date(lastSession.endedAt || lastSession.startedAt),
-                      { addSuffix: true }
-                    )}
-                    )
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    {lastSession.durationSec && (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-base">
-                          {Math.round(lastSession.durationSec / 60)} min
-                        </span>
-                      </div>
-                    )}
-                    {(() => {
-                      const accuracies = lastSession.exercises
-                        .map((ex) => ex.accuracy)
-                        .filter(
-                          (v): v is number =>
-                            typeof v === "number" && !isNaN(v)
-                        );
-                      const avgAccuracy = accuracies.length
-                        ? Math.round(
-                            accuracies.reduce((a, b) => a + b, 0) /
-                              accuracies.length
-                          )
-                        : null;
-                      return (
-                        avgAccuracy !== null && (
-                          <div className="flex items-center gap-1.5">
-                            <Trophy className="h-4 w-4 text-amber-500" />
-                            <span className="font-medium text-base">
-                              {avgAccuracy}% accuracy
-                            </span>
-                          </div>
-                        )
-                      );
-                    })()}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {lastSession.exercises.reduce(
-                      (sum, ex) => sum + (ex.totalTrials ?? 0),
-                      0
-                    )}{" "}
-                    trials
-                  </span>
-                </div>
-              </button>
-            )}
-
             {/* Greeting */}
-            <div className="text-center space-y-3 py-4">
+            <div className="text-center space-y-3 py-6">
               <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight">
                 Ready to practice?
               </h1>
@@ -346,71 +283,65 @@ export function PatientModeView({
             </div>
 
             {/* Primary CTA */}
-            <div className="space-y-4">
-              <Button
-                onClick={handleStartSession}
-                size="lg"
-                aria-label="Start today's therapy session"
-                className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
-              >
-                <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
-                <span className="text-center leading-tight">
-                  Start Today's Session
-                </span>
-              </Button>
+            <Button
+              onClick={handleStartSession}
+              size="lg"
+              aria-label="Start today's therapy session"
+              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+            >
+              <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
+              <span className="text-center leading-tight">
+                Start Today's Session
+              </span>
+            </Button>
 
-              {/* Comprehension Session */}
+            {/* Secondary: pick a game */}
+            <Button
+              onClick={() => setActiveTab("practice")}
+              variant="outline"
+              size="lg"
+              className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
+            >
+              <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
+              <span>Choose a game I like</span>
+            </Button>
+
+            {/* Tiny progress summary */}
+            {(streak > 0 || sessions.length > 0) && (
+              <button
+                onClick={() => setActiveTab("progress")}
+                className="w-full flex items-center justify-center gap-4 py-3 text-muted-foreground hover:text-foreground transition-colors min-h-[48px] touch-manipulation"
+              >
+                {streak > 0 && (
+                  <span className="flex items-center gap-1.5 text-base">
+                    <Flame className="w-5 h-5 text-amber-500" />
+                    {streak} day streak
+                  </span>
+                )}
+                {sessions.length > 0 && streak > 0 && (
+                  <span className="text-border">·</span>
+                )}
+                {sessions.length > 0 && (
+                  <span className="text-base">
+                    {sessions.length} session{sessions.length !== 1 ? "s" : ""} total
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Caregiver assist */}
+            <div className="text-center pt-2">
               <Button
                 onClick={() => {
-                  const presetLesson = buildPresetLesson(
-                    "comprehension_session"
-                  );
-                  if (presetLesson) {
-                    navigate("/lesson", {
-                      state: {
-                        lesson: presetLesson,
-                        clinicalProfile,
-                        skipDailyCheck: true,
-                        autoStart: true,
-                      },
-                    });
-                  } else {
-                    toast("Comprehension Session unavailable", {
-                      duration: 3000,
-                    });
-                  }
+                  setUiMode("caregiver");
+                  toast("Switched to Caregiver View — more detail and controls available", { duration: 3000 });
                 }}
-                variant="outline"
-                size="lg"
-                className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
-              >
-                <span className="text-2xl mr-2">🧠</span>
-                <span>Comprehension Session</span>
-              </Button>
-
-              {/* Choose a game */}
-              <Button
-                onClick={() => setActiveTab("practice")}
-                variant="outline"
-                size="lg"
-                className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
-              >
-                <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
-                <span>Choose a game I like</span>
-              </Button>
-            </div>
-
-            {/* Rest option */}
-            <div className="text-center">
-              <Button
-                onClick={handleRest}
                 variant="ghost"
                 size="lg"
-                aria-label="Take a rest break"
-                className="min-h-[56px] text-lg md:text-xl text-muted-foreground hover:text-foreground px-8 py-4 rounded-xl hover:bg-accent/50 active:scale-[0.98] transition-all"
+                className="min-h-[48px] text-sm text-muted-foreground hover:text-foreground px-6 py-3 rounded-xl hover:bg-accent/50 transition-all"
               >
-                <LogOut className="w-5 h-5 md:w-6 md:h-6 mr-3" />
-                I need to rest
+                <Users className="w-4 h-4 mr-2" />
+                Caregiver or helper? Tap here
               </Button>
             </div>
           </div>
