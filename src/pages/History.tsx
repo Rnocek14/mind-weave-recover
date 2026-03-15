@@ -27,6 +27,8 @@ export default function History() {
   const navigate = useNavigate();
   const [history, setHistory] = useState<SessionWithEvents[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSession, setSelectedSession] = useState<SessionWithEvents["session"] | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
