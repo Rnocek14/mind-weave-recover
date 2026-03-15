@@ -14,7 +14,7 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
-import { useStreakFromHistory } from "@/hooks/useStreakCalculation";
+
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
 import { toast } from "sonner";
