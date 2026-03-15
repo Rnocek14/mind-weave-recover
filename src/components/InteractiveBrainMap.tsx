@@ -236,11 +236,6 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         strokeDasharray={!hasData && mode !== 'injury' ? "3,2" : "none"}
                         filter={isSelected ? "url(#sel-glow)" : "url(#depth)"}
                         className="transition-all duration-300 ease-out"
-                        style={{
-                          transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                          transformOrigin: `${region.labelPos.x}px ${region.labelPos.y}px`,
-                          transformBox: 'fill-box',
-                        }}
                       />
                       {/* Hover overlay */}
                       <path
