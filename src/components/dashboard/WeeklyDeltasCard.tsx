@@ -6,6 +6,7 @@ import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
+import { useUiMode } from "@/hooks/useUiMode";
 
 /**
  * "What changed since last week?" — top 2-3 domain deltas for 90-second triage.
