@@ -14,6 +14,8 @@ import { useUiMode } from "@/hooks/useUiMode";
 export const WeeklyDeltasCard = memo(function WeeklyDeltasCard() {
   const { userId } = useDashboardContext();
   const { activeProfile } = useProfile();
+  const { uiMode } = useUiMode();
+  const usePatientLabels = uiMode === "patient" || uiMode === "caregiver";
   const { snapshot, isLoading } = useCognitiveState({
     userId,
     profileId: activeProfile?.id,
