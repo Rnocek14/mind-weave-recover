@@ -12,7 +12,6 @@
 import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
-import { EXERCISE_COMPONENT_MAP } from './exerciseRecency';
 
 export interface DomainPriority {
   expressive_language: 'high' | 'medium' | 'low';
