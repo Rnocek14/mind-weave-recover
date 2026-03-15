@@ -125,7 +125,7 @@ function getRegionFill(
 const LEGENDS: Record<MapMode, { color: string; label: string }[]> = {
   injury: [
     { color: "hsl(0 84% 60%)", label: "Affected" },
-    { color: "hsl(210 40% 92%)", label: "Unaffected" },
+    { color: "hsl(var(--muted))", label: "Unaffected" },
   ],
   function: [
     { color: "hsl(142 76% 46%)", label: "Strong (70%+)" },
