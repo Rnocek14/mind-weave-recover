@@ -4,10 +4,17 @@
  * After an MC answer, prompts the user to explain WHY the answer is correct.
  * Uses speech recognition to capture the explanation and scores it against key concepts.
  * Designed for stroke survivors: patient timing, scaffolded fallbacks, gentle feedback.
+ * 
+ * UPGRADED: Capture parity with PhotoNaming:
+ * - useUtteranceLogger for persisted utterance analysis records
+ * - useAudioRecorder for WAV capture/upload
+ * - Discourse-focused: no pronunciation analysis
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { scoreExplanation, ExplanationScore, ExplanationResultData } from '@/lib/explanationScorer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +43,10 @@ interface ExplainWhyPromptProps {
   onComplete: (result: ExplainWhyResult) => void;
   /** Optional: custom prompt text */
   promptOverride?: string;
+  /** Optional: clinical pipeline context */
+  userId?: string;
+  sessionId?: string | null;
+  trialIndex?: number;
 }
 
 export function ExplainWhyPrompt({
@@ -45,22 +56,36 @@ export function ExplainWhyPrompt({
   modelExplanation,
   onComplete,
   promptOverride,
+  userId,
+  sessionId,
+  trialIndex = 0,
 }: ExplainWhyPromptProps) {
   const [stage, setStage] = useState<'prompt' | 'listening' | 'scored'>('prompt');
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const [explanationScore, setExplanationScore] = useState<ExplanationScore | null>(null);
   const startTimeRef = useRef(Date.now());
   const hasProcessedRef = useRef(false);
-  // Track the latest transcript from speech hook via ref (avoids stale closure)
   const latestTranscriptRef = useRef('');
 
-  // Default prompt based on correctness
+  // Clinical pipeline hooks
+  const {
+    startAttempt,
+    logFinalAnalysis,
+    resetAttempt,
+    currentAttemptId,
+  } = useUtteranceLogger();
+
+  const {
+    startRecording,
+    stopRecording,
+    uploadRecording,
+  } = useAudioRecorder();
+
   const promptText = promptOverride 
     ?? (wasCorrect 
       ? "Why is that the right answer? Explain in your own words."
       : `Why do you think "${correctAnswer}" is correct? Try to explain.`);
 
-  // Handle speech result — just collect, don't score yet
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
     setCollectedTranscript(transcript);
@@ -73,7 +98,6 @@ export function ExplainWhyPrompt({
     continuousListening: true,
   });
 
-  // Keep latestTranscriptRef in sync with live transcript too
   useEffect(() => {
     if (liveTranscript) {
       latestTranscriptRef.current = liveTranscript;
@@ -84,30 +108,92 @@ export function ExplainWhyPrompt({
   const handleStartSpeaking = useCallback(() => {
     startTimeRef.current = Date.now();
     setStage('listening');
+    
+    // Start clinical pipeline
+    if (userId) {
+      startAttempt({
+        sessionId: sessionId || 'standalone',
+        userId,
+        exerciseSlug: 'explain-why',
+        trialIndex,
+        attemptNumber: 1,
+        targetWord: correctAnswer.slice(0, 50),
+        category: 'discourse',
+      });
+    }
+    
+    startRecording();
     startListening();
-  }, [startListening]);
+  }, [startListening, startRecording, startAttempt, userId, sessionId, trialIndex, correctAnswer]);
 
-  // Stop and score — waits one tick for final transcript to settle
+  // Stop and score
   const handleDoneSpeaking = useCallback(() => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     
     stopListening();
     
-    // Wait a tick for the speech hook's onend to fire and flush pending transcript
-    setTimeout(() => {
+    // Stop recording
+    stopRecording().then(async (recordingResult) => {
       const transcriptToScore = collectedTranscript || latestTranscriptRef.current || '';
       const score = scoreExplanation(transcriptToScore, keyConcepts, correctAnswer);
+      const durationMs = Date.now() - startTimeRef.current;
+      
+      // Upload audio for clinical persistence
+      let audioStoragePath: string | null = null;
+      if (recordingResult?.audioBlob && userId && sessionId) {
+        audioStoragePath = await uploadRecording(
+          recordingResult.audioBlob,
+          userId,
+          sessionId,
+          trialIndex,
+          recordingResult.mimeType
+        );
+      }
+      
+      // Log utterance
+      if (currentAttemptId) {
+        await logFinalAnalysis({
+          transcript: transcriptToScore || undefined,
+          transcriptSource: 'browser',
+          evaluationModel: 'flow',
+          isCorrect: null,
+          didSpeak: transcriptToScore.trim().length > 0,
+          utteranceComplete: transcriptToScore.trim().length > 0,
+          recordingDurationMs: durationMs,
+          audioStoragePath: audioStoragePath || undefined,
+          coherenceScore: score.onTopicScore,
+          fluencyAvailable: false,
+          fluencyUnavailableReason: 'no_recording',
+        });
+        resetAttempt();
+      }
       
       setCollectedTranscript(transcriptToScore);
       setExplanationScore(score);
       setStage('scored');
-    }, 150);
-  }, [stopListening, collectedTranscript, keyConcepts, correctAnswer]);
+    });
+  }, [stopListening, stopRecording, collectedTranscript, keyConcepts, correctAnswer, uploadRecording, userId, sessionId, trialIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   // Skip explanation
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     stopListening();
+    await stopRecording();
+    
+    // Log skip
+    if (currentAttemptId) {
+      await logFinalAnalysis({
+        transcript: '',
+        transcriptSource: 'browser',
+        evaluationModel: 'flow',
+        isCorrect: null,
+        didSpeak: false,
+        fluencyAvailable: false,
+        fluencyUnavailableReason: 'no_recording',
+      });
+      resetAttempt();
+    }
+    
     const durationMs = Date.now() - startTimeRef.current;
     const skipScore: ExplanationScore = {
       score: 0,
@@ -137,7 +223,7 @@ export function ExplainWhyPrompt({
         skipped: true,
       },
     });
-  }, [stopListening, onComplete, keyConcepts.length]);
+  }, [stopListening, stopRecording, onComplete, keyConcepts.length, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   // Continue after seeing score
   const handleContinue = useCallback(() => {
@@ -163,7 +249,7 @@ export function ExplainWhyPrompt({
     });
   }, [explanationScore, collectedTranscript, onComplete]);
 
-  // Auto-timeout: if listening for >30s with no speech, auto-score
+  // Auto-timeout
   useEffect(() => {
     if (stage !== 'listening') return;
     const timeout = setTimeout(() => {
@@ -192,7 +278,6 @@ export function ExplainWhyPrompt({
 
   return (
     <div className="space-y-3">
-      {/* Prompt phase */}
       {stage === 'prompt' && (
         <Card className="border-2 border-primary/30 bg-primary/5">
           <CardContent className="pt-4 space-y-3">
@@ -224,7 +309,6 @@ export function ExplainWhyPrompt({
         </Card>
       )}
 
-      {/* Listening phase */}
       {stage === 'listening' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
@@ -243,7 +327,6 @@ export function ExplainWhyPrompt({
               </span>
             </div>
             
-            {/* Live transcript preview */}
             {(liveTranscript || collectedTranscript) && (
               <div className="bg-muted/50 rounded-lg p-3 min-h-[3rem]">
                 <p className="text-sm text-foreground italic">
@@ -265,7 +348,6 @@ export function ExplainWhyPrompt({
         </Card>
       )}
 
-      {/* Scored phase */}
       {stage === 'scored' && explanationScore && (
         <Card className={cn("border-2", levelColors[explanationScore.level])}>
           <CardContent className="pt-4 space-y-3">
@@ -279,7 +361,6 @@ export function ExplainWhyPrompt({
               )}
             </div>
 
-            {/* Show what they said */}
             {collectedTranscript && (
               <div className="bg-muted/30 rounded-lg p-2">
                 <p className="text-xs text-muted-foreground mb-1">You said:</p>
@@ -287,7 +368,6 @@ export function ExplainWhyPrompt({
               </div>
             )}
 
-            {/* Show model explanation as scaffold for partial/off-topic/no-response */}
             {(explanationScore.level === 'partial' || 
               explanationScore.level === 'off-topic' || 
               explanationScore.level === 'no-response') && (

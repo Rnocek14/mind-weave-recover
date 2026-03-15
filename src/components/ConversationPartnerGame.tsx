@@ -1,3 +1,12 @@
+/**
+ * Conversation Partner Game
+ * 
+ * UPGRADED: Capture parity with PhotoNaming:
+ * - useUtteranceLogger for persisted utterance analysis records
+ * - useAudioRecorder for WAV capture/upload
+ * - Discourse-focused: no pronunciation analysis
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -5,6 +14,8 @@ import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useConversationPartner } from '@/hooks/useConversationPartner';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { getRandomOpener } from '@/lib/conversationFollowups';
 import { cn } from '@/lib/utils';
 
@@ -37,9 +48,24 @@ export function ConversationPartnerGame({
   
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
+  const turnCountRef = useRef(0);
 
   const { speak, stop: stopTTS, isLoading: ttsLoading } = useTextToSpeech();
   
+  // Clinical pipeline hooks
+  const {
+    startAttempt,
+    logFinalAnalysis,
+    resetAttempt,
+    currentAttemptId,
+  } = useUtteranceLogger();
+
+  const {
+    startRecording,
+    stopRecording,
+    uploadRecording,
+  } = useAudioRecorder();
+
   const {
     conversationHistory,
     currentTurn,
@@ -60,7 +86,6 @@ export function ConversationPartnerGame({
   });
 
   const handleSpeechResult = useCallback((transcript: string) => {
-    // Track first word timing
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
     }
@@ -85,7 +110,7 @@ export function ConversationPartnerGame({
     setPhase('ai_speaking');
     
     try {
-      await speak(opener, { voiceId: 'EXAVITQu4vr4xnSDxMaL' }); // Sarah voice
+      await speak(opener, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
     } catch (err) {
       console.warn('TTS failed, continuing without voice:', err);
     }
@@ -101,14 +126,27 @@ export function ConversationPartnerGame({
     setUserTranscript('');
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
+    turnCountRef.current += 1;
     setPhase('listening');
+    
+    // Start clinical pipeline
+    startAttempt({
+      sessionId: sessionId || 'standalone',
+      userId,
+      exerciseSlug: 'conversation-partner',
+      trialIndex: turnCountRef.current - 1,
+      attemptNumber: 1,
+      targetWord: 'conversation',
+      category: 'discourse',
+    });
+    
+    startRecording();
     startListening();
 
-    // Clear any existing silence timer
     if (silenceTimer) {
       clearTimeout(silenceTimer);
     }
-  }, [phase, startListening, silenceTimer]);
+  }, [phase, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId]);
 
   // Handle done talking
   const handleDoneTalking = useCallback(async () => {
@@ -116,22 +154,56 @@ export function ConversationPartnerGame({
 
     stopListening();
     setPhase('processing');
+    
+    // Stop recording and capture audio
+    const recordingResult = await stopRecording();
 
-    // Clear silence timer
     if (silenceTimer) {
       clearTimeout(silenceTimer);
       setSilenceTimer(null);
     }
 
-    // Calculate latency
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
       ? firstWordTimeRef.current - speechStartTimeRef.current
       : null;
+    
+    const durationMs = speechStartTimeRef.current
+      ? Date.now() - speechStartTimeRef.current
+      : null;
+
+    // Upload audio for clinical persistence
+    let audioStoragePath: string | null = null;
+    if (recordingResult?.audioBlob && sessionId) {
+      audioStoragePath = await uploadRecording(
+        recordingResult.audioBlob,
+        userId,
+        sessionId,
+        turnCountRef.current,
+        recordingResult.mimeType
+      );
+    }
+    
+    // Log utterance to utterance_analyses
+    if (currentAttemptId) {
+      await logFinalAnalysis({
+        transcript: userTranscript || undefined,
+        transcriptSource: 'browser',
+        evaluationModel: 'flow',
+        isCorrect: null,
+        didSpeak: userTranscript.trim().length > 0,
+        utteranceComplete: userTranscript.trim().length > 0,
+        latencyToFirstWordMs: latencyMs || undefined,
+        recordingDurationMs: durationMs || undefined,
+        audioStoragePath: audioStoragePath || undefined,
+        fluencyAvailable: false,
+        fluencyUnavailableReason: 'no_recording',
+      });
+      resetAttempt();
+    }
 
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
 
-    // Check if we're done
     if (currentTurn + 1 >= maxTurns) {
       setCurrentAIText(followupText);
       setPhase('ai_speaking');
@@ -145,7 +217,6 @@ export function ConversationPartnerGame({
       addAITurn(followupText);
       setPhase('complete');
       
-      // Report completion
       if (onComplete) {
         const userAIRatio = metrics.totalAIWords > 0 
           ? (metrics.totalUserWords / metrics.totalAIWords) * 100 
@@ -158,7 +229,6 @@ export function ConversationPartnerGame({
         });
       }
     } else {
-      // Speak follow-up
       setCurrentAIText(followupText);
       setPhase('ai_speaking');
       
@@ -174,13 +244,13 @@ export function ConversationPartnerGame({
   }, [
     phase, stopListening, silenceTimer, userTranscript, 
     processUserTurn, currentTurn, maxTurns, speak, 
-    addAITurn, onComplete, metrics
+    addAITurn, onComplete, metrics, stopRecording, uploadRecording,
+    userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt
   ]);
 
   // Start silence timer when listening begins
   useEffect(() => {
     if (phase === 'listening') {
-      // 8 second nudge timer
       const timer = setTimeout(async () => {
         const nudge = getNudge(8000);
         try {
@@ -191,7 +261,6 @@ export function ConversationPartnerGame({
       }, 8000);
 
       setSilenceTimer(timer);
-
       return () => clearTimeout(timer);
     }
   }, [phase, getNudge, speak]);
@@ -223,15 +292,12 @@ export function ConversationPartnerGame({
 
   return (
     <div className="space-y-6">
-      {/* Progress dots */}
       <div className="flex justify-center gap-2">
         {progressDots}
       </div>
 
-      {/* Main conversation card */}
       <Card className="overflow-hidden">
         <CardContent className="p-6 space-y-6">
-          {/* AI speech bubble */}
           {currentAIText && (
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -243,7 +309,6 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {/* User transcript (while listening/processing) */}
           {(phase === 'listening' || phase === 'processing') && (
             <div className="flex items-start gap-3 justify-end">
               <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
@@ -259,7 +324,6 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {/* Phase-specific UI */}
           {phase === 'ready' && currentTurn === 0 && (
             <div className="text-center py-8">
               <Button
@@ -359,6 +423,7 @@ export function ConversationPartnerGame({
                   setPhase('ready');
                   setCurrentAIText('');
                   setUserTranscript('');
+                  turnCountRef.current = 0;
                 }}>
                   Talk Again
                 </Button>
@@ -373,7 +438,6 @@ export function ConversationPartnerGame({
         </CardContent>
       </Card>
 
-      {/* Exit button (always visible except when complete) */}
       {phase !== 'complete' && onExit && (
         <div className="text-center">
           <Button variant="ghost" size="sm" onClick={onExit}>

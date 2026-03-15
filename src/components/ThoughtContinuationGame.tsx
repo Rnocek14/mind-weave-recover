@@ -22,6 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
@@ -121,6 +122,12 @@ export function ThoughtContinuationGame({
     logFinalAnalysis, 
     resetAttempt,
   } = useUtteranceLogger();
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    uploadRecording,
+  } = useAudioRecorder();
   const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
   
   // Speech recognition with callback - PATIENT MODE enabled
@@ -274,13 +281,16 @@ export function ThoughtContinuationGame({
         category: currentPrompt.theme,
       });
       
+      // Start audio recording for clinical persistence
+      startRecording();
+      
       // Start listening
       startListening();
       
       // Start silence timer
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
@@ -292,6 +302,9 @@ export function ThoughtContinuationGame({
     setPhase('processing');
     stopListening();
     
+    // Stop audio recording and capture blob
+    const recordingResult = await stopRecording();
+    
     // Clear timers
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -301,6 +314,18 @@ export function ThoughtContinuationGame({
     const speechDuration = speechStartTimeRef.current 
       ? Date.now() - speechStartTimeRef.current 
       : 0;
+    
+    // Upload audio for clinical persistence
+    let audioStoragePath: string | null = null;
+    if (recordingResult?.audioBlob && sessionId && userId) {
+      audioStoragePath = await uploadRecording(
+        recordingResult.audioBlob,
+        userId,
+        sessionId || 'standalone',
+        promptCount,
+        recordingResult.mimeType
+      );
+    }
     
     // =========================================================================
     // TIER A METRICS - Locally measurable, no alignment required
@@ -401,6 +426,7 @@ export function ThoughtContinuationGame({
       promptIntentType: currentPrompt.intentType,
       promptTheme: currentPrompt.theme,
       recordingDurationMs: speechDuration,
+      audioStoragePath: audioStoragePath || undefined,
       stuckType, // NEW: Log stuck type
     });
     
@@ -450,7 +476,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount]);
 
   // ---------------------------------------------------------------------------
   // Handle speech end detection - REMOVED for patient mode
