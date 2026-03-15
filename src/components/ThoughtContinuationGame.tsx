@@ -427,7 +427,9 @@ export function ThoughtContinuationGame({
       promptTheme: currentPrompt.theme,
       recordingDurationMs: speechDuration,
       audioStoragePath: audioStoragePath || undefined,
-      stuckType, // NEW: Log stuck type
+      stuckType,
+      fluencyAvailable: false,
+      fluencyUnavailableReason: 'discourse_task',
     });
     
     // Log decision outcome
