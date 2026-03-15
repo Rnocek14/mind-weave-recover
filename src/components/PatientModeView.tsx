@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
-import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
