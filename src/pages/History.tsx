@@ -15,10 +15,9 @@ interface SessionWithEvents {
   };
   events: Array<{
     session_id: string;
-    exercise_slug: string;
-    round: number;
-    score?: number;
-    created_at: string;
+    exercise_slug: string | null;
+    is_correct: boolean | null;
+    created_at: string | null;
   }>;
 }
 
