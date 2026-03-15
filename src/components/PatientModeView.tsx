@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, LogOut, Loader2, AlertCircle, Gamepad2, ArrowLeft, Clock, Trophy, Calendar } from "lucide-react";
+import {
+  Play, LogOut, Loader2, AlertCircle, Gamepad2,
+  Clock, Trophy, Calendar, Home, BarChart3,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
@@ -11,6 +14,9 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+
+import { PatientProgressView } from "@/components/patient/PatientProgressView";
+import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -21,81 +27,8 @@ interface PatientModeViewProps {
   onStartAssessment?: () => void;
 }
 
-// Explicit state machine for patient view
-type PatientViewState = 'loading' | 'needs-assessment' | 'generating-lesson' | 'ready';
-
-// Patient-friendly game info with emojis, descriptions, and difficulty labels
-type GameDifficulty = 'easy' | 'medium' | 'challenge';
-type GameCategory = 'motor' | 'speech' | 'thinking';
-
-interface GameInfo {
-  emoji: string;
-  name: string;
-  desc: string;
-  difficulty: GameDifficulty;
-  category: GameCategory;
-}
-
-const DIFFICULTY_LABELS: Record<GameDifficulty, { text: string; className: string }> = {
-  'easy': { text: 'Good start', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  'medium': { text: 'Try me', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  'challenge': { text: 'Challenge', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-};
-
-const CATEGORY_LABELS: Record<GameCategory, string> = {
-  'motor': '🖐️ Motor',
-  'speech': '🗣️ Speech',
-  'thinking': '🧠 Thinking',
-};
-
-const PATIENT_GAME_INFO: Record<string, GameInfo> = {
-  'reach-tap': { emoji: '🎯', name: 'Tap Targets', desc: 'Tap the circles as they appear', difficulty: 'easy', category: 'motor' },
-  'phrase-practice': { emoji: '🗣️', name: 'Say Phrases', desc: 'Practice saying phrases', difficulty: 'easy', category: 'speech' },
-  'two-clues': { emoji: '🔗', name: 'Two Clues', desc: 'Say a word that connects 2 clues', difficulty: 'easy', category: 'speech' },
-  'photo-naming': { emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech' },
-  'left-side-hunt': { emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side', difficulty: 'medium', category: 'motor' },
-  'phonological': { emoji: '🔤', name: 'Sound Games', desc: 'Practice word sounds', difficulty: 'medium', category: 'speech' },
-  'semantic-features': { emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are', difficulty: 'medium', category: 'thinking' },
-  'pattern-match': { emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes', difficulty: 'challenge', category: 'thinking' },
-  'sentence-construction': { emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech' },
-  'minimal-pairs': { emoji: '👂', name: 'Minimal Pairs', desc: 'Hear and choose the right word', difficulty: 'medium', category: 'speech' },
-  'detective-mind': { emoji: '🔍', name: 'Detective Mind', desc: 'Solve clues and figure things out', difficulty: 'challenge', category: 'thinking' },
-  'meaning-match': { emoji: '💡', name: 'Meaning Match', desc: 'Match words with their meanings', difficulty: 'easy', category: 'thinking' },
-  'narrative-retell': { emoji: '📖', name: 'Story Retell', desc: 'Listen to a story and retell it', difficulty: 'challenge', category: 'speech' },
-  'abstract-compare': { emoji: '⚖️', name: 'Compare Ideas', desc: 'Find what things have in common', difficulty: 'challenge', category: 'thinking' },
-  'multi-step-plan': { emoji: '📋', name: 'Plan Steps', desc: 'Put steps in the right order', difficulty: 'medium', category: 'thinking' },
-  'dual-load-naming': { emoji: '🔄', name: 'Quick Name', desc: 'Name things while multitasking', difficulty: 'challenge', category: 'speech' },
-  'conversation-partner': { emoji: '🎙️', name: 'Free Talk', desc: 'Have a short conversation', difficulty: 'easy', category: 'speech' },
-  'conversation-coach': { emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises', difficulty: 'easy', category: 'speech' },
-  'fix-sentence': { emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking' },
-  'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
-  'thought-continuation': { emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences and ideas', difficulty: 'easy', category: 'speech' },
-};
-
-// Route map for exercises
-const EXERCISE_ROUTES: Record<string, string> = {
-  'photo-naming': '/exercise/photo-naming',
-  'reach-tap': '/exercise/reach-tap',
-  'left-side-hunt': '/exercise/left-side-hunt',
-  'pattern-match': '/exercise/pattern-match',
-  'phonological': '/exercise/phonological-awareness',
-  'semantic-features': '/exercise/semantic-features',
-  'sentence-construction': '/exercise/sentence-construction',
-  'phrase-practice': '/exercise/word-practice',
-  'minimal-pairs': '/exercise/minimal-pairs',
-  'two-clues': '/exercise/two-clues',
-  'detective-mind': '/exercise/detective-mind',
-  'meaning-match': '/exercise/meaning-match',
-  'narrative-retell': '/exercise/narrative-retell',
-  'abstract-compare': '/exercise/abstract-compare',
-  'multi-step-plan': '/exercise/multi-step-plan',
-  'dual-load-naming': '/exercise/dual-load-naming',
-  'conversation-partner': '/exercise/conversation-partner',
-  'conversation-coach': '/exercise/conversation-coach',
-  'fix-sentence': '/exercise/fix-sentence',
-  'describe-guess': '/exercise/describe-guess',
-  'thought-continuation': '/exercise/thought-continuation',
-};
+type PatientViewState = "loading" | "needs-assessment" | "generating-lesson" | "ready";
+type PatientTab = "home" | "practice" | "progress";
 
 function getPatientViewState(
   assessmentLoading: boolean,
@@ -103,41 +36,65 @@ function getPatientViewState(
   currentAssessment: any,
   lesson: DailyLesson | null
 ): PatientViewState {
-  if (assessmentLoading) return 'loading';
-  if (!currentAssessment) return 'needs-assessment';
-  if (lessonLoading || !lesson) return 'generating-lesson';
-  return 'ready';
+  if (assessmentLoading) return "loading";
+  if (!currentAssessment) return "needs-assessment";
+  if (lessonLoading || !lesson) return "generating-lesson";
+  return "ready";
 }
 
-export function PatientModeView({ userId, profileId, clinicalProfile, onStartAssessment }: PatientModeViewProps) {
+export function PatientModeView({
+  userId,
+  profileId,
+  clinicalProfile,
+  onStartAssessment,
+}: PatientModeViewProps) {
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
-  const { lesson, loading: lessonLoading, error: lessonError } = useDailyLesson(userId, profileId, clinicalProfile);
+  const {
+    lesson,
+    loading: lessonLoading,
+    error: lessonError,
+  } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
-  const [showGamePicker, setShowGamePicker] = useState(false);
-  
-  // Get last session for "Last time" card
+  const [activeTab, setActiveTab] = useState<PatientTab>("home");
+
   const lastSession = sessions[0];
+  const viewState = getPatientViewState(
+    assessmentLoading,
+    lessonLoading,
+    currentAssessment,
+    lesson
+  );
 
-  const viewState = getPatientViewState(assessmentLoading, lessonLoading, currentAssessment, lesson);
-
-  // Show ALL games in free play mode - gating is for guided lessons only
-  const availableGames = Object.entries(PATIENT_GAME_INFO).map(([id, info]) => ({
-    id,
-    ...info,
-  }));
+  // Calculate streak from session history
+  const streak = useMemo(() => {
+    if (!sessions.length) return 0;
+    let count = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = checkDate.toISOString().split("T")[0];
+      const hasSession = sessions.some(
+        (s) => s.startedAt.split("T")[0] === dateStr
+      );
+      if (hasSession) count++;
+      else if (i > 0) break; // Allow today to be missing
+    }
+    return count;
+  }, [sessions]);
 
   const handleStartSession = () => {
     if (!lesson) return;
-    
-    navigate('/lesson', { 
-      state: { 
-        lesson, 
+    navigate("/lesson", {
+      state: {
+        lesson,
         clinicalProfile,
         skipDailyCheck: true,
         autoStart: true,
-      }
+      },
     });
   };
 
@@ -148,92 +105,41 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
   };
 
   const handleStartAssessment = () => {
-    console.log('[PatientMode] Starting assessment - switching to caregiver mode');
-    setUiMode('caregiver');
-    
+    setUiMode("caregiver");
     setTimeout(() => {
-      console.log('[PatientMode] Triggering assessment modal');
-      if (onStartAssessment) {
-        onStartAssessment();
-      }
+      if (onStartAssessment) onStartAssessment();
     }, 100);
   };
 
-  const handleSelectGame = (exerciseId: string) => {
-    const route = EXERCISE_ROUTES[exerciseId];
-    if (route) {
-      navigate(route, { 
-        state: { 
-          fromLesson: false,
-          userId,
-          profileId,
-        }
-      });
-    }
-  };
-
-
-  // Game Picker View - check BEFORE viewState early returns so it works from any state
-  if (showGamePicker) {
-    return (
-      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
-          <UiModeToggle />
-        </div>
-        <div className="max-w-2xl mx-auto">
-          <Button
-            variant="ghost"
-            onClick={() => setShowGamePicker(false)}
-            className="mb-4 min-h-[48px] text-lg"
+  // ── Bottom Tab Bar ──
+  const TabBar = () => (
+    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-bottom">
+      <div className="flex justify-around max-w-lg mx-auto">
+        {([
+          { id: "home" as PatientTab, icon: Home, label: "Home" },
+          { id: "practice" as PatientTab, icon: Gamepad2, label: "Practice" },
+          { id: "progress" as PatientTab, icon: BarChart3, label: "Progress" },
+        ]).map(({ id, icon: Icon, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 flex flex-col items-center py-3 min-h-[56px] transition-colors touch-manipulation
+              ${activeTab === id
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+              }`}
           >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back
-          </Button>
-
-          <Card className="p-6 md:p-8 shadow-xl border-2">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                Choose a Game
-              </h1>
-              <p className="text-muted-foreground">
-                Pick any exercise you'd like to practice
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {availableGames.map((game) => {
-                const difficultyInfo = DIFFICULTY_LABELS[game.difficulty];
-                return (
-                  <button
-                    key={game.id}
-                    onClick={() => handleSelectGame(game.id)}
-                    className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
-                      hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
-                      min-h-[90px] touch-manipulation"
-                  >
-                    <span className="text-3xl">{game.emoji}</span>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-foreground">{game.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyInfo.className}`}>
-                          {difficultyInfo.text}
-                        </span>
-                      </div>
-                      <span className="text-sm text-muted-foreground block">{game.desc}</span>
-                      <span className="text-xs text-muted-foreground/70">{CATEGORY_LABELS[game.category]}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+            <Icon className="w-6 h-6" />
+            <span className="text-xs font-medium mt-1">{label}</span>
+          </button>
+        ))}
       </div>
-    );
-  }
+    </div>
+  );
 
-  // Loading state (initial load)
-  if (viewState === 'loading') {
+  // ── Pre-ready states (loading, assessment, generating) ──
+  // These bypass the tab system
+  if (viewState === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute top-4 right-4 z-10">
@@ -252,7 +158,7 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
     );
   }
 
-  if (viewState === 'needs-assessment') {
+  if (viewState === "needs-assessment") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute top-4 right-4 z-10">
@@ -278,22 +184,22 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
               <span>Start Setup</span>
             </Button>
             <Button
-              onClick={() => setShowGamePicker(true)}
+              onClick={() => setActiveTab("practice")}
               variant="outline"
               size="lg"
-              className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
+              className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
             >
-              <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
+              <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 mr-3 shrink-0" />
               <span>Just try a game</span>
             </Button>
           </div>
         </Card>
+        <TabBar />
       </div>
     );
   }
 
-  // Generating lesson state - assessment done, building lesson
-  if (viewState === 'generating-lesson') {
+  if (viewState === "generating-lesson") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute top-4 right-4 z-10">
@@ -310,20 +216,20 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             </p>
           </div>
           <Button
-            onClick={() => setShowGamePicker(true)}
+            onClick={() => setActiveTab("practice")}
             variant="outline"
             size="lg"
-            className="min-h-[64px] text-lg sm:text-xl font-semibold px-6 py-4 rounded-xl border-2 flex items-center justify-center gap-3"
+            className="min-h-[64px] text-lg sm:text-xl font-semibold px-6 py-4 rounded-xl border-2"
           >
-            <Gamepad2 className="w-6 h-6 shrink-0" />
+            <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
             <span>Play a game while waiting</span>
           </Button>
         </Card>
+        <TabBar />
       </div>
     );
   }
 
-  // Error state
   if (lessonError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
@@ -341,143 +247,192 @@ export function PatientModeView({ userId, profileId, clinicalProfile, onStartAss
             </p>
           </div>
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => setActiveTab("practice")}
             variant="outline"
             size="lg"
             className="min-h-[80px] text-xl md:text-2xl font-semibold px-8 py-4 rounded-xl"
           >
-            Go to Dashboard
+            <Gamepad2 className="w-6 h-6 mr-3" />
+            Choose a game instead
           </Button>
         </Card>
+        <TabBar />
       </div>
     );
   }
 
-
-  // Main Patient Mode view - ready state
+  // ── Main 3-tab patient view ──
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen pb-20 bg-gradient-to-br from-background via-background to-primary/5">
       <div className="absolute top-4 right-4 z-10">
         <UiModeToggle />
       </div>
-      <Card className="max-w-3xl w-full p-8 md:p-16 space-y-10 text-center shadow-2xl border-2">
-        {/* Last Session Card - only show if there's a previous session */}
-        {lastSession && (
-          <button
-            onClick={() => navigate('/history')}
-            className="w-full bg-muted/50 rounded-xl p-4 text-left hover:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Calendar className="h-4 w-4" />
-              <span>Last time ({formatDistanceToNow(new Date(lastSession.endedAt || lastSession.startedAt), { addSuffix: true })})</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                {lastSession.durationSec && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{Math.round(lastSession.durationSec / 60)} min</span>
+
+      <div className="max-w-2xl mx-auto px-4 pt-6 md:pt-10">
+        {/* ── Home Tab ── */}
+        {activeTab === "home" && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Last session card */}
+            {lastSession && (
+              <button
+                onClick={() => navigate("/history")}
+                className="w-full bg-muted/50 rounded-xl p-4 text-left hover:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer min-h-[56px]"
+              >
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    Last time (
+                    {formatDistanceToNow(
+                      new Date(lastSession.endedAt || lastSession.startedAt),
+                      { addSuffix: true }
+                    )}
+                    )
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    {lastSession.durationSec && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-base">
+                          {Math.round(lastSession.durationSec / 60)} min
+                        </span>
+                      </div>
+                    )}
+                    {(() => {
+                      const accuracies = lastSession.exercises
+                        .map((ex) => ex.accuracy)
+                        .filter(
+                          (v): v is number =>
+                            typeof v === "number" && !isNaN(v)
+                        );
+                      const avgAccuracy = accuracies.length
+                        ? Math.round(
+                            accuracies.reduce((a, b) => a + b, 0) /
+                              accuracies.length
+                          )
+                        : null;
+                      return (
+                        avgAccuracy !== null && (
+                          <div className="flex items-center gap-1.5">
+                            <Trophy className="h-4 w-4 text-amber-500" />
+                            <span className="font-medium text-base">
+                              {avgAccuracy}% accuracy
+                            </span>
+                          </div>
+                        )
+                      );
+                    })()}
                   </div>
-                )}
-                {(() => {
-                  const accuracies = lastSession.exercises
-                    .map(ex => ex.accuracy)
-                    .filter((v): v is number => typeof v === 'number' && !isNaN(v));
-                  const avgAccuracy = accuracies.length
-                    ? Math.round(accuracies.reduce((a, b) => a + b, 0) / accuracies.length)
-                    : null;
-                  return avgAccuracy !== null && (
-                    <div className="flex items-center gap-1.5">
-                      <Trophy className="h-4 w-4 text-amber-500" />
-                      <span className="font-medium">{avgAccuracy}% accuracy</span>
-                    </div>
-                  );
-                })()}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {lastSession.exercises.reduce((sum, ex) => sum + (ex.totalTrials ?? 0), 0)} trials
-              </span>
+                  <span className="text-xs text-muted-foreground">
+                    {lastSession.exercises.reduce(
+                      (sum, ex) => sum + (ex.totalTrials ?? 0),
+                      0
+                    )}{" "}
+                    trials
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {/* Greeting */}
+            <div className="text-center space-y-3 py-4">
+              <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight">
+                Ready to practice?
+              </h1>
+              <p className="text-lg md:text-xl text-muted-foreground font-medium">
+                No wrong answers. You can stop anytime. 💛
+              </p>
             </div>
-          </button>
+
+            {/* Primary CTA */}
+            <div className="space-y-4">
+              <Button
+                onClick={handleStartSession}
+                size="lg"
+                aria-label="Start today's therapy session"
+                className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+              >
+                <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
+                <span className="text-center leading-tight">
+                  Start Today's Session
+                </span>
+              </Button>
+
+              {/* Comprehension Session */}
+              <Button
+                onClick={() => {
+                  const presetLesson = buildPresetLesson(
+                    "comprehension_session"
+                  );
+                  if (presetLesson) {
+                    navigate("/lesson", {
+                      state: {
+                        lesson: presetLesson,
+                        clinicalProfile,
+                        skipDailyCheck: true,
+                        autoStart: true,
+                      },
+                    });
+                  } else {
+                    toast("Comprehension Session unavailable", {
+                      duration: 3000,
+                    });
+                  }
+                }}
+                variant="outline"
+                size="lg"
+                className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
+              >
+                <span className="text-2xl mr-2">🧠</span>
+                <span>Comprehension Session</span>
+              </Button>
+
+              {/* Choose a game */}
+              <Button
+                onClick={() => setActiveTab("practice")}
+                variant="outline"
+                size="lg"
+                className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
+              >
+                <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
+                <span>Choose a game I like</span>
+              </Button>
+            </div>
+
+            {/* Rest option */}
+            <div className="text-center">
+              <Button
+                onClick={handleRest}
+                variant="ghost"
+                size="lg"
+                aria-label="Take a rest break"
+                className="min-h-[56px] text-lg md:text-xl text-muted-foreground hover:text-foreground px-8 py-4 rounded-xl hover:bg-accent/50 active:scale-[0.98] transition-all"
+              >
+                <LogOut className="w-5 h-5 md:w-6 md:h-6 mr-3" />
+                I need to rest
+              </Button>
+            </div>
+          </div>
         )}
 
-        {/* Friendly greeting */}
-        <div className="space-y-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
-            Ready to practice?
-          </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground font-medium">
-            No wrong answers. You can stop anytime. 💛
-          </p>
-        </div>
+        {/* ── Practice Tab ── */}
+        {activeTab === "practice" && (
+          <PatientPracticeView userId={userId} profileId={profileId} />
+        )}
 
-        {/* Big primary button - Extra large touch target */}
-        <div className="space-y-4">
-          <Button
-            onClick={handleStartSession}
-            size="lg"
-            aria-label="Start today's therapy session"
-            aria-describedby="session-help-text"
-            className="w-full min-h-[120px] sm:min-h-[140px] md:min-h-[180px] text-xl sm:text-2xl md:text-4xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
-          >
-            <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 shrink-0" />
-            <span className="text-center leading-tight">Start Today's Session</span>
-          </Button>
-          <p id="session-help-text" className="sr-only">
-            This button will start your personalized therapy exercises for today
-          </p>
+        {/* ── Progress Tab ── */}
+        {activeTab === "progress" && (
+          <PatientProgressView
+            userId={userId}
+            profileId={profileId}
+            streak={streak}
+          />
+        )}
+      </div>
 
-          {/* Comprehension Session */}
-          <Button
-            onClick={() => {
-              const presetLesson = buildPresetLesson('comprehension_session');
-              if (presetLesson) {
-                navigate('/lesson', { 
-                  state: { 
-                    lesson: presetLesson, 
-                    clinicalProfile,
-                    skipDailyCheck: true,
-                    autoStart: true,
-                  }
-                });
-              } else {
-                toast('Comprehension Session unavailable', { duration: 3000 });
-              }
-            }}
-            variant="outline"
-            size="lg"
-            className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
-          >
-            <span className="text-2xl">🧠</span>
-            <span>Comprehension Session</span>
-          </Button>
-
-          {/* Secondary: Choose a game */}
-          <Button
-            onClick={() => setShowGamePicker(true)}
-            variant="outline"
-            size="lg"
-            className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3"
-          >
-            <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" />
-            <span>Choose a game I like</span>
-          </Button>
-        </div>
-
-        {/* Small rest option */}
-        <div>
-          <Button
-            onClick={handleRest}
-            variant="ghost"
-            size="lg"
-            aria-label="Take a rest break"
-            className="min-h-[64px] text-xl md:text-2xl text-muted-foreground hover:text-foreground px-8 py-4 rounded-xl hover:bg-accent/50 active:scale-[0.98] transition-all"
-          >
-            <LogOut className="w-6 h-6 md:w-7 md:h-7 mr-3" />
-            I need to rest
-          </Button>
-        </div>
-      </Card>
+      {/* Bottom tab bar */}
+      <TabBar />
     </div>
   );
 }

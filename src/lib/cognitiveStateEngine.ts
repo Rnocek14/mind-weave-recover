@@ -14,6 +14,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'lexical_retrieval',
     label: 'Lexical Retrieval',
+    patientLabel: 'Word Finding',
     description: 'Word finding and naming ability',
     exerciseSlugs: ['photo-naming', 'word-finding', 'describe-guess', 'dual-load-naming'],
     icon: 'MessageSquare',
@@ -21,6 +22,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'phonology',
     label: 'Phonology',
+    patientLabel: 'Sound Skills',
     description: 'Sound accuracy and phonological processing',
     exerciseSlugs: ['phonological-awareness', 'minimal-pairs', 'syllable-stress'],
     icon: 'Volume2',
@@ -28,6 +30,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'syntax',
     label: 'Syntax',
+    patientLabel: 'Sentences',
     description: 'Sentence construction and grammar',
     exerciseSlugs: ['fix-sentence', 'sentence-game', 'sentence-building'],
     icon: 'AlignLeft',
@@ -35,6 +38,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'semantic_depth',
     label: 'Semantic Depth',
+    patientLabel: 'Word Meaning',
     description: 'Meaning, categorization, and conceptual reasoning',
     exerciseSlugs: ['meaning-match', 'semantic-features', 'category-sorting', 'odd-one-out', 'abstract-compare'],
     icon: 'Layers',
@@ -42,6 +46,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'executive_function',
     label: 'Executive Function',
+    patientLabel: 'Problem Solving',
     description: 'Reasoning, planning, and cognitive flexibility',
     exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming'],
     icon: 'Brain',
@@ -49,6 +54,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'discourse_organization',
     label: 'Discourse Organization',
+    patientLabel: 'Telling Stories',
     description: 'Staying on topic, narrative structure, conversational flow',
     exerciseSlugs: ['conversation-partner', 'describe-guess', 'thought-organization', 'narrative-retell'],
     icon: 'MessageCircle',
@@ -56,6 +62,7 @@ export const COGNITIVE_DOMAINS = [
   {
     slug: 'cognitive_endurance',
     label: 'Cognitive Endurance',
+    patientLabel: 'Staying Focused',
     description: 'Ability to sustain performance over time',
     exerciseSlugs: [], // Computed across ALL exercises via fatigue slope
     icon: 'Battery',

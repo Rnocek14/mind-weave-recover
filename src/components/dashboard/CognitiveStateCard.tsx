@@ -61,7 +61,7 @@ const DomainRow = memo(function DomainRow({ domain }: { domain: DomainScore }) {
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-medium truncate">{meta?.label || domain.domainSlug}</span>
+          <span className="text-sm font-medium truncate">{meta?.patientLabel || meta?.label || domain.domainSlug}</span>
           <div className="flex items-center gap-1.5 shrink-0">
             {getTrendIcon(domain.trend)}
             {getConfidenceBadge(domain.confidence)}

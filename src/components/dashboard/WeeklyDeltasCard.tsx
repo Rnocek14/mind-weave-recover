@@ -6,6 +6,7 @@ import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
+import { useUiMode } from "@/hooks/useUiMode";
 
 /**
  * "What changed since last week?" — top 2-3 domain deltas for 90-second triage.
@@ -13,6 +14,8 @@ import { useDashboardContext } from "@/hooks/useDashboardContext";
 export const WeeklyDeltasCard = memo(function WeeklyDeltasCard() {
   const { userId } = useDashboardContext();
   const { activeProfile } = useProfile();
+  const { uiMode } = useUiMode();
+  const usePatientLabels = uiMode === "patient" || uiMode === "caregiver";
   const { snapshot, isLoading } = useCognitiveState({
     userId,
     profileId: activeProfile?.id,
@@ -28,7 +31,7 @@ export const WeeklyDeltasCard = memo(function WeeklyDeltasCard() {
       .map((d) => {
         const meta = COGNITIVE_DOMAINS.find((cd) => cd.slug === d.domainSlug);
         return {
-          label: meta?.label || d.domainSlug.replace(/_/g, " "),
+          label: (usePatientLabels ? meta?.patientLabel : meta?.label) || meta?.label || d.domainSlug.replace(/_/g, " "),
           score: Math.round(d.score * 100),
           trend: d.trend,
         };

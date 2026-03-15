@@ -129,6 +129,11 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+  /* Safe area for bottom tab bars on notched devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   /* Assessment target pulsing animation */
   .assessment-target-pulse {
     animation: gentle-pulse 2s ease-in-out infinite;
