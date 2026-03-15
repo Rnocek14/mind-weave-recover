@@ -27,7 +27,10 @@ export default function ConversationCoachExercise() {
   
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId as string | undefined;
   const exerciseCompleteSentRef = useRef(false);
+  
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
   
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
