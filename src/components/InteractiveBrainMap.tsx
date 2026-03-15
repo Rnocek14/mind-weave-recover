@@ -286,7 +286,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                             style={{
                               fontSize: '7px',
                               fontWeight: 700,
-                              fill: 'hsl(215 25% 25%)',
+                              fill: 'hsl(var(--foreground))',
                             }}
                           >
                             {Math.round(score.currentScore)}%
