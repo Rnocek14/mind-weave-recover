@@ -92,39 +92,42 @@ export function DualLoadNamingGame({
         const pronResult = await analyzePronunciation(recordingResult.audioBlob, currentNamingTarget.word);
         
         if (currentAttemptId) {
-          await logFinalAnalysis({
+          const analysisData: Record<string, any> = {
             transcript: transcript.trim(),
             transcriptSource: 'browser',
             isCorrect: transcript.trim().toLowerCase() === currentNamingTarget.word.toLowerCase(),
             recordingDurationMs: recordingResult.duration,
             audioStoragePath: audioStoragePath || undefined,
-            ...(pronResult.ok ? {
-              pronunciationScore: pronResult.data.pronunciationScore,
-              accuracyScore: pronResult.data.accuracyScore,
-              fluencyScore: pronResult.data.fluencyScore,
-              completenessScore: pronResult.data.completenessScore,
-              prosodyScore: pronResult.data.prosodyScore,
-              gopData: pronResult.data.words,
-              alignmentData: pronResult.data.alignmentData,
-              fluencyAvailable: true,
-              pronunciationDiagnostics: {
-                pronRequestId: pronResult.pronRequestId,
-                pronunciationStatus: 'complete',
-                pronunciationTimingsMs: pronResult.timingsMs,
-                audioMeta: pronResult.audioMeta,
-              },
-            } : {
-              fluencyAvailable: false,
-              fluencyUnavailableReason: 'analysis_error' as const,
-              pronunciationDiagnostics: {
-                pronRequestId: pronResult.pronRequestId,
-                pronunciationStatus: 'failed',
-                pronunciationErrorStage: !pronResult.ok ? pronResult.error.stage : undefined,
-                pronunciationTimingsMs: pronResult.timingsMs,
-                audioMeta: pronResult.audioMeta,
-              },
-            }),
-          });
+          };
+          
+          if (pronResult.ok) {
+            analysisData.pronunciationScore = pronResult.data.pronunciationScore;
+            analysisData.accuracyScore = pronResult.data.accuracyScore;
+            analysisData.fluencyScore = pronResult.data.fluencyScore;
+            analysisData.completenessScore = pronResult.data.completenessScore;
+            analysisData.prosodyScore = pronResult.data.prosodyScore;
+            analysisData.gopData = pronResult.data.words;
+            analysisData.alignmentData = pronResult.data.alignmentData;
+            analysisData.fluencyAvailable = true;
+            analysisData.pronunciationDiagnostics = {
+              pronRequestId: pronResult.pronRequestId,
+              pronunciationStatus: 'complete' as const,
+              pronunciationTimingsMs: pronResult.timingsMs,
+              audioMeta: pronResult.audioMeta,
+            };
+          } else {
+            analysisData.fluencyAvailable = false;
+            analysisData.fluencyUnavailableReason = 'analysis_error';
+            analysisData.pronunciationDiagnostics = {
+              pronRequestId: pronResult.pronRequestId,
+              pronunciationStatus: 'failed' as const,
+              pronunciationErrorStage: pronResult.error.stage,
+              pronunciationTimingsMs: pronResult.timingsMs,
+              audioMeta: pronResult.audioMeta,
+            };
+          }
+          
+          await logFinalAnalysis(analysisData as any);
           resetAttempt();
         }
       }
