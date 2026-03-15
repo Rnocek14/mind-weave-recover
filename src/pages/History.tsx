@@ -152,35 +152,15 @@ export default function History() {
                         <div className="text-xs text-muted-foreground">Exercises</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-accent">{avgScore}</div>
-                        <div className="text-xs text-muted-foreground">Avg Score</div>
+                        <div className="text-2xl font-bold text-accent">{accuracy}%</div>
+                        <div className="text-xs text-muted-foreground">Accuracy</div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Simple sparkline for score progression */}
-                  {scores.length > 1 && (
-                    <div className="mt-4">
-                      <svg className="w-full h-12" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <polyline
-                          points={scores.map((s, i) => {
-                            const x = (i / (scores.length - 1)) * 100;
-                            const max = Math.max(...scores, 1);
-                            const y = 100 - (s / max) * 80;
-                            return `${x},${y}`;
-                          }).join(" ")}
-                          fill="none"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth="2"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      </svg>
-                    </div>
-                  )}
-
                   <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                     <TrendingUp className="w-4 h-4" />
-                    <span>{exercises.map(e => e.replace(/-/g, " ")).join(" • ")}</span>
+                    <span>{exercises.map((e: string) => e.replace(/-/g, " ")).join(" • ") || "No exercises"}</span>
                   </div>
                 </Card>
               );
