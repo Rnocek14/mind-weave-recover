@@ -25,17 +25,6 @@ import {
 } from '@/lib/adaptiveDecisionEngine';
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
-import type { ClinicalProfile } from '@/lib/clinicalProfileMapper';
-import { suggestInteractionMode, type CaregiverObservations } from '@/lib/capabilityScoreSmoothing';
-import { 
-  computeTodayFocus, 
-  type TodayFocus, 
-  type AdaptiveEngineInput,
-  type SignalCounts,
-  type SpeechProfileSummary,
-  type DomainExposure7d,
-} from '@/lib/adaptiveDecisionEngine';
-import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
