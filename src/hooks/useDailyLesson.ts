@@ -24,6 +24,7 @@ import {
   type DomainExposure7d,
 } from '@/lib/adaptiveDecisionEngine';
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
+import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
@@ -154,13 +155,23 @@ export const useDailyLesson = (
       } : null;
 
       if (!recentSessions || recentSessions.length === 0) {
-        // No recent activity - use defaults
+        // No recent activity - use defaults but still fetch recency for returning users
         const defaultSignals = aggregatePerformanceSignals([], []);
         setPerformanceSignals(defaultSignals);
         
-        // Get suggested mode from current assessment
         const caregiverObs = assessmentToUse?.clinical_snapshot?.caregiver_observations as CaregiverObservations | undefined;
         const mode = suggestInteractionMode(caregiverObs);
+        
+        // Fetch recency even for "no recent sessions" — user may have older data
+        let recency: RecencyPenalties | null = null;
+        try {
+          const usage = await fetchRecentExerciseUsage(userId, profileId, 7);
+          if (usage.length > 0) {
+            recency = calculateRecencyPenalties(usage);
+          }
+        } catch (e) {
+          console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
+        }
         
         const defaultLesson = generateDailyLesson(
           scores,
@@ -172,6 +183,7 @@ export const useDailyLesson = (
           readinessInput,
           null,
           preset,
+          recency,
         );
         setLesson(defaultLesson);
         setLoading(false);
@@ -307,7 +319,22 @@ export const useDailyLesson = (
         console.warn('[useDailyLesson] Failed to compute TodayFocus:', focusErr);
       }
 
-      // Generate daily lesson WITH readiness + TodayFocus adaptations
+      // Fetch exercise recency for variety optimization
+      let recency: RecencyPenalties | null = null;
+      try {
+        const usage = await fetchRecentExerciseUsage(userId, profileId, 7);
+        if (usage.length > 0) {
+          recency = calculateRecencyPenalties(usage);
+          console.log('[useDailyLesson] Recency penalties computed:', {
+            penalizedExercises: Array.from(recency.exercisePenalties.entries()),
+            penalizedComponents: Array.from(recency.componentPenalties.entries()),
+          });
+        }
+      } catch (e) {
+        console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
+      }
+
+      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency
       const dailyLesson = generateDailyLesson(
         scores,
         clinicalProfile,
@@ -322,6 +349,7 @@ export const useDailyLesson = (
           suggestedSessionMinutes: focus.suggestedSessionMinutes,
         } : null,
         preset,
+        recency,
       );
 
       setLesson(dailyLesson);
