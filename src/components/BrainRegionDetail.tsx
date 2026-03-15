@@ -243,11 +243,11 @@ export const BrainRegionDetail = ({ region, score, profile, affectedTerritories 
 
 // ── Clinical Interpretation Strip ─────────────────────────────────────────
 
-const CONFIDENCE_STYLES: Record<string, { variant: 'default' | 'secondary' | 'outline'; label: string }> = {
-  high: { variant: 'default', label: 'High confidence' },
-  moderate: { variant: 'secondary', label: 'Moderate confidence' },
-  low: { variant: 'outline', label: 'Low confidence' },
-  none: { variant: 'outline', label: 'No data' },
+const CONFIDENCE_STYLES: Record<string, { variant: 'default' | 'secondary' | 'outline'; label: string; tooltip: string }> = {
+  high: { variant: 'default', label: 'High confidence', tooltip: '30+ exercise trials contributing to this estimate' },
+  moderate: { variant: 'secondary', label: 'Moderate confidence', tooltip: '10–29 exercise trials contributing to this estimate' },
+  low: { variant: 'outline', label: 'Low confidence', tooltip: 'Limited exercise data available — interpret with caution' },
+  none: { variant: 'outline', label: 'No data', tooltip: 'No exercise-derived data for this region yet' },
 };
 
 function ClinicalInterpretationStrip({
