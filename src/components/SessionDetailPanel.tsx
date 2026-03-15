@@ -1,0 +1,345 @@
+import { useEffect, useState, useRef } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Clock, Target, TrendingUp, Volume2, VolumeX, CheckCircle2, XCircle,
+  AlertTriangle, Zap, Brain
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface TrialData {
+  attempt_id: string;
+  target_word: string;
+  transcript: string | null;
+  is_correct: boolean | null;
+  exercise_slug: string | null;
+  latency_ms: number | null;
+  error_type: string | null;
+  cue_type_given: string | null;
+  cue_was_effective: boolean | null;
+  audio_storage_path: string | null;
+  recording_duration_ms: number | null;
+  pronunciation_status: string | null;
+  semantic_similarity: number | null;
+  phonological_similarity: number | null;
+  stuck_type: string | null;
+  speech_rate_wpm: number | null;
+  created_at: string | null;
+}
+
+interface SessionDetailPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  session: {
+    id: string;
+    started_at: string;
+    ended_at?: string;
+    duration_sec?: number;
+    summary?: any;
+  } | null;
+}
+
+export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetailPanelProps) {
+  const [trials, setTrials] = useState<TrialData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (session && open) {
+      fetchTrials(session.id);
+    }
+    return () => {
+      stopAudio();
+    };
+  }, [session?.id, open]);
+
+  const fetchTrials = async (sessionId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("utterance_analyses")
+        .select(
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
+        )
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setTrials(data ?? []);
+    } catch (err) {
+      console.error("Error fetching session trials:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingId(null);
+  };
+
+  const playAudio = async (path: string, attemptId: string) => {
+    if (playingId === attemptId) {
+      stopAudio();
+      return;
+    }
+
+    stopAudio();
+
+    try {
+      const { data } = await supabase.storage
+        .from("session-recordings")
+        .createSignedUrl(path, 60);
+
+      if (data?.signedUrl) {
+        const audio = new Audio(data.signedUrl);
+        audio.onended = () => setPlayingId(null);
+        audio.onerror = () => setPlayingId(null);
+        audioRef.current = audio;
+        setPlayingId(attemptId);
+        await audio.play();
+      }
+    } catch (err) {
+      console.error("Error playing audio:", err);
+      setPlayingId(null);
+    }
+  };
+
+  if (!session) return null;
+
+  // Compute summary stats
+  const totalTrials = trials.length;
+  const correctTrials = trials.filter((t) => t.is_correct === true).length;
+  const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
+  const avgLatency = totalTrials > 0
+    ? Math.round(trials.reduce((s, t) => s + (t.latency_ms ?? 0), 0) / totalTrials)
+    : 0;
+  const exercises = Array.from(new Set(trials.map((t) => t.exercise_slug).filter(Boolean))) as string[];
+
+  // Error breakdown
+  const errorCounts: Record<string, number> = {};
+  trials.forEach((t) => {
+    const type = t.error_type ?? "unknown";
+    errorCounts[type] = (errorCounts[type] || 0) + 1;
+  });
+
+  const durationMin = Math.round((session.duration_sec ?? 0) / 60);
+  const sessionDate = new Date(session.started_at).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const sessionTime = new Date(session.started_at).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const errorTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      correct: "Correct",
+      semantic_paraphasia: "Semantic error",
+      phonological_paraphasia: "Phonological error",
+      timeout: "Timeout",
+      no_response: "No response",
+      unrelated: "Unrelated",
+      unknown: "Unknown",
+    };
+    return map[type] || type.replace(/_/g, " ");
+  };
+
+  const errorTypeColor = (type: string) => {
+    if (type === "correct") return "bg-green-500/10 text-green-700 border-green-200";
+    if (type.includes("semantic")) return "bg-amber-500/10 text-amber-700 border-amber-200";
+    if (type.includes("phonological")) return "bg-orange-500/10 text-orange-700 border-orange-200";
+    if (type === "timeout" || type === "no_response") return "bg-red-500/10 text-red-700 border-red-200";
+    return "bg-muted text-muted-foreground";
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader className="pb-4">
+          <SheetTitle className="text-left">
+            <span className="block text-lg font-bold">{sessionDate}</span>
+            <span className="block text-sm font-normal text-muted-foreground">
+              {sessionTime} · {durationMin} min
+            </span>
+          </SheetTitle>
+        </SheetHeader>
+
+        {loading ? (
+          <div className="space-y-4 mt-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : totalTrials === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Brain className="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p>No trial data recorded for this session.</p>
+          </div>
+        ) : (
+          <Tabs defaultValue="summary" className="mt-2">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="detailed">Trials ({totalTrials})</TabsTrigger>
+            </TabsList>
+
+            {/* ─── Summary Tab ─── */}
+            <TabsContent value="summary" className="space-y-4 mt-4">
+              {/* Key metrics */}
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-3 text-center">
+                  <Target className="w-4 h-4 mx-auto mb-1 text-primary" />
+                  <div className="text-2xl font-bold text-primary">{accuracy}%</div>
+                  <div className="text-xs text-muted-foreground">Accuracy</div>
+                </Card>
+                <Card className="p-3 text-center">
+                  <Zap className="w-4 h-4 mx-auto mb-1 text-amber-500" />
+                  <div className="text-2xl font-bold">{avgLatency}<span className="text-sm font-normal">ms</span></div>
+                  <div className="text-xs text-muted-foreground">Avg RT</div>
+                </Card>
+                <Card className="p-3 text-center">
+                  <TrendingUp className="w-4 h-4 mx-auto mb-1 text-green-500" />
+                  <div className="text-2xl font-bold">{totalTrials}</div>
+                  <div className="text-xs text-muted-foreground">Trials</div>
+                </Card>
+              </div>
+
+              {/* Exercise breakdown */}
+              <Card className="p-4">
+                <h3 className="text-sm font-semibold mb-3">Exercises</h3>
+                <div className="space-y-2">
+                  {exercises.map((slug) => {
+                    const exTrials = trials.filter((t) => t.exercise_slug === slug);
+                    const exCorrect = exTrials.filter((t) => t.is_correct).length;
+                    const exAcc = Math.round((exCorrect / exTrials.length) * 100);
+                    return (
+                      <div key={slug} className="flex items-center justify-between">
+                        <span className="text-sm capitalize">{slug.replace(/_/g, " ").replace(/-/g, " ")}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{exTrials.length} trials</span>
+                          <Badge variant={exAcc >= 80 ? "default" : exAcc >= 50 ? "secondary" : "destructive"}>
+                            {exAcc}%
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Error breakdown */}
+              <Card className="p-4">
+                <h3 className="text-sm font-semibold mb-3">Response Breakdown</h3>
+                <div className="space-y-2">
+                  {Object.entries(errorCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {type === "correct" ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                          <span className="text-sm">{errorTypeLabel(type)}</span>
+                        </div>
+                        <span className="text-sm font-medium">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              </Card>
+            </TabsContent>
+
+            {/* ─── Detailed Tab ─── */}
+            <TabsContent value="detailed" className="space-y-2 mt-4">
+              {trials.map((trial, idx) => (
+                <Card
+                  key={trial.attempt_id}
+                  className={`p-3 border-l-4 ${
+                    trial.is_correct
+                      ? "border-l-green-500"
+                      : "border-l-red-400"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-muted-foreground font-mono">#{idx + 1}</span>
+                        <span className="font-semibold text-sm truncate">{trial.target_word}</span>
+                        {trial.is_correct ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                        )}
+                      </div>
+
+                      {/* Transcript */}
+                      {trial.transcript && (
+                        <p className="text-xs text-muted-foreground mb-1.5">
+                          Said: "<span className="italic">{trial.transcript}</span>"
+                        </p>
+                      )}
+
+                      {/* Badges row */}
+                      <div className="flex flex-wrap gap-1">
+                        {trial.error_type && trial.error_type !== "correct" && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${errorTypeColor(trial.error_type)}`}>
+                            {errorTypeLabel(trial.error_type)}
+                          </span>
+                        )}
+                        {trial.latency_ms != null && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                            {trial.latency_ms}ms
+                          </span>
+                        )}
+                        {trial.cue_type_given && trial.cue_type_given !== "none" && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-700 border border-blue-200">
+                            Cue: {trial.cue_type_given}
+                            {trial.cue_was_effective === true && " ✓"}
+                            {trial.cue_was_effective === false && " ✗"}
+                          </span>
+                        )}
+                        {trial.speech_rate_wpm != null && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                            {Math.round(trial.speech_rate_wpm)} wpm
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Audio button */}
+                    {trial.audio_storage_path && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
+                        aria-label={playingId === trial.attempt_id ? "Stop audio" : "Play audio"}
+                      >
+                        {playingId === trial.attempt_id ? (
+                          <VolumeX className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </TabsContent>
+          </Tabs>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}

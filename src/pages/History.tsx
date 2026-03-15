@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { SessionDetailPanel } from "@/components/SessionDetailPanel";
 
 interface SessionWithEvents {
   session: {
@@ -26,6 +27,8 @@ export default function History() {
   const navigate = useNavigate();
   const [history, setHistory] = useState<SessionWithEvents[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSession, setSelectedSession] = useState<SessionWithEvents["session"] | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -165,7 +168,14 @@ export default function History() {
               const accuracy = totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
 
               return (
-                <Card key={session.id} className="p-6 shadow-card hover:shadow-glow transition-shadow">
+                <Card 
+                  key={session.id} 
+                  className="p-6 shadow-card hover:shadow-glow transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedSession(session);
+                    setPanelOpen(true);
+                  }}
+                >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -207,6 +217,12 @@ export default function History() {
           </div>
         )}
       </div>
+
+      <SessionDetailPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        session={selectedSession}
+      />
     </div>
   );
 }
