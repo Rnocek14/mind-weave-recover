@@ -258,9 +258,9 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         style={{
                           fontSize: regionId === 'cerebellum' || regionId === 'brainstem' ? '8px' : '9px',
                           fontWeight: 600,
-                          fill: isSelected ? 'hsl(var(--primary))' : 'hsl(215 25% 25%)',
+                          fill: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
                           letterSpacing: '0.02em',
-                          textShadow: '0 1px 2px rgba(255,255,255,0.8)',
+                          textShadow: '0 1px 2px hsl(var(--card) / 0.8)',
                         }}
                       >
                         {region.label}
