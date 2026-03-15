@@ -166,10 +166,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
           >
             <defs>
               {/* Subtle gradient for background */}
-              <radialGradient id="brain-bg" cx="50%" cy="45%" r="55%">
-                <stop offset="0%" stopColor="hsl(210 40% 98%)" />
-                <stop offset="100%" stopColor="hsl(210 30% 94%)" />
-              </radialGradient>
+              {/* Background uses CSS variables for dark mode support */}
               {/* Glow filter for selected region */}
               <filter id="region-glow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="4" result="blur" />
