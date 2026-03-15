@@ -86,12 +86,19 @@ async function calculateTrend(
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
+  // DB stores slugs in both formats
+  const allVariants = [
+    ...exerciseSlugs,
+    ...exerciseSlugs.map(s => s.replace(/-/g, '_')),
+  ];
+  const uniqueVariants = [...new Set(allVariants)];
+
   // Recent performance (last 2 weeks)
   const { data: recentEvents } = await supabase
     .from('exercise_events')
     .select('score, session_id!inner(user_id)')
     .eq('session_id.user_id', userId)
-    .in('exercise_slug', exerciseSlugs)
+    .in('exercise_slug', uniqueVariants)
     .gte('created_at', twoWeeksAgo.toISOString());
 
   // Previous performance (2-4 weeks ago)
@@ -99,7 +106,7 @@ async function calculateTrend(
     .from('exercise_events')
     .select('score, session_id!inner(user_id)')
     .eq('session_id.user_id', userId)
-    .in('exercise_slug', exerciseSlugs)
+    .in('exercise_slug', uniqueVariants)
     .gte('created_at', fourWeeksAgo.toISOString())
     .lt('created_at', twoWeeksAgo.toISOString());
 
