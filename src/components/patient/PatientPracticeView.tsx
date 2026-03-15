@@ -104,11 +104,12 @@ export const PatientPracticeView = memo(function PatientPracticeView({
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="text-center py-2">
-        <h2 className="text-xl md:text-2xl font-bold text-foreground">
-          Choose a Game
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Choose an exercise</p>
+        <h2 className="text-xl md:text-2xl font-bold text-foreground mt-1">
+          Pick a Game
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Pick any exercise you'd like to practice
+          Any exercise you'd like to practice
         </p>
       </div>
 

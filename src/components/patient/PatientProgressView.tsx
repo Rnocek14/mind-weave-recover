@@ -92,8 +92,9 @@ export const PatientProgressView = memo(function PatientProgressView({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Encouraging headline */}
+      {/* Orientation cue + encouraging headline */}
       <div className="text-center space-y-2 py-4">
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">See how you're doing</p>
         <p className="text-xl md:text-2xl font-semibold text-foreground">
           {encouragement}
         </p>
