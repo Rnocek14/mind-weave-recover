@@ -81,7 +81,7 @@ const REGION_PATHS: Record<RegionId, { d: string; label: string; labelPos: { x: 
   },
   brainstem: {
     d: "M 254,282 C 252,298 248,312 240,324 C 234,334 226,340 218,338 C 212,336 208,328 206,318 C 204,308 206,296 212,286 C 218,278 228,272 240,270 C 248,268 252,272 254,282 Z",
-    label: "Stem",
+    label: "Brainstem",
     labelPos: { x: 230, y: 305 },
   },
   subcortical: {
