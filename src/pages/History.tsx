@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { SessionDetailPanel } from "@/components/SessionDetailPanel";
 
 interface SessionWithEvents {
   session: {
