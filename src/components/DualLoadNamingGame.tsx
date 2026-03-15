@@ -225,21 +225,8 @@ export function DualLoadNamingGame({
     submitNaming('', reactionTimeMs);
     namingTrialIndexRef.current += 1;
     namingStartRef.current = Date.now();
-    
-    // Start new attempt for next target
-    if (phase === 'naming' && currentNamingTarget) {
-      startAttempt({
-        sessionId: sessionId || 'standalone',
-        userId: userId || 'anonymous',
-        exerciseSlug: 'dual-load-naming',
-        trialIndex: namingTrialIndexRef.current,
-        attemptNumber: 1,
-        targetWord: currentNamingTarget.word,
-        category: 'naming',
-      });
-      startRecording();
-    }
-  }, [submitNaming, stopRecording, currentAttemptId, logFinalAnalysis, resetAttempt, startAttempt, startRecording, userId, sessionId, phase, currentNamingTarget]);
+    // Next attempt + recording handled by useEffect watching currentNamingTarget
+  }, [submitNaming, stopRecording, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   // Stop listening when entering recall phase
   useEffect(() => {
