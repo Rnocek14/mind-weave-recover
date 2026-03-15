@@ -145,7 +145,7 @@ export default function History() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
                         <div className="text-2xl font-bold text-primary">{events.length}</div>
-                        <div className="text-xs text-muted-foreground">Rounds</div>
+                        <div className="text-xs text-muted-foreground">Trials</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-success">{exercises.length}</div>
