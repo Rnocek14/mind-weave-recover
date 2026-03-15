@@ -278,7 +278,12 @@ function ClinicalInterpretationStrip({
   return (
     <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
-        <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-foreground tracking-wide uppercase">Clinical Summary</p>
+          {severityLabel && (
+            <Badge variant="outline" className="text-[10px] font-normal">{severityLabel}</Badge>
+          )}
+        </div>
         <Badge variant={conf.variant} className="text-[10px]">
           {conf.label}{interpretation.confidence !== 'none' && ` · ${interpretation.confidenceLabel}`}
         </Badge>
