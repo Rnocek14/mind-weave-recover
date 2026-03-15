@@ -31,7 +31,7 @@ export const WeeklyDeltasCard = memo(function WeeklyDeltasCard() {
       .map((d) => {
         const meta = COGNITIVE_DOMAINS.find((cd) => cd.slug === d.domainSlug);
         return {
-          label: meta?.label || d.domainSlug.replace(/_/g, " "),
+          label: (usePatientLabels ? meta?.patientLabel : meta?.label) || meta?.label || d.domainSlug.replace(/_/g, " "),
           score: Math.round(d.score * 100),
           trend: d.trend,
         };
