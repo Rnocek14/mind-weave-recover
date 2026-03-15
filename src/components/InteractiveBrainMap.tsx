@@ -140,7 +140,7 @@ const LEGENDS: Record<MapMode, { color: string; label: string; className?: strin
   function: [
     { color: "hsl(var(--success))", label: "Strong (70%+)" },
     { color: "hsl(var(--warning))", label: "Moderate (50–70%)" },
-    { color: "hsl(25 95% 53%)", label: "Weak (30–50%)" },
+    { color: "hsl(25 95% 53%)", label: "Reduced (30–50%)" },
     { color: "hsl(var(--destructive))", label: "Impaired (<30%)" },
     { color: "transparent", label: "No data", className: "border-dashed border-muted-foreground/40" },
   ],
