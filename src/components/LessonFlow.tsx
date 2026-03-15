@@ -409,71 +409,11 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   if (phase === "summary") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-xl p-8 space-y-6 text-center">
-          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-primary" />
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-3xl font-bold">Lesson Complete!</h2>
-            <p className="text-muted-foreground text-lg">
-              You completed all {lesson.blocks.length} exercises
-            </p>
-            {lesson.reasoning?.[0]?.startsWith('Preset:') && (
-              <p className="text-sm text-muted-foreground">
-                {lesson.reasoning[0].replace('Preset: ', '')}
-              </p>
-            )}
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-6 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Duration:</span>
-              <span className="font-semibold">{lesson.totalDuration} minutes</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Exercises:</span>
-              <span className="font-semibold">{lesson.blocks.length}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Button size="lg" className="w-full" onClick={handleFinish}>
-              Back to Dashboard
-            </Button>
-            {lesson.reasoning?.[0]?.startsWith('Preset:') && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const presetLesson = buildPresetLesson('comprehension_session');
-                  if (presetLesson) {
-                    sessionStorage.removeItem('lessonFlowState');
-                    navigate('/lesson', { 
-                      state: { lesson: presetLesson, runId: Date.now() },
-                      replace: true,
-                    });
-                  } else {
-                    toast.error('Comprehension Session unavailable');
-                  }
-                }}
-              >
-                🔄 Repeat Comprehension Session
-              </Button>
-            )}
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="w-full"
-              onClick={() => navigate('/insights', { state: { defaultTab: 'deep-dive' } })}
-            >
-              View detailed analysis
-            </Button>
-          </div>
-        </Card>
-      </div>
+      <SessionSummaryScreen
+        lesson={lesson}
+        sessionId={sessionId}
+        onFinish={handleFinish}
+      />
     );
   }
 
