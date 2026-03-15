@@ -97,11 +97,6 @@ export function PatientModeView({
     });
   };
 
-  const handleRest = () => {
-    toast("Take all the time you need. Come back when you're ready! 💛", {
-      duration: 4000,
-    });
-  };
 
   const handleStartAssessment = () => {
     setUiMode("caregiver");
