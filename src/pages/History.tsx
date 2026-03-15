@@ -217,6 +217,12 @@ export default function History() {
           </div>
         )}
       </div>
+
+      <SessionDetailPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        session={selectedSession}
+      />
     </div>
   );
 }
