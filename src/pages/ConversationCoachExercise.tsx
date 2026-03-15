@@ -8,6 +8,9 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+
+const EXERCISE_SLUG = 'conversation-coach';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -24,7 +27,10 @@ export default function ConversationCoachExercise() {
   
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId as string | undefined;
   const exerciseCompleteSentRef = useRef(false);
+  
+  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
   
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
@@ -225,7 +231,7 @@ export default function ConversationCoachExercise() {
         <ConversationCoachGame
           userId={user.id}
           profileId={activeProfile?.id || ''}
-          sessionId={null}
+          sessionId={activeSessionId}
           onComplete={handleComplete}
           onExit={handleExit}
         />

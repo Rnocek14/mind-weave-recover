@@ -427,7 +427,9 @@ export function ThoughtContinuationGame({
       promptTheme: currentPrompt.theme,
       recordingDurationMs: speechDuration,
       audioStoragePath: audioStoragePath || undefined,
-      stuckType, // NEW: Log stuck type
+      stuckType,
+      fluencyAvailable: false,
+      fluencyUnavailableReason: 'discourse_task',
     });
     
     // Log decision outcome
@@ -548,7 +550,7 @@ export function ThoughtContinuationGame({
       promptTheme: currentPrompt?.theme,
       stuckType: stuckResult.stuckType,
       fluencyAvailable: false,
-      fluencyUnavailableReason: 'no_recording',
+      fluencyUnavailableReason: 'discourse_task',
     });
     
     // Update history with skip
