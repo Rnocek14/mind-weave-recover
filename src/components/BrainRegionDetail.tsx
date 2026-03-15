@@ -2,6 +2,7 @@ import { BrainRegion, getAffectedRegions } from '@/lib/brainRegionMapper';
 import { RegionFunctionalScore } from '@/lib/functionalScoreCalculator';
 import { interpretRegion } from '@/lib/clinicalInterpretation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
