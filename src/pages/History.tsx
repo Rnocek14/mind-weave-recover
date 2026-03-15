@@ -119,12 +119,11 @@ export default function History() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {history.map(({ session, events }) => {
-              const exercises = Array.from(new Set(events.map((e) => e.exercise_slug)));
-              const scores = events.map((e) => e.score ?? 0).filter((s) => s > 0);
-              const avgScore = scores.length > 0
-                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-                : 0;
+          {history.map(({ session, events }) => {
+              const exercises = Array.from(new Set(events.map((e) => e.exercise_slug).filter(Boolean)));
+              const correctCount = events.filter((e) => e.is_correct === true).length;
+              const totalTrials = events.length;
+              const accuracy = totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
 
               return (
                 <Card key={session.id} className="p-6 shadow-card hover:shadow-glow transition-shadow">
