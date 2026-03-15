@@ -13,6 +13,7 @@ interface BrainRegionDetailProps {
   score: RegionFunctionalScore;
   profile?: { clinical_profile?: any };
   affectedTerritories?: string[];
+  affectedRegionIds?: string[];
 }
 
 export const BrainRegionDetail = ({ region, score, profile, affectedTerritories = [] }: BrainRegionDetailProps) => {
