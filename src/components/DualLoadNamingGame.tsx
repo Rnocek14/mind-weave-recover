@@ -121,7 +121,7 @@ export function DualLoadNamingGame({
               },
             });
           } else {
-            const errorStage = pronResult.error?.stage;
+            const errorStage = !pronResult.ok ? pronResult.error?.stage : undefined;
             await logFinalAnalysis({
               transcript: transcript.trim(),
               transcriptSource: 'browser',
