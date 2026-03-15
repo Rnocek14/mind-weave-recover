@@ -168,7 +168,14 @@ export default function History() {
               const accuracy = totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
 
               return (
-                <Card key={session.id} className="p-6 shadow-card hover:shadow-glow transition-shadow">
+                <Card 
+                  key={session.id} 
+                  className="p-6 shadow-card hover:shadow-glow transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedSession(session);
+                    setPanelOpen(true);
+                  }}
+                >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
