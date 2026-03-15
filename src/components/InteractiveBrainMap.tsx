@@ -224,7 +224,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                 <Tooltip key={regionId}>
                   <TooltipTrigger asChild>
                     <g
-                      className="cursor-pointer group focus:outline-none"
+                      className="cursor-pointer group outline-none"
                       onClick={() => onSelectRegion?.(regionId)}
                       tabIndex={0}
                       role="button"
