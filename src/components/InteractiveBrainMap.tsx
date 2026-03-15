@@ -1,8 +1,7 @@
-import React from "react";
-import brainBase from '@/assets/brain-lateral-base.png';
+import React, { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BRAIN_REGIONS } from '@/lib/brainRegionMapper';
-import { VascularTerritoryOverlay } from './VascularTerritoryOverlay';
+import { Badge } from '@/components/ui/badge';
 
 type MapMode = "injury" | "function" | "progress";
 
@@ -34,248 +33,330 @@ export interface InteractiveBrainMapProps {
   onSelectRegion?: (region: RegionId) => void;
 }
 
-function getRegionColor(
+// Anatomically-informed lateral brain SVG paths (left hemisphere view)
+const REGION_PATHS: Record<RegionId, { d: string; label: string; labelPos: { x: number; y: number }; labelAnchor?: string }> = {
+  frontal_lobe: {
+    d: "M 52,155 C 48,130 50,100 58,78 C 68,55 85,40 110,32 C 135,25 165,24 195,28 C 220,32 240,42 252,58 L 248,68 C 242,88 238,110 236,132 C 234,150 230,165 222,175 C 210,188 190,195 168,198 C 140,200 110,195 85,185 C 65,177 55,168 52,155 Z",
+    label: "Frontal",
+    labelPos: { x: 148, y: 115 },
+  },
+  motor_cortex: {
+    d: "M 252,58 C 260,48 270,44 280,46 C 290,50 296,62 298,78 C 300,95 298,115 294,132 C 290,148 284,160 276,168 C 268,162 260,152 255,140 C 248,122 244,100 248,78 L 248,68 Z",
+    label: "Motor",
+    labelPos: { x: 272, y: 100 },
+  },
+  somatosensory_cortex: {
+    d: "M 280,46 C 292,44 304,50 314,62 C 322,74 328,90 330,108 C 332,126 328,144 320,158 C 312,168 302,174 292,172 C 284,168 278,160 276,168 C 284,160 290,148 294,132 C 298,115 300,95 298,78 C 296,62 290,50 280,46 Z",
+    label: "Sensory",
+    labelPos: { x: 308, y: 108 },
+  },
+  parietal_lobe: {
+    d: "M 314,62 C 330,68 345,82 358,100 C 372,120 380,145 382,170 C 383,192 378,212 368,228 C 355,242 338,248 318,245 C 298,242 282,232 270,218 C 262,205 258,190 260,172 C 264,150 275,125 292,172 C 302,174 312,168 320,158 C 328,144 332,126 330,108 C 328,90 322,74 314,62 Z",
+    label: "Parietal",
+    labelPos: { x: 340, y: 165 },
+  },
+  temporal_lobe: {
+    d: "M 52,155 C 55,168 65,177 85,185 C 110,195 140,200 168,198 C 190,195 210,188 222,175 C 232,192 238,210 236,228 C 234,248 222,262 205,272 C 185,282 160,286 135,284 C 110,282 88,272 72,258 C 58,245 50,228 48,210 C 46,192 48,175 52,155 Z",
+    label: "Temporal",
+    labelPos: { x: 138, y: 242 },
+  },
+  language_areas: {
+    d: "M 168,198 C 182,200 194,208 200,220 C 206,232 206,248 200,260 C 194,270 183,276 172,274 C 162,272 154,264 150,252 C 146,240 148,225 155,214 C 160,206 164,200 168,198 Z",
+    label: "Language",
+    labelPos: { x: 176, y: 238 },
+  },
+  occipital_lobe: {
+    d: "M 382,170 C 400,172 418,180 432,195 C 445,210 452,232 450,255 C 448,275 438,292 422,302 C 405,310 384,312 365,305 C 350,298 340,285 338,268 C 336,250 342,230 355,212 C 362,202 370,188 382,170 Z",
+    label: "Occipital",
+    labelPos: { x: 400, y: 248 },
+  },
+  cerebellum: {
+    d: "M 338,268 C 340,285 350,298 365,305 C 355,318 342,328 325,332 C 305,336 285,332 270,322 C 258,312 252,298 254,282 C 258,268 268,258 282,252 C 298,248 316,250 330,258 C 334,260 336,264 338,268 Z",
+    label: "Cerebellum",
+    labelPos: { x: 305, y: 295 },
+  },
+  brainstem: {
+    d: "M 254,282 C 252,298 248,312 240,324 C 234,334 226,340 218,338 C 212,336 208,328 206,318 C 204,308 206,296 212,286 C 218,278 228,272 240,270 C 248,268 252,272 254,282 Z",
+    label: "Brainstem",
+    labelPos: { x: 230, y: 308 },
+  },
+  subcortical: {
+    d: "M 222,175 C 234,178 244,186 250,198 C 256,212 254,228 246,240 C 238,250 226,256 214,254 C 204,252 196,244 192,232 C 188,220 190,206 198,196 C 206,186 214,180 222,175 Z",
+    label: "Deep",
+    labelPos: { x: 222, y: 218 },
+  },
+};
+
+// Color schemes using HSL values from design system
+function getRegionFill(
   mode: MapMode,
   regionId: RegionId,
   scores: InteractiveBrainMapProps["scores"],
   affectedRegions?: RegionId[]
-): string {
+): { fill: string; stroke: string; opacity: number } {
   const score = scores[regionId];
+  const isAffected = affectedRegions?.includes(regionId);
 
   if (mode === "injury") {
-    if (affectedRegions?.includes(regionId)) {
-      return "rgba(220,38,38,0.75)";
+    if (isAffected) {
+      return { fill: "hsl(0 84% 60%)", stroke: "hsl(0 84% 45%)", opacity: 0.7 };
     }
-    return "rgba(148,163,184,0.25)";
+    return { fill: "hsl(210 40% 96%)", stroke: "hsl(210 30% 82%)", opacity: 0.5 };
   }
 
   if (!score || score.trialCount < 10) {
-    return "rgba(148,163,184,0.45)";
+    return { fill: "hsl(210 40% 92%)", stroke: "hsl(210 30% 82%)", opacity: 0.6 };
   }
 
   if (mode === "function") {
-    if (score.currentScore >= 70) return "rgba(34,197,94,0.65)";
-    if (score.currentScore >= 50) return "rgba(234,179,8,0.65)";
-    if (score.currentScore >= 30) return "rgba(249,115,22,0.65)";
-    return "rgba(220,38,38,0.75)";
+    if (score.currentScore >= 70) return { fill: "hsl(142 76% 46%)", stroke: "hsl(142 76% 36%)", opacity: 0.65 };
+    if (score.currentScore >= 50) return { fill: "hsl(38 92% 55%)", stroke: "hsl(38 92% 42%)", opacity: 0.65 };
+    if (score.currentScore >= 30) return { fill: "hsl(25 95% 55%)", stroke: "hsl(25 95% 42%)", opacity: 0.65 };
+    return { fill: "hsl(0 84% 55%)", stroke: "hsl(0 84% 42%)", opacity: 0.7 };
   }
 
-  if (score.trend === "improving") return "rgba(59,130,246,0.7)";
-  if (score.trend === "declining") return "rgba(249,115,22,0.7)";
-  return "rgba(148,163,184,0.45)";
+  // Progress mode
+  if (score.trend === "improving") return { fill: "hsl(205 85% 55%)", stroke: "hsl(205 85% 40%)", opacity: 0.65 };
+  if (score.trend === "declining") return { fill: "hsl(25 95% 55%)", stroke: "hsl(25 95% 42%)", opacity: 0.65 };
+  return { fill: "hsl(210 40% 88%)", stroke: "hsl(210 30% 75%)", opacity: 0.55 };
 }
+
+// Legend items per mode
+const LEGENDS: Record<MapMode, { color: string; label: string }[]> = {
+  injury: [
+    { color: "hsl(0 84% 60%)", label: "Affected" },
+    { color: "hsl(210 40% 92%)", label: "Unaffected" },
+  ],
+  function: [
+    { color: "hsl(142 76% 46%)", label: "Strong (70%+)" },
+    { color: "hsl(38 92% 55%)", label: "Moderate (50–70%)" },
+    { color: "hsl(25 95% 55%)", label: "Weak (30–50%)" },
+    { color: "hsl(0 84% 55%)", label: "Impaired (<30%)" },
+    { color: "hsl(210 40% 92%)", label: "No data" },
+  ],
+  progress: [
+    { color: "hsl(205 85% 55%)", label: "Improving" },
+    { color: "hsl(210 40% 88%)", label: "Stable" },
+    { color: "hsl(25 95% 55%)", label: "Declining" },
+    { color: "hsl(210 40% 92%)", label: "No data" },
+  ],
+};
 
 export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
   mode,
   scores,
   affectedRegions,
-  affectedTerritories = [],
   selectedRegion,
   onSelectRegion,
 }) => {
-  const getRegionDisplayName = (regionId: RegionId): string => {
-    const region = BRAIN_REGIONS.find(r => r.id === regionId);
-    return region?.displayName || regionId.replace(/_/g, ' ');
-  };
-
-  const getRegionInfo = (regionId: RegionId) => {
-    const region = BRAIN_REGIONS.find(r => r.id === regionId);
-    const score = scores[regionId];
-    
-    return {
-      displayName: region?.displayName || regionId.replace(/_/g, ' '),
-      hasData: score && score.trialCount >= 10,
-      score: score?.currentScore,
-      isAffected: affectedRegions?.includes(regionId),
-      trialCount: score?.trialCount || 0
-    };
-  };
+  const regionIds = Object.keys(REGION_PATHS) as RegionId[];
+  const legend = LEGENDS[mode];
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="w-full max-w-3xl mx-auto">
-        <div className="relative w-full pb-[67%] rounded-2xl bg-slate-50 shadow-sm overflow-hidden">
-          <img
-            src={brainBase}
-            alt="Brain lateral view"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
-          />
-          
-          {mode === 'injury' && affectedTerritories.length > 0 && (
-            <VascularTerritoryOverlay affectedTerritories={affectedTerritories} />
-          )}
-          
-          <svg viewBox="0 0 500 335" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 w-full h-full" style={{ zIndex: 10 }}>
-            <BrainRegionPath
-              id="frontal_lobe"
-              regionInfo={getRegionInfo("frontal_lobe")}
-              d="M50,140 C40,110 45,85 60,65 C80,48 110,40 145,40 C180,42 210,50 235,68 C250,85 255,105 250,125 C240,145 220,160 195,170 C165,178 130,182 95,180 C70,177 55,165 50,140 Z"
-              mode={mode}
-              color={getRegionColor(mode, "frontal_lobe", scores, affectedRegions)}
-              selected={selectedRegion === "frontal_lobe"}
-              onClick={onSelectRegion}
+    <TooltipProvider delayDuration={150}>
+      <div className="w-full max-w-2xl mx-auto space-y-3">
+        {/* SVG Brain */}
+        <div className="relative rounded-2xl bg-card border border-border overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <svg
+            viewBox="0 0 500 365"
+            preserveAspectRatio="xMidYMid meet"
+            className="w-full h-auto"
+            role="img"
+            aria-label="Interactive brain map showing functional regions"
+          >
+            <defs>
+              {/* Subtle gradient for background */}
+              <radialGradient id="brain-bg" cx="50%" cy="45%" r="55%">
+                <stop offset="0%" stopColor="hsl(210 40% 98%)" />
+                <stop offset="100%" stopColor="hsl(210 30% 94%)" />
+              </radialGradient>
+              {/* Glow filter for selected region */}
+              <filter id="region-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              {/* Subtle inner shadow for depth */}
+              <filter id="inner-depth" x="-5%" y="-5%" width="110%" height="110%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+                <feOffset dx="1" dy="2" result="offsetBlur" />
+                <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerShadow" />
+                <feFlood floodColor="hsl(215 25% 20%)" floodOpacity="0.12" result="color" />
+                <feComposite in="color" in2="innerShadow" operator="in" result="shadow" />
+                <feMerge>
+                  <feMergeNode in="SourceGraphic" />
+                  <feMergeNode in="shadow" />
+                </feMerge>
+              </filter>
+              {/* Pulse animation for affected regions */}
+              <filter id="pulse-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {/* Background */}
+            <rect x="0" y="0" width="500" height="365" fill="url(#brain-bg)" rx="16" />
+
+            {/* Brain outline silhouette for context */}
+            <path
+              d="M 48,155 C 44,125 48,90 58,65 C 72,38 98,22 130,18 C 165,14 200,16 230,24 C 255,32 275,42 290,46 C 310,42 330,52 348,72 C 370,95 388,128 398,165 C 412,170 430,185 442,205 C 455,228 458,258 452,280 C 446,300 432,315 412,322 C 395,328 375,328 358,318 C 348,332 332,342 312,346 C 288,350 264,344 248,330 C 236,342 220,348 202,344 C 186,340 174,328 168,312 C 152,318 132,316 116,306 C 98,295 82,278 70,258 C 56,238 46,215 44,192 C 42,178 44,165 48,155 Z"
+              fill="none"
+              stroke="hsl(210 30% 82%)"
+              strokeWidth="1.5"
+              strokeDasharray="4,3"
+              opacity="0.5"
             />
 
-            <BrainRegionPath
-              id="motor_cortex"
-              regionInfo={getRegionInfo("motor_cortex")}
-              d="M235,65 C248,58 262,55 275,60 C282,75 285,92 283,110 C280,128 275,145 265,158 C255,153 247,143 242,130 C238,112 235,88 235,65 Z"
-              mode={mode}
-              color={getRegionColor(mode, "motor_cortex", scores, affectedRegions)}
-              selected={selectedRegion === "motor_cortex"}
-              onClick={onSelectRegion}
-            />
+            {/* Region paths */}
+            {regionIds.map((regionId) => {
+              const region = REGION_PATHS[regionId];
+              const { fill, stroke, opacity } = getRegionFill(mode, regionId, scores, affectedRegions);
+              const isSelected = selectedRegion === regionId;
+              const score = scores[regionId];
+              const isAffected = affectedRegions?.includes(regionId);
+              const brainRegion = BRAIN_REGIONS.find(r => r.id === regionId);
 
-            <BrainRegionPath
-              id="somatosensory_cortex"
-              regionInfo={getRegionInfo("somatosensory_cortex")}
-              d="M275,60 C288,62 301,70 312,82 C318,98 320,116 316,133 C310,148 300,160 288,168 C280,162 274,152 270,140 C267,120 270,88 275,60 Z"
-              mode={mode}
-              color={getRegionColor(mode, "somatosensory_cortex", scores, affectedRegions)}
-              selected={selectedRegion === "somatosensory_cortex"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="parietal_lobe"
-              regionInfo={getRegionInfo("parietal_lobe")}
-              d="M312,82 C335,88 358,102 375,122 C388,142 392,168 385,192 C375,212 358,226 335,233 C310,238 285,233 268,218 C258,205 253,186 256,165 C262,140 282,108 312,82 Z"
-              mode={mode}
-              color={getRegionColor(mode, "parietal_lobe", scores, affectedRegions)}
-              selected={selectedRegion === "parietal_lobe"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="temporal_lobe"
-              regionInfo={getRegionInfo("temporal_lobe")}
-              d="M50,180 C55,205 70,228 90,245 C115,262 145,270 175,268 C200,266 220,255 235,238 C240,225 242,210 238,195 C230,185 215,178 195,178 C160,180 110,185 75,185 C60,184 52,182 50,180 Z"
-              mode={mode}
-              color={getRegionColor(mode, "temporal_lobe", scores, affectedRegions)}
-              selected={selectedRegion === "temporal_lobe"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="occipital_lobe"
-              regionInfo={getRegionInfo("occipital_lobe")}
-              d="M375,122 C400,130 425,142 445,160 C460,178 468,202 465,228 C462,250 448,268 428,278 C405,286 378,285 358,272 C345,260 338,242 340,222 C345,195 358,158 375,122 Z"
-              mode={mode}
-              color={getRegionColor(mode, "occipital_lobe", scores, affectedRegions)}
-              selected={selectedRegion === "occipital_lobe"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="cerebellum"
-              regionInfo={getRegionInfo("cerebellum")}
-              d="M320,250 C340,248 360,252 375,262 C390,275 398,295 395,315 C390,330 375,340 355,342 C330,344 305,337 290,322 C280,310 276,293 280,275 C285,260 300,252 320,250 Z"
-              mode={mode}
-              color={getRegionColor(mode, "cerebellum", scores, affectedRegions)}
-              selected={selectedRegion === "cerebellum"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="brainstem"
-              regionInfo={getRegionInfo("brainstem")}
-              d="M280,270 C285,275 288,285 288,295 C288,310 282,325 270,332 C260,337 248,335 240,328 C232,320 228,308 230,295 C232,282 240,272 252,268 C262,265 272,265 280,270 Z"
-              mode={mode}
-              color={getRegionColor(mode, "brainstem", scores, affectedRegions)}
-              selected={selectedRegion === "brainstem"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="language_areas"
-              regionInfo={getRegionInfo("language_areas")}
-              d="M190,200 C205,198 220,202 230,215 C236,228 235,245 228,258 C220,268 206,273 192,270 C180,267 170,257 166,244 C163,232 166,218 175,208 C180,202 185,201 190,200 Z"
-              mode={mode}
-              color={getRegionColor(mode, "language_areas", scores, affectedRegions)}
-              selected={selectedRegion === "language_areas"}
-              onClick={onSelectRegion}
-            />
-
-            <BrainRegionPath
-              id="subcortical"
-              regionInfo={getRegionInfo("subcortical")}
-              d="M240,180 C255,182 268,190 275,203 C280,218 278,235 268,247 C258,257 243,262 230,258 C218,254 208,244 205,230 C203,218 206,205 215,195 C223,187 231,182 240,180 Z"
-              mode={mode}
-              color={getRegionColor(mode, "subcortical", scores, affectedRegions)}
-              selected={selectedRegion === "subcortical"}
-              onClick={onSelectRegion}
-            />
+              return (
+                <Tooltip key={regionId}>
+                  <TooltipTrigger asChild>
+                    <g
+                      className="cursor-pointer"
+                      onClick={() => onSelectRegion?.(regionId)}
+                      style={{ transition: 'var(--transition-smooth)' }}
+                    >
+                      {/* Region fill */}
+                      <path
+                        d={region.d}
+                        fill={fill}
+                        fillOpacity={opacity}
+                        stroke={isSelected ? "hsl(var(--primary))" : stroke}
+                        strokeWidth={isSelected ? 2.5 : 1.2}
+                        filter={isSelected ? "url(#region-glow)" : "url(#inner-depth)"}
+                        className="transition-all duration-300 ease-out"
+                        style={{
+                          cursor: 'pointer',
+                        }}
+                      />
+                      {/* Hover highlight overlay */}
+                      <path
+                        d={region.d}
+                        fill="white"
+                        fillOpacity="0"
+                        className="transition-all duration-200 hover:fill-opacity-[0.15]"
+                        style={{ cursor: 'pointer' }}
+                      />
+                      {/* Region label */}
+                      <text
+                        x={region.labelPos.x}
+                        y={region.labelPos.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        className="pointer-events-none select-none"
+                        style={{
+                          fontSize: regionId === 'cerebellum' || regionId === 'brainstem' ? '8px' : '9px',
+                          fontWeight: 600,
+                          fill: isSelected ? 'hsl(var(--primary))' : 'hsl(215 25% 25%)',
+                          letterSpacing: '0.02em',
+                          textShadow: '0 1px 2px rgba(255,255,255,0.8)',
+                        }}
+                      >
+                        {region.label}
+                      </text>
+                      {/* Score badge for regions with data */}
+                      {score && score.trialCount >= 10 && mode !== 'injury' && (
+                        <>
+                          <circle
+                            cx={region.labelPos.x}
+                            cy={region.labelPos.y + 14}
+                            r="10"
+                            fill="hsl(var(--card))"
+                            stroke={stroke}
+                            strokeWidth="1"
+                            opacity="0.95"
+                          />
+                          <text
+                            x={region.labelPos.x}
+                            y={region.labelPos.y + 14.5}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className="pointer-events-none select-none"
+                            style={{
+                              fontSize: '7px',
+                              fontWeight: 700,
+                              fill: 'hsl(215 25% 25%)',
+                            }}
+                          >
+                            {Math.round(score.currentScore)}%
+                          </text>
+                        </>
+                      )}
+                      {/* Affected indicator in injury mode */}
+                      {mode === 'injury' && isAffected && (
+                        <circle
+                          cx={region.labelPos.x + 18}
+                          cy={region.labelPos.y - 10}
+                          r="4"
+                          fill="hsl(0 84% 55%)"
+                          stroke="hsl(var(--card))"
+                          strokeWidth="1.5"
+                          className="animate-pulse"
+                        />
+                      )}
+                    </g>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-popover text-popover-foreground border-border max-w-[200px]">
+                    <div className="text-xs space-y-1.5">
+                      <p className="font-semibold text-sm">{brainRegion?.displayName || region.label}</p>
+                      {brainRegion && (
+                        <div className="flex flex-wrap gap-1">
+                          {brainRegion.functionalDomains.map(d => (
+                            <span key={d} className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] capitalize">{d}</span>
+                          ))}
+                        </div>
+                      )}
+                      {score && score.trialCount >= 10 ? (
+                        <div className="space-y-0.5 pt-1 border-t border-border">
+                          <p>Function: <span className="font-semibold">{Math.round(score.currentScore)}%</span></p>
+                          <p className="capitalize">Trend: {score.trend}</p>
+                          <p>{score.trialCount} trials</p>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          {score && score.trialCount > 0
+                            ? `${score.trialCount} trials (need 10+)`
+                            : 'No exercise data yet'}
+                        </p>
+                      )}
+                      {isAffected && (
+                        <p className="text-destructive font-medium">⚠ Affected by stroke</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
           </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2">
+          {legend.map((item) => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <span
+                className="w-3 h-3 rounded-sm border border-border inline-block"
+                style={{ backgroundColor: item.color, opacity: 0.75 }}
+              />
+              <span className="text-[11px] text-muted-foreground">{item.label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </TooltipProvider>
-  );
-};
-
-interface BrainRegionPathProps {
-  id: RegionId;
-  regionInfo: {
-    displayName: string;
-    hasData: boolean;
-    score?: number;
-    isAffected?: boolean;
-    trialCount: number;
-  };
-  d: string;
-  mode: MapMode;
-  color: string;
-  selected?: boolean;
-  onClick?: (id: RegionId) => void;
-}
-
-const BrainRegionPath: React.FC<BrainRegionPathProps> = ({
-  id,
-  regionInfo,
-  d,
-  color,
-  selected,
-  onClick,
-}) => {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <g
-          className="cursor-pointer transition-all duration-300 ease-out"
-          onClick={() => onClick?.(id)}
-        >
-          <path
-            d={d}
-            fill={color}
-            stroke={selected ? "hsl(var(--primary))" : "hsl(var(--border))"}
-            strokeWidth={selected ? 3 : 2}
-            className="transition-all duration-300 ease-out hover:brightness-125 hover:saturate-150"
-            style={{ 
-              filter: selected 
-                ? 'drop-shadow(0 0 8px hsl(var(--primary)))' 
-                : 'none',
-              transformOrigin: 'center',
-            }}
-          />
-        </g>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="bg-popover text-popover-foreground border-border">
-        <div className="text-xs space-y-1">
-          <p className="font-semibold">{regionInfo.displayName}</p>
-          {regionInfo.hasData && regionInfo.score !== undefined && (
-            <p className="text-muted-foreground">Function: {Math.round(regionInfo.score)}%</p>
-          )}
-          {regionInfo.isAffected && (
-            <p className="text-red-500">⚠️ Affected by stroke</p>
-          )}
-          {!regionInfo.hasData && (
-            <p className="text-muted-foreground">
-              {regionInfo.trialCount > 0 
-                ? `${regionInfo.trialCount} trials (need 10+)` 
-                : 'No data yet'}
-            </p>
-          )}
-        </div>
-      </TooltipContent>
-    </Tooltip>
   );
 };
