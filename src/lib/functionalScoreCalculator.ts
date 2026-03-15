@@ -32,20 +32,32 @@ async function aggregateExerciseMetrics(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  // DB stores slugs in both formats (hyphens and underscores), so query both
+  const allVariants = [
+    ...exerciseSlugs,
+    ...exerciseSlugs.map(s => s.replace(/-/g, '_')),
+  ];
+  const uniqueVariants = [...new Set(allVariants)];
+
   const { data: events, error } = await supabase
     .from('exercise_events')
     .select('score, reaction_time_ms, cue_level, session_id!inner(user_id)')
     .eq('session_id.user_id', userId)
-    .in('exercise_slug', exerciseSlugs)
+    .in('exercise_slug', uniqueVariants)
     .gte('created_at', thirtyDaysAgo.toISOString());
 
   if (error || !events || events.length === 0) {
     return { accuracy: 0, reactionTime: 0, cueLevel: 0, trialCount: 0 };
   }
 
+  // Normalize scores: some exercises store 0/1 (binary), others store 0/100
+  // Treat score > 1 as already a percentage, score <= 1 as a fraction
   const validEvents = events.filter(e => e.score !== null);
   const accuracy = validEvents.length > 0
-    ? validEvents.reduce((sum, e) => sum + (e.score || 0), 0) / validEvents.length / 100
+    ? validEvents.reduce((sum, e) => {
+        const s = e.score || 0;
+        return sum + (s > 1 ? s / 100 : s);
+      }, 0) / validEvents.length
     : 0;
 
   const validRTs = events.filter(e => e.reaction_time_ms !== null && e.reaction_time_ms > 0);
@@ -74,12 +86,19 @@ async function calculateTrend(
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
+  // DB stores slugs in both formats
+  const allVariants = [
+    ...exerciseSlugs,
+    ...exerciseSlugs.map(s => s.replace(/-/g, '_')),
+  ];
+  const uniqueVariants = [...new Set(allVariants)];
+
   // Recent performance (last 2 weeks)
   const { data: recentEvents } = await supabase
     .from('exercise_events')
     .select('score, session_id!inner(user_id)')
     .eq('session_id.user_id', userId)
-    .in('exercise_slug', exerciseSlugs)
+    .in('exercise_slug', uniqueVariants)
     .gte('created_at', twoWeeksAgo.toISOString());
 
   // Previous performance (2-4 weeks ago)
@@ -87,7 +106,7 @@ async function calculateTrend(
     .from('exercise_events')
     .select('score, session_id!inner(user_id)')
     .eq('session_id.user_id', userId)
-    .in('exercise_slug', exerciseSlugs)
+    .in('exercise_slug', uniqueVariants)
     .gte('created_at', fourWeeksAgo.toISOString())
     .lt('created_at', twoWeeksAgo.toISOString());
 
