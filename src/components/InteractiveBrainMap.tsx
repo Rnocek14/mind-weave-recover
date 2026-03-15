@@ -228,19 +228,27 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                       onClick={() => onSelectRegion?.(regionId)}
                       tabIndex={0}
                       role="button"
-                      aria-label={`${brainRegion?.displayName || region.label} region${hasData ? `, ${Math.round(score!.currentScore)}% function` : ''}`}
+                      aria-label={`${brainRegion?.displayName || region.label}${hasData ? `, ${Math.round(score!.currentScore)}% function` : isAffected ? ', affected by stroke' : ', no exercise data yet'}`}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRegion?.(regionId); } }}
                     >
-                      {/* Invisible expanded hit area for small overlay regions (min 44px touch target) */}
+                      {/* Invisible expanded hit area for small overlay regions (min ~44px touch target) */}
                       {isOverlay && (
                         <path
                           d={region.d}
                           fill="transparent"
                           stroke="transparent"
                           strokeWidth="16"
-                          className="pointer-events-auto"
                         />
                       )}
+                      {/* Focus ring — separate path so it doesn't interfere with fill styling */}
+                      <path
+                        d={region.d}
+                        fill="none"
+                        stroke="hsl(var(--ring))"
+                        strokeWidth="2.5"
+                        className="opacity-0 group-focus-visible:opacity-100 transition-opacity duration-150"
+                        style={{ pointerEvents: 'none' }}
+                      />
                       {/* Region fill path */}
                       <path
                         d={region.d}
@@ -250,7 +258,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         strokeWidth={isSelected ? 3 : 1.2}
                         strokeDasharray={!hasData && mode !== 'injury' ? "3,2" : "none"}
                         filter={isSelected ? "url(#sel-glow)" : "url(#depth)"}
-                        className="transition-all duration-300 ease-out group-focus-visible:stroke-[hsl(var(--ring))] group-focus-visible:stroke-[2.5]"
+                        className="transition-all duration-300 ease-out"
                       />
                       {/* Hover overlay */}
                       <path
