@@ -42,11 +42,13 @@ export default function History() {
     if (!user) return;
 
     try {
-      const { data: sessions } = await supabase
+      const { data: sessions, error: sessionsError } = await supabase
         .from("sessions")
         .select("id, started_at, ended_at, duration_sec, summary")
         .eq("user_id", user.id)
         .order("started_at", { ascending: false });
+
+      if (sessionsError) throw sessionsError;
 
       if (!sessions || sessions.length === 0) {
         setHistory([]);
@@ -55,19 +57,54 @@ export default function History() {
       }
 
       const sessionIds = sessions.map((s) => s.id);
-      const { data: utterances } = await supabase
-        .from("utterance_analyses")
-        .select("session_id, exercise_slug, is_correct, created_at")
-        .in("session_id", sessionIds);
+
+      const [utteranceResult, exerciseResult] = await Promise.all([
+        supabase
+          .from("utterance_analyses")
+          .select("session_id, exercise_slug, is_correct, created_at")
+          .in("session_id", sessionIds),
+        supabase
+          .from("exercise_events")
+          .select("session_id, exercise_slug, score, created_at")
+          .in("session_id", sessionIds),
+      ]);
+
+      if (utteranceResult.error && exerciseResult.error) {
+        throw utteranceResult.error;
+      }
+
+      const utteranceBySession: Record<string, SessionWithEvents["events"]> = {};
+      (utteranceResult.data ?? []).forEach((u) => {
+        if (!u.session_id) return;
+        if (!utteranceBySession[u.session_id]) utteranceBySession[u.session_id] = [];
+        utteranceBySession[u.session_id].push({
+          session_id: u.session_id,
+          exercise_slug: u.exercise_slug,
+          is_correct: u.is_correct,
+          created_at: u.created_at,
+        });
+      });
+
+      const exerciseBySession: Record<string, SessionWithEvents["events"]> = {};
+      (exerciseResult.data ?? []).forEach((e) => {
+        if (!exerciseBySession[e.session_id]) exerciseBySession[e.session_id] = [];
+        exerciseBySession[e.session_id].push({
+          session_id: e.session_id,
+          exercise_slug: e.exercise_slug,
+          is_correct: (e.score ?? 0) > 0,
+          created_at: e.created_at,
+        });
+      });
 
       const bySession: Record<string, SessionWithEvents> = {};
       sessions.forEach((s) => {
-        bySession[s.id] = { session: s, events: [] };
-      });
-      (utterances ?? []).forEach((u) => {
-        if (bySession[u.session_id!]) {
-          bySession[u.session_id!].events.push(u);
-        }
+        const utteranceEvents = utteranceBySession[s.id] ?? [];
+        const fallbackExerciseEvents = exerciseBySession[s.id] ?? [];
+
+        bySession[s.id] = {
+          session: s,
+          events: utteranceEvents.length > 0 ? utteranceEvents : fallbackExerciseEvents,
+        };
       });
 
       setHistory(Object.values(bySession));
