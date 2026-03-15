@@ -5,21 +5,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Clock, 
-  Settings, 
+  DropdownMenuTrigger } from
+"@/components/ui/dropdown-menu";
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Clock,
+  Settings,
   Camera,
   FileText,
   Shield,
   History,
   ChevronDown,
   Brain,
-  Stethoscope
-} from "lucide-react";
+  Stethoscope } from
+"lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -28,17 +28,17 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/insights", label: "Insights", icon: TrendingUp },
-  { href: "/history", label: "History", icon: Clock },
-];
+{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+{ href: "/insights", label: "Insights", icon: TrendingUp },
+{ href: "/history", label: "History", icon: Clock }];
+
 
 export function AppHeader() {
   const location = useLocation();
   const { user } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast } = useUiMode();
-  
+
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
 
@@ -55,7 +55,7 @@ export function AppHeader() {
         {/* Logo/Brand */}
         <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
           <Brain className="h-5 w-5 text-primary" />
-          <span className="hidden sm:inline">MindWeave</span>
+          <span className="hidden sm:inline">NeuroSpark</span>
         </Link>
 
         {/* Primary Navigation */}
@@ -71,13 +71,13 @@ export function AppHeader() {
                   className={cn(
                     "gap-2",
                     active && "bg-secondary"
-                  )}
-                >
+                  )}>
+                  
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{item.label}</span>
                 </Button>
-              </Link>
-            );
+              </Link>);
+
           })}
 
           {/* Settings Dropdown */}
@@ -99,8 +99,8 @@ export function AppHeader() {
               </DropdownMenuItem>
               
               {/* Photo Library and Clinical Docs for caregivers+ (reduces cognitive load for patients) */}
-              {isAtLeast('caregiver') && (
-                <>
+              {isAtLeast('caregiver') &&
+              <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/photo-library" className="flex items-center gap-2 cursor-pointer">
@@ -115,11 +115,11 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
                 </>
-              )}
+              }
               
               {/* Show Profile History for caregivers+ */}
-              {isAtLeast('caregiver') && (
-                <>
+              {isAtLeast('caregiver') &&
+              <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/profile-history" className="flex items-center gap-2 cursor-pointer">
@@ -128,11 +128,11 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
                 </>
-              )}
+              }
               
               {/* Caseload for clinician+ */}
-              {isAtLeast('clinician') && (
-                <>
+              {isAtLeast('clinician') &&
+              <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/clinician/caseload" className="flex items-center gap-2 cursor-pointer">
@@ -141,11 +141,11 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
                 </>
-              )}
+              }
               
               {/* Admin tools for admins */}
-              {isAdmin && (
-                <>
+              {isAdmin &&
+              <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
@@ -154,7 +154,7 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
                 </>
-              )}
+              }
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -164,6 +164,6 @@ export function AppHeader() {
           <ThemeToggle />
         </nav>
       </div>
-    </header>
-  );
+    </header>);
+
 }
