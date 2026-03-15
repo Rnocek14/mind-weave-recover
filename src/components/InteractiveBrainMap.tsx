@@ -101,11 +101,11 @@ function getRegionFill(
     if (isAffected) {
       return { fill: "hsl(0 84% 60%)", stroke: "hsl(0 84% 45%)", opacity: 0.7 };
     }
-    return { fill: "hsl(210 40% 96%)", stroke: "hsl(210 30% 82%)", opacity: 0.5 };
+    return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.5 };
   }
 
   if (!score || score.trialCount < 10) {
-    return { fill: "hsl(210 40% 92%)", stroke: "hsl(210 30% 82%)", opacity: 0.6 };
+    return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.6 };
   }
 
   if (mode === "function") {
@@ -118,27 +118,27 @@ function getRegionFill(
   // Progress mode
   if (score.trend === "improving") return { fill: "hsl(205 85% 55%)", stroke: "hsl(205 85% 40%)", opacity: 0.65 };
   if (score.trend === "declining") return { fill: "hsl(25 95% 55%)", stroke: "hsl(25 95% 42%)", opacity: 0.65 };
-  return { fill: "hsl(210 40% 88%)", stroke: "hsl(210 30% 75%)", opacity: 0.55 };
+  return { fill: "hsl(var(--muted))", stroke: "hsl(var(--border))", opacity: 0.55 };
 }
 
 // Legend items per mode
 const LEGENDS: Record<MapMode, { color: string; label: string }[]> = {
   injury: [
     { color: "hsl(0 84% 60%)", label: "Affected" },
-    { color: "hsl(210 40% 92%)", label: "Unaffected" },
+    { color: "hsl(var(--muted))", label: "Unaffected" },
   ],
   function: [
     { color: "hsl(142 76% 46%)", label: "Strong (70%+)" },
     { color: "hsl(38 92% 55%)", label: "Moderate (50–70%)" },
     { color: "hsl(25 95% 55%)", label: "Weak (30–50%)" },
     { color: "hsl(0 84% 55%)", label: "Impaired (<30%)" },
-    { color: "hsl(210 40% 92%)", label: "No data" },
+    { color: "hsl(var(--muted))", label: "No data" },
   ],
   progress: [
     { color: "hsl(205 85% 55%)", label: "Improving" },
-    { color: "hsl(210 40% 88%)", label: "Stable" },
+    { color: "hsl(var(--muted))", label: "Stable" },
     { color: "hsl(25 95% 55%)", label: "Declining" },
-    { color: "hsl(210 40% 92%)", label: "No data" },
+    { color: "hsl(var(--muted))", label: "No data" },
   ],
 };
 
@@ -166,10 +166,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
           >
             <defs>
               {/* Subtle gradient for background */}
-              <radialGradient id="brain-bg" cx="50%" cy="45%" r="55%">
-                <stop offset="0%" stopColor="hsl(210 40% 98%)" />
-                <stop offset="100%" stopColor="hsl(210 30% 94%)" />
-              </radialGradient>
+              {/* Background uses CSS variables for dark mode support */}
               {/* Glow filter for selected region */}
               <filter id="region-glow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="4" result="blur" />
@@ -200,14 +197,14 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
               </filter>
             </defs>
 
-            {/* Background */}
-            <rect x="0" y="0" width="500" height="365" fill="url(#brain-bg)" rx="16" />
+            {/* Background - inherits from parent bg-card */}
+            <rect x="0" y="0" width="500" height="365" className="fill-card" rx="16" />
 
             {/* Brain outline silhouette for context */}
             <path
               d="M 48,155 C 44,125 48,90 58,65 C 72,38 98,22 130,18 C 165,14 200,16 230,24 C 255,32 275,42 290,46 C 310,42 330,52 348,72 C 370,95 388,128 398,165 C 412,170 430,185 442,205 C 455,228 458,258 452,280 C 446,300 432,315 412,322 C 395,328 375,328 358,318 C 348,332 332,342 312,346 C 288,350 264,344 248,330 C 236,342 220,348 202,344 C 186,340 174,328 168,312 C 152,318 132,316 116,306 C 98,295 82,278 70,258 C 56,238 46,215 44,192 C 42,178 44,165 48,155 Z"
               fill="none"
-              stroke="hsl(210 30% 82%)"
+              className="stroke-border"
               strokeWidth="1.5"
               strokeDasharray="4,3"
               opacity="0.5"
@@ -261,9 +258,9 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                         style={{
                           fontSize: regionId === 'cerebellum' || regionId === 'brainstem' ? '8px' : '9px',
                           fontWeight: 600,
-                          fill: isSelected ? 'hsl(var(--primary))' : 'hsl(215 25% 25%)',
+                          fill: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
                           letterSpacing: '0.02em',
-                          textShadow: '0 1px 2px rgba(255,255,255,0.8)',
+                          textShadow: '0 1px 2px hsl(var(--card) / 0.8)',
                         }}
                       >
                         {region.label}
@@ -289,7 +286,7 @@ export const InteractiveBrainMap: React.FC<InteractiveBrainMapProps> = ({
                             style={{
                               fontSize: '7px',
                               fontWeight: 700,
-                              fill: 'hsl(215 25% 25%)',
+                              fill: 'hsl(var(--foreground))',
                             }}
                           >
                             {Math.round(score.currentScore)}%
