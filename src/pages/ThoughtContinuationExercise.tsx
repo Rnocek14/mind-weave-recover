@@ -193,7 +193,7 @@ export default function ThoughtContinuationExercise() {
           <ThoughtContinuationGame
             userId={user.id}
             profileId={activeProfile.id}
-            sessionId={sessionId}
+            sessionId={activeSessionId}
             onComplete={handleComplete}
             onExit={handleExit}
           />
