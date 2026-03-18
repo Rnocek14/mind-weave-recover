@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -57,6 +57,12 @@ export function PatientModeView({
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on tab switch
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   const lastSession = sessions[0];
   const viewState = getPatientViewState(
@@ -117,17 +123,18 @@ export function PatientModeView({
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex-1 flex flex-col items-center py-3 min-h-[56px] transition-colors touch-manipulation relative
+            className={`flex-1 flex flex-col items-center py-3 min-h-[60px] transition-all duration-150 touch-manipulation select-none relative
+              active:scale-95 active:bg-accent/30
               ${activeTab === id
                 ? "text-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
               }`}
           >
             {activeTab === id && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-primary rounded-b-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-primary rounded-b-full transition-all" />
             )}
-            <Icon className={`${activeTab === id ? "w-7 h-7" : "w-6 h-6"} transition-all`} />
-            <span className={`${activeTab === id ? "text-sm" : "text-xs"} font-medium mt-1 transition-all`}>
+            <Icon className={`${activeTab === id ? "w-7 h-7" : "w-6 h-6"} transition-all duration-150`} />
+            <span className={`${activeTab === id ? "text-sm" : "text-xs"} font-medium mt-1 transition-all duration-150`}>
               {label}
             </span>
           </button>
@@ -262,8 +269,8 @@ export function PatientModeView({
 
   // ── Main 3-tab patient view ──
   return (
-    <div className="min-h-screen pb-20 bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="absolute top-4 right-4 z-10">
+    <div ref={scrollRef} className="min-h-screen pb-24 bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
+      <div className="sticky top-0 z-10 flex justify-end p-2 bg-transparent">
         <UiModeToggle />
       </div>
 
@@ -287,7 +294,7 @@ export function PatientModeView({
               onClick={handleStartSession}
               size="lg"
               aria-label="Start today's therapy session"
-              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
             >
               <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
               <span className="text-center leading-tight">

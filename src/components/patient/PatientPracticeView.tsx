@@ -113,21 +113,23 @@ export const PatientPracticeView = memo(function PatientPracticeView({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">
         {availableGames.map((game) => {
           const difficultyInfo = DIFFICULTY_LABELS[game.difficulty];
           return (
             <button
               key={game.id}
               onClick={() => handleSelectGame(game.id)}
-              className="rounded-xl border-2 border-border p-4 flex items-start gap-3 text-left
-                hover:border-primary hover:bg-accent/50 active:scale-[0.98] transition-all
-                min-h-[80px] touch-manipulation"
+              className="rounded-xl border-2 border-border p-4 flex items-start gap-4 text-left
+                hover:border-primary hover:bg-accent/50 
+                active:scale-[0.97] active:bg-accent/60
+                transition-all duration-150 ease-out
+                min-h-[88px] touch-manipulation select-none"
             >
-              <span className="text-3xl">{game.emoji}</span>
+              <span className="text-4xl leading-none mt-0.5">{game.emoji}</span>
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-foreground text-base">
+                  <span className="font-semibold text-foreground text-base leading-tight">
                     {game.name}
                   </span>
                   <span
@@ -136,7 +138,7 @@ export const PatientPracticeView = memo(function PatientPracticeView({
                     {difficultyInfo.text}
                   </span>
                 </div>
-                <span className="text-sm text-muted-foreground block">
+                <span className="text-sm text-muted-foreground block leading-snug">
                   {game.desc}
                 </span>
                 <span className="text-xs text-muted-foreground/70">
