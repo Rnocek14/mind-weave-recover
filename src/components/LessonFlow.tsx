@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
 import { SessionSummaryScreen } from "./SessionSummaryScreen";
-import { Button } from "@/components/ui/button";
+import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Play, CheckCircle2, Clock } from "lucide-react";
+import { Play } from "lucide-react";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
-import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,10 +18,13 @@ import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 type FlowPhase = 
   | "daily-check" 
   | "full-assessment" 
-  | "lesson-overview" 
   | "exercise" 
   | "transition" 
+  | "micro-pause"
   | "summary";
+
+/** Show a micro-pause (breathing screen) every N exercises */
+const MICRO_PAUSE_INTERVAL = 3;
 
 interface LessonFlowProps {
   lesson: DailyLesson;
@@ -42,19 +43,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
 
-  // Determine initial phase based on flags
+  // Determine initial phase: skip overview entirely, go straight to exercise
   const getInitialPhase = (): FlowPhase => {
-    if (autoStart) return "exercise"; // Patient mode: skip everything
-    if (skipDailyCheck) return "lesson-overview"; // Skip daily check only
-    return "daily-check"; // Normal flow
+    if (autoStart) return "exercise";
+    if (skipDailyCheck) return "exercise"; // No more overview — straight to exercise
+    return "daily-check";
   };
 
   const [phase, setPhase] = useState<FlowPhase>(getInitialPhase);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [checkResults, setCheckResults] = useState<any>(null);
   
-  // Track if we've processed the resuming state to avoid race conditions
   const hasProcessedResumeRef = useRef(false);
 
   const currentBlock = lesson.blocks[currentBlockIndex];
@@ -62,7 +61,6 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   
   // Restore state if returning from exercise
   useEffect(() => {
-    // Only process resuming once
     if (location.state?.resuming && !hasProcessedResumeRef.current) {
       hasProcessedResumeRef.current = true;
       
@@ -77,13 +75,19 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           
           setSessionId(savedSessionId);
           setCurrentBlockIndex(nextIndex);
-          setPhase(isLast ? 'summary' : 'transition');
+          
+          if (isLast) {
+            setPhase('summary');
+          } else {
+            // Determine transition type: micro-pause every N exercises
+            const shouldPause = nextIndex > 0 && nextIndex % MICRO_PAUSE_INTERVAL === 0;
+            setPhase(shouldPause ? 'micro-pause' : 'transition');
+          }
         } catch (error) {
           console.error('[LessonFlow] Error processing resume:', error);
         }
       }
     } else if (!location.state?.resuming) {
-      // Normal restore (not resuming)
       const savedState = sessionStorage.getItem('lessonFlowState');
       if (savedState && !hasProcessedResumeRef.current) {
         try {
@@ -99,12 +103,11 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     }
   }, [lesson.blocks.length, location.state?.resuming]);
 
-  // Create session when needed - now also handles autoStart scenario
+  // Create session when needed
   useEffect(() => {
-    const needsSession = (phase === "lesson-overview" || phase === "exercise") && !sessionId && user;
-    
+    const needsSession = phase === "exercise" && !sessionId && user;
     if (needsSession) {
-      console.log('[LessonFlow] Creating session for phase:', phase, { userId: user?.id, profileId: activeProfile?.id });
+      console.log('[LessonFlow] Creating session for phase:', phase);
       createSession();
     }
   }, [phase, sessionId, user?.id, activeProfile?.id]);
@@ -112,7 +115,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
     if (phase === "exercise" && currentBlock && sessionId) {
-      console.log('[LessonFlow] Phase is exercise, sessionId ready, navigating:', currentBlock.exerciseId);
+      console.log('[LessonFlow] Navigating to exercise:', currentBlock.exerciseId);
       navigateToExercise(currentBlock.exerciseId);
     }
   }, [phase, currentBlock, sessionId]);
@@ -142,23 +145,16 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   };
 
   const handleDailyCheckComplete = (results: any) => {
-    setCheckResults(results);
-    
     if (results.needsFullAssessment) {
       setPhase("full-assessment");
     } else {
-      setPhase("lesson-overview");
+      // Skip overview, go straight to exercise
+      setPhase("exercise");
     }
   };
 
   const handleFullAssessmentComplete = () => {
-    setPhase("lesson-overview");
-  };
-
-  const handleStartExercises = () => {
-    if (!currentBlock) return;
     setPhase("exercise");
-    navigateToExercise(currentBlock.exerciseId);
   };
 
   const navigateToExercise = (exerciseId: string) => {
@@ -174,7 +170,6 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       clinicalProfile,
     }));
     
-    // Map exercise IDs to their routes
     const routeMap: Record<string, string> = {
       "photo-naming": "/exercise/photo-naming",
       "phonological": "/exercise/phonological-awareness",
@@ -214,7 +209,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       return;
     }
     
-    // Build adaptations from todayFocus when Phase A is enabled
+    // Build adaptations
     const appliedAdaptations: Record<string, any> = {
       ...currentBlock?.adaptations,
     };
@@ -237,10 +232,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       }
     }
     
-    // Detect if this is a preset lesson for telemetry
     const isPreset = lesson.reasoning?.[0]?.startsWith('Preset:');
-    
-    // Pass focusPhonemes and preferredCueType from adaptive engine
     const focusPhonemes = todayFocus?.adaptations?.focusPhonemes;
     const preferredCueType = todayFocus?.adaptations?.preferredCueType;
     
@@ -259,19 +251,25 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     });
   };
 
-  const handleNextBlock = () => {
+  const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
       setPhase("summary");
     } else {
-      setCurrentBlockIndex(prev => prev + 1);
-      setPhase("transition");
+      const nextIndex = currentBlockIndex + 1;
+      setCurrentBlockIndex(nextIndex);
+      // Micro-pause every N exercises for cognitive reset
+      const shouldPause = nextIndex > 0 && nextIndex % MICRO_PAUSE_INTERVAL === 0;
+      setPhase(shouldPause ? 'micro-pause' : 'transition');
     }
-  };
+  }, [currentBlockIndex, isLastBlock]);
 
-  const handleContinueFromTransition = () => {
+  const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
-    navigateToExercise(currentBlock.exerciseId);
-  };
+  }, []);
+
+  const handleEndSession = useCallback(() => {
+    setPhase("summary");
+  }, []);
 
   const handleFinish = () => {
     navigate("/dashboard");
@@ -283,14 +281,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       console.log('[LessonFlow] ✅ exercise-complete event received', {
         currentBlockIndex,
         isLastBlock,
-        nextPhase: isLastBlock ? 'summary' : 'transition'
       });
       handleNextBlock();
     };
 
     window.addEventListener("exercise-complete", handleExerciseComplete);
     return () => window.removeEventListener("exercise-complete", handleExerciseComplete);
-  }, [currentBlockIndex, isLastBlock]);
+  }, [currentBlockIndex, isLastBlock, handleNextBlock]);
   
   // Clear sessionStorage when lesson completes
   useEffect(() => {
@@ -299,6 +296,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       sessionStorage.removeItem('lessonFlowState');
     }
   }, [phase]);
+
+  // --- RENDER ---
 
   if (phase === "daily-check") {
     return <DailyCapabilityCheck onComplete={handleDailyCheckComplete} />;
@@ -316,94 +315,33 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
-  if (phase === "lesson-overview") {
+  // Auto-advancing encouragement overlay (3 sec)
+  if (phase === "transition") {
+    const nextBlock = lesson.blocks[currentBlockIndex];
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">Today's Lesson Plan</h1>
-            <p className="text-muted-foreground">
-              {lesson.blocks.length} exercises • {lesson.totalDuration} minutes
-            </p>
-          </div>
-
-          {checkResults && !checkResults.needsFullAssessment && (
-            <div className="bg-primary/10 rounded-lg p-4 space-y-2">
-              <p className="text-sm font-medium">✓ Daily check complete</p>
-              <p className="text-sm text-muted-foreground">
-                Exercises adapted to your current capabilities
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {lesson.blocks.map((block, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-semibold text-primary">{idx + 1}</span>
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium capitalize">{block.exerciseId.replace(/-/g, ' ')}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {block.trialLimit ? `${block.trialLimit} rounds` : `${block.duration} min`} • {block.priority}
-                  </p>
-                </div>
-                <Clock className="w-4 h-4 text-muted-foreground" />
-              </div>
-            ))}
-          </div>
-
-          <div className="pt-4">
-            <Button 
-              size="lg" 
-              className="w-full" 
-              onClick={handleStartExercises}
-              disabled={!sessionId}
-            >
-              <Play className="w-5 h-5 mr-2" />
-              {!sessionId ? "Creating session..." : "Start Exercises"}
-            </Button>
-          </div>
-        </Card>
-      </div>
+      <ExerciseTransitionOverlay
+        type="encouragement"
+        completedCount={currentBlockIndex}
+        totalCount={lesson.blocks.length}
+        nextExerciseName={nextBlock?.exerciseId || "exercise"}
+        onContinue={handleTransitionContinue}
+        onEnd={handleEndSession}
+      />
     );
   }
 
-  if (phase === "transition") {
+  // Breathing micro-pause (8 sec, every N exercises)
+  if (phase === "micro-pause") {
     const nextBlock = lesson.blocks[currentBlockIndex];
-    const completedCount = currentBlockIndex;
-    const progress = (completedCount / lesson.blocks.length) * 100;
-
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-xl p-8 space-y-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-primary" />
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Great work!</h2>
-            <p className="text-muted-foreground">
-              {completedCount} of {lesson.blocks.length} exercises complete
-            </p>
-          </div>
-
-          <Progress value={progress} className="h-2" />
-
-          <div className="bg-muted/50 rounded-lg p-6 space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Next Exercise:</p>
-            <p className="text-xl font-semibold capitalize">{nextBlock?.exerciseId.replace(/-/g, ' ')}</p>
-            <p className="text-sm text-muted-foreground">{nextBlock?.duration} minutes</p>
-          </div>
-
-          <Button size="lg" className="w-full" onClick={handleContinueFromTransition}>
-            Continue
-          </Button>
-        </Card>
-      </div>
+      <ExerciseTransitionOverlay
+        type="micro-pause"
+        completedCount={currentBlockIndex}
+        totalCount={lesson.blocks.length}
+        nextExerciseName={nextBlock?.exerciseId || "exercise"}
+        onContinue={handleTransitionContinue}
+        onEnd={handleEndSession}
+      />
     );
   }
 
