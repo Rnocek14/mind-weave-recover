@@ -57,6 +57,12 @@ export function PatientModeView({
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on tab switch
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   const lastSession = sessions[0];
   const viewState = getPatientViewState(
