@@ -294,7 +294,7 @@ export function PatientModeView({
               onClick={handleStartSession}
               size="lg"
               aria-label="Start today's therapy session"
-              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
             >
               <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
               <span className="text-center leading-tight">
