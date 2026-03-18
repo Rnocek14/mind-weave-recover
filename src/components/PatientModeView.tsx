@@ -268,7 +268,7 @@ export function PatientModeView({
 
   // ── Main 3-tab patient view ──
   return (
-    <div className="min-h-screen pb-20 bg-gradient-to-br from-background via-background to-primary/5">
+    <div ref={scrollRef} className="min-h-screen pb-24 bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
       <div className="absolute top-4 right-4 z-10">
         <UiModeToggle />
       </div>
