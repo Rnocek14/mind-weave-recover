@@ -9,6 +9,8 @@ import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 interface SessionSummary {
   turnsCompleted: number;

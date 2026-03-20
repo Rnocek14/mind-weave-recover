@@ -16,6 +16,8 @@ import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lu
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 const EXERCISE_SLUG = 'thought-continuation';
 
