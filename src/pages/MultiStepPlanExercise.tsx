@@ -124,7 +124,7 @@ export default function MultiStepPlanExercise() {
             <Button onClick={handleContinue} size="lg">Continue</Button>
           </div>
         ) : (
-          <MultiStepPlanningGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} />
+          <MultiStepPlanningGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

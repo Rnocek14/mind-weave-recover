@@ -123,7 +123,7 @@ export default function AbstractCompareExercise() {
             <Button onClick={handleContinue} size="lg">Continue</Button>
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} />
+          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
