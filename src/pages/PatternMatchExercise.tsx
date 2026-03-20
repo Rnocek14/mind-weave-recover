@@ -14,6 +14,9 @@ import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner'
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useProfile } from '@/hooks/useProfile';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
