@@ -198,7 +198,7 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
-            console.log('Trial complete:', data);
+            console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
           }}
         />
       </div>
