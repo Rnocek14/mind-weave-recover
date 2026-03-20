@@ -102,7 +102,7 @@ export default function DetectiveMindExercise() {
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
-  }, [activeSessionId, logTrial, difficultyLevel, adaptation.adaptationReasons]);
+  }, [activeSessionId, logTrial, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
     setCompleted(true);

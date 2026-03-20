@@ -37,6 +37,9 @@ export default function PhonologicalExercise() {
     lessonAdaptations,
     lessonFocusPhonemes,
   });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,
+  });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);

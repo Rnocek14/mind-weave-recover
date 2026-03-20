@@ -37,6 +37,9 @@ export default function ConversationCoachExercise() {
   const adaptation = useSessionAdaptation({
     defaultErrorType: 'no_response',
   });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    cueSensitive: true,
+  });
   
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
