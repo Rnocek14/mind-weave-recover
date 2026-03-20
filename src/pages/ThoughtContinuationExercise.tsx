@@ -30,9 +30,17 @@ export default function ThoughtContinuationExercise() {
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId as string | undefined;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
   
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<{
