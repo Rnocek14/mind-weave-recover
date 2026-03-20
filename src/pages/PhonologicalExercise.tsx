@@ -18,6 +18,7 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
@@ -35,6 +36,9 @@ export default function PhonologicalExercise() {
   const adaptation = useSessionAdaptation({
     lessonAdaptations,
     lessonFocusPhonemes,
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,
   });
   
   // Extract targeted practice from URL params

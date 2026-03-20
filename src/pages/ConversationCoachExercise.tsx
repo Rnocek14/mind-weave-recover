@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -35,6 +36,9 @@ export default function ConversationCoachExercise() {
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
     defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    cueSensitive: true,
   });
   
   const [gameStarted, setGameStarted] = useState(false);

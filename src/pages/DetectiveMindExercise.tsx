@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -48,6 +49,7 @@ export default function DetectiveMindExercise() {
     lessonAdaptations,
   });
   const difficultyLevel = adaptation.difficultyTier;
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -88,8 +90,6 @@ export default function DetectiveMindExercise() {
         case_id: result.caseId,
         question_type: result.questionType,
         tier: result.tier,
-        difficulty_level: difficultyLevel,
-        adaptation_reasons: adaptation.adaptationReasons,
         used_hint: result.usedHint,
         hint_type: result.usedHint ? 'highlight_sentence' : null,
         points: result.points,
@@ -97,11 +97,12 @@ export default function DetectiveMindExercise() {
         block_index: blockIndex,
         lesson_source: lessonSource,
         preset_id: presetId,
+        ...adaptationTelemetry,
       },
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
-  }, [activeSessionId, logTrial, difficultyLevel, adaptation.adaptationReasons]);
+  }, [activeSessionId, logTrial, adaptationTelemetry]);
 
   const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
     setCompleted(true);
