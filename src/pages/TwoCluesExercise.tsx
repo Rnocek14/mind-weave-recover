@@ -50,6 +50,10 @@ export default function TwoCluesExercise() {
     lessonFocusWords,
     defaultErrorType: 'semantic_paraphasia',
   });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: true,
+    cueSensitive: true,
+  });
 
   // Session management
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
