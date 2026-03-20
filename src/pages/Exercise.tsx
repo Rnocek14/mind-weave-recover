@@ -31,6 +31,8 @@ import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
 import { MoodCheckIn } from "@/components/MoodCheckIn";
 import { DoseCapWarning } from "@/components/DoseCapWarning";
 import { useDoseCap } from "@/hooks/useDoseCap";
+import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
+import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
