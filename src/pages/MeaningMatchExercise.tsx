@@ -56,6 +56,7 @@ export default function MeaningMatchExercise() {
     lessonAdaptations,
   });
   const difficultyLevel = adaptation.difficultyTier;
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
