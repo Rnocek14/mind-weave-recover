@@ -67,6 +67,7 @@ export default function AbstractCompareExercise() {
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         explanation: {

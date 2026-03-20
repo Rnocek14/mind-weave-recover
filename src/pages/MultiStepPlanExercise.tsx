@@ -68,6 +68,7 @@ export default function MultiStepPlanExercise() {
         item_id: result.itemId, goal: result.goal,
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         explanation: {
