@@ -9,6 +9,8 @@ import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -28,6 +30,7 @@ export default function ConversationPartnerExercise() {
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const exerciseCompleteSentRef = useRef(false);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -35,6 +38,15 @@ export default function ConversationPartnerExercise() {
     providedSessionId,
     'conversation-partner'
   );
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    cueSensitive: true,
+  });
 
   if (authLoading || profileLoading) {
     return (

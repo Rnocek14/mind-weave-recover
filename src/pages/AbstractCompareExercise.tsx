@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 const EXERCISE_SLUG = 'abstract-compare';
 
@@ -31,9 +33,17 @@ export default function AbstractCompareExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const trialLimit = Number(location.state?.trialLimit) || 4;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -57,6 +67,7 @@ export default function AbstractCompareExercise() {
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         explanation: {
@@ -112,7 +123,7 @@ export default function AbstractCompareExercise() {
             <Button onClick={handleContinue} size="lg">Continue</Button>
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} />
+          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

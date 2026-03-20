@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 const EXERCISE_SLUG = 'multi-step-plan';
 
@@ -31,9 +33,17 @@ export default function MultiStepPlanExercise() {
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -58,6 +68,7 @@ export default function MultiStepPlanExercise() {
         item_id: result.itemId, goal: result.goal,
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
+        ...adaptationTelemetry,
       },
       trialOutputs: {
         explanation: {
@@ -113,7 +124,7 @@ export default function MultiStepPlanExercise() {
             <Button onClick={handleContinue} size="lg">Continue</Button>
           </div>
         ) : (
-          <MultiStepPlanningGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} />
+          <MultiStepPlanningGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

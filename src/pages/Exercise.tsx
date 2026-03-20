@@ -31,6 +31,8 @@ import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
 import { MoodCheckIn } from "@/components/MoodCheckIn";
 import { DoseCapWarning } from "@/components/DoseCapWarning";
 import { useDoseCap } from "@/hooks/useDoseCap";
+import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
+import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -86,6 +88,13 @@ const Exercise = () => {
     logIntervention, 
     reset: resetEngagement 
   } = useEngagementMonitor(sessionId);
+
+  // Shared adaptation contract for exercises rendered in this component
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: lessonAdaptations as Record<string, any> | undefined,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   // Fetch today's stats for confidence boost
   useEffect(() => {
@@ -928,6 +937,7 @@ const Exercise = () => {
                     round: currentRound,
                     exercise_type: 'left-side-hunt',
                     adaptations_active: lessonAdaptations || {},
+                    ...adaptationTelemetry,
                   },
                 });
                 

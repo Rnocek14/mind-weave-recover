@@ -14,19 +14,31 @@ import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner'
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useProfile } from '@/hooks/useProfile';
+import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
+import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { toast } = useToast();
   
   // Extract lesson flow state
   const fromLesson = location.state?.fromLesson === true;
   const lessonSessionId = location.state?.sessionId as string | undefined;
+  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+
+  // Shared adaptation contract
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   // Fetch clinical profile
   useEffect(() => {
@@ -49,11 +61,12 @@ export default function PatternMatchExercise() {
   const { config, hasCapabilityAdaptations, bounds } = useExerciseConfig(
     'pattern-match',
     user?.id,
+    activeProfile?.id,
     clinicalProfile,
     null
   );
   
-  const { getAdaptations } = useExerciseGating(user?.id, undefined);
+  const { getAdaptations } = useExerciseGating(user?.id, activeProfile?.id);
 
   const handleSkipExercise = async () => {
     if (user?.id) {
@@ -185,7 +198,7 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
-            console.log('Trial complete:', data);
+            console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
           }}
         />
       </div>
