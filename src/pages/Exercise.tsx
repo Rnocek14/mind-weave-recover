@@ -937,6 +937,7 @@ const Exercise = () => {
                     round: currentRound,
                     exercise_type: 'left-side-hunt',
                     adaptations_active: lessonAdaptations || {},
+                    ...adaptationTelemetry,
                   },
                 });
                 
