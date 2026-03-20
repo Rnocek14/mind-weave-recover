@@ -89,6 +89,13 @@ const Exercise = () => {
     reset: resetEngagement 
   } = useEngagementMonitor(sessionId);
 
+  // Shared adaptation contract for exercises rendered in this component
+  const adaptation = useSessionAdaptation({
+    lessonAdaptations: lessonAdaptations as Record<string, any> | undefined,
+    defaultErrorType: 'no_response',
+  });
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
+
   // Fetch today's stats for confidence boost
   useEffect(() => {
     const fetchStats = async () => {
