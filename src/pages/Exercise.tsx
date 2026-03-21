@@ -54,13 +54,7 @@ const Exercise = () => {
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
-  
-  // Auto-start when coming from lesson flow (skip the "Start Exercise" gate)
-  useEffect(() => {
-    if (fromLesson && !isPlaying) {
-      startExercise();
-    }
-  }, [fromLesson]);
+  const autoStartedRef = React.useRef(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
