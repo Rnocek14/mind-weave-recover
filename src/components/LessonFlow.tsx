@@ -179,8 +179,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
     if (phase === "exercise" && currentBlock && sessionId) {
+      // One-time first-launch tracking
+      if (!hasTrackedFirstLaunchRef.current) {
+        hasTrackedFirstLaunchRef.current = true;
+        trackFirstExerciseLaunch(sessionId, lesson.blocks.length);
+      }
       console.log('[LessonFlow] Navigating to exercise:', currentBlock.exerciseId);
-      trackFirstExerciseLaunch(sessionId, lesson.blocks.length);
       navigateToExercise(currentBlock.exerciseId);
     }
   }, [phase, currentBlock, sessionId]);
