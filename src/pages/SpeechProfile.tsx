@@ -293,7 +293,7 @@ export default function SpeechProfile() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-primary" />
-                      {showClinician ? 'Error Distribution' : 'Common Mistakes'}
+                      <HelpLabel term="Error Distribution">{showClinician ? 'Error Distribution' : 'Common Mistakes'}</HelpLabel>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1.5">
