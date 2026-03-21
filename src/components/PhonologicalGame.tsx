@@ -353,7 +353,7 @@ export const PhonologicalGame = ({
                   variant="outline"
                   className="min-w-32"
                 >
-                  Same Sound
+                  {trial.relationType === 'rhyme' ? 'Yes, they rhyme' : 'Same Sound'}
                 </Button>
                 <Button
                   onClick={() => handleAnswer('different')}
