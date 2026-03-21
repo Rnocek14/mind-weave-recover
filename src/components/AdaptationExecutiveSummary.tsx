@@ -199,7 +199,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
             <Separator />
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Outcome Comparison
+                <HelpLabel term="Outcome Comparison">Outcome Comparison</HelpLabel>
               </p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
                 <OutcomeLine
