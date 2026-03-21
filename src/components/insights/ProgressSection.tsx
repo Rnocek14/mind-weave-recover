@@ -20,6 +20,7 @@ import { useLearningRate } from '@/hooks/useLearningRate';
 import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
 import { narrateRecoveryTrend, getVerdictColor, getVerdictEmoji } from '@/lib/insightNarrator';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 import {
   Tooltip,
   TooltipContent,

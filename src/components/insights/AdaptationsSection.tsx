@@ -16,6 +16,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
 import { useUiMode } from '@/hooks/useUiMode';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationsSectionProps {
   userId: string;

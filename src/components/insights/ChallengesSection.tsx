@@ -25,6 +25,7 @@ import { getErrorLabel } from '@/lib/insightLanguageMap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { currentRoute, withReturnTo } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 import { useUiMode } from '@/hooks/useUiMode';
 import { recomputeSpeechProfileNow } from '@/lib/recomputeSpeechProfile';
 import { useToast } from '@/hooks/use-toast';
