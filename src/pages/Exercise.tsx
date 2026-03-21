@@ -55,6 +55,7 @@ const Exercise = () => {
   
   const [isPlaying, setIsPlaying] = useState(false);
   const autoStartedRef = useRef(false);
+  const hasDispatchedCompleteRef = useRef(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
