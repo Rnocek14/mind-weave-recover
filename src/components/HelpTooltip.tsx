@@ -66,6 +66,18 @@ const GLOSSARY: Record<string, string> = {
   'Adaptation Event': 'A moment when the system changed something (difficulty, hints, content) based on your performance.',
   'Primary Domains': 'The main recovery areas the system is focusing on for your current sessions.',
   'Session Duration Cap': 'The maximum session length set to prevent fatigue — shorter if you\'re tired, longer if you\'re doing well.',
+
+  // Adaptation Engine & Evidence
+  'Adaptation Rate': 'The percentage of exercise trials where the system actively changed something (content, difficulty, or hints) based on your profile.',
+  'Telemetry Coverage': 'How many of your exercise trials included tracking data. Higher coverage means the system has better insight into your performance.',
+  'Games Adapted': 'How many different exercises had active personalization applied during the time window.',
+  'Dominant Mode': 'The most common type of adaptation the system used — e.g., targeting specific sounds, personalizing hints, or adjusting difficulty.',
+  'Adaptation Engine': 'The part of the system that decides how to change exercises in real time based on your speech profile and performance.',
+  'Top Coverage Gaps': 'Exercises where the system has limited data or hasn\'t been able to personalize effectively yet.',
+  'Mode Distribution': 'A breakdown of which adaptation strategies were used and how often — such as phoneme targeting vs. cue personalization.',
+  'Data Quality': 'An assessment of whether the tracking data is complete and reliable enough to make good adaptation decisions.',
+  'Outcome Comparison': 'Compares your accuracy on exercises that were personalized vs. those that weren\'t, to see if adaptation is helping.',
+  'Cross-Game Evidence': 'A detailed table showing how adaptation worked across every exercise — which sounds were targeted, which hints were used, and at what difficulty.',
 };
 
 export function HelpTooltip({ term, children }: HelpTooltipProps) {

@@ -103,7 +103,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
       {/* Scheduled repetition words */}
       {snapshot.scheduledRepetitionWords && snapshot.scheduledRepetitionWords.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">Repetition:</span>
+          <span className="text-[11px] text-muted-foreground"><HelpLabel term="Spaced Repetition">Repetition:</HelpLabel></span>
           {snapshot.scheduledRepetitionWords.map(w => (
             <Badge key={w} variant="outline" className="text-[10px] px-1.5 py-0">{w}</Badge>
           ))}

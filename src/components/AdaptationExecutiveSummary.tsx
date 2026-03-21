@@ -270,12 +270,14 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
 const SummaryKPI = ({
   icon,
   label,
+  helpTerm,
   value,
   subtext,
   status,
 }: {
   icon: React.ReactNode;
   label: string;
+  helpTerm?: string;
   value: string;
   subtext: string;
   status: 'good' | 'neutral' | 'warn';
@@ -288,7 +290,9 @@ const SummaryKPI = ({
   )}>
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {icon}
-      <span className="text-[11px] font-medium uppercase tracking-wider">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wider">
+        {helpTerm ? <HelpLabel term={helpTerm}>{label}</HelpLabel> : label}
+      </span>
     </div>
     <p className={cn(
       'text-xl font-bold',

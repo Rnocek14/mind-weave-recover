@@ -503,9 +503,18 @@ const RecentTrialRow = ({ trial }: { trial: RecentAdaptedTrial }) => (
   </div>
 );
 
+const MINI_KPI_HELP: Record<string, string> = {
+  'Telemetry Coverage': 'Telemetry Coverage',
+  'Adaptation Rate': 'Adaptation Rate',
+  'Games Adapted': 'Games Adapted',
+  'Dominant Mode': 'Dominant Mode',
+};
+
 const MiniKPI = ({ label, value, detail, highlight }: { label: string; value: string; detail: string; highlight?: boolean }) => (
   <Card className={cn('p-3', highlight && 'border-destructive/30')}>
-    <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
+    <p className="text-xs text-muted-foreground uppercase tracking-wide">
+      {MINI_KPI_HELP[label] ? <HelpLabel term={MINI_KPI_HELP[label]}>{label}</HelpLabel> : label}
+    </p>
     <p className={cn('text-xl font-bold mt-1', highlight && 'text-destructive')}>{value}</p>
     <p className="text-xs text-muted-foreground">{detail}</p>
   </Card>
