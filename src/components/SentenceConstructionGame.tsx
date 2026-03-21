@@ -258,8 +258,8 @@ export const SentenceConstructionGame = ({
       </div>
 
       {/* Main Task Card */}
-      <Card className="p-6 md:p-8">
-        <div className="space-y-6">
+      <Card className="p-4 md:p-6">
+        <div className="space-y-4">
           {/* Instructions + Hint Button */}
           <div className="flex flex-col items-center gap-3">
             <p className="text-sm text-muted-foreground text-center">
