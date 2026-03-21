@@ -285,6 +285,13 @@ export const useDailyLesson = (
           phonemeDifficultyMap: speechProfile.phoneme_difficulty_map as Record<string, { accuracy: number; trials: number }> | undefined,
         } : null;
 
+        // Extract selection-relevant signals for exercise scoring
+        speechProfileForSelection = speechProfile ? {
+          errorTypeDistribution: speechProfile.error_type_distribution as Record<string, number> | undefined,
+          mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
+          phonemeDifficultyMap: speechProfile.phoneme_difficulty_map as Record<string, { accuracy: number; trials: number }> | undefined,
+        } : null;
+
         // Compute 7-day domain exposure from recent trials
         const sevenDaysAgoStr = sevenDaysAgo.toISOString();
         const domainExposure7d: DomainExposure7d[] = COGNITIVE_DOMAINS
