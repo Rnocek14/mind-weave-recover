@@ -16,12 +16,12 @@ import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import {
-  trackSessionStartTap,
   trackFirstExerciseLaunch,
   trackExerciseComplete,
   trackSessionDropOff,
   trackSessionComplete,
 } from "@/lib/sessionFlowAnalytics";
+import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 
 type FlowPhase = 
   | "daily-check" 
@@ -61,6 +61,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
   const isCreatingSessionRef = useRef(false);
+  const hasTrackedFirstLaunchRef = useRef(false);
   const sessionStartTimeRef = useRef(Date.now());
   
   // Performance tracking for adaptive pauses
@@ -178,8 +179,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
     if (phase === "exercise" && currentBlock && sessionId) {
+      // One-time first-launch tracking
+      if (!hasTrackedFirstLaunchRef.current) {
+        hasTrackedFirstLaunchRef.current = true;
+        trackFirstExerciseLaunch(sessionId, lesson.blocks.length);
+      }
       console.log('[LessonFlow] Navigating to exercise:', currentBlock.exerciseId);
-      trackFirstExerciseLaunch(sessionId, lesson.blocks.length);
       navigateToExercise(currentBlock.exerciseId);
     }
   }, [phase, currentBlock, sessionId]);
@@ -207,7 +212,6 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
     console.log('[LessonFlow] Session created:', data.id);
     sessionStartTimeRef.current = Date.now();
-    trackSessionStartTap(data.id, lesson.blocks.length);
     setSessionId(data.id);
   };
 
@@ -412,6 +416,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
     const nextBlock = lesson.blocks[currentBlockIndex];
+    // Prefetch next exercise chunk while overlay is visible
+    if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
       <ExerciseTransitionOverlay
         type="encouragement"
@@ -429,6 +435,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Breathing micro-pause
   if (phase === "micro-pause") {
     const nextBlock = lesson.blocks[currentBlockIndex];
+    // Prefetch next exercise chunk while pause overlay is visible
+    if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
       <ExerciseTransitionOverlay
         type="micro-pause"

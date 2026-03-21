@@ -162,8 +162,10 @@ export const OverviewTab = memo(function OverviewTab() {
                 <Button
                   size="lg"
                   className="flex-1 bg-gradient-healing hover:opacity-90 text-lg h-14"
-                  onClick={() => {
+                   onClick={() => {
                     if (lesson) {
+                      const { trackSessionStartTap } = require('@/lib/sessionFlowAnalytics');
+                      trackSessionStartTap(null, lesson.blocks?.length || 0);
                       navigate("/lesson", {
                         state: { lesson, clinicalProfile },
                       });
