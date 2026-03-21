@@ -272,104 +272,109 @@ export function PatientModeView({
 
   // ── Main 3-tab patient view ──
   return (
-    <div ref={scrollRef} className="min-h-screen pb-24 bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
-      <div className="sticky top-0 z-10 flex justify-end p-2 bg-transparent">
+    <div ref={scrollRef} className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
+      <div className="flex justify-end p-2 shrink-0">
         <UiModeToggle />
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 pt-6 md:pt-10">
-        {/* ── Home Tab ── */}
-        {activeTab === "home" && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Greeting + orientation */}
-            <div className="text-center space-y-2 py-6">
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Start here</p>
-              <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight">
-                Ready to practice?
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground font-medium">
-                No wrong answers. You can stop anytime. 💛
-              </p>
-            </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4">
+          {/* ── Home Tab ── */}
+          {activeTab === "home" && (
+            <div className="flex flex-col justify-center min-h-full animate-fade-in py-4 gap-4">
+              {/* Greeting + orientation */}
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Start here</p>
+                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
+                  Ready to practice?
+                </h1>
+                <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-medium">
+                  No wrong answers. You can stop anytime. 💛
+                </p>
+              </div>
 
-            {/* Primary CTA */}
-            <Button
-              onClick={handleStartSession}
-              size="lg"
-              aria-label="Start today's therapy session"
-              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
-            >
-              <Play className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0" />
-              <span className="text-center leading-tight">
-                Start Today's Session
-              </span>
-            </Button>
-
-            {/* Secondary: pick a game */}
-            <Button
-              onClick={() => setActiveTab("practice")}
-              variant="outline"
-              size="lg"
-              className="w-full min-h-[64px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
-            >
-              <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
-              <span>Choose a game I like</span>
-            </Button>
-
-            {/* Tiny progress summary */}
-            {(streak > 0 || sessions.length > 0) && (
-              <button
-                onClick={() => setActiveTab("progress")}
-                className="w-full flex items-center justify-center gap-4 py-3 text-muted-foreground hover:text-foreground transition-colors min-h-[48px] touch-manipulation"
-              >
-                {streak > 0 && (
-                  <span className="flex items-center gap-1.5 text-base">
-                    <Flame className="w-5 h-5 text-amber-500" />
-                    {streak} day streak
-                  </span>
-                )}
-                {sessions.length > 0 && streak > 0 && (
-                  <span className="text-border">·</span>
-                )}
-                {sessions.length > 0 && (
-                  <span className="text-base">
-                    {sessions.length} session{sessions.length !== 1 ? "s" : ""} total
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Caregiver assist */}
-            <div className="text-center pt-2">
+              {/* Primary CTA */}
               <Button
-                onClick={() => {
-                  setUiMode("caregiver");
-                  toast("Switched to Caregiver View — more detail and controls available", { duration: 3000 });
-                }}
-                variant="ghost"
+                onClick={handleStartSession}
                 size="lg"
-                className="min-h-[48px] text-sm text-muted-foreground hover:text-foreground px-6 py-3 rounded-xl hover:bg-accent/50 transition-all"
+                aria-label="Start today's therapy session"
+                className="w-full min-h-[88px] sm:min-h-[100px] md:min-h-[120px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-4 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
               >
-                <Users className="w-4 h-4 mr-2" />
-                Caregiver or helper? Tap here
+                <Play className="w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 shrink-0" />
+                <span className="text-center leading-tight">
+                  Start Today's Session
+                </span>
               </Button>
+
+              {/* Secondary: pick a game */}
+              <Button
+                onClick={() => setActiveTab("practice")}
+                variant="outline"
+                size="lg"
+                className="w-full min-h-[56px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-3 rounded-xl border-2"
+              >
+                <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
+                <span>Choose a game I like</span>
+              </Button>
+
+              {/* Tiny progress summary */}
+              {(streak > 0 || sessions.length > 0) && (
+                <button
+                  onClick={() => setActiveTab("progress")}
+                  className="w-full flex items-center justify-center gap-4 py-2 text-muted-foreground hover:text-foreground transition-colors min-h-[44px] touch-manipulation"
+                >
+                  {streak > 0 && (
+                    <span className="flex items-center gap-1.5 text-sm sm:text-base">
+                      <Flame className="w-5 h-5 text-amber-500" />
+                      {streak} day streak
+                    </span>
+                  )}
+                  {sessions.length > 0 && streak > 0 && (
+                    <span className="text-border">·</span>
+                  )}
+                  {sessions.length > 0 && (
+                    <span className="text-sm sm:text-base">
+                      {sessions.length} session{sessions.length !== 1 ? "s" : ""} total
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* Caregiver assist */}
+              <div className="text-center">
+                <Button
+                  onClick={() => {
+                    setUiMode("caregiver");
+                    toast("Switched to Caregiver View — more detail and controls available", { duration: 3000 });
+                  }}
+                  variant="ghost"
+                  className="min-h-[44px] text-sm text-muted-foreground hover:text-foreground px-6 py-2 rounded-xl hover:bg-accent/50 transition-all"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Caregiver or helper? Tap here
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ── Practice Tab ── */}
-        {activeTab === "practice" && (
-          <PatientPracticeView userId={userId} profileId={profileId} />
-        )}
+          {/* ── Practice Tab ── */}
+          {activeTab === "practice" && (
+            <div className="py-4">
+              <PatientPracticeView userId={userId} profileId={profileId} />
+            </div>
+          )}
 
-        {/* ── Progress Tab ── */}
-        {activeTab === "progress" && (
-          <PatientProgressView
-            userId={userId}
-            profileId={profileId}
-            streak={streak}
-          />
-        )}
+          {/* ── Progress Tab ── */}
+          {activeTab === "progress" && (
+            <div className="py-4">
+              <PatientProgressView
+                userId={userId}
+                profileId={profileId}
+                streak={streak}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bottom tab bar */}
