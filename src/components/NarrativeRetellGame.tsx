@@ -59,16 +59,17 @@ export function NarrativeRetellGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
+    // In discourse mode, transcript is already accumulated
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
   }, []);
 
-  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported } =
-    useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true });
+  const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
+    useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
   useEffect(() => {
-    if (liveTranscript) latestTranscriptRef.current = liveTranscript;
-  }, [liveTranscript]);
+    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
+  }, [fullTranscript]);
 
   const handleNextScene = useCallback(() => {
     if (!currentStory) return;
