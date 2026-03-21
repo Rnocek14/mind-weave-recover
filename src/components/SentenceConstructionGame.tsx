@@ -91,7 +91,7 @@ export const SentenceConstructionGame = ({
     stop();
     
     // Auto-play the sentence when trial starts (delay to avoid overlap with previous feedback audio)
-    if (trial?.modelAudio && !completed && !showFeedbackAudio) {
+    if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => {
         speak(trial.modelAudio!);
       }, 300);
