@@ -14,6 +14,14 @@ import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
+import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
+import {
+  trackSessionStartTap,
+  trackFirstExerciseLaunch,
+  trackExerciseComplete,
+  trackSessionDropOff,
+  trackSessionComplete,
+} from "@/lib/sessionFlowAnalytics";
 
 type FlowPhase = 
   | "daily-check" 
@@ -22,9 +30,6 @@ type FlowPhase =
   | "transition" 
   | "micro-pause"
   | "summary";
-
-/** Show a micro-pause (breathing screen) every N exercises */
-const MICRO_PAUSE_INTERVAL = 3;
 
 interface LessonFlowProps {
   lesson: DailyLesson;
@@ -39,27 +44,34 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const { user } = useAuth();
   const { activeProfile } = useProfile();
 
-  // Check navigation state for flags
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
 
-  // Determine initial phase: skip overview entirely, go straight to exercise
   const getInitialPhase = (): FlowPhase => {
     if (autoStart) return "exercise";
-    if (skipDailyCheck) return "exercise"; // No more overview — straight to exercise
+    if (skipDailyCheck) return "exercise";
     return "daily-check";
   };
 
   const [phase, setPhase] = useState<FlowPhase>(getInitialPhase);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentPause, setCurrentPause] = useState<PauseDecision | null>(null);
   
+  // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
+  const isCreatingSessionRef = useRef(false);
+  const sessionStartTimeRef = useRef(Date.now());
+  
+  // Performance tracking for adaptive pauses
+  const recentScoresRef = useRef<number[]>([]);
+  const recentRTRef = useRef<number[]>([]);
+  const recentTimeoutsRef = useRef(0);
 
   const currentBlock = lesson.blocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
   
-  // Restore state if returning from exercise
+  // Restore state if returning from exercise — with deduplication guard
   useEffect(() => {
     if (location.state?.resuming && !hasProcessedResumeRef.current) {
       hasProcessedResumeRef.current = true;
@@ -67,21 +79,62 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       const savedState = sessionStorage.getItem('lessonFlowState');
       if (savedState) {
         try {
-          const { currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
+          const parsed = JSON.parse(savedState);
+          const savedIndex = parsed.currentBlockIndex;
+          const savedSessionId = parsed.sessionId;
+          
+          // Guard: don't process if index is out of bounds
+          if (typeof savedIndex !== 'number' || savedIndex < 0 || savedIndex >= lesson.blocks.length) {
+            console.warn('[LessonFlow] Invalid saved index:', savedIndex);
+            return;
+          }
+          
           const nextIndex = savedIndex + 1;
           const isLast = nextIndex >= lesson.blocks.length;
           
           console.log('[LessonFlow] Processing resume:', { savedIndex, nextIndex, isLast });
           
+          // Restore performance signals if available
+          if (parsed.recentScores) recentScoresRef.current = parsed.recentScores;
+          if (parsed.recentRTs) recentRTRef.current = parsed.recentRTs;
+          if (parsed.recentTimeouts != null) recentTimeoutsRef.current = parsed.recentTimeouts;
+          
+          // Extract score from the exercise-complete event detail if available
+          const detail = (location.state as any)?.exerciseResult;
+          if (detail?.score != null) {
+            recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
+          }
+          if (detail?.avgReactionTime != null) {
+            recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
+          }
+          if (detail?.timeouts != null) {
+            recentTimeoutsRef.current = detail.timeouts;
+          }
+          
           setSessionId(savedSessionId);
           setCurrentBlockIndex(nextIndex);
+
+          // Track exercise completion
+          trackExerciseComplete(savedSessionId, savedIndex, lesson.blocks.length, 
+            lesson.blocks[savedIndex]?.exerciseId || 'unknown');
           
           if (isLast) {
+            trackSessionComplete(savedSessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
             setPhase('summary');
           } else {
-            // Determine transition type: micro-pause every N exercises
-            const shouldPause = nextIndex > 0 && nextIndex % MICRO_PAUSE_INTERVAL === 0;
-            setPhase(shouldPause ? 'micro-pause' : 'transition');
+            // Use adaptive pause logic
+            const pauseDecision = decidePause({
+              completedCount: nextIndex,
+              recentScores: recentScoresRef.current,
+              recentReactionTimes: recentRTRef.current,
+              elapsedMinutes: Math.floor((Date.now() - (parsed.sessionStartTime || Date.now())) / 60000),
+              fatigueFlag: todayFocus?.adaptations?.fatigue === true,
+              recentTimeouts: recentTimeoutsRef.current,
+            });
+            
+            console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
+            setCurrentPause(pauseDecision);
+            setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
           }
         } catch (error) {
           console.error('[LessonFlow] Error processing resume:', error);
@@ -92,22 +145,32 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       if (savedState && !hasProcessedResumeRef.current) {
         try {
           const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
+          
+          // Guard: validate saved state
+          if (typeof savedIndex !== 'number' || savedIndex < 0 || savedIndex >= lesson.blocks.length) {
+            console.warn('[LessonFlow] Stale saved state, ignoring');
+            sessionStorage.removeItem('lessonFlowState');
+            return;
+          }
+          
           console.log('[LessonFlow] Restoring state (non-resuming):', { savedPhase, savedIndex, savedSessionId });
           setPhase(savedPhase);
           setCurrentBlockIndex(savedIndex);
           setSessionId(savedSessionId);
         } catch (error) {
           console.error('[LessonFlow] Error restoring state:', error);
+          sessionStorage.removeItem('lessonFlowState');
         }
       }
     }
   }, [lesson.blocks.length, location.state?.resuming]);
 
-  // Create session when needed
+  // Create session when needed — with dedup guard
   useEffect(() => {
-    const needsSession = phase === "exercise" && !sessionId && user;
+    const needsSession = phase === "exercise" && !sessionId && user && !isCreatingSessionRef.current;
     if (needsSession) {
       console.log('[LessonFlow] Creating session for phase:', phase);
+      isCreatingSessionRef.current = true;
       createSession();
     }
   }, [phase, sessionId, user?.id, activeProfile?.id]);
@@ -116,6 +179,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   useEffect(() => {
     if (phase === "exercise" && currentBlock && sessionId) {
       console.log('[LessonFlow] Navigating to exercise:', currentBlock.exerciseId);
+      trackFirstExerciseLaunch(sessionId, lesson.blocks.length);
       navigateToExercise(currentBlock.exerciseId);
     }
   }, [phase, currentBlock, sessionId]);
@@ -137,10 +201,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     if (error) {
       console.error("Failed to create session:", error);
       toast.error("Failed to start session");
+      isCreatingSessionRef.current = false;
       return;
     }
 
     console.log('[LessonFlow] Session created:', data.id);
+    sessionStartTimeRef.current = Date.now();
+    trackSessionStartTap(data.id, lesson.blocks.length);
     setSessionId(data.id);
   };
 
@@ -148,7 +215,6 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     if (results.needsFullAssessment) {
       setPhase("full-assessment");
     } else {
-      // Skip overview, go straight to exercise
       setPhase("exercise");
     }
   };
@@ -160,12 +226,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const navigateToExercise = (exerciseId: string) => {
     console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId, currentBlockIndex });
     
-    // Save state to sessionStorage before navigating
+    // Save minimal state to sessionStorage (not full lesson/profile)
     sessionStorage.setItem('lessonFlowState', JSON.stringify({
       phase: 'exercise',
       currentBlockIndex,
       sessionId,
-      sessionStartTime: Date.now(),
+      sessionStartTime: sessionStartTimeRef.current,
+      // Persist performance signals for adaptive pauses
+      recentScores: recentScoresRef.current,
+      recentRTs: recentRTRef.current,
+      recentTimeouts: recentTimeoutsRef.current,
+      // Keep lesson/clinicalProfile for components that still read them
       lesson,
       clinicalProfile,
     }));
@@ -253,31 +324,52 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
+      trackSessionComplete(sessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
       setPhase("summary");
     } else {
       const nextIndex = currentBlockIndex + 1;
       setCurrentBlockIndex(nextIndex);
-      // Micro-pause every N exercises for cognitive reset
-      const shouldPause = nextIndex > 0 && nextIndex % MICRO_PAUSE_INTERVAL === 0;
-      setPhase(shouldPause ? 'micro-pause' : 'transition');
+      
+      // Adaptive pause decision
+      const pauseDecision = decidePause({
+        completedCount: nextIndex,
+        recentScores: recentScoresRef.current,
+        recentReactionTimes: recentRTRef.current,
+        elapsedMinutes: Math.floor((Date.now() - sessionStartTimeRef.current) / 60000),
+        fatigueFlag: todayFocus?.adaptations?.fatigue === true,
+        recentTimeouts: recentTimeoutsRef.current,
+      });
+      
+      console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
+      setCurrentPause(pauseDecision);
+      setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
     }
-  }, [currentBlockIndex, isLastBlock]);
+  }, [currentBlockIndex, isLastBlock, sessionId, lesson.blocks.length, todayFocus]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
   }, []);
 
   const handleEndSession = useCallback(() => {
+    trackSessionDropOff(sessionId, currentBlockIndex, lesson.blocks.length, 'end_button');
     setPhase("summary");
-  }, []);
+  }, [sessionId, currentBlockIndex, lesson.blocks.length]);
 
   const handleFinish = () => {
     navigate("/dashboard");
   };
 
-  // Listen for exercise completion
+  // Listen for exercise completion — with dedup guard
   useEffect(() => {
+    let hasHandled = false;
+    
     const handleExerciseComplete = () => {
+      if (hasHandled) {
+        console.warn('[LessonFlow] Ignoring duplicate exercise-complete event');
+        return;
+      }
+      hasHandled = true;
+      
       console.log('[LessonFlow] ✅ exercise-complete event received', {
         currentBlockIndex,
         isLastBlock,
@@ -286,7 +378,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     };
 
     window.addEventListener("exercise-complete", handleExerciseComplete);
-    return () => window.removeEventListener("exercise-complete", handleExerciseComplete);
+    return () => {
+      window.removeEventListener("exercise-complete", handleExerciseComplete);
+    };
   }, [currentBlockIndex, isLastBlock, handleNextBlock]);
   
   // Clear sessionStorage when lesson completes
@@ -315,30 +409,34 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
-  // Auto-advancing encouragement overlay (3 sec)
+  // Auto-advancing encouragement overlay
   if (phase === "transition") {
     const nextBlock = lesson.blocks[currentBlockIndex];
     return (
       <ExerciseTransitionOverlay
         type="encouragement"
+        durationOverride={currentPause?.duration}
         completedCount={currentBlockIndex}
         totalCount={lesson.blocks.length}
         nextExerciseName={nextBlock?.exerciseId || "exercise"}
+        sessionId={sessionId}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />
     );
   }
 
-  // Breathing micro-pause (8 sec, every N exercises)
+  // Breathing micro-pause
   if (phase === "micro-pause") {
     const nextBlock = lesson.blocks[currentBlockIndex];
     return (
       <ExerciseTransitionOverlay
         type="micro-pause"
+        durationOverride={currentPause?.duration}
         completedCount={currentBlockIndex}
         totalCount={lesson.blocks.length}
         nextExerciseName={nextBlock?.exerciseId || "exercise"}
+        sessionId={sessionId}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />
