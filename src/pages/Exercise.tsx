@@ -680,7 +680,7 @@ const Exercise = () => {
         }}
       />
 
-      <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col">
+      <div className={`container mx-auto max-w-4xl px-2 sm:px-4 ${fromLesson ? 'py-1' : 'py-2 sm:py-4'} flex-1 flex flex-col min-h-0`}>
         {/* Compact navigation */}
         <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-4">
           <ExerciseBackButton 
