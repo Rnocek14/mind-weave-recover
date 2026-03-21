@@ -494,6 +494,8 @@ export function generateDailyLesson(
   todayFocusAdaptations?: { startDifficulty?: number; sessionDurationCap?: number; suggestedSessionMinutes?: number } | null,
   preset?: LessonPreset | null,
   recencyPenalties?: RecencyPenalties | null,
+  primaryDomains?: string[] | null,
+  speechProfileSignals?: SpeechProfileSelectionSignals | null,
 ): DailyLesson {
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
