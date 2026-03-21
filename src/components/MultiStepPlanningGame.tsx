@@ -2,11 +2,18 @@
  * Multi-Step Planning Game Component
  * 
  * "Plan [goal] in steps" — speech-based executive sequencing task.
+ * 
+ * UPGRADED: Capture parity with PhotoNaming:
+ * - useUtteranceLogger for persisted utterance analysis records
+ * - useAudioRecorder for WAV capture/upload
+ * - Discourse-focused: no pronunciation analysis (planning > phoneme precision)
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useMultiStepPlanningGame, PlanningTrialResult } from '@/hooks/useMultiStepPlanningGame';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -14,6 +21,8 @@ import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react
 import { cn } from '@/lib/utils';
 
 interface MultiStepPlanningGameProps {
+  userId?: string;
+  sessionId?: string | null;
   onTrialComplete: (result: PlanningTrialResult) => void;
   onGameComplete: (results: PlanningTrialResult[]) => void;
   roundCount?: number;
@@ -23,6 +32,8 @@ interface MultiStepPlanningGameProps {
 type Phase = 'prompt' | 'speaking' | 'scored';
 
 export function MultiStepPlanningGame({
+  userId,
+  sessionId,
   onTrialComplete, onGameComplete, roundCount = 3, tier = 1,
 }: MultiStepPlanningGameProps) {
   const { currentItem, currentIndex, totalItems, isComplete, results, submitPlan, nextItem } =
@@ -34,6 +45,20 @@ export function MultiStepPlanningGame({
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
+
+  // Clinical pipeline hooks
+  const {
+    startAttempt,
+    logFinalAnalysis,
+    resetAttempt,
+    currentAttemptId,
+  } = useUtteranceLogger();
+
+  const {
+    startRecording,
+    stopRecording,
+    uploadRecording,
+  } = useAudioRecorder();
 
   useEffect(() => {
     setPhase('prompt');
@@ -53,7 +78,6 @@ export function MultiStepPlanningGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
-    // In discourse mode, transcript is already accumulated
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
   }, []);
@@ -68,29 +92,93 @@ export function MultiStepPlanningGame({
   const handleStart = useCallback(() => {
     setPhase('speaking');
     startTimeRef.current = Date.now();
-    startListening();
-  }, [startListening]);
 
-  const handleDone = useCallback(() => {
+    // Start clinical pipeline
+    if (currentItem && userId) {
+      startAttempt({
+        sessionId: sessionId || 'standalone',
+        userId,
+        exerciseSlug: 'multi-step-planning',
+        trialIndex: currentIndex,
+        attemptNumber: 1,
+        targetWord: currentItem.goal,
+        category: 'discourse',
+      });
+    }
+
+    startRecording();
+    startListening();
+  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
+
+  const handleDone = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     stopListening();
-    setTimeout(() => {
+
+    const recordingResult = await stopRecording();
+
+    setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
       const durationMs = Date.now() - startTimeRef.current;
       const result = submitPlan(transcript, durationMs);
+
+      // Upload audio + log utterance
+      let audioStoragePath: string | null = null;
+      if (recordingResult?.audioBlob && userId && sessionId) {
+        audioStoragePath = await uploadRecording(
+          recordingResult.audioBlob,
+          userId,
+          sessionId,
+          currentIndex,
+          recordingResult.mimeType
+        );
+      }
+
+      if (currentAttemptId) {
+        await logFinalAnalysis({
+          transcript: transcript || undefined,
+          transcriptSource: 'browser',
+          evaluationModel: 'flow',
+          isCorrect: null, // Discourse task - no binary correctness
+          didSpeak: transcript.trim().length > 0,
+          utteranceComplete: transcript.trim().length > 0,
+          recordingDurationMs: durationMs,
+          audioStoragePath: audioStoragePath || undefined,
+          fluencyAvailable: false,
+          fluencyUnavailableReason: 'discourse_task',
+        });
+        resetAttempt();
+      }
+
       if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
     }, 150);
-  }, [stopListening, collectedTranscript, submitPlan, onTrialComplete]);
+  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     stopListening();
+    await stopRecording();
+
     const durationMs = Date.now() - startTimeRef.current;
     const result = submitPlan('', durationMs);
+
+    // Log skip
+    if (currentAttemptId) {
+      await logFinalAnalysis({
+        transcript: '',
+        transcriptSource: 'browser',
+        evaluationModel: 'flow',
+        isCorrect: null,
+        didSpeak: false,
+        fluencyAvailable: false,
+        fluencyUnavailableReason: 'no_recording',
+      });
+      resetAttempt();
+    }
+
     if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
-  }, [stopListening, submitPlan, onTrialComplete]);
+  }, [stopListening, stopRecording, submitPlan, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   if (!currentItem || isComplete) {
     const avgCov = results.length > 0 ? results.reduce((s, r) => s + r.goalCoverage, 0) / results.length : 0;
