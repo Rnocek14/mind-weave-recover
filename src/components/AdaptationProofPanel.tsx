@@ -384,7 +384,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
 
         {/* Phonemes */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Focus Phonemes</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Focus Phonemes">Focus Phonemes</HelpLabel></h4>
           {row.focusPhonemesUsed.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {row.focusPhonemesUsed.map(p => (
