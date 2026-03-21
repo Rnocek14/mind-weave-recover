@@ -43,7 +43,7 @@ import { useAdaptationOutcomes } from '@/hooks/useAdaptationOutcomes';
 import { AdaptationOutcomesPanel } from '@/components/AdaptationOutcomesPanel';
 import { AdaptationCoverageGaps } from '@/components/AdaptationCoverageGaps';
 import { SentenceLayerMetrics } from '@/components/SentenceLayerMetrics';
-import { AdaptationExecutiveSummary } from '@/components/AdaptationExecutiveSummary';
+
 import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportAdaptationEvidence';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -160,8 +160,7 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
         </div>
       </div>
 
-      {/* Executive Summary Card */}
-      <AdaptationExecutiveSummary userId={userId} daysBack={daysBack} />
+      {/* Executive Summary is rendered by parent (AdaptationsSection) — not duplicated here */}
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
