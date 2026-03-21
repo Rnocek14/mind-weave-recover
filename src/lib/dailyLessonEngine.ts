@@ -597,7 +597,13 @@ export function generateDailyLesson(
   };
 
   // Score each accessible exercise
-  const selectionReasons: Array<{ id: string; baseScore: number; recencyPenalty: number; componentPenalty: number; finalScore: number; reason: string }> = [];
+  // Map primaryDomains from adaptive engine to exercise domain names (once)
+  const mappedPrimaryDomains = (primaryDomains || []).flatMap(d => PRIMARY_DOMAIN_MAP[d] || [d]);
+
+  const selectionReasons: Array<{
+    id: string; baseScore: number; recencyPenalty: number; componentPenalty: number;
+    primaryDomainBoost: number; speechProfileBoost: number; finalScore: number; reason: string;
+  }> = [];
 
   const scoredExercises = accessibleExercises
     .map(id => {
@@ -626,13 +632,52 @@ export function generateDailyLesson(
         penaltyReason = recencyPenalties.reasons.get(id) || '';
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty;
+      // === PRIMARY DOMAINS BOOST (from adaptive engine) ===
+      // This is the critical connection: TodayFocus.primaryDomains now drives selection
+      let primaryDomainBoost = 0;
+      if (mappedPrimaryDomains.length > 0) {
+        const overlap = meta.domains.filter(d => mappedPrimaryDomains.includes(d));
+        primaryDomainBoost = overlap.length * 3; // Strong boost: +3 per overlapping domain
+      }
+
+      // === SPEECH PROFILE BOOST ===
+      // Uses actual speech profile data to influence which exercises get selected
+      let speechProfileBoost = 0;
+      if (speechProfileSignals) {
+        const dist = speechProfileSignals.errorTypeDistribution;
+        if (dist) {
+          const total = Object.values(dist).reduce((a, b) => a + b, 0);
+          if (total >= 10) {
+            const semanticPct = ((dist['semantic_related'] || 0) + (dist['semantic_paraphasia'] || 0)) / total;
+            const phonologicalPct = ((dist['phonological'] || 0) + (dist['phonemic_paraphasia'] || 0)) / total;
+            // Boost exercises that match the user's dominant error type
+            if (semanticPct > 0.3 && meta.domains.includes('semantic_systems')) speechProfileBoost += 2;
+            if (phonologicalPct > 0.3 && meta.domains.includes('phonology')) speechProfileBoost += 2;
+          }
+        }
+        // Phoneme difficulty → boost phonology-related exercises
+        if (speechProfileSignals.phonemeDifficultyMap && meta.domains.includes('phonology')) {
+          const struggling = Object.values(speechProfileSignals.phonemeDifficultyMap)
+            .filter(s => s.accuracy < 70 && s.trials >= 5);
+          if (struggling.length > 0) speechProfileBoost += 1;
+        }
+        // Challenging categories → boost semantic exercises
+        if (speechProfileSignals.mostChallengingCategories &&
+            speechProfileSignals.mostChallengingCategories.length > 0 &&
+            meta.domains.includes('semantic_systems')) {
+          speechProfileBoost += 1;
+        }
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost;
 
       selectionReasons.push({
         id,
         baseScore,
         recencyPenalty,
         componentPenalty,
+        primaryDomainBoost,
+        speechProfileBoost,
         finalScore,
         reason: penaltyReason || 'no recency penalty',
       });
@@ -647,6 +692,24 @@ export function generateDailyLesson(
     })
     .filter(Boolean)
     .sort((a, b) => b!.score - a!.score);
+
+  // Log primaryDomains wiring for observability
+  if (mappedPrimaryDomains.length > 0) {
+    reasoning.push(`Adaptive engine prioritizing: ${(primaryDomains || []).join(', ')}`);
+    console.log('[DailyLessonEngine] primaryDomains wired:', {
+      raw: primaryDomains,
+      mapped: mappedPrimaryDomains,
+      boostedExercises: selectionReasons
+        .filter(r => r.primaryDomainBoost > 0)
+        .map(r => `${r.id} (+${r.primaryDomainBoost})`),
+    });
+  }
+  if (speechProfileSignals) {
+    const boosted = selectionReasons.filter(r => r.speechProfileBoost > 0);
+    if (boosted.length > 0) {
+      console.log('[DailyLessonEngine] Speech profile boosts:', boosted.map(r => `${r.id} (+${r.speechProfileBoost})`));
+    }
+  }
 
   // Helper to check if two exercises share the same base component
   const sharesBaseComponent = (ex1: typeof scoredExercises[0], ex2: typeof scoredExercises[0]): boolean => {
