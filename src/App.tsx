@@ -46,6 +46,7 @@ import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
 import AbstractCompareExercise from "./pages/AbstractCompareExercise";
 import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
 import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
+import SpeechProfile from "./pages/SpeechProfile";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
