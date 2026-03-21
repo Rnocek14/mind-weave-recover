@@ -13,6 +13,7 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
@@ -94,7 +95,6 @@ export function PatientModeView({
   const handleStartSession = () => {
     if (!lesson) return;
     // Track true tap time before any async work
-    const { trackSessionStartTap } = require('@/lib/sessionFlowAnalytics');
     trackSessionStartTap(null, lesson.blocks?.length || 0);
     navigate("/lesson", {
       state: {
