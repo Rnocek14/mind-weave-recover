@@ -280,7 +280,7 @@ export const PhonologicalGame = ({
         <CardHeader>
           <CardTitle className="text-center flex items-center justify-center gap-2">
             <Ear className="h-5 w-5 text-primary" />
-            Do these words sound the same or different?
+            Do these words start with the same sound?
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
