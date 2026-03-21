@@ -225,7 +225,7 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            Cross-Game Adaptation Evidence
+            <HelpLabel term="Cross-Game Evidence">Cross-Game Adaptation Evidence</HelpLabel>
           </CardTitle>
           <CardDescription>
             Click any row to inspect per-game adaptation details
