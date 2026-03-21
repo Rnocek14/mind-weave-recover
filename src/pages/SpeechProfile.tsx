@@ -34,6 +34,7 @@ import {
   Zap, TrendingUp, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HelpLabel } from "@/components/HelpTooltip";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -199,7 +200,7 @@ export default function SpeechProfile() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Target className="h-4 w-4 text-primary" />
-                    {showClinician ? 'Focus Phonemes' : 'Sounds We\'re Working On'}
+                    <HelpLabel term="Focus Phonemes">{showClinician ? 'Focus Phonemes' : 'Sounds We\'re Working On'}</HelpLabel>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -238,7 +239,7 @@ export default function SpeechProfile() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-primary" />
-                    {showClinician ? 'Cue Preference' : 'What Helps You Most'}
+                    <HelpLabel term="Recommended Cue Type">{showClinician ? 'Cue Preference' : 'What Helps You Most'}</HelpLabel>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -292,7 +293,7 @@ export default function SpeechProfile() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-primary" />
-                      {showClinician ? 'Error Distribution' : 'Common Mistakes'}
+                      <HelpLabel term="Error Distribution">{showClinician ? 'Error Distribution' : 'Common Mistakes'}</HelpLabel>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1.5">
@@ -315,7 +316,7 @@ export default function SpeechProfile() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Activity className="h-4 w-4 text-primary" />
-                      {showClinician ? 'Challenging Categories' : 'Harder Word Groups'}
+                      <HelpLabel term="Challenging Categories">{showClinician ? 'Challenging Categories' : 'Harder Word Groups'}</HelpLabel>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -367,8 +368,8 @@ export default function SpeechProfile() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                {showClinician ? 'Adaptation Coverage' : 'Which Exercises Adapt to You'}
+                 <Shield className="h-4 w-4 text-primary" />
+                 <HelpLabel term="Adaptation Coverage">{showClinician ? 'Adaptation Coverage' : 'Which Exercises Adapt to You'}</HelpLabel>
               </CardTitle>
               <CardDescription className="text-xs">
                 {showClinician
@@ -425,7 +426,7 @@ export default function SpeechProfile() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
-                  Adaptation Telemetry (14d)
+                   Adaptation Telemetry (14d)
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
@@ -445,7 +446,7 @@ export default function SpeechProfile() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" />
-                Profile Freshness
+                <HelpLabel term="Profile Freshness">Profile Freshness</HelpLabel>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

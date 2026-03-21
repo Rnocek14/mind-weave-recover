@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
+import { HelpLabel } from "@/components/HelpTooltip";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
@@ -43,14 +44,14 @@ export const DomainConfidenceSummary = memo(function DomainConfidenceSummary() {
         ) : (
           <HelpCircle className="w-4 h-4 text-muted-foreground" />
         )}
-        <span className="text-muted-foreground">Domains scored:</span>
+        <span className="text-muted-foreground"><HelpLabel term="Domain">Domains scored:</HelpLabel></span>
         <Badge variant="outline" className="text-xs tabular-nums">
           {stats.scored}/{stats.total}
         </Badge>
       </div>
 
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground">High confidence:</span>
+        <span className="text-muted-foreground"><HelpLabel term="Confidence Level">High confidence:</HelpLabel></span>
         <Badge
           variant={stats.highConf >= 3 ? "default" : "secondary"}
           className="text-xs tabular-nums"

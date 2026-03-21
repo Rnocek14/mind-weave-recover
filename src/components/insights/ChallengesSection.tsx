@@ -25,6 +25,7 @@ import { getErrorLabel } from '@/lib/insightLanguageMap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { currentRoute, withReturnTo } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 import { useUiMode } from '@/hooks/useUiMode';
 import { recomputeSpeechProfileNow } from '@/lib/recomputeSpeechProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -274,7 +275,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium flex items-center gap-2">
                     <Volume2 className="w-4 h-4 text-warning" />
-                    Sounds to Focus On
+                    <HelpLabel term="Phoneme">Sounds to Focus On</HelpLabel>
                   </h4>
                   {targetWords.length > 0 && (
                     <Button 
@@ -318,7 +319,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
             {/* Error Pattern Distribution */}
             {topErrors.length > 0 && (
               <div>
-                <h4 className="font-medium mb-3">Common Error Patterns</h4>
+                <h4 className="font-medium mb-3"><HelpLabel term="Error Distribution">Common Error Patterns</HelpLabel></h4>
                 <div className="space-y-2">
                   {topErrors.map(([type, count]) => {
                     const total = Object.values(errorBreakdown).reduce((a, b) => (a as number) + (b as number), 0) as number;

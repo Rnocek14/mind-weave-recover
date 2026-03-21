@@ -10,6 +10,7 @@ import { Lightbulb, CheckCircle2, Clock } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { getCueLabel } from '@/lib/insightLanguageMap';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface StrategiesSectionProps {
   userId: string;
@@ -76,7 +77,7 @@ export function StrategiesSection({ userId, profileId }: StrategiesSectionProps)
 
             {/* All Cue Types */}
             <div>
-              <h4 className="font-medium mb-3">Cue Effectiveness</h4>
+              <h4 className="font-medium mb-3"><HelpLabel term="Cue Efficacy">Cue Effectiveness</HelpLabel></h4>
               <div className="space-y-3">
                 {sortedCues.map(cue => {
                   const isBest = cue === bestCue;

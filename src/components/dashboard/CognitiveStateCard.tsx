@@ -8,6 +8,7 @@ import {
   HelpCircle 
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { HelpLabel } from "@/components/HelpTooltip";
 import type { DomainScore } from "@/lib/cognitiveStateEngine";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 
@@ -116,7 +117,7 @@ export const CognitiveStateCard = memo(function CognitiveStateCard({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Brain className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-base">Cognitive Recovery Map</h3>
+          <h3 className="font-semibold text-base"><HelpLabel term="Recovery Domain">Cognitive Recovery Map</HelpLabel></h3>
         </div>
         {scoredDomains.length > 0 && (
           <TooltipProvider>

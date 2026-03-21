@@ -18,14 +18,22 @@ import {
   History,
   ChevronDown,
   Brain,
-  Stethoscope } from
+  Stethoscope,
+  CircleHelp } from
 "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useUiMode } from "@/hooks/useUiMode";
+import { useHelpMode } from "@/contexts/HelpModeContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const navItems = [
 { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,6 +46,7 @@ export function AppHeader() {
   const { user } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast } = useUiMode();
+  const { helpMode, toggleHelpMode } = useHelpMode();
 
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
@@ -160,6 +169,26 @@ export function AppHeader() {
 
           {/* Caregiver Mode Toggle - only for eligible users */}
           {canAccessCaregiverMode && <CaregiverModeToggle />}
+
+          {/* Help Mode Toggle */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={helpMode ? "secondary" : "ghost"}
+                  size="icon"
+                  className={cn("h-8 w-8", helpMode && "text-primary")}
+                  onClick={toggleHelpMode}
+                  aria-label={helpMode ? "Turn off help tooltips" : "Turn on help tooltips"}
+                >
+                  <CircleHelp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {helpMode ? "Hide explanations" : "Show explanations for complex terms"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <ThemeToggle />
         </nav>
