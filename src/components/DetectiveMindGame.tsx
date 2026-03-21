@@ -20,6 +20,8 @@ interface DetectiveMindGameProps {
   onGameComplete: (results: DetectiveTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
+  /** Profile-recommended cue type — adapts hint behavior */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
@@ -36,7 +38,8 @@ export function DetectiveMindGame({
   onTrialComplete, 
   onGameComplete, 
   roundCount = 10,
-  difficultyLevel = 1 
+  difficultyLevel = 1,
+  recommendedCueType,
 }: DetectiveMindGameProps) {
   const {
     currentCase,
@@ -235,8 +238,15 @@ export function DetectiveMindGame({
           {!usedHint && (
             <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground">
               <Lightbulb className="h-4 w-4 mr-2" />
-              Show a hint (−5 bonus points)
+              {recommendedCueType === 'semantic' 
+                ? 'Highlight key evidence (−5 bonus points)'
+                : 'Show a hint (−5 bonus points)'}
             </Button>
+          )}
+          {!usedHint && recommendedCueType === 'full_word' && (
+            <p className="text-xs text-muted-foreground text-center italic">
+              💡 Using the hint can help — no pressure!
+            </p>
           )}
         </div>
       )}

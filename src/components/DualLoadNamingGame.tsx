@@ -29,18 +29,20 @@ interface DualLoadNamingGameProps {
   onGameComplete: (results: DualLoadTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  focusPhonemes?: string[];
 }
 
 export function DualLoadNamingGame({
   userId,
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 2, tier = 1,
+  focusPhonemes = [],
 }: DualLoadNamingGameProps) {
   const {
     currentSet, currentSetIndex, totalSets, isComplete,
     phase, currentNamingTarget, namingIndex, namingAttempts, results,
     startNaming, submitNaming, submitRecall, nextSet,
-  } = useDualLoadNamingGame(roundCount, tier);
+  } = useDualLoadNamingGame(roundCount, tier, focusPhonemes);
 
   const [recallInputs, setRecallInputs] = useState<string[]>(['', '', '']);
   const [lastResult, setLastResult] = useState<DualLoadTrialResult | null>(null);

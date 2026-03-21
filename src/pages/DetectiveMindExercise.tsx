@@ -184,6 +184,7 @@ export default function DetectiveMindExercise() {
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
             difficultyLevel={difficultyLevel}
+            recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />
         )}
       </main>

@@ -27,6 +27,8 @@ interface NarrativeRetellGameProps {
   onGameComplete: (results: NarrativeTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** Profile-recommended cue type — adapts retelling scaffolding */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 type Phase = 'reading' | 'retelling' | 'scored';
@@ -38,6 +40,7 @@ export function NarrativeRetellGame({
   onGameComplete,
   roundCount = 3,
   tier = 1,
+  recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory } =
     useNarrativeRetellGame(roundCount, tier);
@@ -272,6 +275,19 @@ export function NarrativeRetellGame({
               <p className="text-sm text-muted-foreground text-center">
                 You've read all scenes. Now retell the story in your own words.
               </p>
+              {/* Adaptive scaffolding based on recommended cue type */}
+              {recommendedCueType === 'semantic' && currentStory && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+                  <span className="font-medium">💡 Hint: </span>
+                  Think about: <em>who</em> was in the story, <em>where</em> it happened, and <em>what</em> went wrong.
+                </div>
+              )}
+              {recommendedCueType === 'phonemic' && currentStory && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+                  <span className="font-medium">💡 Start with: </span>
+                  "{currentStory.scenes[0].text.split(' ').slice(0, 3).join(' ')}..."
+                </div>
+              )}
               {isSupported ? (
                 <Button onClick={handleStartRetelling} className="w-full" size="lg">
                   <Mic className="h-4 w-4 mr-2" />

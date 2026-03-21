@@ -20,6 +20,8 @@ interface MeaningMatchGameProps {
   onGameComplete: (results: MeaningMatchTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
+  /** Profile-recommended cue type — adapts hint behavior */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
@@ -50,6 +52,7 @@ export function MeaningMatchGame({
   onGameComplete,
   roundCount = 10,
   difficultyLevel = 1,
+  recommendedCueType,
 }: MeaningMatchGameProps) {
   const {
     currentItem,
@@ -240,8 +243,16 @@ export function MeaningMatchGame({
           {!usedHint && (
             <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground">
               <Lightbulb className="h-4 w-4 mr-2" />
-              Highlight keywords (−5 bonus points)
+              {recommendedCueType === 'phonemic' 
+                ? 'Show first letter hint (−5 bonus points)'
+                : 'Highlight keywords (−5 bonus points)'}
             </Button>
+          )}
+          {/* Auto-show hint for users who historically need cue support */}
+          {!usedHint && recommendedCueType === 'full_word' && (
+            <p className="text-xs text-muted-foreground text-center italic">
+              💡 Try the hint if you need help — it's okay to use support.
+            </p>
           )}
         </div>
       )}
