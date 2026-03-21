@@ -330,7 +330,15 @@ export const PhonologicalGame = ({
             </Button>
 
             <p className="text-sm text-muted-foreground text-center max-w-md">
-              Listen carefully — do these words begin with the same sound, or a different sound? Words can rhyme but still start differently (e.g. "door" and "four").
+              {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
+                ? 'Focus on the very first sound of each word — not the ending or rhyme.'
+                : trial.relationType.includes('coda')
+                ? 'Focus on the very last sound of each word.'
+                : trial.relationType === 'rhyme'
+                ? 'Do these words have the same ending sound pattern?'
+                : trial.relationType.includes('vowel')
+                ? 'Focus on the vowel sound in the middle of each word.'
+                : 'Listen carefully and compare the sounds.'}
             </p>
           </div>
 
