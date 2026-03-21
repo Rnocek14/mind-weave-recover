@@ -2,6 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Sparkles } from "lucide-react";
 import { getAdaptationSummary } from "@/lib/exerciseGating";
 import type { ExerciseAdaptation } from "@/lib/exerciseGating";
+import { HelpLabel } from "@/components/HelpTooltip";
 
 interface ExerciseAdaptationBannerProps {
   adaptation: ExerciseAdaptation | null;
