@@ -5,6 +5,8 @@ type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING';
 interface SpeechRecognitionHook {
   isListening: boolean;
   transcript: string;
+  /** Full accumulated transcript across all recognition restarts (discourse mode) */
+  fullTranscript: string;
   startListening: () => void;
   stopListening: () => void;
   isSupported: boolean;
@@ -19,6 +21,12 @@ interface UseSpeechRecognitionOptions {
   patientMode?: boolean;
   /** If false, all recognition attempts are blocked. Use to gate on permission status. */
   enabled?: boolean;
+  /**
+   * Discourse mode: accumulates transcripts across recognition restarts
+   * instead of replacing. Use for story retell, planning, conversation —
+   * any task where the user speaks multiple sentences.
+   */
+  discourseMode?: boolean;
 }
 
 export const useSpeechRecognition = (
@@ -36,13 +44,15 @@ export const useSpeechRecognition = (
     autoStart: optAutoStart = false, 
     continuousListening: optContinuous = false,
     patientMode = false,
-    enabled = true
+    enabled = true,
+    discourseMode = false,
   } = options;
   
   // Track if permission was denied to stop all restart attempts
   const permissionDeniedRef = useRef(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [fullTranscript, setFullTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   
   // State machine to prevent race conditions
@@ -56,6 +66,9 @@ export const useSpeechRecognition = (
   const lastProcessedTranscriptRef = useRef<string>('');
   const lastStopTimeRef = useRef<number>(0);
   const enabledRef = useRef(enabled);
+  
+  // Discourse accumulation
+  const accumulatedTranscriptRef = useRef<string[]>([]);
   
   // Cooldown period after stop before allowing restart (prevents race)
   const COOLDOWN_MS = 300;
@@ -110,17 +123,38 @@ export const useSpeechRecognition = (
         // Reset no-speech counter on successful recognition
         noSpeechCountRef.current = 0;
         
-        // Clear pending transcript and process if not already processed
-        pendingTranscriptRef.current = '';
-        if (finalTranscript !== lastProcessedTranscriptRef.current) {
-          lastProcessedTranscriptRef.current = finalTranscript;
-          onResultRef.current(finalTranscript);
+        // In discourse mode, accumulate all final segments
+        if (discourseMode && finalTranscript) {
+          accumulatedTranscriptRef.current.push(finalTranscript);
+          const full = accumulatedTranscriptRef.current.join(' ');
+          setFullTranscript(full);
+          
+          // Fire callback with accumulated transcript
+          if (full !== lastProcessedTranscriptRef.current) {
+            lastProcessedTranscriptRef.current = full;
+            pendingTranscriptRef.current = '';
+            onResultRef.current(full);
+          }
+        } else {
+          // Standard mode: fire with just this segment
+          pendingTranscriptRef.current = '';
+          if (finalTranscript !== lastProcessedTranscriptRef.current) {
+            lastProcessedTranscriptRef.current = finalTranscript;
+            onResultRef.current(finalTranscript);
+          }
         }
       } else {
-        // Show interim results and track for potential processing on end
+        // Show interim results
         const interimTranscript = lastResult[0].transcript.trim().toLowerCase();
         setTranscript(interimTranscript);
         pendingTranscriptRef.current = interimTranscript;
+        
+        // In discourse mode, show accumulated + current interim
+        if (discourseMode) {
+          const accumulated = accumulatedTranscriptRef.current.join(' ');
+          const combined = accumulated ? `${accumulated} ${interimTranscript}` : interimTranscript;
+          setFullTranscript(combined);
+        }
       }
     };
 
@@ -130,7 +164,6 @@ export const useSpeechRecognition = (
       // Handle 'aborted' errors - don't auto-restart but allow manual restart
       if (event.error === 'aborted') {
         console.log('🎤 Recognition aborted - state reset (manual restart still allowed)');
-        // Don't set manuallyStoppedRef - allow user to restart via UI
         stateRef.current = 'IDLE';
         setIsListening(false);
         return;
@@ -196,12 +229,24 @@ export const useSpeechRecognition = (
       
       // Process any pending interim transcript as final result if not already processed
       if (pendingTranscriptRef.current && 
-          !manuallyStoppedRef.current &&
-          pendingTranscriptRef.current !== lastProcessedTranscriptRef.current) {
-        console.log('🎤 Processing pending transcript:', pendingTranscriptRef.current);
-        lastProcessedTranscriptRef.current = pendingTranscriptRef.current;
-        onResultRef.current(pendingTranscriptRef.current);
+          !manuallyStoppedRef.current) {
+        const pending = pendingTranscriptRef.current;
         pendingTranscriptRef.current = '';
+        
+        if (discourseMode && pending) {
+          // Accumulate the pending interim as a final segment
+          accumulatedTranscriptRef.current.push(pending);
+          const full = accumulatedTranscriptRef.current.join(' ');
+          setFullTranscript(full);
+          if (full !== lastProcessedTranscriptRef.current) {
+            lastProcessedTranscriptRef.current = full;
+            onResultRef.current(full);
+          }
+        } else if (pending !== lastProcessedTranscriptRef.current) {
+          console.log('🎤 Processing pending transcript:', pending);
+          lastProcessedTranscriptRef.current = pending;
+          onResultRef.current(pending);
+        }
       }
       
       // Auto-restart for continuous/patient mode if not manually stopped
@@ -248,7 +293,7 @@ export const useSpeechRecognition = (
         clearTimeout(cooldownTimeoutRef.current);
       }
     };
-  }, [isSupported, optContinuous, patientMode]);
+  }, [isSupported, optContinuous, patientMode, discourseMode]);
 
 
   const startListening = useCallback(() => {
@@ -288,6 +333,13 @@ export const useSpeechRecognition = (
     setTranscript('');
     setError(null);
     
+    // Reset accumulated transcript on fresh start
+    if (discourseMode) {
+      accumulatedTranscriptRef.current = [];
+      setFullTranscript('');
+      lastProcessedTranscriptRef.current = '';
+    }
+    
     try {
       recognitionRef.current.start();
     } catch (error) {
@@ -295,7 +347,7 @@ export const useSpeechRecognition = (
       stateRef.current = 'IDLE';
       setError('Failed to start speech recognition');
     }
-  }, []);
+  }, [discourseMode]);
 
   const stopListening = useCallback(() => {
     // Only stop if actually listening or starting
@@ -340,6 +392,7 @@ export const useSpeechRecognition = (
   return {
     isListening,
     transcript,
+    fullTranscript,
     startListening,
     stopListening,
     isSupported,
