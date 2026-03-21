@@ -280,7 +280,15 @@ export const PhonologicalGame = ({
         <CardHeader>
           <CardTitle className="text-center flex items-center justify-center gap-2">
             <Ear className="h-5 w-5 text-primary" />
-            Do these words start with the same sound?
+            {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
+              ? 'Do these words start with the same sound?'
+              : trial.relationType.includes('coda')
+              ? 'Do these words end with the same sound?'
+              : trial.relationType === 'rhyme'
+              ? 'Do these words rhyme?'
+              : trial.relationType.includes('vowel')
+              ? 'Do these words have the same middle sound?'
+              : 'Do these words sound the same or different?'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
