@@ -500,7 +500,6 @@ export default function SpeechProfile() {
                   <DataRow label="Trials with phoneme data" value={speechProfile?.trials_with_phonemes ?? 0} />
                   <DataRow label="Phoneme tokens" value={speechProfile?.phoneme_token_count ?? 0} />
                   <DataRow label="Avg stall duration" value={speechProfile?.avg_stall_duration_ms ? `${Math.round(speechProfile.avg_stall_duration_ms)}ms` : 'N/A'} />
-                  <DataRow label="Stall rate" value={speechProfile?.stall_rate != null ? `${Math.round(speechProfile.stall_rate * 100)}%` : 'N/A'} />
                 </>
               )}
 
