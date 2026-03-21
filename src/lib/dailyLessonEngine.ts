@@ -13,6 +13,51 @@ import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
 
+/** Speech profile signals used for exercise SELECTION scoring (not in-game adaptation) */
+export interface SpeechProfileSelectionSignals {
+  errorTypeDistribution?: Record<string, number>;
+  mostChallengingCategories?: string[];
+  phonemeDifficultyMap?: Record<string, { accuracy: number; trials: number }>;
+}
+
+/**
+ * Map adaptive engine domain names → exercise domain names.
+ * primaryDomains from computeTodayFocus uses cognitive/clinical names;
+ * exerciseMetadata uses lesson-engine names. This bridge connects them.
+ */
+const PRIMARY_DOMAIN_MAP: Record<string, string[]> = {
+  'semantic': ['semantic_systems'],
+  'semantic_depth': ['semantic_systems'],
+  'executive': ['attention'],
+  'executive_function': ['attention'],
+  'discourse': ['expressive_language'],
+  'phonological': ['phonology'],
+  'language_production': ['expressive_language', 'phonology'],
+  'language_comprehension': ['receptive_language'],
+  'visual_spatial': ['visual_processing'],
+};
+
+/**
+ * Domain families for cross-domain balancing.
+ * Sessions should include exercises from ≥2 families to avoid tunnel-vision therapy.
+ */
+const DOMAIN_FAMILIES: Record<string, string[]> = {
+  language: ['expressive_language', 'receptive_language', 'phonology'],
+  semantic: ['semantic_systems'],
+  cognition: ['attention', 'visual_processing'],
+  motor: ['motor_control'],
+};
+
+function getExerciseDomainFamilies(exerciseDomains: string[]): string[] {
+  const families: string[] = [];
+  for (const [family, domains] of Object.entries(DOMAIN_FAMILIES)) {
+    if (exerciseDomains.some(d => domains.includes(d)) && !families.includes(family)) {
+      families.push(family);
+    }
+  }
+  return families;
+}
+
 export interface DomainPriority {
   expressive_language: 'high' | 'medium' | 'low';
   receptive_language: 'high' | 'medium' | 'low';
@@ -449,6 +494,8 @@ export function generateDailyLesson(
   todayFocusAdaptations?: { startDifficulty?: number; sessionDurationCap?: number; suggestedSessionMinutes?: number } | null,
   preset?: LessonPreset | null,
   recencyPenalties?: RecencyPenalties | null,
+  primaryDomains?: string[] | null,
+  speechProfileSignals?: SpeechProfileSelectionSignals | null,
 ): DailyLesson {
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
@@ -550,7 +597,13 @@ export function generateDailyLesson(
   };
 
   // Score each accessible exercise
-  const selectionReasons: Array<{ id: string; baseScore: number; recencyPenalty: number; componentPenalty: number; finalScore: number; reason: string }> = [];
+  // Map primaryDomains from adaptive engine to exercise domain names (once)
+  const mappedPrimaryDomains = (primaryDomains || []).flatMap(d => PRIMARY_DOMAIN_MAP[d] || [d]);
+
+  const selectionReasons: Array<{
+    id: string; baseScore: number; recencyPenalty: number; componentPenalty: number;
+    primaryDomainBoost: number; speechProfileBoost: number; finalScore: number; reason: string;
+  }> = [];
 
   const scoredExercises = accessibleExercises
     .map(id => {
@@ -579,13 +632,52 @@ export function generateDailyLesson(
         penaltyReason = recencyPenalties.reasons.get(id) || '';
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty;
+      // === PRIMARY DOMAINS BOOST (from adaptive engine) ===
+      // This is the critical connection: TodayFocus.primaryDomains now drives selection
+      let primaryDomainBoost = 0;
+      if (mappedPrimaryDomains.length > 0) {
+        const overlap = meta.domains.filter(d => mappedPrimaryDomains.includes(d));
+        primaryDomainBoost = overlap.length * 3; // Strong boost: +3 per overlapping domain
+      }
+
+      // === SPEECH PROFILE BOOST ===
+      // Uses actual speech profile data to influence which exercises get selected
+      let speechProfileBoost = 0;
+      if (speechProfileSignals) {
+        const dist = speechProfileSignals.errorTypeDistribution;
+        if (dist) {
+          const total = Object.values(dist).reduce((a, b) => a + b, 0);
+          if (total >= 10) {
+            const semanticPct = ((dist['semantic_related'] || 0) + (dist['semantic_paraphasia'] || 0)) / total;
+            const phonologicalPct = ((dist['phonological'] || 0) + (dist['phonemic_paraphasia'] || 0)) / total;
+            // Boost exercises that match the user's dominant error type
+            if (semanticPct > 0.3 && meta.domains.includes('semantic_systems')) speechProfileBoost += 2;
+            if (phonologicalPct > 0.3 && meta.domains.includes('phonology')) speechProfileBoost += 2;
+          }
+        }
+        // Phoneme difficulty → boost phonology-related exercises
+        if (speechProfileSignals.phonemeDifficultyMap && meta.domains.includes('phonology')) {
+          const struggling = Object.values(speechProfileSignals.phonemeDifficultyMap)
+            .filter(s => s.accuracy < 70 && s.trials >= 5);
+          if (struggling.length > 0) speechProfileBoost += 1;
+        }
+        // Challenging categories → boost semantic exercises
+        if (speechProfileSignals.mostChallengingCategories &&
+            speechProfileSignals.mostChallengingCategories.length > 0 &&
+            meta.domains.includes('semantic_systems')) {
+          speechProfileBoost += 1;
+        }
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost;
 
       selectionReasons.push({
         id,
         baseScore,
         recencyPenalty,
         componentPenalty,
+        primaryDomainBoost,
+        speechProfileBoost,
         finalScore,
         reason: penaltyReason || 'no recency penalty',
       });
@@ -600,6 +692,24 @@ export function generateDailyLesson(
     })
     .filter(Boolean)
     .sort((a, b) => b!.score - a!.score);
+
+  // Log primaryDomains wiring for observability
+  if (mappedPrimaryDomains.length > 0) {
+    reasoning.push(`Adaptive engine prioritizing: ${(primaryDomains || []).join(', ')}`);
+    console.log('[DailyLessonEngine] primaryDomains wired:', {
+      raw: primaryDomains,
+      mapped: mappedPrimaryDomains,
+      boostedExercises: selectionReasons
+        .filter(r => r.primaryDomainBoost > 0)
+        .map(r => `${r.id} (+${r.primaryDomainBoost})`),
+    });
+  }
+  if (speechProfileSignals) {
+    const boosted = selectionReasons.filter(r => r.speechProfileBoost > 0);
+    if (boosted.length > 0) {
+      console.log('[DailyLessonEngine] Speech profile boosts:', boosted.map(r => `${r.id} (+${r.speechProfileBoost})`));
+    }
+  }
 
   // Helper to check if two exercises share the same base component
   const sharesBaseComponent = (ex1: typeof scoredExercises[0], ex2: typeof scoredExercises[0]): boolean => {
@@ -628,10 +738,15 @@ export function generateDailyLesson(
   const usedExerciseIds = new Set<string>();
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
-  // 1. WARMUP (1-2 min) - simple motor task (prefer reach-tap, but allow left-side-hunt)
+  // 1. WARMUP (1-2 min) - confidence-building exercise
+  // Prefer motor for physical warming, but allow language/cognitive if motor isn't available
+  // or if primaryDomains suggest a different warmup would be more therapeutic
   const motorExercises = scoredExercises.filter(e => e!.domains.includes('motor_control'));
-  const warmup = motorExercises[0];
+  const warmup = motorExercises[0]
+    || scoredExercises.find(e => e && e.baseMinutes <= 3) // fallback: any short exercise
+    || scoredExercises[0];
   if (warmup && remainingTime >= 1) {
+    const isMotorWarmup = warmup.domains.includes('motor_control');
     const duration = Math.min(2, remainingTime);
     blocks.push({
       exerciseId: warmup.id,
@@ -643,7 +758,7 @@ export function generateDailyLesson(
         timeout: 5000,
         visualSupport: true,
       },
-      reasoning: `Light motor warmup: ${warmup.id}`,
+      reasoning: isMotorWarmup ? `Light motor warmup: ${warmup.id}` : `Warmup: ${warmup.id} (non-motor)`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(warmup.id);
@@ -652,7 +767,6 @@ export function generateDailyLesson(
   }
 
   // Also mark same-component siblings as "avoid" for primary selection
-  // This ensures primary picks a DIFFERENT component type
   const warmupComponent = warmup?.baseComponent;
 
   // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises (avoid same component as warmup)
@@ -742,23 +856,60 @@ export function generateDailyLesson(
     addedSecondary++;
   }
 
-  // 4. CONSOLIDATION (1-2 min) - easy success (pick one that doesn't repeat last component)
+  // === DOMAIN FAMILY BALANCING ===
+  // Enforce ≥2 domain families in session to prevent tunnel-vision therapy
+  const currentFamilies = new Set<string>();
+  for (const block of blocks) {
+    const meta = exerciseMetadata[block.exerciseId];
+    if (meta) {
+      getExerciseDomainFamilies(meta.domains).forEach(f => currentFamilies.add(f));
+    }
+  }
+  
+  if (currentFamilies.size < 2 && remainingTime >= 2) {
+    // Find an exercise from an unrepresented family
+    const missingFamilyExercise = scoredExercises.find(ex => {
+      if (!ex || usedExerciseIds.has(ex.id)) return false;
+      const exFamilies = getExerciseDomainFamilies(ex.domains);
+      return exFamilies.some(f => !currentFamilies.has(f));
+    });
+    
+    if (missingFamilyExercise) {
+      const duration = Math.min(missingFamilyExercise.baseMinutes, remainingTime, 3);
+      if (duration >= 1) {
+        const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
+          ?? Math.max(0, capabilityScores.attention - 2);
+        blocks.push({
+          exerciseId: missingFamilyExercise.id,
+          duration,
+          priority: 'secondary',
+          adaptations: {
+            startDifficulty: effectiveStartDifficulty,
+            cueLevel: 1,
+            timeout: performanceSignals.avgReactionTime * 1.5,
+            visualSupport: capabilityScores.vision < 6,
+          },
+          reasoning: `Balance: cross-domain coverage (${getExerciseDomainFamilies(missingFamilyExercise.domains).join(', ')})`,
+        });
+        remainingTime -= duration;
+        usedExerciseIds.add(missingFamilyExercise.id);
+        lastAddedExercise = missingFamilyExercise;
+        const newFamilies = getExerciseDomainFamilies(missingFamilyExercise.domains);
+        newFamilies.forEach(f => currentFamilies.add(f));
+        reasoning.push(`Added ${missingFamilyExercise.id} for cross-domain balance`);
+      }
+    }
+  }
+
+  // 4. CONSOLIDATION (1-2 min) - easy success (flexible, not motor-only)
   if (remainingTime >= 1) {
-    // For consolidation, prefer a different component than the last block
+    // Prefer exercise from different component than last; motor is fine but not required
     let consolidationExercise: typeof scoredExercises[0] = null;
     
-    // First try: motor exercise that doesn't share component with last
-    const motorForConsolidation = motorExercises.find(e => 
+    // First try: any exercise that doesn't share component with last
+    consolidationExercise = scoredExercises.find(e => 
       e && !sharesBaseComponent(e, lastAddedExercise)
-    );
-    if (motorForConsolidation) {
-      consolidationExercise = motorForConsolidation;
-    } else {
-      // Fallback: any exercise that doesn't share component with last
-      consolidationExercise = scoredExercises.find(e => 
-        e && !sharesBaseComponent(e, lastAddedExercise)
-      ) || warmup; // Last resort: repeat warmup
-    }
+    ) || warmup; // Last resort: repeat warmup
     
     if (consolidationExercise) {
       blocks.push({
@@ -790,6 +941,8 @@ export function generateDailyLesson(
       top10.map(r => ({
         exercise: r.id,
         base: r.baseScore,
+        primaryDomain: r.primaryDomainBoost,
+        speechProfile: r.speechProfileBoost,
         recency: r.recencyPenalty,
         component: r.componentPenalty,
         final: r.finalScore,

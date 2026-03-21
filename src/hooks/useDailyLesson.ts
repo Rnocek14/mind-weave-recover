@@ -184,6 +184,8 @@ export const useDailyLesson = (
           null,
           preset,
           recency,
+          null,
+          null,
         );
         setLesson(defaultLesson);
         setLoading(false);
@@ -242,6 +244,7 @@ export const useDailyLesson = (
 
       // Compute TodayFocus FIRST so its adaptations feed into lesson generation
       let focus: TodayFocus | null = null;
+      let speechProfileForSelection: { errorTypeDistribution?: Record<string, number>; mostChallengingCategories?: string[]; phonemeDifficultyMap?: Record<string, { accuracy: number; trials: number }> } | null = null;
       try {
         // Get utterance count with alignment data
         const { count: utteranceCount } = await supabase
@@ -280,6 +283,13 @@ export const useDailyLesson = (
         const speechProfileSummary: SpeechProfileSummary | null = speechProfile ? {
           errorTypeDistribution: speechProfile.error_type_distribution as Record<string, number> | undefined,
           cueEfficacyByType: speechProfile.cue_efficacy_by_type as Record<string, { successRate: number; trials: number }> | undefined,
+          mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
+          phonemeDifficultyMap: speechProfile.phoneme_difficulty_map as Record<string, { accuracy: number; trials: number }> | undefined,
+        } : null;
+
+        // Extract selection-relevant signals for exercise scoring
+        speechProfileForSelection = speechProfile ? {
+          errorTypeDistribution: speechProfile.error_type_distribution as Record<string, number> | undefined,
           mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
           phonemeDifficultyMap: speechProfile.phoneme_difficulty_map as Record<string, { accuracy: number; trials: number }> | undefined,
         } : null;
@@ -360,6 +370,8 @@ export const useDailyLesson = (
         } : null,
         preset,
         recency,
+        focus?.primaryDomains || null,
+        speechProfileForSelection,
       );
 
       setLesson(dailyLesson);
