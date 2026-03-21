@@ -51,7 +51,7 @@ export const DomainConfidenceSummary = memo(function DomainConfidenceSummary() {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground">High confidence:</span>
+        <span className="text-muted-foreground"><HelpLabel term="Confidence Level">High confidence:</HelpLabel></span>
         <Badge
           variant={stats.highConf >= 3 ? "default" : "secondary"}
           className="text-xs tabular-nums"
