@@ -47,6 +47,8 @@ interface TwoCluesGameProps {
   userId?: string;
   profileId?: string;
   focusPhonemes?: string[];
+  /** Profile-recommended first cue type (personalizes cue ladder order) */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 /**
