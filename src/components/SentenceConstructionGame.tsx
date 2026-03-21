@@ -78,7 +78,7 @@ export const SentenceConstructionGame = ({
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
-  const [showFeedbackAudio, setShowFeedbackAudio] = useState(false);
+  
 
   const trial = getCurrentTrial();
 
