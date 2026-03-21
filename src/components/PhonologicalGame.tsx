@@ -280,7 +280,15 @@ export const PhonologicalGame = ({
         <CardHeader>
           <CardTitle className="text-center flex items-center justify-center gap-2">
             <Ear className="h-5 w-5 text-primary" />
-            Do these words sound the same or different?
+            {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
+              ? 'Do these words start with the same sound?'
+              : trial.relationType.includes('coda')
+              ? 'Do these words end with the same sound?'
+              : trial.relationType === 'rhyme'
+              ? 'Do these words rhyme?'
+              : trial.relationType.includes('vowel')
+              ? 'Do these words have the same middle sound?'
+              : 'Do these words sound the same or different?'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -322,7 +330,15 @@ export const PhonologicalGame = ({
             </Button>
 
             <p className="text-sm text-muted-foreground text-center max-w-md">
-              Listen carefully to both words. Do they sound the same or different?
+              {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
+                ? 'Focus on the very first sound of each word — not the ending or rhyme.'
+                : trial.relationType.includes('coda')
+                ? 'Focus on the very last sound of each word.'
+                : trial.relationType === 'rhyme'
+                ? 'Do these words have the same ending sound pattern?'
+                : trial.relationType.includes('vowel')
+                ? 'Focus on the vowel sound in the middle of each word.'
+                : 'Listen carefully and compare the sounds.'}
             </p>
           </div>
 
@@ -337,7 +353,7 @@ export const PhonologicalGame = ({
                   variant="outline"
                   className="min-w-32"
                 >
-                  Same Sound
+                  {trial.relationType === 'rhyme' ? 'Yes, they rhyme' : 'Same Sound'}
                 </Button>
                 <Button
                   onClick={() => handleAnswer('different')}
@@ -346,7 +362,7 @@ export const PhonologicalGame = ({
                   variant="outline"
                   className="min-w-32"
                 >
-                  Different Sound
+                  {trial.relationType === 'rhyme' ? 'No, different' : 'Different Sound'}
                 </Button>
               </>
             ) : (
