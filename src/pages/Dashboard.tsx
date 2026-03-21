@@ -457,6 +457,15 @@ const Dashboard = () => {
         />
       )}
 
+      {/* Adaptive Loop Debug Panel (dev/admin only) */}
+      {import.meta.env.DEV && user?.id && (
+        <AdaptiveLoopDebugPanel
+          userId={user.id}
+          profileId={activeProfile?.id}
+          className="mx-4 mb-4"
+        />
+      )}
+
       {/* Quick Action FAB */}
       <QuickActionFAB
         activeTab={activeTab}
