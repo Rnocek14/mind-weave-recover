@@ -97,7 +97,7 @@ export function AdaptationsSection({ userId, profileId, todayFocus }: Adaptation
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Settings2 className="w-5 h-5" />
-          How Is The System Adapting?
+          <HelpLabel term="Adaptation Event">How Is The System Adapting?</HelpLabel>
         </CardTitle>
         <CardDescription>
           Every adjustment is made to help you succeed

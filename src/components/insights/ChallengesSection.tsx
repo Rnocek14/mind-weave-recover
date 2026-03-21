@@ -319,7 +319,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
             {/* Error Pattern Distribution */}
             {topErrors.length > 0 && (
               <div>
-                <h4 className="font-medium mb-3">Common Error Patterns</h4>
+                <h4 className="font-medium mb-3"><HelpLabel term="Error Distribution">Common Error Patterns</HelpLabel></h4>
                 <div className="space-y-2">
                   {topErrors.map(([type, count]) => {
                     const total = Object.values(errorBreakdown).reduce((a, b) => (a as number) + (b as number), 0) as number;
