@@ -701,8 +701,8 @@ const Exercise = () => {
           )}
         </div>
 
-        {/* Debug badges for active adaptations */}
-        {(() => {
+        {/* Debug badges for active adaptations - hide in session mode */}
+        {!fromLesson && (() => {
           const badges = [
             lessonAdaptations?.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1
               ? `Timeout ×${lessonAdaptations.timeoutMultiplier}` : null,
@@ -727,8 +727,8 @@ const Exercise = () => {
           ) : null;
         })()}
 
-        {/* Clinical Profile Widget - hidden on mobile */}
-        {clinicalProfile && (
+        {/* Clinical Profile Widget - hidden on mobile and in session mode */}
+        {!fromLesson && clinicalProfile && (
           <div className="hidden md:block mb-4">
             <StrokeProfileWidget profile={clinicalProfile} />
           </div>
