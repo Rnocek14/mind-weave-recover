@@ -1009,8 +1009,8 @@ const Exercise = () => {
           </Card>
         )}
 
-        {/* Fixed Safety Controls - Always visible during exercise */}
-        {isPlaying && (
+        {/* Fixed Safety Controls - hide in session mode */}
+        {isPlaying && !fromLesson && (
           <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-2 sm:p-4 z-50">
             <div className="container mx-auto max-w-4xl flex justify-center gap-2 sm:gap-3">
               <Button
