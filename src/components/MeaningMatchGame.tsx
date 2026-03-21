@@ -52,6 +52,7 @@ export function MeaningMatchGame({
   onGameComplete,
   roundCount = 10,
   difficultyLevel = 1,
+  recommendedCueType,
 }: MeaningMatchGameProps) {
   const {
     currentItem,
