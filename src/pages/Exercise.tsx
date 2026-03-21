@@ -654,7 +654,7 @@ const Exercise = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-gradient-calm flex flex-col`}>
       {/* Intervention Modals */}
       <ConfidenceBoost
         open={showConfidenceBoost}
