@@ -48,6 +48,7 @@ import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportA
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationProofPanelProps {
   userId: string;
