@@ -150,6 +150,12 @@ export const useSessionLifecycle = ({
             }
           }
           
+          // Auto-trigger speech profile recompute (fire-and-forget)
+          if (userRef.current && profileRef.current) {
+            triggerPostSessionProfileRefresh(userRef.current, profileRef.current, sid)
+              .catch(err => console.warn('[SessionLifecycle] Profile refresh failed:', err));
+          }
+          
           onSessionEnded?.(reason);
         }
       } catch (err) {
