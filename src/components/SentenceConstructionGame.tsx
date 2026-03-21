@@ -280,7 +280,7 @@ export const SentenceConstructionGame = ({
           </div>
 
           {/* Sentence Construction Area */}
-          <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
+          <div className="flex flex-wrap gap-2 min-h-[48px] p-3 bg-muted border-2 border-dashed border-primary rounded-lg">
             {answerWords.length === 0 ? (
               <span className="text-muted-foreground">Tap words below to build your sentence</span>
             ) : (
