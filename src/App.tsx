@@ -49,6 +49,7 @@ import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
 import SpeechProfile from "./pages/SpeechProfile";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
+import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { AppLayout } from "@/components/layout";
