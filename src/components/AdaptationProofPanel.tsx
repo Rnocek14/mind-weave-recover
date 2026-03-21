@@ -48,6 +48,7 @@ import { buildAdaptationCSV, buildTextSummary, downloadCSV } from '@/lib/exportA
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationProofPanelProps {
   userId: string;
@@ -224,7 +225,7 @@ export const AdaptationProofPanel = ({ userId, daysBack = 14 }: AdaptationProofP
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            Cross-Game Adaptation Evidence
+            <HelpLabel term="Cross-Game Evidence">Cross-Game Adaptation Evidence</HelpLabel>
           </CardTitle>
           <CardDescription>
             Click any row to inspect per-game adaptation details
@@ -366,7 +367,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Mode Distribution */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Mode Distribution</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Mode Distribution">Mode Distribution</HelpLabel></h4>
           <div className="space-y-1">
             {Object.entries(row.adaptationModes)
               .sort((a, b) => b[1] - a[1])
@@ -383,7 +384,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
 
         {/* Phonemes */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Focus Phonemes</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Focus Phonemes">Focus Phonemes</HelpLabel></h4>
           {row.focusPhonemesUsed.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {row.focusPhonemesUsed.map(p => (
@@ -428,7 +429,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
 
       {/* Profile Confidence Distribution */}
       <div>
-        <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Profile Confidence</h4>
+        <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Confidence Level">Profile Confidence</HelpLabel></h4>
         <div className="flex gap-3">
           {Object.entries(row.profileConfidences)
             .sort((a, b) => b[1] - a[1])
@@ -444,8 +445,8 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
       {row.dataQualityIssues.length > 0 && (
         <div className="border-t pt-3">
           <h4 className="text-xs font-medium text-destructive uppercase mb-2 flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            Data Quality Issues
+            <AlertTriangle className="w-3 h-3" /><HelpLabel term="Data Quality">
+            Data Quality Issues</HelpLabel>
           </h4>
           <div className="space-y-1">
             {row.dataQualityIssues.map((issue, i) => (
@@ -502,9 +503,18 @@ const RecentTrialRow = ({ trial }: { trial: RecentAdaptedTrial }) => (
   </div>
 );
 
+const MINI_KPI_HELP: Record<string, string> = {
+  'Telemetry Coverage': 'Telemetry Coverage',
+  'Adaptation Rate': 'Adaptation Rate',
+  'Games Adapted': 'Games Adapted',
+  'Dominant Mode': 'Dominant Mode',
+};
+
 const MiniKPI = ({ label, value, detail, highlight }: { label: string; value: string; detail: string; highlight?: boolean }) => (
   <Card className={cn('p-3', highlight && 'border-destructive/30')}>
-    <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
+    <p className="text-xs text-muted-foreground uppercase tracking-wide">
+      {MINI_KPI_HELP[label] ? <HelpLabel term={MINI_KPI_HELP[label]}>{label}</HelpLabel> : label}
+    </p>
     <p className={cn('text-xl font-bold mt-1', highlight && 'text-destructive')}>{value}</p>
     <p className="text-xs text-muted-foreground">{detail}</p>
   </Card>

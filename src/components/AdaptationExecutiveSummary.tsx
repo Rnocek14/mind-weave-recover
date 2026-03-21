@@ -27,6 +27,7 @@ import {
 import { useAdaptationProof, type AdaptationProofSummary } from '@/hooks/useAdaptationProof';
 import { useAdaptationOutcomes, type AdaptationOutcomesSummary } from '@/hooks/useAdaptationOutcomes';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationExecutiveSummaryProps {
   userId: string;
@@ -161,6 +162,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Activity className="w-3.5 h-3.5" />}
             label="Adaptation Rate"
+            helpTerm="Adaptation Rate"
             value={`${Math.round(summary.overallAdaptationRate * 100)}%`}
             subtext={`${summary.totalAdapted} adapted`}
             status={summary.overallAdaptationRate > 0.5 ? 'good' : summary.overallAdaptationRate > 0.2 ? 'neutral' : 'warn'}
@@ -168,6 +170,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Radio className="w-3.5 h-3.5" />}
             label="Telemetry Coverage"
+            helpTerm="Telemetry Coverage"
             value={`${Math.round(summary.telemetryCoverage * 100)}%`}
             subtext={`${summary.trialsWithTelemetry} instrumented`}
             status={summary.telemetryCoverage >= 0.9 ? 'good' : summary.telemetryCoverage >= 0.7 ? 'neutral' : 'warn'}
@@ -175,6 +178,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Layers className="w-3.5 h-3.5" />}
             label="Games Adapted"
+            helpTerm="Games Adapted"
             value={`${summary.gamesWithAdaptation}/${summary.totalGames}`}
             subtext="with active adaptation"
             status={summary.gamesWithAdaptation === summary.totalGames ? 'good' : 'neutral'}
@@ -182,6 +186,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Crosshair className="w-3.5 h-3.5" />}
             label="Dominant Mode"
+            helpTerm="Dominant Mode"
             value={MODE_LABELS[summary.dominantMode]?.split(' ')[0] || '—'}
             subtext={MODE_LABELS[summary.dominantMode] || summary.dominantMode}
             status="neutral"
@@ -194,7 +199,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
             <Separator />
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Outcome Comparison
+                <HelpLabel term="Outcome Comparison">Outcome Comparison</HelpLabel>
               </p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
                 <OutcomeLine
@@ -231,8 +236,8 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
             <Separator />
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-3 h-3" />
-                Top Coverage Gaps
+                <AlertTriangle className="w-3 h-3" /><HelpLabel term="Top Coverage Gaps">
+                Top Coverage Gaps</HelpLabel>
               </p>
               <div className="flex flex-wrap gap-2">
                 {topGaps.map((gap, i) => (
@@ -265,12 +270,14 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
 const SummaryKPI = ({
   icon,
   label,
+  helpTerm,
   value,
   subtext,
   status,
 }: {
   icon: React.ReactNode;
   label: string;
+  helpTerm?: string;
   value: string;
   subtext: string;
   status: 'good' | 'neutral' | 'warn';
@@ -283,7 +290,9 @@ const SummaryKPI = ({
   )}>
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {icon}
-      <span className="text-[11px] font-medium uppercase tracking-wider">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wider">
+        {helpTerm ? <HelpLabel term={helpTerm}>{label}</HelpLabel> : label}
+      </span>
     </div>
     <p className={cn(
       'text-xl font-bold',

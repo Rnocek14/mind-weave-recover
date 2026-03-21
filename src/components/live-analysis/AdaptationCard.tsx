@@ -3,6 +3,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, Zap } from 'lucide-react';
 import { useState } from 'react';
 import type { LiveSnapshot } from '@/contexts/LiveAnalysisContext';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationCardProps {
   snapshot: LiveSnapshot;
@@ -44,20 +45,20 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-        <Zap className="h-3.5 w-3.5" /> Adaptation Engine
+        <Zap className="h-3.5 w-3.5" /> <HelpLabel term="Adaptation Engine">Adaptation Engine</HelpLabel>
       </h4>
 
       {/* Key metrics row */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
         {snapshot.currentDomain && (
           <>
-            <span className="text-muted-foreground">Domain</span>
+            <span className="text-muted-foreground"><HelpLabel term="Domain">Domain</HelpLabel></span>
             <span className="font-medium capitalize">{snapshot.currentDomain.replace(/_/g, ' ')}</span>
           </>
         )}
         {snapshot.difficultyTier != null && (
           <>
-            <span className="text-muted-foreground">Difficulty</span>
+            <span className="text-muted-foreground"><HelpLabel term="Difficulty Tier">Difficulty</HelpLabel></span>
             <span className="font-medium">Level {snapshot.difficultyTier}</span>
           </>
         )}
@@ -75,13 +76,13 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
         )}
         {snapshot.transferIndex != null && (
           <>
-            <span className="text-muted-foreground">Transfer</span>
+            <span className="text-muted-foreground"><HelpLabel term="Transfer Index">Transfer</HelpLabel></span>
             <span className="font-medium">{(snapshot.transferIndex * 100).toFixed(0)}%</span>
           </>
         )}
         {snapshot.profileConfidence && (
           <>
-            <span className="text-muted-foreground">Profile</span>
+            <span className="text-muted-foreground"><HelpLabel term="Confidence Level">Profile</HelpLabel></span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 capitalize">
               {snapshot.profileConfidence}
             </Badge>
@@ -92,7 +93,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
       {/* Focus phonemes */}
       {snapshot.focusPhonemes && snapshot.focusPhonemes.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">Focus:</span>
+          <span className="text-[11px] text-muted-foreground"><HelpLabel term="Focus Phonemes">Focus:</HelpLabel></span>
           {snapshot.focusPhonemes.map(p => (
             <Badge key={p} variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">{p}</Badge>
           ))}
@@ -102,7 +103,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
       {/* Scheduled repetition words */}
       {snapshot.scheduledRepetitionWords && snapshot.scheduledRepetitionWords.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">Repetition:</span>
+          <span className="text-[11px] text-muted-foreground"><HelpLabel term="Spaced Repetition">Repetition:</HelpLabel></span>
           {snapshot.scheduledRepetitionWords.map(w => (
             <Badge key={w} variant="outline" className="text-[10px] px-1.5 py-0">{w}</Badge>
           ))}
