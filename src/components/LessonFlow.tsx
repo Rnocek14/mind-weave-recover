@@ -16,12 +16,12 @@ import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import {
-  trackSessionStartTap,
   trackFirstExerciseLaunch,
   trackExerciseComplete,
   trackSessionDropOff,
   trackSessionComplete,
 } from "@/lib/sessionFlowAnalytics";
+import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 
 type FlowPhase = 
   | "daily-check" 
