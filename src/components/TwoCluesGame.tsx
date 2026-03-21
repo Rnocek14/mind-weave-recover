@@ -47,6 +47,8 @@ interface TwoCluesGameProps {
   userId?: string;
   profileId?: string;
   focusPhonemes?: string[];
+  /** Profile-recommended first cue type (personalizes cue ladder order) */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 /**
@@ -109,6 +111,7 @@ export function TwoCluesGame({
   userId,
   profileId,
   focusPhonemes,
+  recommendedCueType,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -418,7 +421,13 @@ export function TwoCluesGame({
 
     const anchor = puzzle.anchors[0] || '';
 
-    switch (level) {
+    // Personalized cue ladder: if profile recommends phonemic first, swap levels 1 and 2
+    const preferPhonemic = recommendedCueType === 'phonemic';
+    const effectiveLevel = preferPhonemic
+      ? (level === 1 ? 2 : level === 2 ? 1 : level)
+      : level;
+
+    switch (effectiveLevel) {
       case 1: {
         // Semantic: category-based hint
         const categoryHints: Record<string, string> = {
@@ -450,7 +459,7 @@ export function TwoCluesGame({
         // Full reveal
         return { type: 'full_word', text: `The word is "${anchor}"` };
     }
-  }, []);
+  }, [recommendedCueType]);
 
   // ==========================================================================
   // Auto-Cue Trigger (stall or consecutive errors)

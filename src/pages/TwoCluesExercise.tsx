@@ -212,6 +212,7 @@ export default function TwoCluesExercise() {
             userId={user?.id}
             profileId={activeProfile?.id}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : undefined}
           />
         )}
       </main>

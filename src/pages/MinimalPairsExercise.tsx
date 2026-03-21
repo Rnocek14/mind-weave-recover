@@ -221,6 +221,7 @@ export default function MinimalPairsExercise() {
         <MinimalPairsGame
           difficulty={difficulty}
           totalTrials={Math.min(stats.total, 10)}
+          focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
           onComplete={handleComplete}
           onTrialComplete={handleTrialComplete}
         />

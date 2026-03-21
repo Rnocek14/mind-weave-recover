@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 interface MinimalPairsGameProps {
   difficulty?: number;
   totalTrials?: number;
+  focusPhonemes?: string[];
   onComplete?: (results: {
     score: number;
     correctCount: number;
@@ -35,12 +36,14 @@ interface MinimalPairsGameProps {
 export function MinimalPairsGame({
   difficulty = 1,
   totalTrials = 10,
+  focusPhonemes,
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
   const { state, selectAnswer, nextTrial, reset } = useMinimalPairsGame({
     totalTrials,
     difficultyLevel: difficulty,
+    focusPhonemes,
   });
   
   const { speak, isLoading: isSpeaking } = useTextToSpeech();

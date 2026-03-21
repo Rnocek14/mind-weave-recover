@@ -646,7 +646,8 @@ export function getMinimalPairTrials(): MinimalPairTrial[] {
  */
 export function getMinimalPairTrialsForLevel(
   level: number,
-  count: number = 10
+  count: number = 10,
+  options?: { focusPhonemes?: string[] }
 ): MinimalPairTrial[] {
   const allTrials = getMinimalPairTrials();
   
@@ -661,6 +662,26 @@ export function getMinimalPairTrialsForLevel(
   // If not enough, use all
   if (filtered.length < count) {
     filtered = allTrials;
+  }
+  
+  // Prioritize pairs that contain focus phonemes (from speech profile)
+  const focusPhonemes = options?.focusPhonemes;
+  if (focusPhonemes && focusPhonemes.length > 0) {
+    const focusSet = new Set(focusPhonemes.map(p => p.toLowerCase().replace(/\//g, '')));
+    
+    const matchesFocus = (trial: MinimalPairTrial) => {
+      const p1 = trial.pair.phoneme1.toLowerCase().replace(/\//g, '');
+      const p2 = trial.pair.phoneme2.toLowerCase().replace(/\//g, '');
+      return focusSet.has(p1) || focusSet.has(p2);
+    };
+    
+    const prioritized = filtered.filter(matchesFocus);
+    const others = filtered.filter(t => !matchesFocus(t));
+    
+    // Front-load focus-phoneme pairs, then fill with others
+    const shuffledPrioritized = [...prioritized].sort(() => Math.random() - 0.5);
+    const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
+    return [...shuffledPrioritized, ...shuffledOthers].slice(0, count);
   }
   
   // Shuffle and return

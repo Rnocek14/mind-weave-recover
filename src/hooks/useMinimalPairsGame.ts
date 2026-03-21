@@ -25,14 +25,17 @@ export interface MinimalPairsGameState {
 export interface MinimalPairsGameOptions {
   totalTrials?: number;
   difficultyLevel?: number;
+  focusPhonemes?: string[];
 }
 
 export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
-  const { totalTrials = 10, difficultyLevel = 1 } = options;
+  const { totalTrials = 10, difficultyLevel = 1, focusPhonemes } = options;
   
   // Generate trials based on difficulty
   const initialTrials = useMemo(() => {
-    const trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials);
+    const trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, {
+      focusPhonemes,
+    });
     // Regenerate target indices for variety
     return trials.map(trial => ({
       ...trial,
@@ -42,7 +45,8 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
       ...trial,
       targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
     }));
-  }, [difficultyLevel, totalTrials]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficultyLevel, totalTrials, focusPhonemes?.join(',')]);
   
   const [state, setState] = useState<MinimalPairsGameState>({
     currentTrial: initialTrials[0] || null,
