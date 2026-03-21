@@ -783,7 +783,7 @@ const Exercise = () => {
         </Card>
 
         {/* Exercise Area - fills remaining space */}
-        <Card className="p-4 sm:p-8 md:p-12 mb-2 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center">
+        <Card className={`${fromLesson ? 'p-2 sm:p-4' : 'p-4 sm:p-8 md:p-12'} mb-1 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden`}>
           {!isPlaying ? (
             <div className="text-center space-y-6">
               <div className="w-32 h-32 mx-auto rounded-full bg-gradient-healing flex items-center justify-center animate-pulse-glow">
