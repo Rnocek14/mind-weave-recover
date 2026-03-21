@@ -368,8 +368,8 @@ export default function SpeechProfile() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                {showClinician ? 'Adaptation Coverage' : 'Which Exercises Adapt to You'}
+                 <Shield className="h-4 w-4 text-primary" />
+                 <HelpLabel term="Adaptation Coverage">{showClinician ? 'Adaptation Coverage' : 'Which Exercises Adapt to You'}</HelpLabel>
               </CardTitle>
               <CardDescription className="text-xs">
                 {showClinician
