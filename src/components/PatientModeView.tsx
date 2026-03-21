@@ -116,7 +116,7 @@ export function PatientModeView({
 
   // ── Bottom Tab Bar ──
   const TabBar = () => (
-    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-bottom">
+    <div className="shrink-0 bg-card border-t border-border safe-area-bottom">
       <div className="flex justify-around max-w-lg mx-auto">
         {([
           { id: "home" as PatientTab, icon: Home, label: "Home" },
