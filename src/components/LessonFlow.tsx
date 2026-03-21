@@ -212,7 +212,6 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
     console.log('[LessonFlow] Session created:', data.id);
     sessionStartTimeRef.current = Date.now();
-    trackSessionStartTap(data.id, lesson.blocks.length);
     setSessionId(data.id);
   };
 
