@@ -367,7 +367,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Mode Distribution */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Mode Distribution</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Mode Distribution">Mode Distribution</HelpLabel></h4>
           <div className="space-y-1">
             {Object.entries(row.adaptationModes)
               .sort((a, b) => b[1] - a[1])
