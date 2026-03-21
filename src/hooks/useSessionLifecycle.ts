@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localYYYYMMDD } from '@/lib/localDate';
+import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -147,6 +148,12 @@ export const useSessionLifecycle = ({
                 console.warn('[SessionLifecycle] Failed to log speech dose:', doseErr);
               }
             }
+          }
+          
+          // Auto-trigger speech profile recompute (fire-and-forget)
+          if (userRef.current && profileRef.current) {
+            triggerPostSessionProfileRefresh(userRef.current, profileRef.current, sid)
+              .catch(err => console.warn('[SessionLifecycle] Profile refresh failed:', err));
           }
           
           onSessionEnded?.(reason);

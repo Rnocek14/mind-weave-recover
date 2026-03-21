@@ -42,6 +42,7 @@ import { PatientModeView } from "@/components/PatientModeView";
 import { ViewModeSelector } from "@/components/ViewModeSelector";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useProfile } from "@/hooks/useProfile";
+import { AdaptiveLoopDebugPanel } from "@/components/AdaptiveLoopDebugPanel";
 
 /** Compute days since stroke for the header */
 function daysSinceStroke(strokeDate: string | null | undefined): number | null {
@@ -453,6 +454,15 @@ const Dashboard = () => {
             setShowCapabilityAssessment(false);
             setAssessmentOrigin(null);
           }}
+        />
+      )}
+
+      {/* Adaptive Loop Debug Panel (dev/admin only) */}
+      {import.meta.env.DEV && user?.id && (
+        <AdaptiveLoopDebugPanel
+          userId={user.id}
+          profileId={activeProfile?.id}
+          className="mx-4 mb-4"
         />
       )}
 

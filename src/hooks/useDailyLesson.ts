@@ -251,12 +251,21 @@ export const useDailyLesson = (
           .not('alignment_data', 'is', null)
           .gte('created_at', fourteenDaysAgo.toISOString());
 
-        // Get speech profile for error distribution
+        // Get speech profile for error distribution + freshness check
         const { data: speechProfile } = await supabase
           .from('user_speech_profiles')
-          .select('error_type_distribution, cue_efficacy_by_type, most_challenging_categories')
+          .select('error_type_distribution, cue_efficacy_by_type, most_challenging_categories, last_computed_at, phoneme_difficulty_map')
           .eq('user_id', userId)
           .maybeSingle();
+
+        // Log profile freshness for observability
+        if (speechProfile?.last_computed_at) {
+          const hoursAgo = Math.round((Date.now() - new Date(speechProfile.last_computed_at).getTime()) / (1000 * 60 * 60));
+          console.log(`[useDailyLesson] Speech profile age: ${hoursAgo}h`, 
+            hoursAgo > 72 ? '⚠️ STALE' : hoursAgo > 24 ? '⏳ aging' : '✅ fresh');
+        } else {
+          console.warn('[useDailyLesson] No speech profile found — using defaults');
+        }
 
         const assessmentAgeDays = assessmentToUse?.assessed_at 
           ? Math.floor((Date.now() - new Date(assessmentToUse.assessed_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -272,6 +281,7 @@ export const useDailyLesson = (
           errorTypeDistribution: speechProfile.error_type_distribution as Record<string, number> | undefined,
           cueEfficacyByType: speechProfile.cue_efficacy_by_type as Record<string, { successRate: number; trials: number }> | undefined,
           mostChallengingCategories: speechProfile.most_challenging_categories as string[] | undefined,
+          phonemeDifficultyMap: speechProfile.phoneme_difficulty_map as Record<string, { accuracy: number; trials: number }> | undefined,
         } : null;
 
         // Compute 7-day domain exposure from recent trials
