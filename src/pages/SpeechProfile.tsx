@@ -636,3 +636,100 @@ function ConfidenceBadge({ trialCount }: { trialCount: number }) {
     </Badge>
   );
 }
+
+/** Generates concrete, exercise-specific impact statements from profile state */
+function TodayImpactStatements({
+  focusPhonemes,
+  bestCueType,
+  challengingCategories,
+  showClinician,
+}: {
+  focusPhonemes: string[];
+  bestCueType: [string, { successRate: number; total: number }] | null;
+  challengingCategories: Array<{ category: string; successRate: number; trials: number }> | null;
+  showClinician: boolean;
+}) {
+  const statements: { icon: React.ReactNode; text: string; exercises: string }[] = [];
+
+  if (focusPhonemes.length > 0) {
+    const phonemeStr = focusPhonemes.slice(0, 3).map(p => `/${p}/`).join(', ');
+    statements.push({
+      icon: <Volume2 className="h-3.5 w-3.5 text-primary" />,
+      text: showClinician
+        ? `Photo Naming & MinimalPairs prioritize words containing ${phonemeStr}`
+        : `Word exercises focus on your tricky sounds: ${phonemeStr}`,
+      exercises: 'Photo Naming, Minimal Pairs, Dual-Load Naming, Phonological, Sentence Building',
+    });
+  }
+
+  if (bestCueType) {
+    const cueLabel = bestCueType[0].replace('_', ' ');
+    if (bestCueType[0] === 'phonemic') {
+      statements.push({
+        icon: <Lightbulb className="h-3.5 w-3.5 text-primary" />,
+        text: showClinician
+          ? `Two Clues uses phonemic-first cue ladder; MeaningMatch/DetectiveMind show "first letter" hints`
+          : 'Hint games lead with sound-based clues because those work best for you',
+        exercises: 'Two Clues, Meaning Match, Detective Mind, Narrative Retell',
+      });
+    } else if (bestCueType[0] === 'semantic') {
+      statements.push({
+        icon: <Lightbulb className="h-3.5 w-3.5 text-primary" />,
+        text: showClinician
+          ? `Two Clues uses semantic-first cue ladder; MeaningMatch/DetectiveMind show "keyword" hints`
+          : 'Hint games lead with meaning-based clues because those work best for you',
+        exercises: 'Two Clues, Meaning Match, Detective Mind, Narrative Retell',
+      });
+    } else {
+      statements.push({
+        icon: <Lightbulb className="h-3.5 w-3.5 text-primary" />,
+        text: showClinician
+          ? `Cue preference: ${cueLabel} (${Math.round(bestCueType[1].successRate * 100)}% success)`
+          : `Your exercises use ${cueLabel} hints because they help you most`,
+        exercises: 'Two Clues, Meaning Match, Detective Mind',
+      });
+    }
+  }
+
+  if (challengingCategories && challengingCategories.length > 0) {
+    const topCats = challengingCategories.slice(0, 2).map(c => c.category);
+    statements.push({
+      icon: <Activity className="h-3.5 w-3.5 text-primary" />,
+      text: showClinician
+        ? `Challenging categories (${topCats.join(', ')}) influence item selection in naming tasks`
+        : `You're getting extra practice with ${topCats.join(' and ')} words`,
+      exercises: 'Photo Naming, Fix Sentence',
+    });
+  }
+
+  if (statements.length === 0) {
+    return (
+      <div className="text-center py-3 space-y-1">
+        <Info className="h-5 w-5 mx-auto text-muted-foreground/50" />
+        <p className="text-xs text-muted-foreground">
+          {showClinician
+            ? 'Insufficient profile data to drive concrete adaptations. Default parameters active.'
+            : 'Complete more exercises to unlock personalized practice.'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {statements.map((s, i) => (
+        <div key={i} className="flex gap-2 py-1.5">
+          <div className="mt-0.5 flex-shrink-0">{s.icon}</div>
+          <div className="space-y-0.5">
+            <p className="text-xs leading-relaxed">{s.text}</p>
+            {showClinician && (
+              <p className="text-[10px] text-muted-foreground">
+                Affects: {s.exercises}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
