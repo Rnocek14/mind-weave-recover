@@ -429,7 +429,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
 
       {/* Profile Confidence Distribution */}
       <div>
-        <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Profile Confidence</h4>
+        <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2"><HelpLabel term="Confidence Level">Profile Confidence</HelpLabel></h4>
         <div className="flex gap-3">
           {Object.entries(row.profileConfidences)
             .sort((a, b) => b[1] - a[1])
