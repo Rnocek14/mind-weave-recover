@@ -362,7 +362,7 @@ export const PhonologicalGame = ({
                   variant="outline"
                   className="min-w-32"
                 >
-                  Different Sound
+                  {trial.relationType === 'rhyme' ? 'No, different' : 'Different Sound'}
                 </Button>
               </>
             ) : (
