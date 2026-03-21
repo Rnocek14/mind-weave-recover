@@ -363,39 +363,6 @@ export default function SpeechProfile() {
             </CardContent>
           </Card>
 
-          {/* Active personalizations summary */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Target className="h-4 w-4 text-primary" />
-                {showClinician ? 'Active Personalizations' : 'How Your Sessions Are Personalized'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {focusPhonemes.length > 0 && (
-                <AdaptationRow
-                  icon={<Volume2 className="h-3.5 w-3.5" />}
-                  label={showClinician ? 'Phoneme targeting active' : 'Exercises focus on your harder sounds'}
-                  detail={`/${focusPhonemes.slice(0, 3).join('/, /')}/`}
-                  active
-                />
-              )}
-              {bestCueType && (
-                <AdaptationRow
-                  icon={<Lightbulb className="h-3.5 w-3.5" />}
-                  label={showClinician ? `Cue preference: ${bestCueType[0]}` : 'Hints are tailored to what works for you'}
-                  detail={`${Math.round(bestCueType[1].successRate * 100)}% effective`}
-                  active
-                />
-              )}
-              {!focusPhonemes.length && !bestCueType && (
-                <p className="text-sm text-muted-foreground">
-                  Not enough data to personalize yet. Keep practicing to build your profile.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Exercise adaptation coverage */}
           <Card>
             <CardHeader className="pb-2">
