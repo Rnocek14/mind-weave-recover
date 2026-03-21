@@ -156,7 +156,7 @@ export default function PatternMatchExercise() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
+              onClick={() => navigate('/dashboard')}
               aria-label={fromLesson ? 'Back to Lesson' : 'Back to Dashboard'}
             >
               <ArrowLeft className="h-5 w-5" />

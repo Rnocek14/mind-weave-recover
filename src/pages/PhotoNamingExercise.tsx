@@ -686,7 +686,7 @@ function PhotoNamingExerciseInner() {
             <Button 
               variant="ghost"
               size="sm"
-              onClick={() => fromLesson ? navigate('/lesson', { state: { resuming: false } }) : navigate('/dashboard')}
+              onClick={() => navigate('/dashboard')}
               className="px-2 sm:px-3"
             >
               <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" />
