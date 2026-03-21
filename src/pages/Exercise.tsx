@@ -749,25 +749,27 @@ const Exercise = () => {
           </div>
         )}
 
-        {/* Compact Header */}
-        <Card className="p-3 sm:p-4 md:p-6 mb-2 sm:mb-4 shadow-card">
-          <div className="flex justify-between items-start mb-2 sm:mb-4">
+        {/* Compact Header - slimmer in session mode */}
+        <Card className={`${fromLesson ? 'p-2 mb-1' : 'p-3 sm:p-4 md:p-6 mb-2 sm:mb-4'} shadow-card shrink-0`}>
+          <div className={`flex justify-between items-start ${fromLesson ? 'mb-1' : 'mb-2 sm:mb-4'}`}>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 truncate">
+              <h1 className={`${fromLesson ? 'text-base' : 'text-lg sm:text-2xl md:text-3xl'} font-bold mb-0.5 truncate`}>
                 {exercise.title}
               </h1>
-              <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
-                <Volume2 className="w-4 h-4 shrink-0 hidden sm:block" />
-                <p className="truncate">{exercise.instruction}</p>
-              </div>
+              {!fromLesson && (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
+                  <Volume2 className="w-4 h-4 shrink-0 hidden sm:block" />
+                  <p className="truncate">{exercise.instruction}</p>
+                </div>
+              )}
             </div>
             <div className="text-right shrink-0 ml-2">
-              <div className="text-xl sm:text-2xl font-bold text-primary">{score}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Score</div>
+              <div className={`${fromLesson ? 'text-lg' : 'text-xl sm:text-2xl'} font-bold text-primary`}>{score}</div>
+              <div className="text-xs text-muted-foreground">Score</div>
             </div>
           </div>
 
-          <div className="space-y-1 sm:space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground">
                 Round {currentRound} of {totalRounds}
@@ -776,7 +778,7 @@ const Exercise = () => {
                 {Math.round((currentRound / totalRounds) * 100)}%
               </span>
             </div>
-            <Progress value={(currentRound / totalRounds) * 100} className="h-1.5 sm:h-2" />
+            <Progress value={(currentRound / totalRounds) * 100} className="h-1.5" />
           </div>
         </Card>
 
