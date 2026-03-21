@@ -150,6 +150,7 @@ const App = () => (
               </BrowserRouter>
             </AssessmentProviderWrapper>
           </ProfileProvider>
+        </HelpModeProvider>
         </UiModeProvider>
       </TooltipProvider>
     </ThemeProvider>
