@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,7 @@ const Exercise = () => {
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
+  const autoStartedRef = useRef(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -395,6 +396,14 @@ const Exercise = () => {
     // Start timing the first trial
     startTrial();
   };
+
+  // Auto-start when coming from lesson flow (skip the "Start Exercise" gate)
+  useEffect(() => {
+    if (fromLesson && !isPlaying && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startExercise();
+    }
+  }, [fromLesson]);
 
   const handleMoodSelect = (mood: number) => {
     setPreMood(mood);
