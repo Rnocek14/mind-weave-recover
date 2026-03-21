@@ -8,6 +8,7 @@ import {
   HelpCircle 
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { HelpLabel } from "@/components/HelpTooltip";
 import type { DomainScore } from "@/lib/cognitiveStateEngine";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 
