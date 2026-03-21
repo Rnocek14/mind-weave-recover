@@ -597,12 +597,20 @@ const Exercise = () => {
     );
   }
 
-  if (showResult) {
-    // If in lesson mode, dispatch event and return to lesson flow
-    if (fromLesson) {
+  // Handle lesson-mode completion via effect (not during render)
+  const hasDispatchedCompleteRef = useRef(false);
+  useEffect(() => {
+    if (showResult && fromLesson && !hasDispatchedCompleteRef.current) {
+      hasDispatchedCompleteRef.current = true;
       console.log('[Exercise] Dispatching exercise-complete event');
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate('/lesson', { state: { resuming: true }, replace: true });
+    }
+  }, [showResult, fromLesson, navigate]);
+
+  if (showResult) {
+    if (fromLesson) {
+      // Waiting for effect to navigate — show nothing
       return null;
     }
     
