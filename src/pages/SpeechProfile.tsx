@@ -34,6 +34,7 @@ import {
   Zap, TrendingUp, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HelpLabel } from "@/components/HelpTooltip";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
