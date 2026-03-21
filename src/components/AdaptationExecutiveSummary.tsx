@@ -236,7 +236,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
             <Separator />
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-3 h-3" />
+                <AlertTriangle className="w-3 h-3" /><HelpLabel term="Top Coverage Gaps">
                 Top Coverage Gaps
               </p>
               <div className="flex flex-wrap gap-2">
