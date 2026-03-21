@@ -120,6 +120,7 @@ const App = () => (
                   <Route path="/clinical-documents" element={<AppLayout><ClinicalDocuments /></AppLayout>} />
                   <Route path="/settings/privacy" element={<AppLayout><PrivacySettings /></AppLayout>} />
                   <Route path="/profile-history" element={<AppLayout><ProfileVersionHistory /></AppLayout>} />
+                  <Route path="/speech-profile" element={<AppLayout><SpeechProfile /></AppLayout>} />
                   
                   {/* Clinician routes - with header */}
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
