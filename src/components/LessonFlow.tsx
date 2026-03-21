@@ -336,7 +336,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         recentScores: recentScoresRef.current,
         recentReactionTimes: recentRTRef.current,
         elapsedMinutes: Math.floor((Date.now() - sessionStartTimeRef.current) / 60000),
-        fatigueFlag: todayFocus?.adaptations?.fatigue === true,
+        fatigueFlag: (todayFocus?.adaptations?.sessionDurationCap != null && todayFocus.adaptations.sessionDurationCap <= 10),
         recentTimeouts: recentTimeoutsRef.current,
       });
       
