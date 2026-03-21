@@ -215,7 +215,7 @@ export const SentenceConstructionGame = ({
   const canSubmit = currentAnswer.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Progress */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
