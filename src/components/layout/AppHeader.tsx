@@ -34,12 +34,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { useUserPermissions } from "@/hooks/useUserPermissions";
-import { useUiMode } from "@/hooks/useUiMode";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
 
 const navItems = [
 { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
