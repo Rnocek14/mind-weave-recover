@@ -204,7 +204,7 @@ export function AdaptiveLoopDebugPanel({ userId, profileId, className }: Adaptiv
                 {newTrialsSinceCompute !== null && (
                   <div className="col-span-2">
                     <span className="text-muted-foreground">New trials since compute:</span>
-                    <span className={cn('ml-1 font-mono', newTrialsSinceCompute > 20 && 'text-yellow-600 font-semibold')}>
+                    <span className={cn('ml-1 font-mono', newTrialsSinceCompute > 20 && 'text-destructive font-semibold')}>
                       {newTrialsSinceCompute}
                     </span>
                   </div>
