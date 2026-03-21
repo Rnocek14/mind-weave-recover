@@ -129,15 +129,15 @@ export function AdaptiveLoopDebugPanel({ userId, profileId, className }: Adaptiv
   }, [userId]);
 
   const freshnessIcon = {
-    fresh: <CheckCircle className="w-3.5 h-3.5 text-green-500" />,
-    aging: <Clock className="w-3.5 h-3.5 text-yellow-500" />,
+    fresh: <CheckCircle className="w-3.5 h-3.5 text-primary" />,
+    aging: <Clock className="w-3.5 h-3.5 text-accent-foreground" />,
     stale: <AlertTriangle className="w-3.5 h-3.5 text-destructive" />,
     missing: <AlertTriangle className="w-3.5 h-3.5 text-destructive" />,
   };
 
   const freshnessColor = {
-    fresh: 'bg-green-500/10 text-green-700 border-green-200',
-    aging: 'bg-yellow-500/10 text-yellow-700 border-yellow-200',
+    fresh: 'bg-primary/10 text-primary border-primary/20',
+    aging: 'bg-accent text-accent-foreground border-accent',
     stale: 'bg-destructive/10 text-destructive border-destructive/20',
     missing: 'bg-destructive/10 text-destructive border-destructive/20',
   };
