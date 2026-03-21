@@ -55,6 +55,7 @@ const Exercise = () => {
   
   const [isPlaying, setIsPlaying] = useState(false);
   const autoStartedRef = useRef(false);
+  const hasDispatchedCompleteRef = useRef(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -314,6 +315,16 @@ const Exercise = () => {
     }
   }, [showResult, sessionId]);
 
+  // Handle lesson-mode completion via effect (not during render)
+  useEffect(() => {
+    if (showResult && fromLesson && !hasDispatchedCompleteRef.current) {
+      hasDispatchedCompleteRef.current = true;
+      console.log('[Exercise] Dispatching exercise-complete event');
+      window.dispatchEvent(new CustomEvent('exercise-complete'));
+      navigate('/lesson', { state: { resuming: true }, replace: true });
+    }
+  }, [showResult, fromLesson, navigate]);
+
   // Track session duration for dose cap warnings
   useEffect(() => {
     if (!isPlaying || !sessionStartTime) return;
@@ -327,8 +338,8 @@ const Exercise = () => {
   }, [isPlaying, sessionStartTime]);
 
   const startExercise = async (moodOverride?: number) => {
-    // Check dose cap before allowing start
-    if (doseCap.enforceCaps && !doseCap.canStartSession) {
+    // Check dose cap before allowing start — skip when already in a lesson session
+    if (!fromLesson && doseCap.enforceCaps && !doseCap.canStartSession) {
       toast({
         title: "Daily Practice Limit Reached",
         description: `You've already practiced for ${doseCap.todayMinutes} minutes today. Great work! Rest is important for recovery.`,
@@ -598,11 +609,8 @@ const Exercise = () => {
   }
 
   if (showResult) {
-    // If in lesson mode, dispatch event and return to lesson flow
     if (fromLesson) {
-      console.log('[Exercise] Dispatching exercise-complete event');
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true }, replace: true });
+      // Effect above handles navigation — show nothing while it fires
       return null;
     }
     
