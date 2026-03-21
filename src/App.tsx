@@ -75,6 +75,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <TooltipProvider>
         <UiModeProvider>
+        <HelpModeProvider>
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
