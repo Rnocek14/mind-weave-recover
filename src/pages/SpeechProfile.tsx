@@ -371,7 +371,9 @@ export default function SpeechProfile() {
                 {showClinician ? 'Adaptation Coverage' : 'Which Exercises Adapt to You'}
               </CardTitle>
               <CardDescription className="text-xs">
-                {strongCount} fully personalized · {partialCount} difficulty-adapted · {telemetryCount} learning
+                {showClinician
+                  ? `Coverage reflects real gameplay consumption: ${strongCount} strong, ${partialCount} partial, ${telemetryCount} telemetry-only`
+                  : `Some exercises change a lot based on your profile, while others are still learning about you`}
               </CardDescription>
             </CardHeader>
             <CardContent>
