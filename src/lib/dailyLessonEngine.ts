@@ -738,10 +738,15 @@ export function generateDailyLesson(
   const usedExerciseIds = new Set<string>();
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
-  // 1. WARMUP (1-2 min) - simple motor task (prefer reach-tap, but allow left-side-hunt)
+  // 1. WARMUP (1-2 min) - confidence-building exercise
+  // Prefer motor for physical warming, but allow language/cognitive if motor isn't available
+  // or if primaryDomains suggest a different warmup would be more therapeutic
   const motorExercises = scoredExercises.filter(e => e!.domains.includes('motor_control'));
-  const warmup = motorExercises[0];
+  const warmup = motorExercises[0]
+    || scoredExercises.find(e => e && e.baseMinutes <= 3) // fallback: any short exercise
+    || scoredExercises[0];
   if (warmup && remainingTime >= 1) {
+    const isMotorWarmup = warmup.domains.includes('motor_control');
     const duration = Math.min(2, remainingTime);
     blocks.push({
       exerciseId: warmup.id,
@@ -753,7 +758,7 @@ export function generateDailyLesson(
         timeout: 5000,
         visualSupport: true,
       },
-      reasoning: `Light motor warmup: ${warmup.id}`,
+      reasoning: isMotorWarmup ? `Light motor warmup: ${warmup.id}` : `Warmup: ${warmup.id} (non-motor)`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(warmup.id);
@@ -762,7 +767,6 @@ export function generateDailyLesson(
   }
 
   // Also mark same-component siblings as "avoid" for primary selection
-  // This ensures primary picks a DIFFERENT component type
   const warmupComponent = warmup?.baseComponent;
 
   // 2. PRIMARY BLOCK (40-50% of time) - top priority exercises (avoid same component as warmup)
