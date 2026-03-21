@@ -184,6 +184,8 @@ export const useDailyLesson = (
           null,
           preset,
           recency,
+          null,
+          null,
         );
         setLesson(defaultLesson);
         setLoading(false);

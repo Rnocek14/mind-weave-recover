@@ -941,6 +941,8 @@ export function generateDailyLesson(
       top10.map(r => ({
         exercise: r.id,
         base: r.baseScore,
+        primaryDomain: r.primaryDomainBoost,
+        speechProfile: r.speechProfileBoost,
         recency: r.recencyPenalty,
         component: r.componentPenalty,
         final: r.finalScore,
