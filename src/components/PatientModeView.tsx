@@ -95,7 +95,6 @@ export function PatientModeView({
   const handleStartSession = () => {
     if (!lesson) return;
     // Track true tap time before any async work
-    const { trackSessionStartTap } = require('@/lib/sessionFlowAnalytics');
     trackSessionStartTap(null, lesson.blocks?.length || 0);
     navigate("/lesson", {
       state: {
