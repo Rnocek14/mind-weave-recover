@@ -121,12 +121,12 @@ export default function SpeechProfile() {
     if (!user?.id || !activeProfile?.id || isRecomputing) return;
     setIsRecomputing(true);
     try {
-      const result = await recomputeSpeechProfileNow(user.id, activeProfile.id);
+      const result = await recomputeSpeechProfileNow(user.id, { force: true, profileId: activeProfile.id });
       if (result.success) {
         toast.success('Speech profile updated');
         await refreshProfile();
       } else {
-        toast.error(result.error || 'Recompute failed');
+        toast.error(result.reason || 'Recompute failed');
       }
     } catch {
       toast.error('Failed to recompute');
