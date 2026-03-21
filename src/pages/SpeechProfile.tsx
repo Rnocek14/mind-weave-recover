@@ -340,12 +340,35 @@ export default function SpeechProfile() {
 
         {/* =================== TAB 2: ADAPTATION =================== */}
         <TabsContent value="adaptation" className="space-y-4 mt-4">
-          {/* Today's adaptation summary */}
+          {/* Today's concrete impact */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
-                {showClinician ? 'Session Adaptation Impact' : 'How Your Sessions Are Personalized'}
+                {showClinician ? "Today's Adaptation Impact" : "What Changed in Today's Sessions"}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {showClinician
+                  ? 'Concrete profile-driven behavior changes active now'
+                  : 'How your practice is personalized right now'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <TodayImpactStatements
+                focusPhonemes={focusPhonemes}
+                bestCueType={bestCueType}
+                challengingCategories={challengingCategories}
+                showClinician={showClinician}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Active personalizations summary */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                {showClinician ? 'Active Personalizations' : 'How Your Sessions Are Personalized'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
