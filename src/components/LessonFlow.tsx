@@ -61,6 +61,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
   const isCreatingSessionRef = useRef(false);
+  const hasTrackedFirstLaunchRef = useRef(false);
   const sessionStartTimeRef = useRef(Date.now());
   
   // Performance tracking for adaptive pauses
