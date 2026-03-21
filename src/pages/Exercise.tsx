@@ -993,22 +993,24 @@ const Exercise = () => {
           )}
         </Card>
 
-        {/* Tips */}
-        <Card className="p-6 shadow-card border-l-4 border-success">
-          <h3 className="font-semibold mb-2 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-success" />
-            Tips for Success
-          </h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Take your time - accuracy is more important than speed</li>
-            <li>• Say the words out loud, even if quietly</li>
-            <li>• Don't worry about mistakes - every attempt helps you improve</li>
-            <li>• Take breaks if you feel tired</li>
-          </ul>
-        </Card>
+        {/* Tips - hide in session mode */}
+        {!fromLesson && (
+          <Card className="p-6 shadow-card border-l-4 border-success">
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-success" />
+              Tips for Success
+            </h3>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>• Take your time - accuracy is more important than speed</li>
+              <li>• Say the words out loud, even if quietly</li>
+              <li>• Don't worry about mistakes - every attempt helps you improve</li>
+              <li>• Take breaks if you feel tired</li>
+            </ul>
+          </Card>
+        )}
 
-        {/* Fixed Safety Controls - Always visible during exercise */}
-        {isPlaying && (
+        {/* Fixed Safety Controls - hide in session mode */}
+        {isPlaying && !fromLesson && (
           <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-2 sm:p-4 z-50">
             <div className="container mx-auto max-w-4xl flex justify-center gap-2 sm:gap-3">
               <Button
