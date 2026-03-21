@@ -397,6 +397,14 @@ const Exercise = () => {
     startTrial();
   };
 
+  // Auto-start when coming from lesson flow (skip the "Start Exercise" gate)
+  useEffect(() => {
+    if (fromLesson && !isPlaying && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startExercise();
+    }
+  }, [fromLesson]);
+
   const handleMoodSelect = (mood: number) => {
     setPreMood(mood);
     setShowMoodCheckIn(false);
