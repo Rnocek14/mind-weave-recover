@@ -93,7 +93,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
       {/* Focus phonemes */}
       {snapshot.focusPhonemes && snapshot.focusPhonemes.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">Focus:</span>
+          <span className="text-[11px] text-muted-foreground"><HelpLabel term="Focus Phonemes">Focus:</HelpLabel></span>
           {snapshot.focusPhonemes.map(p => (
             <Badge key={p} variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">{p}</Badge>
           ))}
