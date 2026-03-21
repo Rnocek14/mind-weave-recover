@@ -426,7 +426,7 @@ export default function SpeechProfile() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
-                  Adaptation Telemetry (14d)
+                   Adaptation Telemetry (14d)
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
