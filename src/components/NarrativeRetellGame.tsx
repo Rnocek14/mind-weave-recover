@@ -220,10 +220,10 @@ export function NarrativeRetellGame({
               </span>
             </div>
 
-            {(liveTranscript || collectedTranscript) && (
-              <div className="bg-muted/50 rounded-lg p-3 min-h-[3rem]">
+            {(fullTranscript || collectedTranscript) && (
+              <div className="bg-muted/50 rounded-lg p-3 min-h-[3rem] max-h-[8rem] overflow-y-auto">
                 <p className="text-sm text-foreground italic">
-                  "{collectedTranscript || liveTranscript}"
+                  "{collectedTranscript || fullTranscript}"
                 </p>
               </div>
             )}

@@ -163,8 +163,8 @@ export function MultiStepPlanningGame({
               </div>
               <span className="font-semibold text-sm">Tell me the steps...</span>
             </div>
-            {(liveTranscript || collectedTranscript) && (
-              <div className="bg-muted/50 rounded-lg p-3"><p className="text-sm italic">"{collectedTranscript || liveTranscript}"</p></div>
+            {(fullTranscript || collectedTranscript) && (
+              <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
             )}
             <div className="flex gap-2">
               <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
