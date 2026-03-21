@@ -27,6 +27,7 @@ import {
 import { useAdaptationProof, type AdaptationProofSummary } from '@/hooks/useAdaptationProof';
 import { useAdaptationOutcomes, type AdaptationOutcomesSummary } from '@/hooks/useAdaptationOutcomes';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationExecutiveSummaryProps {
   userId: string;
