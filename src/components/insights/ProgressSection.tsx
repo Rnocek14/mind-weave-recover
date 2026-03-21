@@ -259,7 +259,7 @@ export function ProgressSection({ userId, profileId }: ProgressSectionProps) {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-muted-foreground">
-                Progress by Skill Area
+                <HelpLabel term="Learning Rate">Progress by Skill Area</HelpLabel>
               </h4>
               <TooltipProvider>
                 <Tooltip>
