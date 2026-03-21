@@ -446,7 +446,7 @@ const GameDrillDown = ({ row }: { row: GameAdaptationRow }) => {
         <div className="border-t pt-3">
           <h4 className="text-xs font-medium text-destructive uppercase mb-2 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /><HelpLabel term="Data Quality">
-            Data Quality Issues
+            Data Quality Issues</HelpLabel>
           </h4>
           <div className="space-y-1">
             {row.dataQualityIssues.map((issue, i) => (
