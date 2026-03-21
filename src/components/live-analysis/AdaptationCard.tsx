@@ -45,7 +45,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-        <Zap className="h-3.5 w-3.5" /> Adaptation Engine
+        <Zap className="h-3.5 w-3.5" /> <HelpLabel term="Adaptation Engine">Adaptation Engine</HelpLabel>
       </h4>
 
       {/* Key metrics row */}
