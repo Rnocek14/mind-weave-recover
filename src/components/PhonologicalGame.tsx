@@ -53,7 +53,8 @@ export const PhonologicalGame = ({
   );
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp } = useGameSounds();
-  const { speak, isLoading: isSpeaking } = useTextToSpeech();
+  const { speak, stop: stopSpeech, isSpeaking } = useTextToSpeech();
+  const isPlayingAudioRef = useRef(false);
   
   const {
     currentDifficulty,
