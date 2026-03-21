@@ -52,7 +52,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
         {snapshot.currentDomain && (
           <>
-            <span className="text-muted-foreground">Domain</span>
+            <span className="text-muted-foreground"><HelpLabel term="Domain">Domain</HelpLabel></span>
             <span className="font-medium capitalize">{snapshot.currentDomain.replace(/_/g, ' ')}</span>
           </>
         )}
