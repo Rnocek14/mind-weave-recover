@@ -322,7 +322,7 @@ export const PhonologicalGame = ({
             </Button>
 
             <p className="text-sm text-muted-foreground text-center max-w-md">
-              Listen carefully to both words. Do they sound the same or different?
+              Listen carefully — do these words begin with the same sound, or a different sound? Words can rhyme but still start differently (e.g. "door" and "four").
             </p>
           </div>
 
