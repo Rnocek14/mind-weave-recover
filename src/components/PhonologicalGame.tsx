@@ -111,14 +111,20 @@ export const PhonologicalGame = ({
 
   const handlePlayAudio = async () => {
     const trial = game.getCurrentTrial();
-    if (!trial || isSpeaking) return;
+    if (!trial || isPlayingAudioRef.current) return;
 
-    // Speak both words with a pause between
-    await speak(trial.word1);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await speak(trial.word2);
+    // Stop any in-progress speech first
+    stopSpeech();
+    isPlayingAudioRef.current = true;
     
-    setHasPlayedAudio(true);
+    try {
+      await speak(trial.word1);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await speak(trial.word2);
+      setHasPlayedAudio(true);
+    } finally {
+      isPlayingAudioRef.current = false;
+    }
   };
 
   const handleAnswer = async (answer: 'same' | 'different') => {
