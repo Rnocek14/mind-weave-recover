@@ -20,6 +20,8 @@ interface DetectiveMindGameProps {
   onGameComplete: (results: DetectiveTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
+  /** Profile-recommended cue type — adapts hint behavior */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
