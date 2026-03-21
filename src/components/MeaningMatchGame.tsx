@@ -243,8 +243,16 @@ export function MeaningMatchGame({
           {!usedHint && (
             <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground">
               <Lightbulb className="h-4 w-4 mr-2" />
-              Highlight keywords (−5 bonus points)
+              {recommendedCueType === 'phonemic' 
+                ? 'Show first letter hint (−5 bonus points)'
+                : 'Highlight keywords (−5 bonus points)'}
             </Button>
+          )}
+          {/* Auto-show hint for users who historically need cue support */}
+          {!usedHint && recommendedCueType === 'full_word' && (
+            <p className="text-xs text-muted-foreground text-center italic">
+              💡 Try the hint if you need help — it's okay to use support.
+            </p>
           )}
         </div>
       )}
