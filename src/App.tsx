@@ -46,6 +46,7 @@ import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
 import AbstractCompareExercise from "./pages/AbstractCompareExercise";
 import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
 import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
+import SpeechProfile from "./pages/SpeechProfile";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -119,6 +120,7 @@ const App = () => (
                   <Route path="/clinical-documents" element={<AppLayout><ClinicalDocuments /></AppLayout>} />
                   <Route path="/settings/privacy" element={<AppLayout><PrivacySettings /></AppLayout>} />
                   <Route path="/profile-history" element={<AppLayout><ProfileVersionHistory /></AppLayout>} />
+                  <Route path="/speech-profile" element={<AppLayout><SpeechProfile /></AppLayout>} />
                   
                   {/* Clinician routes - with header */}
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
