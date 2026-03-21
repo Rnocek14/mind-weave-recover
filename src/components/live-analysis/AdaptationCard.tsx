@@ -76,7 +76,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
         )}
         {snapshot.transferIndex != null && (
           <>
-            <span className="text-muted-foreground">Transfer</span>
+            <span className="text-muted-foreground"><HelpLabel term="Transfer Index">Transfer</HelpLabel></span>
             <span className="font-medium">{(snapshot.transferIndex * 100).toFixed(0)}%</span>
           </>
         )}
