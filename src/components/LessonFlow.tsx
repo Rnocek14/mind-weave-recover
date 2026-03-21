@@ -20,6 +20,7 @@ import {
   trackExerciseComplete,
   trackSessionDropOff,
   trackSessionComplete,
+  associateSessionWithFlow,
 } from "@/lib/sessionFlowAnalytics";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 
@@ -212,6 +213,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
     console.log('[LessonFlow] Session created:', data.id);
     sessionStartTimeRef.current = Date.now();
+    associateSessionWithFlow(data.id);
     setSessionId(data.id);
   };
 
