@@ -13,6 +13,51 @@ import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
 
+/** Speech profile signals used for exercise SELECTION scoring (not in-game adaptation) */
+export interface SpeechProfileSelectionSignals {
+  errorTypeDistribution?: Record<string, number>;
+  mostChallengingCategories?: string[];
+  phonemeDifficultyMap?: Record<string, { accuracy: number; trials: number }>;
+}
+
+/**
+ * Map adaptive engine domain names → exercise domain names.
+ * primaryDomains from computeTodayFocus uses cognitive/clinical names;
+ * exerciseMetadata uses lesson-engine names. This bridge connects them.
+ */
+const PRIMARY_DOMAIN_MAP: Record<string, string[]> = {
+  'semantic': ['semantic_systems'],
+  'semantic_depth': ['semantic_systems'],
+  'executive': ['attention'],
+  'executive_function': ['attention'],
+  'discourse': ['expressive_language'],
+  'phonological': ['phonology'],
+  'language_production': ['expressive_language', 'phonology'],
+  'language_comprehension': ['receptive_language'],
+  'visual_spatial': ['visual_processing'],
+};
+
+/**
+ * Domain families for cross-domain balancing.
+ * Sessions should include exercises from ≥2 families to avoid tunnel-vision therapy.
+ */
+const DOMAIN_FAMILIES: Record<string, string[]> = {
+  language: ['expressive_language', 'receptive_language', 'phonology'],
+  semantic: ['semantic_systems'],
+  cognition: ['attention', 'visual_processing'],
+  motor: ['motor_control'],
+};
+
+function getExerciseDomainFamilies(exerciseDomains: string[]): string[] {
+  const families: string[] = [];
+  for (const [family, domains] of Object.entries(DOMAIN_FAMILIES)) {
+    if (exerciseDomains.some(d => domains.includes(d)) && !families.includes(family)) {
+      families.push(family);
+    }
+  }
+  return families;
+}
+
 export interface DomainPriority {
   expressive_language: 'high' | 'medium' | 'low';
   receptive_language: 'high' | 'medium' | 'low';
