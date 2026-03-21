@@ -10,6 +10,7 @@ import { Lightbulb, CheckCircle2, Clock } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { getCueLabel } from '@/lib/insightLanguageMap';
 import { cn } from '@/lib/utils';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface StrategiesSectionProps {
   userId: string;
