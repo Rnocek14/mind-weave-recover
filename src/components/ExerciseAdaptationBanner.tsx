@@ -22,7 +22,7 @@ export const ExerciseAdaptationBanner = ({
   return (
     <Alert className="border-primary/50 bg-primary/5">
       <Sparkles className="h-4 w-4 text-primary" />
-      <AlertTitle className="text-primary">Exercise Adapted to Your Capabilities</AlertTitle>
+      <AlertTitle className="text-primary"><HelpLabel term="Adapted">Exercise Adapted to Your Capabilities</HelpLabel></AlertTitle>
       <AlertDescription className="space-y-2">
         <p className="text-sm">{adaptation.reason}</p>
         {showDetails && summary.length > 0 && (
