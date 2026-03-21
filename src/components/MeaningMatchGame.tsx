@@ -20,6 +20,8 @@ interface MeaningMatchGameProps {
   onGameComplete: (results: MeaningMatchTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
+  /** Profile-recommended cue type — adapts hint behavior */
+  recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
 type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
