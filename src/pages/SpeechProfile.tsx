@@ -200,7 +200,7 @@ export default function SpeechProfile() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Target className="h-4 w-4 text-primary" />
-                    {showClinician ? 'Focus Phonemes' : 'Sounds We\'re Working On'}
+                    <HelpLabel term="Focus Phonemes">{showClinician ? 'Focus Phonemes' : 'Sounds We\'re Working On'}</HelpLabel>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
