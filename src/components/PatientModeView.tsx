@@ -13,6 +13,7 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
