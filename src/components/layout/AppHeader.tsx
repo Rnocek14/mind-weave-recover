@@ -46,6 +46,7 @@ export function AppHeader() {
   const { user } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast } = useUiMode();
+  const { helpMode, toggleHelpMode } = useHelpMode();
 
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
