@@ -170,6 +170,26 @@ export function AppHeader() {
           {/* Caregiver Mode Toggle - only for eligible users */}
           {canAccessCaregiverMode && <CaregiverModeToggle />}
 
+          {/* Help Mode Toggle */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={helpMode ? "secondary" : "ghost"}
+                  size="icon"
+                  className={cn("h-8 w-8", helpMode && "text-primary")}
+                  onClick={toggleHelpMode}
+                  aria-label={helpMode ? "Turn off help tooltips" : "Turn on help tooltips"}
+                >
+                  <CircleHelp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {helpMode ? "Hide explanations" : "Show explanations for complex terms"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <ThemeToggle />
         </nav>
       </div>
