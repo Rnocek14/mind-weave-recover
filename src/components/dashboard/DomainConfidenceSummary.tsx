@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, HelpCircle } from "lucide-react";
+import { HelpLabel } from "@/components/HelpTooltip";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
