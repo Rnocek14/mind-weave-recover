@@ -368,6 +368,8 @@ export const useDailyLesson = (
         } : null,
         preset,
         recency,
+        focus?.primaryDomains || null,
+        speechProfileForSelection,
       );
 
       setLesson(dailyLesson);
