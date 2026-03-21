@@ -38,7 +38,8 @@ export function DetectiveMindGame({
   onTrialComplete, 
   onGameComplete, 
   roundCount = 10,
-  difficultyLevel = 1 
+  difficultyLevel = 1,
+  recommendedCueType,
 }: DetectiveMindGameProps) {
   const {
     currentCase,
