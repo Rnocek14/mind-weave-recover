@@ -25,10 +25,11 @@ export interface MinimalPairsGameState {
 export interface MinimalPairsGameOptions {
   totalTrials?: number;
   difficultyLevel?: number;
+  focusPhonemes?: string[];
 }
 
 export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
-  const { totalTrials = 10, difficultyLevel = 1 } = options;
+  const { totalTrials = 10, difficultyLevel = 1, focusPhonemes } = options;
   
   // Generate trials based on difficulty
   const initialTrials = useMemo(() => {
