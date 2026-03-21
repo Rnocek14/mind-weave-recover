@@ -150,59 +150,63 @@ export function PatientModeView({
   // These bypass the tab system
   if (viewState === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
+      <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="flex justify-end p-2 shrink-0">
           <UiModeToggle />
         </div>
-        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
-          <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
-          <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
-            Getting ready...
-          </h2>
-          <p className="text-lg md:text-xl text-muted-foreground">
-            Loading your personalized session
-          </p>
-        </Card>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
+            <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+              Getting ready...
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground">
+              Loading your personalized session
+            </p>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (viewState === "needs-assessment") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
+      <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="flex justify-end p-2 shrink-0">
           <UiModeToggle />
         </div>
-        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
-          <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-amber-500 mx-auto" />
-          <div className="space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Let's get started!
-            </h2>
-            <p className="text-xl md:text-2xl text-muted-foreground font-medium">
-              Do a quick check to personalize your exercises, or just try a game!
-            </p>
-          </div>
-          <div className="space-y-4">
-            <Button
-              onClick={handleStartAssessment}
-              size="lg"
-              className="w-full min-h-[100px] sm:min-h-[120px] md:min-h-[140px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl px-4 sm:px-8 py-6 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
-            >
-              <Play className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 shrink-0" />
-              <span>Start Setup</span>
-            </Button>
-            <Button
-              onClick={() => setActiveTab("practice")}
-              variant="outline"
-              size="lg"
-              className="w-full min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl md:text-2xl font-semibold px-4 sm:px-6 py-4 rounded-xl border-2"
-            >
-              <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 mr-3 shrink-0" />
-              <span>Just try a game</span>
-            </Button>
-          </div>
-        </Card>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="max-w-3xl w-full p-6 md:p-12 space-y-6 text-center shadow-2xl border-2">
+            <AlertCircle className="w-14 h-14 md:w-20 md:h-20 text-amber-500 mx-auto" />
+            <div className="space-y-2">
+              <h2 className="text-2xl md:text-4xl font-bold text-foreground">
+                Let's get started!
+              </h2>
+              <p className="text-lg md:text-2xl text-muted-foreground font-medium">
+                Do a quick check to personalize your exercises, or just try a game!
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Button
+                onClick={handleStartAssessment}
+                size="lg"
+                className="w-full min-h-[88px] sm:min-h-[100px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl px-4 sm:px-8 py-4 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+              >
+                <Play className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 shrink-0" />
+                <span>Start Setup</span>
+              </Button>
+              <Button
+                onClick={() => setActiveTab("practice")}
+                variant="outline"
+                size="lg"
+                className="w-full min-h-[56px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-3 rounded-xl border-2"
+              >
+                <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 mr-3 shrink-0" />
+                <span>Just try a game</span>
+              </Button>
+            </div>
+          </Card>
+        </div>
         <TabBar />
       </div>
     );
@@ -210,30 +214,32 @@ export function PatientModeView({
 
   if (viewState === "generating-lesson") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
+      <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="flex justify-end p-2 shrink-0">
           <UiModeToggle />
         </div>
-        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
-          <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
-          <div className="space-y-4">
-            <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
-              Preparing your session...
-            </h2>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              Creating a personalized lesson plan
-            </p>
-          </div>
-          <Button
-            onClick={() => setActiveTab("practice")}
-            variant="outline"
-            size="lg"
-            className="min-h-[64px] text-lg sm:text-xl font-semibold px-6 py-4 rounded-xl border-2"
-          >
-            <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
-            <span>Play a game while waiting</span>
-          </Button>
-        </Card>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
+            <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
+            <div className="space-y-4">
+              <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+                Preparing your session...
+              </h2>
+              <p className="text-lg md:text-xl text-muted-foreground">
+                Creating a personalized lesson plan
+              </p>
+            </div>
+            <Button
+              onClick={() => setActiveTab("practice")}
+              variant="outline"
+              size="lg"
+              className="min-h-[56px] text-lg sm:text-xl font-semibold px-6 py-3 rounded-xl border-2"
+            >
+              <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
+              <span>Play a game while waiting</span>
+            </Button>
+          </Card>
+        </div>
         <TabBar />
       </div>
     );
@@ -241,30 +247,32 @@ export function PatientModeView({
 
   if (lessonError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute top-4 right-4 z-10">
+      <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="flex justify-end p-2 shrink-0">
           <UiModeToggle />
         </div>
-        <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2 border-destructive/20">
-          <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-destructive mx-auto" />
-          <div className="space-y-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Something went wrong
-            </h2>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              {lessonError}
-            </p>
-          </div>
-          <Button
-            onClick={() => setActiveTab("practice")}
-            variant="outline"
-            size="lg"
-            className="min-h-[80px] text-xl md:text-2xl font-semibold px-8 py-4 rounded-xl"
-          >
-            <Gamepad2 className="w-6 h-6 mr-3" />
-            Choose a game instead
-          </Button>
-        </Card>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2 border-destructive/20">
+            <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-destructive mx-auto" />
+            <div className="space-y-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                Something went wrong
+              </h2>
+              <p className="text-lg md:text-xl text-muted-foreground">
+                {lessonError}
+              </p>
+            </div>
+            <Button
+              onClick={() => setActiveTab("practice")}
+              variant="outline"
+              size="lg"
+              className="min-h-[56px] text-xl md:text-2xl font-semibold px-8 py-3 rounded-xl"
+            >
+              <Gamepad2 className="w-6 h-6 mr-3" />
+              Choose a game instead
+            </Button>
+          </Card>
+        </div>
         <TabBar />
       </div>
     );
