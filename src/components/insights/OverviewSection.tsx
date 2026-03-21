@@ -193,6 +193,9 @@ export const OverviewSection = memo(function OverviewSection({ userId, profileId
               </Badge>
             ))}
           </div>
+          <Link to="/speech-profile" className="text-xs text-primary hover:underline mt-2 inline-block">
+            View your full speech profile →
+          </Link>
         </div>
       )}
 
