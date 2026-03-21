@@ -58,7 +58,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
         )}
         {snapshot.difficultyTier != null && (
           <>
-            <span className="text-muted-foreground">Difficulty</span>
+            <span className="text-muted-foreground"><HelpLabel term="Difficulty Tier">Difficulty</HelpLabel></span>
             <span className="font-medium">Level {snapshot.difficultyTier}</span>
           </>
         )}
