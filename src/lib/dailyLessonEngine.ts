@@ -856,23 +856,60 @@ export function generateDailyLesson(
     addedSecondary++;
   }
 
-  // 4. CONSOLIDATION (1-2 min) - easy success (pick one that doesn't repeat last component)
+  // === DOMAIN FAMILY BALANCING ===
+  // Enforce ≥2 domain families in session to prevent tunnel-vision therapy
+  const currentFamilies = new Set<string>();
+  for (const block of blocks) {
+    const meta = exerciseMetadata[block.exerciseId];
+    if (meta) {
+      getExerciseDomainFamilies(meta.domains).forEach(f => currentFamilies.add(f));
+    }
+  }
+  
+  if (currentFamilies.size < 2 && remainingTime >= 2) {
+    // Find an exercise from an unrepresented family
+    const missingFamilyExercise = scoredExercises.find(ex => {
+      if (!ex || usedExerciseIds.has(ex.id)) return false;
+      const exFamilies = getExerciseDomainFamilies(ex.domains);
+      return exFamilies.some(f => !currentFamilies.has(f));
+    });
+    
+    if (missingFamilyExercise) {
+      const duration = Math.min(missingFamilyExercise.baseMinutes, remainingTime, 3);
+      if (duration >= 1) {
+        const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
+          ?? Math.max(0, capabilityScores.attention - 2);
+        blocks.push({
+          exerciseId: missingFamilyExercise.id,
+          duration,
+          priority: 'secondary',
+          adaptations: {
+            startDifficulty: effectiveStartDifficulty,
+            cueLevel: 1,
+            timeout: performanceSignals.avgReactionTime * 1.5,
+            visualSupport: capabilityScores.vision < 6,
+          },
+          reasoning: `Balance: cross-domain coverage (${getExerciseDomainFamilies(missingFamilyExercise.domains).join(', ')})`,
+        });
+        remainingTime -= duration;
+        usedExerciseIds.add(missingFamilyExercise.id);
+        lastAddedExercise = missingFamilyExercise;
+        const newFamilies = getExerciseDomainFamilies(missingFamilyExercise.domains);
+        newFamilies.forEach(f => currentFamilies.add(f));
+        reasoning.push(`Added ${missingFamilyExercise.id} for cross-domain balance`);
+      }
+    }
+  }
+
+  // 4. CONSOLIDATION (1-2 min) - easy success (flexible, not motor-only)
   if (remainingTime >= 1) {
-    // For consolidation, prefer a different component than the last block
+    // Prefer exercise from different component than last; motor is fine but not required
     let consolidationExercise: typeof scoredExercises[0] = null;
     
-    // First try: motor exercise that doesn't share component with last
-    const motorForConsolidation = motorExercises.find(e => 
+    // First try: any exercise that doesn't share component with last
+    consolidationExercise = scoredExercises.find(e => 
       e && !sharesBaseComponent(e, lastAddedExercise)
-    );
-    if (motorForConsolidation) {
-      consolidationExercise = motorForConsolidation;
-    } else {
-      // Fallback: any exercise that doesn't share component with last
-      consolidationExercise = scoredExercises.find(e => 
-        e && !sharesBaseComponent(e, lastAddedExercise)
-      ) || warmup; // Last resort: repeat warmup
-    }
+    ) || warmup; // Last resort: repeat warmup
     
     if (consolidationExercise) {
       blocks.push({
