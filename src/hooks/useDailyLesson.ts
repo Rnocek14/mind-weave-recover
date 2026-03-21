@@ -242,6 +242,7 @@ export const useDailyLesson = (
 
       // Compute TodayFocus FIRST so its adaptations feed into lesson generation
       let focus: TodayFocus | null = null;
+      let speechProfileForSelection: { errorTypeDistribution?: Record<string, number>; mostChallengingCategories?: string[]; phonemeDifficultyMap?: Record<string, { accuracy: number; trials: number }> } | null = null;
       try {
         // Get utterance count with alignment data
         const { count: utteranceCount } = await supabase
