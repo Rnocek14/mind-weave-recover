@@ -162,6 +162,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Activity className="w-3.5 h-3.5" />}
             label="Adaptation Rate"
+            helpTerm="Adaptation Rate"
             value={`${Math.round(summary.overallAdaptationRate * 100)}%`}
             subtext={`${summary.totalAdapted} adapted`}
             status={summary.overallAdaptationRate > 0.5 ? 'good' : summary.overallAdaptationRate > 0.2 ? 'neutral' : 'warn'}
@@ -169,6 +170,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Radio className="w-3.5 h-3.5" />}
             label="Telemetry Coverage"
+            helpTerm="Telemetry Coverage"
             value={`${Math.round(summary.telemetryCoverage * 100)}%`}
             subtext={`${summary.trialsWithTelemetry} instrumented`}
             status={summary.telemetryCoverage >= 0.9 ? 'good' : summary.telemetryCoverage >= 0.7 ? 'neutral' : 'warn'}
@@ -176,6 +178,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Layers className="w-3.5 h-3.5" />}
             label="Games Adapted"
+            helpTerm="Games Adapted"
             value={`${summary.gamesWithAdaptation}/${summary.totalGames}`}
             subtext="with active adaptation"
             status={summary.gamesWithAdaptation === summary.totalGames ? 'good' : 'neutral'}
@@ -183,6 +186,7 @@ export const AdaptationExecutiveSummary = ({ userId, daysBack = 14 }: Adaptation
           <SummaryKPI
             icon={<Crosshair className="w-3.5 h-3.5" />}
             label="Dominant Mode"
+            helpTerm="Dominant Mode"
             value={MODE_LABELS[summary.dominantMode]?.split(' ')[0] || '—'}
             subtext={MODE_LABELS[summary.dominantMode] || summary.dominantMode}
             status="neutral"
