@@ -75,9 +75,10 @@ export const SentenceConstructionGame = ({
     getAnswerAsWords
   } = useSentenceGame(10, difficultyLevel, focusPhonemes);
 
-  const { speak, isLoading } = useTextToSpeech();
+  const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
+  const [showFeedbackAudio, setShowFeedbackAudio] = useState(false);
 
   const trial = getCurrentTrial();
 
@@ -89,11 +90,14 @@ export const SentenceConstructionGame = ({
     // Stop any currently playing audio before starting new one
     stop();
     
-    // Auto-play the sentence when trial starts
-    if (trial?.modelAudio && !completed) {
-      speak(trial.modelAudio);
+    // Auto-play the sentence when trial starts (delay to avoid overlap with previous feedback audio)
+    if (trial?.modelAudio && !completed && !showFeedbackAudio) {
+      const timer = setTimeout(() => {
+        speak(trial.modelAudio!);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [currentTrial, trial?.modelAudio, completed, stop, speak]);
+  }, [currentTrial, completed]);
 
   useEffect(() => {
     if (completed && onGameComplete) {
