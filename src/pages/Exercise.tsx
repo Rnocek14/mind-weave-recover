@@ -327,8 +327,8 @@ const Exercise = () => {
   }, [isPlaying, sessionStartTime]);
 
   const startExercise = async (moodOverride?: number) => {
-    // Check dose cap before allowing start
-    if (doseCap.enforceCaps && !doseCap.canStartSession) {
+    // Check dose cap before allowing start — skip when already in a lesson session
+    if (!fromLesson && doseCap.enforceCaps && !doseCap.canStartSession) {
       toast({
         title: "Daily Practice Limit Reached",
         description: `You've already practiced for ${doseCap.todayMinutes} minutes today. Great work! Rest is important for recovery.`,
