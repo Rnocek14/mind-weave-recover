@@ -53,16 +53,17 @@ export function MultiStepPlanningGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
+    // In discourse mode, transcript is already accumulated
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
   }, []);
 
-  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported } =
-    useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true });
+  const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
+    useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
   useEffect(() => {
-    if (liveTranscript) latestTranscriptRef.current = liveTranscript;
-  }, [liveTranscript]);
+    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
+  }, [fullTranscript]);
 
   const handleStart = useCallback(() => {
     setPhase('speaking');
@@ -162,8 +163,8 @@ export function MultiStepPlanningGame({
               </div>
               <span className="font-semibold text-sm">Tell me the steps...</span>
             </div>
-            {(liveTranscript || collectedTranscript) && (
-              <div className="bg-muted/50 rounded-lg p-3"><p className="text-sm italic">"{collectedTranscript || liveTranscript}"</p></div>
+            {(fullTranscript || collectedTranscript) && (
+              <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
             )}
             <div className="flex gap-2">
               <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
