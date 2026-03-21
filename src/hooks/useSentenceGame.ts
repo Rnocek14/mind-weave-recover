@@ -58,8 +58,20 @@ export const useSentenceGame = (
     const trialsToUse = available.length >= standardCount ? available : standardTrials;
     const selectedStandard = shuffleArray(trialsToUse).slice(0, standardCount);
     
-    // Merge and shuffle
-    const allTrials = shuffleArray([...gradedTrials, ...selectedStandard]);
+    // Merge, shuffle, and deduplicate
+    const seen = new Set<string>();
+    const allTrials = shuffleArray([...gradedTrials, ...selectedStandard]).filter(t => {
+      const key = t.targetSentence.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Mark all selected trials as shown for within-session dedup
+    allTrials.forEach(t => {
+      shownTrialsRef.current.add(t.id);
+      markItemShown(t.id, 'sentence_game');
+    });
     
     setGameState(prev => ({
       ...prev,
