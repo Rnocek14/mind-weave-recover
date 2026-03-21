@@ -42,6 +42,7 @@ import { PatientModeView } from "@/components/PatientModeView";
 import { ViewModeSelector } from "@/components/ViewModeSelector";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useProfile } from "@/hooks/useProfile";
+import { AdaptiveLoopDebugPanel } from "@/components/AdaptiveLoopDebugPanel";
 
 /** Compute days since stroke for the header */
 function daysSinceStroke(strokeDate: string | null | undefined): number | null {
