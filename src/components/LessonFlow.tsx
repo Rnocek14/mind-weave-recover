@@ -20,6 +20,7 @@ import {
   trackExerciseComplete,
   trackSessionDropOff,
   trackSessionComplete,
+  associateSessionWithFlow,
 } from "@/lib/sessionFlowAnalytics";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 
