@@ -275,7 +275,7 @@ export function ChallengesSection({ userId, profileId }: ChallengesSectionProps)
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium flex items-center gap-2">
                     <Volume2 className="w-4 h-4 text-warning" />
-                    Sounds to Focus On
+                    <HelpLabel term="Phoneme">Sounds to Focus On</HelpLabel>
                   </h4>
                   {targetWords.length > 0 && (
                     <Button 
