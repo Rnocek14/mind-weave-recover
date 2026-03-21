@@ -331,7 +331,7 @@ export const ReachTapGame = ({
       {/* Game Area */}
       <div 
         ref={containerRef}
-        className={`relative w-full aspect-[4/3] rounded-xl border-4 shadow-glow overflow-hidden ${
+        className={`relative w-full flex-1 min-h-0 rounded-xl border-4 shadow-glow overflow-hidden ${
           variant === 'left-side-hunt' 
             ? 'bg-gradient-to-r from-amber-100/30 via-muted to-muted dark:from-amber-900/20 border-amber-500' 
             : 'bg-muted border-primary'
