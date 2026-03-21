@@ -44,7 +44,7 @@ export const DomainConfidenceSummary = memo(function DomainConfidenceSummary() {
         ) : (
           <HelpCircle className="w-4 h-4 text-muted-foreground" />
         )}
-        <span className="text-muted-foreground">Domains scored:</span>
+        <span className="text-muted-foreground"><HelpLabel term="Domain">Domains scored:</HelpLabel></span>
         <Badge variant="outline" className="text-xs tabular-nums">
           {stats.scored}/{stats.total}
         </Badge>
