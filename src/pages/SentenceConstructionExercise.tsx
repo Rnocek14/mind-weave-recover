@@ -213,10 +213,52 @@ const SentenceConstructionExercise = () => {
     toast.success(`Difficulty set to Level ${newLevel}`);
   };
 
+  if (fromLesson) {
+    return (
+      <div className="h-dvh flex flex-col bg-background overflow-hidden">
+        <SessionSidePanel />
+        <SessionProgressBubble />
+        {/* Compact header */}
+        <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => {
+              window.dispatchEvent(new CustomEvent('exercise-complete'));
+              navigate('/lesson', { state: { resuming: true } });
+            }}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <span className="text-sm font-medium">Sentence Construction</span>
+            <Badge variant="outline" className="text-xs">Lv {level}</Badge>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSkipExercise}
+            className="text-orange-600"
+          >
+            <SkipForward className="w-4 h-4 mr-1" />
+            Skip
+          </Button>
+        </div>
+        {/* Game fills remaining space */}
+        <div className="flex-1 min-h-0 overflow-auto px-4 py-3">
+          <SentenceConstructionGame
+            config={config}
+            bounds={bounds}
+            difficultyLevel={level}
+            focusPhonemes={adaptation.focusPhonemes}
+            adaptations={getAdaptations('sentence-construction')}
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {fromLesson && <SessionSidePanel />}
-      {fromLesson && <SessionProgressBubble />}
       <div className="container max-w-4xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="mb-8">
@@ -226,19 +268,8 @@ const SentenceConstructionExercise = () => {
               onClick={() => navigate('/dashboard')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {fromLesson ? 'Back to Lesson' : 'Back to Dashboard'}
+              Back to Dashboard
             </Button>
-            
-            {fromLesson && (
-              <Button
-                variant="outline"
-                onClick={handleSkipExercise}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
-              >
-                <SkipForward className="w-4 h-4 mr-2" />
-                Skip - Too Difficult
-              </Button>
-            )}
           </div>
 
           <div className="flex items-start justify-between gap-4">
