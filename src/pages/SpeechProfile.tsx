@@ -239,7 +239,7 @@ export default function SpeechProfile() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-primary" />
-                    {showClinician ? 'Cue Preference' : 'What Helps You Most'}
+                    <HelpLabel term="Recommended Cue Type">{showClinician ? 'Cue Preference' : 'What Helps You Most'}</HelpLabel>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
