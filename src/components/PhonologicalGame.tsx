@@ -89,9 +89,11 @@ export const PhonologicalGame = ({
       setHasPlayedAudio(false);
       
       // Auto-play audio after short delay
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         handlePlayAudio();
       }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [game.currentTrial, game.completed]);
 
