@@ -215,7 +215,7 @@ export const SentenceConstructionGame = ({
   const canSubmit = currentAnswer.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Progress */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
@@ -258,8 +258,8 @@ export const SentenceConstructionGame = ({
       </div>
 
       {/* Main Task Card */}
-      <Card className="p-6 md:p-8">
-        <div className="space-y-6">
+      <Card className="p-4 md:p-6">
+        <div className="space-y-4">
           {/* Instructions + Hint Button */}
           <div className="flex flex-col items-center gap-3">
             <p className="text-sm text-muted-foreground text-center">
@@ -280,7 +280,7 @@ export const SentenceConstructionGame = ({
           </div>
 
           {/* Sentence Construction Area */}
-          <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-muted border-2 border-dashed border-primary rounded-lg">
+          <div className="flex flex-wrap gap-2 min-h-[48px] p-3 bg-muted border-2 border-dashed border-primary rounded-lg">
             {answerWords.length === 0 ? (
               <span className="text-muted-foreground">Tap words below to build your sentence</span>
             ) : (
