@@ -3,6 +3,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, Zap } from 'lucide-react';
 import { useState } from 'react';
 import type { LiveSnapshot } from '@/contexts/LiveAnalysisContext';
+import { HelpLabel } from '@/components/HelpTooltip';
 
 interface AdaptationCardProps {
   snapshot: LiveSnapshot;
