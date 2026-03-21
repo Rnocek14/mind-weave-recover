@@ -654,7 +654,7 @@ const Exercise = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-gradient-calm flex flex-col`}>
       {/* Intervention Modals */}
       <ConfidenceBoost
         open={showConfidenceBoost}
@@ -680,7 +680,7 @@ const Exercise = () => {
         }}
       />
 
-      <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-2 sm:py-4 flex-1 flex flex-col">
+      <div className={`container mx-auto max-w-4xl px-2 sm:px-4 ${fromLesson ? 'py-1' : 'py-2 sm:py-4'} flex-1 flex flex-col min-h-0`}>
         {/* Compact navigation */}
         <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-4">
           <ExerciseBackButton 
@@ -701,8 +701,8 @@ const Exercise = () => {
           )}
         </div>
 
-        {/* Debug badges for active adaptations */}
-        {(() => {
+        {/* Debug badges for active adaptations - hide in session mode */}
+        {!fromLesson && (() => {
           const badges = [
             lessonAdaptations?.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1
               ? `Timeout ×${lessonAdaptations.timeoutMultiplier}` : null,
@@ -727,8 +727,8 @@ const Exercise = () => {
           ) : null;
         })()}
 
-        {/* Clinical Profile Widget - hidden on mobile */}
-        {clinicalProfile && (
+        {/* Clinical Profile Widget - hidden on mobile and in session mode */}
+        {!fromLesson && clinicalProfile && (
           <div className="hidden md:block mb-4">
             <StrokeProfileWidget profile={clinicalProfile} />
           </div>
@@ -749,25 +749,27 @@ const Exercise = () => {
           </div>
         )}
 
-        {/* Compact Header */}
-        <Card className="p-3 sm:p-4 md:p-6 mb-2 sm:mb-4 shadow-card">
-          <div className="flex justify-between items-start mb-2 sm:mb-4">
+        {/* Compact Header - slimmer in session mode */}
+        <Card className={`${fromLesson ? 'p-2 mb-1' : 'p-3 sm:p-4 md:p-6 mb-2 sm:mb-4'} shadow-card shrink-0`}>
+          <div className={`flex justify-between items-start ${fromLesson ? 'mb-1' : 'mb-2 sm:mb-4'}`}>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 truncate">
+              <h1 className={`${fromLesson ? 'text-base' : 'text-lg sm:text-2xl md:text-3xl'} font-bold mb-0.5 truncate`}>
                 {exercise.title}
               </h1>
-              <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
-                <Volume2 className="w-4 h-4 shrink-0 hidden sm:block" />
-                <p className="truncate">{exercise.instruction}</p>
-              </div>
+              {!fromLesson && (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm sm:text-base">
+                  <Volume2 className="w-4 h-4 shrink-0 hidden sm:block" />
+                  <p className="truncate">{exercise.instruction}</p>
+                </div>
+              )}
             </div>
             <div className="text-right shrink-0 ml-2">
-              <div className="text-xl sm:text-2xl font-bold text-primary">{score}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Score</div>
+              <div className={`${fromLesson ? 'text-lg' : 'text-xl sm:text-2xl'} font-bold text-primary`}>{score}</div>
+              <div className="text-xs text-muted-foreground">Score</div>
             </div>
           </div>
 
-          <div className="space-y-1 sm:space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground">
                 Round {currentRound} of {totalRounds}
@@ -776,12 +778,12 @@ const Exercise = () => {
                 {Math.round((currentRound / totalRounds) * 100)}%
               </span>
             </div>
-            <Progress value={(currentRound / totalRounds) * 100} className="h-1.5 sm:h-2" />
+            <Progress value={(currentRound / totalRounds) * 100} className="h-1.5" />
           </div>
         </Card>
 
         {/* Exercise Area - fills remaining space */}
-        <Card className="p-4 sm:p-8 md:p-12 mb-2 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center">
+        <Card className={`${fromLesson ? 'p-2 sm:p-4' : 'p-4 sm:p-8 md:p-12'} mb-1 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden`}>
           {!isPlaying ? (
             <div className="text-center space-y-6">
               <div className="w-32 h-32 mx-auto rounded-full bg-gradient-healing flex items-center justify-center animate-pulse-glow">
