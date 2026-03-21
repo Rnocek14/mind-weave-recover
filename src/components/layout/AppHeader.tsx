@@ -18,8 +18,22 @@ import {
   History,
   ChevronDown,
   Brain,
-  Stethoscope } from
+  Stethoscope,
+  CircleHelp } from
 "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useUiMode } from "@/hooks/useUiMode";
+import { useHelpMode } from "@/contexts/HelpModeContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
