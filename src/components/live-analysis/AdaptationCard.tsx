@@ -82,7 +82,7 @@ export function AdaptationCard({ snapshot, mode }: AdaptationCardProps) {
         )}
         {snapshot.profileConfidence && (
           <>
-            <span className="text-muted-foreground">Profile</span>
+            <span className="text-muted-foreground"><HelpLabel term="Confidence Level">Profile</HelpLabel></span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 capitalize">
               {snapshot.profileConfidence}
             </Badge>
