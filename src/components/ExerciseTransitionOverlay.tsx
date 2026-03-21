@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
-import { CheckCircle2, Wind } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { useState, useEffect, useRef } from 'react';
+import { Wind, Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
 
 interface ExerciseTransitionOverlayProps {
-  /** 'encouragement' = quick 3s auto-advance, 'micro-pause' = 8s breathing reset */
+  /** 'encouragement' = quick auto-advance, 'micro-pause' = breathing reset */
   type: 'encouragement' | 'micro-pause';
+  /** Override default duration (seconds) — set by adaptive pause logic */
+  durationOverride?: number;
   completedCount: number;
   totalCount: number;
   nextExerciseName: string;
+  sessionId?: string | null;
   onContinue: () => void;
   onEnd: () => void;
 }
@@ -25,24 +28,33 @@ const encouragements = [
 
 export const ExerciseTransitionOverlay = ({
   type,
+  durationOverride,
   completedCount,
   totalCount,
   nextExerciseName,
+  sessionId,
   onContinue,
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
-  const duration = type === 'encouragement' ? 3 : 8;
+  const defaultDuration = type === 'encouragement' ? 3 : 8;
+  const duration = durationOverride ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(duration);
+  const [isPaused, setIsPaused] = useState(false);
+  const startTimeRef = useRef(Date.now());
   const [encouragement] = useState(() => 
     encouragements[Math.floor(Math.random() * encouragements.length)]
   );
 
-  const progress = (completedCount / totalCount) * 100;
-
   useEffect(() => {
+    if (isPaused) return;
+    
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
+          trackTransitionAction(
+            sessionId ?? null, completedCount, totalCount,
+            type, 'auto_advance', Date.now() - startTimeRef.current
+          );
           onContinue();
           return 0;
         }
@@ -51,7 +63,31 @@ export const ExerciseTransitionOverlay = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onContinue]);
+  }, [onContinue, isPaused, sessionId, completedCount, totalCount, type]);
+
+  const handleSkipContinue = () => {
+    trackTransitionAction(
+      sessionId ?? null, completedCount, totalCount,
+      type, 'skip', Date.now() - startTimeRef.current
+    );
+    onContinue();
+  };
+
+  const handleEnd = () => {
+    trackTransitionAction(
+      sessionId ?? null, completedCount, totalCount,
+      type, 'end_session', Date.now() - startTimeRef.current
+    );
+    onEnd();
+  };
+
+  const handleNeedMoreTime = () => {
+    trackTransitionAction(
+      sessionId ?? null, completedCount, totalCount,
+      type, 'need_more_time', Date.now() - startTimeRef.current
+    );
+    setIsPaused(true);
+  };
 
   if (type === 'micro-pause') {
     return (
@@ -84,31 +120,50 @@ export const ExerciseTransitionOverlay = ({
             </p>
           </div>
 
-          {/* Subtle auto-advance indicator */}
-          <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
-            <div 
-              className="h-full bg-primary/40 transition-all duration-1000 ease-linear"
-              style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
-            />
-          </div>
+          {/* Auto-advance indicator (hidden when paused) */}
+          {!isPaused && (
+            <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
+              <div 
+                className="h-full bg-primary/40 transition-all duration-1000 ease-linear"
+                style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
+              />
+            </div>
+          )}
 
-          {/* Skip / End options */}
-          <div className="flex gap-3">
-            <Button 
-              variant="ghost" 
-              size="lg" 
-              className="flex-1 text-muted-foreground"
-              onClick={onEnd}
-            >
-              End session
-            </Button>
-            <Button 
-              size="lg" 
-              className="flex-1"
-              onClick={onContinue}
-            >
-              Continue
-            </Button>
+          {isPaused && (
+            <p className="text-sm text-muted-foreground">Take as long as you need</p>
+          )}
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                size="lg" 
+                className="flex-1 text-muted-foreground"
+                onClick={handleEnd}
+              >
+                End session
+              </Button>
+              <Button 
+                size="lg" 
+                className="flex-1"
+                onClick={handleSkipContinue}
+              >
+                Continue
+              </Button>
+            </div>
+            {!isPaused && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground mx-auto"
+                onClick={handleNeedMoreTime}
+              >
+                <Clock className="w-4 h-4 mr-1.5" />
+                Need more time
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -150,6 +205,14 @@ export const ExerciseTransitionOverlay = ({
             style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
           />
         </div>
+
+        {/* Tap anywhere hint */}
+        <button
+          onClick={handleSkipContinue}
+          className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          Tap to skip
+        </button>
       </div>
     </div>
   );
