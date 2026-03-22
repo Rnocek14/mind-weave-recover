@@ -29,6 +29,8 @@ interface TrialData {
   stuck_type: string | null;
   speech_rate_wpm: number | null;
   created_at: string | null;
+  taskParameters?: any;
+  outputs?: any;
 }
 
 interface SessionDetailPanelProps {
@@ -105,6 +107,8 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
           stuck_type: null,
           speech_rate_wpm: null,
           created_at: ev.created_at,
+          taskParameters: ev.task_parameters,
+          outputs: ev.outputs,
         }));
         setTrials(mapped);
       }
@@ -298,81 +302,129 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
             </TabsContent>
 
             {/* ─── Detailed Tab ─── */}
-            <TabsContent value="detailed" className="space-y-2 mt-4">
-              {trials.map((trial, idx) => (
-                <Card
-                  key={trial.attempt_id}
-                  className={`p-3 border-l-4 ${
-                    trial.is_correct
-                      ? "border-l-green-500"
-                      : "border-l-red-400"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-muted-foreground font-mono">#{idx + 1}</span>
-                        <span className="font-semibold text-sm truncate">{trial.target_word}</span>
-                        {trial.is_correct ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                        )}
-                      </div>
+            <TabsContent value="detailed" className="space-y-4 mt-4">
+              {exercises.map((slug) => {
+                const exTrials = trials.filter((t) => t.exercise_slug === slug);
+                const exCorrect = exTrials.filter((t) => t.is_correct).length;
+                const exAcc = exTrials.length > 0 ? Math.round((exCorrect / exTrials.length) * 100) : 0;
 
-                      {/* Transcript */}
-                      {trial.transcript && (
-                        <p className="text-xs text-muted-foreground mb-1.5">
-                          Said: "<span className="italic">{trial.transcript}</span>"
-                        </p>
-                      )}
-
-                      {/* Badges row */}
-                      <div className="flex flex-wrap gap-1">
-                        {trial.error_type && trial.error_type !== "correct" && (
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${errorTypeColor(trial.error_type)}`}>
-                            {errorTypeLabel(trial.error_type)}
-                          </span>
-                        )}
-                        {trial.latency_ms != null && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
-                            {trial.latency_ms}ms
-                          </span>
-                        )}
-                        {trial.cue_type_given && trial.cue_type_given !== "none" && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-700 border border-blue-200">
-                            Cue: {trial.cue_type_given}
-                            {trial.cue_was_effective === true && " ✓"}
-                            {trial.cue_was_effective === false && " ✗"}
-                          </span>
-                        )}
-                        {trial.speech_rate_wpm != null && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
-                            {Math.round(trial.speech_rate_wpm)} wpm
-                          </span>
-                        )}
-                      </div>
+                return (
+                  <div key={slug}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold capitalize">
+                        {slug.replace(/_/g, " ").replace(/-/g, " ")}
+                      </h4>
+                      <Badge variant={exAcc >= 80 ? "default" : exAcc >= 50 ? "secondary" : "destructive"}>
+                        {exCorrect}/{exTrials.length} correct
+                      </Badge>
                     </div>
+                    <div className="space-y-1.5">
+                      {exTrials.map((trial, idx) => {
+                        const tp = trial.taskParameters as any;
+                        const out = trial.outputs as any;
 
-                    {/* Audio button */}
-                    {trial.audio_storage_path && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0"
-                        onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
-                        aria-label={playingId === trial.attempt_id ? "Stop audio" : "Play audio"}
-                      >
-                        {playingId === trial.attempt_id ? (
-                          <VolumeX className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Volume2 className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    )}
+                        // Build a descriptive label based on exercise type
+                        let label = trial.target_word || "";
+                        let detail = "";
+
+                        if (slug === "phonological_awareness" || slug?.includes("phonological")) {
+                          const w1 = tp?.word1 || out?.task_params?.word1;
+                          const w2 = tp?.word2 || out?.task_params?.word2;
+                          const expected = tp?.expectedAnswer || out?.task_params?.expectedAnswer;
+                          const userAns = tp?.userAnswer || out?.task_params?.userAnswer;
+                          if (w1 && w2) {
+                            label = `${w1} / ${w2}`;
+                            detail = `Expected: ${expected || "?"} · Answered: ${userAns || "?"}`;
+                          }
+                        } else if (slug === "sentence_construction" || slug?.includes("sentence")) {
+                          const sentence = tp?.targetSentence || tp?.sentence || out?.task_params?.targetSentence || out?.target;
+                          const userSentence = tp?.userSentence || out?.userSentence || out?.task_params?.userAnswer;
+                          if (sentence) label = sentence;
+                          if (userSentence && userSentence !== sentence) detail = `Said: "${userSentence}"`;
+                        } else if (slug === "reach_tap" || slug === "left_side_hunt") {
+                          label = `Target ${idx + 1}`;
+                        }
+
+                        if (trial.transcript && !detail) {
+                          detail = `Said: "${trial.transcript}"`;
+                        }
+
+                        return (
+                          <Card
+                            key={trial.attempt_id + idx}
+                            className={`p-2.5 border-l-4 ${
+                              trial.is_correct
+                                ? "border-l-success"
+                                : "border-l-destructive"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-[10px] text-muted-foreground font-mono">#{idx + 1}</span>
+                                  <span className="font-medium text-sm truncate">{label || "—"}</span>
+                                  {trial.is_correct ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-success flex-shrink-0" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />
+                                  )}
+                                </div>
+
+                                {detail && (
+                                  <p className="text-xs text-muted-foreground mb-1 truncate">{detail}</p>
+                                )}
+
+                                <div className="flex flex-wrap gap-1">
+                                  {trial.error_type && trial.error_type !== "correct" && (
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${errorTypeColor(trial.error_type)}`}>
+                                      {errorTypeLabel(trial.error_type)}
+                                    </span>
+                                  )}
+                                  {trial.latency_ms != null && trial.latency_ms > 0 && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                                      {trial.latency_ms >= 1000
+                                        ? `${(trial.latency_ms / 1000).toFixed(1)}s`
+                                        : `${trial.latency_ms}ms`}
+                                    </span>
+                                  )}
+                                  {trial.cue_type_given && trial.cue_type_given !== "none" && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20">
+                                      Cue: {trial.cue_type_given}
+                                      {trial.cue_was_effective === true && " ✓"}
+                                      {trial.cue_was_effective === false && " ✗"}
+                                    </span>
+                                  )}
+                                  {trial.speech_rate_wpm != null && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                                      {Math.round(trial.speech_rate_wpm)} wpm
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {trial.audio_storage_path && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 flex-shrink-0"
+                                  onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
+                                  aria-label={playingId === trial.attempt_id ? "Stop audio" : "Play audio"}
+                                >
+                                  {playingId === trial.attempt_id ? (
+                                    <VolumeX className="w-4 h-4 text-primary" />
+                                  ) : (
+                                    <Volume2 className="w-4 h-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
-                </Card>
-              ))}
+                );
+              })}
             </TabsContent>
           </Tabs>
         )}
