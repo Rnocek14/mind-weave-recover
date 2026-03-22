@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Target, Smile, Meh, Frown, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { HelpLabel } from "@/components/HelpTooltip";
 
 interface DayDetailsDialogProps {
   date: string | null;
@@ -75,7 +76,7 @@ export function DayDetailsDialog({ date, onClose }: DayDetailsDialogProps) {
                           </div>
                           <div className="flex items-center gap-1">
                             <Target className="h-4 w-4 text-muted-foreground" />
-                            <span>{sessionAccuracy}% accuracy</span>
+                            <HelpLabel term="Accuracy"><span>{sessionAccuracy}% accuracy</span></HelpLabel>
                           </div>
                           {session.mood_rating && (
                             <div className="flex items-center gap-1">
@@ -110,9 +111,9 @@ export function DayDetailsDialog({ date, onClose }: DayDetailsDialogProps) {
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{exercise.correct} / {exercise.trials} correct</span>
+                                  <HelpLabel term="Trial"><span>{exercise.correct} / {exercise.trials} correct</span></HelpLabel>
                                   {exercise.avgReactionTime && (
-                                    <span>Avg: {Math.round(exercise.avgReactionTime)}ms</span>
+                                    <HelpLabel term="Reaction Time"><span>Avg: {Math.round(exercise.avgReactionTime)}ms</span></HelpLabel>
                                   )}
                                 </div>
                                 <Progress value={exercise.accuracy} className="h-1" />
