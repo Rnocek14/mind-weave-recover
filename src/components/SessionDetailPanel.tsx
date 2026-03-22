@@ -61,7 +61,8 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
   const fetchTrials = async (sessionId: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Try utterance_analyses first (speech exercises)
+      const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
           "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
@@ -69,8 +70,44 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setTrials(data ?? []);
+      if (uaError) throw uaError;
+
+      if (uaData && uaData.length > 0) {
+        setTrials(uaData);
+      } else {
+        // Fallback to exercise_events
+        const { data: eeData, error: eeError } = await supabase
+          .from("exercise_events")
+          .select(
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at"
+          )
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: true });
+
+        if (eeError) throw eeError;
+
+        // Map exercise_events to TrialData shape
+        const mapped: TrialData[] = (eeData ?? []).map((ev) => ({
+          attempt_id: ev.attempt_id || ev.created_at || "",
+          target_word: (ev.task_parameters as any)?.target_word || (ev.task_parameters as any)?.targetWord || (ev.outputs as any)?.target || "",
+          transcript: ev.whisper_transcript || ev.browser_transcript || null,
+          is_correct: ev.score === 1 || ev.score === 100 ? true : ev.score === 0 ? false : null,
+          exercise_slug: ev.exercise_slug,
+          latency_ms: ev.reaction_time_ms,
+          error_type: ev.error_type,
+          cue_type_given: ev.cue_type_given,
+          cue_was_effective: ev.cue_was_effective,
+          audio_storage_path: ev.audio_storage_path,
+          recording_duration_ms: ev.recording_duration_ms,
+          pronunciation_status: null,
+          semantic_similarity: ev.semantic_similarity,
+          phonological_similarity: ev.phonological_similarity,
+          stuck_type: null,
+          speech_rate_wpm: null,
+          created_at: ev.created_at,
+        }));
+        setTrials(mapped);
+      }
     } catch (err) {
       console.error("Error fetching session trials:", err);
     } finally {
