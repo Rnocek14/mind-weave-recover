@@ -46,6 +46,14 @@ export function useCognitiveState({
     return d.toISOString().slice(0, 10);
   }, [windowDays]);
 
+  const previousWindowStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - windowDays * 2);
+    return d.toISOString().slice(0, 10);
+  }, [windowDays]);
+
+  const previousWindowEnd = useMemo(() => windowStart, [windowStart]);
+
   const compute = useCallback(async () => {
     if (!userId) return;
 
