@@ -94,8 +94,10 @@ export const SessionHistoryTimeline = ({
       {sessions.map((session, idx) => {
         const isExpanded = expandedSessions.has(session.id);
         const avgAccuracy =
-          session.exercises.reduce((sum, ex) => sum + ex.accuracy, 0) /
-          session.exercises.length;
+          session.exercises.length > 0
+            ? session.exercises.reduce((sum, ex) => sum + ex.accuracy, 0) /
+              session.exercises.length
+            : 0;
         const totalTrials = session.exercises.reduce(
           (sum, ex) => sum + ex.totalTrials,
           0

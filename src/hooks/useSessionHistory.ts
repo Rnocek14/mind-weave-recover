@@ -89,50 +89,53 @@ export const useSessionHistory = (userId: string | undefined) => {
       if (eventsError) throw eventsError;
 
       // Group events by session and exercise
-      const sessionsWithDetails: SessionDetail[] = sessionsData.map((session) => {
-        const sessionEvents = eventsData?.filter((e) => e.session_id === session.id) || [];
-        
-        // Group by exercise
-        const exerciseMap: Record<string, TrialDetail[]> = {};
-        sessionEvents.forEach((event) => {
-          const slug = event.exercise_slug || "unknown";
-          if (!exerciseMap[slug]) {
-            exerciseMap[slug] = [];
-          }
-          exerciseMap[slug].push({
-            id: event.id,
-            round: event.round,
-            score: event.score,
-            reactionTimeMs: event.reaction_time_ms,
-            errorType: event.error_type,
-            cueLevel: event.cue_level,
-            taskParameters: event.task_parameters,
-            outputs: event.outputs,
-            createdAt: event.created_at || ""
+      const sessionsWithDetails: SessionDetail[] = sessionsData
+        .map((session) => {
+          const sessionEvents = eventsData?.filter((e) => e.session_id === session.id) || [];
+          
+          // Group by exercise
+          const exerciseMap: Record<string, TrialDetail[]> = {};
+          sessionEvents.forEach((event) => {
+            const slug = event.exercise_slug || "unknown";
+            if (!exerciseMap[slug]) {
+              exerciseMap[slug] = [];
+            }
+            exerciseMap[slug].push({
+              id: event.id,
+              round: event.round,
+              score: event.score,
+              reactionTimeMs: event.reaction_time_ms,
+              errorType: event.error_type,
+              cueLevel: event.cue_level,
+              taskParameters: event.task_parameters,
+              outputs: event.outputs,
+              createdAt: event.created_at || ""
+            });
           });
-        });
 
-        // Calculate exercise-level stats
-        const exercises = Object.entries(exerciseMap).map(([slug, trials]) => {
-          const correctCount = trials.filter((t) => t.score === 1).length;
+          // Calculate exercise-level stats
+          const exercises = Object.entries(exerciseMap).map(([slug, trials]) => {
+            const correctCount = trials.filter((t) => t.score === 1 || t.score === 100).length;
+            return {
+              slug,
+              trials,
+              accuracy: trials.length > 0 ? Math.round((correctCount / trials.length) * 100) : 0,
+              totalTrials: trials.length
+            };
+          });
+
           return {
-            slug,
-            trials,
-            accuracy: trials.length > 0 ? Math.round((correctCount / trials.length) * 100) : 0,
-            totalTrials: trials.length
+            id: session.id,
+            startedAt: session.started_at || "",
+            endedAt: session.ended_at,
+            durationSec: session.duration_sec,
+            summary: session.summary,
+            plan: session.plan,
+            exercises
           };
-        });
-
-        return {
-          id: session.id,
-          startedAt: session.started_at || "",
-          endedAt: session.ended_at,
-          durationSec: session.duration_sec,
-          summary: session.summary,
-          plan: session.plan,
-          exercises
-        };
-      });
+        })
+        // Filter out sessions with no exercise events
+        .filter((s) => s.exercises.length > 0);
 
       setSessions(sessionsWithDetails);
     } catch (err) {
