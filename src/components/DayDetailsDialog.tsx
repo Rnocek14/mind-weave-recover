@@ -111,9 +111,9 @@ export function DayDetailsDialog({ date, onClose }: DayDetailsDialogProps) {
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{exercise.correct} / {exercise.trials} correct</span>
+                                  <HelpLabel term="Trial"><span>{exercise.correct} / {exercise.trials} correct</span></HelpLabel>
                                   {exercise.avgReactionTime && (
-                                    <span>Avg: {Math.round(exercise.avgReactionTime)}ms</span>
+                                    <HelpLabel term="Reaction Time"><span>Avg: {Math.round(exercise.avgReactionTime)}ms</span></HelpLabel>
                                   )}
                                 </div>
                                 <Progress value={exercise.accuracy} className="h-1" />
