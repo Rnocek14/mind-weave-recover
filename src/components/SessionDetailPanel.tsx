@@ -107,6 +107,8 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
           stuck_type: null,
           speech_rate_wpm: null,
           created_at: ev.created_at,
+          taskParameters: ev.task_parameters,
+          outputs: ev.outputs,
         }));
         setTrials(mapped);
       }
