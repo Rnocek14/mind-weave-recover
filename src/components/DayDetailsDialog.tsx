@@ -76,7 +76,7 @@ export function DayDetailsDialog({ date, onClose }: DayDetailsDialogProps) {
                           </div>
                           <div className="flex items-center gap-1">
                             <Target className="h-4 w-4 text-muted-foreground" />
-                            <span>{sessionAccuracy}% accuracy</span>
+                            <HelpLabel term="Accuracy"><span>{sessionAccuracy}% accuracy</span></HelpLabel>
                           </div>
                           {session.mood_rating && (
                             <div className="flex items-center gap-1">
