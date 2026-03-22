@@ -242,17 +242,17 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
                 <Card className="p-3 text-center">
                   <Target className="w-4 h-4 mx-auto mb-1 text-primary" />
                   <div className="text-2xl font-bold text-primary">{accuracy}%</div>
-                  <div className="text-xs text-muted-foreground">Accuracy</div>
+                  <div className="text-xs text-muted-foreground"><HelpLabel term="Accuracy">Accuracy</HelpLabel></div>
                 </Card>
                 <Card className="p-3 text-center">
                   <Zap className="w-4 h-4 mx-auto mb-1 text-amber-500" />
                   <div className="text-2xl font-bold">{avgLatency}<span className="text-sm font-normal">ms</span></div>
-                  <div className="text-xs text-muted-foreground">Avg RT</div>
+                  <div className="text-xs text-muted-foreground"><HelpLabel term="Reaction Time">Avg RT</HelpLabel></div>
                 </Card>
                 <Card className="p-3 text-center">
                   <TrendingUp className="w-4 h-4 mx-auto mb-1 text-green-500" />
                   <div className="text-2xl font-bold">{totalTrials}</div>
-                  <div className="text-xs text-muted-foreground">Trials</div>
+                  <div className="text-xs text-muted-foreground"><HelpLabel term="Trial Count">Trials</HelpLabel></div>
                 </Card>
               </div>
 
