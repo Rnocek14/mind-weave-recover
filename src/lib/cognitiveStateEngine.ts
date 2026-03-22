@@ -506,9 +506,13 @@ export function computeCognitiveState(
   for (const trial of trials) {
     if (!trial.exercise_slug) continue;
     
+    // Normalize slug: DB may use underscores or hyphens
+    const normalizedSlug = trial.exercise_slug.replace(/_/g, '-');
+    
     for (const domain of COGNITIVE_DOMAINS) {
       if (domain.exerciseSlugs.length === 0) continue; // Skip cognitive_endurance (uses all)
-      if ((domain.exerciseSlugs as readonly string[]).includes(trial.exercise_slug)) {
+      if ((domain.exerciseSlugs as readonly string[]).includes(normalizedSlug) ||
+          (domain.exerciseSlugs as readonly string[]).includes(trial.exercise_slug)) {
         trialsByDomain.get(domain.slug)!.push(trial);
       }
     }
