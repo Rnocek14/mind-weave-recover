@@ -191,7 +191,7 @@ export const useAdaptationProof = (
 
       if (applied) entry.adapted++;
       entry.modes[inferredMode] = (entry.modes[inferredMode] || 0) + 1;
-      if (focusPhonemes) focusPhonemes.forEach((p: string) => entry.phonemes.add(String(p).replaceAll('/', '')));
+      if (focusPhonemes) focusPhonemes.forEach((p: string) => entry.phonemes.add(String(p).replace(/\//g, '')));
       entry.cues[recommendedCueType] = (entry.cues[recommendedCueType] || 0) + 1;
       entry.difficulties[difficultyLevel] = (entry.difficulties[difficultyLevel] || 0) + 1;
       entry.confidences[profileConfidence] = (entry.confidences[profileConfidence] || 0) + 1;
