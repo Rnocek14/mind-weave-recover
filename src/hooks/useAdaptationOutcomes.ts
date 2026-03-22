@@ -83,7 +83,22 @@ function computeOutcomes(
   for (const trial of filtered) {
     const params = trial.task_parameters as Record<string, any> | null;
     const correct = (trial.score ?? 0) > 0 ? 1 : 0;
-    const hasFields = params && ('adaptation_applied' in params || 'adaptation_mode' in params);
+    const adaptationReasons = Array.isArray(params?.adaptation_reasons) ? params.adaptation_reasons : [];
+    const phonemes = Array.isArray(params?.focus_phonemes) ? params.focus_phonemes : null;
+    const cue = params?.recommended_cue_type || params?.hint_type || 'none';
+    const diff = params?.difficulty_level ?? params?.difficulty ?? params?.tier ?? 1;
+    const hasActiveAdaptationsObject = !!(params?.adaptations_active && typeof params.adaptations_active === 'object');
+    const hasFields = !!(
+      params && (
+        'adaptation_applied' in params ||
+        'adaptation_mode' in params ||
+        adaptationReasons.length > 0 ||
+        (phonemes && phonemes.length > 0) ||
+        cue !== 'none' ||
+        'profile_confidence' in params ||
+        hasActiveAdaptationsObject
+      )
+    );
 
     if (!hasFields) {
       nonAdaptedTotal++;
@@ -91,11 +106,15 @@ function computeOutcomes(
       continue;
     }
 
-    const applied = !!params!.adaptation_applied;
-    const mode = params!.adaptation_mode || 'none';
-    const phonemes = Array.isArray(params!.focus_phonemes) ? params!.focus_phonemes : null;
-    const cue = params!.recommended_cue_type || 'none';
-    const diff = params!.difficulty_level ?? 1;
+    const mode = params?.adaptation_mode
+      || ((phonemes && phonemes.length > 0) ? 'phoneme_targeting' : undefined)
+      || (cue !== 'none' ? 'cue_personalization' : undefined)
+      || ((adaptationReasons.length > 0 || hasActiveAdaptationsObject) ? 'difficulty_only' : undefined)
+      || ('profile_confidence' in (params || {}) ? 'profile_aware' : undefined)
+      || 'none';
+    const applied = typeof params?.adaptation_applied === 'boolean'
+      ? params.adaptation_applied
+      : mode !== 'none';
 
     if (applied) {
       adaptedTotal++;
