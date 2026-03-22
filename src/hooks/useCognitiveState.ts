@@ -83,7 +83,7 @@ export function useCognitiveState({
         if (events) allEvents = allEvents.concat(events);
       }
 
-      const trials: ExerciseTrialRow[] = (events || []).map(e => ({
+      const trials: ExerciseTrialRow[] = allEvents.map(e => ({
         exercise_slug: e.exercise_slug || '',
         score: e.score,
         reaction_time_ms: e.reaction_time_ms,
