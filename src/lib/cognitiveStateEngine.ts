@@ -32,7 +32,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Syntax',
     patientLabel: 'Sentences',
     description: 'Sentence construction and grammar',
-    exerciseSlugs: ['fix-sentence', 'sentence-game', 'sentence-building'],
+    exerciseSlugs: ['fix-sentence', 'sentence-game', 'sentence-building', 'sentence-construction'],
     icon: 'AlignLeft',
   },
   {
