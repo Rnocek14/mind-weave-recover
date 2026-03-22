@@ -10,6 +10,7 @@ import {
   AlertTriangle, Zap, Brain
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { HelpLabel } from "@/components/HelpTooltip";
 
 interface TrialData {
   attempt_id: string;
