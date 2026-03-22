@@ -112,7 +112,8 @@ export default function History() {
         };
       });
 
-      setHistory(Object.values(bySession));
+      // Only show sessions that have at least one event
+      setHistory(Object.values(bySession).filter((s) => s.events.length > 0));
     } catch (error) {
       console.error("Error fetching history:", error);
     } finally {
