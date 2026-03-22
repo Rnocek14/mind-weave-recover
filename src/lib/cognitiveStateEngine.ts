@@ -32,7 +32,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Syntax',
     patientLabel: 'Sentences',
     description: 'Sentence construction and grammar',
-    exerciseSlugs: ['fix-sentence', 'sentence-game', 'sentence-building'],
+    exerciseSlugs: ['fix-sentence', 'sentence-game', 'sentence-building', 'sentence-construction'],
     icon: 'AlignLeft',
   },
   {
@@ -48,7 +48,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Executive Function',
     patientLabel: 'Problem Solving',
     description: 'Reasoning, planning, and cognitive flexibility',
-    exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming'],
+    exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming', 'two-clues'],
     icon: 'Brain',
   },
   {
@@ -506,9 +506,13 @@ export function computeCognitiveState(
   for (const trial of trials) {
     if (!trial.exercise_slug) continue;
     
+    // Normalize slug: DB may use underscores or hyphens
+    const normalizedSlug = trial.exercise_slug.replace(/_/g, '-');
+    
     for (const domain of COGNITIVE_DOMAINS) {
       if (domain.exerciseSlugs.length === 0) continue; // Skip cognitive_endurance (uses all)
-      if ((domain.exerciseSlugs as readonly string[]).includes(trial.exercise_slug)) {
+      if ((domain.exerciseSlugs as readonly string[]).includes(normalizedSlug) ||
+          (domain.exerciseSlugs as readonly string[]).includes(trial.exercise_slug)) {
         trialsByDomain.get(domain.slug)!.push(trial);
       }
     }
