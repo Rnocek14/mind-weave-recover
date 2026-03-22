@@ -540,7 +540,7 @@ export function computeTrend(
   currentScore: number,
   previousScores: number[]
 ): 'improving' | 'stable' | 'declining' | 'insufficient' {
-  if (previousScores.length < 2) return 'insufficient';
+  if (previousScores.length < 1) return 'insufficient';
 
   const avgPrevious = previousScores.reduce((a, b) => a + b, 0) / previousScores.length;
   const diff = currentScore - avgPrevious;

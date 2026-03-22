@@ -46,6 +46,14 @@ export function useCognitiveState({
     return d.toISOString().slice(0, 10);
   }, [windowDays]);
 
+  const previousWindowStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - windowDays * 2);
+    return d.toISOString().slice(0, 10);
+  }, [windowDays]);
+
+  const previousWindowEnd = useMemo(() => windowStart, [windowStart]);
+
   const compute = useCallback(async () => {
     if (!userId) return;
 
@@ -53,12 +61,12 @@ export function useCognitiveState({
     setError(null);
 
     try {
-      // 1. Fetch sessions only within the time window to avoid URL length limits
+      // 1. Fetch sessions within the current + previous comparison window
       const { data: sessions } = await supabase
         .from('sessions')
         .select('id')
         .eq('user_id', userId)
-        .gte('started_at', `${windowStart}T00:00:00Z`);
+        .gte('started_at', `${previousWindowStart}T00:00:00Z`);
 
       const sessionIds = (sessions || []).map(s => s.id);
       if (sessionIds.length === 0) {
@@ -76,14 +84,14 @@ export function useCognitiveState({
           .from('exercise_events')
           .select('exercise_slug, score, reaction_time_ms, created_at, session_id, round, inputs, outputs')
           .in('session_id', batch)
-          .gte('created_at', `${windowStart}T00:00:00Z`)
+          .gte('created_at', `${previousWindowStart}T00:00:00Z`)
           .lte('created_at', `${windowEnd}T23:59:59Z`)
           .order('created_at', { ascending: true });
         if (fetchError) throw fetchError;
         if (events) allEvents = allEvents.concat(events);
       }
 
-      const trials: ExerciseTrialRow[] = allEvents.map(e => ({
+      const allTrials: ExerciseTrialRow[] = allEvents.map(e => ({
         exercise_slug: e.exercise_slug || '',
         score: e.score,
         reaction_time_ms: e.reaction_time_ms,
@@ -94,32 +102,27 @@ export function useCognitiveState({
         outputs: e.outputs as Record<string, any> | undefined,
       }));
 
-      // 2. Compute snapshot
-      const newSnapshot = computeCognitiveState(trials, windowStart, windowEnd, 'week');
+      const currentTrials = allTrials.filter(
+        (trial) => trial.created_at >= `${windowStart}T00:00:00Z` && trial.created_at <= `${windowEnd}T23:59:59Z`
+      );
+      const previousTrials = allTrials.filter(
+        (trial) => trial.created_at >= `${previousWindowStart}T00:00:00Z` && trial.created_at < `${previousWindowEnd}T00:00:00Z`
+      );
 
-      // 3. Fetch previous scores for trend computation
-      const prevWindowEnd = windowStart; // previous window ends where current starts
-      const { data: prevScores } = await supabase
-        .from('cognitive_domain_scores')
-        .select('domain_slug, score')
-        .eq('user_id', userId)
-        .eq('granularity', 'week')
-        .lt('window_end', prevWindowEnd)
-        .order('window_end', { ascending: false })
-        .limit(100); // Enough rows to cover all 7 domains with history
+      // 2. Compute snapshots for both windows
+      const newSnapshot = computeCognitiveState(currentTrials, windowStart, windowEnd, 'week');
+      const previousSnapshot = computeCognitiveState(previousTrials, previousWindowStart, previousWindowEnd, 'week');
 
-      // Group previous scores by domain
-      const prevByDomain = new Map<string, number[]>();
-      for (const row of prevScores || []) {
-        const arr = prevByDomain.get(row.domain_slug) || [];
-        arr.push(Number(row.score));
-        prevByDomain.set(row.domain_slug, arr);
-      }
+      // 3. Apply trends from previous window directly
+      const previousByDomain = new Map(
+        previousSnapshot.domains.map((domain) => [domain.domainSlug, domain.score])
+      );
 
-      // Apply trends
       for (const domain of newSnapshot.domains) {
-        const prev = prevByDomain.get(domain.domainSlug) || [];
-        domain.trend = computeTrend(domain.score, prev);
+        const previousScore = previousByDomain.get(domain.domainSlug);
+        domain.trend = previousScore === undefined
+          ? 'insufficient'
+          : computeTrend(domain.score, [previousScore]);
       }
 
       setSnapshot(newSnapshot);
@@ -134,7 +137,7 @@ export function useCognitiveState({
     } finally {
       setIsLoading(false);
     }
-  }, [userId, profileId, windowStart, windowEnd]);
+  }, [userId, profileId, windowStart, windowEnd, previousWindowStart, previousWindowEnd]);
 
   useEffect(() => {
     compute();
