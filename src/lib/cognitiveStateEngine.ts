@@ -48,7 +48,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Executive Function',
     patientLabel: 'Problem Solving',
     description: 'Reasoning, planning, and cognitive flexibility',
-    exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming'],
+    exerciseSlugs: ['detective-mind', 'sequencing', 'multi-step-plan', 'dual-load-naming', 'two-clues'],
     icon: 'Brain',
   },
   {
