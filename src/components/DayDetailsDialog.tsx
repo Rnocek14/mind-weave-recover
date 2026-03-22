@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Target, Smile, Meh, Frown, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { HelpLabel } from "@/components/HelpTooltip";
 
 interface DayDetailsDialogProps {
   date: string | null;
