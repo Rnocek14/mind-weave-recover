@@ -156,58 +156,75 @@ export const useAdaptationProof = (
         entry.lastPlayed = event.created_at;
       }
 
-      // Check for adaptation telemetry presence
-      const hasAdaptationFields = params && ('adaptation_applied' in params || 'adaptation_mode' in params);
-      
+      const adaptationReasons = Array.isArray(params?.adaptation_reasons) ? params.adaptation_reasons : [];
+      const focusPhonemes = Array.isArray(params?.focus_phonemes) ? params.focus_phonemes : null;
+      const recommendedCueType = params?.recommended_cue_type || params?.hint_type || 'none';
+      const profileConfidence = params?.profile_confidence || params?.match_tier || 'none';
+      const difficultyLevel = params?.difficulty_level ?? params?.difficulty ?? params?.tier ?? 1;
+      const hasActiveAdaptationsObject = !!(params?.adaptations_active && typeof params.adaptations_active === 'object');
+      const hasAdaptationFields = !!(
+        params && (
+          'adaptation_applied' in params ||
+          'adaptation_mode' in params ||
+          adaptationReasons.length > 0 ||
+          (focusPhonemes && focusPhonemes.length > 0) ||
+          recommendedCueType !== 'none' ||
+          'profile_confidence' in params ||
+          hasActiveAdaptationsObject
+        )
+      );
+
       if (!hasAdaptationFields) continue;
-      
+
       entry.withTelemetry++;
 
-      const applied = !!params!.adaptation_applied;
-      const mode = params!.adaptation_mode || 'none';
-      const phonemes = Array.isArray(params!.focus_phonemes) ? params!.focus_phonemes : null;
-      const cue = params!.recommended_cue_type || 'none';
-      const diff = params!.difficulty_level ?? 1;
-      const conf = params!.profile_confidence || 'none';
+      const explicitMode = params?.adaptation_mode;
+      const inferredMode = explicitMode
+        || ((focusPhonemes && focusPhonemes.length > 0) ? 'phoneme_targeting' : undefined)
+        || (recommendedCueType !== 'none' ? 'cue_personalization' : undefined)
+        || ((adaptationReasons.length > 0 || hasActiveAdaptationsObject) ? 'difficulty_only' : undefined)
+        || ('profile_confidence' in (params || {}) ? 'profile_aware' : undefined)
+        || 'none';
+      const applied = typeof params?.adaptation_applied === 'boolean'
+        ? params.adaptation_applied
+        : inferredMode !== 'none';
 
       if (applied) entry.adapted++;
-      entry.modes[mode] = (entry.modes[mode] || 0) + 1;
-      if (phonemes) phonemes.forEach((p: string) => entry.phonemes.add(p));
-      entry.cues[cue] = (entry.cues[cue] || 0) + 1;
-      entry.difficulties[diff] = (entry.difficulties[diff] || 0) + 1;
-      entry.confidences[conf] = (entry.confidences[conf] || 0) + 1;
+      entry.modes[inferredMode] = (entry.modes[inferredMode] || 0) + 1;
+      if (focusPhonemes) focusPhonemes.forEach((p: string) => entry.phonemes.add(String(p).replaceAll('/', '')));
+      entry.cues[recommendedCueType] = (entry.cues[recommendedCueType] || 0) + 1;
+      entry.difficulties[difficultyLevel] = (entry.difficulties[difficultyLevel] || 0) + 1;
+      entry.confidences[profileConfidence] = (entry.confidences[profileConfidence] || 0) + 1;
 
-      // Impossible state detection
-      if (applied && mode === 'none') {
+      if (applied && inferredMode === 'none') {
         const key = 'applied_but_mode_none';
         const existing = entry.issues.get(key);
         if (existing) existing.count++;
-        else entry.issues.set(key, { type: 'impossible_state', description: 'adaptation_applied=true but mode=none', count: 1 });
+        else entry.issues.set(key, { type: 'impossible_state', description: 'adaptation detected but mode could not be inferred', count: 1 });
       }
-      if (mode === 'phoneme_targeting' && (!phonemes || phonemes.length === 0)) {
+      if (inferredMode === 'phoneme_targeting' && (!focusPhonemes || focusPhonemes.length === 0)) {
         const key = 'phoneme_mode_no_phonemes';
         const existing = entry.issues.get(key);
         if (existing) existing.count++;
         else entry.issues.set(key, { type: 'impossible_state', description: 'phoneme_targeting mode with no focus_phonemes', count: 1 });
       }
-      if (mode === 'cue_personalization' && cue === 'none') {
+      if (inferredMode === 'cue_personalization' && recommendedCueType === 'none') {
         const key = 'cue_mode_no_cue';
         const existing = entry.issues.get(key);
         if (existing) existing.count++;
         else entry.issues.set(key, { type: 'impossible_state', description: 'cue_personalization mode with cue_type=none', count: 1 });
       }
 
-      // Collect recent trials for drill-down (keep up to 10 per game)
       if (entry.recentTrials.length < 10) {
         entry.recentTrials.push({
           createdAt: event.created_at,
           exerciseSlug: slug,
-          adaptationMode: mode,
-          focusPhonemes: phonemes,
-          recommendedCueType: cue,
-          difficultyLevel: diff,
+          adaptationMode: inferredMode,
+          focusPhonemes,
+          recommendedCueType,
+          difficultyLevel,
           adaptationApplied: applied,
-          profileConfidence: conf,
+          profileConfidence,
         });
       }
     }
