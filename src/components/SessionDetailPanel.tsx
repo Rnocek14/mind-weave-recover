@@ -29,6 +29,8 @@ interface TrialData {
   stuck_type: string | null;
   speech_rate_wpm: number | null;
   created_at: string | null;
+  taskParameters?: any;
+  outputs?: any;
 }
 
 interface SessionDetailPanelProps {
