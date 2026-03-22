@@ -53,11 +53,12 @@ export function useCognitiveState({
     setError(null);
 
     try {
-      // 1. Fetch exercise_events for this window, filtered by user via session join
+      // 1. Fetch sessions only within the time window to avoid URL length limits
       const { data: sessions } = await supabase
         .from('sessions')
         .select('id')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .gte('started_at', `${windowStart}T00:00:00Z`);
 
       const sessionIds = (sessions || []).map(s => s.id);
       if (sessionIds.length === 0) {
@@ -66,15 +67,21 @@ export function useCognitiveState({
         return;
       }
 
-      const { data: events, error: fetchError } = await supabase
-        .from('exercise_events')
-        .select('exercise_slug, score, reaction_time_ms, created_at, session_id, round, inputs, outputs')
-        .in('session_id', sessionIds)
-        .gte('created_at', `${windowStart}T00:00:00Z`)
-        .lte('created_at', `${windowEnd}T23:59:59Z`)
-        .order('created_at', { ascending: true });
-
-      if (fetchError) throw fetchError;
+      // Batch session IDs to avoid PostgREST URL length limits
+      const BATCH_SIZE = 100;
+      let allEvents: any[] = [];
+      for (let i = 0; i < sessionIds.length; i += BATCH_SIZE) {
+        const batch = sessionIds.slice(i, i + BATCH_SIZE);
+        const { data: events, error: fetchError } = await supabase
+          .from('exercise_events')
+          .select('exercise_slug, score, reaction_time_ms, created_at, session_id, round, inputs, outputs')
+          .in('session_id', batch)
+          .gte('created_at', `${windowStart}T00:00:00Z`)
+          .lte('created_at', `${windowEnd}T23:59:59Z`)
+          .order('created_at', { ascending: true });
+        if (fetchError) throw fetchError;
+        if (events) allEvents = allEvents.concat(events);
+      }
 
       const trials: ExerciseTrialRow[] = (events || []).map(e => ({
         exercise_slug: e.exercise_slug || '',
