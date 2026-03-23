@@ -84,9 +84,37 @@ export const DUAL_LOAD_SETS: DualLoadSet[] = [
     tier: 2,
   },
 
-  // Tier 3 — Abstract memory words, challenging naming
+  // Tier 2 — Additional sets
   {
     id: 'dl-06',
+    memoryWords: ['moon', 'pillow', 'garden'],
+    namingTargets: [
+      { emoji: '🎯', word: 'target' },
+      { emoji: '🧲', word: 'magnet' },
+      { emoji: '🎻', word: 'violin' },
+      { emoji: '🪜', word: 'ladder' },
+      { emoji: '🧤', word: 'glove' },
+      { emoji: '🔑', word: 'key' },
+    ],
+    tier: 2,
+  },
+  {
+    id: 'dl-07',
+    memoryWords: ['river', 'basket', 'snow'],
+    namingTargets: [
+      { emoji: '🦋', word: 'butterfly' },
+      { emoji: '🧭', word: 'compass' },
+      { emoji: '🪞', word: 'mirror' },
+      { emoji: '🎺', word: 'trumpet' },
+      { emoji: '⚓', word: 'anchor' },
+      { emoji: '🪴', word: 'plant' },
+    ],
+    tier: 2,
+  },
+
+  // Tier 3 — Abstract memory words, challenging naming
+  {
+    id: 'dl-08',
     memoryWords: ['freedom', 'rhythm', 'courage'],
     namingTargets: [
       { emoji: '🦅', word: 'eagle' },
@@ -95,6 +123,32 @@ export const DUAL_LOAD_SETS: DualLoadSet[] = [
       { emoji: '🗿', word: 'statue' },
       { emoji: '🧬', word: 'DNA' },
       { emoji: '🏛️', word: 'column' },
+    ],
+    tier: 3,
+  },
+  {
+    id: 'dl-09',
+    memoryWords: ['patience', 'balance', 'silence'],
+    namingTargets: [
+      { emoji: '🔭', word: 'telescope' },
+      { emoji: '🎭', word: 'mask' },
+      { emoji: '⚖️', word: 'scale' },
+      { emoji: '🪶', word: 'feather' },
+      { emoji: '🧪', word: 'test tube' },
+      { emoji: '🏺', word: 'vase' },
+    ],
+    tier: 3,
+  },
+  {
+    id: 'dl-10',
+    memoryWords: ['justice', 'melody', 'wisdom'],
+    namingTargets: [
+      { emoji: '🦉', word: 'owl' },
+      { emoji: '🗡️', word: 'sword' },
+      { emoji: '🧵', word: 'thread' },
+      { emoji: '🪨', word: 'boulder' },
+      { emoji: '🎷', word: 'saxophone' },
+      { emoji: '🏗️', word: 'crane' },
     ],
     tier: 3,
   },

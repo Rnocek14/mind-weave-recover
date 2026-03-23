@@ -73,6 +73,47 @@ export const PLANNING_ITEMS: PlanningItem[] = [
     keySteps: ['decide what to keep', 'throw away trash', 'sort into categories', 'find storage', 'clean surfaces'],
     idealOrder: [0, 1, 2, 3, 4], tier: 3,
   },
+
+  // Additional Tier 1
+  {
+    id: 'plan-11', goal: 'Water the plants', emoji: '🪴',
+    keySteps: ['fill watering can', 'check which plants need water', 'water each plant', 'empty extra water', 'put can away'],
+    idealOrder: [1, 0, 2, 3, 4], tier: 1,
+  },
+  {
+    id: 'plan-12', goal: 'Set the table for dinner', emoji: '🍽️',
+    keySteps: ['count how many people', 'put out plates', 'add forks and knives', 'put out glasses', 'add napkins'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1,
+  },
+
+  // Additional Tier 2
+  {
+    id: 'plan-13', goal: 'Mail a package', emoji: '📦',
+    keySteps: ['pack the item securely', 'write the address', 'weigh the package', 'go to the post office', 'pay for postage'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2,
+  },
+  {
+    id: 'plan-14', goal: 'Take a pet to the vet', emoji: '🐕',
+    keySteps: ['make an appointment', 'bring pet carrier', 'drive to the vet', 'check in at reception', 'wait for the doctor'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2,
+  },
+  {
+    id: 'plan-15', goal: 'Return something to a store', emoji: '🏬',
+    keySteps: ['find the receipt', 'pack the item', 'drive to the store', 'go to customer service', 'explain the return'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2,
+  },
+
+  // Additional Tier 3
+  {
+    id: 'plan-16', goal: 'Prepare for a job interview', emoji: '💼',
+    keySteps: ['research the company', 'practice answers', 'choose an outfit', 'plan your route', 'arrive early'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3,
+  },
+  {
+    id: 'plan-17', goal: 'Move to a new apartment', emoji: '🏠',
+    keySteps: ['pack belongings in boxes', 'hire movers or ask friends', 'load the truck', 'drive to new place', 'unpack essentials first'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3,
+  },
 ];
 
 export function getPlanningItemsByTier(tier: number): PlanningItem[] {
