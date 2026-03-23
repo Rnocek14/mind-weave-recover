@@ -140,6 +140,7 @@ export default function WeeklyPatientReview() {
 
   // Derived
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
+  const runtimeConfig = (activeProfile as any)?.runtime_config as Record<string, any> | null;
   const speechLabel = deriveSpeechLabel(clinicalProfile);
   const strokeDate = activeProfile?.stroke_date ?? null;
   const daysPostOnset = strokeDate
@@ -628,6 +629,7 @@ export default function WeeklyPatientReview() {
       {/* ═══ WHY THIS PLAN ═══ */}
       <WhyThisPlan
         clinicalProfile={clinicalProfile}
+        runtimeConfig={runtimeConfig}
         activeExerciseSlugs={exerciseSlugs}
         activeOverrides={activeOverrides}
         recentOverrides={recentOverrides}

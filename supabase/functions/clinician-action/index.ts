@@ -117,15 +117,15 @@ Deno.serve(async (req) => {
         const direction = params?.direction || "decrease";
         const exerciseSlug = params?.exerciseSlug;
 
-        const { data: profile } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-        const cp = (profile?.clinical_profile as Record<string, any>) || {};
-        const currentOverrides = cp.difficulty_overrides || {};
+        const { data: profile } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+        const rc = (profile?.runtime_config as Record<string, any>) || {};
+        const currentOverrides = rc.difficulty_overrides || {};
         const key = exerciseSlug || "_global";
         const currentLevel = currentOverrides[key] || 0;
         const newLevel = direction === "increase" ? currentLevel + 1 : currentLevel - 1;
 
-        const updatedCp = { ...cp, difficulty_overrides: { ...currentOverrides, [key]: newLevel } };
-        await admin.from("profiles").update({ clinical_profile: updatedCp }).eq("id", profileId);
+        const updatedRc = { ...rc, difficulty_overrides: { ...currentOverrides, [key]: newLevel } };
+        await admin.from("profiles").update({ runtime_config: updatedRc }).eq("id", profileId);
 
         const { data: overrideData } = await admin.from("clinician_overrides").insert({
           user_id: userId, profile_id: profileId, clinician_id: clinicianId,
@@ -180,29 +180,29 @@ Deno.serve(async (req) => {
 
         // Restore state based on type
         if (override.override_type === "difficulty" && vb.difficulty_level !== undefined) {
-          const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-          const cp = (prof?.clinical_profile as Record<string, any>) || {};
-          const ov = cp.difficulty_overrides || {};
+          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+          const rc = (prof?.runtime_config as Record<string, any>) || {};
+          const ov = rc.difficulty_overrides || {};
           ov[vb.target || "_global"] = vb.difficulty_level;
-          await admin.from("profiles").update({ clinical_profile: { ...cp, difficulty_overrides: ov } }).eq("id", profileId);
+          await admin.from("profiles").update({ runtime_config: { ...rc, difficulty_overrides: ov } }).eq("id", profileId);
         }
         if (override.override_type === "dose_reduction" && vb.target_value !== undefined) {
           await admin.from("dose_targets").update({ effective_until: new Date().toISOString().split("T")[0] }).eq("profile_id", profileId).eq("domain_slug", vb.domain_slug).is("effective_until", null);
           await admin.from("dose_targets").insert({ user_id: userId, profile_id: profileId, domain_slug: vb.domain_slug, target_value: vb.target_value, prescribed_by: clinicianId });
         }
         if (override.override_type === "cue_level") {
-          const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-          const cp = (prof?.clinical_profile as Record<string, any>) || {};
-          await admin.from("profiles").update({ clinical_profile: { ...cp, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
+          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+          const rc = (prof?.runtime_config as Record<string, any>) || {};
+          await admin.from("profiles").update({ runtime_config: { ...rc, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
         }
         if (override.override_type === "practice_assignment") {
-          const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-          const cp = (prof?.clinical_profile as Record<string, any>) || {};
+          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+          const rc = (prof?.runtime_config as Record<string, any>) || {};
           const va = override.value_after as Record<string, any> || {};
           const latestId = va.latest?.id;
-          const assignments = cp.practice_assignments || [];
+          const assignments = rc.practice_assignments || [];
           const filtered = latestId ? assignments.filter((a: any) => a.id !== latestId) : assignments.slice(0, -1);
-          await admin.from("profiles").update({ clinical_profile: { ...cp, practice_assignments: filtered } }).eq("id", profileId);
+          await admin.from("profiles").update({ runtime_config: { ...rc, practice_assignments: filtered } }).eq("id", profileId);
         }
         if (override.override_type === "outreach") {
           await admin.from("recovery_alerts").update({ resolved_at: new Date().toISOString(), resolved_by: clinicianId, resolution_notes: `Reversed: ${reason}` }).eq("profile_id", profileId).eq("alert_type", "outreach_needed").is("resolved_at", null);

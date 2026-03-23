@@ -1451,6 +1451,7 @@ export type Database = {
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
+          runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null
           user_id: string
@@ -1475,6 +1476,7 @@ export type Database = {
           profile_created_at?: string | null
           profile_name: string
           profile_notes?: string | null
+          runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id: string
@@ -1499,6 +1501,7 @@ export type Database = {
           profile_created_at?: string | null
           profile_name?: string
           profile_notes?: string | null
+          runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
           user_id?: string
@@ -2463,6 +2466,15 @@ export type Database = {
         }
         Returns: Json
       }
+      clinician_assign_practice: {
+        Args: {
+          p_clinician_id: string
+          p_notes?: string
+          p_profile_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       clinician_reduce_dose: {
         Args: {
           p_clinician_id: string
@@ -2477,6 +2489,24 @@ export type Database = {
         Args: {
           p_clinician_id: string
           p_override_id: string
+          p_profile_id: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_review_cueing: {
+        Args: {
+          p_clinician_id: string
+          p_new_cue_level?: number
+          p_profile_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_schedule_outreach: {
+        Args: {
+          p_clinician_id: string
           p_profile_id: string
           p_reason?: string
           p_user_id: string
@@ -2524,6 +2554,7 @@ export type Database = {
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
+          runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null
           user_id: string
