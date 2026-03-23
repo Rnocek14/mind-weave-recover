@@ -45,6 +45,8 @@ import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpret
 import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
+import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
+import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
