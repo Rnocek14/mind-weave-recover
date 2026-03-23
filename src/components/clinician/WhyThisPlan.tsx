@@ -17,6 +17,8 @@ import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
 
 interface WhyThisPlanProps {
   clinicalProfile: Record<string, any> | null;
+  /** Runtime config (difficulty, cueing, practice) — separate from clinical profile */
+  runtimeConfig?: Record<string, any> | null;
   activeExerciseSlugs: string[];
   recentAdaptations?: Array<{
     type: string;
