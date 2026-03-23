@@ -28,6 +28,8 @@ interface ActionableNextStepsProps {
   profileId?: string;
   clinicianId?: string;
   onCopyToNote?: (text: string) => void;
+  /** Called after any DB action succeeds so parent can refetch */
+  onActionComplete?: () => void;
 }
 
 const actionIconMap: Record<string, any> = {
@@ -94,7 +96,7 @@ function getQuickActions(actionId: string): QuickAction[] {
 }
 
 export function ActionableNextSteps({
-  actions, profileName, userId, profileId, clinicianId, onCopyToNote
+  actions, profileName, userId, profileId, clinicianId, onCopyToNote, onActionComplete
 }: ActionableNextStepsProps) {
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -137,6 +139,7 @@ export function ActionableNextSteps({
 
         if (result?.success) {
           toast.success(result.message);
+          onActionComplete?.();
         } else {
           toast.error(result?.message || "Action failed");
         }

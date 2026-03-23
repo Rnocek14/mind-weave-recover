@@ -2453,6 +2453,36 @@ export type Database = {
           transcript: string
         }[]
       }
+      clinician_adjust_difficulty: {
+        Args: {
+          p_clinician_id: string
+          p_direction?: string
+          p_exercise_slug?: string
+          p_profile_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_reduce_dose: {
+        Args: {
+          p_clinician_id: string
+          p_domain_slug?: string
+          p_profile_id: string
+          p_reduction_pct?: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_reverse_override: {
+        Args: {
+          p_clinician_id: string
+          p_override_id: string
+          p_profile_id: string
+          p_reason?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       create_profile_version: {
         Args: {
           p_change_reason?: string

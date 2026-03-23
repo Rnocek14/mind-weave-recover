@@ -135,14 +135,15 @@ Deno.serve(async (req) => {
           reason: `Clinician ${direction}d difficulty via weekly review`, status: "active",
         }).select("id").single();
 
-        // Supersede any prior active difficulty overrides for same target
+        // Supersede prior active difficulty overrides for SAME target only
         if (overrideData?.id) {
           await admin.from("clinician_overrides")
             .update({ status: "superseded" })
             .eq("profile_id", profileId)
             .eq("override_type", "difficulty")
             .eq("status", "active")
-            .neq("id", overrideData.id);
+            .neq("id", overrideData.id)
+            .eq("target_slug", exerciseSlug || null);
         }
 
         await admin.from("adaptation_events").insert({
@@ -227,6 +228,27 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    // Log failure for audit visibility
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, serviceKey);
+      const body = await req.clone().json().catch(() => ({}));
+      await admin.from("adaptation_events").insert({
+        user_id: body.userId || "00000000-0000-0000-0000-000000000000",
+        profile_id: body.profileId || null,
+        layer: "clinician_override",
+        adaptation_type: "action_failed",
+        trigger_type: "clinician_action",
+        confidence: "high",
+        evidence: {
+          action: body.action,
+          error: err.message,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (_) { /* best effort */ }
+
     return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
