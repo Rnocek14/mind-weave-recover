@@ -347,6 +347,8 @@ export function WhyThisPlan({
                   superseded: "border-muted text-muted-foreground/70",
                 };
                 const statusBadgeColors: Record<string, string> = {
+                  suggested: "border-blue-300 text-blue-600",
+                  approved: "border-emerald-300 text-emerald-600",
                   reversed: "border-amber-300 text-amber-600",
                   superseded: "border-muted text-muted-foreground",
                 };
