@@ -622,10 +622,19 @@ export default function WeeklyPatientReview() {
         </Card>
       )}
 
+      {/* ═══ WHY THIS PLAN ═══ */}
+      <WhyThisPlan
+        clinicalProfile={clinicalProfile}
+        activeExerciseSlugs={exerciseSlugs}
+      />
+
       {/* ═══ F. ACTIONABLE NEXT STEPS ═══ */}
       <ActionableNextSteps
         actions={nextActions}
         profileName={activeProfile?.profile_name || "Patient"}
+        userId={user?.id}
+        profileId={profileId}
+        clinicianId={user?.id}
       />
 
       {/* ═══ G. DOCUMENTATION TOOLS ═══ */}
