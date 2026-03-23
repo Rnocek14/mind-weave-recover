@@ -629,6 +629,21 @@ export default function WeeklyPatientReview() {
       <WhyThisPlan
         clinicalProfile={clinicalProfile}
         activeExerciseSlugs={exerciseSlugs}
+        activeOverrides={activeOverrides}
+        recentOverrides={recentOverrides}
+        onReverseOverride={async (overrideId) => {
+          if (!user?.id || !profileId) return;
+          const result = await reverseOverride(
+            { userId: user.id, profileId, clinicianId: user.id },
+            overrideId,
+            "Reversed via weekly review"
+          );
+          if (result.success) {
+            toast.success(result.message);
+          } else {
+            toast.error(result.message);
+          }
+        }}
       />
 
       {/* ═══ F. ACTIONABLE NEXT STEPS ═══ */}
