@@ -178,29 +178,53 @@ export function WhyThisPlan({
               Active Clinician Overrides
             </p>
             <div className="space-y-1 pl-4">
-              {activeOverrides.map((o) => (
-                <div key={o.id} className="flex items-center gap-2 text-xs rounded-md bg-primary/5 px-2 py-1.5">
-                  <Badge variant="outline" className="text-[9px] h-5 shrink-0 border-primary/30 text-primary">
-                    <User className="w-2.5 h-2.5 mr-0.5" />
-                    {overrideTypeLabels[o.overrideType] || o.overrideType}
-                  </Badge>
-                  <span className="text-muted-foreground flex-1 truncate">
-                    {o.reason || JSON.stringify(o.valueAfter)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                    {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                  {onReverseOverride && (
-                    <button
-                      onClick={() => onReverseOverride(o.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      title="Reverse this override"
-                    >
-                      <Undo2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {activeOverrides.map((o) => {
+                // Provenance: describe what changed
+                const changeDesc = o.overrideType === "difficulty"
+                  ? `Level ${o.valueBefore?.difficulty_level ?? "?"} → ${o.valueAfter?.difficulty_level ?? "?"} ${o.valueAfter?.target === "_global" ? "(global)" : `(${o.targetSlug?.replace(/-/g, " ") || "specific"})`}`
+                  : o.overrideType === "dose_reduction"
+                  ? `${o.valueBefore?.target_value ?? "?"}min → ${o.valueAfter?.target_value ?? "?"}min`
+                  : o.overrideType === "cue_level"
+                  ? `Cue → ${o.valueAfter?.cue_level ?? "reviewed"}`
+                  : o.overrideType === "practice_assignment"
+                  ? `+1 assignment`
+                  : o.reason || JSON.stringify(o.valueAfter);
+
+                return (
+                  <div key={o.id} className="flex items-center gap-2 text-xs rounded-md bg-primary/5 px-2 py-1.5">
+                    <Badge variant="outline" className="text-[9px] h-5 shrink-0 border-primary/30 text-primary">
+                      <User className="w-2.5 h-2.5 mr-0.5" />
+                      {overrideTypeLabels[o.overrideType] || o.overrideType}
+                    </Badge>
+                    <span className="text-foreground font-medium shrink-0">{changeDesc}</span>
+                    {o.reason && (
+                      <span className="text-muted-foreground truncate flex-1" title={o.reason}>
+                        — {o.reason}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                      {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                    {onReverseOverride && (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onReverseOverride(o.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                            >
+                              <Undo2 className="w-3 h-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="text-xs">
+                            Reverse this override and restore previous state
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
