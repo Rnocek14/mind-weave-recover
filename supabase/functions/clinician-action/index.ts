@@ -196,13 +196,13 @@ Deno.serve(async (req) => {
           await admin.from("profiles").update({ runtime_config: { ...rc, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
         }
         if (override.override_type === "practice_assignment") {
-          const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-          const cp = (prof?.clinical_profile as Record<string, any>) || {};
+          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+          const rc = (prof?.runtime_config as Record<string, any>) || {};
           const va = override.value_after as Record<string, any> || {};
           const latestId = va.latest?.id;
-          const assignments = cp.practice_assignments || [];
+          const assignments = rc.practice_assignments || [];
           const filtered = latestId ? assignments.filter((a: any) => a.id !== latestId) : assignments.slice(0, -1);
-          await admin.from("profiles").update({ clinical_profile: { ...cp, practice_assignments: filtered } }).eq("id", profileId);
+          await admin.from("profiles").update({ runtime_config: { ...rc, practice_assignments: filtered } }).eq("id", profileId);
         }
         if (override.override_type === "outreach") {
           await admin.from("recovery_alerts").update({ resolved_at: new Date().toISOString(), resolved_by: clinicianId, resolution_notes: `Reversed: ${reason}` }).eq("profile_id", profileId).eq("alert_type", "outreach_needed").is("resolved_at", null);
