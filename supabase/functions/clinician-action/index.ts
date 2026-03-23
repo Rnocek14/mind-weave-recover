@@ -117,15 +117,15 @@ Deno.serve(async (req) => {
         const direction = params?.direction || "decrease";
         const exerciseSlug = params?.exerciseSlug;
 
-        const { data: profile } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-        const cp = (profile?.clinical_profile as Record<string, any>) || {};
-        const currentOverrides = cp.difficulty_overrides || {};
+        const { data: profile } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+        const rc = (profile?.runtime_config as Record<string, any>) || {};
+        const currentOverrides = rc.difficulty_overrides || {};
         const key = exerciseSlug || "_global";
         const currentLevel = currentOverrides[key] || 0;
         const newLevel = direction === "increase" ? currentLevel + 1 : currentLevel - 1;
 
-        const updatedCp = { ...cp, difficulty_overrides: { ...currentOverrides, [key]: newLevel } };
-        await admin.from("profiles").update({ clinical_profile: updatedCp }).eq("id", profileId);
+        const updatedRc = { ...rc, difficulty_overrides: { ...currentOverrides, [key]: newLevel } };
+        await admin.from("profiles").update({ runtime_config: updatedRc }).eq("id", profileId);
 
         const { data: overrideData } = await admin.from("clinician_overrides").insert({
           user_id: userId, profile_id: profileId, clinician_id: clinicianId,
