@@ -223,22 +223,17 @@ export default function WeeklyPatientReview() {
 
   const handlePrint = () => navigate("/clinician/report?print=1");
 
-  // Compute trials per domain for enhanced dose row (before early returns)
+  // Compute trials per domain using canonical mapping
   const trialsByDomain = useMemo(() => {
-    const map: Record<string, number> = {};
+    const allExercises: { slug: string; trials: number }[] = [];
     dayGroups.forEach((d) => {
       d.sessions.forEach((s) => {
         s.exercises.forEach((e) => {
-          const domainGuess = e.slug.includes("naming") || e.slug.includes("phonolog") || e.slug.includes("sentence")
-            ? "speech_therapy"
-            : e.slug.includes("reach") || e.slug.includes("hunt") || e.slug.includes("tap")
-              ? "physical_therapy"
-              : "speech_therapy";
-          map[domainGuess] = (map[domainGuess] || 0) + e.trials;
+          allExercises.push({ slug: e.slug, trials: e.trials });
         });
       });
     });
-    return map;
+    return aggregateTrialsByDomain(allExercises);
   }, [dayGroups]);
 
   // Guard
