@@ -32,12 +32,16 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useDoseTargets } from "@/hooks/useDoseTargets";
 import { useCuratedAudioSamples } from "@/hooks/useCuratedAudioSamples";
+import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
 import { generateNextActions, type NextAction } from "@/lib/generateNextActions";
 import { AudioPlaybackWithWaveform } from "@/components/AudioPlaybackWithWaveform";
 import { HelpLabel } from "@/components/HelpTooltip";
+import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
+import { ClinicalRecordingPicks } from "@/components/clinician/ClinicalRecordingPicks";
+import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
