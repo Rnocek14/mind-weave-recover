@@ -228,6 +228,27 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    // Log failure for audit visibility
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, serviceKey);
+      const body = await req.clone().json().catch(() => ({}));
+      await admin.from("adaptation_events").insert({
+        user_id: body.userId || "00000000-0000-0000-0000-000000000000",
+        profile_id: body.profileId || null,
+        layer: "clinician_override",
+        adaptation_type: "action_failed",
+        trigger_type: "clinician_action",
+        confidence: "high",
+        evidence: {
+          action: body.action,
+          error: err.message,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (_) { /* best effort */ }
+
     return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
