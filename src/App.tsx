@@ -127,6 +127,7 @@ const App = () => (
                   
                   {/* Clinician routes - with header */}
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
+                  <Route path="/clinician/review" element={<AppLayout><WeeklyPatientReview /></AppLayout>} />
                   <Route path="/clinician/report" element={<AppLayout><ClinicianReport /></AppLayout>} />
                   
                   {/* Admin routes - with header */}
