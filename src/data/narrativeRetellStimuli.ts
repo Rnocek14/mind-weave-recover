@@ -129,6 +129,116 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     expectedClauses: 5,
     tier: 3,
   },
+
+  // Additional Tier 1
+  {
+    id: 'grocery-trip',
+    title: 'The Grocery Trip',
+    scenes: [
+      { emoji: '📝', text: 'Dad made a shopping list before going to the store.' },
+      { emoji: '🛒', text: 'At the store, he put everything in his cart.' },
+      { emoji: '💳', text: 'He paid at the checkout and carried the bags to the car.' },
+      { emoji: '😬', text: 'When he got home, he realized he forgot the milk.' },
+    ],
+    keyEvents: ['made list', 'went to store', 'put in cart', 'paid', 'forgot milk'],
+    expectedClauses: 5,
+    tier: 1,
+  },
+  {
+    id: 'park-walk',
+    title: 'A Walk in the Park',
+    scenes: [
+      { emoji: '🚶', text: 'Jenny decided to take a walk in the park after lunch.' },
+      { emoji: '🦆', text: 'She saw some ducks swimming in the pond.' },
+      { emoji: '🌧️', text: 'Suddenly it started to drizzle.' },
+      { emoji: '☂️', text: 'She opened her umbrella and walked home slowly.' },
+    ],
+    keyEvents: ['walk after lunch', 'ducks in pond', 'started raining', 'used umbrella', 'walked home'],
+    expectedClauses: 5,
+    tier: 1,
+  },
+
+  // Additional Tier 2
+  {
+    id: 'new-job',
+    title: 'The New Job',
+    scenes: [
+      { emoji: '📧', text: 'Carlos got an email saying he got the job he applied for.' },
+      { emoji: '😊', text: 'He was nervous but excited on his first day.' },
+      { emoji: '🤝', text: 'His new boss introduced him to the team and showed him around.' },
+      { emoji: '🎯', text: 'By the end of the week, he felt like he belonged there.' },
+    ],
+    keyEvents: ['got the job', 'nervous first day', 'boss introduced', 'shown around', 'felt he belonged'],
+    expectedClauses: 5,
+    tier: 2,
+  },
+  {
+    id: 'garden-project',
+    title: 'The Garden Project',
+    scenes: [
+      { emoji: '🌱', text: 'Grandpa wanted to start a small vegetable garden in the backyard.' },
+      { emoji: '🛠️', text: 'He built a raised bed and filled it with soil.' },
+      { emoji: '🥕', text: 'He planted tomatoes, carrots, and herbs.' },
+      { emoji: '🌻', text: 'A few weeks later, the first green sprouts appeared and he was proud.' },
+    ],
+    keyEvents: ['wanted garden', 'built raised bed', 'planted vegetables', 'sprouts appeared', 'felt proud'],
+    expectedClauses: 5,
+    tier: 2,
+  },
+  {
+    id: 'hospital-visit',
+    title: 'Visiting the Hospital',
+    scenes: [
+      { emoji: '🏥', text: 'Rosa went to visit her friend who was recovering from surgery.' },
+      { emoji: '💐', text: 'She brought flowers and a card signed by their whole group.' },
+      { emoji: '😊', text: 'Her friend smiled and said it was the best part of her day.' },
+      { emoji: '🤗', text: 'They talked for an hour, and Rosa promised to visit again next week.' },
+    ],
+    keyEvents: ['visited friend', 'recovering from surgery', 'brought flowers and card', 'friend smiled', 'promised to visit again'],
+    expectedClauses: 5,
+    tier: 2,
+  },
+
+  // Additional Tier 3
+  {
+    id: 'retirement-gift',
+    title: 'The Retirement Gift',
+    scenes: [
+      { emoji: '👨‍🏫', text: 'Mr. Davis taught at the same school for 35 years and was about to retire.' },
+      { emoji: '📦', text: 'On his last day, the students gave him a scrapbook full of letters and drawings.' },
+      { emoji: '😢', text: 'He tried to speak but was too moved — his eyes filled with tears.' },
+      { emoji: '💬', text: 'He finally said, "You taught me more than I ever taught you."' },
+    ],
+    keyEvents: ['taught 35 years', 'retiring', 'students gave scrapbook', 'too emotional to speak', 'said they taught him'],
+    expectedClauses: 5,
+    tier: 3,
+  },
+  {
+    id: 'wrong-train',
+    title: 'The Wrong Train',
+    scenes: [
+      { emoji: '🚂', text: 'A tourist was trying to get to the city center but got on the wrong train.' },
+      { emoji: '🗺️', text: 'She didn\'t realize until the signs outside looked unfamiliar.' },
+      { emoji: '👩‍🦳', text: 'An elderly woman noticed her confusion and helped her find the right platform.' },
+      { emoji: '🌆', text: 'She arrived late but grateful — sometimes getting lost leads to kindness.' },
+    ],
+    keyEvents: ['wrong train', 'unfamiliar signs', 'elderly woman helped', 'found right platform', 'arrived late but grateful'],
+    expectedClauses: 5,
+    tier: 3,
+  },
+  {
+    id: 'power-outage',
+    title: 'The Power Outage',
+    scenes: [
+      { emoji: '⚡', text: 'A big storm knocked out the power in the whole neighborhood.' },
+      { emoji: '🕯️', text: 'The family lit candles and gathered in the living room.' },
+      { emoji: '🎶', text: 'Instead of watching TV, they told stories and played card games.' },
+      { emoji: '💡', text: 'When the power came back, they agreed the evening without screens was more fun.' },
+    ],
+    keyEvents: ['storm knocked out power', 'lit candles', 'told stories and played games', 'power came back', 'preferred evening without screens'],
+    expectedClauses: 5,
+    tier: 3,
+  },
 ];
 
 export function getStoriesByTier(tier: number): NarrativeStory[] {
