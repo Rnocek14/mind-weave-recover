@@ -47,6 +47,8 @@ import { LongitudinalUtteranceComparison } from "@/components/clinician/Longitud
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
+import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
+import { reverseOverride } from "@/lib/clinicianQuickActions";
 import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
@@ -132,6 +134,7 @@ export default function WeeklyPatientReview() {
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
+  const { activeOverrides, recentOverrides, isLoading: overridesLoading } = useClinicianOverrides(profileId);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
@@ -626,6 +629,21 @@ export default function WeeklyPatientReview() {
       <WhyThisPlan
         clinicalProfile={clinicalProfile}
         activeExerciseSlugs={exerciseSlugs}
+        activeOverrides={activeOverrides}
+        recentOverrides={recentOverrides}
+        onReverseOverride={async (overrideId) => {
+          if (!user?.id || !profileId) return;
+          const result = await reverseOverride(
+            { userId: user.id, profileId, clinicianId: user.id },
+            overrideId,
+            "Reversed via weekly review"
+          );
+          if (result.success) {
+            toast.success(result.message);
+          } else {
+            toast.error(result.message);
+          }
+        }}
       />
 
       {/* ═══ F. ACTIONABLE NEXT STEPS ═══ */}
