@@ -46,6 +46,7 @@ import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps"
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
+import { RuntimeConfigInspector } from "@/components/clinician/RuntimeConfigInspector";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
@@ -376,6 +377,12 @@ export default function WeeklyPatientReview() {
         daysPostOnset={daysPostOnset}
         profileName={activeProfile?.profile_name || "Patient"}
         speechLabel={speechLabel}
+      />
+
+      {/* ═══ RUNTIME CONFIG INSPECTOR ═══ */}
+      <RuntimeConfigInspector
+        runtimeConfig={runtimeConfig}
+        activeOverrides={activeOverrides}
       />
 
       {/* ═══ CLINICAL INTERPRETATION ═══ */}

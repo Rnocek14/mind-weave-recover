@@ -340,11 +340,15 @@ export function WhyThisPlan({
             <div className="space-y-1 pl-4">
               {recentOverrides.slice(0, 8).map((o) => {
                 const statusColors: Record<string, string> = {
+                  suggested: "border-blue-300 text-blue-600 italic",
+                  approved: "border-emerald-300 text-emerald-600",
                   active: "border-primary/30 text-primary",
                   reversed: "border-muted text-muted-foreground line-through",
                   superseded: "border-muted text-muted-foreground/70",
                 };
                 const statusBadgeColors: Record<string, string> = {
+                  suggested: "border-blue-300 text-blue-600",
+                  approved: "border-emerald-300 text-emerald-600",
                   reversed: "border-amber-300 text-amber-600",
                   superseded: "border-muted text-muted-foreground",
                 };

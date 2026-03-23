@@ -1,13 +1,19 @@
 import { useMemo } from 'react';
 import { useExerciseGating } from './useExerciseGating';
+import { useRuntimeConfig } from './useRuntimeConfig';
 import { getExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import { getCapabilityDifficultyBounds, clampToBounds } from '@/lib/difficultyBounds';
 
 /**
- * Hook to get fully merged exercise configuration
- * Combines clinical profile recommendations + capability-based adaptations
- * with difficulty bounds based on capability scores
+ * Hook to get fully merged exercise configuration.
+ * 
+ * Reads from THREE layers (in priority order):
+ * 1. runtime_config (clinician overrides / mutable plan knobs)
+ * 2. capability-based adaptations (safety bounds)
+ * 3. clinical_profile (static clinical truth)
+ * 
+ * This is the CANONICAL config read path for all games/sessions.
  */
 export const useExerciseConfig = (
   exerciseId: string,
@@ -17,6 +23,7 @@ export const useExerciseConfig = (
   lessonBlock?: { startDifficulty?: number } | null
 ) => {
   const { getAdaptations, capabilityScores } = useExerciseGating(userId, profileId);
+  const { getDifficulty, getCueLevel } = useRuntimeConfig();
 
   // Calculate capability-based difficulty bounds
   const bounds = useMemo(
@@ -28,11 +35,14 @@ export const useExerciseConfig = (
     // Start with clinical profile config
     const clinicalConfig = getExerciseConfig(exerciseId, clinicalProfile);
     
+    // Get runtime config overrides (clinician-driven)
+    const runtimeDifficultyOffset = getDifficulty(exerciseId);
+    const runtimeCueLevel = getCueLevel();
+    
     // Get capability-based adaptations
     const capabilityAdaptations = getAdaptations(exerciseId);
     
     if (!capabilityAdaptations) {
-      // No capability adaptations, but still clamp to bounds
       const baseStart =
         lessonBlock?.startDifficulty ??
         clinicalConfig.startDifficulty ??
@@ -40,7 +50,9 @@ export const useExerciseConfig = (
 
       return {
         ...clinicalConfig,
-        startDifficulty: clampToBounds(baseStart, bounds),
+        startDifficulty: clampToBounds(baseStart + runtimeDifficultyOffset, bounds),
+        // Apply runtime cue level if set by clinician
+        ...(runtimeCueLevel !== null ? { cueLevel: runtimeCueLevel } : {}),
       };
     }
 
@@ -58,19 +70,22 @@ export const useExerciseConfig = (
       ...clinicalConfig,
       ...adapted,
       
-      // For numeric values, take the more conservative option, then clamp to bounds
+      // Apply runtime difficulty offset, then clamp to bounds
       startDifficulty: clampToBounds(
         Math.min(
           clinicalConfig.startDifficulty ?? rawStart,
           adapted.startDifficulty ?? rawStart
-        ),
+        ) + runtimeDifficultyOffset,
         bounds
       ),
       
-      cueLevel: Math.max(
-        clinicalConfig.cueLevel || 1,
-        capabilityAdaptations.adaptations.cueLevel || 1
-      ),
+      // Runtime cue level > capability > clinical (highest wins for safety)
+      cueLevel: runtimeCueLevel !== null
+        ? runtimeCueLevel
+        : Math.max(
+            clinicalConfig.cueLevel || 1,
+            capabilityAdaptations.adaptations.cueLevel || 1
+          ),
       
       timeout: Math.max(
         clinicalConfig.timeout || 3000,
@@ -94,7 +109,7 @@ export const useExerciseConfig = (
       textInstructions: clinicalConfig.textInstructions && !adapted.eliminateText,
       errorlessMode: clinicalConfig.errorlessMode || adapted.errorlessMode || false,
     };
-  }, [exerciseId, clinicalProfile, lessonBlock, getAdaptations, bounds]);
+  }, [exerciseId, clinicalProfile, lessonBlock, getAdaptations, bounds, getDifficulty, getCueLevel]);
 
   const adaptations = getAdaptations(exerciseId);
 
