@@ -379,6 +379,12 @@ export default function WeeklyPatientReview() {
         speechLabel={speechLabel}
       />
 
+      {/* ═══ RUNTIME CONFIG INSPECTOR ═══ */}
+      <RuntimeConfigInspector
+        runtimeConfig={runtimeConfig}
+        activeOverrides={activeOverrides}
+      />
+
       {/* ═══ CLINICAL INTERPRETATION ═══ */}
       <ClinicalInterpretation
         current={currentSummaryWoW}
