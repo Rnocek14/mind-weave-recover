@@ -505,6 +505,8 @@ export type Database = {
       }
       clinician_overrides: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           clinician_id: string
           created_at: string
           expires_at: string | null
@@ -516,12 +518,16 @@ export type Database = {
           reversed_at: string | null
           reversed_by: string | null
           status: string
+          suggested_at: string | null
+          suggested_by: string | null
           target_slug: string | null
           user_id: string
           value_after: Json
           value_before: Json | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           clinician_id: string
           created_at?: string
           expires_at?: string | null
@@ -533,12 +539,16 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           status?: string
+          suggested_at?: string | null
+          suggested_by?: string | null
           target_slug?: string | null
           user_id: string
           value_after?: Json
           value_before?: Json | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           clinician_id?: string
           created_at?: string
           expires_at?: string | null
@@ -550,6 +560,8 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           status?: string
+          suggested_at?: string | null
+          suggested_by?: string | null
           target_slug?: string | null
           user_id?: string
           value_after?: Json
