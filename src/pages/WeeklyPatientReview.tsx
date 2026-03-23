@@ -42,6 +42,9 @@ import { HelpLabel } from "@/components/HelpTooltip";
 import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
 import { ClinicalRecordingPicks } from "@/components/clinician/ClinicalRecordingPicks";
 import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
+import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
+import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
+import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
@@ -65,16 +68,6 @@ function formatSlug(slug: string): string {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-const actionIconMap: Record<string, any> = {
-  alert: AlertTriangle,
-  trending: TrendingUp,
-  fatigue: Flame,
-  outreach: Heart,
-  cue: Lightbulb,
-  difficulty: Zap,
-  practice: Target,
-};
-
 export default function WeeklyPatientReview() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -93,7 +86,7 @@ export default function WeeklyPatientReview() {
 
   // Data hooks — prior period (for week-over-week comparison)
   const { timeline: priorTimeline, isLoading: priorSnapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
-  const { dayGroups: allDayGroups, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
+  const { dayGroups: allDayGroups, recordings: allRecordings, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
 
   // Split allDayGroups into current and prior
   const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
@@ -105,6 +98,16 @@ export default function WeeklyPatientReview() {
       priorTimelineSplit: priorTimeline.slice(0, Math.max(0, priorTimeline.length - windowSize)),
     };
   }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
+
+  // Split recordings into current and prior for longitudinal comparison
+  const { priorRecordings } = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - windowSize);
+    const cutoffStr = cutoffDate.toISOString();
+    return {
+      priorRecordings: allRecordings.filter((r) => r.createdAt < cutoffStr),
+    };
+  }, [allRecordings, windowSize]);
 
   const { current: currentSummaryWoW, prior: priorSummaryWoW, deltas } = useWeekOverWeek(
     currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit
@@ -133,7 +136,7 @@ export default function WeeklyPatientReview() {
   // Derived
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
   const speechLabel = deriveSpeechLabel(clinicalProfile);
-  const strokeDate = activeProfile?.stroke_date;
+  const strokeDate = activeProfile?.stroke_date ?? null;
   const daysPostOnset = strokeDate
     ? Math.floor((Date.now() - new Date(strokeDate).getTime()) / 86_400_000)
     : null;
@@ -199,7 +202,6 @@ export default function WeeklyPatientReview() {
 
   // Handlers
   const handleCopyEHR = useCallback(() => {
-    const unresolvedAlerts = alerts.filter((a) => !a.resolved_at);
     const summary = formatEhrSummary({
       timeline,
       flags: flags || [],
@@ -218,6 +220,24 @@ export default function WeeklyPatientReview() {
   }, [progressNote]);
 
   const handlePrint = () => navigate("/clinician/report?print=1");
+
+  // Compute trials per domain for enhanced dose row (before early returns)
+  const trialsByDomain = useMemo(() => {
+    const map: Record<string, number> = {};
+    dayGroups.forEach((d) => {
+      d.sessions.forEach((s) => {
+        s.exercises.forEach((e) => {
+          const domainGuess = e.slug.includes("naming") || e.slug.includes("phonolog") || e.slug.includes("sentence")
+            ? "speech_therapy"
+            : e.slug.includes("reach") || e.slug.includes("hunt") || e.slug.includes("tap")
+              ? "physical_therapy"
+              : "speech_therapy";
+          map[domainGuess] = (map[domainGuess] || 0) + e.trials;
+        });
+      });
+    });
+    return map;
+  }, [dayGroups]);
 
   // Guard
   if (!isAtLeast("clinician")) {
@@ -249,6 +269,8 @@ export default function WeeklyPatientReview() {
       </div>
     );
   }
+
+  // (trialsByDomain computed above, before early returns)
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-6 space-y-5 print:py-0">
@@ -346,6 +368,15 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
+      {/* ═══ PROFILE SUMMARY ═══ */}
+      <ProfileSummaryCard
+        clinicalProfile={clinicalProfile}
+        strokeDate={strokeDate}
+        daysPostOnset={daysPostOnset}
+        profileName={activeProfile?.profile_name || "Patient"}
+        speechLabel={speechLabel}
+      />
+
       {/* ═══ CLINICAL INTERPRETATION ═══ */}
       <ClinicalInterpretation
         current={currentSummaryWoW}
@@ -364,7 +395,7 @@ export default function WeeklyPatientReview() {
         hasPriorData={hasPriorData}
       />
 
-      {/* ═══ B. DOSE + TREND ROW ═══ */}
+      {/* ═══ B. DOSE + TREND ROW (Enhanced with trials/intensity) ═══ */}
       {doseComparisons.length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-3">
@@ -374,20 +405,41 @@ export default function WeeklyPatientReview() {
           </CardHeader>
           <CardContent className="pb-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {doseComparisons.map((d) => (
-                <div key={d.domainSlug} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium capitalize">{d.domainLabel}</span>
-                    <span className={`font-medium ${d.ratio >= 0.8 ? "text-green-600" : d.ratio >= 0.5 ? "text-amber-600" : "text-red-500"}`}>
-                      {Math.round(d.ratio * 100)}%
-                    </span>
+              {doseComparisons.map((d) => {
+                const domainTrials = trialsByDomain[d.domainSlug] || 0;
+                const trialsPerDay = windowSize > 0 ? Math.round(domainTrials / windowSize) : 0;
+                return (
+                  <div key={d.domainSlug} className="space-y-1.5 p-2.5 rounded-lg bg-muted/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium capitalize">{d.domainLabel}</span>
+                      <span className={`font-semibold ${d.ratio >= 0.8 ? "text-green-600" : d.ratio >= 0.5 ? "text-amber-600" : "text-red-500"}`}>
+                        {Math.round(d.ratio * 100)}%
+                      </span>
+                    </div>
+                    <Progress value={Math.min(d.ratio * 100, 100)} className={`h-2 ${d.ratio >= 0.8 ? "[&>div]:bg-green-500" : d.ratio >= 0.5 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"}`} />
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{d.completed}min / {d.prescribed * d.daysInWindow}min target</span>
+                      <span>{d.completedPerDay}min/day avg</span>
+                    </div>
+                    {/* Trials & intensity row */}
+                    <div className="flex items-center gap-3 text-[10px] pt-0.5 border-t border-border/50">
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{domainTrials}</span> trials
+                      </span>
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{trialsPerDay}</span> trials/day
+                      </span>
+                      {domainTrials > 0 && d.completed > 0 && (
+                        <span className="text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {(domainTrials / d.completed).toFixed(1)}
+                          </span> trials/min
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Progress value={Math.min(d.ratio * 100, 100)} className={`h-2 ${d.ratio >= 0.8 ? "[&>div]:bg-green-500" : d.ratio >= 0.5 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"}`} />
-                  <p className="text-[10px] text-muted-foreground">
-                    {d.completed}min / {d.prescribed * d.daysInWindow}min target ({d.completedPerDay}min/day avg)
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -419,6 +471,13 @@ export default function WeeklyPatientReview() {
         curatedChallenging={audioSamples.challenging}
         curatedBest={audioSamples.best}
         allRecordings={recordings}
+      />
+
+      {/* ═══ LONGITUDINAL UTTERANCE COMPARISON ═══ */}
+      <LongitudinalUtteranceComparison
+        currentRecordings={recordings}
+        priorRecordings={priorRecordings}
+        windowSize={windowSize}
       />
 
       {/* ═══ D. ALL RECORDINGS ═══ */}
@@ -566,39 +625,11 @@ export default function WeeklyPatientReview() {
         </Card>
       )}
 
-      {/* ═══ F. NEXT ACTIONS ═══ */}
-      {nextActions.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-primary" />
-              <HelpLabel term="Recommended Actions">Recommended Next Actions</HelpLabel>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-2">
-            {nextActions.map((action) => {
-              const Icon = actionIconMap[action.icon] || HelpCircle;
-              return (
-                <div key={action.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/30">
-                  <div className={`mt-0.5 shrink-0 ${action.priority === "high" ? "text-red-500" : action.priority === "medium" ? "text-amber-500" : "text-green-500"}`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{action.title}</p>
-                    <p className="text-xs text-muted-foreground">{action.detail}</p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={`ml-auto text-[9px] shrink-0 ${action.priority === "high" ? "border-red-300 text-red-600" : action.priority === "medium" ? "border-amber-300 text-amber-600" : "border-green-300 text-green-600"}`}
-                  >
-                    {action.priority}
-                  </Badge>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+      {/* ═══ F. ACTIONABLE NEXT STEPS ═══ */}
+      <ActionableNextSteps
+        actions={nextActions}
+        profileName={activeProfile?.profile_name || "Patient"}
+      />
 
       {/* ═══ G. DOCUMENTATION TOOLS ═══ */}
       <Card>
