@@ -346,6 +346,24 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
+      {/* ═══ CLINICAL INTERPRETATION ═══ */}
+      <ClinicalInterpretation
+        current={currentSummaryWoW}
+        prior={priorSummaryWoW}
+        hasPriorData={hasPriorData}
+        nextActions={nextActions}
+        windowSize={windowSize}
+        profileName={activeProfile?.profile_name || "Patient"}
+        speechLabel={speechLabel}
+      />
+
+      {/* ═══ WEEK-OVER-WEEK COMPARISON ═══ */}
+      <WeekComparisonRow
+        deltas={deltas}
+        windowSize={windowSize}
+        hasPriorData={hasPriorData}
+      />
+
       {/* ═══ B. DOSE + TREND ROW ═══ */}
       {doseComparisons.length > 0 && (
         <Card>
