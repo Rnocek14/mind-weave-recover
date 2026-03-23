@@ -400,7 +400,6 @@ export default function WeeklyPatientReview() {
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <HelpLabel term="Dose Compliance">Prescribed vs. Completed</HelpLabel>
-              <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/50 cursor-help" title="Compares prescribed therapy targets against actual logged practice. Shows both time-based and trial-based metrics for a complete picture of practice volume." />
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
