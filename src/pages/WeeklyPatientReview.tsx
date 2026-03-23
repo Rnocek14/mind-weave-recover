@@ -252,7 +252,7 @@ export default function WeeklyPatientReview() {
     );
   }
 
-  // Compute trials per domain for enhanced dose row
+  // Compute trials per domain for enhanced dose row (must be before early returns)
   const trialsByDomain = useMemo(() => {
     const map: Record<string, number> = {};
     dayGroups.forEach((d) => {
