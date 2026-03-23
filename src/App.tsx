@@ -33,6 +33,7 @@ import Insights from "./pages/Insights";
 import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 import ClinicianPanel from "./pages/ClinicianPanel";
+import WeeklyPatientReview from "./pages/WeeklyPatientReview";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
