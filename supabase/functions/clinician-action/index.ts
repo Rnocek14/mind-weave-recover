@@ -191,9 +191,9 @@ Deno.serve(async (req) => {
           await admin.from("dose_targets").insert({ user_id: userId, profile_id: profileId, domain_slug: vb.domain_slug, target_value: vb.target_value, prescribed_by: clinicianId });
         }
         if (override.override_type === "cue_level") {
-          const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
-          const cp = (prof?.clinical_profile as Record<string, any>) || {};
-          await admin.from("profiles").update({ clinical_profile: { ...cp, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
+          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
+          const rc = (prof?.runtime_config as Record<string, any>) || {};
+          await admin.from("profiles").update({ runtime_config: { ...rc, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
         }
         if (override.override_type === "practice_assignment") {
           const { data: prof } = await admin.from("profiles").select("clinical_profile").eq("id", profileId).single();
