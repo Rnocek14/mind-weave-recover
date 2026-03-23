@@ -53,7 +53,7 @@ export default function ClinicianPanel() {
   const handlePatientClick = useCallback(async (profileId: string) => {
     try {
       await switchProfile(profileId);
-      navigate("/dashboard");
+      navigate("/clinician/review");
     } catch (err) {
       console.error("[ClinicianPanel] profile switch failed:", err);
       toast.error("Could not switch to patient profile");

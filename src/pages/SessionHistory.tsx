@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -47,14 +47,19 @@ const SessionHistory = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  const exerciseOptions = [
-    { value: "all", label: "All Exercises" },
-    { value: "semantic-features", label: "Semantic Features" },
-    { value: "phonological-awareness", label: "Phonological Awareness" },
-    { value: "sentence-construction", label: "Sentence Construction" },
-    { value: "photo-naming", label: "Photo Naming" },
-    { value: "reach-tap", label: "Reach & Tap" }
-  ];
+  // Dynamically build exercise options from actual session data
+  const exerciseOptions = useMemo(() => {
+    const slugs = new Set<string>();
+    allSessions.forEach((s) => s.exercises.forEach((e) => slugs.add(e.slug)));
+    const sorted = Array.from(slugs).sort();
+    return [
+      { value: "all", label: "All Exercises" },
+      ...sorted.map((slug) => ({
+        value: slug,
+        label: slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      })),
+    ];
+  }, [allSessions]);
 
   const exportToCSV = () => {
     if (sessions.length === 0) {
