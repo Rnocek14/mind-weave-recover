@@ -1,6 +1,6 @@
 /**
- * Actionable Next Steps — each recommendation has a quick-action button.
- * Clinicians can: schedule outreach, adjust difficulty, change dose, etc.
+ * Actionable Next Steps — each recommendation has a quick-action button
+ * that writes REAL state changes to the database.
  */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,15 +10,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   AlertTriangle, TrendingUp, Flame, Heart, Lightbulb, Zap, Target,
   HelpCircle, CheckCircle, MessageSquare, SlidersHorizontal, ClipboardList,
-  Phone, ArrowDown, ArrowUp
+  Phone, ArrowDown, ArrowUp, Loader2
 } from "lucide-react";
 import { HelpLabel } from "@/components/HelpTooltip";
 import { toast } from "sonner";
 import type { NextAction } from "@/lib/generateNextActions";
+import {
+  reduceDose, scheduleOutreach, adjustDifficulty,
+  assignPractice, reviewCueing, type QuickActionResult
+} from "@/lib/clinicianQuickActions";
 
 interface ActionableNextStepsProps {
   actions: NextAction[];
   profileName: string;
+  /** Required for DB writes */
+  userId?: string;
+  profileId?: string;
+  clinicianId?: string;
   onCopyToNote?: (text: string) => void;
 }
 
@@ -36,6 +44,8 @@ interface QuickAction {
   label: string;
   icon: any;
   action: string;
+  /** If true, this action writes to DB (not just clipboard) */
+  isDbAction?: boolean;
 }
 
 function getQuickActions(actionId: string): QuickAction[] {
@@ -47,30 +57,30 @@ function getQuickActions(actionId: string): QuickAction[] {
       ];
     case "engagement-gap":
       return [
-        { label: "Schedule Call", icon: Phone, action: "schedule_outreach" },
+        { label: "Schedule Call", icon: Phone, action: "schedule_outreach", isDbAction: true },
         { label: "Send Message", icon: MessageSquare, action: "send_message" },
         { label: "Add to Note", icon: ClipboardList, action: "add_note" },
       ];
     case "fatigue-monitoring":
       return [
-        { label: "Reduce Session Length", icon: ArrowDown, action: "reduce_dose" },
+        { label: "Reduce Dose", icon: ArrowDown, action: "reduce_dose", isDbAction: true },
         { label: "Add to Note", icon: ClipboardList, action: "add_note" },
       ];
     case "accuracy-decline":
       return [
-        { label: "Lower Difficulty", icon: ArrowDown, action: "lower_difficulty" },
-        { label: "Review Cueing", icon: SlidersHorizontal, action: "review_cueing" },
+        { label: "Lower Difficulty", icon: ArrowDown, action: "lower_difficulty", isDbAction: true },
+        { label: "Review Cueing", icon: SlidersHorizontal, action: "review_cueing", isDbAction: true },
         { label: "Add to Note", icon: ClipboardList, action: "add_note" },
       ];
     case "increase-difficulty":
       return [
-        { label: "Increase Difficulty", icon: ArrowUp, action: "increase_difficulty" },
+        { label: "Increase Difficulty", icon: ArrowUp, action: "increase_difficulty", isDbAction: true },
         { label: "Add to Note", icon: ClipboardList, action: "add_note" },
       ];
     case "low-practice":
       return [
-        { label: "Assign Practice", icon: Target, action: "assign_practice" },
-        { label: "Schedule Call", icon: Phone, action: "schedule_outreach" },
+        { label: "Assign Practice", icon: Target, action: "assign_practice", isDbAction: true },
+        { label: "Schedule Call", icon: Phone, action: "schedule_outreach", isDbAction: true },
         { label: "Add to Note", icon: ClipboardList, action: "add_note" },
       ];
     case "positive-trend":
@@ -83,14 +93,66 @@ function getQuickActions(actionId: string): QuickAction[] {
   }
 }
 
-export function ActionableNextSteps({ actions, profileName, onCopyToNote }: ActionableNextStepsProps) {
+export function ActionableNextSteps({
+  actions, profileName, userId, profileId, clinicianId, onCopyToNote
+}: ActionableNextStepsProps) {
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   if (actions.length === 0) return null;
 
-  const handleQuickAction = (action: NextAction, quickAction: QuickAction) => {
-    const noteText = `[${new Date().toLocaleDateString()}] ${action.title}: ${action.detail}`;
+  const canDoDbActions = !!(userId && profileId && clinicianId);
+  const ctx = canDoDbActions ? { userId: userId!, profileId: profileId!, clinicianId: clinicianId! } : null;
 
+  const handleQuickAction = async (action: NextAction, quickAction: QuickAction) => {
+    const noteText = `[${new Date().toLocaleDateString()}] ${action.title}: ${action.detail}`;
+    const actionKey = `${action.id}-${quickAction.action}`;
+
+    // DB actions
+    if (quickAction.isDbAction && ctx) {
+      setLoadingAction(actionKey);
+      let result: QuickActionResult | null = null;
+
+      try {
+        switch (quickAction.action) {
+          case "schedule_outreach":
+            result = await scheduleOutreach(ctx, action.detail);
+            break;
+          case "reduce_dose":
+            result = await reduceDose(ctx);
+            break;
+          case "lower_difficulty":
+            result = await adjustDifficulty(ctx, "decrease");
+            break;
+          case "increase_difficulty":
+            result = await adjustDifficulty(ctx, "increase");
+            break;
+          case "assign_practice":
+            result = await assignPractice(ctx, action.detail);
+            break;
+          case "review_cueing":
+            result = await reviewCueing(ctx);
+            break;
+        }
+
+        if (result?.success) {
+          toast.success(result.message);
+        } else {
+          toast.error(result?.message || "Action failed");
+        }
+      } catch (err) {
+        toast.error("Failed to execute action");
+      } finally {
+        setLoadingAction(null);
+      }
+
+      if (result?.success) {
+        setCompletedActions((prev) => new Set(prev).add(actionKey));
+      }
+      return;
+    }
+
+    // Non-DB actions (clipboard, navigation, etc.)
     switch (quickAction.action) {
       case "add_note":
         if (onCopyToNote) {
@@ -100,24 +162,11 @@ export function ActionableNextSteps({ actions, profileName, onCopyToNote }: Acti
           toast.success("Copied to clipboard — paste into your session note");
         }
         break;
-      case "schedule_outreach":
-        navigator.clipboard.writeText(
-          `OUTREACH NEEDED for ${profileName}: ${action.detail}`
-        );
-        toast.success("Outreach reminder copied — paste into your task list or calendar");
-        break;
       case "send_message":
         navigator.clipboard.writeText(
           `Hi — checking in on your practice this week. Let us know if you need any support or have questions about your exercises.`
         );
         toast.success("Message template copied to clipboard");
-        break;
-      case "reduce_dose":
-      case "lower_difficulty":
-      case "increase_difficulty":
-      case "assign_practice":
-      case "review_cueing":
-        toast.info(`${quickAction.label}: update the therapy plan in the patient's profile settings`);
         break;
       case "review_alerts":
         toast.info("Scroll up to the Alerts section to review and acknowledge");
@@ -125,9 +174,15 @@ export function ActionableNextSteps({ actions, profileName, onCopyToNote }: Acti
       case "maintain":
         toast.success("Current plan maintained — no changes needed");
         break;
+      // Fallback for DB actions without context
+      default:
+        if (quickAction.isDbAction && !ctx) {
+          toast.info(`${quickAction.label}: sign in as clinician to perform this action`);
+        }
+        break;
     }
 
-    setCompletedActions((prev) => new Set(prev).add(`${action.id}-${quickAction.action}`));
+    setCompletedActions((prev) => new Set(prev).add(actionKey));
   };
 
   return (
@@ -144,9 +199,9 @@ export function ActionableNextSteps({ actions, profileName, onCopyToNote }: Acti
               <TooltipContent side="right" className="max-w-xs text-xs">
                 <p>
                   Rule-based clinical suggestions derived from this period's telemetry.
-                  Each action has quick-action buttons so you can respond directly
-                  from this screen — schedule outreach, adjust difficulty, copy to notes, etc.
-                  These are decision-support prompts, not prescriptions.
+                  Actions with a ⚡ icon write directly to the patient's care plan
+                  (dose targets, alerts, adaptation log). All changes are logged
+                  for audit. Non-⚡ actions copy text to clipboard.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -188,6 +243,7 @@ export function ActionableNextSteps({ actions, profileName, onCopyToNote }: Acti
               <div className="flex flex-wrap gap-1.5 pl-7">
                 {quickActions.map((qa) => {
                   const isCompleted = completedActions.has(`${action.id}-${qa.action}`);
+                  const isLoading = loadingAction === `${action.id}-${qa.action}`;
                   const QaIcon = qa.icon;
                   return (
                     <Button
@@ -196,8 +252,16 @@ export function ActionableNextSteps({ actions, profileName, onCopyToNote }: Acti
                       variant={isCompleted ? "default" : "outline"}
                       className={`h-7 text-[11px] gap-1 ${isCompleted ? "opacity-70" : ""}`}
                       onClick={() => handleQuickAction(action, qa)}
+                      disabled={isLoading}
                     >
-                      {isCompleted ? <CheckCircle className="w-3 h-3" /> : <QaIcon className="w-3 h-3" />}
+                      {isLoading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : isCompleted ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <QaIcon className="w-3 h-3" />
+                      )}
+                      {qa.isDbAction && !isCompleted && <Zap className="w-2 h-2" />}
                       {qa.label}
                     </Button>
                   );
