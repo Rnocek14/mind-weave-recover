@@ -32,12 +32,16 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useDoseTargets } from "@/hooks/useDoseTargets";
 import { useCuratedAudioSamples } from "@/hooks/useCuratedAudioSamples";
+import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
 import { generateNextActions, type NextAction } from "@/lib/generateNextActions";
 import { AudioPlaybackWithWaveform } from "@/components/AudioPlaybackWithWaveform";
 import { HelpLabel } from "@/components/HelpTooltip";
+import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
+import { ClinicalRecordingPicks } from "@/components/clinician/ClinicalRecordingPicks";
+import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
@@ -82,10 +86,31 @@ export default function WeeklyPatientReview() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [recordingsFilter, setRecordingsFilter] = useState<string>("all");
 
-  // Data hooks
+  // Data hooks — current period
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
   const { dayGroups, recordings, exerciseSlugs, summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
+
+  // Data hooks — prior period (for week-over-week comparison)
+  const { timeline: priorTimeline, isLoading: priorSnapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
+  const { dayGroups: allDayGroups, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
+
+  // Split allDayGroups into current and prior
+  const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
+    const cutoff = allDayGroups.length - windowSize;
+    return {
+      currentDayGroups: dayGroups,
+      priorDayGroups: allDayGroups.slice(0, Math.max(0, cutoff)),
+      currentTimeline: timeline,
+      priorTimelineSplit: priorTimeline.slice(0, Math.max(0, priorTimeline.length - windowSize)),
+    };
+  }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
+
+  const { current: currentSummaryWoW, prior: priorSummaryWoW, deltas } = useWeekOverWeek(
+    currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit
+  );
+  const hasPriorData = priorDayGroups.some((d) => d.sessions.length > 0);
+
   const alertSessionStats = useMemo(() => {
     if (sessionStats.isLoading) return undefined;
     return {
@@ -321,6 +346,24 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
+      {/* ═══ CLINICAL INTERPRETATION ═══ */}
+      <ClinicalInterpretation
+        current={currentSummaryWoW}
+        prior={priorSummaryWoW}
+        hasPriorData={hasPriorData}
+        nextActions={nextActions}
+        windowSize={windowSize}
+        profileName={activeProfile?.profile_name || "Patient"}
+        speechLabel={speechLabel}
+      />
+
+      {/* ═══ WEEK-OVER-WEEK COMPARISON ═══ */}
+      <WeekComparisonRow
+        deltas={deltas}
+        windowSize={windowSize}
+        hasPriorData={hasPriorData}
+      />
+
       {/* ═══ B. DOSE + TREND ROW ═══ */}
       {doseComparisons.length > 0 && (
         <Card>
@@ -371,7 +414,14 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
-      {/* ═══ D. RECORDINGS ═══ */}
+      {/* ═══ TOP CLINICAL RECORDINGS ═══ */}
+      <ClinicalRecordingPicks
+        curatedChallenging={audioSamples.challenging}
+        curatedBest={audioSamples.best}
+        allRecordings={recordings}
+      />
+
+      {/* ═══ D. ALL RECORDINGS ═══ */}
       <Card>
         <CardHeader className="pb-2 pt-3">
           <div className="flex items-center justify-between">
