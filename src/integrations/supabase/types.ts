@@ -503,6 +503,68 @@ export type Database = {
           },
         ]
       }
+      clinician_overrides: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          override_type: string
+          profile_id: string
+          reason: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          status: string
+          target_slug: string | null
+          user_id: string
+          value_after: Json
+          value_before: Json | null
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          override_type: string
+          profile_id: string
+          reason?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          target_slug?: string | null
+          user_id: string
+          value_after?: Json
+          value_before?: Json | null
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          override_type?: string
+          profile_id?: string
+          reason?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          target_slug?: string | null
+          user_id?: string
+          value_after?: Json
+          value_before?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_overrides_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cognitive_domain_scores: {
         Row: {
           computed_at: string
