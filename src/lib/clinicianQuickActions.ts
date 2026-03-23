@@ -28,7 +28,7 @@ async function callClinicianRpc(
   rpcName: string,
   params: Record<string, any>
 ): Promise<QuickActionResult> {
-  const { data, error } = await supabase.rpc(rpcName, params);
+  const { data, error } = await (supabase as any).rpc(rpcName, params);
   if (error) throw error;
   const result = data as any;
   return {
