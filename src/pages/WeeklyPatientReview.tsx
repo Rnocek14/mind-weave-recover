@@ -633,6 +633,20 @@ export default function WeeklyPatientReview() {
         recentOverrides={recentOverrides}
         onReverseOverride={async (overrideId) => {
           if (!user?.id || !profileId) return;
+          // Find the override to show safety context
+          const target = activeOverrides.find((o) => o.id === overrideId);
+          const restoreDesc = target
+            ? target.overrideType === "difficulty"
+              ? `Restore difficulty to level ${target.valueBefore?.difficulty_level ?? "default"}`
+              : target.overrideType === "dose_reduction"
+              ? `Restore dose to ${target.valueBefore?.target_value ?? "previous"}min`
+              : target.overrideType === "cue_level"
+              ? `Restore cue level to ${target.valueBefore?.cue_level ?? "Auto"}`
+              : `Reverse ${target.overrideType}`
+            : "Reverse this override";
+
+          if (!confirm(`${restoreDesc}?\n\nThis will undo the clinician override and restore the previous state.`)) return;
+
           const result = await reverseOverride(
             { userId: user.id, profileId, clinicianId: user.id },
             overrideId,
@@ -640,6 +654,7 @@ export default function WeeklyPatientReview() {
           );
           if (result.success) {
             toast.success(result.message);
+            refetchOverrides();
           } else {
             toast.error(result.message);
           }
