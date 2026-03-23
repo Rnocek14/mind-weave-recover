@@ -86,10 +86,31 @@ export default function WeeklyPatientReview() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [recordingsFilter, setRecordingsFilter] = useState<string>("all");
 
-  // Data hooks
+  // Data hooks — current period
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
   const { dayGroups, recordings, exerciseSlugs, summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
+
+  // Data hooks — prior period (for week-over-week comparison)
+  const { timeline: priorTimeline, isLoading: priorSnapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
+  const { dayGroups: allDayGroups, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
+
+  // Split allDayGroups into current and prior
+  const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
+    const cutoff = allDayGroups.length - windowSize;
+    return {
+      currentDayGroups: dayGroups,
+      priorDayGroups: allDayGroups.slice(0, Math.max(0, cutoff)),
+      currentTimeline: timeline,
+      priorTimelineSplit: priorTimeline.slice(0, Math.max(0, priorTimeline.length - windowSize)),
+    };
+  }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
+
+  const { current: currentSummaryWoW, prior: priorSummaryWoW, deltas } = useWeekOverWeek(
+    currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit
+  );
+  const hasPriorData = priorDayGroups.some((d) => d.sessions.length > 0);
+
   const alertSessionStats = useMemo(() => {
     if (sessionStats.isLoading) return undefined;
     return {
