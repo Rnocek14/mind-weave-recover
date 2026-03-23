@@ -178,29 +178,53 @@ export function WhyThisPlan({
               Active Clinician Overrides
             </p>
             <div className="space-y-1 pl-4">
-              {activeOverrides.map((o) => (
-                <div key={o.id} className="flex items-center gap-2 text-xs rounded-md bg-primary/5 px-2 py-1.5">
-                  <Badge variant="outline" className="text-[9px] h-5 shrink-0 border-primary/30 text-primary">
-                    <User className="w-2.5 h-2.5 mr-0.5" />
-                    {overrideTypeLabels[o.overrideType] || o.overrideType}
-                  </Badge>
-                  <span className="text-muted-foreground flex-1 truncate">
-                    {o.reason || JSON.stringify(o.valueAfter)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                    {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                  {onReverseOverride && (
-                    <button
-                      onClick={() => onReverseOverride(o.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      title="Reverse this override"
-                    >
-                      <Undo2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {activeOverrides.map((o) => {
+                // Provenance: describe what changed
+                const changeDesc = o.overrideType === "difficulty"
+                  ? `Level ${o.valueBefore?.difficulty_level ?? "?"} → ${o.valueAfter?.difficulty_level ?? "?"} ${o.valueAfter?.target === "_global" ? "(global)" : `(${o.targetSlug?.replace(/-/g, " ") || "specific"})`}`
+                  : o.overrideType === "dose_reduction"
+                  ? `${o.valueBefore?.target_value ?? "?"}min → ${o.valueAfter?.target_value ?? "?"}min`
+                  : o.overrideType === "cue_level"
+                  ? `Cue → ${o.valueAfter?.cue_level ?? "reviewed"}`
+                  : o.overrideType === "practice_assignment"
+                  ? `+1 assignment`
+                  : o.reason || JSON.stringify(o.valueAfter);
+
+                return (
+                  <div key={o.id} className="flex items-center gap-2 text-xs rounded-md bg-primary/5 px-2 py-1.5">
+                    <Badge variant="outline" className="text-[9px] h-5 shrink-0 border-primary/30 text-primary">
+                      <User className="w-2.5 h-2.5 mr-0.5" />
+                      {overrideTypeLabels[o.overrideType] || o.overrideType}
+                    </Badge>
+                    <span className="text-foreground font-medium shrink-0">{changeDesc}</span>
+                    {o.reason && (
+                      <span className="text-muted-foreground truncate flex-1" title={o.reason}>
+                        — {o.reason}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                      {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                    {onReverseOverride && (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onReverseOverride(o.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                            >
+                              <Undo2 className="w-3 h-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="text-xs">
+                            Reverse this override and restore previous state
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -310,31 +334,44 @@ export function WhyThisPlan({
               Recent Adjustments
             </p>
             <div className="space-y-1 pl-4">
-              {recentOverrides.slice(0, 8).map((o) => (
-                <div key={o.id} className="flex items-center gap-2 text-xs">
-                  {/* Source indicator */}
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] h-5 shrink-0 ${
-                      o.status === "reversed" ? "border-muted text-muted-foreground line-through" : "border-primary/30"
-                    }`}
-                  >
-                    <User className="w-2 h-2 mr-0.5" />
-                    {overrideTypeLabels[o.overrideType] || o.overrideType}
-                  </Badge>
-                  <span className="text-muted-foreground truncate">
-                    {o.reason || `${o.overrideType} change`}
-                  </span>
-                  {o.status === "reversed" && (
-                    <Badge variant="outline" className="text-[8px] h-4 border-amber-300 text-amber-600">
-                      reversed
+              {recentOverrides.slice(0, 8).map((o) => {
+                const statusColors: Record<string, string> = {
+                  active: "border-primary/30 text-primary",
+                  reversed: "border-muted text-muted-foreground line-through",
+                  superseded: "border-muted text-muted-foreground/70",
+                };
+                const statusBadgeColors: Record<string, string> = {
+                  reversed: "border-amber-300 text-amber-600",
+                  superseded: "border-muted text-muted-foreground",
+                };
+                return (
+                  <div key={o.id} className="flex items-center gap-2 text-xs">
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-5 shrink-0 ${statusColors[o.status] || "border-primary/30"}`}
+                    >
+                      <User className="w-2 h-2 mr-0.5" />
+                      {overrideTypeLabels[o.overrideType] || o.overrideType}
                     </Badge>
-                  )}
-                  <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                    {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                </div>
-              ))}
+                    <span className="text-muted-foreground truncate">
+                      {o.reason || `${o.overrideType} change`}
+                    </span>
+                    {o.status !== "active" && (
+                      <Badge variant="outline" className={`text-[8px] h-4 ${statusBadgeColors[o.status] || ""}`}>
+                        {o.status}
+                      </Badge>
+                    )}
+                    {o.reversedAt && (
+                      <span className="text-[9px] text-muted-foreground/50 shrink-0">
+                        ↩ {new Date(o.reversedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                      {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -448,6 +448,63 @@ export async function reverseOverride(
       });
     }
 
+    // Reverse cue_level override → restore previous cue settings
+    if (override.override_type === "cue_level") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("clinical_profile")
+        .eq("id", ctx.profileId)
+        .single();
+
+      const cp = (profile?.clinical_profile as Record<string, any>) || {};
+      const restoredCp = {
+        ...cp,
+        cue_level_override: valueBefore?.cue_level ?? null,
+        cue_review_at: null,
+        cue_reviewed_by: null,
+      };
+
+      await supabase
+        .from("profiles")
+        .update({ clinical_profile: restoredCp })
+        .eq("id", ctx.profileId);
+    }
+
+    // Reverse practice_assignment → remove the assignment from the array
+    if (override.override_type === "practice_assignment") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("clinical_profile")
+        .eq("id", ctx.profileId)
+        .single();
+
+      const cp = (profile?.clinical_profile as Record<string, any>) || {};
+      const assignments = cp.practice_assignments || [];
+      const latestId = override.value_after?.latest?.id;
+      const filtered = latestId
+        ? assignments.filter((a: any) => a.id !== latestId)
+        : assignments.slice(0, -1); // fallback: remove last
+
+      await supabase
+        .from("profiles")
+        .update({ clinical_profile: { ...cp, practice_assignments: filtered } })
+        .eq("id", ctx.profileId);
+    }
+
+    // Reverse outreach → resolve the alert that was created
+    if (override.override_type === "outreach") {
+      await supabase
+        .from("recovery_alerts")
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolved_by: ctx.clinicianId,
+          resolution_notes: `Reversed: ${reason}`,
+        })
+        .eq("profile_id", ctx.profileId)
+        .eq("alert_type", "outreach_needed")
+        .is("resolved_at", null);
+    }
+
     await logAction(ctx, "reverse_override", {
       override_id: overrideId,
       override_type: override.override_type,
