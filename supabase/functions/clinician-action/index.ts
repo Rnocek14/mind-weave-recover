@@ -135,14 +135,15 @@ Deno.serve(async (req) => {
           reason: `Clinician ${direction}d difficulty via weekly review`, status: "active",
         }).select("id").single();
 
-        // Supersede any prior active difficulty overrides for same target
+        // Supersede prior active difficulty overrides for SAME target only
         if (overrideData?.id) {
           await admin.from("clinician_overrides")
             .update({ status: "superseded" })
             .eq("profile_id", profileId)
             .eq("override_type", "difficulty")
             .eq("status", "active")
-            .neq("id", overrideData.id);
+            .neq("id", overrideData.id)
+            .eq("target_slug", exerciseSlug || null);
         }
 
         await admin.from("adaptation_events").insert({
