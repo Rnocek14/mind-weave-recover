@@ -334,31 +334,44 @@ export function WhyThisPlan({
               Recent Adjustments
             </p>
             <div className="space-y-1 pl-4">
-              {recentOverrides.slice(0, 8).map((o) => (
-                <div key={o.id} className="flex items-center gap-2 text-xs">
-                  {/* Source indicator */}
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] h-5 shrink-0 ${
-                      o.status === "reversed" ? "border-muted text-muted-foreground line-through" : "border-primary/30"
-                    }`}
-                  >
-                    <User className="w-2 h-2 mr-0.5" />
-                    {overrideTypeLabels[o.overrideType] || o.overrideType}
-                  </Badge>
-                  <span className="text-muted-foreground truncate">
-                    {o.reason || `${o.overrideType} change`}
-                  </span>
-                  {o.status === "reversed" && (
-                    <Badge variant="outline" className="text-[8px] h-4 border-amber-300 text-amber-600">
-                      reversed
+              {recentOverrides.slice(0, 8).map((o) => {
+                const statusColors: Record<string, string> = {
+                  active: "border-primary/30 text-primary",
+                  reversed: "border-muted text-muted-foreground line-through",
+                  superseded: "border-muted text-muted-foreground/70",
+                };
+                const statusBadgeColors: Record<string, string> = {
+                  reversed: "border-amber-300 text-amber-600",
+                  superseded: "border-muted text-muted-foreground",
+                };
+                return (
+                  <div key={o.id} className="flex items-center gap-2 text-xs">
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-5 shrink-0 ${statusColors[o.status] || "border-primary/30"}`}
+                    >
+                      <User className="w-2 h-2 mr-0.5" />
+                      {overrideTypeLabels[o.overrideType] || o.overrideType}
                     </Badge>
-                  )}
-                  <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                    {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                </div>
-              ))}
+                    <span className="text-muted-foreground truncate">
+                      {o.reason || `${o.overrideType} change`}
+                    </span>
+                    {o.status !== "active" && (
+                      <Badge variant="outline" className={`text-[8px] h-4 ${statusBadgeColors[o.status] || ""}`}>
+                        {o.status}
+                      </Badge>
+                    )}
+                    {o.reversedAt && (
+                      <span className="text-[9px] text-muted-foreground/50 shrink-0">
+                        ↩ {new Date(o.reversedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                      {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
