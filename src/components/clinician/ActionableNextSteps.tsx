@@ -28,6 +28,8 @@ interface ActionableNextStepsProps {
   profileId?: string;
   clinicianId?: string;
   onCopyToNote?: (text: string) => void;
+  /** Called after any DB action succeeds so parent can refetch */
+  onActionComplete?: () => void;
 }
 
 const actionIconMap: Record<string, any> = {
