@@ -134,7 +134,7 @@ export default function WeeklyPatientReview() {
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
-  const { activeOverrides, recentOverrides, isLoading: overridesLoading } = useClinicianOverrides(profileId);
+  const { activeOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
