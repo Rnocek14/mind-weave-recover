@@ -43,6 +43,7 @@ const overrideTypeLabels: Record<string, string> = {
 
 export function WhyThisPlan({
   clinicalProfile,
+  runtimeConfig,
   activeExerciseSlugs,
   recentAdaptations,
   activeOverrides = [],
@@ -50,16 +51,17 @@ export function WhyThisPlan({
   onReverseOverride,
 }: WhyThisPlanProps) {
   const cp = clinicalProfile;
+  const rc = runtimeConfig || {};
   const therapyFocus: string[] = cp?.therapy_focus || [];
   const speechImpairments: string[] = cp?.impairments?.speech || [];
   const cognitiveImpairments: string[] = cp?.impairments?.cognitive || [];
 
-  // Live config from clinical_profile
-  const difficultyOverrides = cp?.difficulty_overrides || {};
+  // Live config from runtime_config (separate from clinical truth)
+  const difficultyOverrides = rc?.difficulty_overrides || {};
   const globalDifficulty = difficultyOverrides._global ?? 0;
-  const cueOverride = cp?.cue_level_override ?? null;
-  const cueReviewedAt = cp?.cue_review_at ?? null;
-  const practiceAssignments = cp?.practice_assignments || [];
+  const cueOverride = rc?.cue_level_override ?? null;
+  const cueReviewedAt = rc?.cue_review_at ?? null;
+  const practiceAssignments = rc?.practice_assignments || [];
   const activePractice = practiceAssignments.filter((a: any) => a.status === "active");
 
   // Map active exercises to their domain entries
