@@ -668,6 +668,7 @@ export default function WeeklyPatientReview() {
         userId={user?.id}
         profileId={profileId}
         clinicianId={user?.id}
+        onActionComplete={refetchOverrides}
       />
 
       {/* ═══ G. DOCUMENTATION TOOLS ═══ */}

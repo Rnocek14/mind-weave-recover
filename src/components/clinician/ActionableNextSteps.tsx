@@ -139,6 +139,7 @@ export function ActionableNextSteps({
 
         if (result?.success) {
           toast.success(result.message);
+          onActionComplete?.();
         } else {
           toast.error(result?.message || "Action failed");
         }
