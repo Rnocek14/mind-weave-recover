@@ -270,24 +270,7 @@ export default function WeeklyPatientReview() {
     );
   }
 
-  // Compute trials per domain for enhanced dose row (must be before early returns)
-  const trialsByDomain = useMemo(() => {
-    const map: Record<string, number> = {};
-    dayGroups.forEach((d) => {
-      d.sessions.forEach((s) => {
-        s.exercises.forEach((e) => {
-          // Map exercise slug to a rough domain (speech exercises → speech_therapy)
-          const domainGuess = e.slug.includes("naming") || e.slug.includes("phonolog") || e.slug.includes("sentence")
-            ? "speech_therapy"
-            : e.slug.includes("reach") || e.slug.includes("hunt") || e.slug.includes("tap")
-              ? "physical_therapy"
-              : "speech_therapy";
-          map[domainGuess] = (map[domainGuess] || 0) + e.trials;
-        });
-      });
-    });
-    return map;
-  }, [dayGroups]);
+  // (trialsByDomain computed above, before early returns)
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-6 space-y-5 print:py-0">
