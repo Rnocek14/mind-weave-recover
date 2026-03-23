@@ -96,7 +96,7 @@ function getQuickActions(actionId: string): QuickAction[] {
 }
 
 export function ActionableNextSteps({
-  actions, profileName, userId, profileId, clinicianId, onCopyToNote
+  actions, profileName, userId, profileId, clinicianId, onCopyToNote, onActionComplete
 }: ActionableNextStepsProps) {
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
