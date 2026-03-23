@@ -629,7 +629,7 @@ export default function WeeklyPatientReview() {
       {/* ═══ WHY THIS PLAN ═══ */}
       <WhyThisPlan
         clinicalProfile={clinicalProfile}
-        activeExerciseSlugs={exerciseSlugs}
+        runtimeConfig={runtimeConfig}
         activeOverrides={activeOverrides}
         recentOverrides={recentOverrides}
         onReverseOverride={async (overrideId) => {
