@@ -414,7 +414,14 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
-      {/* ═══ D. RECORDINGS ═══ */}
+      {/* ═══ TOP CLINICAL RECORDINGS ═══ */}
+      <ClinicalRecordingPicks
+        curatedChallenging={audioSamples.challenging}
+        curatedBest={audioSamples.best}
+        allRecordings={recordings}
+      />
+
+      {/* ═══ D. ALL RECORDINGS ═══ */}
       <Card>
         <CardHeader className="pb-2 pt-3">
           <div className="flex items-center justify-between">
