@@ -50,6 +50,7 @@ import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
+import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
 import { toast } from "sonner";
 
