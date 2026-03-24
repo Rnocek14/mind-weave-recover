@@ -169,7 +169,7 @@ export function RecoveryFocusSummary({
         {/* Row 1: Primary challenge */}
         <div className="flex items-start gap-2">
           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-            {isClinician ? 'Primary challenge' : 'Working on'}
+            {getFieldLabel("primary_challenge", role)}
           </span>
           <span className="text-sm font-medium text-foreground">{challenge}</span>
         </div>
