@@ -67,16 +67,18 @@ export function useSessionEndurance(
       if (!events || events.length === 0) { setDataPoints([]); setLoading(false); return; }
 
       // Group by session
-      const bySession = new Map<string, typeof events>();
+      const bySession: Record<string, typeof events> = {};
       for (const ev of events) {
-        if (!bySession.has(ev.session_id)) bySession.set(ev.session_id, []);
-        bySession.get(ev.session_id)!.push(ev);
+        if (!bySession[ev.session_id]) bySession[ev.session_id] = [];
+        bySession[ev.session_id].push(ev);
       }
 
       const points: EnduranceDataPoint[] = [];
-      const sessionDateMap = new Map(sessions.map(s => [s.id, s.started_at]));
+      const sessionDateMap: Record<string, string> = {};
+      for (const s of sessions) { sessionDateMap[s.id] = s.started_at ?? ''; }
 
-      for (const [sessionId, trials] of bySession) {
+      for (const sessionId of Object.keys(bySession)) {
+        const trials = bySession[sessionId];
         if (trials.length < 6) continue; // need enough trials to split meaningfully
 
         const mid = Math.floor(trials.length / 2);

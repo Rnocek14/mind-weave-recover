@@ -129,8 +129,8 @@ export function useWordMastery(
       for (const row of data) {
         const word = row.target_word!.toLowerCase().trim();
         if (!word) continue;
-        if (!wordMap.has(word)) wordMap.set(word, []);
-        wordMap.get(word)!.push({
+        if (!wordMap[word]) wordMap[word] = [];
+        wordMap[word].push({
           target_word: word,
           is_correct: row.is_correct ?? false,
           cue_level: null, // will try to merge from exercise_events
