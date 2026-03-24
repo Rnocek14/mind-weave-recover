@@ -23,6 +23,10 @@ export interface ExerciseDomainEntry {
   outcomeMetrics: string[];
   /** Expected functional gain when this exercise is working */
   expectedGain: string;
+  /** High-level focus areas this exercise contributes to */
+  focusAreas: string[];
+  /** What this exercise supports in daily life */
+  functionalMeaning: string;
 }
 
 /**
