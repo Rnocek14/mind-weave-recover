@@ -7,6 +7,7 @@ import { useDailyReadiness } from './useDailyReadiness';
 import { 
   generateDailyLesson, 
   aggregatePerformanceSignals,
+  detectAphasiaType,
   type DailyLesson,
   type PerformanceSignals,
   type LearningRateData,
