@@ -100,7 +100,7 @@ function PhotoNamingExerciseInner() {
   
   // Shared adaptation contract — single source of truth for phonemes, cues, difficulty
   const adaptation = useSessionAdaptation({
-    exerciseSlug: EXERCISE_SLUG,
+    exerciseSlug: 'photo-naming',
     lessonAdaptations,
     lessonFocusPhonemes: location.state?.focusPhonemes as string[] | undefined,
     lessonFocusWords,
