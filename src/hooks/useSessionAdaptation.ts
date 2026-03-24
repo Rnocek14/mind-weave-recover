@@ -59,10 +59,11 @@ interface UseSessionAdaptationOptions {
 }
 
 export function useSessionAdaptation(
-  options: UseSessionAdaptationOptions = {}
+  options: UseSessionAdaptationOptions & { exerciseSlug?: string } = {}
 ): AdaptationContract {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const { getDifficulty, getCueLevel } = useRuntimeConfig();
   
   const {
     lessonAdaptations,
