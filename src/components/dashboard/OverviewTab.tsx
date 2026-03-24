@@ -216,14 +216,8 @@ export const OverviewTab = memo(function OverviewTab() {
       {/* What Changed This Week */}
       <WeeklyDeltasCard />
 
-      {/* Domain Confidence Summary */}
-      <DomainConfidenceSummary />
-
-      {/* Cognitive Recovery Map — compact summary */}
-      <CognitiveStateCard
-        domains={snapshot?.domains || []}
-        isLoading={cogLoading}
-      />
+      {/* Domain Confidence Summary — clinician+ only */}
+      {isClinician && <DomainConfidenceSummary />}
 
       {/* Insights CTA */}
       {!isClinician && <InsightsCTACard />}
