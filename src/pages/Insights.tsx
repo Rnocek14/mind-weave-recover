@@ -38,15 +38,8 @@ import {
   AlertsSection 
 } from "@/components/insights";
 
-// Clinical tab components
-import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
-import { BrainMap } from "@/components/BrainMap";
-import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
-
-// Deep dive components (for clinician+)
-import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
-import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
-import { CueTelemetryHealth } from "@/components/CueTelemetryHealth";
+// Clinical tab components (removed - now only in Weekly Review)
+// Deep dive components removed from Insights - clinician data belongs in Weekly Review
 
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
