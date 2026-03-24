@@ -95,7 +95,7 @@ export default function Insights() {
 
   // Sync URL tab param with state — redirect progress to Recovery Progress page
   useEffect(() => {
-    if (targetTab === 'progress' || legacySection === 'progress') {
+    if ((targetTab as string) === 'progress' || legacySection === 'progress') {
       navigate('/recovery-progress', { replace: true });
       return;
     }
