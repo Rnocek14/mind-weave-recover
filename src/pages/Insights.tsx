@@ -188,9 +188,9 @@ export default function Insights() {
               
               {isAtLeast('clinician') && (
                 <Button variant="outline" size="sm" asChild className="gap-2">
-                  <Link to="/clinician/report">
+                  <Link to="/clinician/review">
                     <FileText className="w-4 h-4" />
-                    <span className="hidden sm:inline">Export Report</span>
+                    <span className="hidden sm:inline">Weekly Review</span>
                   </Link>
                 </Button>
               )}
