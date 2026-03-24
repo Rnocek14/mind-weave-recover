@@ -144,7 +144,34 @@ export const PatientProgressView = memo(function PatientProgressView({
         </div>
       </Card>
 
-      {/* Top skill with plain-language state */}
+      {/* Words Mastered — motivating proof signal */}
+      {!masteryLoading && (mastered > 0 || emerging > 0) && (
+        <Card className="p-5 border-2 border-primary/20 bg-primary/5">
+          <div className="flex items-center gap-3">
+            <BookOpen className="w-6 h-6 text-primary shrink-0" />
+            <div className="flex-1">
+              <div className="text-lg font-semibold text-foreground">
+                {mastered} word{mastered !== 1 ? "s" : ""} mastered
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {emerging > 0 && `${emerging} more getting stronger · `}
+                Words you can say independently
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="mt-2 w-full text-primary hover:text-primary"
+          >
+            <Link to="/recovery-progress">
+              See full recovery progress <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Link>
+          </Button>
+        </Card>
+      )}
+
       {topDomain && (
         <Card className="p-5 border-2">
           <div className="flex items-center gap-3">
