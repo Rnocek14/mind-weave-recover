@@ -11,6 +11,7 @@
  */
 
 import { useAuth } from '@/hooks/useAuth';
+import { RecoveryFocusSummary } from '@/components/RecoveryFocusSummary';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
 import { useWordMastery } from '@/hooks/useWordMastery';

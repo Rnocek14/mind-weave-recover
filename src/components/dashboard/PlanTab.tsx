@@ -207,6 +207,17 @@ export const PlanTab = memo(function PlanTab() {
         </section>
       )}
 
+      {/* Recovery Focus Summary — bridges plan to outcomes */}
+      {!isClinician && clinicalProfile && (
+        <section>
+          <RecoveryFocusSummary
+            clinicalProfile={clinicalProfile}
+            todayFocus={todayFocus}
+            activeExerciseSlugs={lesson?.blocks?.map(b => b.exerciseId) || recommendedExercises?.map(e => e.id) || []}
+          />
+        </section>
+      )}
+
       {/* What's Affected — caregiver-friendly brain map */}
       {!isClinician && clinicalProfile && (
         <section>
