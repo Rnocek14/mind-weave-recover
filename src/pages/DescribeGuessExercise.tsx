@@ -77,34 +77,31 @@ export default function DescribeGuessExercise() {
     normalizeExerciseSlug(EXERCISE_SLUG)
   );
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'lexical_retrieval', fromLesson });
+
   const handleTrialComplete = useCallback((result: DescribeGuessTrialResult) => {
     if (!activeSessionId) return;
     const points = (result.meaningWin ? 40 : 0) + (result.wordWin ? 40 : 0) + (result.strategyWin ? 20 : 0);
     scoreRef.current += points;
     trialsRef.current += 1;
-
+    const isCorrect = result.meaningWin || result.wordWin;
+    pivot.recordTrialResult({ wasCorrect: isCorrect, reactionTimeMs: result.reactionTimeMs });
     logTrial({
-      correct: result.meaningWin || result.wordWin,
+      correct: isCorrect,
       reactionTimeMs: result.reactionTimeMs,
-      errorType: result.meaningWin || result.wordWin ? undefined : 'no_guess',
+      errorType: isCorrect ? undefined : 'no_guess',
       taskParameters: {
-        trial_id: result.trialId,
-        target: result.target,
-        meaning_win: result.meaningWin,
-        word_win: result.wordWin,
-        strategy_win: result.strategyWin,
-        communication_win: result.communicationWin,
-        feature_types_used: result.featureTypesUsed,
-        guess_confidence: result.guessConfidence,
-        prompts_shown: result.promptsShown,
-        time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
-        self_corrected: result.selfCorrected,
-        difficulty: result.difficulty,
-        // Shared adaptation telemetry
-        ...adaptationTelemetry,
+        trial_id: result.trialId, target: result.target,
+        meaning_win: result.meaningWin, word_win: result.wordWin,
+        strategy_win: result.strategyWin, communication_win: result.communicationWin,
+        feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
+        prompts_shown: result.promptsShown, time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
+        self_corrected: result.selfCorrected, difficulty: result.difficulty,
+        pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry]);
+    if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: DescribeGuessTrialResult[]) => {
     setCompleted(true);
