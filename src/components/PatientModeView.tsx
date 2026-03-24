@@ -11,7 +11,6 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
-import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
