@@ -128,6 +128,7 @@ export default function WeeklyPatientReview() {
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
   const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
+  const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
