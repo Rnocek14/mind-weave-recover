@@ -259,6 +259,7 @@ export function WhyThisPlan({
               focusAreas={focusAreas}
               planSummary={planSummary}
               viewMode="clinician"
+              globalAdjustments={globalAdjustments}
             />
           </div>
         </div>
