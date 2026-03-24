@@ -142,17 +142,53 @@ export function isExerciseAccessible(
 }
 
 /**
- * Get all accessible exercises for a given capability profile
+ * Complete list of all known exercise slugs.
+ * This is the canonical "universe" of exercises the lesson engine can select from.
+ * Must stay in sync with exerciseMetadata in dailyLessonEngine.ts and EXERCISE_DOMAIN_MAP.
+ */
+const ALL_EXERCISE_SLUGS: string[] = [
+  'reach-tap',
+  'left-side-hunt',
+  'pattern-match',
+  'photo-naming',
+  'phonological-awareness',
+  'semantic-features',
+  'phrase-practice',
+  'sentence-construction',
+  'minimal-pairs',
+  'two-clues',
+  'fix-sentence',
+  'describe-guess',
+  'conversation-partner',
+  'conversation-coach',
+  'detective-mind',
+  'meaning-match',
+  'narrative-retell',
+  'abstract-compare',
+  'multi-step-plan',
+  'dual-load-naming',
+  'thought-continuation',
+  'thought-organization',
+  'word-finding',
+  'sentence-game',
+];
+
+/**
+ * Get all accessible exercises for a given capability profile.
+ * 
+ * Exercises WITHOUT gating rules are allowed by default.
+ * Only exercises WITH explicit gating rules that FAIL are excluded.
  */
 export function getAccessibleExercises(scores: CapabilityScores | null): string[] {
   if (!scores) {
-    // No assessment yet - return all exercises
-    return EXERCISE_GATING_RULES.map(r => r.exerciseId);
+    // No assessment yet - return ALL exercises (not just gated ones)
+    return [...ALL_EXERCISE_SLUGS];
   }
 
-  return EXERCISE_GATING_RULES
-    .filter(rule => isExerciseAccessible(rule.exerciseId, scores).accessible)
-    .map(rule => rule.exerciseId);
+  // Return all exercises, filtering out only those with gating rules that fail
+  return ALL_EXERCISE_SLUGS.filter(slug => 
+    isExerciseAccessible(slug, scores).accessible
+  );
 }
 
 /**
