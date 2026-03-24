@@ -228,7 +228,19 @@ export const PlanTab = memo(function PlanTab() {
         </section>
       )}
 
-      {/* What's Affected — caregiver-friendly brain map */}
+      {/* Strengths & Focus Areas — what's strong, what needs work */}
+      {!isClinician && (strengths.length > 0 || focusAreas.length > 0) && (
+        <section>
+          <StrengthsAndFocusAreasMap
+            strengths={strengths}
+            focusAreas={focusAreas}
+            planSummary={planSummary}
+            viewMode={uiMode === "caregiver" ? "caregiver" : "patient"}
+          />
+        </section>
+      )}
+
+
       {!isClinician && clinicalProfile && (
         <section>
           <WhatsAffectedCard
