@@ -570,35 +570,19 @@ export function generateDailyLesson(
     reasoning.push('Using light session length due to low engagement signals');
   }
 
-  // Exercise metadata with baseComponent to prevent back-to-back similar games
-  const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number; baseComponent?: string }> = {
-    'reach-tap': { domains: ['motor_control', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
-    'left-side-hunt': { domains: ['visual_processing', 'attention'], baseMinutes: 2, baseComponent: 'reach-tap-game' },
-    'pattern-match': { domains: ['attention', 'visual_processing'], baseMinutes: 2, baseComponent: 'pattern-match-game' },
-    'photo-naming': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'photo-naming-game' },
-    'phonological': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
-    'phonological-awareness': { domains: ['phonology', 'expressive_language'], baseMinutes: 3, baseComponent: 'phonological-game' },
-    'semantic-features': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'semantic-game' },
-    'phrase-practice': { domains: ['expressive_language', 'phonology'], baseMinutes: 4, baseComponent: 'phrase-game' },
-    'sentence-construction': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
-    'minimal-pairs': { domains: ['phonology', 'receptive_language'], baseMinutes: 3, baseComponent: 'minimal-pairs-game' },
-    'two-clues': { domains: ['semantic_systems', 'expressive_language'], baseMinutes: 3, baseComponent: 'two-clues-game' },
-    'fix-sentence': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'fix-sentence-game' },
-    'describe-guess': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'describe-guess-game' },
-    'conversation-partner': { domains: ['expressive_language'], baseMinutes: 3, baseComponent: 'conversation-game' },
-    'conversation-coach': { domains: ['expressive_language'], baseMinutes: 4, baseComponent: 'conversation-game' },
-    'detective-mind': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'comprehension-game' },
-    'meaning-match': { domains: ['receptive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'comprehension-game' },
-    // Depth tasks — previously only reachable via presets, now in organic selection pool
-    'narrative-retell': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 4, baseComponent: 'discourse-game' },
-    'abstract-compare': { domains: ['semantic_systems', 'receptive_language'], baseMinutes: 3, baseComponent: 'abstraction-game' },
-    'multi-step-plan': { domains: ['attention', 'semantic_systems'], baseMinutes: 3, baseComponent: 'planning-game' },
-    'dual-load-naming': { domains: ['expressive_language', 'attention'], baseMinutes: 3, baseComponent: 'dual-load-game' },
-    'thought-continuation': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'thought-game' },
-    'thought-organization': { domains: ['expressive_language', 'attention'], baseMinutes: 3, baseComponent: 'thought-game' },
-    'word-finding': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'word-finding-game' },
-    'sentence-game': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
-  };
+  // Exercise metadata derived from canonical registry — single source of truth
+  const exerciseMetadata: Record<string, { domains: string[]; baseMinutes: number; baseComponent?: string }> = {};
+  for (const ex of CANONICAL_EXERCISES) {
+    exerciseMetadata[ex.slug] = {
+      domains: ex.engineDomains,
+      baseMinutes: ex.baseMinutes,
+      baseComponent: ex.baseComponent,
+    };
+  }
+  // Legacy alias for backward compatibility
+  if (!exerciseMetadata['phonological'] && exerciseMetadata['phonological-awareness']) {
+    exerciseMetadata['phonological'] = exerciseMetadata['phonological-awareness'];
+  }
 
   // Score each accessible exercise
   // Map primaryDomains from adaptive engine to exercise domain names (once)
