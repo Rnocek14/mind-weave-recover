@@ -3,10 +3,13 @@
  * 
  * Determines which exercises are accessible based on capability scores
  * and automatically injects appropriate adaptations.
+ * 
+ * Exercise universe is derived from the canonical registry.
  */
 
 import type { CapabilityScores } from './capabilityAssessor';
 import type { ExerciseConfig } from './clinicalProfileMapper';
+import { CANONICAL_EXERCISES, ALL_EXERCISE_SLUGS } from '@/data/canonicalExerciseRegistry';
 
 export interface ExerciseGatingRule {
   exerciseId: string;
@@ -22,7 +25,6 @@ export interface ExerciseGatingRule {
 export interface ExerciseAdaptation {
   exerciseId: string;
   adaptations: ExerciseConfig & {
-    // Additional adaptation flags
     useAudioCues?: boolean;
     eliminateText?: boolean;
     simplifiedUI?: boolean;
@@ -37,60 +39,17 @@ export interface ExerciseAdaptation {
 }
 
 /**
- * Exercise gating rules - concrete requirements per exercise
+ * Exercise gating rules — derived from canonical registry.
+ * Only exercises with gatingRequirements defined are included.
  */
-export const EXERCISE_GATING_RULES: ExerciseGatingRule[] = [
-  // === MOTOR EXERCISES ===
-  {
-    exerciseId: 'reach-tap',
-    minRequirements: { vision: 3, motor: 2, attention: 2 },
-    reason: 'Requires basic visual orientation and ability to tap targets',
-  },
-  {
-    exerciseId: 'left-side-hunt',
-    minRequirements: { vision: 5, motor: 4, attention: 5 },
-    reason: 'Requires sustained attention and spatial awareness',
-    alternativeSuggestion: 'reach-tap',
-  },
-  {
-    exerciseId: 'pattern-match',
-    minRequirements: { vision: 5, motor: 3, attention: 5 },
-    reason: 'Requires visual memory and pattern recognition',
-    alternativeSuggestion: 'reach-tap',
-  },
-
-  // === SPEECH/LANGUAGE EXERCISES ===
-  {
-    exerciseId: 'photo-naming',
-    minRequirements: { vision: 5, motor: 3, attention: 4 },
-    reason: 'Requires visual object recognition and sustained attention',
-    alternativeSuggestion: 'reach-tap',
-  },
-  {
-    exerciseId: 'word-practice',
-    minRequirements: { vision: 6, motor: 3, attention: 5 },
-    reason: 'Requires reading comprehension and attention to phrases',
-    alternativeSuggestion: 'photo-naming',
-  },
-  {
-    exerciseId: 'phonological-awareness',
-    minRequirements: { vision: 6, motor: 3, attention: 6 },
-    reason: 'Requires auditory processing and phonological manipulation',
-    alternativeSuggestion: 'photo-naming',
-  },
-  {
-    exerciseId: 'semantic-features',
-    minRequirements: { vision: 6, motor: 3, attention: 6 },
-    reason: 'Requires semantic knowledge and sustained cognitive effort',
-    alternativeSuggestion: 'photo-naming',
-  },
-  {
-    exerciseId: 'sentence-construction',
-    minRequirements: { vision: 7, motor: 4, attention: 7 },
-    reason: 'Requires complex language processing and working memory',
-    alternativeSuggestion: 'word-practice',
-  },
-];
+export const EXERCISE_GATING_RULES: ExerciseGatingRule[] = CANONICAL_EXERCISES
+  .filter(e => e.gatingRequirements)
+  .map(e => ({
+    exerciseId: e.slug,
+    minRequirements: e.gatingRequirements!,
+    reason: e.gatingReason || 'Requires minimum capability scores',
+    alternativeSuggestion: e.gatingAlternative,
+  }));
 
 /**
  * Check if an exercise is accessible based on capability scores
@@ -99,21 +58,18 @@ export function isExerciseAccessible(
   exerciseId: string,
   scores: CapabilityScores | null
 ): { accessible: boolean; reason?: string; alternative?: string } {
-  // If no capability assessment yet, allow all exercises (fallback to clinical gating)
   if (!scores) {
     return { accessible: true };
   }
 
   const rule = EXERCISE_GATING_RULES.find(r => r.exerciseId === exerciseId);
   
-  // If no gating rule exists, allow by default
   if (!rule) {
     return { accessible: true };
   }
 
   const { minRequirements } = rule;
   
-  // Check each requirement
   if (minRequirements.vision && scores.vision < minRequirements.vision) {
     return {
       accessible: false,
@@ -142,50 +98,14 @@ export function isExerciseAccessible(
 }
 
 /**
- * Complete list of all known exercise slugs.
- * This is the canonical "universe" of exercises the lesson engine can select from.
- * Must stay in sync with exerciseMetadata in dailyLessonEngine.ts and EXERCISE_DOMAIN_MAP.
- */
-const ALL_EXERCISE_SLUGS: string[] = [
-  'reach-tap',
-  'left-side-hunt',
-  'pattern-match',
-  'photo-naming',
-  'phonological-awareness',
-  'semantic-features',
-  'phrase-practice',
-  'sentence-construction',
-  'minimal-pairs',
-  'two-clues',
-  'fix-sentence',
-  'describe-guess',
-  'conversation-partner',
-  'conversation-coach',
-  'detective-mind',
-  'meaning-match',
-  'narrative-retell',
-  'abstract-compare',
-  'multi-step-plan',
-  'dual-load-naming',
-  'thought-continuation',
-  'thought-organization',
-  'word-finding',
-  'sentence-game',
-];
-
-/**
  * Get all accessible exercises for a given capability profile.
- * 
- * Exercises WITHOUT gating rules are allowed by default.
- * Only exercises WITH explicit gating rules that FAIL are excluded.
+ * Uses canonical registry as universe — no exercises can be accidentally omitted.
  */
 export function getAccessibleExercises(scores: CapabilityScores | null): string[] {
   if (!scores) {
-    // No assessment yet - return ALL exercises (not just gated ones)
     return [...ALL_EXERCISE_SLUGS];
   }
 
-  // Return all exercises, filtering out only those with gating rules that fail
   return ALL_EXERCISE_SLUGS.filter(slug => 
     isExerciseAccessible(slug, scores).accessible
   );
@@ -202,7 +122,6 @@ export function getExerciseAdaptations(
 
   const baseAdaptations = getBaseAdaptations(scores);
   
-  // Exercise-specific adaptation logic
   switch (exerciseId) {
     case 'reach-tap':
       return {
@@ -235,21 +154,6 @@ export function getExerciseAdaptations(
         reason: 'Adapted for visual processing and attention capacity',
       };
 
-    case 'word-practice':
-      return {
-        exerciseId,
-        adaptations: {
-          ...baseAdaptations,
-          timeout: scores.motor < 5 || scores.attention < 6 ? 20000 : 15000,
-          textInstructions: scores.vision >= 7 && scores.attention >= 6,
-          visualCues: scores.vision < 7,
-          cueLevel: scores.attention < 6 ? 3 : 2,
-          sessionLength: scores.attention < 6 ? 'short' : 'medium',
-          breakFrequency: scores.attention < 6 ? 'high' : 'medium',
-        },
-        reason: 'Adapted for language processing capacity',
-      };
-
     case 'phonological-awareness':
       return {
         exerciseId,
@@ -276,7 +180,7 @@ export function getExerciseAdaptations(
           textInstructions: scores.vision >= 7,
           visualCues: scores.vision < 7,
           sessionLength: scores.attention < 7 ? 'short' : 'medium',
-          breakFrequency: 'high', // Always high for semantic tasks
+          breakFrequency: 'high',
         },
         reason: 'Adapted for semantic processing complexity',
       };
@@ -286,13 +190,13 @@ export function getExerciseAdaptations(
         exerciseId,
         adaptations: {
           ...baseAdaptations,
-          startDifficulty: 1, // Always start easy for sentence construction
+          startDifficulty: 1,
           cueLevel: scores.attention < 8 ? 3 : 2,
-          timeout: 20000, // Always extended for complex construction
+          timeout: 20000,
           textInstructions: scores.vision >= 7,
-          visualCues: true, // Always provide visual support
-          sessionLength: 'short', // Always short for high cognitive load
-          breakFrequency: 'high', // Frequent breaks needed
+          visualCues: true,
+          sessionLength: 'short',
+          breakFrequency: 'high',
         },
         reason: 'Adapted for complex language construction demands',
       };
@@ -364,33 +268,15 @@ export function getAdaptationSummary(adaptations: ExerciseAdaptation): string[] 
   const summary: string[] = [];
   const { adaptations: config } = adaptations;
 
-  if (config.largeTargets) {
-    summary.push('Larger targets for easier selection');
-  }
-  if (config.extendedTimeouts) {
-    summary.push('Extended time limits');
-  }
-  if (config.simplifiedUI) {
-    summary.push('Simplified interface');
-  }
-  if (config.eliminateText) {
-    summary.push('Visual-only instructions (no reading required)');
-  }
-  if (config.useAudioCues) {
-    summary.push('Audio guidance enabled');
-  }
-  if (config.highContrast) {
-    summary.push('High contrast display');
-  }
-  if (config.errorlessMode) {
-    summary.push('Errorless learning mode (maximum support)');
-  }
-  if (config.breakFrequency === 'high') {
-    summary.push('Frequent rest breaks');
-  }
-  if (config.sessionLength === 'short') {
-    summary.push('Shortened session duration');
-  }
+  if (config.largeTargets) summary.push('Larger targets for easier selection');
+  if (config.extendedTimeouts) summary.push('Extended time limits');
+  if (config.simplifiedUI) summary.push('Simplified interface');
+  if (config.eliminateText) summary.push('Visual-only instructions (no reading required)');
+  if (config.useAudioCues) summary.push('Audio guidance enabled');
+  if (config.highContrast) summary.push('High contrast display');
+  if (config.errorlessMode) summary.push('Errorless learning mode (maximum support)');
+  if (config.breakFrequency === 'high') summary.push('Frequent rest breaks');
+  if (config.sessionLength === 'short') summary.push('Shortened session duration');
 
   return summary;
 }
