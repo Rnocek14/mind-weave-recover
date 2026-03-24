@@ -171,15 +171,15 @@ export default function OutcomesValidation() {
         <div className="flex items-center gap-4 mb-4">
           <div className="bg-muted/50 rounded p-3 text-center">
             <div className="text-xs text-muted-foreground">Mastered</div>
-            <div className="text-2xl font-bold text-green-600 font-mono">{wordMastery.mastered}</div>
+            <div className="text-2xl font-bold text-primary font-mono">{wordMastery.mastered}</div>
           </div>
           <div className="bg-muted/50 rounded p-3 text-center">
             <div className="text-xs text-muted-foreground">Emerging</div>
-            <div className="text-2xl font-bold text-amber-600 font-mono">{wordMastery.emerging}</div>
+            <div className="text-2xl font-bold text-accent-foreground font-mono">{wordMastery.emerging}</div>
           </div>
           <div className="bg-muted/50 rounded p-3 text-center">
             <div className="text-xs text-muted-foreground">Struggling</div>
-            <div className="text-2xl font-bold text-red-600 font-mono">{wordMastery.struggling}</div>
+            <div className="text-2xl font-bold text-destructive font-mono">{wordMastery.struggling}</div>
           </div>
           <ConfidenceBadge trials={wordMastery.words.reduce((s, w) => s + w.attempts, 0)} />
         </div>
