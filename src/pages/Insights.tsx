@@ -8,7 +8,6 @@
  * - What Helps (strategies)
  * - How It's Adapting (adaptations)
  * - Alerts (anything concerning?)
- * - Clinical (clinician+ only)
  */
 
 import { useState, useEffect } from "react";
