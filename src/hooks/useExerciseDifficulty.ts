@@ -23,6 +23,7 @@ export const useExerciseDifficulty = (
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
   const { capabilityScores } = useExerciseGating(userId, profileId);
+  const { getDifficulty } = useRuntimeConfig();
 
   // Calculate capability-based bounds
   const bounds = useMemo(
