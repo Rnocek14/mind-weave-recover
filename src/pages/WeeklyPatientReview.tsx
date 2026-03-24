@@ -47,6 +47,7 @@ import { LongitudinalUtteranceComparison } from "@/components/clinician/Longitud
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
 import { RuntimeConfigInspector } from "@/components/clinician/RuntimeConfigInspector";
+import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
