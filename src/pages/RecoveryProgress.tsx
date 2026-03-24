@@ -304,6 +304,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Performing without cueing support' : 'Needing less help over time'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Reduced cue dependence is a stronger recovery signal than accuracy alone'
+                  : 'Shows whether you need less help over time — a key sign of progress'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
               <ScoreDisplay value={cueScore} label={isClinician ? 'Independence Score' : 'Independence'} />
