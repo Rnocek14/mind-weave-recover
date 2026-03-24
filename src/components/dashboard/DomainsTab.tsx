@@ -99,6 +99,8 @@ function DomainDetailRow({ domain }: { domain: DomainScore }) {
 export const DomainsTab = memo(function DomainsTab() {
   const { userId } = useDashboardContext();
   const { activeProfile } = useProfile();
+  const { uiMode, isAtLeast } = useUiMode();
+  const isClinician = isAtLeast('clinician');
   const { snapshot, isLoading } = useCognitiveState({
     userId,
     profileId: activeProfile?.id,
