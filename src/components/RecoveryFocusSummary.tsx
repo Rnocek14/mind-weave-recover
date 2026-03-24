@@ -162,7 +162,7 @@ export function RecoveryFocusSummary({
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Compass className="w-4 h-4 text-primary" />
-          {isClinician ? 'Recovery Focus Summary' : 'Your Recovery Focus'}
+          {getFieldLabel("card_title", role)}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
