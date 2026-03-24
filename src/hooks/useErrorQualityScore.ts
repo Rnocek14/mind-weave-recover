@@ -75,16 +75,17 @@ export function useErrorQualityScore(
       if (!data || data.length === 0) { setDataPoints([]); setLoading(false); return; }
 
       // Group by date
-      const byDate = new Map<string, typeof data>();
+      const byDate: Record<string, typeof data> = {};
       for (const row of data) {
         const date = row.created_at.slice(0, 10);
-        if (!byDate.has(date)) byDate.set(date, []);
-        byDate.get(date)!.push(row);
+        if (!byDate[date]) byDate[date] = [];
+        byDate[date].push(row);
       }
 
       // Compute per-date quality score
       const points: ErrorQualityDataPoint[] = [];
-      for (const [date, rows] of byDate) {
+      for (const date of Object.keys(byDate)) {
+        const rows = byDate[date];
         if (rows.length < 3) continue; // need minimum trials
 
         let totalPoints = 0;
