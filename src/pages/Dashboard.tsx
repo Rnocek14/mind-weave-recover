@@ -93,6 +93,13 @@ const Dashboard = () => {
     enabled: isMobile,
   });
 
+  // Auto-redirect clinicians to Weekly Review
+  useEffect(() => {
+    if (!authLoading && user && (uiMode === 'clinician' || uiMode === 'admin')) {
+      navigate("/clinician/review", { replace: true });
+    }
+  }, [uiMode, authLoading, user, navigate]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");

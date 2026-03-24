@@ -8,17 +8,14 @@
  * - What Helps (strategies)
  * - How It's Adapting (adaptations)
  * - Alerts (anything concerning?)
- * - Clinical (clinician+ only)
  */
 
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Brain, Stethoscope, 
   Loader2, AlertCircle, FileText,
   LayoutGrid, TrendingUp, Target, Lightbulb, Settings2, AlertTriangle
 } from "lucide-react";
@@ -38,15 +35,8 @@ import {
   AlertsSection 
 } from "@/components/insights";
 
-// Clinical tab components
-import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
-import { BrainMap } from "@/components/BrainMap";
-import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
-
-// Deep dive components (for clinician+)
-import { ErrorPatternDashboard } from "@/components/ErrorPatternDashboard";
-import { CrossDomainInsightsDashboard } from "@/components/CrossDomainInsightsDashboard";
-import { CueTelemetryHealth } from "@/components/CueTelemetryHealth";
+// Clinical tab components (removed - now only in Weekly Review)
+// Deep dive components removed from Insights - clinician data belongs in Weekly Review
 
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
@@ -92,7 +82,6 @@ export default function Insights() {
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
 
   // Gate tabs based on view mode
-  const showClinical = isAtLeast('clinician');
   const showAdaptations = isAtLeast('caregiver');
 
   useEffect(() => {
@@ -115,13 +104,10 @@ export default function Insights() {
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
-    if (!showClinical && activeTab === 'clinical') {
-      setActiveTab('overview');
-    }
     if (!showAdaptations && activeTab === 'adaptations') {
       setActiveTab('overview');
     }
-  }, [showClinical, showAdaptations, activeTab]);
+  }, [showAdaptations, activeTab]);
 
   const loadData = async () => {
     if (!user) return;
@@ -223,15 +209,6 @@ export default function Insights() {
                   )}
                 </TabsTrigger>
               ))}
-              {showClinical && (
-                <TabsTrigger 
-                  value="clinical" 
-                  className="gap-1.5 text-xs md:text-sm flex-1 min-w-fit px-2 md:px-3"
-                >
-                  <Stethoscope className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>Clinical</span>
-                </TabsTrigger>
-              )}
             </TabsList>
           </div>
 
@@ -263,71 +240,10 @@ export default function Insights() {
           )}
 
           {/* Alerts Tab */}
-          <TabsContent value="alerts" className="mt-4 space-y-6">
+          <TabsContent value="alerts" className="mt-4">
             <AlertsSection userId={user!.id} />
-            
-            {/* Detailed Speech Analysis - Available to caregivers+ */}
-            {isAtLeast('caregiver') && (
-              <Card className="p-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Brain className="w-5 h-5" />
-                  Detailed Speech Analysis
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Breakdown of speech patterns, error types, and fluency metrics over time.
-                </p>
-                <ErrorPatternDashboard userId={user!.id} weeksBack={12} />
-              </Card>
-            )}
-
-            {/* Cross-domain insights - Available to caregivers+ */}
-            {isAtLeast('caregiver') && (
-              <CrossDomainInsightsDashboard 
-                userId={user!.id} 
-                profileId={activeProfile?.id}
-              />
-            )}
-
-            {/* Admin diagnostics */}
-            {uiMode === 'admin' && (
-              <CueTelemetryHealth userId={user!.id} daysBack={30} />
-            )}
           </TabsContent>
 
-          {/* Clinical Tab (Clinician+) */}
-          {showClinical && (
-            <TabsContent value="clinical" className="mt-4 space-y-6">
-              {/* Stroke Profile */}
-              {activeProfile && clinicalProfile && (
-                <>
-                  <StrokeProfileSummary profile={clinicalProfile} />
-                  <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={user!.id} />
-                  {(clinicalProfile as any).stroke_mechanism && (
-                    <MechanismSessionPlanner profile={clinicalProfile} />
-                  )}
-                </>
-              )}
-
-              {!clinicalProfile && (
-                <Card className="p-6 text-center border-dashed">
-                  <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <h4 className="font-medium mb-1">Clinical Profile Required</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Set up the clinical profile to unlock stroke-specific insights.
-                  </p>
-                  <Button size="sm" variant="outline" onClick={() => navigate('/dashboard')}>
-                    Go to Dashboard
-                  </Button>
-                </Card>
-              )}
-
-              {/* Cross-domain intelligence */}
-              <CrossDomainInsightsDashboard 
-                userId={user!.id} 
-                profileId={activeProfile?.id}
-              />
-            </TabsContent>
-          )}
         </Tabs>
       </div>
     </div>

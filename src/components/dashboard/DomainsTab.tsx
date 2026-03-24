@@ -8,6 +8,7 @@ import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
+import { useUiMode } from "@/hooks/useUiMode";
 import { COGNITIVE_DOMAINS, type DomainScore } from "@/lib/cognitiveStateEngine";
 
 /** ICF-aligned groupings */
@@ -98,6 +99,8 @@ function DomainDetailRow({ domain }: { domain: DomainScore }) {
 export const DomainsTab = memo(function DomainsTab() {
   const { userId } = useDashboardContext();
   const { activeProfile } = useProfile();
+  const { uiMode, isAtLeast } = useUiMode();
+  const isClinician = isAtLeast('clinician');
   const { snapshot, isLoading } = useCognitiveState({
     userId,
     profileId: activeProfile?.id,
@@ -111,8 +114,8 @@ export const DomainsTab = memo(function DomainsTab() {
       {/* Cognitive Recovery Map — visual overview */}
       <CognitiveStateCard domains={domains} isLoading={isLoading} />
 
-      {/* ICF-Aligned Domain Groups */}
-      {!isLoading &&
+      {/* ICF-Aligned Domain Groups — clinician+ only */}
+      {!isLoading && isClinician &&
         ICF_GROUPS.map((group) => {
           const groupDomains = domains.filter((d) =>
             group.slugs.includes(d.domainSlug)
@@ -140,8 +143,8 @@ export const DomainsTab = memo(function DomainsTab() {
           );
         })}
 
-      {/* Data Sufficiency Summary */}
-      {!isLoading && (
+      {/* Data Sufficiency Summary — clinician+ only */}
+      {!isLoading && isClinician && (
         <Card className="p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />

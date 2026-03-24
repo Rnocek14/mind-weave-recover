@@ -205,29 +205,31 @@ export const PlanTab = memo(function PlanTab() {
         </section>
       )}
 
-      {/* Clinical Profile & Goals */}
-      <section>
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-primary" />
-          Clinical Profile
-        </h3>
-        {clinicalProfile ? (
-          <div className="space-y-6">
-            <StrokeProfileSummary profile={clinicalProfile} />
-            <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={userId} />
-            {(clinicalProfile as any).stroke_mechanism && (
-              <MechanismSessionPlanner profile={clinicalProfile} />
-            )}
-          </div>
-        ) : (
-          <Card className="p-6 text-center">
-            <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">
-              No clinical profile set. Tap "Set Profile" in the header to personalize.
-            </p>
-          </Card>
-        )}
-      </section>
+      {/* Clinical Profile — clinician+ only (canonical home is Weekly Review) */}
+      {isClinician && (
+        <section>
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-primary" />
+            Clinical Profile
+          </h3>
+          {clinicalProfile ? (
+            <div className="space-y-6">
+              <StrokeProfileSummary profile={clinicalProfile} />
+              <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={userId} />
+              {(clinicalProfile as any).stroke_mechanism && (
+                <MechanismSessionPlanner profile={clinicalProfile} />
+              )}
+            </div>
+          ) : (
+            <Card className="p-6 text-center">
+              <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">
+                No clinical profile set. Tap "Set Profile" in the header to personalize.
+              </p>
+            </Card>
+          )}
+        </section>
+      )}
 
       {/* Goals & Sessions */}
       <section>

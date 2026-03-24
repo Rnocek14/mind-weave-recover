@@ -7,10 +7,8 @@ import {
   Play, Brain, Gamepad2, Crosshair, Stethoscope, Battery,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
 import { WeeklyDeltasCard } from "@/components/dashboard/WeeklyDeltasCard";
 import { DomainConfidenceSummary } from "@/components/dashboard/DomainConfidenceSummary";
-import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { CaregiverTodayCard } from "@/components/CaregiverTodayCard";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
@@ -51,12 +49,6 @@ export const OverviewTab = memo(function OverviewTab() {
   } = useDailyReadiness(profileId);
   const [showReadinessDialog, setShowReadinessDialog] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
-
-  // Cognitive map
-  const { snapshot, isLoading: cogLoading } = useCognitiveState({
-    userId,
-    profileId,
-  });
 
   // Targeted practice from navigation state
   const targetedPractice = location.state?.targetedPractice as {
@@ -225,14 +217,8 @@ export const OverviewTab = memo(function OverviewTab() {
       {/* What Changed This Week */}
       <WeeklyDeltasCard />
 
-      {/* Domain Confidence Summary */}
-      <DomainConfidenceSummary />
-
-      {/* Cognitive Recovery Map — compact summary */}
-      <CognitiveStateCard
-        domains={snapshot?.domains || []}
-        isLoading={cogLoading}
-      />
+      {/* Domain Confidence Summary — clinician+ only */}
+      {isClinician && <DomainConfidenceSummary />}
 
       {/* Insights CTA */}
       {!isClinician && <InsightsCTACard />}

@@ -11,7 +11,6 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
-import { UiModeToggle } from "@/components/UiModeToggle";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
@@ -151,9 +150,6 @@ export function PatientModeView({
   if (viewState === "loading") {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
             <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
@@ -172,9 +168,6 @@ export function PatientModeView({
   if (viewState === "needs-assessment") {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-6 md:p-12 space-y-6 text-center shadow-2xl border-2">
             <AlertCircle className="w-14 h-14 md:w-20 md:h-20 text-amber-500 mx-auto" />
@@ -215,9 +208,6 @@ export function PatientModeView({
   if (viewState === "generating-lesson") {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
             <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
@@ -248,9 +238,6 @@ export function PatientModeView({
   if (lessonError) {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2 border-destructive/20">
             <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-destructive mx-auto" />
@@ -281,9 +268,6 @@ export function PatientModeView({
   // ── Main 3-tab patient view ──
   return (
     <div ref={scrollRef} className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
-      <div className="flex justify-end p-2 shrink-0">
-        <UiModeToggle />
-      </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4">
