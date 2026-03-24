@@ -47,6 +47,7 @@ export const OverviewTab = memo(function OverviewTab() {
     isSaving: readinessSaving,
     upsertReadiness,
   } = useDailyReadiness(profileId);
+  const [showReadinessDialog, setShowReadinessDialog] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
 
   // Targeted practice from navigation state
