@@ -178,7 +178,7 @@ export function RecoveryFocusSummary({
         {exerciseNames.length > 0 && (
           <div className="flex items-start gap-2">
             <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-              {isClinician ? 'Current focus' : 'Exercises'}
+              {getFieldLabel("current_focus", role)}
             </span>
             <div className="flex flex-wrap gap-1">
               {exerciseNames.map(name => (
