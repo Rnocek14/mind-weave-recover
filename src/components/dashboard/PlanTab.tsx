@@ -60,7 +60,7 @@ export const PlanTab = memo(function PlanTab() {
   
   const activeExerciseSlugs = lesson?.blocks?.map((b: any) => b.exerciseId) || recommendedExercises?.map((e: any) => e.id) || [];
   
-  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+  const { strengths, focusAreas, planSummary, globalAdjustments } = useStrengthsAndFocusAreas({
     clinicalProfile: clinicalProfile || null,
     runtimeConfig: (activeProfile as any)?.runtime_config || null,
     activeExerciseSlugs,
