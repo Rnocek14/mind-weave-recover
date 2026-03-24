@@ -558,10 +558,11 @@ export function computeTodayFocus(input: AdaptiveEngineInput): TodayFocus {
     },
   };
   
-  // Low confidence = defaults only, no rules
+  // Low confidence: still allow clinical-ground-truth rules (minConfidence: 'LOW')
+  // but skip performance-dependent rules that need data to be meaningful
   if (confidence === 'LOW') {
-    focus.reasoning.push('Insufficient data for adaptive recommendations - using defaults');
-    return focus;
+    focus.reasoning.push('Limited performance data — using clinical profile for initial personalization');
+    // Don't return early — let rules with minConfidence: 'LOW' still fire
   }
   
   // Apply Phase A + Phase B rules that meet confidence threshold
