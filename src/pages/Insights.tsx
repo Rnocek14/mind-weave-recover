@@ -93,12 +93,16 @@ export default function Insights() {
     }
   }, [user, authLoading, navigate, activeProfile?.id]);
 
-  // Sync URL tab param with state
+  // Sync URL tab param with state — redirect progress to Recovery Progress page
   useEffect(() => {
+    if (targetTab === 'progress' || legacySection === 'progress') {
+      navigate('/recovery-progress', { replace: true });
+      return;
+    }
     if (targetTab && targetTab !== activeTab) {
       setActiveTab(targetTab);
     }
-  }, [targetTab]);
+  }, [targetTab, legacySection, navigate]);
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
