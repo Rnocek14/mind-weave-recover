@@ -150,6 +150,7 @@ export function RecoveryFocusSummary({
   masteredCount,
   isClinician = false,
 }: RecoveryFocusSummaryProps) {
+  const role: UiRole = isClinician ? "clinician" : "patient";
   const challenge = useMemo(() => derivePrimaryChallenge(clinicalProfile), [clinicalProfile]);
   const exerciseNames = useMemo(() => getExerciseNames(activeExerciseSlugs).slice(0, 4), [activeExerciseSlugs]);
   const adaptationReason = useMemo(() => deriveAdaptationReason(todayFocus), [todayFocus]);
