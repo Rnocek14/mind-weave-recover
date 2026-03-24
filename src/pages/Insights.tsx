@@ -85,7 +85,6 @@ export default function Insights() {
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
 
   // Gate tabs based on view mode
-  const showClinical = isAtLeast('clinician');
   const showAdaptations = isAtLeast('caregiver');
 
   useEffect(() => {
