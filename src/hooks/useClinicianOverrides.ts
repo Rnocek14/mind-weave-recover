@@ -54,6 +54,10 @@ export function useClinicianOverrides(profileId: string | undefined) {
           clinicianId: d.clinician_id,
           createdAt: d.created_at,
           reversedAt: d.reversed_at,
+          suggestedBy: d.suggested_by || null,
+          suggestedAt: d.suggested_at || null,
+          approvedBy: d.approved_by || null,
+          approvedAt: d.approved_at || null,
         }))
       );
     } catch (err) {
