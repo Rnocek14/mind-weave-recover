@@ -36,6 +36,7 @@ import ClinicianPanel from "./pages/ClinicianPanel";
 import WeeklyPatientReview from "./pages/WeeklyPatientReview";
 import OutcomesValidation from "./pages/OutcomesValidation";
 import RecoveryProgress from "./pages/RecoveryProgress";
+import AdminEngineSimulation from "./pages/AdminEngineSimulation";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
@@ -139,6 +140,7 @@ const App = () => (
                   <Route path="/admin/research-export" element={<AppLayout><ResearchExport /></AppLayout>} />
                   <Route path="/analytics/cluster" element={<AppLayout><ClusterAnalytics /></AppLayout>} />
                   <Route path="/admin/outcomes-validation" element={<AppLayout><OutcomesValidation /></AppLayout>} />
+                  <Route path="/admin/engine-simulation" element={<AppLayout><AdminEngineSimulation /></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   
                   {/* Redirect old routes to canonical routes */}
