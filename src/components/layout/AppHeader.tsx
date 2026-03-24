@@ -35,21 +35,33 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const navItems = [
-{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-{ href: "/insights", label: "Insights", icon: TrendingUp },
-{ href: "/history", label: "History", icon: Clock }];
+const patientNavItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/insights", label: "Insights", icon: TrendingUp },
+  { href: "/history", label: "History", icon: Clock },
+];
+
+const clinicianNavItems = [
+  { href: "/clinician/caseload", label: "Caseload", icon: Stethoscope },
+  { href: "/clinician/review", label: "Review", icon: FileText },
+  { href: "/insights", label: "Insights", icon: TrendingUp },
+  { href: "/history", label: "History", icon: Clock },
+];
 
 
 export function AppHeader() {
   const location = useLocation();
   const { user } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
-  const { isAtLeast } = useUiMode();
+  const { isAtLeast, uiMode } = useUiMode();
   const { helpMode, toggleHelpMode } = useHelpMode();
 
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
+
+  const isClinicianMode = uiMode === 'clinician' || uiMode === 'admin';
+  const navItems = isClinicianMode ? clinicianNavItems : patientNavItems;
+  const homeHref = isClinicianMode ? "/clinician/caseload" : "/dashboard";
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -62,7 +74,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Logo/Brand */}
-        <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
+        <Link to={homeHref} className="flex items-center gap-2 font-semibold">
           <Brain className="h-5 w-5 text-primary" />
           <span className="hidden sm:inline">NeuroSpark</span>
         </Link>
