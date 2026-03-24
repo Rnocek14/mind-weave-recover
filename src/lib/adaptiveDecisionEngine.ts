@@ -522,6 +522,117 @@ const PHASE_B_RULES: DecisionRule[] = [
     },
     adaptationDescription: 'Add underexposed domains to session plan for balanced coverage',
   },
+  // --- Plateau Detection Rules ---
+  {
+    id: 'accuracy_plateau',
+    description: 'Accuracy has plateaued despite sufficient practice volume',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const scores = input.cognitiveDomainScores?.filter(
+        d => d.confidence !== 'low' && d.trialCount >= 30
+      );
+      if (!scores || scores.length === 0) return false;
+      // Check if any domain has near-zero accuracy slope with decent trial count
+      // A plateau means the slope is flat (|slope| < 0.005) despite volume
+      return scores.some(d => {
+        const components = d.scoreComponents as any;
+        const slope = components?.accuracySlope ?? components?.accuracy_slope;
+        return typeof slope === 'number' && Math.abs(slope) < 0.005 && d.score < 0.7;
+      });
+    },
+    conditionDescription: (input) => {
+      const plateaued = input.cognitiveDomainScores
+        ?.filter(d => {
+          if (d.confidence === 'low' || d.trialCount < 30) return false;
+          const components = d.scoreComponents as any;
+          const slope = components?.accuracySlope ?? components?.accuracy_slope;
+          return typeof slope === 'number' && Math.abs(slope) < 0.005 && d.score < 0.7;
+        })
+        ?.map(d => `${d.domainSlug} (${Math.round(d.score * 100)}%, slope≈0, ${d.trialCount} trials)`) || [];
+      return `Plateaued domains: ${plateaued.join(', ') || 'none'}`;
+    },
+    apply: (focus, input) => {
+      const plateaued = input.cognitiveDomainScores
+        ?.filter(d => {
+          if (d.confidence === 'low' || d.trialCount < 30) return false;
+          const components = d.scoreComponents as any;
+          const slope = components?.accuracySlope ?? components?.accuracy_slope;
+          return typeof slope === 'number' && Math.abs(slope) < 0.005 && d.score < 0.7;
+        }) || [];
+      
+      if (plateaued.length > 0) {
+        // Strategy: rotate to related domains, vary task type, adjust difficulty
+        const slugs = plateaued.map(d => d.domainSlug);
+        
+        // If plateaued in a domain, add adjacent domains to create cross-training
+        for (const slug of slugs) {
+          if (slug === 'lexical_retrieval' && !focus.primaryDomains.includes('semantic_depth')) {
+            focus.primaryDomains.push('semantic_depth');
+          }
+          if (slug === 'semantic_depth' && !focus.primaryDomains.includes('discourse')) {
+            focus.primaryDomains.push('discourse');
+          }
+          if (slug === 'phonology' && !focus.primaryDomains.includes('lexical_retrieval')) {
+            focus.primaryDomains.push('lexical_retrieval');
+          }
+        }
+        
+        // Suggest difficulty shift to break plateau
+        if (!focus.adaptations.startDifficulty || focus.adaptations.startDifficulty <= 1) {
+          focus.adaptations.startDifficulty = 2; // Push up to challenge plateau
+        }
+        
+        focus.reasoning.push(
+          `Plateau detected in ${slugs.join(', ')}: adding cross-domain exercises and adjusting difficulty to break through`
+        );
+      }
+    },
+    adaptationDescription: 'Cross-domain rotation and difficulty shift to break accuracy plateau',
+  },
+  {
+    id: 'rt_plateau',
+    description: 'Reaction time improvement has stalled',
+    minConfidence: 'MEDIUM',
+    phase: 'B',
+    condition: (input) => {
+      const scores = input.cognitiveDomainScores?.filter(
+        d => d.confidence !== 'low' && d.trialCount >= 25
+      );
+      if (!scores || scores.length < 2) return false;
+      // Check for domains where RT slope is flat but accuracy is OK
+      return scores.some(d => {
+        const components = d.scoreComponents as any;
+        const rtSlope = components?.rtSlope ?? components?.rt_slope;
+        return typeof rtSlope === 'number' && Math.abs(rtSlope) < 2 && d.score >= 0.6;
+      });
+    },
+    conditionDescription: (input) => {
+      const stalled = input.cognitiveDomainScores
+        ?.filter(d => {
+          const components = d.scoreComponents as any;
+          const rtSlope = components?.rtSlope ?? components?.rt_slope;
+          return d.confidence !== 'low' && d.trialCount >= 25 &&
+            typeof rtSlope === 'number' && Math.abs(rtSlope) < 2 && d.score >= 0.6;
+        })
+        ?.map(d => d.domainSlug) || [];
+      return `RT stalled in: ${stalled.join(', ') || 'none'}`;
+    },
+    apply: (focus) => {
+      // For RT plateaus with good accuracy: push difficulty up to increase speed pressure
+      if (!focus.adaptations.startDifficulty || focus.adaptations.startDifficulty < 2) {
+        focus.adaptations.startDifficulty = 2;
+      }
+      // Tighten timeouts slightly to create speed pressure
+      if (!focus.adaptations.timeoutMultiplier || focus.adaptations.timeoutMultiplier >= 1) {
+        focus.adaptations.timeoutMultiplier = 0.85;
+      }
+      focus.reasoning.push(
+        'Reaction time plateau with good accuracy — increasing difficulty and tightening timing to promote fluency'
+      );
+    },
+    adaptationDescription: 'Increase difficulty and tighten timing to break RT plateau',
+  },
 ];
 
 // ============ Engine Core ============
