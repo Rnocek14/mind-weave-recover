@@ -20,7 +20,8 @@ import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { WhatsAffectedCard } from "@/components/WhatsAffectedCard";
 import { RecoveryFocusSummary } from "@/components/RecoveryFocusSummary";
 import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
-import { useStrengthsAndFocusAreas } from "@/hooks/useStrengthsAndFocusAreas";
+import { WeeklyPlanNarrativeCard } from "@/components/WeeklyPlanNarrativeCard";
+import { useSessionPlanReasoning } from "@/hooks/useSessionPlanReasoning";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
@@ -30,6 +31,7 @@ import { StandardizedAssessmentsCard } from "@/components/StandardizedAssessment
 import { CaregiverContextNotes } from "@/components/CaregiverContextNotes";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { toast } from "sonner";
+import type { UiRole } from "@/lib/roleVocabulary";
 
 export const PlanTab = memo(function PlanTab() {
   const {
@@ -49,6 +51,7 @@ export const PlanTab = memo(function PlanTab() {
 
   const { uiMode } = useUiMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
+  const viewRole: UiRole = uiMode === "caregiver" ? "caregiver" : isClinician ? "clinician" : "patient";
   const navigate = useNavigate();
   const location = useLocation();
   const returnPath = currentRoute(location);
@@ -60,11 +63,15 @@ export const PlanTab = memo(function PlanTab() {
   
   const activeExerciseSlugs = lesson?.blocks?.map((b: any) => b.exerciseId) || recommendedExercises?.map((e: any) => e.id) || [];
   
-  const { strengths, focusAreas, planSummary, globalAdjustments } = useStrengthsAndFocusAreas({
+  // ── Canonical reasoning layer ──
+  const reasoning = useSessionPlanReasoning({
     clinicalProfile: clinicalProfile || null,
     runtimeConfig: (activeProfile as any)?.runtime_config || null,
     activeExerciseSlugs,
+    role: viewRole,
   });
+
+  const { strengths, focusAreas, planSummary, globalAdjustments } = reasoning;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -92,6 +99,15 @@ export const PlanTab = memo(function PlanTab() {
         </Card>
       )}
 
+      {/* Weekly Plan Narrative — why this week's plan looks this way */}
+      {!isClinician && activeExerciseSlugs.length > 0 && (
+        <WeeklyPlanNarrativeCard
+          narrative={reasoning.weeklyNarrative}
+          targetedOutcomes={reasoning.targetedOutcomes}
+          confidence={reasoning.confidence}
+          role={viewRole}
+        />
+      )}
       {/* Dosing & Tolerance Guidance */}
       {doseCap && (
         <Card className="p-4">
