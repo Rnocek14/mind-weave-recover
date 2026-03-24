@@ -55,7 +55,8 @@ function daysSinceStroke(strokeDate: string | null | undefined): number | null {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { uiMode, setUiMode } = useUiMode();
+  const { uiMode, setUiMode, isAtLeast } = useUiMode();
+  const isClinician = isAtLeast('clinician');
   const [streak, setStreak] = useState(0);
   const [totalReps, setTotalReps] = useState(0);
   const [achievementCount, setAchievementCount] = useState(0);

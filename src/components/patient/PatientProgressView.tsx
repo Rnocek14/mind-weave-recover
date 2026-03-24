@@ -38,6 +38,7 @@ export const PatientProgressView = memo(function PatientProgressView({
   const { todayCheckin } = useDailyReadiness(profileId);
   const { sessions } = useSessionHistory(userId);
   const { snapshot } = useCognitiveState({ userId, profileId });
+  const { mastered, emerging, loading: masteryLoading } = useWordMastery(userId);
 
   const weekStats = useMemo(() => {
     const activeDays = timeline.filter((d) => d.hasAnySignal).length;
