@@ -17,6 +17,7 @@ import { TodaysPlanCard } from "@/components/TodaysPlanCard";
 import { DoseLogEntry } from "@/components/DoseLogEntry";
 import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
+import { WhatsAffectedCard } from "@/components/WhatsAffectedCard";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
@@ -202,6 +203,13 @@ export const PlanTab = memo(function PlanTab() {
             onSubmit={upsertDoseLog}
             isSaving={doseSaving}
           />
+        </section>
+      )}
+
+      {/* What's Affected — caregiver-friendly brain map */}
+      {!isClinician && clinicalProfile && (
+        <section>
+          <WhatsAffectedCard clinicalProfile={clinicalProfile} />
         </section>
       )}
 

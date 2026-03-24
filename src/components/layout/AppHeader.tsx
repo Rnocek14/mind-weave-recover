@@ -19,7 +19,8 @@ import {
   ChevronDown,
   Brain,
   Stethoscope,
-  CircleHelp } from
+  CircleHelp,
+  HeartPulse } from
 "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +38,7 @@ import {
 
 const patientNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
   { href: "/insights", label: "Insights", icon: TrendingUp },
   { href: "/history", label: "History", icon: Clock },
 ];
@@ -44,6 +46,7 @@ const patientNavItems = [
 const clinicianNavItems = [
   { href: "/clinician/caseload", label: "Caseload", icon: Stethoscope },
   { href: "/clinician/review", label: "Review", icon: FileText },
+  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
   { href: "/insights", label: "Insights", icon: TrendingUp },
   { href: "/history", label: "History", icon: Clock },
 ];
