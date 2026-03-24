@@ -50,6 +50,7 @@ import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
+import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
 import { toast } from "sonner";
 
@@ -127,6 +128,7 @@ export default function WeeklyPatientReview() {
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
   const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
+  const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
@@ -477,6 +479,7 @@ export default function WeeklyPatientReview() {
             clinicalProfile={clinicalProfile}
             runtimeConfig={runtimeConfig}
             activeExerciseSlugs={exerciseSlugs}
+            adaptationEvents={adaptationEvents}
             activeOverrides={activeOverrides}
             recentOverrides={recentOverrides}
             onReverseOverride={async (overrideId) => {
