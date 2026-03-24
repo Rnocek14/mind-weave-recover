@@ -211,7 +211,7 @@ export function ClinicianPatientHeader() {
   };
 
   const handlePrint = () => {
-    navigate('/clinician/report?print=1');
+    navigate('/clinician/review');
   };
 
   const progressNote = useMemo(() => {
@@ -336,9 +336,9 @@ export function ClinicianPatientHeader() {
 
       {/* Row 4: Quick actions */}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={() => navigate('/clinician/report')} className="gap-1.5">
+        <Button size="sm" variant="outline" onClick={() => navigate('/clinician/review')} className="gap-1.5">
           <FileText className="w-3.5 h-3.5" />
-          Report
+          Weekly Review
         </Button>
         <Button size="sm" variant="outline" onClick={() => setNoteDialogOpen(true)} className="gap-1.5">
           <ClipboardList className="w-3.5 h-3.5" />

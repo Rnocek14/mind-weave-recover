@@ -1,8 +1,8 @@
 /**
- * Weekly Patient Review — Clinician-native single-screen review
+ * Weekly Patient Review — Clinician-first single-screen decision surface.
  * 
- * Consolidates: patient summary, dose compliance, session timeline,
- * recordings, alerts, next actions, and documentation tools.
+ * Layout: 5 visible sections + collapsible rest + sticky documentation.
+ * Single narrative layer: ClinicalInterpretation.
  * Route: /clinician/review
  */
 
@@ -16,10 +16,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  ArrowLeft, Stethoscope, Calendar, Clock, Target, TrendingUp, TrendingDown, Minus,
+  ArrowLeft, Stethoscope, Calendar, Clock, Target, TrendingUp, TrendingDown,
   Volume2, AlertTriangle, ClipboardList, Copy, Printer, FileText, ChevronDown,
-  ChevronRight, Activity, Flame, Lightbulb, RefreshCw, Mic, CheckCircle,
-  XCircle, HelpCircle, Zap, Heart
+  ChevronRight, Activity, Flame, Lightbulb, Mic, CheckCircle,
+  XCircle, Zap, Brain, User
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -36,7 +36,7 @@ import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
-import { generateNextActions, type NextAction } from "@/lib/generateNextActions";
+import { generateNextActions } from "@/lib/generateNextActions";
 import { AudioPlaybackWithWaveform } from "@/components/AudioPlaybackWithWaveform";
 import { HelpLabel } from "@/components/HelpTooltip";
 import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
@@ -46,7 +46,6 @@ import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps"
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
-import { RuntimeConfigInspector } from "@/components/clinician/RuntimeConfigInspector";
 import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
@@ -55,7 +54,6 @@ import { toast } from "sonner";
 
 type WindowSize = 7 | 14 | 30;
 
-/** Map clinical profile to speech label */
 function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
   if (!cp) return null;
   const speech: string[] = cp?.impairments?.speech || [];
@@ -69,9 +67,7 @@ function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
 }
 
 function formatSlug(slug: string): string {
-  return slug
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
 export default function WeeklyPatientReview() {
@@ -83,18 +79,14 @@ export default function WeeklyPatientReview() {
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  const [recordingsFilter, setRecordingsFilter] = useState<string>("all");
 
-  // Data hooks — current period
+  // Data hooks
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
   const { dayGroups, recordings, exerciseSlugs, summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
-
-  // Data hooks — prior period (for week-over-week comparison)
   const { timeline: priorTimeline, isLoading: priorSnapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
   const { dayGroups: allDayGroups, recordings: allRecordings, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
 
-  // Split allDayGroups into current and prior
   const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
     const cutoff = allDayGroups.length - windowSize;
     return {
@@ -105,14 +97,11 @@ export default function WeeklyPatientReview() {
     };
   }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
 
-  // Split recordings into current and prior for longitudinal comparison
   const { priorRecordings } = useMemo(() => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - windowSize);
     const cutoffStr = cutoffDate.toISOString();
-    return {
-      priorRecordings: allRecordings.filter((r) => r.createdAt < cutoffStr),
-    };
+    return { priorRecordings: allRecordings.filter((r) => r.createdAt < cutoffStr) };
   }, [allRecordings, windowSize]);
 
   const { current: currentSummaryWoW, prior: priorSummaryWoW, deltas } = useWeekOverWeek(
@@ -140,7 +129,6 @@ export default function WeeklyPatientReview() {
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
-  // Derived
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
   const runtimeConfig = (activeProfile as any)?.runtime_config as Record<string, any> | null;
   const speechLabel = deriveSpeechLabel(clinicalProfile);
@@ -168,13 +156,10 @@ export default function WeeklyPatientReview() {
     return Math.round(sessionStats.avgAccuracy - sessionStats.priorAvgAccuracy);
   }, [sessionStats]);
 
-  // Next actions
   const nextActions = useMemo(
     () =>
       generateNextActions({
-        timeline,
-        flags,
-        alerts,
+        timeline, flags, alerts,
         avgAccuracy: sessionStats.avgAccuracy,
         priorAvgAccuracy: sessionStats.priorAvgAccuracy,
         activeDays,
@@ -183,15 +168,10 @@ export default function WeeklyPatientReview() {
     [timeline, flags, alerts, sessionStats, activeDays]
   );
 
-  // Progress note
   const progressNote = useMemo(() => {
     if (isLoading) return null;
     return generateProgressNote({
-      timeline,
-      flags: flags || [],
-      alerts,
-      lastActiveDate,
-      engagement,
+      timeline, flags: flags || [], alerts, lastActiveDate, engagement,
       accuracySlope: sessionStats.accuracySlope,
       trialCount: sessionStats.trialCount,
       sessionCount: sessionStats.sessionCount,
@@ -202,34 +182,6 @@ export default function WeeklyPatientReview() {
     });
   }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, isLoading, activeProfile]);
 
-  // Filtered recordings
-  const filteredRecordings = useMemo(() => {
-    if (recordingsFilter === "all") return recordings;
-    return recordings.filter((r) => r.exerciseSlug === recordingsFilter);
-  }, [recordings, recordingsFilter]);
-
-  // Handlers
-  const handleCopyEHR = useCallback(() => {
-    const summary = formatEhrSummary({
-      timeline,
-      flags: flags || [],
-      alerts,
-      lastActiveDate,
-      engagement,
-    });
-    navigator.clipboard.writeText(summary);
-    toast.success("EHR summary copied to clipboard");
-  }, [timeline, flags, alerts, lastActiveDate, engagement]);
-
-  const handleCopyNote = useCallback(() => {
-    if (!progressNote) return;
-    navigator.clipboard.writeText(progressNote.narrative);
-    toast.success("Progress note copied to clipboard");
-  }, [progressNote]);
-
-  const handlePrint = () => navigate("/clinician/report?print=1");
-
-  // Compute trials per domain using canonical mapping
   const trialsByDomain = useMemo(() => {
     const allExercises: { slug: string; trials: number }[] = [];
     dayGroups.forEach((d) => {
@@ -241,6 +193,19 @@ export default function WeeklyPatientReview() {
     });
     return aggregateTrialsByDomain(allExercises);
   }, [dayGroups]);
+
+  // Handlers
+  const handleCopyEHR = useCallback(() => {
+    const s = formatEhrSummary({ timeline, flags: flags || [], alerts, lastActiveDate, engagement });
+    navigator.clipboard.writeText(s);
+    toast.success("EHR summary copied to clipboard");
+  }, [timeline, flags, alerts, lastActiveDate, engagement]);
+
+  const handleCopyNote = useCallback(() => {
+    if (!progressNote) return;
+    navigator.clipboard.writeText(progressNote.narrative);
+    toast.success("Progress note copied to clipboard");
+  }, [progressNote]);
 
   // Guard
   if (!isAtLeast("clinician")) {
@@ -273,10 +238,8 @@ export default function WeeklyPatientReview() {
     );
   }
 
-  // (trialsByDomain computed above, before early returns)
-
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-6 space-y-5 print:py-0">
+    <div className="container mx-auto max-w-5xl px-4 py-6 pb-24 space-y-4 print:py-0">
       {/* ─── Header ─── */}
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3">
@@ -288,61 +251,47 @@ export default function WeeklyPatientReview() {
               <Stethoscope className="h-5 w-5 text-primary" />
               Weekly Review
             </h1>
-            <p className="text-sm text-muted-foreground">Clinician review for {activeProfile?.profile_name || "Patient"}</p>
+            <p className="text-sm text-muted-foreground">
+              {activeProfile?.profile_name || "Patient"}
+            </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
-            <SelectTrigger className="w-24 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">7 days</SelectItem>
-              <SelectItem value="14">14 days</SelectItem>
-              <SelectItem value="30">30 days</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
+          <SelectTrigger className="w-24 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">7 days</SelectItem>
+            <SelectItem value="14">14 days</SelectItem>
+            <SelectItem value="30">30 days</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* ═══ A. SUMMARY BAR ═══ */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardContent className="pt-4 pb-4 space-y-3">
-          {/* Identity row */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div>
-                <h2 className="font-bold text-lg">{activeProfile?.profile_name || "Patient"}</h2>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {daysPostOnset !== null && <span>{daysPostOnset}d post-stroke</span>}
-                  {speechLabel && <><span>·</span><span>{speechLabel}</span></>}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {unacknowledgedCount > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  {unacknowledgedCount} alert{unacknowledgedCount > 1 ? "s" : ""}
-                </Badge>
-              )}
-            </div>
-          </div>
+      {/* ═══════════════════════════════════════════════════
+          VISIBLE SECTIONS (always open)
+          ═══════════════════════════════════════════════════ */}
 
-          {/* Status chips */}
+      {/* ─── 1. SUMMARY BAR ─── */}
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardContent className="pt-4 pb-4">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <div className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Active:</span>
-              <span className={`font-medium ${activeDays >= 5 ? "text-green-600 dark:text-green-400" : activeDays >= 3 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
+              <span className={`font-semibold ${activeDays >= 5 ? "text-green-600 dark:text-green-400" : activeDays >= 3 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
                 {activeDays}/7d
               </span>
             </div>
             <div className="flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">Sessions:</span>
+              <span className="font-semibold">{summary.totalSessions}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Accuracy:</span>
-              <span className="font-medium">{summary.avgAccuracy !== null ? `${summary.avgAccuracy}%` : "—"}</span>
+              <span className="font-semibold">{summary.avgAccuracy !== null ? `${summary.avgAccuracy}%` : "—"}</span>
               {accuracyDelta !== null && (
                 <span className={`text-xs ${accuracyDelta > 0 ? "text-green-600" : accuracyDelta < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                   {accuracyDelta > 0 ? "+" : ""}{accuracyDelta}%
@@ -350,37 +299,39 @@ export default function WeeklyPatientReview() {
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Sessions:</span>
-              <span className="font-medium">{summary.totalSessions}</span>
-              <span className="text-muted-foreground text-xs">({summary.totalTrials} trials)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Practice:</span>
-              <span className="font-medium">{summary.totalMinutes}min</span>
+              <span className="font-semibold">{summary.totalMinutes}min</span>
+              <span className="text-xs text-muted-foreground">({summary.totalTrials} trials)</span>
             </div>
             {avgFatigue && (
               <div className="flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">Fatigue:</span>
-                <span className={`font-medium ${Number(avgFatigue) >= 4 ? "text-red-500" : ""}`}>{avgFatigue}/5</span>
+                <span className={`font-semibold ${Number(avgFatigue) >= 4 ? "text-red-500" : ""}`}>{avgFatigue}/5</span>
               </div>
+            )}
+            {unacknowledgedCount > 0 && (
+              <Badge variant="destructive" className="gap-1 ml-auto">
+                <AlertTriangle className="w-3 h-3" />
+                {unacknowledgedCount} alert{unacknowledgedCount > 1 ? "s" : ""}
+              </Badge>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* ═══ PROFILE SUMMARY ═══ */}
-      <ProfileSummaryCard
-        clinicalProfile={clinicalProfile}
-        strokeDate={strokeDate}
-        daysPostOnset={daysPostOnset}
+      {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
+      <ClinicalInterpretation
+        current={currentSummaryWoW}
+        prior={priorSummaryWoW}
+        hasPriorData={hasPriorData}
+        alerts={alerts}
+        accuracySlope={sessionStats.accuracySlope}
         profileName={activeProfile?.profile_name || "Patient"}
-        speechLabel={speechLabel}
       />
 
-      {/* ═══ PENDING SUGGESTIONS ═══ */}
+      {/* ─── 3. PENDING SUGGESTIONS (decision gate) ─── */}
       <PendingSuggestions
         suggestions={suggestedOverrides}
         userId={user?.id || ""}
@@ -389,230 +340,75 @@ export default function WeeklyPatientReview() {
         onActionComplete={refetchOverrides}
       />
 
-      {/* ═══ RUNTIME CONFIG INSPECTOR ═══ */}
-      <RuntimeConfigInspector
-        runtimeConfig={runtimeConfig}
-        activeOverrides={activeOverrides}
-      />
-
-      {/* ═══ CLINICAL INTERPRETATION ═══ */}
-      <ClinicalInterpretation
-        current={currentSummaryWoW}
-        prior={priorSummaryWoW}
-        hasPriorData={hasPriorData}
-        nextActions={nextActions}
-        windowSize={windowSize}
-        profileName={activeProfile?.profile_name || "Patient"}
-        speechLabel={speechLabel}
-      />
-
-      {/* ═══ WEEK-OVER-WEEK COMPARISON ═══ */}
+      {/* ─── 4. WEEK-OVER-WEEK DELTAS ─── */}
       <WeekComparisonRow
         deltas={deltas}
         windowSize={windowSize}
         hasPriorData={hasPriorData}
       />
 
-      {/* ═══ B. DOSE + TREND ROW (Enhanced with trials/intensity) ═══ */}
-      {doseComparisons.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <HelpLabel term="Dose Compliance">Prescribed vs. Completed</HelpLabel>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {doseComparisons.map((d) => {
-                const domainTrials = trialsByDomain[d.domainSlug] || 0;
-                const trialsPerDay = windowSize > 0 ? Math.round(domainTrials / windowSize) : 0;
-                return (
-                  <div key={d.domainSlug} className="space-y-1.5 p-2.5 rounded-lg bg-muted/20">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium capitalize">{d.domainLabel}</span>
-                      <span className={`font-semibold ${d.ratio >= 0.8 ? "text-green-600" : d.ratio >= 0.5 ? "text-amber-600" : "text-red-500"}`}>
-                        {Math.round(d.ratio * 100)}%
-                      </span>
-                    </div>
-                    <Progress value={Math.min(d.ratio * 100, 100)} className={`h-2 ${d.ratio >= 0.8 ? "[&>div]:bg-green-500" : d.ratio >= 0.5 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"}`} />
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>{d.completed}min / {d.prescribed * d.daysInWindow}min target</span>
-                      <span>{d.completedPerDay}min/day avg</span>
-                    </div>
-                    {/* Trials & intensity row */}
-                    <div className="flex items-center gap-3 text-[10px] pt-0.5 border-t border-border/50">
-                      <span className="text-muted-foreground">
-                        <span className="font-medium text-foreground">{domainTrials}</span> trials
-                      </span>
-                      <span className="text-muted-foreground">
-                        <span className="font-medium text-foreground">{trialsPerDay}</span> trials/day
-                      </span>
-                      {domainTrials > 0 && d.completed > 0 && (
-                        <span className="text-muted-foreground">
-                          <span className="font-medium text-foreground">
-                            {(domainTrials / d.completed).toFixed(1)}
-                          </span> trials/min
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══ C. SESSION TIMELINE ═══ */}
-      <Card>
-        <CardHeader className="pb-2 pt-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            <HelpLabel term="Session Timeline">Session Timeline</HelpLabel>
-            <span className="text-xs text-muted-foreground font-normal ml-auto">Last {windowSize} days</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-3 space-y-1">
-          {dayGroups.map((day) => (
-            <DayRow
-              key={day.date}
-              day={day}
-              isExpanded={expandedDay === day.date}
-              onToggle={() => setExpandedDay(expandedDay === day.date ? null : day.date)}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* ═══ TOP CLINICAL RECORDINGS ═══ */}
-      <ClinicalRecordingPicks
-        curatedChallenging={audioSamples.challenging}
-        curatedBest={audioSamples.best}
-        allRecordings={recordings}
+      {/* ─── 5. NEXT ACTIONS (primary CTA area) ─── */}
+      <ActionableNextSteps
+        actions={nextActions}
+        profileName={activeProfile?.profile_name || "Patient"}
+        userId={user?.id}
+        profileId={profileId}
+        clinicianId={user?.id}
+        onActionComplete={refetchOverrides}
       />
 
-      {/* ═══ LONGITUDINAL UTTERANCE COMPARISON ═══ */}
-      <LongitudinalUtteranceComparison
-        currentRecordings={recordings}
-        priorRecordings={priorRecordings}
-        windowSize={windowSize}
-      />
+      {/* ═══════════════════════════════════════════════════
+          COLLAPSIBLE SECTIONS (all default closed)
+          ═══════════════════════════════════════════════════ */}
 
-      {/* ═══ D. ALL RECORDINGS ═══ */}
-      <Card>
-        <CardHeader className="pb-2 pt-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Mic className="h-4 w-4 text-primary" />
-              <HelpLabel term="Speech Recordings">Recordings This Period</HelpLabel>
-              <Badge variant="secondary" className="text-[10px]">{recordings.length}</Badge>
-            </CardTitle>
-            {exerciseSlugs.length > 1 && (
-              <Select value={recordingsFilter} onValueChange={setRecordingsFilter}>
-                <SelectTrigger className="w-40 h-7 text-xs">
-                  <SelectValue placeholder="All exercises" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All exercises</SelectItem>
-                  {exerciseSlugs.map((slug) => (
-                    <SelectItem key={slug} value={slug}>
-                      {formatSlug(slug)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="pb-3">
-          {/* Curated best/challenging */}
-          {(audioSamples.challenging.length > 0 || audioSamples.best.length > 0) && (
-            <div className="space-y-3 mb-4">
-              {audioSamples.challenging.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1.5">Challenging Examples</p>
-                  <div className="space-y-2">
-                    {audioSamples.challenging.slice(0, 5).map((s) => (
-                      <div key={s.id} className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-200/30">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div>
-                            <span className="font-medium text-sm capitalize">{s.targetWord}</span>
-                            {s.transcript && <span className="text-xs text-muted-foreground ml-2">"{s.transcript}"</span>}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {s.errorType && <Badge variant="outline" className="text-[9px] h-5">{s.errorType.replace(/_/g, " ")}</Badge>}
-                            <span className={`text-sm font-semibold ${s.score < 60 ? "text-red-500" : "text-amber-600"}`}>{s.score}%</span>
-                          </div>
-                        </div>
-                        <AudioPlaybackWithWaveform storagePath={s.audioPath} showWaveform={false} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {audioSamples.best.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-1.5">Best Examples</p>
-                  <div className="space-y-2">
-                    {audioSamples.best.slice(0, 3).map((s) => (
-                      <div key={s.id} className="p-2.5 rounded-lg bg-green-500/5 border border-green-200/30">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-medium text-sm capitalize">{s.targetWord}</span>
-                          <span className="text-sm font-semibold text-green-600">{s.score}%</span>
-                        </div>
-                        <AudioPlaybackWithWaveform storagePath={s.audioPath} showWaveform={false} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {recordings.length === 0 && audioSamples.challenging.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">No recordings in this period.</p>
-          )}
-
-          {/* All recordings list (collapsed by default if curated exist) */}
-          {filteredRecordings.length > 0 && (
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center py-2">
-                <ChevronDown className="w-3 h-3" />
-                All recordings ({filteredRecordings.length})
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1.5 mt-2">
-                {filteredRecordings.slice(0, 30).map((r) => (
-                  <div key={r.attemptId} className="flex items-center gap-3 p-2 rounded bg-muted/30 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium capitalize truncate">{r.targetWord || formatSlug(r.exerciseSlug)}</span>
-                        {r.isCorrect === true && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
-                        {r.isCorrect === false && <XCircle className="w-3 h-3 text-red-500 shrink-0" />}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {formatSlug(r.exerciseSlug)} · {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        {r.errorType && ` · ${r.errorType.replace(/_/g, " ")}`}
-                      </div>
+      {/* ─── 🎧 Recordings ─── */}
+      <CollapsibleSection
+        icon={<Mic className="h-4 w-4 text-primary" />}
+        title="Recordings"
+        badge={recordings.length > 0 ? String(recordings.length) : undefined}
+      >
+        <ClinicalRecordingPicks
+          curatedChallenging={audioSamples.challenging.slice(0, 1)}
+          curatedBest={audioSamples.best.slice(0, 1)}
+          allRecordings={recordings}
+        />
+        {recordings.length > 2 && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center py-2 mt-2">
+              <ChevronDown className="w-3 h-3" />
+              View all {recordings.length} recordings
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1.5 mt-2">
+              {recordings.slice(0, 30).map((r) => (
+                <div key={r.attemptId} className="flex items-center gap-3 p-2 rounded bg-muted/30 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium capitalize truncate">{r.targetWord || formatSlug(r.exerciseSlug)}</span>
+                      {r.isCorrect === true && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
+                      {r.isCorrect === false && <XCircle className="w-3 h-3 text-red-500 shrink-0" />}
                     </div>
-                    <AudioPlaybackWithWaveform storagePath={r.audioPath} showWaveform={false} />
+                    <div className="text-[10px] text-muted-foreground">
+                      {formatSlug(r.exerciseSlug)} · {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      {r.errorType && ` · ${r.errorType.replace(/_/g, " ")}`}
+                    </div>
                   </div>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </CardContent>
-      </Card>
+                  <AudioPlaybackWithWaveform storagePath={r.audioPath} showWaveform={false} />
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </CollapsibleSection>
 
-      {/* ═══ E. ALERTS + INTERPRETATION ═══ */}
+      {/* ─── 🚨 Alerts ─── */}
       {(unacknowledgedCount > 0 || redFlags.length > 0) && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-4 w-4" />
-              Active Alerts & Flags
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-2">
+        <CollapsibleSection
+          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+          title="Active Alerts"
+          badge={String(unacknowledgedCount + redFlags.length)}
+          badgeVariant="destructive"
+        >
+          <div className="space-y-2">
             {alerts
               .filter((a) => !a.resolved_at)
               .map((alert) => (
@@ -625,9 +421,7 @@ export default function WeeklyPatientReview() {
                   </Badge>
                   <div>
                     <p className="font-medium">{alert.title}</p>
-                    {alert.description && (
-                      <p className="text-xs text-muted-foreground">{alert.description}</p>
-                    )}
+                    {alert.description && <p className="text-xs text-muted-foreground">{alert.description}</p>}
                   </div>
                 </div>
               ))}
@@ -639,104 +433,213 @@ export default function WeeklyPatientReview() {
                 <p>{f.message}</p>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </CollapsibleSection>
       )}
 
-      {/* ═══ WHY THIS PLAN ═══ */}
-      <WhyThisPlan
-        clinicalProfile={clinicalProfile}
-        runtimeConfig={runtimeConfig}
-        activeExerciseSlugs={exerciseSlugs}
-        activeOverrides={activeOverrides}
-        recentOverrides={recentOverrides}
-        onReverseOverride={async (overrideId) => {
-          if (!user?.id || !profileId) return;
-          // Find the override to show safety context
-          const target = activeOverrides.find((o) => o.id === overrideId);
-          const restoreDesc = target
-            ? target.overrideType === "difficulty"
-              ? `Restore difficulty to level ${target.valueBefore?.difficulty_level ?? "default"}`
-              : target.overrideType === "dose_reduction"
-              ? `Restore dose to ${target.valueBefore?.target_value ?? "previous"}min`
-              : target.overrideType === "cue_level"
-              ? `Restore cue level to ${target.valueBefore?.cue_level ?? "Auto"}`
-              : `Reverse ${target.overrideType}`
-            : "Reverse this override";
+      {/* ─── 🧠 Patient & Plan (merged section) ─── */}
+      <CollapsibleSection
+        icon={<Brain className="h-4 w-4 text-primary" />}
+        title="Patient & Plan"
+      >
+        <div className="space-y-4">
+          <ProfileSummaryCard
+            clinicalProfile={clinicalProfile}
+            strokeDate={strokeDate}
+            daysPostOnset={daysPostOnset}
+            profileName={activeProfile?.profile_name || "Patient"}
+            speechLabel={speechLabel}
+          />
+          <WhyThisPlan
+            clinicalProfile={clinicalProfile}
+            runtimeConfig={runtimeConfig}
+            activeExerciseSlugs={exerciseSlugs}
+            activeOverrides={activeOverrides}
+            recentOverrides={recentOverrides}
+            onReverseOverride={async (overrideId) => {
+              if (!user?.id || !profileId) return;
+              const target = activeOverrides.find((o) => o.id === overrideId);
+              const restoreDesc = target
+                ? target.overrideType === "difficulty"
+                  ? `Restore difficulty to level ${target.valueBefore?.difficulty_level ?? "default"}`
+                  : target.overrideType === "dose_reduction"
+                  ? `Restore dose to ${target.valueBefore?.target_value ?? "previous"}min`
+                  : target.overrideType === "cue_level"
+                  ? `Restore cue level to ${target.valueBefore?.cue_level ?? "Auto"}`
+                  : `Reverse ${target.overrideType}`
+                : "Reverse this override";
+              if (!confirm(`${restoreDesc}?\n\nThis will undo the clinician override and restore the previous state.`)) return;
+              const result = await reverseOverride(
+                { userId: user.id, profileId, clinicianId: user.id },
+                overrideId,
+                "Reversed via weekly review"
+              );
+              if (result.success) {
+                toast.success(result.message);
+                refetchOverrides();
+              } else {
+                toast.error(result.message);
+              }
+            }}
+          />
+        </div>
+      </CollapsibleSection>
 
-          if (!confirm(`${restoreDesc}?\n\nThis will undo the clinician override and restore the previous state.`)) return;
+      {/* ─── 📊 Session Timeline ─── */}
+      <CollapsibleSection
+        icon={<Calendar className="h-4 w-4 text-primary" />}
+        title="Session Timeline"
+        summary={`${summary.totalSessions} sessions across ${activeDays} days`}
+      >
+        <div className="space-y-1">
+          {dayGroups.map((day) => (
+            <DayRow
+              key={day.date}
+              day={day}
+              isExpanded={expandedDay === day.date}
+              onToggle={() => setExpandedDay(expandedDay === day.date ? null : day.date)}
+            />
+          ))}
+        </div>
+      </CollapsibleSection>
 
-          const result = await reverseOverride(
-            { userId: user.id, profileId, clinicianId: user.id },
-            overrideId,
-            "Reversed via weekly review"
-          );
-          if (result.success) {
-            toast.success(result.message);
-            refetchOverrides();
-          } else {
-            toast.error(result.message);
-          }
-        }}
-      />
-
-      {/* ═══ F. ACTIONABLE NEXT STEPS ═══ */}
-      <ActionableNextSteps
-        actions={nextActions}
-        profileName={activeProfile?.profile_name || "Patient"}
-        userId={user?.id}
-        profileId={profileId}
-        clinicianId={user?.id}
-        onActionComplete={refetchOverrides}
-      />
-
-      {/* ═══ G. DOCUMENTATION TOOLS ═══ */}
-      <Card>
-        <CardHeader className="pb-2 pt-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            Documentation
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-3 space-y-3">
-          {/* Progress note inline */}
-          {progressNote && (
-            <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold text-xs">{progressNote.headline}</span>
-                <Badge
-                  variant={progressNote.confidence === "high" ? "default" : progressNote.confidence === "moderate" ? "secondary" : "outline"}
-                  className="text-[9px]"
-                >
-                  {progressNote.confidence}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{progressNote.narrative}</p>
-            </div>
+      {/* ─── 🔬 Deep Dive ─── */}
+      <CollapsibleSection
+        icon={<TrendingUp className="h-4 w-4 text-primary" />}
+        title="Deep Dive"
+      >
+        <div className="space-y-4">
+          <LongitudinalUtteranceComparison
+            currentRecordings={recordings}
+            priorRecordings={priorRecordings}
+            windowSize={windowSize}
+          />
+          {doseComparisons.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-3">
+                <CardTitle className="text-sm font-semibold">
+                  <HelpLabel term="Dose Compliance">Prescribed vs. Completed</HelpLabel>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {doseComparisons.map((d) => {
+                    const domainTrials = trialsByDomain[d.domainSlug] || 0;
+                    const trialsPerDay = windowSize > 0 ? Math.round(domainTrials / windowSize) : 0;
+                    return (
+                      <div key={d.domainSlug} className="space-y-1.5 p-2.5 rounded-lg bg-muted/20">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium capitalize">{d.domainLabel}</span>
+                          <span className={`font-semibold ${d.ratio >= 0.8 ? "text-green-600" : d.ratio >= 0.5 ? "text-amber-600" : "text-red-500"}`}>
+                            {Math.round(d.ratio * 100)}%
+                          </span>
+                        </div>
+                        <Progress value={Math.min(d.ratio * 100, 100)} className={`h-2 ${d.ratio >= 0.8 ? "[&>div]:bg-green-500" : d.ratio >= 0.5 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500"}`} />
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>{d.completed}min / {d.prescribed * d.daysInWindow}min target</span>
+                          <span>{d.completedPerDay}min/day avg</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] pt-0.5 border-t border-border/50">
+                          <span className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{domainTrials}</span> trials
+                          </span>
+                          <span className="text-muted-foreground">
+                            <span className="font-medium text-foreground">{trialsPerDay}</span> trials/day
+                          </span>
+                          {domainTrials > 0 && d.completed > 0 && (
+                            <span className="text-muted-foreground">
+                              <span className="font-medium text-foreground">
+                                {(domainTrials / d.completed).toFixed(1)}
+                              </span> trials/min
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           )}
+        </div>
+      </CollapsibleSection>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={handleCopyNote} className="gap-1.5" disabled={!progressNote}>
+      {/* ═══════════════════════════════════════════════════
+          STICKY DOCUMENTATION BAR
+          ═══════════════════════════════════════════════════ */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border shadow-lg print:hidden">
+        <div className="container mx-auto max-w-5xl px-4 py-2.5 flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground hidden sm:block">
+            <FileText className="w-3 h-3 inline mr-1" />
+            Documentation
+          </span>
+          <div className="flex flex-wrap gap-2 ml-auto">
+            <Button size="sm" onClick={handleCopyNote} className="gap-1.5 h-8" disabled={!progressNote}>
               <ClipboardList className="w-3.5 h-3.5" />
               Copy Progress Note
             </Button>
-            <Button size="sm" variant="outline" onClick={handleCopyEHR} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={handleCopyEHR} className="gap-1.5 h-8">
               <Copy className="w-3.5 h-3.5" />
               Copy EHR Summary
             </Button>
-            <Button size="sm" variant="outline" onClick={handlePrint} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => navigate("/clinician/report?print=1")} className="gap-1.5 h-8">
               <Printer className="w-3.5 h-3.5" />
-              Print Report
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/clinician/report")} className="gap-1.5">
-              <FileText className="w-3.5 h-3.5" />
-              Full Report
+              Export PDF
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
+  );
+}
+
+/* ─── Collapsible Section Wrapper ─── */
+function CollapsibleSection({
+  icon,
+  title,
+  badge,
+  badgeVariant = "secondary",
+  summary: summaryText,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badge?: string;
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline";
+  summary?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible>
+      <Card>
+        <CollapsibleTrigger className="w-full">
+          <CardHeader className="pb-3 pt-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                {icon}
+                {title}
+                {badge && (
+                  <Badge variant={badgeVariant} className="text-[10px]">
+                    {badge}
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {summaryText && (
+                  <span className="text-xs text-muted-foreground">{summaryText}</span>
+                )}
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pb-3 pt-0">
+            {children}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 
@@ -759,15 +662,12 @@ function DayRow({
         disabled={!hasData}
         className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${hasData ? "hover:bg-muted/50 cursor-pointer" : "cursor-default"}`}
       >
-        {/* Day label */}
         <div className="w-28 shrink-0">
           <span className="font-medium text-xs">{day.dayLabel}</span>
           {day.isToday && <Badge variant="outline" className="ml-1.5 text-[9px] h-4">Today</Badge>}
         </div>
-
         {hasData ? (
           <>
-            {/* Stats */}
             <div className="flex items-center gap-4 flex-1 text-xs text-muted-foreground">
               <span>{day.sessions.length} session{day.sessions.length > 1 ? "s" : ""}</span>
               <span>{day.totalTrials} trials</span>
@@ -778,8 +678,6 @@ function DayRow({
                 </span>
               )}
             </div>
-
-            {/* Exercise pills */}
             <div className="hidden md:flex items-center gap-1 shrink-0">
               {day.sessions
                 .flatMap((s) => s.exercises)
@@ -791,23 +689,18 @@ function DayRow({
                   </Badge>
                 ))}
             </div>
-
             <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
           </>
         ) : (
           <span className="text-xs text-muted-foreground italic">No session</span>
         )}
       </button>
-
-      {/* Expanded session details */}
       {isExpanded && hasData && (
         <div className="px-3 pb-2 space-y-1.5 ml-28">
           {day.sessions.map((session) => (
             <div key={session.id} className="rounded bg-muted/30 px-3 py-2 text-xs space-y-1">
               <div className="flex items-center gap-3 text-muted-foreground">
-                <span>
-                  {new Date(session.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                </span>
+                <span>{new Date(session.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
                 <span>{session.durationMin}min</span>
                 <span>{session.totalTrials} trials</span>
                 <span className={`font-medium ${session.avgAccuracy >= 70 ? "text-green-600" : session.avgAccuracy >= 40 ? "text-amber-600" : "text-red-500"}`}>
