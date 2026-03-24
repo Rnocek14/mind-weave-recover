@@ -7,7 +7,6 @@ import {
   Play, Brain, Gamepad2, Crosshair, Stethoscope, Battery,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
 import { WeeklyDeltasCard } from "@/components/dashboard/WeeklyDeltasCard";
 import { DomainConfidenceSummary } from "@/components/dashboard/DomainConfidenceSummary";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
