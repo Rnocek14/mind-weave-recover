@@ -171,6 +171,7 @@ export function ProfileSummaryCard({
   );
 }
 
-function formatImpairment(s: string): string {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+function formatImpairment(s: unknown): string {
+  const str = typeof s === 'string' ? s : String(s ?? '');
+  return str.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
