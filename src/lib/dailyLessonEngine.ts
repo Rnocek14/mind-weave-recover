@@ -723,7 +723,10 @@ export function generateDailyLesson(
         primaryDomainBoost,
         speechProfileBoost,
         finalScore,
-        reason: penaltyReason || 'no recency penalty',
+        reason: [
+          penaltyReason || 'no recency penalty',
+          struggleBoost > 0 ? `struggle re-exposure: +${struggleBoost}` : '',
+        ].filter(Boolean).join('; '),
       });
 
       return {
