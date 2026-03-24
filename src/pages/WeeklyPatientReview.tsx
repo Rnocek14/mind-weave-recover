@@ -322,6 +322,20 @@ export default function WeeklyPatientReview() {
         </CardContent>
       </Card>
 
+      {/* ─── Accuracy Sparkline (visual confirmation of trajectory) ─── */}
+      <Card className="border-border/50">
+        <CardContent className="py-2 px-4">
+          <AccuracySparkline
+            timeline={recent7.map((d) => ({
+              date: d.date,
+              accuracy: d.accuracy ?? null,
+              fatigueRating: d.fatigueRating ?? null,
+              trials: d.trialCount ?? 0,
+            }))}
+          />
+        </CardContent>
+      </Card>
+
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
         current={currentSummaryWoW}
