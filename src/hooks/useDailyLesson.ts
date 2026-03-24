@@ -26,6 +26,7 @@ import {
 } from '@/lib/adaptiveDecisionEngine';
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
+import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
