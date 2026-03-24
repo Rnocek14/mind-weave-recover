@@ -283,14 +283,14 @@ Weights reflect clinical importance:
 
 ---
 
-## Data Gaps to Address
+## Data Gaps — Status
 
-| Gap | Current State | Needed |
-|-----|--------------|--------|
-| Word-level mastery tracking | Raw events exist, no aggregation | Compute word mastery from exercise_events |
-| Error quality score | Error types captured, no composite | Derive from error_type field |
-| Endurance ratio | Trial index exists, no computation | Compute per-session first/second half split |
-| Longitudinal cue trend | Per-trial cue_level exists | Aggregate into weekly cue independence score |
+| Gap | Hook | Status |
+|-----|------|--------|
+| Word-level mastery tracking | `useWordMastery.ts` | ✅ Built |
+| Error quality score | `useErrorQualityScore.ts` | ✅ Built |
+| Endurance ratio | `useSessionEndurance.ts` | ✅ Built |
+| Weekly cue independence | `useCueIndependence.ts` | ✅ Built |
 
 All data needed already exists in `exercise_events`. No new tables required.
 Only new computation/aggregation logic is needed.
