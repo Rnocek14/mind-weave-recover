@@ -107,7 +107,7 @@ const TEST_PROFILES: Record<string, { label: string; description: string; profil
       therapy_focus: ["visual scanning", "attention", "motor recovery"],
       notes: "14 days post-stroke",
       last_updated: new Date().toISOString(),
-      profile_source: "simulation",
+      profile_source: "manual",
       extraction_metadata: {},
     },
   },
