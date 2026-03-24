@@ -198,7 +198,7 @@ export function RecoveryFocusSummary({
         {/* Row 3: Why adapted */}
         <div className="flex items-start gap-2">
           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-            {isClinician ? 'Why adapted' : 'Adjusted for'}
+            {getFieldLabel("why_adapted", role)}
           </span>
           <span className="text-sm text-muted-foreground">{adaptationReason}</span>
         </div>
