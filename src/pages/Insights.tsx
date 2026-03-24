@@ -157,15 +157,15 @@ export default function Insights() {
   return (
     <div className="min-h-screen bg-gradient-calm">
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
-        {/* Header */}
+      {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                Your Recovery
+                Insights
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                Understand how your recovery is progressing and what's helping most.
+                What's hard, what helps, and how the system is adapting for you.
               </p>
             </div>
             
