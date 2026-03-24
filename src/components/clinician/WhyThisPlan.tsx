@@ -2,8 +2,8 @@
  * "Why This Plan" — Traceability card showing how the clinical profile
  * drives exercise selection, cue level, difficulty, and recent adjustments.
  * 
- * Now includes: Recovery Focus Summary, Strengths & Focus Areas Map,
- * Therapy Focus Map, live config state, active overrides, and coverage gaps.
+ * Now consumes the canonical useSessionPlanReasoning hook as its single
+ * source of truth, eliminating redundant local derivation.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,18 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle, ArrowRight, Brain, Target, Volume2, SlidersHorizontal, Zap, User, Bot, Undo2 } from "lucide-react";
 import { HelpLabel } from "@/components/HelpTooltip";
-import { getExerciseDomain, type ExerciseDomainEntry } from "@/lib/exerciseDomainMap";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
-import { useTherapyFocusData } from "@/hooks/useTherapyFocusData";
-import { useStrengthsAndFocusAreas } from "@/hooks/useStrengthsAndFocusAreas";
 import { TherapyFocusMap } from "@/components/clinician/TherapyFocusMap";
 import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
+import { WeeklyPlanNarrativeCard } from "@/components/WeeklyPlanNarrativeCard";
+import { useSessionPlanReasoning } from "@/hooks/useSessionPlanReasoning";
 import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
 import type { AdaptationEvent } from "@/hooks/useAdaptationTimeline";
 
 interface WhyThisPlanProps {
   clinicalProfile: Record<string, any> | null;
-  /** Runtime config (difficulty, cueing, practice) — separate from clinical profile */
   runtimeConfig?: Record<string, any> | null;
   activeExerciseSlugs: string[];
   recentAdaptations?: Array<{
@@ -30,13 +28,9 @@ interface WhyThisPlanProps {
     detail: string;
     date: string;
   }>;
-  /** Active clinician overrides for live config display */
   activeOverrides?: ClinicianOverride[];
-  /** Recent overrides (including reversed) for history */
   recentOverrides?: ClinicianOverride[];
-  /** Callback to reverse an override */
   onReverseOverride?: (overrideId: string) => void;
-  /** Adaptation events for therapy focus map */
   adaptationEvents?: AdaptationEvent[];
 }
 
@@ -60,11 +54,11 @@ export function WhyThisPlan({
 }: WhyThisPlanProps) {
   const cp = clinicalProfile;
   const rc = runtimeConfig || {};
-  const therapyFocus: string[] = cp?.therapy_focus || [];
   const speechImpairments: string[] = cp?.impairments?.speech || [];
   const cognitiveImpairments: string[] = cp?.impairments?.cognitive || [];
+  const therapyFocus: string[] = cp?.therapy_focus || [];
 
-  // Live config from runtime_config (separate from clinical truth)
+  // Live config from runtime_config
   const difficultyOverrides = rc?.difficulty_overrides || {};
   const globalDifficulty = difficultyOverrides._global ?? 0;
   const cueOverride = rc?.cue_level_override ?? null;
@@ -72,45 +66,37 @@ export function WhyThisPlan({
   const practiceAssignments = rc?.practice_assignments || [];
   const activePractice = practiceAssignments.filter((a: any) => a.status === "active");
 
-  // Map active exercises to their domain entries
-  const activeEntries = useMemo(() => {
-    return activeExerciseSlugs
-      .map((slug) => getExerciseDomain(slug))
-      .filter(Boolean) as ExerciseDomainEntry[];
-  }, [activeExerciseSlugs]);
-
-  // Which cognitive domains are being exercised
-  const activeCognitiveDomains = useMemo(() => {
-    const set = new Set<string>();
-    activeEntries.forEach((e) => e.cognitiveDomains.forEach((d) => set.add(d)));
-    return Array.from(set);
-  }, [activeEntries]);
+  // ── Canonical reasoning layer ──
+  const reasoning = useSessionPlanReasoning({
+    clinicalProfile,
+    runtimeConfig,
+    activeExerciseSlugs,
+    adaptationEvents,
+    activeOverrides,
+    role: "clinician",
+  });
 
   // Which cognitive domains are NOT being exercised
+  const activeCognitiveDomains = useMemo(() => {
+    const set = new Set<string>();
+    reasoning.exercisePlans.forEach(ep => {
+      const entry = ep.linkedOutcomeMetrics; // use cardsByDomain for domain coverage
+    });
+    Object.values(reasoning.cardsByDomain).flat().forEach(c => {
+      c.clinicalTargets.forEach(t => {
+        const meta = COGNITIVE_DOMAINS.find(d => d.label === t);
+        if (meta) set.add(meta.slug);
+      });
+    });
+    return Array.from(set);
+  }, [reasoning.cardsByDomain]);
+
   const missingDomains = useMemo(() => {
     const allDomains = COGNITIVE_DOMAINS
       .filter((d) => d.slug !== "cognitive_endurance")
       .map((d) => d.slug);
     return allDomains.filter((d) => !activeCognitiveDomains.includes(d));
   }, [activeCognitiveDomains]);
-
-  // Therapy Focus Map data
-  const { cardsByDomain, sessionRationale } = useTherapyFocusData({
-    activeExerciseSlugs,
-    clinicalProfile,
-    runtimeConfig: runtimeConfig || null,
-    adaptationEvents,
-    activeOverrides,
-  });
-
-  // Strengths & Focus Areas
-  const { strengths, focusAreas, planSummary, globalAdjustments } = useStrengthsAndFocusAreas({
-    clinicalProfile,
-    runtimeConfig: runtimeConfig || null,
-    activeExerciseSlugs,
-    adaptationEvents,
-    activeOverrides,
-  });
 
   if (activeExerciseSlugs.length === 0) return null;
 
@@ -137,6 +123,14 @@ export function WhyThisPlan({
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-3 space-y-4">
+        {/* ── Weekly Plan Narrative (from canonical reasoning) ── */}
+        <WeeklyPlanNarrativeCard
+          narrative={reasoning.weeklyNarrative}
+          targetedOutcomes={reasoning.targetedOutcomes}
+          confidence={reasoning.confidence}
+          role="clinician"
+        />
+
         {/* ── Live Config State ── */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
@@ -144,7 +138,6 @@ export function WhyThisPlan({
             Current Settings
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pl-4">
-            {/* Difficulty */}
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
               <p className="text-[10px] text-muted-foreground">Difficulty</p>
               <p className="text-sm font-semibold">
@@ -156,8 +149,6 @@ export function WhyThisPlan({
                 </p>
               )}
             </div>
-
-            {/* Cue Level */}
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
               <p className="text-[10px] text-muted-foreground">Cue Level</p>
               <p className="text-sm font-semibold">
@@ -169,8 +160,6 @@ export function WhyThisPlan({
                 </p>
               )}
             </div>
-
-            {/* Active Overrides */}
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
               <p className="text-[10px] text-muted-foreground">Active Overrides</p>
               <p className="text-sm font-semibold">{activeOverrides.length}</p>
@@ -180,8 +169,6 @@ export function WhyThisPlan({
                 </p>
               )}
             </div>
-
-            {/* Practice Assignments */}
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
               <p className="text-[10px] text-muted-foreground">Practice Assigned</p>
               <p className="text-sm font-semibold">{activePractice.length}</p>
@@ -255,11 +242,11 @@ export function WhyThisPlan({
           </p>
           <div className="pl-4">
             <StrengthsAndFocusAreasMap
-              strengths={strengths}
-              focusAreas={focusAreas}
-              planSummary={planSummary}
+              strengths={reasoning.strengths}
+              focusAreas={reasoning.focusAreas}
+              planSummary={reasoning.planSummary}
               viewMode="clinician"
-              globalAdjustments={globalAdjustments}
+              globalAdjustments={reasoning.globalAdjustments}
             />
           </div>
         </div>
@@ -308,12 +295,12 @@ export function WhyThisPlan({
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <Target className="w-3 h-3" />
-            Active Exercises ({activeEntries.length})
+            Active Exercises ({reasoning.activeExerciseCount})
           </p>
           <div className="pl-4">
             <TherapyFocusMap
-              cardsByDomain={cardsByDomain}
-              sessionRationale={sessionRationale}
+              cardsByDomain={reasoning.cardsByDomain}
+              sessionRationale={reasoning.sessionRationale}
             />
           </div>
         </div>
