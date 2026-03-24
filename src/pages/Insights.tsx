@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, AlertCircle, FileText,
-  LayoutGrid, TrendingUp, Target, Lightbulb, Settings2, AlertTriangle
+  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -28,7 +28,6 @@ import { supabase } from "@/integrations/supabase/client";
 // Question-based insight sections
 import { 
   OverviewSection,
-  ProgressSection, 
   ChallengesSection, 
   StrategiesSection, 
   AdaptationsSection,
@@ -41,10 +40,9 @@ import {
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
-// Tab configuration with patient-safe labels
+// Tab configuration — focused on pattern recognition, not progress (that's /recovery-progress)
 const INSIGHT_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'progress', label: 'Progress', icon: TrendingUp },
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
   { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
@@ -95,12 +93,16 @@ export default function Insights() {
     }
   }, [user, authLoading, navigate, activeProfile?.id]);
 
-  // Sync URL tab param with state
+  // Sync URL tab param with state — redirect progress to Recovery Progress page
   useEffect(() => {
+    if ((targetTab as string) === 'progress' || legacySection === 'progress') {
+      navigate('/recovery-progress', { replace: true });
+      return;
+    }
     if (targetTab && targetTab !== activeTab) {
       setActiveTab(targetTab);
     }
-  }, [targetTab]);
+  }, [targetTab, legacySection, navigate]);
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
@@ -157,15 +159,15 @@ export default function Insights() {
   return (
     <div className="min-h-screen bg-gradient-calm">
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
-        {/* Header */}
+      {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                Your Recovery
+                Insights
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                Understand how your recovery is progressing and what's helping most.
+                What's hard, what helps, and how the system is adapting for you.
               </p>
             </div>
             
@@ -217,10 +219,6 @@ export default function Insights() {
             <OverviewSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
-          {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4">
-            <ProgressSection userId={user!.id} profileId={activeProfile?.id} />
-          </TabsContent>
 
           {/* Challenges Tab (What's Hard) */}
           <TabsContent value="challenges" className="mt-4">

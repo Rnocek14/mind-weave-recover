@@ -94,8 +94,8 @@ export const OverviewSection = memo(function OverviewSection({ userId, profileId
           status={recoveryStatus}
           headline={snapshot.recovery.headline}
           detail={snapshot.recovery.detail}
-          linkTo="/insights?tab=progress"
-          linkLabel="View trends"
+          linkTo="/recovery-progress"
+          linkLabel="View recovery trends"
         />
 
         {/* Q2: What's hard for me? */}
