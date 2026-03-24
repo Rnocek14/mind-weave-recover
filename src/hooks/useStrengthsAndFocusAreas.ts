@@ -1,23 +1,35 @@
 /**
- * useStrengthsAndFocusAreas — derives strengths and focus areas
+ * useStrengthsAndFocusAreas — derives strengths, maintained areas, and focus areas
  * from clinical profile, runtime config, adaptation events, and exercise domain map.
  * 
- * Outputs two arrays: strengths (areas doing well) and focusAreas (areas needing work).
+ * Three-tier classification:
+ * - Strength: evidence-backed positive area (no deficits, no adaptation pressure, actively exercised)
+ * - Maintained: not currently a problem, but not proven strong either (limited evidence)
+ * - Focus Area: actively targeted need (documented deficit or adaptation pressure)
+ * - Uncovered: deficit present but no exercises assigned
  */
 
 import { useMemo } from "react";
-import { EXERCISE_DOMAIN_MAP, getExerciseDomain } from "@/lib/exerciseDomainMap";
+import { getExerciseDomain } from "@/lib/exerciseDomainMap";
 import { FOCUS_AREA_DEFINITIONS, getFocusAreaDefinition } from "@/lib/focusAreaDefinitions";
 import type { AdaptationEvent } from "@/hooks/useAdaptationTimeline";
 import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
+
+export type AreaClassification = "strength" | "maintained" | "focus" | "uncovered";
+
+export interface EvidenceTag {
+  source: "clinical_profile" | "adaptation" | "clinician_override" | "exercise_coverage" | "inferred";
+  label: string;
+}
 
 export interface StrengthAreaCard {
   id: string;
   title: string;
   patientTitle: string;
+  classification: "strength" | "maintained";
   reason: string;
   patientReason: string;
-  supportingSignals: string[];
+  evidence: EvidenceTag[];
   exercises: string[];
   systemPlan: string;
   functionalMeaning: string;
@@ -28,9 +40,11 @@ export interface FocusAreaCard {
   id: string;
   title: string;
   patientTitle: string;
+  classification: "focus" | "uncovered";
   whyNeeded: string;
   patientWhyNeeded: string;
-  supportingSignals: string[];
+  clinicianSignal: string;
+  evidence: EvidenceTag[];
   exercises: string[];
   activeAdaptation: string;
   expectedGain: string;
@@ -50,6 +64,46 @@ interface UseStrengthsAndFocusAreasParams {
   activeExerciseSlugs: string[];
   adaptationEvents?: AdaptationEvent[];
   activeOverrides?: ClinicianOverride[];
+}
+
+/** Extract a specific clinician-facing signal from adaptation events for exercises in an area */
+function deriveClinicianSignal(
+  exercises: string[],
+  adaptationEvents: AdaptationEvent[],
+  activeOverrides: ClinicianOverride[],
+  defLabel: string,
+): string {
+  // Check clinician overrides first
+  const relevantOverrides = activeOverrides.filter(o => exercises.includes(o.targetSlug || ""));
+  if (relevantOverrides.length > 0) {
+    const o = relevantOverrides[0];
+    if (o.overrideType === "difficulty") {
+      const level = o.valueAfter?.difficulty_level;
+      return `Clinician ${Number(level) > (o.valueBefore?.difficulty_level ?? 0) ? "increased" : "decreased"} difficulty for ${defLabel.toLowerCase()} tasks`;
+    }
+    if (o.overrideType === "cue_level") {
+      return `Clinician set cue level to ${o.valueAfter?.cue_level ?? "reviewed"} for ${defLabel.toLowerCase()} tasks`;
+    }
+    if (o.reason) return o.reason;
+  }
+
+  // Check adaptation events
+  const relevantAdaptations = adaptationEvents.filter(e => exercises.includes(e.exercise_slug || ""));
+  if (relevantAdaptations.length > 0) {
+    const latest = relevantAdaptations[0]; // already sorted desc
+    const ev = latest.evidence as Record<string, any>;
+    if (ev?.accuracy !== undefined) {
+      const acc = Math.round(Number(ev.accuracy) * 100);
+      if (acc < 50) return `Recent accuracy is low (${acc}%) — tasks still require support`;
+      if (acc < 70) return `Accuracy is improving but still variable (${acc}%)`;
+      return `Accuracy is strong (${acc}%) — challenge may increase`;
+    }
+    if (ev?.trigger_description) return String(ev.trigger_description);
+    if (latest.trigger_condition) return latest.trigger_condition;
+    return `System adjusted ${defLabel.toLowerCase()} based on recent performance`;
+  }
+
+  return `${defLabel} is being actively trained`;
 }
 
 export function useStrengthsAndFocusAreas({
@@ -103,7 +157,6 @@ export function useStrengthsAndFocusAreas({
       if (def.relatedImpairments.some(imp => allImpairments.includes(imp))) {
         focusAreasWithDeficit.add(def.id);
       }
-      // Also check therapy focus
       if (therapyFocus.some(f => 
         def.id.includes(f) || f.includes(def.id) ||
         def.relatedImpairments.some(imp => f.includes(imp))
@@ -128,7 +181,7 @@ export function useStrengthsAndFocusAreas({
         s.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase())
       );
 
-      // Determine provenance for this area
+      // Determine provenance
       const areaOverrides = activeOverrides.filter(o => exercises.includes(o.targetSlug || ""));
       const areaAdaptations = adaptationEvents.filter(e => exercises.includes(e.exercise_slug || ""));
       let provenance: "system" | "clinician" | "mixed" | "default" = "default";
@@ -154,26 +207,38 @@ export function useStrengthsAndFocusAreas({
       const gains = [...new Set(exercises.map(s => getExerciseDomain(s)?.expectedGain).filter(Boolean))];
 
       if (isDeficit || hasPressure) {
-        // This is a focus area (needs work)
-        const signals: string[] = [];
-        if (isDeficit) signals.push("Documented in clinical profile");
-        if (hasPressure) signals.push("Active adaptation or override");
+        // Build evidence tags
+        const evidence: EvidenceTag[] = [];
+        if (isDeficit) evidence.push({ source: "clinical_profile", label: "Clinical profile" });
+        if (areaOverrides.length > 0) evidence.push({ source: "clinician_override", label: "Clinician override" });
+        if (areaAdaptations.length > 0) evidence.push({ source: "adaptation", label: "System adjustment" });
+        if (evidence.length === 0) evidence.push({ source: "exercise_coverage", label: "Exercise coverage" });
 
-        const whyNeeded = isDeficit
-          ? `${def.label} is identified as a current need based on the clinical profile`
-          : `${def.label} has active adaptations indicating ongoing support`;
+        // Build specific clinician signal
+        const clinicianSignal = deriveClinicianSignal(exercises, adaptationEvents, activeOverrides, def.label);
+
+        // Why needed — more specific
+        const whyParts: string[] = [];
+        if (isDeficit) whyParts.push(`${def.label.toLowerCase()} is a documented need`);
+        if (hasPressure && !isDeficit) whyParts.push(`${def.label.toLowerCase()} has active adjustments`);
+        const whyNeeded = whyParts.length > 0
+          ? whyParts.join(" and ") + ` — ${clinicianSignal.toLowerCase()}`
+          : clinicianSignal;
         
+        // Patient-facing: daily-life language
         const patientWhyNeeded = isDeficit
-          ? `This is an area we're focusing on because it needs more practice`
-          : `The app is adjusting exercises here to give you the right level of support`;
+          ? `${def.patientDescription.charAt(0).toLowerCase() + def.patientDescription.slice(1)} — we're working on making this easier`
+          : `The app is adjusting these exercises to give you the right level of support`;
 
         focusAreas.push({
           id: faId,
           title: def.label,
           patientTitle: def.patientLabel,
+          classification: "focus",
           whyNeeded,
           patientWhyNeeded,
-          supportingSignals: signals,
+          clinicianSignal,
+          evidence,
           exercises: exerciseNames,
           activeAdaptation,
           expectedGain: gains[0] || def.functionalMeaning,
@@ -181,32 +246,57 @@ export function useStrengthsAndFocusAreas({
           provenance,
         });
       } else {
-        // This is a strength (doing well)
+        // Classify as strength or maintained
+        // Strength: has exercises, no deficit, no pressure, AND has enough exercise coverage (2+)
+        const isStrength = exercises.length >= 2 && !isDeficit;
+        const classification: "strength" | "maintained" = isStrength ? "strength" : "maintained";
+
+        const evidence: EvidenceTag[] = [];
+        if (isStrength) {
+          evidence.push({ source: "exercise_coverage", label: "Multiple exercises active" });
+          evidence.push({ source: "inferred", label: "No adaptation pressure" });
+        } else {
+          evidence.push({ source: "inferred", label: "No active issues detected" });
+        }
+
+        const reason = isStrength
+          ? `${def.label} is covered by ${exercises.length} exercises with no active adaptation pressure`
+          : `${def.label} is being practiced — not enough evidence to confirm as a strength`;
+        
+        const patientReason = isStrength
+          ? `You're doing well with ${def.functionalMeaning.toLowerCase()}`
+          : `You're practicing ${def.functionalMeaning.toLowerCase()} — keep it up`;
+
         strengths.push({
           id: faId,
           title: def.label,
           patientTitle: def.patientLabel,
-          reason: `${def.label} shows no active adaptation pressure`,
-          patientReason: `You're doing well in this area`,
-          supportingSignals: ["No active adaptation needed", "Steady performance"],
+          classification,
+          reason,
+          patientReason,
+          evidence,
           exercises: exerciseNames,
-          systemPlan: "Maintain and gradually increase challenge",
+          systemPlan: isStrength
+            ? "Maintain and gradually increase challenge"
+            : "Continue current practice level",
           functionalMeaning: def.functionalMeaning,
           linkedOutcomes: def.linkedOutcomes,
         });
       }
     }
 
-    // Also add focus areas from impairments even if no exercise is active
+    // Uncovered: deficit present but no exercises assigned
     for (const def of FOCUS_AREA_DEFINITIONS) {
       if (focusAreasWithDeficit.has(def.id) && !exercisesByFocusArea.has(def.id)) {
         focusAreas.push({
           id: def.id,
           title: def.label,
           patientTitle: def.patientLabel,
+          classification: "uncovered",
           whyNeeded: `${def.label} is documented as a need but no active exercises target it directly`,
-          patientWhyNeeded: `This area needs work but isn't being directly practiced right now`,
-          supportingSignals: ["Documented deficit without active exercise coverage"],
+          patientWhyNeeded: `${def.patientDescription.charAt(0).toLowerCase() + def.patientDescription.slice(1)} — this isn't being directly practiced right now`,
+          clinicianSignal: "No exercise coverage for documented deficit",
+          evidence: [{ source: "clinical_profile", label: "Clinical profile (uncovered)" }],
           exercises: [],
           activeAdaptation: "No exercises currently assigned",
           expectedGain: def.functionalMeaning,
@@ -216,27 +306,39 @@ export function useStrengthsAndFocusAreas({
       }
     }
 
+    // Sort: strengths first, then maintained
+    strengths.sort((a, b) => {
+      if (a.classification === "strength" && b.classification === "maintained") return -1;
+      if (a.classification === "maintained" && b.classification === "strength") return 1;
+      return 0;
+    });
+
     // Build plan summary
-    const focusNames = focusAreas.slice(0, 3).map(f => f.title.toLowerCase());
-    const strengthNames = strengths.slice(0, 2).map(s => s.title.toLowerCase());
+    const focusNames = focusAreas.filter(f => f.classification === "focus").slice(0, 3).map(f => f.title.toLowerCase());
+    const strengthNames = strengths.filter(s => s.classification === "strength").slice(0, 2).map(s => s.title.toLowerCase());
+    const maintainedNames = strengths.filter(s => s.classification === "maintained").slice(0, 2).map(s => s.title.toLowerCase());
     
     const emphasis = focusNames.length > 0
       ? focusNames.join(", ")
       : "general communication skills";
     
     const reasonParts: string[] = [];
-    if (focusAreas.some(f => f.supportingSignals.includes("Documented in clinical profile"))) {
+    if (focusAreas.some(f => f.evidence.some(e => e.source === "clinical_profile"))) {
       reasonParts.push("based on the clinical profile");
     }
-    if (focusAreas.some(f => f.supportingSignals.includes("Active adaptation or override"))) {
-      reasonParts.push("informed by recent performance");
+    if (focusAreas.some(f => f.evidence.some(e => e.source === "adaptation" || e.source === "clinician_override"))) {
+      reasonParts.push("informed by recent performance and adjustments");
     }
 
+    const maintainedSuffix = maintainedNames.length > 0
+      ? `, monitoring ${maintainedNames.join(" and ")}`
+      : "";
+
     const planSummary: PlanSummaryStatement = {
-      emphasis: `Currently emphasizing ${emphasis}${strengthNames.length > 0 ? ` while maintaining ${strengthNames.join(" and ")}` : ""}`,
+      emphasis: `Currently emphasizing ${emphasis}${strengthNames.length > 0 ? ` while maintaining ${strengthNames.join(" and ")}` : ""}${maintainedSuffix}`,
       reasoning: reasonParts.length > 0 ? reasonParts.join(" and ") : "based on the recovery plan",
       patientVersion: focusNames.length > 0
-        ? `Your exercises are focused on helping with ${focusNames.join(" and ")}. ${strengthNames.length > 0 ? `You're doing well with ${strengthNames.join(" and ")}.` : ""}`
+        ? `Your exercises are focused on helping with ${focusNames.join(" and ")}. ${strengthNames.length > 0 ? `You're doing well with ${strengthNames.join(" and ")}!` : ""}`
         : "Your exercises are helping with overall communication recovery.",
     };
 
