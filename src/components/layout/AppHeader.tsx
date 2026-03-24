@@ -27,7 +27,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useHelpMode } from "@/contexts/HelpModeContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CaregiverModeToggle } from "@/components/CaregiverModeToggle";
+import { ViewModeSelector } from "@/components/ViewModeSelector";
 import {
   Tooltip,
   TooltipContent,
