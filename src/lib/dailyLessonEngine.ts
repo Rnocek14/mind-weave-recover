@@ -594,6 +594,9 @@ export function generateDailyLesson(
     'multi-step-plan': { domains: ['attention', 'semantic_systems'], baseMinutes: 3, baseComponent: 'planning-game' },
     'dual-load-naming': { domains: ['expressive_language', 'attention'], baseMinutes: 3, baseComponent: 'dual-load-game' },
     'thought-continuation': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'thought-game' },
+    'thought-organization': { domains: ['expressive_language', 'attention'], baseMinutes: 3, baseComponent: 'thought-game' },
+    'word-finding': { domains: ['expressive_language', 'semantic_systems'], baseMinutes: 3, baseComponent: 'word-finding-game' },
+    'sentence-game': { domains: ['expressive_language', 'receptive_language'], baseMinutes: 4, baseComponent: 'sentence-game' },
   };
 
   // Score each accessible exercise

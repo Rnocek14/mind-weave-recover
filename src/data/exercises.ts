@@ -203,4 +203,40 @@ export const EXERCISES: Exercise[] = [
     difficulty: "Easy",
     color: "bg-gradient-healing"
   },
+  {
+    id: "phonological-awareness",
+    title: "Phonological Awareness",
+    icon: Volume2,
+    category: "Language",
+    duration: "5-8 min",
+    difficulty: "Medium",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "word-finding",
+    title: "Word Finding",
+    icon: Search,
+    category: "Speech",
+    duration: "5-8 min",
+    difficulty: "Medium",
+    color: "bg-gradient-healing"
+  },
+  {
+    id: "sentence-game",
+    title: "Sentence Game",
+    icon: List,
+    category: "Language",
+    duration: "5-8 min",
+    difficulty: "Medium",
+    color: "bg-gradient-primary"
+  },
+  {
+    id: "thought-organization",
+    title: "Thought Organization",
+    icon: Lightbulb,
+    category: "Expression",
+    duration: "5-8 min",
+    difficulty: "Medium",
+    color: "bg-gradient-healing"
+  },
 ];
