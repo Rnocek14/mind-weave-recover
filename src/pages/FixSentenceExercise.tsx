@@ -40,6 +40,7 @@ export default function FixSentenceExercise() {
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations: location.state?.adaptations,
     lessonFocusPhonemes: location.state?.focusPhonemes,
     defaultErrorType: 'semantic_paraphasia',

@@ -160,3 +160,70 @@ export async function reviewCueing(
     return { success: false, message: err.message || "Failed to review cueing" };
   }
 }
+
+/**
+ * Suggest an override (creates in 'suggested' status, does NOT apply).
+ * Used by system/AI recommendations that need clinician approval.
+ */
+export async function suggestOverride(
+  ctx: ActionContext,
+  overrideType: string,
+  valueAfter: Record<string, any>,
+  reason: string,
+  suggestedBy: string = "system",
+  targetSlug?: string
+): Promise<QuickActionResult> {
+  try {
+    return await callClinicianRpc("clinician_suggest_override", {
+      p_user_id: ctx.userId,
+      p_profile_id: ctx.profileId,
+      p_suggested_by: suggestedBy,
+      p_override_type: overrideType,
+      p_target_slug: targetSlug || null,
+      p_value_after: valueAfter,
+      p_reason: reason,
+    });
+  } catch (err: any) {
+    return { success: false, message: err.message || "Failed to create suggestion" };
+  }
+}
+
+/**
+ * Approve a suggested override — applies it to runtime_config atomically.
+ */
+export async function approveOverride(
+  ctx: ActionContext,
+  overrideId: string
+): Promise<QuickActionResult> {
+  try {
+    return await callClinicianRpc("clinician_approve_override", {
+      p_user_id: ctx.userId,
+      p_profile_id: ctx.profileId,
+      p_clinician_id: ctx.clinicianId,
+      p_override_id: overrideId,
+    });
+  } catch (err: any) {
+    return { success: false, message: err.message || "Failed to approve override" };
+  }
+}
+
+/**
+ * Reject a suggested override — marks as reversed without applying.
+ */
+export async function rejectOverride(
+  ctx: ActionContext,
+  overrideId: string,
+  reason: string = "Clinician declined suggestion"
+): Promise<QuickActionResult> {
+  try {
+    return await callClinicianRpc("clinician_reject_override", {
+      p_user_id: ctx.userId,
+      p_profile_id: ctx.profileId,
+      p_clinician_id: ctx.clinicianId,
+      p_override_id: overrideId,
+      p_reason: reason,
+    });
+  } catch (err: any) {
+    return { success: false, message: err.message || "Failed to reject suggestion" };
+  }
+}

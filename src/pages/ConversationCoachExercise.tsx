@@ -35,6 +35,7 @@ export default function ConversationCoachExercise() {
   
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     defaultErrorType: 'no_response',
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {

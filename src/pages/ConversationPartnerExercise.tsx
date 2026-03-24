@@ -41,6 +41,7 @@ export default function ConversationPartnerExercise() {
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
+    exerciseSlug: 'conversation-partner',
     lessonAdaptations,
     defaultErrorType: 'no_response',
   });

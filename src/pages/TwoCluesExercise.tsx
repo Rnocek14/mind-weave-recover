@@ -45,6 +45,7 @@ export default function TwoCluesExercise() {
 
   // Shared adaptation contract - provides focusPhonemes, cue type, difficulty
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
     lessonFocusPhonemes,
     lessonFocusWords,

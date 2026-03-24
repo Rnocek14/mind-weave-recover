@@ -46,6 +46,7 @@ export default function DetectiveMindExercise() {
 
   // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
   const difficultyLevel = adaptation.difficultyTier;

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useExerciseGating } from "./useExerciseGating";
+import { useRuntimeConfig } from "./useRuntimeConfig";
 import { getCapabilityDifficultyBounds, clampToBounds } from "@/lib/difficultyBounds";
 import { normalizeExerciseSlug } from "@/lib/exerciseSlugNormalizer";
 
@@ -22,6 +23,7 @@ export const useExerciseDifficulty = (
   const [loading, setLoading] = useState<boolean>(true);
   const { toast } = useToast();
   const { capabilityScores } = useExerciseGating(userId, profileId);
+  const { getDifficulty } = useRuntimeConfig();
 
   // Calculate capability-based bounds
   const bounds = useMemo(
@@ -43,8 +45,9 @@ export const useExerciseDifficulty = (
       const difficulties = (prefs.difficulties ?? {}) as Record<string, number>;
       const savedLevel = difficulties[exerciseSlug] ?? bounds.suggestedStart;
       
-      // Clamp saved level to current capability bounds
-      setLevel(clampToBounds(savedLevel, bounds));
+      // Apply clinician runtime_config offset, then clamp to capability bounds
+      const runtimeOffset = getDifficulty(exerciseSlug);
+      setLevel(clampToBounds(savedLevel + runtimeOffset, bounds));
     } catch (e) {
       console.error('Error loading difficulty:', e);
       setLevel(bounds.suggestedStart);

@@ -47,6 +47,7 @@ import { LongitudinalUtteranceComparison } from "@/components/clinician/Longitud
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
 import { RuntimeConfigInspector } from "@/components/clinician/RuntimeConfigInspector";
+import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
@@ -135,7 +136,7 @@ export default function WeeklyPatientReview() {
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
-  const { activeOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
+  const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
@@ -377,6 +378,15 @@ export default function WeeklyPatientReview() {
         daysPostOnset={daysPostOnset}
         profileName={activeProfile?.profile_name || "Patient"}
         speechLabel={speechLabel}
+      />
+
+      {/* ═══ PENDING SUGGESTIONS ═══ */}
+      <PendingSuggestions
+        suggestions={suggestedOverrides}
+        userId={user?.id || ""}
+        profileId={profileId || ""}
+        clinicianId={user?.id || ""}
+        onActionComplete={refetchOverrides}
       />
 
       {/* ═══ RUNTIME CONFIG INSPECTOR ═══ */}

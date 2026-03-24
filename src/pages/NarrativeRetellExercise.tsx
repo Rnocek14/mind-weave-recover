@@ -38,6 +38,7 @@ export default function NarrativeRetellExercise() {
 
   // Shared adaptation contract — profile-aware, not directly phoneme-targeted
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations: location.state?.adaptations,
     defaultErrorType: 'no_response',
   });

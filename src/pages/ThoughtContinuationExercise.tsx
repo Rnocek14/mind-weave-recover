@@ -37,6 +37,7 @@ export default function ThoughtContinuationExercise() {
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
     defaultErrorType: 'no_response',
   });

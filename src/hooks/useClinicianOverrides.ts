@@ -16,6 +16,10 @@ export interface ClinicianOverride {
   clinicianId: string;
   createdAt: string;
   reversedAt: string | null;
+  suggestedBy: string | null;
+  suggestedAt: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
 }
 
 export function useClinicianOverrides(profileId: string | undefined) {
@@ -50,6 +54,10 @@ export function useClinicianOverrides(profileId: string | undefined) {
           clinicianId: d.clinician_id,
           createdAt: d.created_at,
           reversedAt: d.reversed_at,
+          suggestedBy: d.suggested_by || null,
+          suggestedAt: d.suggested_at || null,
+          approvedBy: d.approved_by || null,
+          approvedAt: d.approved_at || null,
         }))
       );
     } catch (err) {
@@ -64,7 +72,8 @@ export function useClinicianOverrides(profileId: string | undefined) {
   }, [load]);
 
   const activeOverrides = overrides.filter((o) => o.status === "active");
+  const suggestedOverrides = overrides.filter((o) => o.status === "suggested");
   const recentOverrides = overrides.slice(0, 10);
 
-  return { overrides, activeOverrides, recentOverrides, isLoading, refetch: load };
+  return { overrides, activeOverrides, suggestedOverrides, recentOverrides, isLoading, refetch: load };
 }
