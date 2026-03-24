@@ -150,9 +150,6 @@ export function PatientModeView({
   if (viewState === "loading") {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-8 md:p-16 space-y-8 text-center shadow-2xl border-2">
             <Loader2 className="w-16 h-16 md:w-20 md:h-20 animate-spin text-primary mx-auto" />
