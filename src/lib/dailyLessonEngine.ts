@@ -403,7 +403,11 @@ export function calculateTodaysDose(
 }
 
 /**
- * Weight exercises by domain priorities and learning rates
+ * Weight exercises by domain priorities and learning rates.
+ * 
+ * Scoring spread: high=5, medium=2, low=0
+ * This creates enough separation that aphasia-type-specific priorities
+ * reliably push the correct exercises to the top.
  */
 export function scoreExercise(
   exerciseId: string,
@@ -414,12 +418,12 @@ export function scoreExercise(
 ): number {
   let score = 0;
 
-  // Base score from domain priorities
+  // Base score from domain priorities — wider spread for clear differentiation
   exerciseDomains.forEach(domain => {
     const priority = (domainPriorities as any)[domain];
-    if (priority === 'high') score += 3;
+    if (priority === 'high') score += 5;
     else if (priority === 'medium') score += 2;
-    else score += 1;
+    // 'low' adds 0 — non-priority domains don't inflate scores
   });
 
   // Boost if learning rate is slow (needs more practice)
