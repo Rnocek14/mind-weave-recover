@@ -323,18 +323,26 @@ export default function WeeklyPatientReview() {
       </Card>
 
       {/* ─── Accuracy Sparkline (visual confirmation of trajectory) ─── */}
-      <Card className="border-border/50">
-        <CardContent className="py-2 px-4">
-          <AccuracySparkline
-            timeline={recent7.map((d) => ({
-              date: d.date,
-              accuracy: d.accuracy ?? null,
-              fatigueRating: d.fatigueRating ?? null,
-              trials: d.trialCount ?? 0,
-            }))}
-          />
-        </CardContent>
-      </Card>
+      {(() => {
+        const sparkData = dayGroups.map((dg) => {
+          const totalTrials = dg.sessions.reduce((s, ses) => s + ses.exercises.reduce((t, e) => t + e.trials, 0), 0);
+          const totalCorrect = dg.sessions.reduce((s, ses) => s + ses.exercises.reduce((t, e) => t + (e.correct ?? 0), 0), 0);
+          const daySnap = recent7.find((d) => d.date === dg.date);
+          return {
+            date: dg.date,
+            accuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : null,
+            fatigueRating: daySnap?.fatigueRating ?? null,
+            trials: totalTrials,
+          };
+        });
+        return sparkData.filter((d) => d.accuracy !== null).length >= 2 ? (
+          <Card className="border-border/50">
+            <CardContent className="py-2 px-4">
+              <AccuracySparkline timeline={sparkData} />
+            </CardContent>
+          </Card>
+        ) : null;
+      })()}
 
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
