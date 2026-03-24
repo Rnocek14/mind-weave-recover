@@ -140,6 +140,7 @@ const App = () => (
                   <Route path="/admin/research-export" element={<AppLayout><ResearchExport /></AppLayout>} />
                   <Route path="/analytics/cluster" element={<AppLayout><ClusterAnalytics /></AppLayout>} />
                   <Route path="/admin/outcomes-validation" element={<AppLayout><OutcomesValidation /></AppLayout>} />
+                  <Route path="/admin/engine-simulation" element={<AppLayout><AdminEngineSimulation /></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   
                   {/* Redirect old routes to canonical routes */}
