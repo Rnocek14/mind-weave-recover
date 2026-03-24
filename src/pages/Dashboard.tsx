@@ -308,7 +308,6 @@ const Dashboard = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <ViewModeSelector />
               <ProfileSwitcher />
               <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
                 <DialogTrigger asChild>

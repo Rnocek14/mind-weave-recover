@@ -184,8 +184,6 @@ export default function Insights() {
             </div>
             
             <div className="flex items-center gap-2">
-              <ViewModeSelector />
-              
               {isAtLeast('clinician') && (
                 <Button variant="outline" size="sm" asChild className="gap-2">
                   <Link to="/clinician/review">
