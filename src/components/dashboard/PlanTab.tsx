@@ -206,6 +206,13 @@ export const PlanTab = memo(function PlanTab() {
         </section>
       )}
 
+      {/* What's Affected — caregiver-friendly brain map */}
+      {!isClinician && clinicalProfile && (
+        <section>
+          <WhatsAffectedCard clinicalProfile={clinicalProfile} />
+        </section>
+      )}
+
       {/* Clinical Profile — clinician+ only (canonical home is Weekly Review) */}
       {isClinician && (
         <section>
