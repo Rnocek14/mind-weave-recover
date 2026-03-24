@@ -21,7 +21,8 @@ import { WhatsAffectedCard } from "@/components/WhatsAffectedCard";
 import { RecoveryFocusSummary } from "@/components/RecoveryFocusSummary";
 import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
 import { WeeklyPlanNarrativeCard } from "@/components/WeeklyPlanNarrativeCard";
-import { useSessionPlanReasoning } from "@/hooks/useSessionPlanReasoning";
+import { PlanDeltaCard } from "@/components/PlanDeltaCard";
+import { useSessionPlanReasoningV2 } from "@/hooks/useSessionPlanReasoningV2";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
@@ -63,8 +64,8 @@ export const PlanTab = memo(function PlanTab() {
   
   const activeExerciseSlugs = lesson?.blocks?.map((b: any) => b.exerciseId) || recommendedExercises?.map((e: any) => e.id) || [];
   
-  // ── Canonical reasoning layer ──
-  const reasoning = useSessionPlanReasoning({
+  // ── V2 Canonical reasoning layer ──
+  const reasoning = useSessionPlanReasoningV2({
     clinicalProfile: clinicalProfile || null,
     runtimeConfig: (activeProfile as any)?.runtime_config || null,
     activeExerciseSlugs,
@@ -101,13 +102,20 @@ export const PlanTab = memo(function PlanTab() {
 
       {/* Weekly Plan Narrative — why this week's plan looks this way */}
       {!isClinician && activeExerciseSlugs.length > 0 && (
-        <WeeklyPlanNarrativeCard
-          narrative={reasoning.weeklyNarrative}
-          targetedOutcomes={reasoning.targetedOutcomes}
-          confidence={reasoning.confidence}
-          role={viewRole}
-        />
+        <>
+          <WeeklyPlanNarrativeCard
+            narrative={reasoning.weeklyNarrative}
+            targetedOutcomes={reasoning.targetedOutcomes}
+            confidence={reasoning.confidence}
+            role={viewRole}
+          />
+          {/* Plan Delta for caregiver */}
+          {viewRole === "caregiver" && (
+            <PlanDeltaCard delta={reasoning.v2.planDelta} role="caregiver" />
+          )}
+        </>
       )}
+
       {/* Dosing & Tolerance Guidance */}
       {doseCap && (
         <Card className="p-4">
