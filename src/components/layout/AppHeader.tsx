@@ -167,8 +167,8 @@ export function AppHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Caregiver Mode Toggle - only for eligible users */}
-          {canAccessCaregiverMode && <CaregiverModeToggle />}
+          {/* Global View Mode Selector */}
+          <ViewModeSelector />
 
           {/* Help Mode Toggle */}
           <TooltipProvider delayDuration={300}>
