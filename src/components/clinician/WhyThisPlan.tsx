@@ -103,6 +103,15 @@ export function WhyThisPlan({
     activeOverrides,
   });
 
+  // Strengths & Focus Areas
+  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+    clinicalProfile,
+    runtimeConfig: runtimeConfig || null,
+    activeExerciseSlugs,
+    adaptationEvents,
+    activeOverrides,
+  });
+
   if (activeExerciseSlugs.length === 0) return null;
 
   return (
