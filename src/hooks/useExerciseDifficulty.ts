@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useExerciseGating } from "./useExerciseGating";
+import { useRuntimeConfig } from "./useRuntimeConfig";
 import { getCapabilityDifficultyBounds, clampToBounds } from "@/lib/difficultyBounds";
 import { normalizeExerciseSlug } from "@/lib/exerciseSlugNormalizer";
 
