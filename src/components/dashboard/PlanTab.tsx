@@ -209,7 +209,10 @@ export const PlanTab = memo(function PlanTab() {
       {/* What's Affected — caregiver-friendly brain map */}
       {!isClinician && clinicalProfile && (
         <section>
-          <WhatsAffectedCard clinicalProfile={clinicalProfile} />
+          <WhatsAffectedCard
+            clinicalProfile={clinicalProfile}
+            activeExerciseSlugs={lesson?.blocks?.map(b => b.exerciseSlug) || recommendedExercises?.map(e => e.slug) || []}
+          />
         </section>
       )}
 
