@@ -347,6 +347,30 @@ const PHASE_A_RULES: DecisionRule[] = [
     },
     adaptationDescription: 'Prioritize words containing struggling phonemes',
   },
+  {
+    id: 'focus_words_from_speech_profile',
+    description: 'Populate focus words from speech profile challenging categories',
+    minConfidence: 'LOW', // Can fire even early — uses profile data
+    phase: 'A',
+    condition: (input) => {
+      return !!(input.speechProfile?.mostChallengingCategories?.length);
+    },
+    conditionDescription: (input) => {
+      const cats = input.speechProfile?.mostChallengingCategories || [];
+      return `Challenging categories: ${cats.slice(0, 3).join(', ')}`;
+    },
+    apply: (focus, input) => {
+      // Focus words come from challenging categories — these are word-level targets
+      const cats = input.speechProfile?.mostChallengingCategories || [];
+      if (cats.length > 0) {
+        focus.adaptations.focusWords = cats.slice(0, 5);
+        focus.reasoning.push(
+          `Targeting words from challenging categories: ${cats.slice(0, 5).join(', ')}`
+        );
+      }
+    },
+    adaptationDescription: 'Set focusWords from speech profile challenging categories',
+  },
 ];
 
 // ============ Phase B Rules (Cognitive State Engine) ============
