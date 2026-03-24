@@ -847,17 +847,23 @@ export function generateDailyLesson(
     const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
       ?? Math.max(0, capabilityScores.attention - 2);
 
+    // Apply struggle re-entry config if this exercise was flagged as struggling
+    const reEntryConfig = struggleReEntryConfigs?.get(ex.id);
+    const blockDifficulty = reEntryConfig?.difficulty ?? effectiveStartDifficulty;
+    const blockCueLevel = reEntryConfig?.cueLevel ?? (performanceSignals.frustrationLevel === 'high' ? 2 : 1);
+    const struggleNote = reEntryConfig ? ` (re-entry: easier start, increased support)` : '';
+
     blocks.push({
       exerciseId: ex.id,
       duration,
       priority: 'primary',
       adaptations: {
-        startDifficulty: effectiveStartDifficulty,
-        cueLevel: performanceSignals.frustrationLevel === 'high' ? 2 : 1,
+        startDifficulty: blockDifficulty,
+        cueLevel: blockCueLevel,
         timeout: performanceSignals.avgReactionTime * 2,
         visualSupport: capabilityScores.vision < 5,
       },
-      reasoning: `Primary: ${ex.domains.join(', ')}`,
+      reasoning: `Primary: ${ex.domains.join(', ')}${struggleNote}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(ex.id);
