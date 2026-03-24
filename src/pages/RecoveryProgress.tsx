@@ -109,8 +109,8 @@ export default function RecoveryProgress() {
   const speechRate = learningRates?.find(r => r.domain === 'naming' || r.domain === 'speech_therapy');
   const accuracyTrend: 'improving' | 'stable' | 'declining' | 'insufficient' =
     !speechRate ? 'insufficient'
-    : (speechRate.accuracy_slope ?? 0) > THRESHOLDS.accuracy.strongSlope ? 'improving'
-    : (speechRate.accuracy_slope ?? 0) < THRESHOLDS.accuracy.weakSlope ? 'declining'
+    : (speechRate.accuracySlope ?? 0) > THRESHOLDS.accuracy.strongSlope ? 'improving'
+    : (speechRate.accuracySlope ?? 0) < THRESHOLDS.accuracy.weakSlope ? 'declining'
     : 'stable';
 
   // Build comparison: first 2 weeks vs recent 2 weeks from cue data
