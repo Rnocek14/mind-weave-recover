@@ -2,8 +2,8 @@
  * "Why This Plan" — Traceability card showing how the clinical profile
  * drives exercise selection, cue level, difficulty, and recent adjustments.
  * 
- * Now includes LIVE config state: current overrides, difficulty band,
- * cue level, and whether changes were AI-driven or clinician overrides.
+ * Now includes the Therapy Focus Map with per-exercise explainability cards,
+ * plus live config state, active overrides, and coverage gaps.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle, ArrowRight, Brain, Target, Volume2, SlidersHorizontal, Zap, User, Bot, Undo2 } from "lucide-react";
 import { HelpLabel } from "@/components/HelpTooltip";
-import { EXERCISE_DOMAIN_MAP, getExerciseDomain, type ExerciseDomainEntry } from "@/lib/exerciseDomainMap";
+import { getExerciseDomain, type ExerciseDomainEntry } from "@/lib/exerciseDomainMap";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
+import { useTherapyFocusData } from "@/hooks/useTherapyFocusData";
+import { TherapyFocusMap } from "@/components/clinician/TherapyFocusMap";
 import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
+import type { AdaptationEvent } from "@/hooks/useAdaptationTimeline";
 
 interface WhyThisPlanProps {
   clinicalProfile: Record<string, any> | null;
@@ -31,6 +34,8 @@ interface WhyThisPlanProps {
   recentOverrides?: ClinicianOverride[];
   /** Callback to reverse an override */
   onReverseOverride?: (overrideId: string) => void;
+  /** Adaptation events for therapy focus map */
+  adaptationEvents?: AdaptationEvent[];
 }
 
 const overrideTypeLabels: Record<string, string> = {
@@ -49,6 +54,7 @@ export function WhyThisPlan({
   activeOverrides = [],
   recentOverrides = [],
   onReverseOverride,
+  adaptationEvents = [],
 }: WhyThisPlanProps) {
   const cp = clinicalProfile;
   const rc = runtimeConfig || {};
@@ -86,15 +92,14 @@ export function WhyThisPlan({
     return allDomains.filter((d) => !activeCognitiveDomains.includes(d));
   }, [activeCognitiveDomains]);
 
-  // Group exercises by their recovery domain
-  const exercisesByDomain = useMemo(() => {
-    const map: Record<string, ExerciseDomainEntry[]> = {};
-    activeEntries.forEach((e) => {
-      if (!map[e.recoveryDomain]) map[e.recoveryDomain] = [];
-      map[e.recoveryDomain].push(e);
-    });
-    return map;
-  }, [activeEntries]);
+  // Therapy Focus Map data
+  const { cardsByDomain, sessionRationale } = useTherapyFocusData({
+    activeExerciseSlugs,
+    clinicalProfile,
+    runtimeConfig: runtimeConfig || null,
+    adaptationEvents,
+    activeOverrides,
+  });
 
   if (activeExerciseSlugs.length === 0) return null;
 
@@ -103,7 +108,7 @@ export function WhyThisPlan({
       <CardHeader className="pb-2 pt-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Zap className="h-4 w-4 text-primary" />
-          <HelpLabel term="Plan Traceability">Why This Plan</HelpLabel>
+          <HelpLabel term="Plan Traceability">Therapy Focus Map</HelpLabel>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger>
@@ -111,9 +116,8 @@ export function WhyThisPlan({
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-xs text-xs">
                 <p>
-                  Shows how the clinical profile drives exercise selection, and displays
-                  the <strong>live configuration state</strong>: current difficulty level,
-                  cue overrides, and active clinician adjustments. Each change is labeled
+                  Shows why each exercise was selected for this patient, how it's
+                  currently adapted, and what outcome it targets. Each change is labeled
                   as clinician-driven or system-driven for full transparency.
                 </p>
               </TooltipContent>
@@ -183,7 +187,6 @@ export function WhyThisPlan({
             </p>
             <div className="space-y-1 pl-4">
               {activeOverrides.map((o) => {
-                // Provenance: describe what changed
                 const changeDesc = o.overrideType === "difficulty"
                   ? `Level ${o.valueBefore?.difficulty_level ?? "?"} → ${o.valueAfter?.difficulty_level ?? "?"} ${o.valueAfter?.target === "_global" ? "(global)" : `(${o.targetSlug?.replace(/-/g, " ") || "specific"})`}`
                   : o.overrideType === "dose_reduction"
@@ -245,7 +248,7 @@ export function WhyThisPlan({
               <span className="text-muted-foreground">Documented deficits:</span>
               {[...speechImpairments, ...cognitiveImpairments].slice(0, 5).map((imp, i) => (
                 <Badge key={i} variant="outline" className="text-[9px] h-5">
-                  {imp.replace(/_/g, " ")}
+                  {typeof imp === "string" ? imp.replace(/_/g, " ") : String(imp)}
                 </Badge>
               ))}
               <ArrowRight className="w-3 h-3 text-muted-foreground mx-0.5" />
@@ -266,47 +269,24 @@ export function WhyThisPlan({
               <span className="text-muted-foreground">Therapy focus:</span>
               {therapyFocus.map((f, i) => (
                 <Badge key={i} className="text-[9px] h-5 bg-primary/10 text-primary border-primary/20">
-                  {f.replace(/_/g, " ")}
+                  {typeof f === "string" ? f.replace(/_/g, " ") : String(f)}
                 </Badge>
               ))}
             </div>
           )}
         </div>
 
-        {/* Exercise → Domain mapping */}
+        {/* ── Therapy Focus Map (per-exercise explainability) ── */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <Target className="w-3 h-3" />
             Active Exercises ({activeEntries.length})
           </p>
-          <div className="space-y-1 pl-4">
-            {Object.entries(exercisesByDomain).map(([domain, exercises]) => (
-              <div key={domain} className="space-y-1">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  {domain.replace(/_/g, " ")}
-                </p>
-                {exercises.map((ex) => {
-                  const exDiffOverride = difficultyOverrides[ex.slug];
-                  return (
-                    <div key={ex.slug} className="flex items-start gap-2 text-xs py-0.5">
-                      <span className="font-medium min-w-[120px] shrink-0">
-                        {ex.slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </span>
-                      <ArrowRight className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
-                      <span className="text-muted-foreground">{ex.clinicalRationale}</span>
-                      {ex.hasSpeechOutput && (
-                        <Volume2 className="w-3 h-3 text-primary/50 shrink-0 mt-0.5" />
-                      )}
-                      {exDiffOverride !== undefined && (
-                        <Badge variant="outline" className="text-[8px] h-4 shrink-0 border-primary/30">
-                          diff {exDiffOverride > 0 ? `+${exDiffOverride}` : exDiffOverride}
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+          <div className="pl-4">
+            <TherapyFocusMap
+              cardsByDomain={cardsByDomain}
+              sessionRationale={sessionRationale}
+            />
           </div>
         </div>
 
@@ -330,7 +310,7 @@ export function WhyThisPlan({
           </div>
         )}
 
-        {/* Recent Overrides History (including reversed) */}
+        {/* Recent Overrides History */}
         {recentOverrides.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
