@@ -383,10 +383,10 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── 4-Tab Profile Hub ── */}
+        {/* ── Profile Hub Tabs ── */}
         <DashboardProvider value={dashboardContextValue}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className={`grid w-full ${isClinician ? 'grid-cols-4' : 'grid-cols-3'} mb-6`}>
               <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
                 <LayoutDashboard className="w-4 h-4" />
                 <span className="hidden sm:inline">Overview</span>
@@ -396,10 +396,12 @@ const Dashboard = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="domains" className="gap-1.5 text-xs sm:text-sm">
-                <Brain className="w-4 h-4" />
-                <span className="hidden sm:inline">Domains</span>
-              </TabsTrigger>
+              {isClinician && (
+                <TabsTrigger value="domains" className="gap-1.5 text-xs sm:text-sm">
+                  <Brain className="w-4 h-4" />
+                  <span className="hidden sm:inline">Domains</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="progress" className="gap-1.5 text-xs sm:text-sm">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Progress</span>
@@ -413,9 +415,11 @@ const Dashboard = () => {
             <TabsContent value="overview">
               <OverviewTab />
             </TabsContent>
-            <TabsContent value="domains">
-              <DomainsTab />
-            </TabsContent>
+            {isClinician && (
+              <TabsContent value="domains">
+                <DomainsTab />
+              </TabsContent>
+            )}
             <TabsContent value="progress">
               <ProgressTab />
             </TabsContent>

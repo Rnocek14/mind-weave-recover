@@ -1,11 +1,14 @@
 import { memo, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { Flame, TrendingUp, Calendar, CheckCircle, Heart, ChevronDown } from "lucide-react";
+import { Flame, TrendingUp, Calendar, CheckCircle, Heart, ChevronDown, BookOpen, ArrowRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
+import { useWordMastery } from "@/hooks/useWordMastery";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 
 interface PatientProgressViewProps {
