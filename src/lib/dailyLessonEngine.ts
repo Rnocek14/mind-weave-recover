@@ -706,7 +706,14 @@ export function generateDailyLesson(
         }
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost;
+      // === EXERCISE STRUGGLE BOOST ===
+      // Struggling exercises get a targeted re-exposure boost
+      let struggleBoost = 0;
+      if (struggleBoosts && struggleBoosts.has(id)) {
+        struggleBoost = struggleBoosts.get(id) || 0;
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost;
 
       selectionReasons.push({
         id,
