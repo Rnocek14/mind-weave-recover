@@ -28,7 +28,6 @@ import { supabase } from "@/integrations/supabase/client";
 // Question-based insight sections
 import { 
   OverviewSection,
-  ProgressSection, 
   ChallengesSection, 
   StrategiesSection, 
   AdaptationsSection,
