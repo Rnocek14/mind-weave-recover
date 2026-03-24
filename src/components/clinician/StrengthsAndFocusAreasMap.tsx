@@ -1,13 +1,8 @@
 /**
  * Strengths & Focus Areas Map — role-aware explainability component.
  * 
- * Three-tier classification:
- * - Strengths (evidence-backed positive areas)
- * - Maintained (not a problem, but not proven strong)
- * - Focus Areas (actively targeted needs)
- * - Uncovered (deficit without exercise coverage)
- * 
- * Designed for 5-second scan speed per card.
+ * Uses centralized roleVocabulary for all labels.
+ * Shows confidence, global adjustments, and actionable gap suggestions.
  */
 
 import { memo } from "react";
@@ -22,6 +17,9 @@ import {
   AlertCircle,
   Eye,
   Info,
+  SlidersHorizontal,
+  Lightbulb,
+  Shield,
 } from "lucide-react";
 import {
   Tooltip,
@@ -29,11 +27,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  getSectionLabel,
+  getConfidenceLabel,
+  getProvenanceLabel,
+  getOutcomeLabel,
+  getGapActionText,
+  type UiRole,
+  type ConfidenceLevel,
+} from "@/lib/roleVocabulary";
 import type {
   StrengthAreaCard,
   FocusAreaCard,
   PlanSummaryStatement,
   EvidenceTag,
+  GlobalAdjustment,
 } from "@/hooks/useStrengthsAndFocusAreas";
 
 interface StrengthsAndFocusAreasMapProps {
@@ -41,13 +49,10 @@ interface StrengthsAndFocusAreasMapProps {
   focusAreas: FocusAreaCard[];
   planSummary: PlanSummaryStatement;
   viewMode?: "patient" | "caregiver" | "clinician";
+  globalAdjustments?: GlobalAdjustment[];
 }
 
-const OUTCOME_LABELS: Record<string, { short: string; full: string }> = {
-  word_mastery: { short: "Words", full: "Word Mastery" },
-  cue_independence: { short: "Independence", full: "Cue Independence" },
-  error_quality: { short: "Accuracy", full: "Error Quality" },
-};
+// ─── Sub-components ───
 
 const EvidenceTags = memo(function EvidenceTags({ tags }: { tags: EvidenceTag[] }) {
   if (tags.length === 0) return null;
@@ -61,36 +66,57 @@ const EvidenceTags = memo(function EvidenceTags({ tags }: { tags: EvidenceTag[] 
   );
 });
 
+const ConfidenceBadge = memo(function ConfidenceBadge({
+  level,
+  role,
+}: {
+  level: ConfidenceLevel;
+  role: UiRole;
+}) {
+  if (role === "patient") return null;
+
+  const colorMap: Record<ConfidenceLevel, string> = {
+    high: "border-success/40 text-success",
+    moderate: "border-muted-foreground/30 text-muted-foreground",
+    low: "border-amber-300/50 text-amber-600",
+  };
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger>
+          <Badge variant="outline" className={`text-[7px] h-3.5 px-1 ${colorMap[level]}`}>
+            <Shield className="w-2 h-2 mr-0.5" />
+            {role === "clinician" ? level.charAt(0).toUpperCase() : getConfidenceLabel(level, role).split(" ")[0]}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {getConfidenceLabel(level, role)}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+});
+
 const ProvenanceIcon = memo(function ProvenanceIcon({
   provenance,
-  viewMode,
+  role,
 }: {
   provenance: "system" | "clinician" | "mixed" | "default";
-  viewMode: string;
+  role: UiRole;
 }) {
   if (provenance === "default") return null;
-  const isPatient = viewMode === "patient" || viewMode === "caregiver";
-  
+  const label = getProvenanceLabel(provenance, role);
+  if (!label) return null;
+
   const config = {
-    clinician: {
-      Icon: User,
-      label: isPatient ? "Adjusted by your therapist" : "Clinician override",
-      cls: "text-primary",
-    },
-    system: {
-      Icon: Bot,
-      label: isPatient ? "Adjusted automatically based on practice" : "System adaptation",
-      cls: "text-muted-foreground",
-    },
-    mixed: {
-      Icon: Sparkles,
-      label: isPatient ? "Adjusted by therapist and system" : "Clinician + system",
-      cls: "text-primary",
-    },
+    clinician: { Icon: User, cls: "text-primary" },
+    system: { Icon: Bot, cls: "text-muted-foreground" },
+    mixed: { Icon: Sparkles, cls: "text-primary" },
   };
   const c = config[provenance];
   if (!c) return null;
-  const { Icon, label, cls } = c;
+  const { Icon, cls } = c;
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
@@ -105,31 +131,26 @@ const ProvenanceIcon = memo(function ProvenanceIcon({
 
 const OutcomeChips = memo(function OutcomeChips({
   outcomes,
-  viewMode,
+  role,
 }: {
   outcomes: string[];
-  viewMode: string;
+  role: UiRole;
 }) {
   if (outcomes.length === 0) return null;
-  const isPatient = viewMode === "patient";
-  
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {outcomes.map(o => {
-        const labels = OUTCOME_LABELS[o];
-        if (!labels) return null;
+        const labels = getOutcomeLabel(o, role);
         return (
           <TooltipProvider key={o} delayDuration={200}>
             <Tooltip>
               <TooltipTrigger>
                 <Badge variant="secondary" className="text-[7px] h-3 px-1 cursor-help">
-                  {isPatient ? labels.short : labels.full}
+                  {role === "patient" ? labels.short : labels.full}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs max-w-[200px]">
-                {o === "word_mastery" && "Words reliably retrieved without help"}
-                {o === "cue_independence" && "Less support needed over time"}
-                {o === "error_quality" && "Responses getting closer to correct"}
+                {labels.tooltip}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -139,17 +160,48 @@ const OutcomeChips = memo(function OutcomeChips({
   );
 });
 
+const GlobalAdjustmentsBar = memo(function GlobalAdjustmentsBar({
+  adjustments,
+  role,
+}: {
+  adjustments: GlobalAdjustment[];
+  role: UiRole;
+}) {
+  if (adjustments.length === 0 || role === "patient") return null;
+
+  return (
+    <div className="rounded-md bg-muted/30 border border-border/50 p-2 flex items-center gap-3 flex-wrap">
+      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+        <SlidersHorizontal className="w-3 h-3" />
+        Global
+      </span>
+      {adjustments.map((adj, i) => (
+        <div key={i} className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-muted-foreground">{adj.label}:</span>
+          <span className="font-medium text-foreground">{adj.value}</span>
+          <ProvenanceIcon provenance={adj.provenance} role={role} />
+          {role === "clinician" && adj.changedAt && (
+            <span className="text-[9px] text-muted-foreground/60">
+              {new Date(adj.changedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// ─── Card components ───
+
 const StrengthCard = memo(function StrengthCard({
   card,
-  viewMode,
+  role,
 }: {
   card: StrengthAreaCard;
-  viewMode: string;
+  role: UiRole;
 }) {
-  const isPatient = viewMode === "patient";
-  const isClinician = viewMode === "clinician";
-  const title = isPatient ? card.patientTitle : card.title;
-  const reason = isPatient ? card.patientReason : card.reason;
+  const title = role === "patient" ? card.patientTitle : card.title;
+  const reason = role === "patient" ? card.patientReason : card.reason;
   const isMaintained = card.classification === "maintained";
 
   const borderClass = isMaintained
@@ -163,75 +215,71 @@ const StrengthCard = memo(function StrengthCard({
       <div className="flex items-center gap-1.5">
         <IconComponent className={`w-3.5 h-3.5 ${iconClass} shrink-0`} />
         <span className="text-xs font-semibold text-foreground">{title}</span>
-        {isMaintained && !isPatient && (
+        {isMaintained && role !== "patient" && (
           <Badge variant="outline" className="text-[8px] h-3.5 px-1 text-muted-foreground">
-            Monitoring
+            {getSectionLabel("maintained", role)}
           </Badge>
         )}
+        <ConfidenceBadge level={card.confidence} role={role} />
       </div>
       <p className="text-[11px] text-muted-foreground leading-tight pl-5">
         {reason}
       </p>
-      {isClinician && card.exercises.length > 0 && (
+      {role === "clinician" && card.exercises.length > 0 && (
         <p className="text-[11px] text-foreground/70 leading-tight pl-5">
           <span className="text-muted-foreground font-medium">Plan: </span>
           {card.systemPlan}
         </p>
       )}
-      {viewMode !== "patient" && (
+      {role !== "patient" && (
         <p className="text-[11px] text-foreground/70 leading-tight pl-5">
           <span className="text-muted-foreground font-medium">Supports: </span>
           {card.functionalMeaning}
         </p>
       )}
-      {/* Outcome linkage */}
       {card.linkedOutcomes.length > 0 && (
         <div className="pl-5">
-          <OutcomeChips outcomes={card.linkedOutcomes} viewMode={viewMode} />
+          <OutcomeChips outcomes={card.linkedOutcomes} role={role} />
         </div>
       )}
-      {/* Evidence tags (clinician only) */}
-      {isClinician && <EvidenceTags tags={card.evidence} />}
+      {role === "clinician" && <EvidenceTags tags={card.evidence} />}
     </div>
   );
 });
 
 const FocusCard = memo(function FocusCard({
   card,
-  viewMode,
+  role,
 }: {
   card: FocusAreaCard;
-  viewMode: string;
+  role: UiRole;
 }) {
-  const isPatient = viewMode === "patient";
-  const isClinician = viewMode === "clinician";
-  const title = isPatient ? card.patientTitle : card.title;
-  const why = isPatient ? card.patientWhyNeeded : card.whyNeeded;
+  const title = role === "patient" ? card.patientTitle : card.title;
+  const why = role === "patient" ? card.patientWhyNeeded : card.whyNeeded;
   const isUncovered = card.classification === "uncovered";
 
   return (
     <div className={`rounded-md border bg-card p-2.5 space-y-1 ${isUncovered ? "border-amber-200/50" : ""}`}>
-      {/* Row 1: Title + provenance */}
+      {/* Row 1: Title + provenance + confidence */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <Target className={`w-3.5 h-3.5 shrink-0 ${isUncovered ? "text-amber-500" : "text-primary"}`} />
           <span className="text-xs font-semibold text-foreground truncate">{title}</span>
-          {isUncovered && !isPatient && (
+          {isUncovered && role !== "patient" && (
             <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-amber-300 text-amber-600">
-              Gap
+              {getSectionLabel("uncovered", role)}
             </Badge>
           )}
+          <ConfidenceBadge level={card.confidence} role={role} />
         </div>
-        <ProvenanceIcon provenance={card.provenance} viewMode={viewMode} />
+        <ProvenanceIcon provenance={card.provenance} role={role} />
       </div>
 
       {/* Row 2: Why needed */}
-      <p className="text-[11px] text-muted-foreground leading-tight pl-5">
-        {why}
-      </p>
+      <p className="text-[11px] text-muted-foreground leading-tight pl-5">{why}</p>
 
-      {/* Row 3: Clinician signal (clinician only, concrete) */}
-      {isClinician && card.clinicianSignal && (
+      {/* Row 3: Clinician signal (clinician only) */}
+      {role === "clinician" && card.clinicianSignal && (
         <p className="text-[11px] text-foreground/80 leading-tight pl-5 italic">
           {card.clinicianSignal}
         </p>
@@ -241,7 +289,7 @@ const FocusCard = memo(function FocusCard({
       {card.exercises.length > 0 && (
         <div className="flex items-start gap-1 pl-5 flex-wrap">
           <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-            {isPatient ? "Games:" : "Exercises:"}
+            {role === "patient" ? "Games:" : "Exercises:"}
           </span>
           {card.exercises.slice(0, 4).map(name => (
             <Badge key={name} variant="secondary" className="text-[9px] h-4 px-1.5">
@@ -256,8 +304,8 @@ const FocusCard = memo(function FocusCard({
         </div>
       )}
 
-      {/* Row 5: Adaptation (clinician only) */}
-      {isClinician && card.activeAdaptation !== "Default settings" && (
+      {/* Row 5: Exercise-specific adaptation (clinician only) */}
+      {role === "clinician" && card.activeAdaptation !== "Default settings" && (
         <p className="text-[11px] text-muted-foreground leading-tight pl-5">
           <span className="font-medium">Adaptation: </span>
           {card.activeAdaptation}
@@ -268,35 +316,58 @@ const FocusCard = memo(function FocusCard({
       <div className="flex items-center gap-1.5 pl-5 flex-wrap">
         <TrendingUp className="w-2.5 h-2.5 text-primary/60 shrink-0" />
         <span className="text-[11px] text-foreground/80">
-          {isPatient ? "Goal: " : "Expected: "}
+          {role === "patient" ? "Goal: " : "Expected: "}
           {card.expectedGain}
         </span>
-        <OutcomeChips outcomes={card.linkedOutcomes} viewMode={viewMode} />
+        <OutcomeChips outcomes={card.linkedOutcomes} role={role} />
       </div>
 
-      {/* Uncovered warning */}
+      {/* Uncovered: actionable suggestion */}
       {isUncovered && (
-        <div className="flex items-center gap-1 pl-5">
-          <AlertCircle className="w-3 h-3 text-amber-500" />
-          <span className="text-[10px] text-amber-600">
-            {isPatient ? "Not actively practiced yet" : "No active exercises cover this area"}
-          </span>
+        <div className="flex items-start gap-1 pl-5">
+          {role === "clinician" && card.suggestedExercises && card.suggestedExercises.length > 0 ? (
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1">
+                <Lightbulb className="w-3 h-3 text-amber-500 shrink-0" />
+                <span className="text-[10px] text-amber-600 font-medium">
+                  Suggested exercises:
+                </span>
+              </div>
+              <div className="flex gap-1 flex-wrap pl-4">
+                {card.suggestedExercises.map(name => (
+                  <Badge key={name} variant="outline" className="text-[9px] h-4 px-1.5 border-amber-300/50">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+              <span className="text-[10px] text-amber-600">
+                {getGapActionText(role)}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Evidence tags (clinician only) */}
-      {isClinician && <EvidenceTags tags={card.evidence} />}
+      {role === "clinician" && <EvidenceTags tags={card.evidence} />}
     </div>
   );
 });
+
+// ─── Main component ───
 
 export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap({
   strengths,
   focusAreas,
   planSummary,
   viewMode = "clinician",
+  globalAdjustments = [],
 }: StrengthsAndFocusAreasMapProps) {
-  const isPatient = viewMode === "patient";
+  const role = viewMode as UiRole;
   const confirmedStrengths = strengths.filter(s => s.classification === "strength");
   const maintainedAreas = strengths.filter(s => s.classification === "maintained");
   const activeFocus = focusAreas.filter(f => f.classification === "focus");
@@ -306,7 +377,7 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
     return (
       <div className="rounded-md bg-muted/30 p-3 text-center">
         <p className="text-xs text-muted-foreground">
-          {isPatient
+          {role === "patient"
             ? "Complete a few sessions to see your strengths and focus areas."
             : "Insufficient data to classify strengths and focus areas."}
         </p>
@@ -319,70 +390,73 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
       {/* Plan Summary */}
       <div className="rounded-md bg-primary/5 border border-primary/10 p-2.5">
         <p className="text-[12px] text-foreground leading-snug">
-          {isPatient ? planSummary.patientVersion : planSummary.emphasis}
+          {role === "patient" ? planSummary.patientVersion : planSummary.emphasis}
         </p>
-        {viewMode === "clinician" && planSummary.reasoning && (
+        {role === "clinician" && planSummary.reasoning && (
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {planSummary.reasoning}
           </p>
         )}
       </div>
 
+      {/* Global Adjustments (caregiver + clinician only) */}
+      <GlobalAdjustmentsBar adjustments={globalAdjustments} role={role} />
+
       {/* Focus Areas — active treatment targets */}
       {activeFocus.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Target className="w-3 h-3" />
-            {isPatient ? "Working On" : "Focus Areas"} ({activeFocus.length})
+            {getSectionLabel("focus", role)} ({activeFocus.length})
           </p>
           <div className="grid gap-1.5">
             {activeFocus.map(card => (
-              <FocusCard key={card.id} card={card} viewMode={viewMode} />
+              <FocusCard key={card.id} card={card} role={role} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Strengths — evidence-backed positive areas */}
+      {/* Strengths */}
       {confirmedStrengths.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <CheckCircle2 className="w-3 h-3 text-success" />
-            {isPatient ? "Doing Well" : "Strengths"} ({confirmedStrengths.length})
+            {getSectionLabel("strength", role)} ({confirmedStrengths.length})
           </p>
           <div className="grid gap-1.5">
             {confirmedStrengths.map(card => (
-              <StrengthCard key={card.id} card={card} viewMode={viewMode} />
+              <StrengthCard key={card.id} card={card} role={role} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Maintained / Monitored — not a problem, not proven strong */}
+      {/* Maintained / Monitored */}
       {maintainedAreas.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Eye className="w-3 h-3" />
-            {isPatient ? "Practicing" : "Monitored"} ({maintainedAreas.length})
+            {getSectionLabel("maintained", role)} ({maintainedAreas.length})
           </p>
           <div className="grid gap-1.5">
             {maintainedAreas.map(card => (
-              <StrengthCard key={card.id} card={card} viewMode={viewMode} />
+              <StrengthCard key={card.id} card={card} role={role} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Uncovered deficits — clinician/caregiver only */}
-      {uncoveredAreas.length > 0 && viewMode !== "patient" && (
+      {/* Uncovered — clinician/caregiver only, patient hidden by default */}
+      {uncoveredAreas.length > 0 && role !== "patient" && (
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <AlertCircle className="w-3 h-3 text-amber-500" />
-            Coverage Gaps ({uncoveredAreas.length})
+            {getSectionLabel("uncovered", role)} ({uncoveredAreas.length})
           </p>
           <div className="grid gap-1.5">
             {uncoveredAreas.map(card => (
-              <FocusCard key={card.id} card={card} viewMode={viewMode} />
+              <FocusCard key={card.id} card={card} role={role} />
             ))}
           </div>
         </div>
