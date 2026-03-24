@@ -163,14 +163,26 @@ export function useSessionAdaptation(
       }
     }
 
-    // 5. Difficulty tier: lesson override > adaptive engine > default
+    // 5. Difficulty tier: runtime_config (clinician) > lesson override > adaptive engine > default
+    const runtimeDiffOffset = getDifficulty(options.exerciseSlug);
     let difficultyTier = 1;
-    if (lessonAdaptations?.startDifficulty) {
+    if (runtimeDiffOffset !== 0) {
+      // Clinician override takes highest priority
+      difficultyTier = Math.max(1, 1 + runtimeDiffOffset);
+      reasons.push(`Clinician difficulty override: ${runtimeDiffOffset > 0 ? '+' : ''}${runtimeDiffOffset}`);
+    } else if (lessonAdaptations?.startDifficulty) {
       difficultyTier = lessonAdaptations.startDifficulty;
       reasons.push(`Lesson start difficulty: ${difficultyTier}`);
     } else if (todayFocus?.adaptations?.startDifficulty) {
       difficultyTier = todayFocus.adaptations.startDifficulty;
       reasons.push(`Engine start difficulty: ${difficultyTier}`);
+    }
+
+    // 5b. Cue level: runtime_config (clinician) > adaptive engine > speech profile
+    const runtimeCueLevel = getCueLevel();
+    if (runtimeCueLevel !== null) {
+      // Clinician cue override — inform downstream but don't change cueRec type
+      reasons.push(`Clinician cue level override: L${runtimeCueLevel}`);
     }
 
     // 6. Profile confidence
