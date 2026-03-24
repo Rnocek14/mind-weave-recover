@@ -312,6 +312,10 @@ export const useDailyLesson = (
             };
           });
 
+        // Inject clinical aphasia type into engine input so adaptive rules can fire
+        // even with low/no performance data (clinical profile is ground truth)
+        const aphasiaType = detectAphasiaType(clinicalProfile);
+        
         const engineInput: AdaptiveEngineInput = {
           capabilityScores: scores,
           performanceSignals: signals,
@@ -319,6 +323,11 @@ export const useDailyLesson = (
           signalCounts,
           domainExposure7d,
         };
+        
+        // Pass aphasia type as a sideband signal for the clinical_profile_naming_deficit rule
+        if (aphasiaType) {
+          (engineInput as any)._clinicalAphasiaType = aphasiaType;
+        }
 
         focus = computeTodayFocus(engineInput);
         console.log('[useDailyLesson] TodayFocus computed (ACTIVE):', {
