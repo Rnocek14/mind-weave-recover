@@ -114,8 +114,8 @@ export const DomainsTab = memo(function DomainsTab() {
       {/* Cognitive Recovery Map — visual overview */}
       <CognitiveStateCard domains={domains} isLoading={isLoading} />
 
-      {/* ICF-Aligned Domain Groups */}
-      {!isLoading &&
+      {/* ICF-Aligned Domain Groups — clinician+ only */}
+      {!isLoading && isClinician &&
         ICF_GROUPS.map((group) => {
           const groupDomains = domains.filter((d) =>
             group.slugs.includes(d.domainSlug)
