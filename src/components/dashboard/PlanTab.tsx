@@ -236,6 +236,7 @@ export const PlanTab = memo(function PlanTab() {
             focusAreas={focusAreas}
             planSummary={planSummary}
             viewMode={uiMode === "caregiver" ? "caregiver" : "patient"}
+            globalAdjustments={globalAdjustments}
           />
         </section>
       )}
