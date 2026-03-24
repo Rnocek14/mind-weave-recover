@@ -264,6 +264,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Naming accuracy over time' : 'How often you say the right word'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Core language performance trend across targeted tasks'
+                  : 'Tracks how often you get the right word over time'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-around">
