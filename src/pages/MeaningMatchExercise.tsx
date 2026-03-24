@@ -17,6 +17,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -84,11 +85,26 @@ export default function MeaningMatchExercise() {
     normalizeExerciseSlug(EXERCISE_SLUG)
   );
 
+  // Mid-session pivot for frustration/crash detection
+  const pivot = useExerciseMidSessionPivot({
+    exerciseSlug: EXERCISE_SLUG,
+    domainSlug: 'semantic_depth',
+    fromLesson,
+  });
+
   const handleTrialComplete = useCallback((result: MeaningMatchTrialResult) => {
     if (!activeSessionId) return;
 
     scoreRef.current += result.points;
     trialsRef.current += 1;
+
+    // Record trial for mid-session pivot evaluation
+    pivot.recordTrialResult({
+      wasCorrect: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      wasTimeout: false,
+      cueLevel: result.usedHint ? 1 : 0,
+    });
 
     logTrial({
       correct: result.correct,
@@ -105,12 +121,19 @@ export default function MeaningMatchExercise() {
         block_index: blockIndex,
         lesson_source: lessonSource,
         preset_id: presetId,
+        pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry]);
+
+    // Handle pivot recommendations
+    if (pivot.shouldStepDown) {
+      console.log('[MeaningMatch] Mid-session pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: MeaningMatchTrialResult[]) => {
     setCompleted(true);

@@ -544,6 +544,8 @@ export function generateDailyLesson(
   recencyPenalties?: RecencyPenalties | null,
   primaryDomains?: string[] | null,
   speechProfileSignals?: SpeechProfileSelectionSignals | null,
+  struggleBoosts?: Map<string, number> | null,
+  struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
 ): DailyLesson {
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
@@ -704,7 +706,14 @@ export function generateDailyLesson(
         }
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost;
+      // === EXERCISE STRUGGLE BOOST ===
+      // Struggling exercises get a targeted re-exposure boost
+      let struggleBoost = 0;
+      if (struggleBoosts && struggleBoosts.has(id)) {
+        struggleBoost = struggleBoosts.get(id) || 0;
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost;
 
       selectionReasons.push({
         id,
@@ -714,7 +723,10 @@ export function generateDailyLesson(
         primaryDomainBoost,
         speechProfileBoost,
         finalScore,
-        reason: penaltyReason || 'no recency penalty',
+        reason: [
+          penaltyReason || 'no recency penalty',
+          struggleBoost > 0 ? `struggle re-exposure: +${struggleBoost}` : '',
+        ].filter(Boolean).join('; '),
       });
 
       return {
@@ -835,17 +847,23 @@ export function generateDailyLesson(
     const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty 
       ?? Math.max(0, capabilityScores.attention - 2);
 
+    // Apply struggle re-entry config if this exercise was flagged as struggling
+    const reEntryConfig = struggleReEntryConfigs?.get(ex.id);
+    const blockDifficulty = reEntryConfig?.difficulty ?? effectiveStartDifficulty;
+    const blockCueLevel = reEntryConfig?.cueLevel ?? (performanceSignals.frustrationLevel === 'high' ? 2 : 1);
+    const struggleNote = reEntryConfig ? ` (re-entry: easier start, increased support)` : '';
+
     blocks.push({
       exerciseId: ex.id,
       duration,
       priority: 'primary',
       adaptations: {
-        startDifficulty: effectiveStartDifficulty,
-        cueLevel: performanceSignals.frustrationLevel === 'high' ? 2 : 1,
+        startDifficulty: blockDifficulty,
+        cueLevel: blockCueLevel,
         timeout: performanceSignals.avgReactionTime * 2,
         visualSupport: capabilityScores.vision < 5,
       },
-      reasoning: `Primary: ${ex.domains.join(', ')}`,
+      reasoning: `Primary: ${ex.domains.join(', ')}${struggleNote}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(ex.id);

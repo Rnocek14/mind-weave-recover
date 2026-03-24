@@ -11,6 +11,7 @@ import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
