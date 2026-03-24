@@ -138,6 +138,48 @@ interface DecisionRule {
 
 const PHASE_A_RULES: DecisionRule[] = [
   {
+    id: 'clinical_profile_naming_deficit',
+    description: 'Clinical profile indicates naming/word-retrieval deficit (e.g. anomic aphasia)',
+    minConfidence: 'LOW', // Fire even with minimal data — this is clinical ground truth
+    phase: 'A',
+    condition: (input) => {
+      // This rule fires based on clinical profile, not performance data.
+      // The clinical profile is embedded in capabilityScores via the hook chain.
+      // We check for it via a flag set by the lesson engine.
+      return !!(input as any)._clinicalAphasiaType && 
+        ['anomic', 'broca', 'conduction'].includes((input as any)._clinicalAphasiaType);
+    },
+    conditionDescription: (input) => {
+      return `Aphasia type: ${(input as any)._clinicalAphasiaType || 'unknown'}`;
+    },
+    apply: (focus, input) => {
+      const type = (input as any)._clinicalAphasiaType;
+      if (type === 'anomic') {
+        if (!focus.primaryDomains.includes('language_production')) {
+          focus.primaryDomains.unshift('language_production');
+        }
+        if (!focus.primaryDomains.includes('semantic')) {
+          focus.primaryDomains.push('semantic');
+        }
+        focus.reasoning.push('Anomic aphasia — prioritizing naming and word retrieval exercises');
+      } else if (type === 'broca') {
+        if (!focus.primaryDomains.includes('language_production')) {
+          focus.primaryDomains.unshift('language_production');
+        }
+        if (!focus.primaryDomains.includes('phonological')) {
+          focus.primaryDomains.push('phonological');
+        }
+        focus.reasoning.push('Broca\'s aphasia — prioritizing expressive language and phonological exercises');
+      } else if (type === 'conduction') {
+        if (!focus.primaryDomains.includes('phonological')) {
+          focus.primaryDomains.unshift('phonological');
+        }
+        focus.reasoning.push('Conduction aphasia — prioritizing phonological exercises');
+      }
+    },
+    adaptationDescription: 'Prioritize domains matching aphasia type from clinical profile',
+  },
+  {
     id: 'semantic_error_dominant',
     description: 'Semantic errors are dominant error type',
     minConfidence: 'MEDIUM',

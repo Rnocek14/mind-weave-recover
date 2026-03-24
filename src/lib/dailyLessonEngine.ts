@@ -116,7 +116,31 @@ export interface DailyLesson {
 }
 
 /**
- * Calculate domain priorities from clinical profile
+ * Detect specific aphasia type from clinical profile impairments.
+ * This drives domain priority weighting for session planning.
+ */
+export type AphasiaType = 'anomic' | 'broca' | 'wernicke' | 'global' | 'conduction' | 'generic_speech' | null;
+
+export function detectAphasiaType(clinicalProfile: ClinicalProfile | null): AphasiaType {
+  if (!clinicalProfile) return null;
+  const speech = clinicalProfile.impairments.speech.map(s => s.toLowerCase());
+  if (speech.length === 0) return null;
+  
+  const joined = speech.join(' ');
+  if (joined.includes('anomic') || joined.includes('anomia') || joined.includes('word finding') || joined.includes('word-finding')) return 'anomic';
+  if (joined.includes('broca') || joined.includes('non-fluent') || joined.includes('nonfluent') || joined.includes('expressive')) return 'broca';
+  if (joined.includes('wernicke') || joined.includes('receptive') || joined.includes('fluent aphasia')) return 'wernicke';
+  if (joined.includes('global')) return 'global';
+  if (joined.includes('conduction')) return 'conduction';
+  return 'generic_speech';
+}
+
+/**
+ * Calculate domain priorities from clinical profile.
+ * 
+ * KEY FIX: Aphasia-type-specific weighting prevents "all high" flattening.
+ * For anomic aphasia, naming/semantic domains are boosted to 'high' while
+ * non-speech domains stay at baseline unless explicitly impaired.
  */
 export function calculateDomainPriorities(
   clinicalProfile: ClinicalProfile | null
@@ -126,78 +150,97 @@ export function calculateDomainPriorities(
     receptive_language: 'medium',
     semantic_systems: 'medium',
     phonology: 'medium',
-    motor_control: 'medium',
-    attention: 'medium',
-    visual_processing: 'medium',
+    motor_control: 'low',
+    attention: 'low',
+    visual_processing: 'low',
   };
 
   if (!clinicalProfile) return defaults;
 
   const priorities = { ...defaults };
+  const aphasiaType = detectAphasiaType(clinicalProfile);
   
-  // Get stroke location info
+  // === APHASIA-TYPE-SPECIFIC PRIORITIES ===
+  // These create clear differentiation in exercise scoring
+  switch (aphasiaType) {
+    case 'anomic':
+      // Anomic aphasia: naming and word retrieval are THE primary deficit
+      priorities.expressive_language = 'high';
+      priorities.semantic_systems = 'high';
+      priorities.receptive_language = 'medium'; // Usually relatively preserved
+      priorities.phonology = 'medium';
+      break;
+    case 'broca':
+      // Broca's: expressive language and motor speech are primary
+      priorities.expressive_language = 'high';
+      priorities.phonology = 'high';
+      priorities.motor_control = 'medium'; // Often co-occurs
+      priorities.receptive_language = 'medium';
+      priorities.semantic_systems = 'medium';
+      break;
+    case 'wernicke':
+      // Wernicke's: comprehension and semantic processing are primary
+      priorities.receptive_language = 'high';
+      priorities.semantic_systems = 'high';
+      priorities.expressive_language = 'medium';
+      break;
+    case 'global':
+      // Global: everything language is high priority
+      priorities.expressive_language = 'high';
+      priorities.receptive_language = 'high';
+      priorities.semantic_systems = 'high';
+      priorities.phonology = 'high';
+      break;
+    case 'conduction':
+      // Conduction: repetition/phonological processing
+      priorities.phonology = 'high';
+      priorities.expressive_language = 'high';
+      priorities.semantic_systems = 'medium';
+      break;
+    case 'generic_speech':
+      // Generic speech impairment: boost language broadly
+      priorities.expressive_language = 'high';
+      priorities.receptive_language = 'high';
+      break;
+  }
+
+  // === STROKE LOCATION REFINEMENTS (additive, don't override aphasia type) ===
   const strokeLocation = Array.isArray(clinicalProfile.stroke_location)
     ? clinicalProfile.stroke_location.join(' ').toLowerCase()
     : (clinicalProfile.stroke_location || '').toLowerCase();
 
-  // Infer hemisphere from stroke location or affected side
-  const isLeftHemisphere = strokeLocation.includes('left') || 
-    strokeLocation.includes('mca') || 
-    strokeLocation.includes('broca') ||
-    strokeLocation.includes('wernicke');
-  
-  const isRightHemisphere = strokeLocation.includes('right') ||
-    clinicalProfile.affected_side === 'left'; // Left-sided weakness = right hemisphere
-
-  // Left hemisphere lesions → prioritize language
-  if (isLeftHemisphere) {
-    priorities.expressive_language = 'high';
-    priorities.receptive_language = 'high';
-    priorities.phonology = 'high';
-  }
-
-  // Check for specific brain regions in stroke location
   if (strokeLocation.includes('temporal')) {
     priorities.semantic_systems = 'high';
   }
-
   if (strokeLocation.includes('frontal') || strokeLocation.includes('broca')) {
     priorities.expressive_language = 'high';
-    priorities.motor_control = 'high';
   }
-
   if (strokeLocation.includes('parietal')) {
-    priorities.attention = 'high';
-    priorities.visual_processing = 'high';
+    if (priorities.attention !== 'high') priorities.attention = 'medium';
+    if (priorities.visual_processing !== 'high') priorities.visual_processing = 'medium';
   }
 
-  if (strokeLocation.includes('motor') || strokeLocation.includes('precentral')) {
-    priorities.motor_control = 'high';
-  }
-
-  // Right hemisphere → attention, spatial processing
-  if (isRightHemisphere) {
-    priorities.attention = 'high';
-    priorities.visual_processing = 'high';
-  }
-
-  // Prioritize based on documented impairments
-  if (clinicalProfile.impairments.speech.length > 0) {
-    priorities.expressive_language = 'high';
-    priorities.receptive_language = 'high';
-  }
-
+  // === EXPLICIT IMPAIRMENT OVERRIDES ===
+  // Only boost non-speech domains if explicitly documented
   if (clinicalProfile.impairments.motor.length > 0) {
-    priorities.motor_control = 'high';
+    priorities.motor_control = 'medium'; // Upgrade from 'low' but don't compete with speech
   }
-
   if (clinicalProfile.impairments.cognitive.length > 0) {
-    priorities.attention = 'high';
+    priorities.attention = 'medium';
+  }
+  if (clinicalProfile.impairments.visual.length > 0) {
+    priorities.visual_processing = 'medium';
+    // Only go to 'high' if neglect is documented
+    const hasNeglect = clinicalProfile.impairments.visual.some(v => 
+      v.toLowerCase().includes('neglect') || v.toLowerCase().includes('inattention'));
+    if (hasNeglect) priorities.visual_processing = 'high';
   }
 
-  if (clinicalProfile.impairments.visual.length > 0) {
-    priorities.visual_processing = 'high';
-  }
+  console.log('[DailyLessonEngine] Domain priorities:', {
+    aphasiaType,
+    priorities,
+    speechImpairments: clinicalProfile.impairments.speech,
+  });
 
   return priorities;
 }
