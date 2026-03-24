@@ -36,6 +36,7 @@ import ClinicianPanel from "./pages/ClinicianPanel";
 import WeeklyPatientReview from "./pages/WeeklyPatientReview";
 import OutcomesValidation from "./pages/OutcomesValidation";
 import RecoveryProgress from "./pages/RecoveryProgress";
+import AdminEngineSimulation from "./pages/AdminEngineSimulation";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
