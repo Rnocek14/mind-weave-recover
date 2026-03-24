@@ -16,6 +16,10 @@ export interface ClinicianOverride {
   clinicianId: string;
   createdAt: string;
   reversedAt: string | null;
+  suggestedBy: string | null;
+  suggestedAt: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
 }
 
 export function useClinicianOverrides(profileId: string | undefined) {
