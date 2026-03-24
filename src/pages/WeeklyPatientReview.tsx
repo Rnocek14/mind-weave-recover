@@ -47,6 +47,7 @@ import { LongitudinalUtteranceComparison } from "@/components/clinician/Longitud
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
 import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
+import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
@@ -320,6 +321,28 @@ export default function WeeklyPatientReview() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ─── Accuracy Sparkline (visual confirmation of trajectory) ─── */}
+      {(() => {
+        const sparkData = dayGroups.map((dg) => {
+          const totalTrials = dg.sessions.reduce((s, ses) => s + ses.totalTrials, 0);
+          const weightedAcc = dg.sessions.reduce((s, ses) => s + ses.avgAccuracy * ses.totalTrials, 0);
+          const daySnap = recent7.find((d) => d.date === dg.date);
+          return {
+            date: dg.date,
+            accuracy: totalTrials > 0 ? Math.round(weightedAcc / totalTrials) : null,
+            fatigueRating: daySnap?.fatigueRating ?? null,
+            trials: totalTrials,
+          };
+        });
+        return sparkData.filter((d) => d.accuracy !== null).length >= 2 ? (
+          <Card className="border-border/50">
+            <CardContent className="py-2 px-4">
+              <AccuracySparkline timeline={sparkData} />
+            </CardContent>
+          </Card>
+        ) : null;
+      })()}
 
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
