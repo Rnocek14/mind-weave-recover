@@ -352,6 +352,8 @@ export const useDailyLesson = (
 
       // Fetch exercise recency for variety optimization
       let recency: RecencyPenalties | null = null;
+      let struggleBoosts: Map<string, number> | null = null;
+      let struggleReEntryConfigs: Map<string, { difficulty: number; cueLevel: number }> | null = null;
       try {
         const usage = await fetchRecentExerciseUsage(userId, profileId, 7);
         if (usage.length > 0) {
@@ -361,11 +363,29 @@ export const useDailyLesson = (
             penalizedComponents: Array.from(recency.componentPenalties.entries()),
           });
         }
+        
+        // Fetch exercise struggle data for carryover
+        const struggleData = await fetchExerciseStruggleData(userId, profileId, 14);
+        const struggling = struggleData.filter(s => s.isStruggling);
+        if (struggling.length > 0) {
+          const recentSessionCounts = new Map<string, number>();
+          for (const u of usage) {
+            recentSessionCounts.set(u.exerciseSlug, u.sessionCount);
+          }
+          const penalties = calculateStrugglePenalties(struggling, recentSessionCounts);
+          struggleBoosts = penalties.exerciseBoosts;
+          struggleReEntryConfigs = penalties.reEntryConfigs;
+          console.log('[useDailyLesson] Struggle carryover:', {
+            struggling: struggling.map(s => `${s.exerciseSlug} (${s.struggleSignals.join(', ')})`),
+            boosts: Array.from(penalties.exerciseBoosts.entries()),
+            reasons: Array.from(penalties.reasons.entries()),
+          });
+        }
       } catch (e) {
-        console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
+        console.warn('[useDailyLesson] Recency/struggle fetch failed (non-blocking):', e);
       }
 
-      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency
+      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency + struggle
       const dailyLesson = generateDailyLesson(
         scores,
         clinicalProfile,
@@ -383,6 +403,8 @@ export const useDailyLesson = (
         recency,
         focus?.primaryDomains || null,
         speechProfileForSelection,
+        struggleBoosts,
+        struggleReEntryConfigs,
       );
 
       setLesson(dailyLesson);
