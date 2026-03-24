@@ -123,7 +123,7 @@ export function useWordMastery(
         .not('inputs', 'is', null);
 
       // Build word-level trial map from both sources
-      const wordMap = new Map<string, WordTrialRow[]>();
+      const wordMap: Record<string, WordTrialRow[]> = {};
 
       // From utterance_analyses (has is_correct + target_word)
       for (const row of data) {
