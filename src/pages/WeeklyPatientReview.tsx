@@ -380,6 +380,15 @@ export default function WeeklyPatientReview() {
         speechLabel={speechLabel}
       />
 
+      {/* ═══ PENDING SUGGESTIONS ═══ */}
+      <PendingSuggestions
+        suggestions={suggestedOverrides}
+        userId={user?.id || ""}
+        profileId={profileId || ""}
+        clinicianId={user?.id || ""}
+        onActionComplete={refetchOverrides}
+      />
+
       {/* ═══ RUNTIME CONFIG INSPECTOR ═══ */}
       <RuntimeConfigInspector
         runtimeConfig={runtimeConfig}
