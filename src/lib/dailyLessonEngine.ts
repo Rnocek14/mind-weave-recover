@@ -544,6 +544,8 @@ export function generateDailyLesson(
   recencyPenalties?: RecencyPenalties | null,
   primaryDomains?: string[] | null,
   speechProfileSignals?: SpeechProfileSelectionSignals | null,
+  struggleBoosts?: Map<string, number> | null,
+  struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
 ): DailyLesson {
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
