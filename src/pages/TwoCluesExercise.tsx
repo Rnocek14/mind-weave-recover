@@ -84,6 +84,13 @@ export default function TwoCluesExercise() {
     normalizeExerciseSlug(EXERCISE_SLUG)
   );
 
+  // Mid-session pivot
+  const pivot = useExerciseMidSessionPivot({
+    exerciseSlug: EXERCISE_SLUG,
+    domainSlug: 'lexical_retrieval',
+    fromLesson,
+  });
+
   // Handle trial completion - log to telemetry
   const handleTrialComplete = useCallback((result: TwoCluesTrialResult) => {
     if (!activeSessionId) return;
@@ -92,11 +99,20 @@ export default function TwoCluesExercise() {
     scoreRef.current += result.score;
     trialsRef.current += 1;
 
+    const isCorrect = result.tier === 'strong' || result.tier === 'related';
+
+    // Record for mid-session pivot
+    pivot.recordTrialResult({
+      wasCorrect: isCorrect,
+      reactionTimeMs: result.reactionTimeMs,
+      cueLevel: result.reachedAnchor ? 1 : 0,
+    });
+
     // Log both raw spoken word and cleaned version for analytics
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     logTrial({
-      correct: result.tier === 'strong' || result.tier === 'related',
+      correct: isCorrect,
       reactionTimeMs: result.reactionTimeMs,
       errorType: result.tier === 'uncertain' ? 'no_match' : undefined,
       taskParameters: {
@@ -110,11 +126,17 @@ export default function TwoCluesExercise() {
         matched_word: result.matchedWord,
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
+        pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
       cueTypeGiven: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
     });
-  }, [activeSessionId, logTrial, adaptation]);
+
+    if (pivot.shouldStepDown) {
+      console.log('[TwoClues] Mid-session pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
+  }, [activeSessionId, logTrial, adaptation, pivot]);
 
   // Handle game completion
   const handleGameComplete = useCallback((results: TwoCluesTrialResult[]) => {
