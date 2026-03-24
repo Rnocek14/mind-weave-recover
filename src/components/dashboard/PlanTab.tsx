@@ -211,7 +211,7 @@ export const PlanTab = memo(function PlanTab() {
         <section>
           <WhatsAffectedCard
             clinicalProfile={clinicalProfile}
-            activeExerciseSlugs={lesson?.blocks?.map(b => b.exerciseSlug) || recommendedExercises?.map(e => e.slug) || []}
+            activeExerciseSlugs={lesson?.blocks?.map(b => b.exerciseId) || recommendedExercises?.map(e => e.id) || []}
           />
         </section>
       )}
