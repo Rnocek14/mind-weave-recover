@@ -215,10 +215,6 @@ export default function Insights() {
             <OverviewSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
-          {/* Progress Tab */}
-          <TabsContent value="progress" className="mt-4">
-            <ProgressSection userId={user!.id} profileId={activeProfile?.id} />
-          </TabsContent>
 
           {/* Challenges Tab (What's Hard) */}
           <TabsContent value="challenges" className="mt-4">
