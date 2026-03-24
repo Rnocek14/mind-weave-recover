@@ -107,13 +107,10 @@ export default function Insights() {
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
-    if (!showClinical && activeTab === 'clinical') {
-      setActiveTab('overview');
-    }
     if (!showAdaptations && activeTab === 'adaptations') {
       setActiveTab('overview');
     }
-  }, [showClinical, showAdaptations, activeTab]);
+  }, [showAdaptations, activeTab]);
 
   const loadData = async () => {
     if (!user) return;
