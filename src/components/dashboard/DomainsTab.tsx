@@ -143,8 +143,8 @@ export const DomainsTab = memo(function DomainsTab() {
           );
         })}
 
-      {/* Data Sufficiency Summary */}
-      {!isLoading && (
+      {/* Data Sufficiency Summary — clinician+ only */}
+      {!isLoading && isClinician && (
         <Card className="p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
