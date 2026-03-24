@@ -186,16 +186,16 @@ export default function RecoveryProgress() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-around">
-              <ScoreDisplay value={speechRate?.end_accuracy ?? null} label="Current" />
-              <ScoreDisplay value={speechRate?.start_accuracy ?? null} label="Baseline" />
+              <ScoreDisplay value={speechRate?.endAccuracy ?? null} label="Current" />
+              <ScoreDisplay value={speechRate?.startAccuracy ?? null} label="Baseline" />
               <ScoreDisplay
-                value={speechRate ? (speechRate.end_accuracy ?? 0) - (speechRate.start_accuracy ?? 0) : null}
+                value={speechRate ? (speechRate.endAccuracy ?? 0) - (speechRate.startAccuracy ?? 0) : null}
                 label="Change"
               />
             </div>
             {speechRate && (
               <div className="text-xs text-muted-foreground text-center">
-                {speechRate.trial_count} trials over {speechRate.time_window_days} days
+                {speechRate.trialCount} trials over {speechRate.window} days
               </div>
             )}
           </CardContent>
