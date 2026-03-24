@@ -212,15 +212,6 @@ export default function Insights() {
                   )}
                 </TabsTrigger>
               ))}
-              {showClinical && (
-                <TabsTrigger 
-                  value="clinical" 
-                  className="gap-1.5 text-xs md:text-sm flex-1 min-w-fit px-2 md:px-3"
-                >
-                  <Stethoscope className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span>Clinical</span>
-                </TabsTrigger>
-              )}
             </TabsList>
           </div>
 
