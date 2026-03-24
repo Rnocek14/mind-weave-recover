@@ -93,7 +93,7 @@ export function useSessionEndurance(
 
         points.push({
           sessionId,
-          date: (sessionDateMap.get(sessionId) ?? '').slice(0, 10),
+          date: (sessionDateMap[sessionId] ?? '').slice(0, 10),
           enduranceRatio: Math.round(ratio * 100) / 100,
           firstHalfAccuracy: Math.round(firstAcc * 100) / 100,
           secondHalfAccuracy: Math.round(secondAcc * 100) / 100,

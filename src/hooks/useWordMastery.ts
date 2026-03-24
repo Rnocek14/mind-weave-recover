@@ -162,7 +162,8 @@ export function useWordMastery(
 
       // Classify each word
       const entries: WordMasteryEntry[] = [];
-      for (const [word, trials] of wordMap) {
+      for (const word of Object.keys(wordMap)) {
+        const trials = wordMap[word];
         if (trials.length < 3) continue; // need minimum attempts
         const classification = classifyWord(trials);
         entries.push({ word, ...classification });
