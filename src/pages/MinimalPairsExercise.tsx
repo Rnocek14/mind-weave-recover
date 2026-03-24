@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Info } from 'lucide-react';
