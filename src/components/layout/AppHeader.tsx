@@ -151,8 +151,8 @@ export function AppHeader() {
                 </>
               }
               
-              {/* Caseload for clinician+ */}
-              {isAtLeast('clinician') &&
+              {/* Caseload in settings only if NOT already in clinician nav */}
+              {isAtLeast('clinician') && !isClinicianMode &&
               <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
