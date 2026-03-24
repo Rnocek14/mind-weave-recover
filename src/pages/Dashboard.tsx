@@ -39,7 +39,7 @@ import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardQuickTour } from "@/components/DashboardQuickTour";
 import { useUiMode } from "@/hooks/useUiMode";
 import { PatientModeView } from "@/components/PatientModeView";
-import { ViewModeSelector } from "@/components/ViewModeSelector";
+
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useProfile } from "@/hooks/useProfile";
 import { AdaptiveLoopDebugPanel } from "@/components/AdaptiveLoopDebugPanel";
@@ -308,7 +308,6 @@ const Dashboard = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <ViewModeSelector />
               <ProfileSwitcher />
               <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
                 <DialogTrigger asChild>
