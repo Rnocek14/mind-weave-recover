@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUiMode } from "@/hooks/useUiMode";
 import { supabase } from "@/integrations/supabase/client";
-import { ViewModeSelector } from "@/components/ViewModeSelector";
+
 
 // Question-based insight sections
 import { 
