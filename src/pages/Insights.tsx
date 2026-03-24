@@ -247,40 +247,6 @@ export default function Insights() {
             <AlertsSection userId={user!.id} />
           </TabsContent>
 
-          {/* Clinical Tab (Clinician+) */}
-          {showClinical && (
-            <TabsContent value="clinical" className="mt-4 space-y-6">
-              {/* Stroke Profile */}
-              {activeProfile && clinicalProfile && (
-                <>
-                  <StrokeProfileSummary profile={clinicalProfile} />
-                  <BrainMap profile={{ clinical_profile: clinicalProfile }} userId={user!.id} />
-                  {(clinicalProfile as any).stroke_mechanism && (
-                    <MechanismSessionPlanner profile={clinicalProfile} />
-                  )}
-                </>
-              )}
-
-              {!clinicalProfile && (
-                <Card className="p-6 text-center border-dashed">
-                  <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <h4 className="font-medium mb-1">Clinical Profile Required</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Set up the clinical profile to unlock stroke-specific insights.
-                  </p>
-                  <Button size="sm" variant="outline" onClick={() => navigate('/dashboard')}>
-                    Go to Dashboard
-                  </Button>
-                </Card>
-              )}
-
-              {/* Cross-domain intelligence */}
-              <CrossDomainInsightsDashboard 
-                userId={user!.id} 
-                profileId={activeProfile?.id}
-              />
-            </TabsContent>
-          )}
         </Tabs>
       </div>
     </div>
