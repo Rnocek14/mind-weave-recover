@@ -41,10 +41,9 @@ import {
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
-// Tab configuration with patient-safe labels
+// Tab configuration — focused on pattern recognition, not progress (that's /recovery-progress)
 const INSIGHT_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'progress', label: 'Progress', icon: TrendingUp },
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
   { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
