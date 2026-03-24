@@ -38,6 +38,7 @@ export default function MinimalPairsExercise() {
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
+    exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations: location.state?.adaptations,
     lessonFocusPhonemes: location.state?.focusPhonemes,
     defaultErrorType: 'phonemic_paraphasia',
