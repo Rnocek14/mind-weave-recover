@@ -72,7 +72,8 @@ export function useClinicianOverrides(profileId: string | undefined) {
   }, [load]);
 
   const activeOverrides = overrides.filter((o) => o.status === "active");
+  const suggestedOverrides = overrides.filter((o) => o.status === "suggested");
   const recentOverrides = overrides.slice(0, 10);
 
-  return { overrides, activeOverrides, recentOverrides, isLoading, refetch: load };
+  return { overrides, activeOverrides, suggestedOverrides, recentOverrides, isLoading, refetch: load };
 }
