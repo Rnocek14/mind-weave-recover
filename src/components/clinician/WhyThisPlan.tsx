@@ -247,6 +247,22 @@ export function WhyThisPlan({
           </div>
         )}
 
+        {/* ── Strengths & Focus Areas Map ── */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Target className="w-3 h-3" />
+            Strengths & Focus Areas
+          </p>
+          <div className="pl-4">
+            <StrengthsAndFocusAreasMap
+              strengths={strengths}
+              focusAreas={focusAreas}
+              planSummary={planSummary}
+              viewMode="clinician"
+            />
+          </div>
+        </div>
+
         {/* Profile → Domain Flow */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
