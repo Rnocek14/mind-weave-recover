@@ -2,8 +2,8 @@
  * "Why This Plan" — Traceability card showing how the clinical profile
  * drives exercise selection, cue level, difficulty, and recent adjustments.
  * 
- * Now consumes the canonical useSessionPlanReasoning hook as its single
- * source of truth, eliminating redundant local derivation.
+ * V2: Now consumes the canonical SessionPlanReasoningV2 object.
+ * Shows plan deltas, excluded candidates, and engine-grounded narrative.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,9 @@ import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { TherapyFocusMap } from "@/components/clinician/TherapyFocusMap";
 import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
 import { WeeklyPlanNarrativeCard } from "@/components/WeeklyPlanNarrativeCard";
-import { useSessionPlanReasoning } from "@/hooks/useSessionPlanReasoning";
+import { PlanDeltaCard } from "@/components/PlanDeltaCard";
+import { ExcludedCandidatesCard } from "@/components/ExcludedCandidatesCard";
+import { useSessionPlanReasoningV2 } from "@/hooks/useSessionPlanReasoningV2";
 import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
 import type { AdaptationEvent } from "@/hooks/useAdaptationTimeline";
 
@@ -32,6 +34,10 @@ interface WhyThisPlanProps {
   recentOverrides?: ClinicianOverride[];
   onReverseOverride?: (overrideId: string) => void;
   adaptationEvents?: AdaptationEvent[];
+  /** Previous plan data for delta computation */
+  previousExerciseSlugs?: string[];
+  previousRuntimeConfig?: Record<string, any> | null;
+  previousOverrides?: ClinicianOverride[];
 }
 
 const overrideTypeLabels: Record<string, string> = {
@@ -51,6 +57,9 @@ export function WhyThisPlan({
   recentOverrides = [],
   onReverseOverride,
   adaptationEvents = [],
+  previousExerciseSlugs,
+  previousRuntimeConfig,
+  previousOverrides,
 }: WhyThisPlanProps) {
   const cp = clinicalProfile;
   const rc = runtimeConfig || {};
@@ -66,22 +75,22 @@ export function WhyThisPlan({
   const practiceAssignments = rc?.practice_assignments || [];
   const activePractice = practiceAssignments.filter((a: any) => a.status === "active");
 
-  // ── Canonical reasoning layer ──
-  const reasoning = useSessionPlanReasoning({
+  // ── V2 Canonical reasoning layer ──
+  const reasoning = useSessionPlanReasoningV2({
     clinicalProfile,
     runtimeConfig,
     activeExerciseSlugs,
     adaptationEvents,
     activeOverrides,
+    previousExerciseSlugs,
+    previousRuntimeConfig,
+    previousOverrides,
     role: "clinician",
   });
 
   // Which cognitive domains are NOT being exercised
   const activeCognitiveDomains = useMemo(() => {
     const set = new Set<string>();
-    reasoning.exercisePlans.forEach(ep => {
-      const entry = ep.linkedOutcomeMetrics; // use cardsByDomain for domain coverage
-    });
     Object.values(reasoning.cardsByDomain).flat().forEach(c => {
       c.clinicalTargets.forEach(t => {
         const meta = COGNITIVE_DOMAINS.find(d => d.label === t);
@@ -123,13 +132,16 @@ export function WhyThisPlan({
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-3 space-y-4">
-        {/* ── Weekly Plan Narrative (from canonical reasoning) ── */}
+        {/* ── Weekly Plan Narrative (from V2 canonical reasoning) ── */}
         <WeeklyPlanNarrativeCard
           narrative={reasoning.weeklyNarrative}
           targetedOutcomes={reasoning.targetedOutcomes}
           confidence={reasoning.confidence}
           role="clinician"
         />
+
+        {/* ── Plan Delta — what changed from previous period ── */}
+        <PlanDeltaCard delta={reasoning.v2.planDelta} role="clinician" />
 
         {/* ── Live Config State ── */}
         <div className="space-y-2">
@@ -304,6 +316,9 @@ export function WhyThisPlan({
             />
           </div>
         </div>
+
+        {/* ── Excluded Candidates (clinician only) ── */}
+        <ExcludedCandidatesCard candidates={reasoning.v2.excludedCandidates} />
 
         {/* Coverage gaps */}
         {missingDomains.length > 0 && (
