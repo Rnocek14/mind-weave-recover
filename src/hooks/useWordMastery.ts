@@ -144,7 +144,7 @@ export function useWordMastery(
           const targetWord = ((ee.inputs as any)?.targetWord || (ee.inputs as any)?.target_word || '')
             .toLowerCase().trim();
           if (!targetWord) continue;
-          const trials = wordMap.get(targetWord);
+          const trials = wordMap[targetWord];
           if (!trials) continue;
           // Match by closest timestamp (within 30s)
           const eeTime = new Date(ee.created_at!).getTime();
