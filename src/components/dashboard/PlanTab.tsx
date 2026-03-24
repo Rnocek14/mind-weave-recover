@@ -19,6 +19,8 @@ import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { WhatsAffectedCard } from "@/components/WhatsAffectedCard";
 import { RecoveryFocusSummary } from "@/components/RecoveryFocusSummary";
+import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
+import { useStrengthsAndFocusAreas } from "@/hooks/useStrengthsAndFocusAreas";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
@@ -55,6 +57,14 @@ export const PlanTab = memo(function PlanTab() {
 
   const { domains, todayLogs, isSaving: doseSaving, upsertDoseLog } = useDoseLogs(profileId, 7);
   const [showGamePicker, setShowGamePicker] = useState(false);
+  
+  const activeExerciseSlugs = lesson?.blocks?.map((b: any) => b.exerciseId) || recommendedExercises?.map((e: any) => e.id) || [];
+  
+  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+    clinicalProfile: clinicalProfile || null,
+    runtimeConfig: (activeProfile as any)?.runtime_config || null,
+    activeExerciseSlugs,
+  });
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -218,7 +228,19 @@ export const PlanTab = memo(function PlanTab() {
         </section>
       )}
 
-      {/* What's Affected — caregiver-friendly brain map */}
+      {/* Strengths & Focus Areas — what's strong, what needs work */}
+      {!isClinician && (strengths.length > 0 || focusAreas.length > 0) && (
+        <section>
+          <StrengthsAndFocusAreasMap
+            strengths={strengths}
+            focusAreas={focusAreas}
+            planSummary={planSummary}
+            viewMode={uiMode === "caregiver" ? "caregiver" : "patient"}
+          />
+        </section>
+      )}
+
+
       {!isClinician && clinicalProfile && (
         <section>
           <WhatsAffectedCard

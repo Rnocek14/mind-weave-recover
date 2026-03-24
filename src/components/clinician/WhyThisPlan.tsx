@@ -2,8 +2,8 @@
  * "Why This Plan" — Traceability card showing how the clinical profile
  * drives exercise selection, cue level, difficulty, and recent adjustments.
  * 
- * Now includes the Therapy Focus Map with per-exercise explainability cards,
- * plus live config state, active overrides, and coverage gaps.
+ * Now includes: Recovery Focus Summary, Strengths & Focus Areas Map,
+ * Therapy Focus Map, live config state, active overrides, and coverage gaps.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,9 @@ import { HelpLabel } from "@/components/HelpTooltip";
 import { getExerciseDomain, type ExerciseDomainEntry } from "@/lib/exerciseDomainMap";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { useTherapyFocusData } from "@/hooks/useTherapyFocusData";
+import { useStrengthsAndFocusAreas } from "@/hooks/useStrengthsAndFocusAreas";
 import { TherapyFocusMap } from "@/components/clinician/TherapyFocusMap";
+import { StrengthsAndFocusAreasMap } from "@/components/clinician/StrengthsAndFocusAreasMap";
 import type { ClinicianOverride } from "@/hooks/useClinicianOverrides";
 import type { AdaptationEvent } from "@/hooks/useAdaptationTimeline";
 
@@ -97,6 +99,15 @@ export function WhyThisPlan({
     activeExerciseSlugs,
     clinicalProfile,
     runtimeConfig: runtimeConfig || null,
+    adaptationEvents,
+    activeOverrides,
+  });
+
+  // Strengths & Focus Areas
+  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+    clinicalProfile,
+    runtimeConfig: runtimeConfig || null,
+    activeExerciseSlugs,
     adaptationEvents,
     activeOverrides,
   });
@@ -235,6 +246,22 @@ export function WhyThisPlan({
             </div>
           </div>
         )}
+
+        {/* ── Strengths & Focus Areas Map ── */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Target className="w-3 h-3" />
+            Strengths & Focus Areas
+          </p>
+          <div className="pl-4">
+            <StrengthsAndFocusAreasMap
+              strengths={strengths}
+              focusAreas={focusAreas}
+              planSummary={planSummary}
+              viewMode="clinician"
+            />
+          </div>
+        </div>
 
         {/* Profile → Domain Flow */}
         <div className="space-y-2">
