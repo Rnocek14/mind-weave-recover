@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useStrugglingPhonemes } from '@/hooks/useStrugglingPhonemes';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { useUserSpeechProfile, type UserSpeechProfile } from '@/hooks/useUserSpeechProfile';
+import { useRuntimeConfig } from '@/hooks/useRuntimeConfig';
 import { selectOptimalCue, type CueType, type CueRecommendation } from '@/lib/cueSelector';
 import { getScheduledWords, type ScheduledWord } from '@/lib/spacedRepetitionScheduler';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
