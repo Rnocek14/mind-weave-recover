@@ -34,6 +34,7 @@ import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 import ClinicianPanel from "./pages/ClinicianPanel";
 import WeeklyPatientReview from "./pages/WeeklyPatientReview";
+import OutcomesValidation from "./pages/OutcomesValidation";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
@@ -136,6 +137,7 @@ const App = () => (
                   <Route path="/admin/analytics" element={<AppLayout><ParserAnalytics /></AppLayout>} />
                   <Route path="/admin/research-export" element={<AppLayout><ResearchExport /></AppLayout>} />
                   <Route path="/analytics/cluster" element={<AppLayout><ClusterAnalytics /></AppLayout>} />
+                  <Route path="/admin/outcomes-validation" element={<AppLayout><OutcomesValidation /></AppLayout>} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
