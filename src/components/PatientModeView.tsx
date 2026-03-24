@@ -168,9 +168,6 @@ export function PatientModeView({
   if (viewState === "needs-assessment") {
     return (
       <div className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="flex justify-end p-2 shrink-0">
-          <UiModeToggle />
-        </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-3xl w-full p-6 md:p-12 space-y-6 text-center shadow-2xl border-2">
             <AlertCircle className="w-14 h-14 md:w-20 md:h-20 text-amber-500 mx-auto" />
