@@ -337,6 +337,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Errors shifting from severe (neologisms) to mild (phonemic)' : 'When you miss, you\'re getting closer to the right word'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Error type evolution reveals neurological improvement before accuracy fully catches up'
+                  : 'Even wrong answers can show progress — your guesses are getting closer'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
               <ScoreDisplay value={errorScore} label={isClinician ? 'Quality Score' : 'Error Quality'} />
