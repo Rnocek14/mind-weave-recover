@@ -203,6 +203,18 @@ export default function RecoveryProgress() {
         </div>
       </div>
 
+      {/* ── Recovery Focus Summary — the bridge ── */}
+      <RecoveryFocusSummary
+        clinicalProfile={activeProfile?.clinical_profile as any}
+        todayFocus={null}
+        activeExerciseSlugs={[]}
+        cueTrend={cueTrend}
+        errorTrend={errorTrend}
+        accuracyTrend={accuracyTrend}
+        masteredCount={mastered}
+        isClinician={isClinician}
+      />
+
       {/* ── Word Mastery (lead with the most tangible metric) ── */}
       <Card>
         <CardHeader className="pb-2">
