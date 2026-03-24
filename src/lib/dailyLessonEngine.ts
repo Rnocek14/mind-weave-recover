@@ -12,6 +12,7 @@
 import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
+import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
 
 /** Speech profile signals used for exercise SELECTION scoring (not in-game adaptation) */
 export interface SpeechProfileSelectionSignals {
