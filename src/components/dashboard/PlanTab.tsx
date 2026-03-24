@@ -57,6 +57,14 @@ export const PlanTab = memo(function PlanTab() {
 
   const { domains, todayLogs, isSaving: doseSaving, upsertDoseLog } = useDoseLogs(profileId, 7);
   const [showGamePicker, setShowGamePicker] = useState(false);
+  
+  const activeExerciseSlugs = lesson?.blocks?.map((b: any) => b.exerciseId) || recommendedExercises?.map((e: any) => e.id) || [];
+  
+  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+    clinicalProfile: clinicalProfile || null,
+    runtimeConfig: (activeProfile as any)?.runtime_config || null,
+    activeExerciseSlugs,
+  });
 
   return (
     <div className="space-y-8 animate-fade-in">
