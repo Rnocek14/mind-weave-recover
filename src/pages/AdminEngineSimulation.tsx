@@ -140,8 +140,7 @@ function runSimulation(profileKey: string): SimulationResult {
   const { profile } = TEST_PROFILES[profileKey];
   const aphasiaType = detectAphasiaType(profile);
   const priorities = calculateDomainPriorities(profile);
-  const accessible = getAccessibleExercises(DEFAULT_CAPABILITY);
-  const accessibleSlugs = accessible.map((a) => a.exerciseId);
+  const accessibleSlugs = getAccessibleExercises(DEFAULT_CAPABILITY);
 
   // Score all exercises
   const allScored = accessibleSlugs
