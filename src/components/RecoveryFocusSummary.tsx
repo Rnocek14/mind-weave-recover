@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Compass, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react";
+import { getFieldLabel, type UiRole } from "@/lib/roleVocabulary";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainMap";
