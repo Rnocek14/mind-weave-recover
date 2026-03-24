@@ -69,7 +69,7 @@ const ProvenanceBadge = memo(function ProvenanceBadge({
 
 const ExerciseCard = memo(function ExerciseCard({ card }: { card: TherapyFocusCard }) {
   return (
-    <div className="rounded-md border bg-card p-2 space-y-1">
+    <div className="rounded-md border bg-card p-2 space-y-0.5">
       {/* Row 1: Name + badges */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -86,29 +86,32 @@ const ExerciseCard = memo(function ExerciseCard({ card }: { card: TherapyFocusCa
         </div>
       </div>
 
-      {/* Row 2: Targets → Why (single line when possible) */}
-      <p className="text-[11px] text-muted-foreground leading-tight">
-        <span className="font-medium text-foreground">{card.clinicalTargets.join(", ") || "General"}</span>
-        {" · "}
-        {card.whySelected}
+      {/* Row 2: Targets */}
+      <p className="text-[11px] leading-tight">
+        <span className="text-muted-foreground font-medium">Targets: </span>
+        <span className="text-foreground">{card.clinicalTargets.join(", ") || "General"}</span>
       </p>
 
-      {/* Row 3: Adaptation + signal (compact) */}
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1 shrink-0">
-          <Settings2 className="w-2.5 h-2.5" />
-          {card.activeAdaptation}
-        </span>
+      {/* Row 3: Why now */}
+      <p className="text-[11px] leading-tight">
+        <span className="text-muted-foreground font-medium">Why now: </span>
+        <span className="text-foreground">{card.whySelected}</span>
+      </p>
+
+      {/* Row 4: Adaptation + signal */}
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground leading-tight">
+        <Settings2 className="w-2.5 h-2.5 shrink-0" />
+        <span>{card.activeAdaptation}</span>
         {card.recentSignal && (
           <>
-            <span className="text-muted-foreground/30">|</span>
+            <span className="text-muted-foreground/30">·</span>
             <span className="italic truncate">{card.recentSignal}</span>
           </>
         )}
       </div>
 
-      {/* Row 4: Expected gain + outcome badges */}
-      <div className="flex items-center gap-1.5 text-[11px]">
+      {/* Row 5: Expected gain + outcome badges */}
+      <div className="flex items-center gap-1.5 text-[11px] leading-tight">
         <TrendingUp className="w-2.5 h-2.5 text-primary/60 shrink-0" />
         <span className="text-foreground/80">{card.expectedGain}</span>
         {card.outcomeMetrics.map((m) => (
