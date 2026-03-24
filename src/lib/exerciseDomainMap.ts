@@ -42,6 +42,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Builds abstract reasoning and semantic categorization skills.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Improved abstract categorization and reasoning flexibility",
+    focusAreas: ["semantic_understanding", "executive_function"],
+    functionalMeaning: "Supports understanding relationships between ideas",
   },
   {
     slug: "conversation-coach",
@@ -51,6 +53,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Structured conversational practice with real-time coaching.",
     outcomeMetrics: ["cue_independence", "error_quality"],
     expectedGain: "More independent and organized conversational speech",
+    focusAreas: ["story_recall_discourse", "sentence_formation"],
+    functionalMeaning: "Helps build confidence in everyday conversation",
   },
   {
     slug: "conversation-partner",
@@ -60,6 +64,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Open-ended conversation practice for functional communication.",
     outcomeMetrics: ["cue_independence"],
     expectedGain: "Greater confidence and independence in everyday conversation",
+    focusAreas: ["story_recall_discourse"],
+    functionalMeaning: "Supports natural back-and-forth communication",
   },
   {
     slug: "describe-guess",
@@ -69,6 +75,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Exercises circumlocution and descriptive naming strategies.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "Better circumlocution strategies and descriptive naming",
+    focusAreas: ["naming", "word_retrieval"],
+    functionalMeaning: "Helps find alternative ways to express what you mean",
   },
   {
     slug: "detective-mind",
@@ -78,6 +86,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Develops deductive reasoning and evidence-based decision making.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Stronger deductive reasoning and logical problem solving",
+    focusAreas: ["executive_function", "planning_sequencing"],
+    functionalMeaning: "Supports problem-solving and decision-making in daily life",
   },
   {
     slug: "dual-load-naming",
@@ -87,6 +97,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Trains word retrieval under cognitive load for real-world transfer.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "More reliable word retrieval under cognitive demands",
+    focusAreas: ["naming", "word_retrieval", "attention"],
+    functionalMeaning: "Supports finding words while multitasking or under pressure",
   },
   {
     slug: "fix-sentence",
@@ -96,6 +108,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Targets grammatical awareness and sentence-level error detection.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Improved grammatical awareness and self-monitoring",
+    focusAreas: ["sentence_formation"],
+    functionalMeaning: "Helps catch and correct grammar in speech and writing",
   },
   {
     slug: "left-side-hunt",
@@ -105,6 +119,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Visual scanning for left neglect rehabilitation with cognitive demands.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Better leftward scanning and reduced neglect misses",
+    focusAreas: ["left_side_scanning"],
+    functionalMeaning: "Helps notice things on the left side in everyday environments",
   },
   {
     slug: "meaning-match",
@@ -114,6 +130,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Strengthens semantic associations and word meaning comprehension.",
     outcomeMetrics: ["word_mastery", "error_quality"],
     expectedGain: "Stronger semantic networks and word comprehension",
+    focusAreas: ["semantic_understanding", "comprehension"],
+    functionalMeaning: "Supports understanding word meanings and relationships",
   },
   {
     slug: "minimal-pairs",
@@ -123,6 +141,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Targets phonological discrimination and production accuracy.",
     outcomeMetrics: ["error_quality", "cue_independence"],
     expectedGain: "More accurate phonological discrimination and production",
+    focusAreas: ["phonological_production"],
+    functionalMeaning: "Helps distinguish and produce similar-sounding words clearly",
   },
   {
     slug: "multi-step-plan",
@@ -132,6 +152,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Exercises sequencing, planning, and multi-step problem solving.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Better multi-step planning and sequencing ability",
+    focusAreas: ["planning_sequencing", "executive_function"],
+    functionalMeaning: "Supports organizing steps for daily tasks like cooking or errands",
   },
   {
     slug: "narrative-retell",
@@ -141,6 +163,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Practices connected speech, narrative structure, and story cohesion.",
     outcomeMetrics: ["cue_independence", "error_quality"],
     expectedGain: "More coherent and organized narrative speech",
+    focusAreas: ["story_recall_discourse", "sentence_formation"],
+    functionalMeaning: "Helps retell events and stories clearly to others",
   },
   {
     slug: "pattern-match",
@@ -150,6 +174,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Visual pattern recognition and sustained attention training.",
     outcomeMetrics: ["error_quality"],
     expectedGain: "Improved sustained attention and pattern recognition",
+    focusAreas: ["attention"],
+    functionalMeaning: "Supports focus and concentration during daily activities",
   },
   {
     slug: "phonological-awareness",
@@ -159,6 +185,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Builds phonological processing: rhyming, segmenting, blending.",
     outcomeMetrics: ["error_quality", "cue_independence"],
     expectedGain: "Stronger phonological assembly and sound processing",
+    focusAreas: ["phonological_production"],
+    functionalMeaning: "Supports breaking down and building up sounds in words",
   },
   {
     slug: "photo-naming",
@@ -168,6 +196,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Core confrontation naming for word retrieval practice.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "More independent and accurate word retrieval",
+    focusAreas: ["naming", "word_retrieval"],
+    functionalMeaning: "Supports finding the right word for everyday objects and people",
   },
   {
     slug: "phrase-practice",
@@ -177,6 +207,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Functional phrase repetition and production fluency.",
     outcomeMetrics: ["cue_independence"],
     expectedGain: "Smoother phrase production and reduced hesitation",
+    focusAreas: ["sentence_formation", "phonological_production"],
+    functionalMeaning: "Helps produce common phrases more smoothly",
   },
   {
     slug: "reach-tap",
@@ -186,6 +218,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Upper extremity motor coordination and reach targeting.",
     outcomeMetrics: [],
     expectedGain: "Improved affected-limb reach accuracy and coordination",
+    focusAreas: ["upper_limb_coordination"],
+    functionalMeaning: "Supports reaching and tapping movements for daily tasks",
   },
   {
     slug: "semantic-features",
@@ -195,6 +229,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Semantic Feature Analysis (SFA) to strengthen word retrieval networks.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "Stronger semantic retrieval networks and less cue dependence",
+    focusAreas: ["semantic_understanding", "word_retrieval"],
+    functionalMeaning: "Helps build richer word knowledge to support retrieval",
   },
   {
     slug: "sentence-construction",
@@ -204,6 +240,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Sentence formulation targeting grammar and word order.",
     outcomeMetrics: ["error_quality", "cue_independence"],
     expectedGain: "Better sentence formulation and grammatical accuracy",
+    focusAreas: ["sentence_formation"],
+    functionalMeaning: "Supports building complete, clear sentences",
   },
   {
     slug: "sentence-game",
@@ -213,6 +251,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Sentence formulation targeting grammar and word order.",
     outcomeMetrics: ["error_quality", "cue_independence"],
     expectedGain: "Better sentence formulation and grammatical accuracy",
+    focusAreas: ["sentence_formation"],
+    functionalMeaning: "Supports building complete, clear sentences",
   },
   {
     slug: "thought-continuation",
@@ -222,6 +262,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Practices idea elaboration and thought completion.",
     outcomeMetrics: ["cue_independence"],
     expectedGain: "More complete and elaborated thought expression",
+    focusAreas: ["story_recall_discourse"],
+    functionalMeaning: "Helps finish thoughts and express complete ideas",
   },
   {
     slug: "thought-organization",
@@ -231,6 +273,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Structured thought organization and verbal planning.",
     outcomeMetrics: ["cue_independence", "error_quality"],
     expectedGain: "More organized verbal output and planning",
+    focusAreas: ["story_recall_discourse", "planning_sequencing"],
+    functionalMeaning: "Supports organizing what you want to say before speaking",
   },
   {
     slug: "two-clues",
@@ -240,6 +284,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "Integrates two semantic/phonological cues to retrieve target words.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "Better integration of cues for independent word retrieval",
+    focusAreas: ["word_retrieval", "naming"],
+    functionalMeaning: "Helps use hints and context to find the right word",
   },
   {
     slug: "word-finding",
@@ -249,6 +295,8 @@ export const EXERCISE_DOMAIN_MAP: ExerciseDomainEntry[] = [
     clinicalRationale: "General word retrieval practice across categories.",
     outcomeMetrics: ["word_mastery", "cue_independence"],
     expectedGain: "Broader and more reliable word retrieval across categories",
+    focusAreas: ["word_retrieval", "naming"],
+    functionalMeaning: "Supports finding words across different topics and situations",
   },
 ];
 
