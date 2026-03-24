@@ -104,7 +104,7 @@ export function WhyThisPlan({
   });
 
   // Strengths & Focus Areas
-  const { strengths, focusAreas, planSummary } = useStrengthsAndFocusAreas({
+  const { strengths, focusAreas, planSummary, globalAdjustments } = useStrengthsAndFocusAreas({
     clinicalProfile,
     runtimeConfig: runtimeConfig || null,
     activeExerciseSlugs,
@@ -259,6 +259,7 @@ export function WhyThisPlan({
               focusAreas={focusAreas}
               planSummary={planSummary}
               viewMode="clinician"
+              globalAdjustments={globalAdjustments}
             />
           </div>
         </div>

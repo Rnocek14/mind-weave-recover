@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Compass, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react";
+import { getFieldLabel, type UiRole } from "@/lib/roleVocabulary";
 import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainMap";
@@ -149,6 +150,7 @@ export function RecoveryFocusSummary({
   masteredCount,
   isClinician = false,
 }: RecoveryFocusSummaryProps) {
+  const role: UiRole = isClinician ? "clinician" : "patient";
   const challenge = useMemo(() => derivePrimaryChallenge(clinicalProfile), [clinicalProfile]);
   const exerciseNames = useMemo(() => getExerciseNames(activeExerciseSlugs).slice(0, 4), [activeExerciseSlugs]);
   const adaptationReason = useMemo(() => deriveAdaptationReason(todayFocus), [todayFocus]);
@@ -160,14 +162,14 @@ export function RecoveryFocusSummary({
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Compass className="w-4 h-4 text-primary" />
-          {isClinician ? 'Recovery Focus Summary' : 'Your Recovery Focus'}
+          {getFieldLabel("card_title", role)}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Row 1: Primary challenge */}
         <div className="flex items-start gap-2">
           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-            {isClinician ? 'Primary challenge' : 'Working on'}
+            {getFieldLabel("primary_challenge", role)}
           </span>
           <span className="text-sm font-medium text-foreground">{challenge}</span>
         </div>
@@ -176,7 +178,7 @@ export function RecoveryFocusSummary({
         {exerciseNames.length > 0 && (
           <div className="flex items-start gap-2">
             <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-              {isClinician ? 'Current focus' : 'Exercises'}
+              {getFieldLabel("current_focus", role)}
             </span>
             <div className="flex flex-wrap gap-1">
               {exerciseNames.map(name => (
@@ -196,7 +198,7 @@ export function RecoveryFocusSummary({
         {/* Row 3: Why adapted */}
         <div className="flex items-start gap-2">
           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-            {isClinician ? 'Why adapted' : 'Adjusted for'}
+            {getFieldLabel("why_adapted", role)}
           </span>
           <span className="text-sm text-muted-foreground">{adaptationReason}</span>
         </div>
@@ -204,7 +206,7 @@ export function RecoveryFocusSummary({
         {/* Row 4: Expected gain */}
         <div className="flex items-start gap-2">
           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 pt-0.5">
-            {isClinician ? 'Expected gain' : 'Goal'}
+            {getFieldLabel("expected_gain", role)}
           </span>
           <span className="text-sm text-muted-foreground">{expectedGain}</span>
         </div>

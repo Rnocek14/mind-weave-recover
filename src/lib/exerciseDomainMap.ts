@@ -326,6 +326,20 @@ export function getExerciseRationale(slug: string): string {
   return getExerciseDomain(slug)?.clinicalRationale ?? "General therapy exercise.";
 }
 
+/**
+ * Get suggested exercises for a focus area, ranked by number of matching focus areas.
+ */
+export function getSuggestedExercisesForFocusArea(focusAreaId: string): ExerciseDomainEntry[] {
+  return EXERCISE_DOMAIN_MAP
+    .filter(e => e.focusAreas.includes(focusAreaId))
+    .sort((a, b) => {
+      // Prefer exercises where this is the primary focus area (listed first)
+      const aIdx = a.focusAreas.indexOf(focusAreaId);
+      const bIdx = b.focusAreas.indexOf(focusAreaId);
+      return aIdx - bIdx;
+    });
+}
+
 /** Aggregate trials by recovery domain using canonical mapping. */
 export function aggregateTrialsByDomain(
   exercises: { slug: string; trials: number }[]
