@@ -219,6 +219,11 @@ export default function RecoveryProgress() {
               ? 'Words reliably retrieved without support (≥80% accuracy, cue level ≤1)'
               : 'Words you can find and say on your own'}
           </CardDescription>
+          <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+            {isClinician
+              ? 'Why it matters: Demonstrates functional vocabulary recovery beyond repeated practice'
+              : 'Shows words you can now say on your own — real progress'}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex justify-around mb-3">
