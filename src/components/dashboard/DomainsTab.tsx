@@ -8,6 +8,7 @@ import { CognitiveStateCard } from "@/components/dashboard/CognitiveStateCard";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { useProfile } from "@/hooks/useProfile";
 import { useDashboardContext } from "@/hooks/useDashboardContext";
+import { useUiMode } from "@/hooks/useUiMode";
 import { COGNITIVE_DOMAINS, type DomainScore } from "@/lib/cognitiveStateEngine";
 
 /** ICF-aligned groupings */
