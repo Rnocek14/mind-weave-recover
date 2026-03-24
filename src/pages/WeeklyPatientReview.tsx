@@ -479,6 +479,7 @@ export default function WeeklyPatientReview() {
             clinicalProfile={clinicalProfile}
             runtimeConfig={runtimeConfig}
             activeExerciseSlugs={exerciseSlugs}
+            adaptationEvents={adaptationEvents}
             activeOverrides={activeOverrides}
             recentOverrides={recentOverrides}
             onReverseOverride={async (overrideId) => {
