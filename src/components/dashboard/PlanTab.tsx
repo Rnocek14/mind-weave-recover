@@ -99,6 +99,15 @@ export const PlanTab = memo(function PlanTab() {
         </Card>
       )}
 
+      {/* Weekly Plan Narrative — why this week's plan looks this way */}
+      {!isClinician && activeExerciseSlugs.length > 0 && (
+        <WeeklyPlanNarrativeCard
+          narrative={reasoning.weeklyNarrative}
+          targetedOutcomes={reasoning.targetedOutcomes}
+          confidence={reasoning.confidence}
+          role={viewRole}
+        />
+      )}
       {/* Dosing & Tolerance Guidance */}
       {doseCap && (
         <Card className="p-4">
