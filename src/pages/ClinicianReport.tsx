@@ -97,8 +97,8 @@ export default function ClinicianReport() {
             <p className="text-sm text-muted-foreground mb-4">
               This report is available in Clinician or Admin mode only.
             </p>
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
-              Return to Dashboard
+            <Button variant="outline" onClick={() => navigate('/clinician/caseload')}>
+              Return to Caseload
             </Button>
           </CardContent>
         </Card>
