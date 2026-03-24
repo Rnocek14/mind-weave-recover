@@ -9,7 +9,6 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { WeeklyDeltasCard } from "@/components/dashboard/WeeklyDeltasCard";
 import { DomainConfidenceSummary } from "@/components/dashboard/DomainConfidenceSummary";
-import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { CaregiverTodayCard } from "@/components/CaregiverTodayCard";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useProfile } from "@/hooks/useProfile";
