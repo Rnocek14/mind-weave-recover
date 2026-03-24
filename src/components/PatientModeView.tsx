@@ -268,9 +268,6 @@ export function PatientModeView({
   // ── Main 3-tab patient view ──
   return (
     <div ref={scrollRef} className="h-dvh flex flex-col bg-gradient-to-br from-background via-background to-primary/5 overscroll-y-contain">
-      <div className="flex justify-end p-2 shrink-0">
-        <UiModeToggle />
-      </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4">
