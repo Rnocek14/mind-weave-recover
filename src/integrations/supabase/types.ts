@@ -2478,6 +2478,15 @@ export type Database = {
         }
         Returns: Json
       }
+      clinician_approve_override: {
+        Args: {
+          p_clinician_id: string
+          p_override_id: string
+          p_profile_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       clinician_assign_practice: {
         Args: {
           p_clinician_id: string
@@ -2493,6 +2502,16 @@ export type Database = {
           p_domain_slug?: string
           p_profile_id: string
           p_reduction_pct?: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_reject_override: {
+        Args: {
+          p_clinician_id: string
+          p_override_id: string
+          p_profile_id: string
+          p_reason?: string
           p_user_id: string
         }
         Returns: Json
@@ -2522,6 +2541,18 @@ export type Database = {
           p_profile_id: string
           p_reason?: string
           p_user_id: string
+        }
+        Returns: Json
+      }
+      clinician_suggest_override: {
+        Args: {
+          p_override_type: string
+          p_profile_id: string
+          p_reason?: string
+          p_suggested_by: string
+          p_target_slug?: string
+          p_user_id: string
+          p_value_after?: Json
         }
         Returns: Json
       }
