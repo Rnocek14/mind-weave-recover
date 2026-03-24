@@ -325,12 +325,12 @@ export default function WeeklyPatientReview() {
       {/* ─── Accuracy Sparkline (visual confirmation of trajectory) ─── */}
       {(() => {
         const sparkData = dayGroups.map((dg) => {
-          const totalTrials = dg.sessions.reduce((s, ses) => s + ses.exercises.reduce((t, e) => t + e.trials, 0), 0);
-          const totalCorrect = dg.sessions.reduce((s, ses) => s + ses.exercises.reduce((t, e) => t + (e.correct ?? 0), 0), 0);
+          const totalTrials = dg.sessions.reduce((s, ses) => s + ses.totalTrials, 0);
+          const weightedAcc = dg.sessions.reduce((s, ses) => s + ses.avgAccuracy * ses.totalTrials, 0);
           const daySnap = recent7.find((d) => d.date === dg.date);
           return {
             date: dg.date,
-            accuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : null,
+            accuracy: totalTrials > 0 ? Math.round(weightedAcc / totalTrials) : null,
             fatigueRating: daySnap?.fatigueRating ?? null,
             trials: totalTrials,
           };
