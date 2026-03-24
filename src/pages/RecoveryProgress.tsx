@@ -11,6 +11,7 @@
  */
 
 import { useAuth } from '@/hooks/useAuth';
+import { RecoveryFocusSummary } from '@/components/RecoveryFocusSummary';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
 import { useWordMastery } from '@/hooks/useWordMastery';
@@ -202,6 +203,18 @@ export default function RecoveryProgress() {
         </div>
       </div>
 
+      {/* ── Recovery Focus Summary — the bridge ── */}
+      <RecoveryFocusSummary
+        clinicalProfile={activeProfile?.clinical_profile as any}
+        todayFocus={null}
+        activeExerciseSlugs={[]}
+        cueTrend={cueTrend}
+        errorTrend={errorTrend}
+        accuracyTrend={accuracyTrend}
+        masteredCount={mastered}
+        isClinician={isClinician}
+      />
+
       {/* ── Word Mastery (lead with the most tangible metric) ── */}
       <Card>
         <CardHeader className="pb-2">
@@ -219,6 +232,11 @@ export default function RecoveryProgress() {
               ? 'Words reliably retrieved without support (≥80% accuracy, cue level ≤1)'
               : 'Words you can find and say on your own'}
           </CardDescription>
+          <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+            {isClinician
+              ? 'Why it matters: Demonstrates functional vocabulary recovery beyond repeated practice'
+              : 'Shows words you can now say on your own — real progress'}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex justify-around mb-3">
@@ -259,6 +277,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Naming accuracy over time' : 'How often you say the right word'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Core language performance trend across targeted tasks'
+                  : 'Tracks how often you get the right word over time'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-around">
@@ -294,6 +317,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Performing without cueing support' : 'Needing less help over time'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Reduced cue dependence is a stronger recovery signal than accuracy alone'
+                  : 'Shows whether you need less help over time — a key sign of progress'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
               <ScoreDisplay value={cueScore} label={isClinician ? 'Independence Score' : 'Independence'} />
@@ -322,6 +350,11 @@ export default function RecoveryProgress() {
               <CardDescription className="text-xs">
                 {isClinician ? 'Errors shifting from severe (neologisms) to mild (phonemic)' : 'When you miss, you\'re getting closer to the right word'}
               </CardDescription>
+              <p className="text-[11px] text-muted-foreground/70 italic mt-1">
+                {isClinician
+                  ? 'Why it matters: Error type evolution reveals neurological improvement before accuracy fully catches up'
+                  : 'Even wrong answers can show progress — your guesses are getting closer'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
               <ScoreDisplay value={errorScore} label={isClinician ? 'Quality Score' : 'Error Quality'} />

@@ -18,6 +18,7 @@ import { DoseLogEntry } from "@/components/DoseLogEntry";
 import { GamePickerDialog } from "@/components/GamePickerDialog";
 import { CapabilityGatingInfo } from "@/components/CapabilityGatingInfo";
 import { WhatsAffectedCard } from "@/components/WhatsAffectedCard";
+import { RecoveryFocusSummary } from "@/components/RecoveryFocusSummary";
 import { StrokeProfileSummary } from "@/components/StrokeProfileSummary";
 import { BrainMap } from "@/components/BrainMap";
 import { MechanismSessionPlanner } from "@/components/MechanismSessionPlanner";
@@ -202,6 +203,17 @@ export const PlanTab = memo(function PlanTab() {
             todayLogs={todayLogs}
             onSubmit={upsertDoseLog}
             isSaving={doseSaving}
+          />
+        </section>
+      )}
+
+      {/* Recovery Focus Summary — bridges plan to outcomes */}
+      {!isClinician && clinicalProfile && (
+        <section>
+          <RecoveryFocusSummary
+            clinicalProfile={clinicalProfile}
+            todayFocus={todayFocus}
+            activeExerciseSlugs={lesson?.blocks?.map(b => b.exerciseId) || recommendedExercises?.map(e => e.id) || []}
           />
         </section>
       )}
