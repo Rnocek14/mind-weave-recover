@@ -219,5 +219,8 @@ export function useSessionAdaptation(
     phonemesLoading,
     wordsLoading,
     defaultErrorType,
+    getDifficulty,
+    getCueLevel,
+    options.exerciseSlug,
   ]);
 }

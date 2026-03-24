@@ -45,8 +45,9 @@ export const useExerciseDifficulty = (
       const difficulties = (prefs.difficulties ?? {}) as Record<string, number>;
       const savedLevel = difficulties[exerciseSlug] ?? bounds.suggestedStart;
       
-      // Clamp saved level to current capability bounds
-      setLevel(clampToBounds(savedLevel, bounds));
+      // Apply clinician runtime_config offset, then clamp to capability bounds
+      const runtimeOffset = getDifficulty(exerciseSlug);
+      setLevel(clampToBounds(savedLevel + runtimeOffset, bounds));
     } catch (e) {
       console.error('Error loading difficulty:', e);
       setLevel(bounds.suggestedStart);
