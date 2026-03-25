@@ -268,7 +268,7 @@ export default function RecoveryProgress() {
           ═══════════════════════════════════════════════════ */}
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-4 tracking-tight">
-          {isClinician ? 'Core Recovery Metrics' : 'How You\'re Doing'}
+          {copy('How You\'re Doing', 'Recovery Metrics', 'Core Recovery Metrics')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
