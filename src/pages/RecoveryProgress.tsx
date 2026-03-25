@@ -120,8 +120,13 @@ function getRecoveryHeadline(
 export default function RecoveryProgress() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const { isAtLeast } = useUiMode();
+  const { uiMode, isAtLeast } = useUiMode();
   const isClinician = isAtLeast('clinician');
+  const isCaregiver = uiMode === 'caregiver';
+
+  /** Role-aware copy helper: patient sees "you", caregiver sees neutral/3rd-person, clinician sees technical */
+  const copy = <T extends string>(patient: T, caregiver: T, clinician: T): T =>
+    isClinician ? clinician : isCaregiver ? caregiver : patient;
   const userId = user?.id;
 
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
