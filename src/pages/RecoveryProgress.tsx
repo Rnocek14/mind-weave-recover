@@ -275,11 +275,12 @@ export default function RecoveryProgress() {
           {/* ─── Accuracy ─── */}
           <MetricCard
             icon={Target}
-            title={isClinician ? 'Accuracy Trajectory' : 'Getting It Right'}
-            description={isClinician ? 'Naming accuracy over time' : 'How often you say the right word'}
-            whyTip={isClinician
-              ? 'Core language performance trend across targeted tasks'
-              : 'Tracks how often you get the right word over time'}
+            title={copy('Getting It Right', 'Accuracy', 'Accuracy Trajectory')}
+            description={copy('How often you say the right word', 'Naming accuracy over time', 'Naming accuracy over time')}
+            whyTip={copy(
+              'Tracks how often you get the right word over time',
+              'Core naming accuracy trend across practice sessions',
+              'Core language performance trend across targeted tasks')}
             trend={accuracyTrend}
             isClinician={isClinician}
           >
