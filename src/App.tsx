@@ -14,6 +14,7 @@ import PhonologicalExercise from "./pages/PhonologicalExercise";
 import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import SessionHistory from "./pages/SessionHistory";
 import CaregiverPortal from "./pages/CaregiverPortal";
+import CaregiverStatus from "./pages/CaregiverStatus";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
