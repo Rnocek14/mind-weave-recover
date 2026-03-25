@@ -160,7 +160,7 @@ export function AppHeader() {
               }
               
               {/* Caseload in settings only if NOT already in clinician nav */}
-              {isAtLeast('clinician') && !isClinicianMode &&
+              {isAtLeast('clinician') && !(uiMode === 'clinician' || uiMode === 'admin') &&
               <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
