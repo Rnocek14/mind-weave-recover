@@ -453,9 +453,11 @@ export default function RecoveryProgress() {
       <footer className="flex items-start gap-2.5 p-3.5 rounded-xl bg-muted/40 border border-border/50">
         <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          {isClinician
-            ? 'Outcome metrics are directional and intended for clinical review. These measures have not been independently validated and should be interpreted alongside formal assessments.'
-            : 'These scores show your practice trends over time. They are not medical test results — talk to your therapist about your full progress.'}
+          {copy(
+            'These scores show your practice trends over time. They are not medical test results — talk to your therapist about your full progress.',
+            'These scores show practice trends over time. They are not medical test results — discuss with the therapist for a complete picture.',
+            'Outcome metrics are directional and intended for clinical review. These measures have not been independently validated and should be interpreted alongside formal assessments.'
+          )}
         </p>
       </footer>
     </div>
