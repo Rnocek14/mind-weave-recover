@@ -206,15 +206,15 @@ export default function History() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
                         <div className="text-2xl font-bold text-primary">{events.length}</div>
-                        <div className="text-xs text-muted-foreground">Trials</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Tries' : 'Trials'}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-success">{exercises.length}</div>
-                        <div className="text-xs text-muted-foreground">Exercises</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Activities' : 'Exercises'}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-accent">{accuracy}%</div>
-                        <div className="text-xs text-muted-foreground">Accuracy</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Score' : 'Accuracy'}</div>
                       </div>
                     </div>
                   </div>

@@ -213,7 +213,7 @@ export default function RecoveryProgress() {
               <div className="flex items-center gap-2">
                 <Sparkles className={cn('w-5 h-5', headline.positive ? 'text-success' : 'text-warning')} />
                 <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                  {isClinician ? headline.text : headline.patientText}
+                  {isClinician ? headline.text : isCaregiver ? headline.caregiverText : headline.patientText}
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground max-w-md">{headline.subtext}</p>
