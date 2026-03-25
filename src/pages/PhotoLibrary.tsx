@@ -126,11 +126,7 @@ export default function PhotoLibrary() {
       <div className="container mx-auto p-4 max-w-6xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <BackButton />
             <h1 className="text-2xl font-bold">Photo Library</h1>
           </div>
           <div className="flex gap-2">
