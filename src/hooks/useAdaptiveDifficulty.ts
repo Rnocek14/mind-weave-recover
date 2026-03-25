@@ -46,6 +46,9 @@ export const useAdaptiveDifficulty = ({
     )
   );
 
+  // Success-band controller for 70-85% optimal challenge zone
+  const bandRef = useRef(new SuccessBandController(successBandConfig));
+
   // Adaptation event logger - only active if userId provided
   const { logDifficultyChange } = useAdaptationEventLogger({
     userId,
@@ -57,9 +60,10 @@ export const useAdaptiveDifficulty = ({
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
-  // Update a trial result
+  // Update a trial result — feeds both the legacy controller AND success-band
   const updateTrial = useCallback((wasCorrect: boolean) => {
     controllerRef.current.update(wasCorrect);
+    bandRef.current.recordTrial(wasCorrect);
     trialIndexRef.current += 1;
   }, []);
 
