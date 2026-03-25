@@ -157,7 +157,12 @@ export const OverviewTab = memo(function OverviewTab() {
                    onClick={() => {
                     if (lesson) {
                       const { trackSessionStartTap } = require('@/lib/sessionFlowAnalytics');
-                      trackSessionStartTap(null, lesson.blocks?.length || 0);
+                      trackSessionStartTap(null, (lesson as any).blocks?.length || 0);
+                      navigate("/lesson", {
+                        state: { lesson, clinicalProfile },
+                      });
+                    }
+                  }}
                       navigate("/lesson", {
                         state: { lesson, clinicalProfile },
                       });
