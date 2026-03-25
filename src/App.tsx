@@ -126,6 +126,7 @@ const App = () => (
                   <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
                   <Route path="/history" element={<AppLayout><History /></AppLayout>} />
                   <Route path="/caregiver" element={<AppLayout><CaregiverPortal /></AppLayout>} />
+                  <Route path="/caregiver/status" element={<AppLayout><CaregiverStatus /></AppLayout>} />
                   
                   {/* Settings routes - with header */}
                   <Route path="/photo-library" element={<AppLayout><PhotoLibrary /></AppLayout>} />
