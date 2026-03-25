@@ -157,7 +157,9 @@ export default function History() {
           <BackButton />
           <div>
             <h1 className="text-3xl font-bold">Session History</h1>
-            <p className="text-muted-foreground">Your progress over time</p>
+            <p className="text-muted-foreground">
+              {isPatient ? 'Your progress over time' : 'Practice sessions and performance'}
+            </p>
           </div>
         </div>
 
