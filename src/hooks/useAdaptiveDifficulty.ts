@@ -32,6 +32,7 @@ export const useAdaptiveDifficulty = ({
   profileId,
   sessionId,
   exerciseSlug,
+  successBandConfig,
 }: UseAdaptiveDifficultyOptions) => {
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const trialIndexRef = useRef(0);
