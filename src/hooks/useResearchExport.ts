@@ -2,6 +2,39 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import type { Database } from '@/integrations/supabase/types';
+
+type TableName = keyof Database['public']['Tables'];
+const PAGE_SIZE = 1000;
+
+/**
+ * Paginated fetch — pulls all rows from a table in PAGE_SIZE chunks
+ * so we never silently truncate at the Supabase default limit.
+ */
+async function fetchAllRows(
+  table: TableName,
+  selectCols: string = '*'
+): Promise<any[]> {
+  const allRows: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(selectCols)
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allRows;
+}
+
 interface CohortStats {
   totalUsers: number;
   totalSessions: number;
@@ -22,29 +55,23 @@ export const useResearchExport = () => {
     try {
       setLoading(true);
 
-      // Fetch all necessary data
-      const [usersRes, sessionsRes, trialsRes, profilesRes, learningRatesRes] = await Promise.all([
-        supabase.from('profiles').select('user_id'),
-        supabase.from('sessions').select('id, user_id'),
-        supabase.from('exercise_events').select('id'),
-        supabase.from('profiles').select('clinical_profile'),
-        supabase.from('learning_rates').select('domain, accuracy_slope'),
+      const [users, sessions, trials, profiles, learningRates] = await Promise.all([
+        fetchAllRows('profiles', 'user_id'),
+        fetchAllRows('sessions', 'id, user_id'),
+        fetchAllRows('exercise_events', 'id'),
+        fetchAllRows('profiles', 'clinical_profile'),
+        fetchAllRows('learning_rates', 'domain, accuracy_slope'),
       ]);
 
-      if (usersRes.error || sessionsRes.error || trialsRes.error || profilesRes.error) {
-        throw new Error('Failed to fetch cohort data');
-      }
+      const totalUsers = users.length;
+      const totalSessions = sessions.length;
+      const totalTrials = trials.length;
 
-      const totalUsers = usersRes.data?.length || 0;
-      const totalSessions = sessionsRes.data?.length || 0;
-      const totalTrials = trialsRes.data?.length || 0;
-
-      // Calculate distributions
       const lesionDistribution: Record<string, number> = {};
       const mechanismDistribution: Record<string, number> = {};
       const chronicityDistribution: Record<string, number> = {};
 
-      profilesRes.data?.forEach((profile) => {
+      profiles.forEach((profile) => {
         const cp = profile.clinical_profile as any;
         if (cp?.stroke_location) {
           const location = Array.isArray(cp.stroke_location) ? cp.stroke_location[0] : cp.stroke_location;
@@ -58,11 +85,10 @@ export const useResearchExport = () => {
         }
       });
 
-      // Calculate average learning rates by domain
       const avgLearningRates: Record<string, number> = {};
       const domainCounts: Record<string, number> = {};
 
-      learningRatesRes.data?.forEach((lr) => {
+      learningRates.forEach((lr) => {
         if (lr.accuracy_slope !== null) {
           avgLearningRates[lr.domain] = (avgLearningRates[lr.domain] || 0) + Number(lr.accuracy_slope);
           domainCounts[lr.domain] = (domainCounts[lr.domain] || 0) + 1;
@@ -86,48 +112,14 @@ export const useResearchExport = () => {
       };
     } catch (error) {
       console.error('Error fetching cohort statistics:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch cohort statistics',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to fetch cohort statistics', variant: 'destructive' });
       return null;
     } finally {
       setLoading(false);
     }
   };
 
-  const deIdentifyData = (data: any[]): any[] => {
-    return data.map((row) => {
-      const deidentified = { ...row };
-      
-      // Remove direct identifiers
-      delete deidentified.user_id;
-      delete deidentified.display_name;
-      delete deidentified.assessed_by;
-      delete deidentified.created_by;
-      delete deidentified.rated_by;
-      
-      // Hash any remaining IDs for linkage
-      if (row.user_id) {
-        deidentified.participant_id = hashUserId(row.user_id);
-      }
-      if (row.id) {
-        deidentified.record_id = hashUserId(row.id);
-      }
-      if (row.session_id) {
-        deidentified.session_hash = hashUserId(row.session_id);
-      }
-      if (row.goal_id) {
-        deidentified.goal_hash = hashUserId(row.goal_id);
-      }
-      
-      return deidentified;
-    });
-  };
-
-  const hashUserId = (id: string): string => {
-    // Simple hash for de-identification (for research, use a consistent hash)
+  const hashId = (id: string): string => {
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = (hash << 5) - hash + id.charCodeAt(i);
@@ -136,13 +128,27 @@ export const useResearchExport = () => {
     return 'P' + Math.abs(hash).toString(16).padStart(8, '0');
   };
 
+  const deIdentifyData = (data: any[]): any[] => {
+    return data.map((row) => {
+      const d = { ...row };
+      delete d.user_id;
+      delete d.display_name;
+      delete d.assessed_by;
+      delete d.created_by;
+      delete d.rated_by;
+
+      if (row.user_id) d.participant_id = hashId(row.user_id);
+      if (row.id) d.record_id = hashId(row.id);
+      if (row.session_id) d.session_hash = hashId(row.session_id);
+      if (row.goal_id) d.goal_hash = hashId(row.goal_id);
+
+      return d;
+    });
+  };
+
   const exportToCSV = (data: any[], filename: string) => {
     if (data.length === 0) {
-      toast({
-        title: 'No data',
-        description: 'No data available to export',
-        variant: 'destructive',
-      });
+      toast({ title: 'No data', description: 'No data available to export', variant: 'destructive' });
       return;
     }
 
@@ -161,30 +167,34 @@ export const useResearchExport = () => {
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
+    link.setAttribute('href', URL.createObjectURL(blob));
     link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    toast({
-      title: 'Export successful',
-      description: `${filename} downloaded`,
-    });
+    toast({ title: 'Export successful', description: `${filename} — ${data.length.toLocaleString()} rows downloaded` });
   };
 
-  const exportDemographics = async () => {
+  const paginatedExport = async (table: TableName, selectCols: string, filename: string, formatter?: (data: any[]) => any[]) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, clinical_profile, stroke_date, created_at');
+      const data = await fetchAllRows(table, selectCols);
+      const formatted = formatter ? formatter(data) : data;
+      const deidentified = deIdentifyData(formatted);
+      exportToCSV(deidentified, filename);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({ title: 'Export failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (error) throw error;
-
-      const formatted = data?.map((p) => {
+  const exportDemographics = () =>
+    paginatedExport('profiles', 'user_id, clinical_profile, stroke_date, created_at', 'demographics', (data) =>
+      data.map((p) => {
         const cp = p.clinical_profile as any;
         return {
           user_id: p.user_id,
@@ -198,111 +208,26 @@ export const useResearchExport = () => {
           severity_speech: cp?.severity?.speech,
           severity_cognitive: cp?.severity?.cognitive,
         };
-      }) || [];
+      })
+    );
 
-      const deidentified = deIdentifyData(formatted);
-      exportToCSV(deidentified, 'demographics');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast({
-        title: 'Export failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const exportSessions = () =>
+    paginatedExport('sessions', 'id, user_id, started_at, ended_at, duration_sec, summary, mood_rating', 'sessions');
 
-  const exportSessions = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('id, user_id, started_at, ended_at, duration_sec, summary, mood_rating');
+  const exportTrials = () =>
+    paginatedExport('exercise_events', 'id, session_id, exercise_slug, round, score, reaction_time_ms, cue_level, error_type, created_at', 'exercise_trials');
 
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'sessions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const exportLearningRates = () =>
+    paginatedExport('learning_rates', '*', 'learning_rates');
 
-  const exportTrials = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('exercise_events')
-        .select('id, session_id, exercise_slug, round, score, reaction_time_ms, cue_level, error_type, created_at');
+  const exportGoals = () =>
+    paginatedExport('functional_goals', '*', 'functional_goals');
 
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'exercise_trials');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const exportGoalRatings = () =>
+    paginatedExport('goal_progress_ratings', '*', 'goal_progress_ratings');
 
-  const exportLearningRates = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('learning_rates')
-        .select('*');
-
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'learning_rates');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportGoals = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('functional_goals')
-        .select('*');
-
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'functional_goals');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportGoalRatings = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('goal_progress_ratings')
-        .select('*');
-
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'goal_progress_ratings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportAssessments = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('standardized_assessments')
-        .select('*');
-
-      if (error) throw error;
-      const deidentified = deIdentifyData(data || []);
-      exportToCSV(deidentified, 'standardized_assessments');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const exportAssessments = () =>
+    paginatedExport('standardized_assessments', '*', 'standardized_assessments');
 
   return {
     loading,
