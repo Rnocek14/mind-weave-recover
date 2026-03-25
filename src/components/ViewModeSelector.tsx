@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +38,7 @@ const MODE_CONFIG: Record<UiMode, { label: string; icon: typeof User; descriptio
 
 export function ViewModeSelector() {
   const { uiMode, setUiMode } = useUiMode();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useUserPermissions(user?.id);
 
@@ -54,7 +56,17 @@ export function ViewModeSelector() {
   }, [uiMode, isAdmin, setUiMode]);
 
   return (
-    <Select value={uiMode} onValueChange={(value) => setUiMode(value as UiMode)}>
+    <Select value={uiMode} onValueChange={(value) => {
+      const mode = value as UiMode;
+      setUiMode(mode);
+      // Navigate to the appropriate home for the new role
+      const target =
+        mode === 'admin' ? '/admin'
+        : mode === 'clinician' ? '/clinician/review'
+        : mode === 'caregiver' ? '/caregiver'
+        : '/dashboard';
+      navigate(target);
+    }}>
       <SelectTrigger className="w-[140px] h-9">
         <SelectValue>
           <div className="flex items-center gap-2">
