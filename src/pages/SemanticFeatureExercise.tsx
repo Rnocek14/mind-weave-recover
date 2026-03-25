@@ -14,6 +14,7 @@ import { useExerciseConfig } from '@/hooks/useExerciseConfig';
 import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
