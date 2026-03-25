@@ -134,6 +134,7 @@ export const useAdaptiveDifficulty = ({
   // Reset controller for new session
   const reset = useCallback(() => {
     controllerRef.current.reset();
+    bandRef.current.reset();
     trialIndexRef.current = 0;
   }, []);
 
