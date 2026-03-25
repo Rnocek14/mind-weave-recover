@@ -135,7 +135,7 @@ export function PatientModeView({
         {([
           { id: "home" as PatientTab, icon: Home, label: "Home" },
           { id: "practice" as PatientTab, icon: Gamepad2, label: "Practice" },
-          { id: "progress" as PatientTab, icon: BarChart3, label: "Progress" },
+          { id: "progress" as PatientTab, icon: BarChart3, label: "My Progress" },
         ]).map(({ id, icon: Icon, label }) => (
           <button
             key={id}
