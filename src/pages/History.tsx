@@ -7,8 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUiMode } from "@/hooks/useUiMode";
 import { SessionDetailPanel } from "@/components/SessionDetailPanel";
-import { useAuth } from "@/hooks/useAuth";
-import { SessionDetailPanel } from "@/components/SessionDetailPanel";
 
 interface SessionWithEvents {
   session: {
