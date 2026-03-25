@@ -224,7 +224,7 @@ export default function RecoveryProgress() {
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold text-success leading-none">{mastered}</div>
                 <div className="text-xs text-muted-foreground mt-1.5 font-medium">
-                  {isClinician ? 'words mastered' : 'words you can say'}
+                  {copy('words you can say', 'words mastered', 'words mastered')}
                 </div>
               </div>
               {emerging > 0 && (
