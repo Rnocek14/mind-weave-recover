@@ -5,6 +5,7 @@ import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { BackButton } from "@/components/layout/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUiMode } from "@/hooks/useUiMode";
 import { SessionDetailPanel } from "@/components/SessionDetailPanel";
 
 interface SessionWithEvents {
@@ -25,6 +26,8 @@ interface SessionWithEvents {
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();
+  const { uiMode } = useUiMode();
+  const isPatient = uiMode === 'patient';
   const navigate = useNavigate();
   const [history, setHistory] = useState<SessionWithEvents[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,14 +155,18 @@ export default function History() {
           <BackButton />
           <div>
             <h1 className="text-3xl font-bold">Session History</h1>
-            <p className="text-muted-foreground">Your progress over time</p>
+            <p className="text-muted-foreground">
+              {isPatient ? 'Your progress over time' : 'Practice sessions and performance'}
+            </p>
           </div>
         </div>
 
         {history.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              No sessions yet. Start your first exercise to see your progress here!
+              {isPatient
+                ? 'No sessions yet. Start your first exercise to see your progress here!'
+                : 'No sessions recorded yet.'}
             </p>
           </Card>
         ) : (
@@ -197,15 +204,15 @@ export default function History() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
                         <div className="text-2xl font-bold text-primary">{events.length}</div>
-                        <div className="text-xs text-muted-foreground">Trials</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Tries' : 'Trials'}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-success">{exercises.length}</div>
-                        <div className="text-xs text-muted-foreground">Exercises</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Activities' : 'Exercises'}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold text-accent">{accuracy}%</div>
-                        <div className="text-xs text-muted-foreground">Accuracy</div>
+                        <div className="text-xs text-muted-foreground">{isPatient ? 'Score' : 'Accuracy'}</div>
                       </div>
                     </div>
                   </div>

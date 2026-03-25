@@ -101,27 +101,32 @@ function getRecoveryHeadline(
   cueTrend: string,
   mastered: number,
   errorTrend: string,
-): { text: string; patientText: string; subtext: string; positive: boolean } {
+): { text: string; patientText: string; caregiverText: string; subtext: string; positive: boolean } {
   const improving = [accuracyTrend, cueTrend, errorTrend].filter(t => t === 'improving').length;
   const declining = [accuracyTrend, cueTrend, errorTrend].filter(t => t === 'declining').length;
 
   if (improving >= 2 && mastered > 0) {
-    return { text: 'Recovery is progressing', patientText: 'You\'re making real progress', subtext: `${mastered} words mastered, multiple metrics improving`, positive: true };
+    return { text: 'Recovery is progressing', patientText: 'You\'re making real progress', caregiverText: 'Recovery is progressing well', subtext: `${mastered} words mastered, multiple metrics improving`, positive: true };
   }
   if (improving >= 1) {
-    return { text: 'Signs of improvement', patientText: 'Things are moving forward', subtext: 'Some metrics trending positively', positive: true };
+    return { text: 'Signs of improvement', patientText: 'Things are moving forward', caregiverText: 'Signs of improvement showing', subtext: 'Some metrics trending positively', positive: true };
   }
   if (declining >= 2) {
-    return { text: 'Progress has slowed', patientText: 'Let\'s keep at it', subtext: 'Some areas need attention — keep practicing', positive: false };
+    return { text: 'Progress has slowed', patientText: 'Let\'s keep at it', caregiverText: 'Progress has slowed recently', subtext: 'Some areas need attention — continued practice helps', positive: false };
   }
-  return { text: 'Building your recovery picture', patientText: 'Building your progress story', subtext: 'More sessions will strengthen these trends', positive: true };
+  return { text: 'Building your recovery picture', patientText: 'Building your progress story', caregiverText: 'Building a recovery picture', subtext: 'More sessions will strengthen these trends', positive: true };
 }
 
 export default function RecoveryProgress() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const { isAtLeast } = useUiMode();
+  const { uiMode, isAtLeast } = useUiMode();
   const isClinician = isAtLeast('clinician');
+  const isCaregiver = uiMode === 'caregiver';
+
+  /** Role-aware copy helper: patient sees "you", caregiver sees neutral/3rd-person, clinician sees technical */
+  const copy = <T extends string>(patient: T, caregiver: T, clinician: T): T =>
+    isClinician ? clinician : isCaregiver ? caregiver : patient;
   const userId = user?.id;
 
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
@@ -208,7 +213,7 @@ export default function RecoveryProgress() {
               <div className="flex items-center gap-2">
                 <Sparkles className={cn('w-5 h-5', headline.positive ? 'text-success' : 'text-warning')} />
                 <h2 className="text-xl md:text-2xl font-bold text-foreground">
-                  {isClinician ? headline.text : headline.patientText}
+                  {isClinician ? headline.text : isCaregiver ? headline.caregiverText : headline.patientText}
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground max-w-md">{headline.subtext}</p>
@@ -219,14 +224,14 @@ export default function RecoveryProgress() {
               <div className="text-center">
                 <div className="text-4xl md:text-5xl font-bold text-success leading-none">{mastered}</div>
                 <div className="text-xs text-muted-foreground mt-1.5 font-medium">
-                  {isClinician ? 'words mastered' : 'words you can say'}
+                  {copy('words you can say', 'words mastered', 'words mastered')}
                 </div>
               </div>
               {emerging > 0 && (
                 <div className="text-center border-l border-border pl-6 md:pl-8">
                   <div className="text-2xl md:text-3xl font-bold text-warning leading-none">{emerging}</div>
                   <div className="text-xs text-muted-foreground mt-1.5 font-medium">
-                    {isClinician ? 'emerging' : 'almost there'}
+                    {copy('almost there', 'emerging', 'emerging')}
                   </div>
                 </div>
               )}
@@ -263,18 +268,19 @@ export default function RecoveryProgress() {
           ═══════════════════════════════════════════════════ */}
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-4 tracking-tight">
-          {isClinician ? 'Core Recovery Metrics' : 'How You\'re Doing'}
+          {copy('How You\'re Doing', 'Recovery Metrics', 'Core Recovery Metrics')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* ─── Accuracy ─── */}
           <MetricCard
             icon={Target}
-            title={isClinician ? 'Accuracy Trajectory' : 'Getting It Right'}
-            description={isClinician ? 'Naming accuracy over time' : 'How often you say the right word'}
-            whyTip={isClinician
-              ? 'Core language performance trend across targeted tasks'
-              : 'Tracks how often you get the right word over time'}
+            title={copy('Getting It Right', 'Accuracy', 'Accuracy Trajectory')}
+            description={copy('How often you say the right word', 'Naming accuracy over time', 'Naming accuracy over time')}
+            whyTip={copy(
+              'Tracks how often you get the right word over time',
+              'Core naming accuracy trend across practice sessions',
+              'Core language performance trend across targeted tasks')}
             trend={accuracyTrend}
             isClinician={isClinician}
           >
@@ -307,11 +313,12 @@ export default function RecoveryProgress() {
           {/* ─── Cue Independence ─── */}
           <MetricCard
             icon={Shield}
-            title={isClinician ? 'Cue Independence' : 'Doing It On Your Own'}
-            description={isClinician ? 'Performing without cueing support' : 'Needing less help over time'}
-            whyTip={isClinician
-              ? 'Reduced cue dependence is a stronger recovery signal than accuracy alone'
-              : 'Shows whether you need less help — a key sign of real progress'}
+            title={copy('Doing It On Your Own', 'Independence', 'Cue Independence')}
+            description={copy('Needing less help over time', 'Performing with less support', 'Performing without cueing support')}
+            whyTip={copy(
+              'Shows whether you need less help — a key sign of real progress',
+              'Reduced cue dependence is a stronger recovery signal than accuracy alone',
+              'Reduced cue dependence is a stronger recovery signal than accuracy alone')}
             trend={cueTrend}
             isClinician={isClinician}
           >
@@ -330,11 +337,12 @@ export default function RecoveryProgress() {
           {/* ─── Error Quality ─── */}
           <MetricCard
             icon={Brain}
-            title={isClinician ? 'Error Quality' : 'Closer Answers'}
-            description={isClinician ? 'Errors shifting from severe to mild' : 'When you miss, you\'re getting closer'}
-            whyTip={isClinician
-              ? 'Error type evolution reveals neurological improvement before accuracy catches up'
-              : 'Even wrong answers show progress — your guesses are getting closer'}
+            title={copy('Closer Answers', 'Error Quality', 'Error Quality')}
+            description={copy('When you miss, you\'re getting closer', 'Errors shifting from severe to mild', 'Errors shifting from severe to mild')}
+            whyTip={copy(
+              'Even wrong answers show progress — your guesses are getting closer',
+              'Error type evolution can reveal improvement before accuracy catches up',
+              'Error type evolution reveals neurological improvement before accuracy catches up')}
             trend={errorTrend}
             isClinician={isClinician}
           >
@@ -354,8 +362,8 @@ export default function RecoveryProgress() {
           {comparison && (
             <MetricCard
               icon={ArrowRight}
-              title={isClinician ? 'Early vs Recent' : 'Then vs Now'}
-              description={isClinician ? 'Cue independence comparison' : 'How much more independent you are'}
+              title={copy('Then vs Now', 'Early vs Recent', 'Early vs Recent')}
+              description={copy('How much more independent you are', 'Independence comparison over time', 'Cue independence comparison')}
               whyTip="Compares your early sessions to recent ones to show real change over time"
               trend={comparison.delta > 0.03 ? 'improving' : comparison.delta < -0.03 ? 'declining' : 'stable'}
               isClinician={isClinician}
@@ -392,7 +400,7 @@ export default function RecoveryProgress() {
       {(recentMastered.length > 0 || recentEmerging.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 tracking-tight">
-            {isClinician ? 'Word Progress Evidence' : 'Words Making Progress'}
+            {copy('Words Making Progress', 'Word Progress', 'Word Progress Evidence')}
           </h2>
           <Card className="overflow-hidden">
             <CardContent className="p-5 space-y-5">
@@ -401,7 +409,7 @@ export default function RecoveryProgress() {
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-2 h-2 rounded-full bg-success" />
                     <span className="text-sm font-medium text-foreground">
-                      {isClinician ? 'Mastered' : 'You got these!'}
+                      {copy('You got these!', 'Mastered', 'Mastered')}
                     </span>
                     <span className="text-xs text-muted-foreground">({recentMastered.length})</span>
                   </div>
@@ -420,7 +428,7 @@ export default function RecoveryProgress() {
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-2 h-2 rounded-full bg-warning" />
                     <span className="text-sm font-medium text-foreground">
-                      {isClinician ? 'Emerging' : 'Getting closer'}
+                      {copy('Getting closer', 'Emerging', 'Emerging')}
                     </span>
                     <span className="text-xs text-muted-foreground">({recentEmerging.length})</span>
                   </div>
@@ -445,9 +453,11 @@ export default function RecoveryProgress() {
       <footer className="flex items-start gap-2.5 p-3.5 rounded-xl bg-muted/40 border border-border/50">
         <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          {isClinician
-            ? 'Outcome metrics are directional and intended for clinical review. These measures have not been independently validated and should be interpreted alongside formal assessments.'
-            : 'These scores show your practice trends over time. They are not medical test results — talk to your therapist about your full progress.'}
+          {copy(
+            'These scores show your practice trends over time. They are not medical test results — talk to your therapist about your full progress.',
+            'These scores show practice trends over time. They are not medical test results — discuss with the therapist for a complete picture.',
+            'Outcome metrics are directional and intended for clinical review. These measures have not been independently validated and should be interpreted alongside formal assessments.'
+          )}
         </p>
       </footer>
     </div>
