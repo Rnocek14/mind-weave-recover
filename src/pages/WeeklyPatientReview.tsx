@@ -350,6 +350,19 @@ export default function WeeklyPatientReview() {
         ) : null;
       })()}
 
+      {/* ─── SUCCESS BAND + STRUGGLES + GOALS + PREDICTIONS ─── */}
+      <div className="grid md:grid-cols-2 gap-3">
+        <SuccessBandIndicator dayData={dayGroups.map((dg) => ({
+          accuracy: dg.avgAccuracy,
+          trials: dg.totalTrials,
+        }))} />
+        <ExerciseStruggleCard dayGroups={dayGroups} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        <GoalTrackingCard userId={user?.id || ""} profileId={profileId} />
+        <OutcomePredictionCard userId={user?.id || ""} profileId={profileId} />
+      </div>
+
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
         current={currentSummaryWoW}
