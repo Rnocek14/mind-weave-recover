@@ -12,10 +12,15 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { useAchievements } from "@/hooks/useAchievements";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
+import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
+import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
+import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
+import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { toast } from "sonner";
 
 
