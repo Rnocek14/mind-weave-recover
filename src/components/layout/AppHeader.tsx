@@ -159,6 +159,31 @@ export function AppHeader() {
                 </>
               }
               
+              {/* Deep-link access to Insights, Recovery, History for clinicians+ */}
+              {isAtLeast('clinician') &&
+              <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/insights" className="flex items-center gap-2 cursor-pointer">
+                      <TrendingUp className="h-4 w-4" />
+                      Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/recovery-progress" className="flex items-center gap-2 cursor-pointer">
+                      <HeartPulse className="h-4 w-4" />
+                      Recovery Progress
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/history" className="flex items-center gap-2 cursor-pointer">
+                      <Clock className="h-4 w-4" />
+                      Session History
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              }
+              
               {/* Caseload in settings only if NOT already in clinician nav */}
               {isAtLeast('clinician') && !(uiMode === 'clinician' || uiMode === 'admin') &&
               <>
