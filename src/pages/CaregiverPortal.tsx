@@ -30,8 +30,9 @@ import {
   StrategiesSection 
 } from "@/components/insights";
 
-// Caregiver-specific quick actions
+// Caregiver-specific components
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
+import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
 
 export default function CaregiverPortal() {
