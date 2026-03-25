@@ -144,7 +144,7 @@ export function HowYouCanHelpCard({ userId }: { userId: string }) {
     }
 
     // Alert-based tips
-    if (flags.some((f) => f.severity === "high" || f.severity === "critical")) {
+    if (flags.some((f) => f.severity === "red" || f.severity === "orange")) {
       result.push({ text: "There are clinical alerts — you may want to contact their therapist", icon: AlertTriangle });
     }
 
