@@ -52,6 +52,8 @@ export default function ThoughtContinuationExercise() {
     completedThoughts: number;
   } | null>(null);
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
+
   const handleStart = () => {
     setGameStarted(true);
   };

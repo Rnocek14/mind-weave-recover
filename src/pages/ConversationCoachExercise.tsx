@@ -46,6 +46,8 @@ export default function ConversationCoachExercise() {
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
