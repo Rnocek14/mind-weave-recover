@@ -340,7 +340,7 @@ export function PatientModeView({
                 <Button
                   onClick={() => {
                     setUiMode("caregiver");
-                    toast("Switched to Caregiver View — more detail and controls available", { duration: 3000 });
+                    navigate("/caregiver");
                   }}
                   variant="ghost"
                   className="min-h-[44px] text-sm text-muted-foreground hover:text-foreground px-6 py-2 rounded-xl hover:bg-accent/50 transition-all"
