@@ -163,11 +163,6 @@ export const OverviewTab = memo(function OverviewTab() {
                       });
                     }
                   }}
-                      navigate("/lesson", {
-                        state: { lesson, clinicalProfile },
-                      });
-                    }
-                  }}
                   disabled={!lesson || doseCap.warningLevel === "limit"}
                 >
                   <Play className="w-6 h-6 mr-2" />
