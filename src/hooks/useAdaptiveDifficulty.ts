@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
+import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } from '@/lib/successBandController';
+import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 
 interface UseAdaptiveDifficultyOptions {
   initialDifficulty: number;
