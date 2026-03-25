@@ -146,6 +146,10 @@ const App = () => (
                   <Route path="/analytics/cluster" element={<AppLayout><AdminProtectedRoute><ClusterAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/outcomes-validation" element={<AppLayout><AdminProtectedRoute><OutcomesValidation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/engine-simulation" element={<AppLayout><AdminProtectedRoute><AdminEngineSimulation /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/alerts" element={<AppLayout><AdminProtectedRoute><AdminAlertRollup /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/overrides" element={<AppLayout><AdminProtectedRoute><AdminOverrideAudit /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   
                   {/* Redirect old routes to canonical routes */}
