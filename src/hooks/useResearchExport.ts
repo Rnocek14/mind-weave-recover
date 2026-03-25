@@ -12,7 +12,7 @@ const PAGE_SIZE = 1000;
  * so we never silently truncate at the Supabase default limit.
  */
 async function fetchAllRows(
-  table: keyof import('@/integrations/supabase/types').Database['public']['Tables'],
+  table: TableName,
   selectCols: string = '*'
 ): Promise<any[]> {
   const allRows: any[] = [];
