@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Camera, Upload, Trash2, ArrowLeft } from 'lucide-react';
+import { Camera, Upload, Trash2 } from 'lucide-react';
+import { BackButton } from '@/components/layout/BackButton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUserPhotos, uploadPhoto, deletePhoto, updatePhotoLabels } from '@/lib/photoStorage';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
-import { Link } from 'react-router-dom';
+
 
 const PhotoCard = ({ photo }: { photo: any }) => {
   const { url, loading } = useSignedUrl(photo.storage_path);
@@ -125,11 +126,7 @@ export default function PhotoLibrary() {
       <div className="container mx-auto p-4 max-w-6xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <BackButton />
             <h1 className="text-2xl font-bold">Photo Library</h1>
           </div>
           <div className="flex gap-2">

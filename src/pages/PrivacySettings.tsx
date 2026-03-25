@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Shield, Trash2, Volume2 } from "lucide-react";
+import { Shield, Trash2, Volume2 } from "lucide-react";
+import { BackButton } from "@/components/layout/BackButton";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,14 +198,7 @@ export default function PrivacySettings() {
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-2xl">
-        <Button 
-          variant="ghost" 
-          className="mb-6"
-          onClick={() => navigate("/dashboard")}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <BackButton className="mb-6" />
 
         <Card className="p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">

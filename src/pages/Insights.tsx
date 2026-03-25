@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { BackButton } from "@/components/layout/BackButton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -162,13 +163,16 @@ export default function Insights() {
       {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
+            <div className="flex items-center gap-3">
+              <BackButton />
+              <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
                 Insights
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
                 What's hard, what helps, and how the system is adapting for you.
               </p>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">

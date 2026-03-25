@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Upload, CheckCircle2, AlertCircle, Clock, Sparkles, Calendar, ArrowLeft, Trash2, History } from 'lucide-react';
+import { FileText, Upload, CheckCircle2, AlertCircle, Clock, Sparkles, Calendar, Trash2, History } from 'lucide-react';
+import { BackButton } from '@/components/layout/BackButton';
 import { useClinicalNotes, CreateNoteParams } from '@/hooks/useClinicalNotes';
 import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
 import { useMergeConflicts } from '@/hooks/useMergeConflicts';
@@ -312,11 +313,7 @@ export default function ClinicalDocuments() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/dashboard">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
+          <BackButton />
           <div>
             <h1 className="text-3xl font-bold">Clinical Documents</h1>
             <p className="text-muted-foreground">

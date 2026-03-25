@@ -11,6 +11,7 @@
  */
 
 import { useAuth } from '@/hooks/useAuth';
+import { BackButton } from '@/components/layout/BackButton';
 import { RecoveryFocusSummary } from '@/components/RecoveryFocusSummary';
 import { useLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
@@ -178,6 +179,7 @@ export default function RecoveryProgress() {
         {/* Page title + context — minimal */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
+            <BackButton />
             <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
               Recovery Progress
             </h1>
