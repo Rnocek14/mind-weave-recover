@@ -75,10 +75,10 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
             return (
               <div key={d.slug} className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">{d.label}</span>
+                  <span className="text-sm font-medium text-foreground">{d.domainLabel}</span>
                   <span className={`flex items-center gap-1 text-sm font-semibold ${d.color}`}>
                     <Icon className="w-4 h-4" />
-                    {d.label === "Improving" ? d.label : d.label}
+                    {d.trendLabel}
                   </span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
