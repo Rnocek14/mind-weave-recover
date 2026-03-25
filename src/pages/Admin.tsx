@@ -1,48 +1,40 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, Image as ImageIcon, Loader2, Database, Brain, ClipboardCheck } from "lucide-react";
+import { ChevronLeft, Image as ImageIcon, Loader2, Brain, ClipboardCheck, LayoutDashboard } from "lucide-react";
 import ClinicalReviewDashboard from "@/components/ClinicalReviewDashboard";
 import PhotoLibraryAdmin from "@/components/admin/PhotoLibraryAdmin";
 import AdminTools from "@/components/admin/AdminTools";
+import { AdminNavHub } from "@/components/admin/AdminNavHub";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check admin status
+  const initialTab = searchParams.get("tab") || "hub";
+
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
+      if (!user) { navigate("/auth"); return; }
       try {
         const { data: roles } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id);
-
         const hasAdminRole = roles?.some(r => r.role === "admin");
-        
         if (!hasAdminRole) {
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to access the admin panel.",
-            variant: "destructive",
-          });
+          toast({ title: "Access Denied", description: "You don't have permission to access the admin panel.", variant: "destructive" });
           navigate("/dashboard");
           return;
         }
-
         setIsAdmin(true);
       } catch (error) {
         console.error("Error checking admin status:", error);
@@ -51,10 +43,7 @@ const Admin = () => {
         setLoading(false);
       }
     };
-
-    if (!authLoading) {
-      checkAdminStatus();
-    }
+    if (!authLoading) checkAdminStatus();
   }, [user, authLoading, navigate, toast]);
 
   if (authLoading || loading) {
@@ -65,40 +54,31 @@ const Admin = () => {
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
+  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/dashboard")}
-          >
+          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => navigate("/admin/research-export")}
-          >
-            <Database className="w-4 h-4 mr-2" />
-            Research Export
           </Button>
         </div>
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
           <p className="text-muted-foreground">
-            Manage photos, review utterances, and compute speech profiles
+            System oversight, analytics, content management
           </p>
         </div>
 
-        <Tabs defaultValue="review" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue={initialTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="hub" className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </TabsTrigger>
             <TabsTrigger value="review" className="flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4" />
               Clinical Review
@@ -112,6 +92,10 @@ const Admin = () => {
               Tools
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="hub">
+            <AdminNavHub />
+          </TabsContent>
 
           <TabsContent value="review">
             <ClinicalReviewDashboard />
