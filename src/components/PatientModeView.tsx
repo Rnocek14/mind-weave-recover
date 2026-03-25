@@ -61,6 +61,7 @@ export function PatientModeView({
   } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
+  const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
 
