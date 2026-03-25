@@ -11,7 +11,7 @@ import { getUserPhotos, uploadPhoto, deletePhoto, updatePhotoLabels } from '@/li
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
-import { Link } from 'react-router-dom';
+
 
 const PhotoCard = ({ photo }: { photo: any }) => {
   const { url, loading } = useSignedUrl(photo.storage_path);
