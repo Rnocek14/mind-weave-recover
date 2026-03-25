@@ -409,7 +409,7 @@ export default function RecoveryProgress() {
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-2 h-2 rounded-full bg-success" />
                     <span className="text-sm font-medium text-foreground">
-                      {isClinician ? 'Mastered' : 'You got these!'}
+                      {copy('You got these!', 'Mastered', 'Mastered')}
                     </span>
                     <span className="text-xs text-muted-foreground">({recentMastered.length})</span>
                   </div>
