@@ -57,6 +57,7 @@ import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { AppLayout } from "@/components/layout";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -136,11 +137,11 @@ const App = () => (
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
                   <Route path="/admin/pipeline" element={<AppLayout><AdminPipeline /></AppLayout>} />
-                  <Route path="/admin/analytics" element={<AppLayout><ParserAnalytics /></AppLayout>} />
-                  <Route path="/admin/research-export" element={<AppLayout><ResearchExport /></AppLayout>} />
-                  <Route path="/analytics/cluster" element={<AppLayout><ClusterAnalytics /></AppLayout>} />
-                  <Route path="/admin/outcomes-validation" element={<AppLayout><OutcomesValidation /></AppLayout>} />
-                  <Route path="/admin/engine-simulation" element={<AppLayout><AdminEngineSimulation /></AppLayout>} />
+                  <Route path="/admin/analytics" element={<AppLayout><AdminProtectedRoute><ParserAnalytics /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/research-export" element={<AppLayout><AdminProtectedRoute><ResearchExport /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/analytics/cluster" element={<AppLayout><AdminProtectedRoute><ClusterAnalytics /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/outcomes-validation" element={<AppLayout><AdminProtectedRoute><OutcomesValidation /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/engine-simulation" element={<AppLayout><AdminProtectedRoute><AdminEngineSimulation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   
                   {/* Redirect old routes to canonical routes */}

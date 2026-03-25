@@ -122,7 +122,7 @@ export default function WeeklyPatientReview() {
       priorTrialCount: sessionStats.trialCount,
     };
   }, [sessionStats]);
-  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
+  const { alerts, unacknowledgedCount, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
   const { flags: redFlags } = useRedFlagDetection(user?.id || null);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
@@ -433,26 +433,57 @@ export default function WeeklyPatientReview() {
           badge={String(unacknowledgedCount + redFlags.length)}
           badgeVariant="destructive"
         >
-          <div className="space-y-2">
+          <div className="space-y-3">
             {alerts
               .filter((a) => !a.resolved_at)
               .map((alert) => (
-                <div key={alert.id} className="flex items-start gap-2 text-sm">
+                <div key={alert.id} className="flex items-start gap-2 text-sm border rounded-lg p-3 bg-card">
                   <Badge
                     variant={alert.severity === "critical" ? "destructive" : "secondary"}
                     className="text-[10px] shrink-0 mt-0.5"
                   >
                     {alert.severity}
                   </Badge>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium">{alert.title}</p>
                     {alert.description && <p className="text-xs text-muted-foreground">{alert.description}</p>}
+                    <div className="flex items-center gap-2 mt-2">
+                      {!alert.acknowledged_at ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            acknowledgeAlert(alert.id);
+                            toast.success("Alert acknowledged");
+                          }}
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" /> Acknowledge
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          Acknowledged
+                        </Badge>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => {
+                          const notes = prompt("Resolution notes (optional):");
+                          resolveAlert(alert.id, notes || undefined);
+                          toast.success("Alert resolved");
+                        }}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" /> Resolve
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
             {redFlags.map((f) => (
-              <div key={f.type + f.message} className="flex items-start gap-2 text-sm">
-                <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${f.severity === "red" ? "border-red-400 text-red-600" : "border-amber-400 text-amber-600"}`}>
+              <div key={f.type + f.message} className="flex items-start gap-2 text-sm border rounded-lg p-3 bg-card">
+                <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${f.severity === "red" ? "border-destructive text-destructive" : "border-amber-400 text-amber-600"}`}>
                   {f.severity}
                 </Badge>
                 <p>{f.message}</p>
