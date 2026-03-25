@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useAuth } from "@/hooks/useAuth";
