@@ -362,8 +362,8 @@ export default function RecoveryProgress() {
           {comparison && (
             <MetricCard
               icon={ArrowRight}
-              title={isClinician ? 'Early vs Recent' : 'Then vs Now'}
-              description={isClinician ? 'Cue independence comparison' : 'How much more independent you are'}
+              title={copy('Then vs Now', 'Early vs Recent', 'Early vs Recent')}
+              description={copy('How much more independent you are', 'Independence comparison over time', 'Cue independence comparison')}
               whyTip="Compares your early sessions to recent ones to show real change over time"
               trend={comparison.delta > 0.03 ? 'improving' : comparison.delta < -0.03 ? 'declining' : 'stable'}
               isClinician={isClinician}
