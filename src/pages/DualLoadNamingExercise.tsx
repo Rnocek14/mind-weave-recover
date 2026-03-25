@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -62,10 +63,17 @@ export default function DualLoadNamingExercise() {
 
   const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'executive_function', fromLesson });
+
   const handleTrialComplete = useCallback((result: DualLoadTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
     trialsRef.current += 1;
+
+    pivot.recordTrialResult({
+      wasCorrect: result.recallAccuracy >= 0.33,
+      reactionTimeMs: result.durationMs,
+    });
 
     logTrial({
       correct: result.recallAccuracy >= 0.33,

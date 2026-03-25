@@ -11,6 +11,7 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -32,6 +33,8 @@ export default function ConversationPartnerExercise() {
   const providedSessionId = location.state?.sessionId ?? null;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const exerciseCompleteSentRef = useRef(false);
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,

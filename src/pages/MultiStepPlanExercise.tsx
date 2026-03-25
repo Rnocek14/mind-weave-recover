@@ -17,6 +17,7 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 const EXERCISE_SLUG = 'multi-step-plan';
 
@@ -57,10 +58,17 @@ export default function MultiStepPlanExercise() {
 
   const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'executive_function', fromLesson });
+
   const handleTrialComplete = useCallback((result: PlanningTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += Math.round(result.goalCoverage * 100);
     trialsRef.current += 1;
+
+    pivot.recordTrialResult({
+      wasCorrect: result.goalCoverage >= 0.3,
+      reactionTimeMs: result.durationMs,
+    });
 
     logTrial({
       correct: result.goalCoverage >= 0.3,

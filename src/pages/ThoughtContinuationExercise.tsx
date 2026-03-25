@@ -18,6 +18,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 const EXERCISE_SLUG = 'thought-continuation';
 
@@ -50,6 +51,8 @@ export default function ThoughtContinuationExercise() {
     avgMomentumScore: number;
     completedThoughts: number;
   } | null>(null);
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
 
   const handleStart = () => {
     setGameStarted(true);

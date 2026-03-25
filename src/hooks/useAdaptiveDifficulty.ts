@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
+import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } from '@/lib/successBandController';
 
 interface UseAdaptiveDifficultyOptions {
   initialDifficulty: number;
@@ -10,11 +11,13 @@ interface UseAdaptiveDifficultyOptions {
   targetSuccessRate?: number;
   adjustmentThreshold?: number;
   onDifficultyChange?: (newLevel: number) => void;
-  // New: logging context
+  // Logging context
   userId?: string;
   profileId?: string;
   sessionId?: string | null;
   exerciseSlug?: string;
+  // Success-band controller config
+  successBandConfig?: Partial<SuccessBandConfig>;
 }
 
 export const useAdaptiveDifficulty = ({
@@ -28,6 +31,7 @@ export const useAdaptiveDifficulty = ({
   profileId,
   sessionId,
   exerciseSlug,
+  successBandConfig,
 }: UseAdaptiveDifficultyOptions) => {
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const trialIndexRef = useRef(0);
@@ -41,6 +45,9 @@ export const useAdaptiveDifficulty = ({
     )
   );
 
+  // Success-band controller for 70-85% optimal challenge zone
+  const bandRef = useRef(new SuccessBandController(successBandConfig));
+
   // Adaptation event logger - only active if userId provided
   const { logDifficultyChange } = useAdaptationEventLogger({
     userId,
@@ -52,9 +59,10 @@ export const useAdaptiveDifficulty = ({
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
-  // Update a trial result
+  // Update a trial result — feeds both the legacy controller AND success-band
   const updateTrial = useCallback((wasCorrect: boolean) => {
     controllerRef.current.update(wasCorrect);
+    bandRef.current.recordTrial(wasCorrect);
     trialIndexRef.current += 1;
   }, []);
 
@@ -125,6 +133,7 @@ export const useAdaptiveDifficulty = ({
   // Reset controller for new session
   const reset = useCallback(() => {
     controllerRef.current.reset();
+    bandRef.current.reset();
     trialIndexRef.current = 0;
   }, []);
 
@@ -138,6 +147,16 @@ export const useAdaptiveDifficulty = ({
     return controllerRef.current.getSuccessRate();
   }, []);
 
+  // Get success-band state
+  const getSuccessBandState = useCallback((): SuccessBandState => {
+    return bandRef.current.getState();
+  }, []);
+
+  // Acknowledge success-band recommendation (resets persistence counters)
+  const acknowledgeSuccessBand = useCallback(() => {
+    bandRef.current.acknowledge();
+  }, []);
+
   return {
     currentDifficulty,
     updateTrial,
@@ -148,6 +167,8 @@ export const useAdaptiveDifficulty = ({
     getSuccessRate,
     getState,
     reset,
+    getSuccessBandState,
+    acknowledgeSuccessBand,
     controller: controllerRef.current,
   };
 };

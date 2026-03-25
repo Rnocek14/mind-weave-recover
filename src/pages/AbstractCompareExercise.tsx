@@ -17,6 +17,7 @@ import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 const EXERCISE_SLUG = 'abstract-compare';
 
@@ -57,10 +58,17 @@ export default function AbstractCompareExercise() {
 
   const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'semantic_depth', fromLesson });
+
   const handleTrialComplete = useCallback((result: AbstractCompareTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += Math.round(result.coverageRatio * 100);
     trialsRef.current += 1;
+
+    pivot.recordTrialResult({
+      wasCorrect: result.coverageRatio >= 0.3,
+      reactionTimeMs: result.durationMs,
+    });
 
     logTrial({
       correct: result.coverageRatio >= 0.3,

@@ -14,6 +14,7 @@ import { useExerciseConfig } from '@/hooks/useExerciseConfig';
 import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -42,6 +43,8 @@ export default function SemanticFeatureExercise() {
     phonemeSensitive: false,  // semantic features, not phoneme-targeted
     cueSensitive: true,
   });
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'semantic-features', domainSlug: 'semantic_depth', fromLesson });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);

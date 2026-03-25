@@ -19,6 +19,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ export default function PhonologicalExercise() {
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
     phonemeSensitive: true,
   });
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'phonological-awareness', domainSlug: 'phonology', fromLesson });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);
