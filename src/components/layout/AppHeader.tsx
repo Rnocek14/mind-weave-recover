@@ -36,19 +36,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const patientNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
-  { href: "/insights", label: "Insights", icon: TrendingUp },
-  { href: "/history", label: "History", icon: Clock },
+// Patient uses bottom tab bar — no header nav items needed
+const patientNavItems: typeof clinicianNavItems = [];
+
+const caregiverNavItems = [
+  { href: "/caregiver", label: "Home", icon: LayoutDashboard },
+  { href: "/caregiver/status", label: "Status", icon: HeartPulse },
 ];
 
 const clinicianNavItems = [
   { href: "/clinician/caseload", label: "Caseload", icon: Stethoscope },
   { href: "/clinician/review", label: "Review", icon: FileText },
-  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
-  { href: "/insights", label: "Insights", icon: TrendingUp },
-  { href: "/history", label: "History", icon: Clock },
 ];
 
 
