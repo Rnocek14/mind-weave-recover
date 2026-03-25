@@ -158,6 +158,12 @@ export default function CaregiverPortal() {
           )}
         </div>
 
+        {/* Above-the-fold status */}
+        <div className="space-y-4 mb-6">
+          <CaregiverStatusHero userId={user!.id} streak={currentStreak} />
+          <HowYouCanHelpCard userId={user!.id} />
+        </div>
+
         {/* Main content tabs - reusing shared components */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-muted/80 backdrop-blur-sm p-1 mb-4">
