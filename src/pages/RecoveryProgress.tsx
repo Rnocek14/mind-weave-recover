@@ -400,7 +400,7 @@ export default function RecoveryProgress() {
       {(recentMastered.length > 0 || recentEmerging.length > 0) && (
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 tracking-tight">
-            {isClinician ? 'Word Progress Evidence' : 'Words Making Progress'}
+            {copy('Words Making Progress', 'Word Progress', 'Word Progress Evidence')}
           </h2>
           <Card className="overflow-hidden">
             <CardContent className="p-5 space-y-5">
