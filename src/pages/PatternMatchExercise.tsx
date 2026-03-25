@@ -17,6 +17,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
