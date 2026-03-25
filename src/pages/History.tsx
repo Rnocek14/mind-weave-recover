@@ -28,6 +28,8 @@ interface SessionWithEvents {
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();
+  const { uiMode } = useUiMode();
+  const isPatient = uiMode === 'patient';
   const navigate = useNavigate();
   const [history, setHistory] = useState<SessionWithEvents[]>([]);
   const [loading, setLoading] = useState(true);
