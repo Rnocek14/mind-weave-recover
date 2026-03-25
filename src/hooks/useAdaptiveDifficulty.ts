@@ -12,11 +12,13 @@ interface UseAdaptiveDifficultyOptions {
   targetSuccessRate?: number;
   adjustmentThreshold?: number;
   onDifficultyChange?: (newLevel: number) => void;
-  // New: logging context
+  // Logging context
   userId?: string;
   profileId?: string;
   sessionId?: string | null;
   exerciseSlug?: string;
+  // Success-band controller config
+  successBandConfig?: Partial<SuccessBandConfig>;
 }
 
 export const useAdaptiveDifficulty = ({
