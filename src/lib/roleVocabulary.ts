@@ -27,15 +27,18 @@ export function getSectionLabel(
 
 const FIELD_LABELS: Record<string, Record<UiRole, string>> = {
   primary_challenge: { patient: "Working on",       caregiver: "Primary challenge",  clinician: "Primary challenge" },
-  current_focus:     { patient: "Exercises",         caregiver: "Current exercises",   clinician: "Current focus" },
+  current_focus:     { patient: "Games",             caregiver: "Current activities",  clinician: "Current focus" },
   why_adapted:       { patient: "Adjusted for",      caregiver: "Why this plan",       clinician: "Why adapted" },
   expected_gain:     { patient: "Goal",              caregiver: "Expected improvement", clinician: "Expected gain" },
-  exercises:         { patient: "Games",             caregiver: "Exercises",            clinician: "Exercises" },
+  exercises:         { patient: "Games",             caregiver: "Activities",           clinician: "Exercises" },
   adaptation:        { patient: "Your support",      caregiver: "Current adjustment",   clinician: "Adaptation" },
   plan:              { patient: "What's next",       caregiver: "Plan",                 clinician: "Plan" },
   supports:          { patient: "Helps with",        caregiver: "Supports",             clinician: "Supports" },
   progress:          { patient: "Progress",          caregiver: "Progress",             clinician: "Progress" },
   card_title:        { patient: "Your Recovery Focus", caregiver: "Recovery Focus",     clinician: "Recovery Focus Summary" },
+  alerts:            { patient: "Things to know",    caregiver: "Concerns",             clinician: "Alerts" },
+  session:           { patient: "Session",           caregiver: "Session",              clinician: "Session" },
+  clinical_docs:     { patient: "My documents",      caregiver: "Medical documents",    clinician: "Clinical documents" },
 };
 
 export function getFieldLabel(field: string, role: UiRole): string {

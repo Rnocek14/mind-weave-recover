@@ -23,7 +23,17 @@ export function SessionHistoryList({ userId }: SessionHistoryListProps) {
 
   const recent = useMemo(() => sessions.slice(0, 5), [sessions]);
 
-  if (loading || recent.length === 0) return null;
+  if (loading) return null;
+
+  if (recent.length === 0) {
+    return (
+      <Card className="p-5 border border-dashed text-center space-y-1">
+        <Clock className="w-6 h-6 text-muted-foreground mx-auto" />
+        <p className="text-sm font-medium text-foreground">No sessions yet</p>
+        <p className="text-xs text-muted-foreground">Your recent sessions will appear here after you practice</p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -52,7 +62,7 @@ export function SessionHistoryList({ userId }: SessionHistoryListProps) {
               <div>
                 <div className="text-sm font-medium text-foreground">{dateLabel}</div>
                 {duration && (
-                  <div className="text-xs text-muted-foreground">{duration} · {session.exercises.length} exercise{session.exercises.length !== 1 ? "s" : ""}</div>
+                  <div className="text-xs text-muted-foreground">{duration} · {session.exercises.length} activit{session.exercises.length !== 1 ? "ies" : "y"}</div>
                 )}
               </div>
             </div>
