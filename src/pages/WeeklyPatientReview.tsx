@@ -122,7 +122,7 @@ export default function WeeklyPatientReview() {
       priorTrialCount: sessionStats.trialCount,
     };
   }, [sessionStats]);
-  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
+  const { alerts, unacknowledgedCount, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
   const { flags: redFlags } = useRedFlagDetection(user?.id || null);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
