@@ -57,6 +57,7 @@ import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { AppLayout } from "@/components/layout";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
