@@ -12,10 +12,15 @@ import { useDailyLesson } from "@/hooks/useDailyLesson";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { useAchievements } from "@/hooks/useAchievements";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
 import { PatientPracticeView } from "@/components/patient/PatientPracticeView";
+import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
+import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
+import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
+import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { toast } from "sonner";
 
 
@@ -56,6 +61,7 @@ export function PatientModeView({
   } = useDailyLesson(userId, profileId, clinicalProfile);
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
+  const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -90,6 +96,15 @@ export function PatientModeView({
     }
     return count;
   }, [sessions]);
+
+  // Encouragement message
+  const encouragement = useMemo(() => {
+    if (streak >= 7) return "Amazing consistency! 🌟";
+    if (streak >= 3) return "You're on a roll! 🔥";
+    if (sessions.length > 0) return "Every session counts ✨";
+    return "Let's get started! 💛";
+  }, [streak, sessions.length]);
+
 
   const handleStartSession = () => {
     if (!lesson) return;
@@ -274,14 +289,16 @@ export function PatientModeView({
           {/* ── Home Tab ── */}
           {activeTab === "home" && (
             <div className="flex flex-col justify-center min-h-full animate-fade-in py-4 gap-4">
-              {/* Greeting + orientation */}
+              {/* Greeting + encouragement */}
               <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Start here</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  {streak > 0 ? `${streak}-day streak 🔥` : "Start here"}
+                </p>
                 <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
                   Ready to practice?
                 </h1>
                 <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-medium">
-                  No wrong answers. You can stop anytime. 💛
+                  {encouragement}
                 </p>
               </div>
 
@@ -298,6 +315,12 @@ export function PatientModeView({
                 </span>
               </Button>
 
+              {/* Why Today explanation */}
+              {lesson && <WhyTodayCard lesson={lesson} />}
+
+              {/* Progress card with trend arrows */}
+              <PatientProgressCard userId={userId} profileId={profileId} />
+
               {/* Secondary: pick a game */}
               <Button
                 onClick={() => setActiveTab("practice")}
@@ -309,31 +332,14 @@ export function PatientModeView({
                 <span>Choose a game I like</span>
               </Button>
 
-              {/* Tiny progress summary */}
-              {(streak > 0 || sessions.length > 0) && (
-                <button
-                  onClick={() => setActiveTab("progress")}
-                  className="w-full flex items-center justify-center gap-4 py-2 text-muted-foreground hover:text-foreground transition-colors min-h-[44px] touch-manipulation"
-                >
-                  {streak > 0 && (
-                    <span className="flex items-center gap-1.5 text-sm sm:text-base">
-                      <Flame className="w-5 h-5 text-amber-500" />
-                      {streak} day streak
-                    </span>
-                  )}
-                  {sessions.length > 0 && streak > 0 && (
-                    <span className="text-border">·</span>
-                  )}
-                  {sessions.length > 0 && (
-                    <span className="text-sm sm:text-base">
-                      {sessions.length} session{sessions.length !== 1 ? "s" : ""} total
-                    </span>
-                  )}
-                </button>
-              )}
+              {/* Achievements */}
+              <AchievementBadges achievements={achievements} newAchievements={newAchievements} />
+
+              {/* Session history */}
+              <SessionHistoryList userId={userId} />
 
               {/* Caregiver assist */}
-              <div className="text-center">
+              <div className="text-center pb-2">
                 <Button
                   onClick={() => {
                     setUiMode("caregiver");

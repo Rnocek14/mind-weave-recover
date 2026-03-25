@@ -30,8 +30,9 @@ import {
   StrategiesSection 
 } from "@/components/insights";
 
-// Caregiver-specific quick actions
+// Caregiver-specific components
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
+import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
 
 export default function CaregiverPortal() {
@@ -155,6 +156,12 @@ export default function CaregiverPortal() {
               </Button>
             </div>
           )}
+        </div>
+
+        {/* Above-the-fold status */}
+        <div className="space-y-4 mb-6">
+          <CaregiverStatusHero userId={user!.id} streak={currentStreak} />
+          <HowYouCanHelpCard userId={user!.id} />
         </div>
 
         {/* Main content tabs - reusing shared components */}

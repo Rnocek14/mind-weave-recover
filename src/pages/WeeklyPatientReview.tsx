@@ -48,6 +48,10 @@ import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { WhyThisPlan } from "@/components/clinician/WhyThisPlan";
 import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
+import { SuccessBandIndicator } from "@/components/clinician/SuccessBandIndicator";
+import { ExerciseStruggleCard } from "@/components/clinician/ExerciseStruggleCard";
+import { GoalTrackingCard } from "@/components/clinician/GoalTrackingCard";
+import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
@@ -345,6 +349,19 @@ export default function WeeklyPatientReview() {
           </Card>
         ) : null;
       })()}
+
+      {/* ─── SUCCESS BAND + STRUGGLES + GOALS + PREDICTIONS ─── */}
+      <div className="grid md:grid-cols-2 gap-3">
+        <SuccessBandIndicator dayData={dayGroups.map((dg) => ({
+          accuracy: dg.avgAccuracy,
+          trials: dg.totalTrials,
+        }))} />
+        <ExerciseStruggleCard dayGroups={dayGroups} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        <GoalTrackingCard userId={user?.id || ""} profileId={profileId} />
+        <OutcomePredictionCard userId={user?.id || ""} profileId={profileId} />
+      </div>
 
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
