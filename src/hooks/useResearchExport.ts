@@ -177,7 +177,7 @@ export const useResearchExport = () => {
     toast({ title: 'Export successful', description: `${filename} — ${data.length.toLocaleString()} rows downloaded` });
   };
 
-  const paginatedExport = async (table: string, selectCols: string, filename: string, formatter?: (data: any[]) => any[]) => {
+  const paginatedExport = async (table: TableName, selectCols: string, filename: string, formatter?: (data: any[]) => any[]) => {
     try {
       setLoading(true);
       const data = await fetchAllRows(table, selectCols);
