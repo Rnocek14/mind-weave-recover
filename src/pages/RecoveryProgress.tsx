@@ -101,20 +101,20 @@ function getRecoveryHeadline(
   cueTrend: string,
   mastered: number,
   errorTrend: string,
-): { text: string; patientText: string; subtext: string; positive: boolean } {
+): { text: string; patientText: string; caregiverText: string; subtext: string; positive: boolean } {
   const improving = [accuracyTrend, cueTrend, errorTrend].filter(t => t === 'improving').length;
   const declining = [accuracyTrend, cueTrend, errorTrend].filter(t => t === 'declining').length;
 
   if (improving >= 2 && mastered > 0) {
-    return { text: 'Recovery is progressing', patientText: 'You\'re making real progress', subtext: `${mastered} words mastered, multiple metrics improving`, positive: true };
+    return { text: 'Recovery is progressing', patientText: 'You\'re making real progress', caregiverText: 'Recovery is progressing well', subtext: `${mastered} words mastered, multiple metrics improving`, positive: true };
   }
   if (improving >= 1) {
-    return { text: 'Signs of improvement', patientText: 'Things are moving forward', subtext: 'Some metrics trending positively', positive: true };
+    return { text: 'Signs of improvement', patientText: 'Things are moving forward', caregiverText: 'Signs of improvement showing', subtext: 'Some metrics trending positively', positive: true };
   }
   if (declining >= 2) {
-    return { text: 'Progress has slowed', patientText: 'Let\'s keep at it', subtext: 'Some areas need attention — keep practicing', positive: false };
+    return { text: 'Progress has slowed', patientText: 'Let\'s keep at it', caregiverText: 'Progress has slowed recently', subtext: 'Some areas need attention — continued practice helps', positive: false };
   }
-  return { text: 'Building your recovery picture', patientText: 'Building your progress story', subtext: 'More sessions will strengthen these trends', positive: true };
+  return { text: 'Building your recovery picture', patientText: 'Building your progress story', caregiverText: 'Building a recovery picture', subtext: 'More sessions will strengthen these trends', positive: true };
 }
 
 export default function RecoveryProgress() {
