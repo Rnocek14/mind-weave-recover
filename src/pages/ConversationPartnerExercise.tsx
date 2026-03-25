@@ -28,13 +28,13 @@ export default function ConversationPartnerExercise() {
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
-  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
-
   // Lesson flow integration
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
   const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
   const exerciseCompleteSentRef = useRef(false);
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
