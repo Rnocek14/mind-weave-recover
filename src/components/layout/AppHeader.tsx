@@ -159,8 +159,8 @@ export function AppHeader() {
                 </>
               }
               
-              {/* Deep-link access to Insights, Recovery, History for clinicians+ */}
-              {isAtLeast('clinician') &&
+              {/* Deep-link access to Insights, Recovery, History for caregivers+ */}
+              {isAtLeast('caregiver') &&
               <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
