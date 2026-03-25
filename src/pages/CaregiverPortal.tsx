@@ -125,7 +125,7 @@ export default function CaregiverPortal() {
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                Monitor progress, manage uploads, review alerts
+                Monitor progress and see how you can help
               </p>
             </div>
           </div>
