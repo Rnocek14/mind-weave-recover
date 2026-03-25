@@ -337,11 +337,12 @@ export default function RecoveryProgress() {
           {/* ─── Error Quality ─── */}
           <MetricCard
             icon={Brain}
-            title={isClinician ? 'Error Quality' : 'Closer Answers'}
-            description={isClinician ? 'Errors shifting from severe to mild' : 'When you miss, you\'re getting closer'}
-            whyTip={isClinician
-              ? 'Error type evolution reveals neurological improvement before accuracy catches up'
-              : 'Even wrong answers show progress — your guesses are getting closer'}
+            title={copy('Closer Answers', 'Error Quality', 'Error Quality')}
+            description={copy('When you miss, you\'re getting closer', 'Errors shifting from severe to mild', 'Errors shifting from severe to mild')}
+            whyTip={copy(
+              'Even wrong answers show progress — your guesses are getting closer',
+              'Error type evolution can reveal improvement before accuracy catches up',
+              'Error type evolution reveals neurological improvement before accuracy catches up')}
             trend={errorTrend}
             isClinician={isClinician}
           >
