@@ -172,6 +172,7 @@ export default function Insights() {
               <p className="text-sm md:text-base text-muted-foreground">
                 What's hard, what helps, and how the system is adapting for you.
               </p>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
