@@ -313,11 +313,12 @@ export default function RecoveryProgress() {
           {/* ─── Cue Independence ─── */}
           <MetricCard
             icon={Shield}
-            title={isClinician ? 'Cue Independence' : 'Doing It On Your Own'}
-            description={isClinician ? 'Performing without cueing support' : 'Needing less help over time'}
-            whyTip={isClinician
-              ? 'Reduced cue dependence is a stronger recovery signal than accuracy alone'
-              : 'Shows whether you need less help — a key sign of real progress'}
+            title={copy('Doing It On Your Own', 'Independence', 'Cue Independence')}
+            description={copy('Needing less help over time', 'Performing with less support', 'Performing without cueing support')}
+            whyTip={copy(
+              'Shows whether you need less help — a key sign of real progress',
+              'Reduced cue dependence is a stronger recovery signal than accuracy alone',
+              'Reduced cue dependence is a stronger recovery signal than accuracy alone')}
             trend={cueTrend}
             isClinician={isClinician}
           >
