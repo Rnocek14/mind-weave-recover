@@ -1,6 +1,10 @@
 import { memo, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { Flame, TrendingUp, Calendar, CheckCircle, Heart, ChevronDown, BookOpen, ArrowRight } from "lucide-react";
+import {
+  Flame, TrendingUp, Calendar, CheckCircle, Heart,
+  ChevronDown, BookOpen, ArrowRight, Target, Lightbulb,
+  AlertTriangle,
+} from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -9,7 +13,13 @@ import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useCognitiveState } from "@/hooks/useCognitiveState";
 import { useWordMastery } from "@/hooks/useWordMastery";
+import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { useErrorPatternAnalytics } from "@/hooks/useErrorPatternAnalytics";
+import { getCueLabel } from "@/lib/insightLanguageMap";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
+import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
+import { AchievementBadges } from "@/components/patient/AchievementBadges";
+import { useAchievements } from "@/hooks/useAchievements";
 
 interface PatientProgressViewProps {
   userId: string;
@@ -25,9 +35,13 @@ function scoreToPlainState(score: number): { text: string; className: string } {
 }
 
 /**
- * Simplified progress view for patient mode.
- * Shows encouraging summary, streak, sessions this week, and one simple trend.
- * Uses progressive disclosure — percentages only behind "See more detail."
+ * Unified "My Progress" view for patient mode.
+ * 
+ * VISIBILITY TIERS:
+ * 1. ALWAYS VISIBLE: Hero headline, core metrics, Getting Better At, Focus Next, What Helps You
+ * 2. CONDITIONAL: Concerns card (only if red flags exist)
+ * 3. COLLAPSIBLE: Session History, Achievements, Detailed Scores
+ * 4. DRILL-DOWN: Link to /recovery-progress for advanced charts
  */
 export const PatientProgressView = memo(function PatientProgressView({
   userId,
@@ -39,28 +53,15 @@ export const PatientProgressView = memo(function PatientProgressView({
   const { sessions } = useSessionHistory(userId);
   const { snapshot } = useCognitiveState({ userId, profileId });
   const { mastered, emerging, loading: masteryLoading } = useWordMastery(userId);
+  const { flags: redFlags } = useRedFlagDetection(userId);
+  const { analytics } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
+  const { achievements, newAchievements } = useAchievements(userId, profileId);
 
   const weekStats = useMemo(() => {
     const activeDays = timeline.filter((d) => d.hasAnySignal).length;
     return { activeDays };
   }, [timeline]);
 
-  // Get top improving domain
-  const topDomain = useMemo(() => {
-    if (!snapshot?.domains?.length) return null;
-    const scored = snapshot.domains
-      .filter((d) => d.trialCount >= 3)
-      .sort((a, b) => b.score - a.score);
-    if (!scored.length) return null;
-    const d = scored[0];
-    const meta = COGNITIVE_DOMAINS.find((cd) => cd.slug === d.domainSlug);
-    return {
-      label: meta?.patientLabel || meta?.label || d.domainSlug,
-      score: d.score,
-    };
-  }, [snapshot]);
-
-  // Recent sessions count
   const recentSessionCount = useMemo(() => {
     const weekAgo = Date.now() - 7 * 86_400_000;
     return sessions.filter(
@@ -68,16 +69,7 @@ export const PatientProgressView = memo(function PatientProgressView({
     ).length;
   }, [sessions]);
 
-  // Generate encouraging message
-  const encouragement = useMemo(() => {
-    if (streak >= 7) return "Amazing consistency! You're building great habits. 🌟";
-    if (streak >= 3) return "You're on a roll! Keep it up. 🔥";
-    if (weekStats.activeDays >= 3) return "Great week of practice! 💪";
-    if (recentSessionCount > 0) return "Every session counts. You're making progress! ✨";
-    return "Welcome back! Ready to keep going? 💛";
-  }, [streak, weekStats.activeDays, recentSessionCount]);
-
-  // Domains with plain-language states
+  // Domains sorted by score
   const domainStates = useMemo(() => {
     if (!snapshot?.domains?.length) return [];
     return snapshot.domains
@@ -94,110 +86,109 @@ export const PatientProgressView = memo(function PatientProgressView({
       });
   }, [snapshot]);
 
+  // Split into improving vs needs-practice
+  const gettingBetterAt = domainStates.filter((d) => d.score >= 0.5).slice(0, 3);
+  const focusNext = domainStates.filter((d) => d.score < 0.5).slice(0, 2);
+
+  // Best cue strategies
+  const cueStrategies = useMemo(() => {
+    const cueEfficacy = analytics?.cueEfficacy || [];
+    return [...cueEfficacy]
+      .filter((c) => c.totalGiven >= 3 && c.efficacyRate >= 0.5)
+      .sort((a, b) => b.efficacyRate - a.efficacyRate)
+      .slice(0, 2)
+      .map((c) => ({
+        label: getCueLabel(c.cueType),
+        rate: Math.round(c.efficacyRate * 100),
+      }));
+  }, [analytics]);
+
+  // Hero headline
+  const heroText = useMemo(() => {
+    if (gettingBetterAt.length > 0) {
+      return `You're improving at ${gettingBetterAt[0].label.toLowerCase()}`;
+    }
+    if (mastered > 0) {
+      return `You've mastered ${mastered} word${mastered !== 1 ? "s" : ""}`;
+    }
+    if (recentSessionCount > 0) {
+      return "You're making progress — keep going!";
+    }
+    return "Let's see how you're doing";
+  }, [gettingBetterAt, mastered, recentSessionCount]);
+
+  // Patient-safe concerns
+  const patientConcerns = useMemo(() => {
+    return redFlags
+      .filter((f) => f.severity === "red" || f.severity === "orange")
+      .slice(0, 2);
+  }, [redFlags]);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Orientation cue + encouraging headline */}
+      {/* ════════════════════════════════════════════
+          TIER 1: ALWAYS VISIBLE
+          ════════════════════════════════════════════ */}
+
+      {/* Hero Headline */}
       <div className="text-center space-y-2 py-4">
-        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">See how you're doing</p>
-        <p className="text-xl md:text-2xl font-semibold text-foreground">
-          {encouragement}
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          My Progress
         </p>
+        <h2 className="text-xl md:text-2xl font-bold text-foreground">
+          {heroText}
+        </h2>
       </div>
 
-      {/* Big stat cards */}
+      {/* Core Metrics Grid */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="p-5 text-center border-2">
           <Flame className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <div className="text-3xl md:text-4xl font-bold text-foreground">
-            {streak}
-          </div>
+          <div className="text-3xl md:text-4xl font-bold text-foreground">{streak}</div>
           <div className="text-sm text-muted-foreground mt-1">Day streak</div>
         </Card>
         <Card className="p-5 text-center border-2">
           <Calendar className="w-8 h-8 text-primary mx-auto mb-2" />
-          <div className="text-3xl md:text-4xl font-bold text-foreground">
-            {weekStats.activeDays}
-          </div>
-          <div className="text-sm text-muted-foreground mt-1">
-            Days this week
-          </div>
+          <div className="text-3xl md:text-4xl font-bold text-foreground">{weekStats.activeDays}</div>
+          <div className="text-sm text-muted-foreground mt-1">Days this week</div>
         </Card>
       </div>
 
-      {/* Sessions this week */}
-      <Card className="p-5 border-2">
-        <div className="flex items-center gap-3">
-          <CheckCircle className="w-6 h-6 text-success shrink-0" />
-          <div>
-            <div className="text-lg font-semibold text-foreground">
-              {recentSessionCount} session{recentSessionCount !== 1 ? "s" : ""}{" "}
-              this week
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {recentSessionCount >= 5
-                ? "Excellent practice rate!"
-                : recentSessionCount >= 3
-                ? "Good work — keep it consistent"
-                : "Try for a few more this week"}
-            </div>
+      {/* Sessions + Words Mastered row */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="p-4 border-2">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle className="w-5 h-5 text-success shrink-0" />
+            <span className="text-sm font-medium text-muted-foreground">Sessions</span>
           </div>
-        </div>
-      </Card>
-
-      {/* Words Mastered — motivating proof signal */}
-      {!masteryLoading && (mastered > 0 || emerging > 0) && (
-        <Card className="p-5 border-2 border-primary/20 bg-primary/5">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-primary shrink-0" />
-            <div className="flex-1">
-              <div className="text-lg font-semibold text-foreground">
-                {mastered} word{mastered !== 1 ? "s" : ""} mastered
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {emerging > 0 && `${emerging} more getting stronger · `}
-                Words you can say independently
-              </div>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="mt-2 w-full text-primary hover:text-primary"
-          >
-            <Link to="/recovery-progress">
-              See full recovery progress <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </Button>
+          <div className="text-2xl font-bold text-foreground">{recentSessionCount}</div>
+          <div className="text-xs text-muted-foreground">this week</div>
         </Card>
-      )}
-
-      {topDomain && (
-        <Card className="p-5 border-2">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="w-6 h-6 text-primary shrink-0" />
-            <div>
-              <div className="text-lg font-semibold text-foreground">
-                Your strongest area: {topDomain.label}
-              </div>
-              <div className={`text-sm font-medium ${scoreToPlainState(topDomain.score).className}`}>
-                {scoreToPlainState(topDomain.score).text}
-              </div>
+        {!masteryLoading && (
+          <Card className="p-4 border-2">
+            <div className="flex items-center gap-2 mb-1">
+              <BookOpen className="w-5 h-5 text-primary shrink-0" />
+              <span className="text-sm font-medium text-muted-foreground">Words</span>
             </div>
-          </div>
-        </Card>
-      )}
+            <div className="text-2xl font-bold text-foreground">{mastered}</div>
+            <div className="text-xs text-muted-foreground">
+              mastered{emerging > 0 ? ` · ${emerging} growing` : ""}
+            </div>
+          </Card>
+        )}
+      </div>
 
-      {/* Domain states — plain language, no percentages */}
-      {domainStates.length > 1 && (
+      {/* ── Getting Better At (always visible) ── */}
+      {gettingBetterAt.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-base font-semibold text-foreground px-1">Your skills</h3>
-          {domainStates.map((d) => (
+          <h3 className="text-base font-semibold text-foreground px-1 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-success" />
+            Getting Better At
+          </h3>
+          {gettingBetterAt.map((d) => (
             <Card key={d.slug} className="p-4 border">
               <div className="flex items-center justify-between">
-                <span className="text-base font-medium text-foreground">
-                  {d.label}
-                </span>
+                <span className="text-base font-medium text-foreground">{d.label}</span>
                 <span className={`text-sm font-semibold ${d.state.className}`}>
                   {d.state.text}
                 </span>
@@ -205,6 +196,64 @@ export const PatientProgressView = memo(function PatientProgressView({
             </Card>
           ))}
         </div>
+      )}
+
+      {/* ── Focus Next (always visible) ── */}
+      {focusNext.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-semibold text-foreground px-1 flex items-center gap-2">
+            <Target className="w-4 h-4 text-amber-500" />
+            Focus Next
+          </h3>
+          {focusNext.map((d) => (
+            <Card key={d.slug} className="p-4 border">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-medium text-foreground">{d.label}</span>
+                <span className="text-sm font-semibold text-warning">
+                  Let's keep practicing
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── What Helps You (always visible) ── */}
+      {cueStrategies.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-semibold text-foreground px-1 flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-primary" />
+            What Helps You
+          </h3>
+          {cueStrategies.map((s, i) => (
+            <Card key={i} className="p-4 border">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-medium text-foreground">{s.label}</span>
+                <span className="text-sm font-semibold text-success">
+                  Helps {s.rate}% of the time
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════
+          TIER 2: CONDITIONAL (only if concerns exist)
+          ════════════════════════════════════════════ */}
+
+      {patientConcerns.length > 0 && (
+        <Card className="p-5 border-2 border-amber-500/20 bg-amber-500/5">
+          <h3 className="text-base font-semibold text-foreground flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            Things to Know
+          </h3>
+          <div className="space-y-2">
+            {patientConcerns.map((flag, i) => (
+              <p key={i} className="text-sm text-foreground">{flag.message}</p>
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* Today's readiness */}
@@ -225,41 +274,71 @@ export const PatientProgressView = memo(function PatientProgressView({
         </Card>
       )}
 
-      {/* Progressive disclosure: detail with percentages */}
+      {/* ════════════════════════════════════════════
+          TIER 3: COLLAPSIBLE
+          ════════════════════════════════════════════ */}
+
+      {/* Session History */}
       <Collapsible>
-        <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full justify-center py-3 min-h-[48px]">
-          <span>See detailed scores</span>
+        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors w-full py-3 min-h-[48px]">
+          <span>Recent Sessions</span>
           <ChevronDown className="w-4 h-4" />
         </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-3 pt-2">
-          {domainStates.map((d) => {
-            const pct = Math.round(d.score * 100);
-            return (
-              <Card key={d.slug} className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {d.label}
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {pct}%
-                  </span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </Card>
-            );
-          })}
-          {domainStates.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Complete a few more sessions to see detailed scores
-            </p>
-          )}
+        <CollapsibleContent>
+          <SessionHistoryList userId={userId} />
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Achievements */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors w-full py-3 min-h-[48px]">
+          <span>Achievements</span>
+          <ChevronDown className="w-4 h-4" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <AchievementBadges achievements={achievements} newAchievements={newAchievements} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Detailed Scores */}
+      {domainStates.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full justify-center py-3 min-h-[48px]">
+            <span>See detailed scores</span>
+            <ChevronDown className="w-4 h-4" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-2">
+            {domainStates.map((d) => {
+              const pct = Math.round(d.score * 100);
+              return (
+                <Card key={d.slug} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-foreground">{d.label}</span>
+                    <span className="text-sm font-semibold text-foreground">{pct}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </Card>
+              );
+            })}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* ════════════════════════════════════════════
+          TIER 4: DRILL-DOWN LINK
+          ════════════════════════════════════════════ */}
+      <div className="text-center pb-4">
+        <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+          <Link to="/recovery-progress">
+            See detailed recovery charts <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 });

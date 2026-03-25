@@ -135,7 +135,7 @@ export function PatientModeView({
         {([
           { id: "home" as PatientTab, icon: Home, label: "Home" },
           { id: "practice" as PatientTab, icon: Gamepad2, label: "Practice" },
-          { id: "progress" as PatientTab, icon: BarChart3, label: "Progress" },
+          { id: "progress" as PatientTab, icon: BarChart3, label: "My Progress" },
         ]).map(({ id, icon: Icon, label }) => (
           <button
             key={id}
@@ -332,11 +332,8 @@ export function PatientModeView({
                 <span>Choose a game I like</span>
               </Button>
 
-              {/* Achievements */}
+              {/* Achievements — compact teaser on Home, full list in My Progress */}
               <AchievementBadges achievements={achievements} newAchievements={newAchievements} />
-
-              {/* Session history */}
-              <SessionHistoryList userId={userId} />
 
               {/* Caregiver assist */}
               <div className="text-center pb-2">

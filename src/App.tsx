@@ -14,6 +14,7 @@ import PhonologicalExercise from "./pages/PhonologicalExercise";
 import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
 import SessionHistory from "./pages/SessionHistory";
 import CaregiverPortal from "./pages/CaregiverPortal";
+import CaregiverStatus from "./pages/CaregiverStatus";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
@@ -125,6 +126,7 @@ const App = () => (
                   <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
                   <Route path="/history" element={<AppLayout><History /></AppLayout>} />
                   <Route path="/caregiver" element={<AppLayout><CaregiverPortal /></AppLayout>} />
+                  <Route path="/caregiver/status" element={<AppLayout><CaregiverStatus /></AppLayout>} />
                   
                   {/* Settings routes - with header */}
                   <Route path="/photo-library" element={<AppLayout><PhotoLibrary /></AppLayout>} />

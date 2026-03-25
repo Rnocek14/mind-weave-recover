@@ -36,19 +36,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const patientNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
-  { href: "/insights", label: "Insights", icon: TrendingUp },
-  { href: "/history", label: "History", icon: Clock },
+// Patient uses bottom tab bar — no header nav items needed
+const patientNavItems: typeof clinicianNavItems = [];
+
+const caregiverNavItems = [
+  { href: "/caregiver", label: "Home", icon: LayoutDashboard },
+  { href: "/caregiver/status", label: "Status", icon: HeartPulse },
 ];
 
 const clinicianNavItems = [
   { href: "/clinician/caseload", label: "Caseload", icon: Stethoscope },
   { href: "/clinician/review", label: "Review", icon: FileText },
-  { href: "/recovery-progress", label: "Recovery", icon: HeartPulse },
-  { href: "/insights", label: "Insights", icon: TrendingUp },
-  { href: "/history", label: "History", icon: Clock },
 ];
 
 
@@ -62,9 +60,16 @@ export function AppHeader() {
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
 
-  const isClinicianMode = uiMode === 'clinician' || uiMode === 'admin';
-  const navItems = isClinicianMode ? clinicianNavItems : patientNavItems;
-  const homeHref = isClinicianMode ? "/clinician/caseload" : "/dashboard";
+  const navItems = uiMode === 'clinician' || uiMode === 'admin'
+    ? clinicianNavItems
+    : uiMode === 'caregiver'
+    ? caregiverNavItems
+    : patientNavItems;
+  const homeHref = uiMode === 'clinician' || uiMode === 'admin'
+    ? "/clinician/caseload"
+    : uiMode === 'caregiver'
+    ? "/caregiver"
+    : "/dashboard";
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -154,8 +159,33 @@ export function AppHeader() {
                 </>
               }
               
+              {/* Deep-link access to Insights, Recovery, History for clinicians+ */}
+              {isAtLeast('clinician') &&
+              <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/insights" className="flex items-center gap-2 cursor-pointer">
+                      <TrendingUp className="h-4 w-4" />
+                      Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/recovery-progress" className="flex items-center gap-2 cursor-pointer">
+                      <HeartPulse className="h-4 w-4" />
+                      Recovery Progress
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/history" className="flex items-center gap-2 cursor-pointer">
+                      <Clock className="h-4 w-4" />
+                      Session History
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              }
+              
               {/* Caseload in settings only if NOT already in clinician nav */}
-              {isAtLeast('clinician') && !isClinicianMode &&
+              {isAtLeast('clinician') && !(uiMode === 'clinician' || uiMode === 'admin') &&
               <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
