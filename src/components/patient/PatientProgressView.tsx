@@ -94,7 +94,7 @@ export const PatientProgressView = memo(function PatientProgressView({
   const cueStrategies = useMemo(() => {
     const cueEfficacy = analytics?.cueEfficacy || [];
     return [...cueEfficacy]
-      .filter((c) => c.totalTrials >= 3 && c.efficacyRate >= 0.5)
+      .filter((c) => c.totalGiven >= 3 && c.efficacyRate >= 0.5)
       .sort((a, b) => b.efficacyRate - a.efficacyRate)
       .slice(0, 2)
       .map((c) => ({
