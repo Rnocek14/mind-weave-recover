@@ -51,10 +51,10 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
   const headline = useMemo(() => {
     const improving = topDomains.filter((d) => d.score >= 0.7);
     if (improving.length > 0) {
-      return `You're improving at ${improving[0].label.toLowerCase()}`;
+      return `You're improving at ${improving[0].domainLabel.toLowerCase()}`;
     }
     if (topDomains.length > 0) {
-      return `Keep practicing ${topDomains[0].label.toLowerCase()}`;
+      return `Keep practicing ${topDomains[0].domainLabel.toLowerCase()}`;
     }
     return "Your progress will show up here";
   }, [topDomains]);
