@@ -231,7 +231,7 @@ export default function RecoveryProgress() {
                 <div className="text-center border-l border-border pl-6 md:pl-8">
                   <div className="text-2xl md:text-3xl font-bold text-warning leading-none">{emerging}</div>
                   <div className="text-xs text-muted-foreground mt-1.5 font-medium">
-                    {isClinician ? 'emerging' : 'almost there'}
+                    {copy('almost there', 'emerging', 'emerging')}
                   </div>
                 </div>
               )}
