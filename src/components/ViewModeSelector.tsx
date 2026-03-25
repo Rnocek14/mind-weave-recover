@@ -38,6 +38,7 @@ const MODE_CONFIG: Record<UiMode, { label: string; icon: typeof User; descriptio
 
 export function ViewModeSelector() {
   const { uiMode, setUiMode } = useUiMode();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useUserPermissions(user?.id);
 
