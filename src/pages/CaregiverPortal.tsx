@@ -1,104 +1,67 @@
 /**
- * Caregiver Portal - Thin wrapper over shared Dashboard/Insights
+ * Caregiver Home — unified single-page caregiver surface.
  * 
- * This provides caregivers with a branded "portal" entry point while
- * reusing all the same components. No duplicate data surfaces.
+ * Answers: "Are they okay, and how can I help?"
  * 
- * Behavior:
- * - Sets uiMode to 'caregiver' on mount
- * - Shows caregiver-branded header
- * - Defaults to Alerts tab if alerts exist, else Overview
- * - All actual content comes from shared components
+ * Layout (scroll order):
+ *   1. Status Hero (above the fold)
+ *   2. How You Can Help
+ *   3. Concerns (conditional)
+ *   4. Adherence
+ *   5. Progress Summary
+ *   6. Session History (collapsible)
+ *   7. Quick Actions
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Heart, Bell, LayoutGrid } from "lucide-react";
+import { Loader2, Heart, ChevronDown, Camera, FileText, History } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
-
-// Shared insight sections (same as Insights page)
-import { 
-  OverviewSection,
-  AlertsSection,
-  ProgressSection,
-  StrategiesSection 
-} from "@/components/insights";
-
-// Caregiver-specific components
-import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
-import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
+
+import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
+import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
+import { OverviewSection } from "@/components/insights";
+import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 
 export default function CaregiverPortal() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { uiMode, setUiMode, isAtLeast } = useUiMode();
+  const { activeProfile } = useProfile();
+  const { isAtLeast } = useUiMode();
   const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
-  
-  const [currentStreak, setCurrentStreak] = useState(0);
+
+  const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  
-  // Refs to prevent re-triggering effects
-  const prevModeRef = useRef(uiMode);
-  const didInitTab = useRef(false);
 
-  // Set caregiver mode on mount, restore previous on unmount
-  useEffect(() => {
-    setUiMode('caregiver');
-    return () => setUiMode(prevModeRef.current);
-  }, [setUiMode]);
-  
-  // Auto-set tab only once on initial flags load (don't fight user clicks)
-  useEffect(() => {
-    if (!flagsLoading && !didInitTab.current) {
-      setActiveTab(redFlags.length > 0 ? 'alerts' : 'overview');
-      didInitTab.current = true;
-    }
-  }, [flagsLoading, redFlags.length]);
+  const isCaregiverPlus = isAtLeast("caregiver");
 
-  // Gate: redirect patients away from caregiver portal
-  const isCaregiverPlus = isAtLeast('caregiver');
-  
+  // Gate: redirect patients away
   useEffect(() => {
     if (!authLoading && user && !isCaregiverPlus) {
       navigate("/dashboard", { replace: true });
     }
   }, [authLoading, user, isCaregiverPlus, navigate]);
 
+  // Auth gate + load streak
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
       return;
     }
     if (user) {
-      loadStreak();
+      calculateStreak(user.id).then(setStreak).finally(() => setLoading(false));
     }
   }, [user, authLoading, navigate]);
 
-  const loadStreak = async () => {
-    if (!user) return;
-    try {
-      const streak = await calculateStreak(user.id);
-      setCurrentStreak(streak);
-    } catch (error) {
-      console.error('Error loading streak:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  // Short-circuit for patients - avoid rendering caregiver UI while redirect runs
-  if (!authLoading && user && !isCaregiverPlus) {
-    return null;
-  }
+  if (!authLoading && user && !isCaregiverPlus) return null;
 
   if (authLoading || loading) {
     return (
@@ -108,109 +71,95 @@ export default function CaregiverPortal() {
     );
   }
 
+  const alertCount = redFlags.filter(
+    (f) => f.severity === "red" || f.severity === "orange"
+  ).length;
+
   return (
     <div className="min-h-screen bg-gradient-calm">
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
-        {/* Caregiver-branded header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-healing flex items-center justify-center">
-              <Heart className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-bold">Caregiver View</h1>
-                <Badge variant="secondary" className="text-xs">
-                  Support Mode
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Monitor progress and see how you can help
-              </p>
-            </div>
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl space-y-6">
+        {/* Header */}
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <Heart className="w-5 h-5 text-pink-500" />
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Caregiver Home</h1>
+            {!flagsLoading && alertCount > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                {alertCount} concern{alertCount !== 1 ? "s" : ""}
+              </Badge>
+            )}
           </div>
-          
-          {/* Quick action buttons - only show to caregivers+ */}
-          {isCaregiverPlus && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/photo-library')}
-              >
-                Upload Photos
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/clinical-documents')}
-              >
-                Medical Documents
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/profile-history')}
-              >
-                Profile History
-              </Button>
+          <p className="text-sm text-muted-foreground">
+            How they're doing, what to watch, and how you can help.
+          </p>
+        </div>
+
+        {/* 1. Status Hero */}
+        <CaregiverStatusHero userId={user!.id} streak={streak} />
+
+        {/* 2. How You Can Help */}
+        <HowYouCanHelpCard userId={user!.id} />
+
+        {/* 3. Concerns — only if they exist */}
+        {!flagsLoading && redFlags.length > 0 && (
+          <Card className="p-5 border-2 border-destructive/20 space-y-3">
+            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-destructive" />
+              Concerns
+            </h3>
+            <div className="space-y-2">
+              {redFlags.map((flag, i) => (
+                <div key={i} className="text-sm text-foreground flex items-start gap-2">
+                  <span className={`shrink-0 mt-1 w-1.5 h-1.5 rounded-full ${
+                    flag.severity === "red" ? "bg-destructive" : "bg-amber-500"
+                  }`} />
+                  <span>{flag.message}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </Card>
+        )}
+
+        {/* 4. Adherence */}
+        <Card className="p-6">
+          <SessionAdherenceTracker userId={user!.id} currentStreak={streak} />
+        </Card>
+
+        {/* 5. Progress Summary */}
+        <div className="space-y-2">
+          <h3 className="text-base font-semibold text-foreground px-1">Progress Summary</h3>
+          <OverviewSection userId={user!.id} profileId={activeProfile?.id} />
         </div>
 
-        {/* Above-the-fold status */}
-        <div className="space-y-4 mb-6">
-          <CaregiverStatusHero userId={user!.id} streak={currentStreak} />
-          <HowYouCanHelpCard userId={user!.id} />
-        </div>
+        {/* 6. Session History — collapsible */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors w-full py-3 min-h-[48px]">
+            <span>Session History</span>
+            <ChevronDown className="w-4 h-4" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SessionHistoryList userId={user!.id} />
+          </CollapsibleContent>
+        </Collapsible>
 
-        {/* Main content tabs - reusing shared components */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-muted/80 backdrop-blur-sm p-1 mb-4">
-            <TabsTrigger value="overview" className="gap-1.5 flex-1">
-              <LayoutGrid className="w-4 h-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="alerts" className="gap-1.5 flex-1">
-              <Bell className="w-4 h-4" />
-              Alerts
-              {!flagsLoading && redFlags.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                  {redFlags.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Overview - shared component */}
-          <TabsContent value="overview" className="space-y-6">
-            <OverviewSection userId={user!.id} />
-            
-            {/* Adherence tracker - caregiver-specific but not duplicated elsewhere */}
-            <Card className="p-6">
-              <SessionAdherenceTracker userId={user!.id} currentStreak={currentStreak} />
-            </Card>
-          </TabsContent>
-
-          {/* Alerts - shared component */}
-          <TabsContent value="alerts" className="space-y-6">
-            <AlertsSection userId={user!.id} />
-            
-            {/* Link to full insights for deep dives */}
-            <Card className="p-4 border-dashed">
-              <p className="text-sm text-muted-foreground text-center">
-                Want more detail?{' '}
-                <Button 
-                  variant="link" 
-                  className="p-0 h-auto" 
-                  onClick={() => navigate('/insights')}
-                >
-                  View full Insights →
-                </Button>
-              </p>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* 7. Quick Actions */}
+        <Card className="p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Quick Actions</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/photo-library')}>
+              <Camera className="w-4 h-4 mr-1.5" />
+              Upload Photos
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/clinical-documents')}>
+              <FileText className="w-4 h-4 mr-1.5" />
+              Medical Documents
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/profile-history')}>
+              <History className="w-4 h-4 mr-1.5" />
+              Profile History
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

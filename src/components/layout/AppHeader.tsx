@@ -41,7 +41,7 @@ const patientNavItems: typeof clinicianNavItems = [];
 
 const caregiverNavItems = [
   { href: "/caregiver", label: "Home", icon: LayoutDashboard },
-  { href: "/caregiver/status", label: "Status", icon: HeartPulse },
+  { href: "/dashboard", label: "Recovery", icon: HeartPulse },
 ];
 
 const clinicianNavItems = [
