@@ -38,9 +38,11 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
         const trend = getTrend(d.score);
         return {
           slug: d.domainSlug,
-          label: meta?.patientLabel || meta?.label || d.domainSlug,
+          domainLabel: meta?.patientLabel || meta?.label || d.domainSlug,
           score: d.score,
-          ...trend,
+          trendLabel: trend.label,
+          icon: trend.icon,
+          color: trend.color,
         };
       });
   }, [snapshot]);
@@ -49,10 +51,10 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
   const headline = useMemo(() => {
     const improving = topDomains.filter((d) => d.score >= 0.7);
     if (improving.length > 0) {
-      return `You're improving at ${improving[0].label.toLowerCase()}`;
+      return `You're improving at ${improving[0].domainLabel.toLowerCase()}`;
     }
     if (topDomains.length > 0) {
-      return `Keep practicing ${topDomains[0].label.toLowerCase()}`;
+      return `Keep practicing ${topDomains[0].domainLabel.toLowerCase()}`;
     }
     return "Your progress will show up here";
   }, [topDomains]);
@@ -73,10 +75,10 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
             return (
               <div key={d.slug} className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">{d.label}</span>
+                  <span className="text-sm font-medium text-foreground">{d.domainLabel}</span>
                   <span className={`flex items-center gap-1 text-sm font-semibold ${d.color}`}>
                     <Icon className="w-4 h-4" />
-                    {d.label === "Improving" ? d.label : d.label}
+                    {d.trendLabel}
                   </span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
