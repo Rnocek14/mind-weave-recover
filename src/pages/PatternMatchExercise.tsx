@@ -41,6 +41,7 @@ export default function PatternMatchExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'pattern-match', domainSlug: 'executive_function', fromLesson });
   // Fetch clinical profile
   useEffect(() => {
     if (!user?.id) return;

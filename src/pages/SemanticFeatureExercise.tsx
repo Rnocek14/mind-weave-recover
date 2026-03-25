@@ -43,6 +43,8 @@ export default function SemanticFeatureExercise() {
     phonemeSensitive: false,  // semantic features, not phoneme-targeted
     cueSensitive: true,
   });
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'semantic-features', domainSlug: 'semantic_depth', fromLesson });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);

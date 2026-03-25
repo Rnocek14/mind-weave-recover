@@ -41,6 +41,8 @@ export default function PhonologicalExercise() {
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
     phonemeSensitive: true,
   });
+
+  const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'phonological-awareness', domainSlug: 'phonology', fromLesson });
   
   // Extract targeted practice from URL params
   const searchParams = new URLSearchParams(location.search);
