@@ -503,6 +503,50 @@ export type Database = {
           },
         ]
       }
+      clinician_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          clinician_id: string
+          id: string
+          notes: string | null
+          patient_user_id: string
+          profile_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          clinician_id: string
+          id?: string
+          notes?: string | null
+          patient_user_id: string
+          profile_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          clinician_id?: string
+          id?: string
+          notes?: string | null
+          patient_user_id?: string
+          profile_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_assignments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinician_overrides: {
         Row: {
           approved_at: string | null
@@ -2685,6 +2729,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_assigned_clinician: {
+        Args: { _clinician_id: string; _profile_id: string }
         Returns: boolean
       }
       merge_profile_pref: {
