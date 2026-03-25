@@ -5,6 +5,9 @@ import { Calendar, Clock, TrendingUp } from "lucide-react";
 import { BackButton } from "@/components/layout/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUiMode } from "@/hooks/useUiMode";
+import { SessionDetailPanel } from "@/components/SessionDetailPanel";
+import { useAuth } from "@/hooks/useAuth";
 import { SessionDetailPanel } from "@/components/SessionDetailPanel";
 
 interface SessionWithEvents {
