@@ -19,6 +19,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
