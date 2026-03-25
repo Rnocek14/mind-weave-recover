@@ -148,6 +148,16 @@ export const useAdaptiveDifficulty = ({
     return controllerRef.current.getSuccessRate();
   }, []);
 
+  // Get success-band state
+  const getSuccessBandState = useCallback((): SuccessBandState => {
+    return bandRef.current.getState();
+  }, []);
+
+  // Acknowledge success-band recommendation (resets persistence counters)
+  const acknowledgeSuccessBand = useCallback(() => {
+    bandRef.current.acknowledge();
+  }, []);
+
   return {
     currentDifficulty,
     updateTrial,
@@ -158,6 +168,8 @@ export const useAdaptiveDifficulty = ({
     getSuccessRate,
     getState,
     reset,
+    getSuccessBandState,
+    acknowledgeSuccessBand,
     controller: controllerRef.current,
   };
 };
