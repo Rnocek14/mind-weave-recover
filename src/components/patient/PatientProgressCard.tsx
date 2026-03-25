@@ -38,9 +38,11 @@ export function PatientProgressCard({ userId, profileId }: PatientProgressCardPr
         const trend = getTrend(d.score);
         return {
           slug: d.domainSlug,
-          label: meta?.patientLabel || meta?.label || d.domainSlug,
+          domainLabel: meta?.patientLabel || meta?.label || d.domainSlug,
           score: d.score,
-          ...trend,
+          trendLabel: trend.label,
+          icon: trend.icon,
+          color: trend.color,
         };
       });
   }, [snapshot]);
