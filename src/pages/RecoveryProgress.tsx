@@ -179,6 +179,7 @@ export default function RecoveryProgress() {
         {/* Page title + context — minimal */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
+            <BackButton />
             <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
               Recovery Progress
             </h1>

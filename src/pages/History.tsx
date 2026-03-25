@@ -148,11 +148,12 @@ export default function History() {
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-4xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Session History</h1>
-          <p className="text-muted-foreground">
-            Your progress over time
-          </p>
+        <div className="mb-6 flex items-center gap-3">
+          <BackButton />
+          <div>
+            <h1 className="text-3xl font-bold">Session History</h1>
+            <p className="text-muted-foreground">Your progress over time</p>
+          </div>
         </div>
 
         {history.length === 0 ? (
