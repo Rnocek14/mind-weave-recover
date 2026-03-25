@@ -62,7 +62,7 @@ export function SessionHistoryList({ userId }: SessionHistoryListProps) {
               <div>
                 <div className="text-sm font-medium text-foreground">{dateLabel}</div>
                 {duration && (
-                  <div className="text-xs text-muted-foreground">{duration} · {session.exercises.length} exercise{session.exercises.length !== 1 ? "s" : ""}</div>
+                  <div className="text-xs text-muted-foreground">{duration} · {session.exercises.length} activit{session.exercises.length !== 1 ? "ies" : "y"}</div>
                 )}
               </div>
             </div>

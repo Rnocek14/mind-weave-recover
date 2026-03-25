@@ -21,7 +21,15 @@ export function AchievementBadges({ achievements, newAchievements = [] }: Achiev
       }));
   }, [achievements, newAchievements]);
 
-  if (earned.length === 0) return null;
+  if (earned.length === 0) {
+    return (
+      <Card className="p-5 border border-dashed text-center space-y-1">
+        <span className="text-2xl">🏆</span>
+        <p className="text-sm font-medium text-foreground">Achievements unlock as you practice</p>
+        <p className="text-xs text-muted-foreground">Keep going — your first badge is just around the corner</p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-2">

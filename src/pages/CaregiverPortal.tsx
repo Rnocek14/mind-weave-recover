@@ -145,7 +145,7 @@ export default function CaregiverPortal() {
                 size="sm" 
                 onClick={() => navigate('/clinical-documents')}
               >
-                Clinical Documents
+                Medical Documents
               </Button>
               <Button 
                 variant="outline" 
