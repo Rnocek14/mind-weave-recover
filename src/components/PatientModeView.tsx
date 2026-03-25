@@ -97,6 +97,15 @@ export function PatientModeView({
     return count;
   }, [sessions]);
 
+  // Encouragement message
+  const encouragement = useMemo(() => {
+    if (streak >= 7) return "Amazing consistency! 🌟";
+    if (streak >= 3) return "You're on a roll! 🔥";
+    if (sessions.length > 0) return "Every session counts ✨";
+    return "Let's get started! 💛";
+  }, [streak, sessions.length]);
+
+
   const handleStartSession = () => {
     if (!lesson) return;
     // Track true tap time before any async work
