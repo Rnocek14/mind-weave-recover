@@ -166,7 +166,9 @@ export default function History() {
         {history.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              No sessions yet. Start your first exercise to see your progress here!
+              {isPatient
+                ? 'No sessions yet. Start your first exercise to see your progress here!'
+                : 'No sessions recorded yet.'}
             </p>
           </Card>
         ) : (
