@@ -332,11 +332,8 @@ export function PatientModeView({
                 <span>Choose a game I like</span>
               </Button>
 
-              {/* Achievements */}
+              {/* Achievements — compact teaser on Home, full list in My Progress */}
               <AchievementBadges achievements={achievements} newAchievements={newAchievements} />
-
-              {/* Session history */}
-              <SessionHistoryList userId={userId} />
 
               {/* Caregiver assist */}
               <div className="text-center pb-2">
