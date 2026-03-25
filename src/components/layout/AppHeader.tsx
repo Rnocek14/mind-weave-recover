@@ -140,7 +140,7 @@ export function AppHeader() {
                   <DropdownMenuItem asChild>
                     <Link to="/clinical-documents" className="flex items-center gap-2 cursor-pointer">
                       <FileText className="h-4 w-4" />
-                      Clinical Documents
+                      Medical Documents
                     </Link>
                   </DropdownMenuItem>
                 </>
