@@ -60,9 +60,16 @@ export function AppHeader() {
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
 
-  const isClinicianMode = uiMode === 'clinician' || uiMode === 'admin';
-  const navItems = isClinicianMode ? clinicianNavItems : patientNavItems;
-  const homeHref = isClinicianMode ? "/clinician/caseload" : "/dashboard";
+  const navItems = uiMode === 'clinician' || uiMode === 'admin'
+    ? clinicianNavItems
+    : uiMode === 'caregiver'
+    ? caregiverNavItems
+    : patientNavItems;
+  const homeHref = uiMode === 'clinician' || uiMode === 'admin'
+    ? "/clinician/caseload"
+    : uiMode === 'caregiver'
+    ? "/caregiver"
+    : "/dashboard";
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {

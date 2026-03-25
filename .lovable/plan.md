@@ -121,6 +121,28 @@ Cross-domain actionable flags for clinicians.
 
 ---
 
+## Navigation Restructure (Implemented)
+
+### Constraints Applied
+1. Patient = 3 bottom tabs (Home, Practice, My Progress) — header hidden
+2. Old routes (/recovery-progress, /insights, /history) kept alive for deep-links and clinician/admin access
+3. Patient My Progress uses visibility tiers (always-visible hero/metrics/domains, collapsible history/achievements)
+4. Caregiver = 2 header tabs (Home, Status) — Status is caregiver-first, not relabeled patient
+5. Clinician = 2 header tabs (Caseload, Review) — Recovery/Insights/History demoted to settings/deep-links
+6. Admin stays hub-and-spoke unchanged
+
+### Data Mapping (nothing lost)
+| Old Location | New Location |
+|---|---|
+| /recovery-progress metrics | My Progress → hero + metrics grid |
+| /insights → Overview | My Progress → hero headline |
+| /insights → What's Hard | My Progress → "Focus Next" (always visible) |
+| /insights → What Helps | My Progress → "What Helps You" (always visible) |
+| /insights → Alerts | My Progress → inline concern card (conditional) |
+| /insights → Adaptations | Hidden from patient (caregiver+ only) |
+| /history | My Progress → collapsible session history |
+| Dashboard → Progress tab | Eliminated (merged into My Progress) |
+
 ## Prior Work (Speech Telemetry)
 
 ### Azure Pronunciation Assessment
