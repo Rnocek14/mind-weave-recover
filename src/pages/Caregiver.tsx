@@ -1,126 +1,324 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Heart, Upload, Image as ImageIcon, X, ChevronLeft, Loader2, BarChart3, AlertCircle, Calendar } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { uploadPhoto, getUserPhotos, deletePhoto, getSignedPhotoUrl } from "@/lib/photoStorage";
-import { useCaregiverAnalytics } from "@/hooks/useCaregiverAnalytics";
-import { CaregiverSummary } from "@/components/CaregiverSummary";
-import { FlaggedSessions } from "@/components/FlaggedSessions";
-import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
-import { EngagementAnalyticsDashboard } from "@/components/EngagementAnalyticsDashboard";
-import { calculateStreak } from "@/hooks/useStreakCalculation";
-import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
-import { RedFlagAlerts } from "@/components/RedFlagAlerts";
+/**
+ * Caregiver Home — Unified status hub answering:
+ * "Is everything okay?" and "How can I help?"
+ *
+ * Hierarchy: Status Hero → How to Help → Concerns → Adherence → Quick Actions
+ */
 
-interface PhotoWithUrl {
-  id: string;
-  name: string;
-  storage_path: string;
-  labels: string[];
-  signedUrl?: string;
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Heart, HeartPulse, TrendingUp, Camera, FileText,
+  History, Play, BarChart3, AlertTriangle, Calendar,
+  Loader2, CheckCircle, Clock, Flame, ArrowRight,
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useCaregiverAnalytics } from "@/hooks/useCaregiverAnalytics";
+import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { useWordMastery } from "@/hooks/useWordMastery";
+import { calculateStreak } from "@/hooks/useStreakCalculation";
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { format, formatDistanceToNow } from "date-fns";
+
+// ── Status computation ──
+type OverallStatus = "good" | "needs-support" | "concern";
+
+function computeStatus(
+  redFlagCount: number,
+  sessionsThisWeek: number,
+  streak: number,
+): { status: OverallStatus; headline: string; subtext: string } {
+  if (redFlagCount > 0) {
+    return {
+      status: "concern",
+      headline: "Needs attention",
+      subtext: `${redFlagCount} concern${redFlagCount > 1 ? "s" : ""} to review`,
+    };
+  }
+  if (sessionsThisWeek === 0 && streak === 0) {
+    return {
+      status: "needs-support",
+      headline: "Needs encouragement",
+      subtext: "No practice sessions this week — a gentle reminder could help",
+    };
+  }
+  if (sessionsThisWeek < 2) {
+    return {
+      status: "needs-support",
+      headline: "Getting started",
+      subtext: "A few sessions done — try to encourage daily practice",
+    };
+  }
+  return {
+    status: "good",
+    headline: "Doing well",
+    subtext: `${sessionsThisWeek} sessions this week — recovery is on track`,
+  };
 }
 
-const Caregiver = () => {
-  const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const { summary, flaggedSessions, isLoading: analyticsLoading } = useCaregiverAnalytics(user?.id || null);
-  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
+function getHelpTips(
+  status: OverallStatus,
+  streak: number,
+  sessionsThisWeek: number,
+  lastSessionDate: string | null,
+): string[] {
+  const tips: string[] = [];
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    } else if (user) {
-      loadPhotos();
-      loadStreak();
-    }
-  }, [user, authLoading, navigate]);
-
-  const loadStreak = async () => {
-    if (!user) return;
-    try {
-      const streak = await calculateStreak(user.id);
-      setCurrentStreak(streak);
-    } catch (error) {
-      console.error('Error loading streak:', error);
-    }
-  };
-
-  const loadPhotos = async () => {
-    if (!user) return;
-    try {
-      const photoData = await getUserPhotos(user.id);
-      const photosWithUrls = await Promise.all(
-        photoData.map(async (photo) => {
-          const signedUrl = await getSignedPhotoUrl(photo.storage_path);
-          return { ...photo, signedUrl };
-        })
-      );
-      setPhotos(photosWithUrls);
-    } catch (error: any) {
-      toast({ title: "Error loading photos", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
-    setUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (file.type.startsWith('image/')) await uploadPhoto(user.id, file);
-      }
-      toast({ title: "Photos uploaded! 📸", description: "Photos are now available for therapy exercises" });
-      await loadPhotos();
-    } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemovePhoto = async (photoId: string, storagePath: string) => {
-    try {
-      await deletePhoto(photoId, storagePath);
-      setPhotos(prev => prev.filter(p => p.id !== photoId));
-      toast({ title: "Photo deleted", description: "Photo removed successfully" });
-    } catch (error: any) {
-      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
-    }
-  };
-
-  if (authLoading || loading) {
-    return <div className="min-h-screen bg-gradient-calm flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (sessionsThisWeek === 0) {
+    tips.push("Encourage them to try a short session — even 5 minutes helps");
+  } else if (sessionsThisWeek < 3) {
+    tips.push("Try to practice together — it makes sessions more enjoyable");
   }
 
+  if (streak === 0) {
+    tips.push("Help them start a practice streak — consistency matters more than intensity");
+  } else if (streak >= 3) {
+    tips.push(`They're on a ${streak}-day streak! Celebrate this milestone together`);
+  }
+
+  if (!lastSessionDate) {
+    tips.push("Sit down together and explore the Practice tab to find exercises they enjoy");
+  } else {
+    tips.push("Ask what exercises they liked best — motivation drives recovery");
+  }
+
+  return tips.slice(0, 3);
+}
+
+const STATUS_STYLES: Record<OverallStatus, { bg: string; border: string; icon: typeof Heart; iconColor: string }> = {
+  good: { bg: "bg-success/5", border: "border-success/20", icon: HeartPulse, iconColor: "text-success" },
+  "needs-support": { bg: "bg-amber-500/5", border: "border-amber-500/20", icon: Heart, iconColor: "text-amber-500" },
+  concern: { bg: "bg-destructive/5", border: "border-destructive/20", icon: AlertTriangle, iconColor: "text-destructive" },
+};
+
+const Caregiver = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
+  const { summary, isLoading: analyticsLoading } = useCaregiverAnalytics(user?.id || null);
+  const { flags: redFlags, isLoading: flagsLoading } = useRedFlagDetection(user?.id || null);
+  const { sessions } = useSessionHistory(user?.id || null);
+  const { mastered } = useWordMastery(user?.id || null);
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/auth");
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      calculateStreak(user.id).then(setStreak).catch(() => {});
+    }
+  }, [user]);
+
+  const isLoading = authLoading || analyticsLoading || flagsLoading;
+
+  // Weekly session count
+  const sessionsThisWeek = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    return sessions.filter(s => new Date(s.startedAt).getTime() > weekAgo).length;
+  }, [sessions]);
+
+  const lastSession = sessions[0];
+  const lastSessionDate = lastSession?.startedAt || null;
+
+  const { status, headline, subtext } = useMemo(
+    () => computeStatus(
+      redFlags.filter(f => f.severity === "red").length,
+      sessionsThisWeek,
+      streak,
+    ),
+    [redFlags, sessionsThisWeek, streak],
+  );
+
+  const helpTips = useMemo(
+    () => getHelpTips(status, streak, sessionsThisWeek, lastSessionDate),
+    [status, streak, sessionsThisWeek, lastSessionDate],
+  );
+
+  const caregiverConcerns = useMemo(() => {
+    return redFlags
+      .filter(f => f.severity === "red" || f.severity === "orange")
+      .slice(0, 3)
+      .map(f => f.message);
+  }, [redFlags]);
+
+  const statusStyle = STATUS_STYLES[status];
+  const StatusIcon = statusStyle.icon;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const patientName = activeProfile?.display_name || activeProfile?.profile_name || "your person";
+
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
-      <div className="container mx-auto max-w-6xl">
-        <Button variant="ghost" className="mb-6" onClick={() => navigate("/")}><ChevronLeft className="w-4 h-4 mr-2" />Back to Home</Button>
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-healing flex items-center justify-center mb-4"><Heart className="w-8 h-8 text-white" /></div>
-          <h1 className="text-4xl font-bold text-primary mb-2">Caregiver Dashboard</h1>
-          <p className="text-muted-foreground">Manage therapy content and monitor progress</p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="container mx-auto max-w-2xl px-4 py-6 space-y-5 animate-fade-in">
+
+        {/* ═══ STATUS HERO ═══ */}
+        <Card className={cn("p-6 border-2", statusStyle.bg, statusStyle.border)}>
+          <div className="flex items-start gap-4">
+            <div className={cn("w-14 h-14 rounded-full flex items-center justify-center shrink-0", statusStyle.bg)}>
+              <StatusIcon className={cn("w-7 h-7", statusStyle.iconColor)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-bold text-foreground">{headline}</h1>
+              <p className="text-base text-muted-foreground mt-1">{subtext}</p>
+            </div>
+          </div>
+
+          {/* Key stats row */}
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-foreground">{sessionsThisWeek}</div>
+              <div className="text-xs text-muted-foreground">Sessions this week</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-foreground flex items-center justify-center gap-1">
+                {streak}
+                {streak >= 3 && <Flame className="w-5 h-5 text-amber-500" />}
+              </div>
+              <div className="text-xs text-muted-foreground">Day streak</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-foreground">
+                {lastSessionDate
+                  ? formatDistanceToNow(new Date(lastSessionDate), { addSuffix: false })
+                  : "—"}
+              </div>
+              <div className="text-xs text-muted-foreground">Since last session</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* ═══ HOW YOU CAN HELP ═══ */}
+        <Card className="p-5 border">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-3">
+            <Heart className="w-4 h-4 text-primary" />
+            How You Can Help
+          </h2>
+          <div className="space-y-2">
+            {helpTips.map((tip, i) => (
+              <div key={i} className="flex items-start gap-3 py-2">
+                <CheckCircle className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                <p className="text-sm text-foreground leading-relaxed">{tip}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* ═══ CONCERNS (conditional) ═══ */}
+        {caregiverConcerns.length > 0 && (
+          <Card className="p-5 border-2 border-amber-500/20 bg-amber-500/5">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Things to Be Aware Of
+            </h2>
+            <div className="space-y-2">
+              {caregiverConcerns.map((concern, i) => (
+                <p key={i} className="text-sm text-foreground leading-relaxed">{concern}</p>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* ═══ ADHERENCE SNAPSHOT ═══ */}
+        <Card className="p-5 border">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-3">
+            <Calendar className="w-4 h-4 text-primary" />
+            Practice Summary
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-2xl font-bold text-foreground">{summary?.totalSessions || 0}</div>
+              <div className="text-xs text-muted-foreground">Total sessions</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-foreground">{summary?.totalMinutes || 0}m</div>
+              <div className="text-xs text-muted-foreground">Practice time</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-foreground">{mastered}</div>
+              <div className="text-xs text-muted-foreground">Words mastered</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-foreground">
+                {summary?.avgAccuracy ? `${Math.round(summary.avgAccuracy)}%` : "—"}
+              </div>
+              <div className="text-xs text-muted-foreground">Avg accuracy</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* ═══ QUICK ACTIONS ═══ */}
+        <div className="space-y-2">
+          <h2 className="text-base font-semibold text-foreground px-1">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col items-center gap-2 border-2"
+              onClick={() => navigate("/dashboard")}
+            >
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">View Progress</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col items-center gap-2 border-2"
+              onClick={() => navigate("/photo-library")}
+            >
+              <Camera className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">Photo Library</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col items-center gap-2 border-2"
+              onClick={() => navigate("/clinical-documents")}
+            >
+              <FileText className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">Medical Docs</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col items-center gap-2 border-2"
+              onClick={() => navigate("/profile-history")}
+            >
+              <History className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">Profile History</span>
+            </Button>
+          </div>
         </div>
-        <Tabs defaultValue="summary" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="summary"><BarChart3 className="h-4 w-4 mr-2" />Summary</TabsTrigger><TabsTrigger value="flags"><AlertCircle className="h-4 w-4 mr-2" />Flagged</TabsTrigger><TabsTrigger value="adherence"><Calendar className="h-4 w-4 mr-2" />Adherence</TabsTrigger><TabsTrigger value="photos"><ImageIcon className="h-4 w-4 mr-2" />Photos</TabsTrigger></TabsList>
-          <TabsContent value="summary" className="space-y-6">{analyticsLoading ? <Card><div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card> : summary ? <><RedFlagAlerts flags={redFlags} /><CaregiverSummary summary={summary} />{user && <EngagementAnalyticsDashboard userId={user.id} />}</> : <Card><div className="text-center py-12"><p className="text-muted-foreground">No data available yet</p></div></Card>}</TabsContent>
-          <TabsContent value="flags">{analyticsLoading ? <Card><div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Card> : <FlaggedSessions sessions={flaggedSessions} />}</TabsContent>
-          <TabsContent value="adherence">{user && <SessionAdherenceTracker userId={user.id} currentStreak={currentStreak} />}</TabsContent>
-          <TabsContent value="photos" className="space-y-6"><Card className="p-6"><h2 className="text-2xl font-bold text-primary mb-2">Personal Photos</h2><p className="text-muted-foreground mb-6">Upload meaningful photos for personalized therapy</p><div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors"><Label htmlFor="photo-upload" className="cursor-pointer"><div className="flex flex-col items-center gap-4"><div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">{uploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Upload className="w-8 h-8 text-primary" />}</div><div><p className="font-medium text-lg">{uploading ? "Uploading..." : "Click to upload"}</p><p className="text-sm text-muted-foreground mt-1">JPG, PNG (max 10MB)</p></div></div></Label><Input id="photo-upload" type="file" accept="image/*" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} /></div></Card>{photos.length > 0 ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{photos.map(photo => <Card key={photo.id} className="overflow-hidden group relative"><div className="aspect-square relative"><img src={photo.signedUrl} alt={photo.name} className="w-full h-full object-cover" /><Button variant="destructive" size="icon" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemovePhoto(photo.id, photo.storage_path)}><X className="w-4 h-4" /></Button></div><div className="p-3"><p className="text-sm font-medium truncate">{photo.name}</p></div></Card>)}</div> : <Card className="p-12 text-center"><ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-4" /><h3 className="text-xl font-semibold mb-2">No photos yet</h3></Card>}</TabsContent>
-        </Tabs>
+
+        {/* Recent session hint */}
+        {lastSession && (
+          <Card className="p-4 border bg-accent/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Last session</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(lastSession.startedAt), "EEEE, MMM d 'at' h:mm a")}
+                    {lastSession.durationSec && ` · ${Math.round(lastSession.durationSec / 60)} min`}
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/history")} className="text-xs">
+                History <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );
