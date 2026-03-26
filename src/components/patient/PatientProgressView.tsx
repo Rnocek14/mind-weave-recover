@@ -20,7 +20,7 @@ import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { useAchievements } from "@/hooks/useAchievements";
-import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { useMayaState } from "@/hooks/useMayaState";
 import { MayaInterpretationCard } from "@/components/patient/MayaInterpretationCard";
 import { MilestoneToast } from "@/components/patient/MilestoneToast";
 
