@@ -246,7 +246,7 @@ export function selectNextProbe(input: ProbeSelectionInput): ProbeDecision {
         if (recentInDomain.successBand === 'low') difficultyHint = 'easier';
         else if (recentInDomain.successBand === 'high') difficultyHint = 'harder';
       }
-      if (fatigueState === 'mild') difficultyHint = 'easier';
+      if (mildlyTired) difficultyHint = 'easier';
 
       return {
         action: 'launch_exercise',
