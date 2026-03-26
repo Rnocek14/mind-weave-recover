@@ -11,7 +11,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { saveCoachSessionSummary, loadLatestCoachSummary, formatMemoryForPrompt, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import type { MayaState } from '@/lib/buildMayaState';
+import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
   getNextAction, 
   createInitialState, 
