@@ -195,7 +195,8 @@ export const useExerciseTelemetry = (
   const reset = useCallback(() => {
     setTrialNumber(0);
     setTrialStartTime(null);
-  }, []);
+    resetEncouragement();
+  }, [resetEncouragement]);
 
   return {
     trialNumber,
