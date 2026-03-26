@@ -28,12 +28,16 @@ export interface CardConfig {
   itemId?: string;
 }
 
+// Popup exercise trigger reasons
+export type PopupReason = 'repeated_struggle' | 'targeted_probe' | 'domain_boost' | 'fatigue_safe_switch';
+
 // Possible actions the orchestrator can take
 export type NextAction =
   | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
-  | { type: 'summary_verify'; summary: string }  // NEW: Summarize and verify before moving on
-  | { type: 'topic_shift' }  // NEW: Force topic change
+  | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
+  | { type: 'summary_verify'; summary: string }
+  | { type: 'topic_shift' }
   | { type: 'wrap_up' };
 
 // Session state for making decisions - ENHANCED
