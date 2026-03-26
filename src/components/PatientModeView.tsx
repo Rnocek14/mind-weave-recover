@@ -122,8 +122,8 @@ export function PatientModeView({
   // Encouragement — powered by Maya continuity line + thread coherence
   const encouragement = useMemo(() => {
     // Prefer memory line for longitudinal feel, then continuity
-    if (mayaInsight?.memoryLine) return mayaInsight.memoryLine;
-    if (mayaInsight?.continuityLine) return mayaInsight.continuityLine;
+    if (mayaInsight?.trends?.memoryLine) return mayaInsight.trends.memoryLine;
+    if (mayaInsight?.trends?.continuityLine) return mayaInsight.trends.continuityLine;
     // Thread-aware fallback
     if (mayaInsight?.thread?.primaryDomainLabel && mayaInsight.thread.tone === "celebrating") {
       return `Your ${mayaInsight.thread.primaryDomainLabel} is on a great trajectory ✨`;
