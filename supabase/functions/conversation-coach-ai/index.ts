@@ -203,12 +203,12 @@ const RESPOND_TOOL = {
         response: {
           type: "string",
           description:
-            "Your spoken response to the user. Maximum 18 words. Must end with a question, choice, or continuation invitation.",
+            "Your spoken response. Start with a brief human reaction (e.g. 'Oh nice!', 'Ha really?', 'Hmm got it'), then your question or follow-up. Maximum 18 words total.",
         },
         memory: {
           type: "string",
           description:
-            "1-2 sentence summary of EVERYTHING discussed so far in this conversation. Include all topics, people, places, activities, foods, events — anything the user mentioned. This will be your memory for the next turn.",
+            "Structured memory: TOPIC: [current topic]. DETAILS: [key people, places, things mentioned]. THREAD: [what they were just talking about]. Keep updating — never lose earlier details.",
         },
       },
       required: ["response", "memory"],
