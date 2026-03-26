@@ -146,6 +146,7 @@ function buildSystemPrompt(
   challengingSounds: string[],
   semanticMemory: string,
   therapyIntent?: string,
+  speechState?: 'struggling' | 'flowing' | 'neutral',
 ): string {
   let context = '';
 
