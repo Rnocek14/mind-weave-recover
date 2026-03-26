@@ -461,14 +461,22 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
-      // FLOW ENGINE: Context-aware popup transition
-      const introLines = [
-        "Let's try a quick practice based on what we were talking about.",
-        "I noticed something — let me show you a quick exercise.",
-        "Let's work on that a different way for a moment.",
-        "Based on what I'm hearing, let's try this.",
-      ];
-      const intro = introLines[Math.floor(Math.random() * introLines.length)];
+      // FLOW ENGINE: Context-aware popup transition (warm, not clinical)
+      const currentTopic = orchestratorStateRef.current.currentTopic;
+      const popupIntros = currentTopic
+        ? [
+            `Since we're on ${currentTopic} — want to try a quick one?`,
+            `Oh, that reminds me — let me show you something fun.`,
+            `Hmm, related to ${currentTopic} — how about this?`,
+            `Hey, I've got a quick one you might like.`,
+          ]
+        : [
+            "Oh hey — want to try something quick?",
+            "I've got a fun one — take a look.",
+            "Let me show you something real quick.",
+            "Here's a quick one — just for fun.",
+          ];
+      const intro = popupIntros[Math.floor(Math.random() * popupIntros.length)];
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
