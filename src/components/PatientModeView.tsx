@@ -68,6 +68,7 @@ export function PatientModeView({
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
   const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
+  const { primaryStruggle } = useCaregiverDomainGuidance(userId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
