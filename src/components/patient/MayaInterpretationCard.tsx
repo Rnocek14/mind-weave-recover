@@ -53,6 +53,7 @@ export function MayaInterpretationCard({
   rightNow,
   memoryLine,
   verbosity,
+  thread,
 }: MayaInterpretationCardProps) {
   const { seeing, helping, workingOn } = interpretation;
   const hasContent = seeing.length > 0 || helping.length > 0 || workingOn.length > 0;
