@@ -790,10 +790,10 @@ export const CARD_OUTRO_LINES: string[] = [
 ];
 
 export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
-  food: ["Nice! What else about food?", "Good! Tell me more about eating."],
-  family: ["Great! More about your family?", "Nice! Who else?"],
-  morning: ["Good! What else this morning?"],
-  activities: ["Great! What else did you do?"],
+  food: ["That was good! So — more about what you were eating?", "Nice! Okay, back to food — what else?"],
+  family: ["Got it! So, tell me more about your family.", "Nice one! You were saying about your family..."],
+  morning: ["Good! So, what else happened this morning?", "Ha, nice. Anyway — your morning, what else?"],
+  activities: ["That came out well! So — what else did you do?", "Nice! Okay, back to what you were up to."],
 };
 
 // DEDUP GUARD: Track last used card intros
