@@ -5,13 +5,14 @@ import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight, Star } from "l
 import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
-import { generateAnticipation, type MayaDomainInput } from "@/lib/mayaNarrative";
+import { generateThreadReinforcement, type MayaNarrativeThread } from "@/lib/mayaNarrative";
 
 interface PostSessionCardProps {
   feedback: LastSessionFeedback;
   onDismiss: () => void;
   onStartSession?: () => void;
   anticipation?: string | null;
+  thread?: MayaNarrativeThread | null;
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
