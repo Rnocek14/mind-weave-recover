@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
@@ -89,6 +90,7 @@ export const useExerciseTelemetry = (
   const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   const [trialNumber, setTrialNumber] = useState(0);
   const [trialStartTime, setTrialStartTime] = useState<number | null>(null);
+  const { trackTrial: trackEncouragement, reset: resetEncouragement } = useMicroEncouragement();
 
   const startTrial = useCallback(() => {
     setTrialStartTime(Date.now());
@@ -175,6 +177,9 @@ export const useExerciseTelemetry = (
         const { error } = await supabase.from('exercise_events').insert(eventData);
 
         if (error) throw error;
+
+        // Trigger micro-encouragement after successful log
+        trackEncouragement(trial.correct, trial.reactionTimeMs, trial.cueLevel);
       } catch (error) {
         console.error('Error logging trial:', error);
       }
@@ -190,7 +195,8 @@ export const useExerciseTelemetry = (
   const reset = useCallback(() => {
     setTrialNumber(0);
     setTrialStartTime(null);
-  }, []);
+    resetEncouragement();
+  }, [resetEncouragement]);
 
   return {
     trialNumber,

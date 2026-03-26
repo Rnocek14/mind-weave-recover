@@ -4,6 +4,7 @@ import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useProfile } from "@/hooks/useProfile";
+import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
 import { useMemo } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
 
@@ -140,27 +141,22 @@ export function CaregiverStatusHero({ userId, streak, patientName }: CaregiverSt
 }
 
 /**
- * "How You Can Help" card with actionable, non-clinical suggestions.
+ * "How You Can Help Today" — personalized, data-driven caregiver guidance.
+ * Uses cognitive domain scores to suggest real-world activities.
  */
 export function HowYouCanHelpCard({ userId }: { userId: string }) {
   const { flags } = useRedFlagDetection(userId);
   const { sessions } = useSessionHistory(userId);
   const { activeProfile } = useProfile();
   const { todayCheckin } = useDailyReadiness(activeProfile?.id || "");
+  const { primaryStruggle, isLoading: guidanceLoading } = useCaregiverDomainGuidance(userId);
 
   const tips = useMemo(() => {
-    const result: Array<{ text: string; icon: typeof Heart }> = [];
+    const result: Array<{ text: string; icon: typeof Heart; highlight?: boolean }> = [];
 
-    // Fatigue-based tips
+    // Fatigue-based tips (highest priority)
     if (todayCheckin?.fatigue_rating && todayCheckin.fatigue_rating >= 4) {
       result.push({ text: "They're feeling tired today — suggest a short, easy session or rest", icon: Heart });
-    }
-
-    // Engagement-based tips
-    const weekAgo = Date.now() - 7 * 86_400_000;
-    const recentCount = sessions.filter((s) => new Date(s.startedAt).getTime() > weekAgo).length;
-    if (recentCount < 2) {
-      result.push({ text: "Gently encourage them to try a session — even 5 minutes helps", icon: Lightbulb });
     }
 
     // Alert-based tips
@@ -168,32 +164,59 @@ export function HowYouCanHelpCard({ userId }: { userId: string }) {
       result.push({ text: "There are some concerns to review — you may want to contact their therapist", icon: AlertTriangle });
     }
 
-    // Default positive tips
+    // Domain-specific tips (the key upgrade!)
+    if (primaryStruggle) {
+      primaryStruggle.actions.forEach((action) => {
+        result.push({ text: action.text, icon: Lightbulb, highlight: true });
+      });
+    }
+
+    // Low engagement tips
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    const recentCount = sessions.filter((s) => new Date(s.startedAt).getTime() > weekAgo).length;
+    if (recentCount < 2) {
+      result.push({ text: "Gently encourage them to try a session — even 5 minutes helps", icon: Lightbulb });
+    }
+
+    // Default positive tips (only if nothing else)
     if (result.length === 0) {
       result.push({ text: "Celebrate their progress — positive reinforcement helps recovery", icon: Heart });
       result.push({ text: "Practice together — you can sit with them during a session", icon: Lightbulb });
     }
 
-    return result.slice(0, 3);
-  }, [todayCheckin, sessions, flags]);
+    return result.slice(0, 4);
+  }, [todayCheckin, sessions, flags, primaryStruggle]);
+
+  const headline = primaryStruggle
+    ? `This week, they're working on ${primaryStruggle.caregiverLabel}`
+    : null;
 
   return (
     <Card className="p-5 border-2 space-y-3">
       <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
         <Heart className="w-5 h-5 text-pink-500" />
-        How You Can Help
+        How You Can Help Today
       </h3>
+
+      {headline && (
+        <p className="text-sm text-muted-foreground italic">{headline}</p>
+      )}
+
       <div className="space-y-2.5">
         {tips.map((tip, i) => {
           const Icon = tip.icon;
           return (
             <div key={i} className="flex items-start gap-3">
-              <Icon className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${tip.highlight ? "text-primary" : "text-muted-foreground"}`} />
               <p className="text-sm text-foreground">{tip.text}</p>
             </div>
           );
         })}
       </div>
+
+      <p className="text-xs text-muted-foreground pt-1">
+        Small moments like these make a big difference 💛
+      </p>
     </Card>
   );
 }
