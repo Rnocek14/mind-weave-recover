@@ -115,18 +115,22 @@ export function PatientModeView({
     return `Good evening${nameStr} 🌙`;
   }, [activeProfile]);
 
-  // Encouragement — dynamic based on last session feedback
+  // Encouragement — dynamic based on last session feedback + domain
   const encouragement = useMemo(() => {
     if (feedback) {
+      if (feedback.independentCorrect >= 3) return `${feedback.independentCorrect} answers on your own last time — impressive! ⭐`;
       if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct answers than last session — nice! 📈`;
       if (feedback.accuracy >= 80) return "You're doing really well — keep it up! 💪";
       if (feedback.streak >= 3) return `${feedback.streak} days in a row — amazing consistency! 🔥`;
     }
+    if (primaryStruggle && sessions.length >= 3) {
+      return `You're working on ${primaryStruggle.caregiverLabel} — every session helps ✨`;
+    }
     if (streak >= 7) return "Amazing consistency! 🌟";
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";
-    return "Let's get started! 💛";
-  }, [streak, sessions.length, feedback]);
+    return "Your recovery journey starts here 💛";
+  }, [streak, sessions.length, feedback, primaryStruggle]);
 
 
   const handleStartSession = () => {
