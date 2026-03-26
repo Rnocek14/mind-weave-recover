@@ -699,7 +699,7 @@ function calculateScaffoldingLevel(
 
 // Card intro/outro lines
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: ["Quick one! Name this.", "What's this?", "Easy warm-up."],
+  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?"],
   semantic_features: ["Describe this for me.", "Tell me about this."],
   thought_prompt: ["Finish this thought.", "Complete this."],
   phrase_starter: ["Pick one to start.", "Use any of these."],
