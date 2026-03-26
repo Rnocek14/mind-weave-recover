@@ -303,7 +303,10 @@ export function PatientModeView({
             <div className="flex flex-col justify-center min-h-full animate-fade-in py-4 gap-4">
               {/* Greeting + encouragement */}
               <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                <p className={cn(
+                  "text-sm font-medium text-muted-foreground uppercase tracking-wide",
+                  streak >= 3 && "animate-streak-glow"
+                )}>
                   {streak > 0 ? `${streak}-day streak 🔥` : "Welcome"}
                 </p>
                 <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
