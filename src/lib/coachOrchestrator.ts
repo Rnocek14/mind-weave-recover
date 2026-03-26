@@ -380,6 +380,9 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     currentTopic: null,
     userRequestedCards: 0,
     scaffoldingLevel: 'guided',
+    popupExercisesThisSession: 0,
+    turnsSinceLastPopup: 99,
+    repeatedStuckCount: 0,
   };
 }
 
