@@ -187,6 +187,8 @@ export const PatientProgressView = memo(function PatientProgressView({
           anticipation={mayaInsight.anticipation}
           summary={mayaInsight.summary}
           rightNow={mayaInsight.rightNow}
+          memoryLine={mayaInsight.memoryLine}
+          verbosity={mayaInsight.verbosity}
         />
       )}
 
