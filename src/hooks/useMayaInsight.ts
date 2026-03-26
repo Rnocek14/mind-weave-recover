@@ -53,8 +53,18 @@ export function useMayaInsight({ userId, profileId }: UseMayaInsightOptions): {
 
     // Build session input
     const weekAgo = Date.now() - 7 * 86_400_000;
+    const twoWeeksAgo = Date.now() - 14 * 86_400_000;
     const recentSessionCount = sessions.filter(
       s => new Date(s.startedAt).getTime() > weekAgo
+    ).length;
+    const previousWeekSessionCount = sessions.filter(
+      s => {
+        const t = new Date(s.startedAt).getTime();
+        return t > twoWeeksAgo && t <= weekAgo;
+      }
+    ).length;
+    const totalSessionsLast14Days = sessions.filter(
+      s => new Date(s.startedAt).getTime() > twoWeeksAgo
     ).length;
 
     // Compute streak
@@ -78,6 +88,8 @@ export function useMayaInsight({ userId, profileId }: UseMayaInsightOptions): {
       lastSessionIndependent: feedback?.independentCorrect,
       correctDelta: feedback?.correctDelta,
       streak,
+      previousWeekSessionCount,
+      totalSessionsLast14Days,
     };
 
     // Build cue inputs

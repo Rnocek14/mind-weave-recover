@@ -119,6 +119,8 @@ export function PatientModeView({
 
   // Encouragement — powered by Maya continuity line
   const encouragement = useMemo(() => {
+    // Prefer memory line for longitudinal feel, then continuity
+    if (mayaInsight?.memoryLine) return mayaInsight.memoryLine;
     if (mayaInsight?.continuityLine) return mayaInsight.continuityLine;
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";

@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Eye, Lightbulb, Target } from "lucide-react";
-import type { MayaInsight } from "@/lib/mayaNarrative";
+import { Eye, Lightbulb, Target, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import type { MayaInsight, MayaVerbosity } from "@/lib/mayaNarrative";
 
 interface MayaInterpretationCardProps {
   interpretation: MayaInsight["interpretation"];
   anticipation: string | null;
   summary: string | null;
   rightNow: string | null;
+  memoryLine: string | null;
+  verbosity: MayaVerbosity;
 }
 
 interface SectionProps {
@@ -39,13 +43,40 @@ function Section({ icon: Icon, title, items, accentClass, iconClass }: SectionPr
 
 /**
  * Maya's interpretation of recovery progress.
- * Shows "What I'm Seeing", "What's Helping", and "What We're Working On".
+ * Adapts verbosity: minimal (1 line), standard (summary + sections), detailed (full + memory).
  */
-export function MayaInterpretationCard({ interpretation, anticipation, summary, rightNow }: MayaInterpretationCardProps) {
+export function MayaInterpretationCard({
+  interpretation,
+  anticipation,
+  summary,
+  rightNow,
+  memoryLine,
+  verbosity,
+}: MayaInterpretationCardProps) {
   const { seeing, helping, workingOn } = interpretation;
   const hasContent = seeing.length > 0 || helping.length > 0 || workingOn.length > 0;
+  const [detailsOpen, setDetailsOpen] = useState(verbosity === "detailed");
 
   if (!hasContent && !summary) return null;
+
+  // Minimal: compact single-line card
+  if (verbosity === "minimal" && summary) {
+    return (
+      <Card className="p-4 border-2">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-xs">🧠</span>
+          </div>
+          <p className="text-sm text-foreground font-medium flex-1">{summary}</p>
+        </div>
+        {rightNow && (
+          <p className="text-sm text-primary font-medium mt-2 pl-8">
+            👉 {rightNow}
+          </p>
+        )}
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-4 border-2 space-y-3">
@@ -59,7 +90,14 @@ export function MayaInterpretationCard({ interpretation, anticipation, summary, 
         </h3>
       </div>
 
-      {/* Summary sentence — cohesive narrative first */}
+      {/* Memory line — longitudinal awareness */}
+      {memoryLine && (
+        <p className="text-sm text-muted-foreground italic">
+          {memoryLine}
+        </p>
+      )}
+
+      {/* Summary sentence — cohesive narrative */}
       {summary && (
         <p className="text-sm text-foreground leading-relaxed font-medium">
           {summary}
@@ -73,30 +111,36 @@ export function MayaInterpretationCard({ interpretation, anticipation, summary, 
         </p>
       )}
 
-      {/* Detail sections */}
-      <div className="space-y-2.5">
-        <Section
-          icon={Eye}
-          title="What I'm Seeing"
-          items={seeing}
-          accentClass="bg-primary/5 border-primary/15"
-          iconClass="text-primary"
-        />
-        <Section
-          icon={Lightbulb}
-          title="What's Helping"
-          items={helping}
-          accentClass="bg-emerald-500/5 border-emerald-500/15"
-          iconClass="text-emerald-600"
-        />
-        <Section
-          icon={Target}
-          title="What We're Working On"
-          items={workingOn}
-          accentClass="bg-amber-500/5 border-amber-500/15"
-          iconClass="text-amber-600"
-        />
-      </div>
+      {/* Collapsible detail sections */}
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "rotate-180" : ""}`} />
+          {detailsOpen ? "Hide details" : "See what Maya is tracking"}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2.5 pt-2.5">
+          <Section
+            icon={Eye}
+            title="What I'm Seeing"
+            items={seeing}
+            accentClass="bg-primary/5 border-primary/15"
+            iconClass="text-primary"
+          />
+          <Section
+            icon={Lightbulb}
+            title="What's Helping"
+            items={helping}
+            accentClass="bg-emerald-500/5 border-emerald-500/15"
+            iconClass="text-emerald-600"
+          />
+          <Section
+            icon={Target}
+            title="What We're Working On"
+            items={workingOn}
+            accentClass="bg-amber-500/5 border-amber-500/15"
+            iconClass="text-amber-600"
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       {anticipation && (
         <p className="text-sm text-muted-foreground italic pt-1 border-t border-border/50">
