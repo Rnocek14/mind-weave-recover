@@ -85,6 +85,7 @@ export interface OrchestratorState {
   lastCardType: CardType | null;
   yesNoSucceeded: boolean;
   currentTopic: string | null;
+  turnsOnCurrentTopic: number; // NEW: Track how long we've been on same topic
   userRequestedCards: number;
   scaffoldingLevel: 'open' | 'guided' | 'choice';
   
@@ -116,9 +117,10 @@ const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
   MAX_CARDS_PER_SESSION: 8,
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
-  MAX_CONSECUTIVE_FOLLOWUPS: 1,
+  MAX_CONSECUTIVE_FOLLOWUPS: 3,  // HARDENED: was 1, now 3 before forced intervention
   TURNS_BETWEEN_REPS: 3,
   WARMUP_CARDS_REQUIRED: 2,
+  MAX_TURNS_ON_TOPIC: 5,  // NEW: Force topic shift after this many turns
   // Popup exercise limits
   MAX_POPUP_PER_SESSION: 3,
   MIN_TURNS_BETWEEN_POPUPS: 5,
@@ -214,6 +216,12 @@ export function getNextAction(
     }
     
     // Option C: Topic shift
+    return { type: 'topic_shift' };
+  }
+
+  // 4a. TOPIC ESCAPE: Same topic too long → force shift
+  if (state.turnsOnCurrentTopic >= LIMITS.MAX_TURNS_ON_TOPIC && state.currentTopic) {
+    console.log('[orchestrator] Topic escape triggered after', state.turnsOnCurrentTopic, 'turns on', state.currentTopic);
     return { type: 'topic_shift' };
   }
 
@@ -559,6 +567,7 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     lastCardType: null,
     yesNoSucceeded: false,
     currentTopic: null,
+    turnsOnCurrentTopic: 0,
     userRequestedCards: 0,
     scaffoldingLevel: 'guided',
     popupExercisesThisSession: 0,
@@ -653,6 +662,7 @@ export function updateState(
     lastCardType: cardInserted && cardType ? cardType : state.lastCardType,
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
+    turnsOnCurrentTopic: (topic && topic !== state.currentTopic) ? 1 : state.turnsOnCurrentTopic + 1,
     scaffoldingLevel: newScaffoldingLevel,
     popupExercisesThisSession: state.popupExercisesThisSession,
     turnsSinceLastPopup: state.turnsSinceLastPopup + 1,
@@ -768,13 +778,19 @@ export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
   activities: ["Great! What else did you do?"],
 };
 
+// DEDUP GUARD: Track last used card intros
+const _lastCardIntros: string[] = [];
+
 export function getCardIntro(cardType: CardType, topic?: string | null): string {
-  if (topic && TOPIC_CARD_INTROS[topic]?.[cardType]) {
-    const lines = TOPIC_CARD_INTROS[topic][cardType];
-    return lines[Math.floor(Math.random() * lines.length)];
-  }
-  const lines = CARD_INTRO_LINES[cardType];
-  return lines[Math.floor(Math.random() * lines.length)];
+  const lines = (topic && TOPIC_CARD_INTROS[topic]?.[cardType])
+    ? TOPIC_CARD_INTROS[topic][cardType]
+    : CARD_INTRO_LINES[cardType];
+  const available = lines.filter(l => !_lastCardIntros.includes(l));
+  const pool = available.length > 0 ? available : lines;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  _lastCardIntros.push(picked);
+  if (_lastCardIntros.length > 4) _lastCardIntros.shift();
+  return picked;
 }
 
 export function getCardOutro(topic?: string): string {
