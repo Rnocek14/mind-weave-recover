@@ -69,23 +69,23 @@ function buildSemanticMemory(
 function getIntentInstruction(intent?: string): string {
   const map: Record<string, string> = {
     expand_topic:
-      'Ask a specific follow-up about what they just shared. Reference a detail from their words.',
+      'You\'re genuinely curious about what they shared. Pick a specific detail and ask about it because YOU want to know — like a friend who\'s actually interested. Offer a choice if it helps ("was it X or Y?").',
     probe_word_finding:
-      'Gently elicit a specific word. Ask "what was it called?" or "which one?" about something they mentioned.',
+      'Ask a question where the answer naturally IS the word they need. Don\'t say "what\'s it called?" — instead ask something like "which place was that?" or "who was with you?" so the word comes out organically.',
     probe_sentence:
-      'Encourage a slightly longer response. Ask something that needs more than one word to answer.',
+      'Ask something that invites a little story, not just a word. "What happened when…?" or "How did that go?" Let them stretch.',
     confirm_understanding:
-      'Briefly check you understood. Paraphrase what they said and ask "right?"',
+      'Echo back what you think they meant in your own words, then check — "So you went to the park, right?" Quick and natural.',
     build_confidence:
-      'Be warmly supportive. Acknowledge what they said. Keep your question very easy (yes/no or A-or-B choice).',
+      'They need a win. React warmly to what they said, then ask something super easy — a yes/no or simple choice. Make them feel heard.',
     gentle_repair:
-      'They struggled. Acknowledge naturally, maybe model a simpler way to say it, then give an easy follow-up.',
+      'They got stuck. That\'s okay. React naturally ("no rush" or "I think I get it"), maybe offer the word you think they meant, then give them an easy one.',
     shift_topic:
-      'Smoothly move to something new but connected to what they already shared.',
+      'Bridge to something new using what they already said. "That reminds me — do you also like…?" Keep it connected.',
     prepare_exercise:
-      'Set up a natural transition to a practice activity.',
+      'Smoothly set up a transition: "Hey, want to try a quick thing?" Make it feel like a fun break, not a test.',
     reflect_progress:
-      'Notice something they did well and mention it naturally.',
+      'You noticed something good — they used a harder word, spoke more fluently, or tried something new. Mention it casually, not like grading them.',
   };
   return map[intent || 'expand_topic'] || map.expand_topic;
 }
