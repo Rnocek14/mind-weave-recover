@@ -220,9 +220,35 @@ export function getNextAction(
     sessionPhase === 'conversation'; // Only during conversation phase
   
   if (canPopup && state.repeatedStuckCount >= LIMITS.REPEATED_STUCK_THRESHOLD) {
+    // Use profile-driven probe selection
+    const probeInput: ProbeSelectionInput = {
+      profile: state.clinicalProfile,
+      mayaState: state.mayaState,
+      recentResults: state.recentExerciseResults,
+      speechAnalysis: speechAnalysis || null,
+      sessionPhase: state.sessionPhase,
+      fatigueState: state.fatigueState,
+      popupCount: state.popupExercisesThisSession,
+      recentPopupSlugs: state.recentPopupSlugs,
+      turnNumber: state.turnNumber,
+    };
+    const probeDecision = selectNextProbe(probeInput);
+    
+    if (probeDecision.action === 'launch_exercise') {
+      console.log('[orchestrator] Profile-driven popup:', probeDecision);
+      return {
+        type: 'popup_exercise',
+        slug: probeDecision.slug,
+        reason: probeDecision.reason,
+        targetDomain: probeDecision.targetDomain,
+        difficultyHint: probeDecision.difficultyHint,
+      };
+    }
+    
+    // Fallback to old heuristic if probe selector says stay conversational
     const popupDecision = selectPopupExercise(stuckType, speechAnalysis);
     if (popupDecision) {
-      console.log('[orchestrator] Triggering popup exercise:', popupDecision);
+      console.log('[orchestrator] Fallback popup exercise:', popupDecision);
       return popupDecision;
     }
   }
