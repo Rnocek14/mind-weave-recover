@@ -495,7 +495,26 @@ export function useCoachSession({
         }));
       const topic = extractTopicFromMessages(conversationHistory);
       
-      const intro = getCardIntro(action.cardType, topic);
+      // FLOW ENGINE: Use context-aware bridge instead of canned intro
+      const intro = generateContextBridge(
+        {
+          phase: orchestratorStateRef.current.sessionPhase === 'warmup' ? 'warmup' : 'explore',
+          turnCount: orchestratorStateRef.current.turnNumber,
+          turnsSinceLastProbe: orchestratorStateRef.current.turnsSinceLastCard,
+          turnsOnCurrentTopic: orchestratorStateRef.current.turnsOnCurrentTopic,
+          consecutiveStruggles: 0,
+          consecutiveFlowTurns: 0,
+          fatigueLevel: orchestratorStateRef.current.fatigueState,
+          lastActionType: 'conversation',
+          probeCountThisSession: orchestratorStateRef.current.cardsInsertedThisSession,
+          conversationTurnsBeforeFirstProbe: 0,
+          currentTopic: topic,
+          lastUserTranscript: transcript,
+        },
+        stuckType,
+        action.cardType,
+        topic,
+      );
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
