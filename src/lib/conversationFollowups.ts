@@ -83,10 +83,11 @@ const FOLLOWUP_LINES: Record<FollowupType, string[]> = {
     "Wait, really? Keep going.",
   ],
   wrap_up: [
-    "Great chat! Talk again soon.",
-    "Good conversation. Let's stop there.",
-    "That was nice. We're done for now.",
-    "Thanks for chatting! See you next time.",
+    "This was really nice. Let's chat again soon!",
+    "I enjoyed that — talk to you next time.",
+    "Good stuff today. See you soon!",
+    "That was fun! We'll pick up next time.",
+    "Nice chatting with you. Until next time!",
   ],
 };
 
