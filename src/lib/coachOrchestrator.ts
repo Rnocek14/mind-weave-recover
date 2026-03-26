@@ -145,6 +145,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: 'what_next',
       objective: 'topic_exploration',
+      therapyIntent: 'expand_topic',
       showTiles: true,
     };
   }
