@@ -77,6 +77,9 @@ export function ConversationCoachGame({
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
   const [inputBuffer, setInputBuffer] = useState('');
 
+  // Unified Maya intelligence
+  const { state: mayaState } = useMayaState({ userId, profileId });
+
   // Fetch user speech profile for personalization
   const { profile: speechProfile } = useUserSpeechProfile(userId, { profileId });
   
