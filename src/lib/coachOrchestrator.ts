@@ -744,55 +744,56 @@ function calculateScaffoldingLevel(
   return 'guided';
 }
 
-// Card intro/outro lines - DIVERSIFIED to prevent repetition
+// Card intro/outro lines - warm and human, never clinical
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?", "What do you see here?", "Name this for me."],
-  semantic_features: ["Describe this for me.", "Tell me about this.", "What do you know about this?", "How would you describe this?"],
-  thought_prompt: ["Finish this thought.", "Complete this.", "How would you finish this?", "Try finishing this one."],
-  phrase_starter: ["Pick one to start.", "Use any of these.", "Try one of these.", "Which one sounds right?"],
-  yes_no: ["Quick yes or no.", "Simple question.", "True or false?", "What do you think?"],
-  recall_prompt: ["Name anything that fits.", "What comes to mind?", "Think of any you know.", "List a few if you can."],
+  photo_naming: ["Oh — what's this one?", "Hey, take a look.", "How about this — know what it is?", "Quick one — what do you see?", "Here, have a look."],
+  semantic_features: ["Tell me what you know about this.", "How would you describe this one?", "What comes to mind when you see this?"],
+  thought_prompt: ["Hmm — how would you finish this?", "Try this one.", "What do you think comes next?"],
+  phrase_starter: ["Pick whichever feels right.", "Any of these work — try one.", "Which one sounds good to you?"],
+  yes_no: ["Quick one — yes or no?", "What do you think?", "Simple one for you."],
+  recall_prompt: ["What comes to mind?", "Name any that you can think of.", "Just say whatever pops up."],
 };
 
 export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
   food: {
-    photo_naming: ["Speaking of food, name this.", "Quick food one!", "Know this food?"],
-    semantic_features: ["Describe this food.", "Tell me about this food."],
-    thought_prompt: ["Finish this about food...", "Complete this one..."],
-    phrase_starter: ["Try one of these...", "Pick a food phrase."],
-    yes_no: ["Quick food question.", "Yes or no — about food.", "True or false?"],
-    recall_prompt: ["Name any foods you like.", "Think of some foods.", "What foods come to mind?"],
+    photo_naming: ["Oh, since we're on food — what's this?", "Here's a food one — take a look."],
+    semantic_features: ["Hmm, tell me about this food.", "What do you know about this one?"],
+    thought_prompt: ["Finish this one for me.", "How would you end this?"],
+    phrase_starter: ["Pick whichever feels right.", "Try any of these."],
+    yes_no: ["Quick one — yes or no?", "What do you think?"],
+    recall_prompt: ["What foods come to mind?", "Name any you can think of."],
   },
   family: {
-    photo_naming: ["Quick one.", "Know who this is?", "Name this one."],
-    semantic_features: ["Tell me about them.", "Describe this person."],
-    thought_prompt: ["Finish this thought...", "Complete this..."],
-    phrase_starter: ["Start with one of these.", "Try a phrase."],
-    yes_no: ["Quick question.", "Yes or no?", "Simple one."],
-    recall_prompt: ["Name anyone who comes to mind.", "Think of some people."],
+    photo_naming: ["Take a look — who's this?", "Here's one — know who this is?"],
+    semantic_features: ["Tell me about this person.", "What can you say about them?"],
+    thought_prompt: ["How would you finish this?", "Try this one."],
+    phrase_starter: ["Pick one that sounds right.", "Try any of these."],
+    yes_no: ["Quick one — yes or no?", "What do you think?"],
+    recall_prompt: ["Who comes to mind?", "Name anyone you can think of."],
   },
   activities: {
-    photo_naming: ["Name this one!", "How about this?", "Quick — what is it?", "Know what this is?"],
-    semantic_features: ["Describe this.", "Tell me about this activity."],
-    thought_prompt: ["Complete this...", "Finish this thought."],
-    phrase_starter: ["Pick one.", "Try any of these."],
-    yes_no: ["Yes or no?", "Quick question.", "True or false?"],
-    recall_prompt: ["Name any activities.", "What activities come to mind?"],
+    photo_naming: ["Oh, related to that — what's this?", "Take a look — what do you see?"],
+    semantic_features: ["Tell me about this.", "What do you know about this one?"],
+    thought_prompt: ["How would you finish this?", "Try this one."],
+    phrase_starter: ["Pick one.", "Try whichever sounds right."],
+    yes_no: ["Quick one — yes or no?", "What do you think?"],
+    recall_prompt: ["What comes to mind?", "Name any you can think of."],
   },
 };
 
 export const CARD_OUTRO_LINES: string[] = [
-  "Nice! Back to chatting.",
-  "Good one! So...",
-  "Great! Tell me more.",
-  "Perfect! What else?",
+  "Ha, nice! Okay — where were we?",
+  "See? That came out well. So...",
+  "Got it! Okay, back to chatting.",
+  "That was good! So, you were saying...",
+  "Nice one! Anyway — what else?",
 ];
 
 export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
-  food: ["Nice! What else about food?", "Good! Tell me more about eating."],
-  family: ["Great! More about your family?", "Nice! Who else?"],
-  morning: ["Good! What else this morning?"],
-  activities: ["Great! What else did you do?"],
+  food: ["That was good! So — more about what you were eating?", "Nice! Okay, back to food — what else?"],
+  family: ["Got it! So, tell me more about your family.", "Nice one! You were saying about your family..."],
+  morning: ["Good! So, what else happened this morning?", "Ha, nice. Anyway — your morning, what else?"],
+  activities: ["That came out well! So — what else did you do?", "Nice! Okay, back to what you were up to."],
 };
 
 // DEDUP GUARD: Track last used card intros

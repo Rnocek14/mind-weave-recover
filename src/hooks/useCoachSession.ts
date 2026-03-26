@@ -461,14 +461,22 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
-      // FLOW ENGINE: Context-aware popup transition
-      const introLines = [
-        "Let's try a quick practice based on what we were talking about.",
-        "I noticed something — let me show you a quick exercise.",
-        "Let's work on that a different way for a moment.",
-        "Based on what I'm hearing, let's try this.",
-      ];
-      const intro = introLines[Math.floor(Math.random() * introLines.length)];
+      // FLOW ENGINE: Context-aware popup transition (warm, not clinical)
+      const currentTopic = orchestratorStateRef.current.currentTopic;
+      const popupIntros = currentTopic
+        ? [
+            `Since we're on ${currentTopic} — want to try a quick one?`,
+            `Oh, that reminds me — let me show you something fun.`,
+            `Hmm, related to ${currentTopic} — how about this?`,
+            `Hey, I've got a quick one you might like.`,
+          ]
+        : [
+            "Oh hey — want to try something quick?",
+            "I've got a fun one — take a look.",
+            "Let me show you something real quick.",
+            "Here's a quick one — just for fun.",
+          ];
+      const intro = popupIntros[Math.floor(Math.random() * popupIntros.length)];
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
@@ -663,15 +671,28 @@ export function useCoachSession({
             rollingMemoryRef.current = data.memoryUpdate;
           }
           
-          // Dead-end recovery (should be rare with intent-driven prompt)
-          const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.'];
-          const lowerResponse = aiResponseText.toLowerCase().trim();
-          if (deadEnds.some(de => lowerResponse === de || lowerResponse === de.replace('.', ''))) {
-            // Use simple contextual continuation instead of canned template
-            const lastWord = transcript.trim().split(/\s+/).pop();
-            aiResponseText = lastWord && lastWord.length > 2
-              ? `${lastWord.charAt(0).toUpperCase() + lastWord.slice(1)}! And then?`
-              : 'Go on...';
+          // Dead-end recovery — anchor to something the user said
+          const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
+          const lowerResponse = aiResponseText.toLowerCase().trim().replace(/[.!]+$/, '');
+          if (deadEnds.some(de => lowerResponse === de.replace(/[.!]+$/, ''))) {
+            // Extract meaningful word from user's message for anchoring
+            const meaningfulFillers = new Set(['the','a','an','i','my','me','you','we','it','is','was','and','but','or','so','to','um','uh','like','just','yeah','yes','no']);
+            const userWords = transcript.trim().toLowerCase().split(/\s+/).filter(w => w.length > 2 && !meaningfulFillers.has(w));
+            const anchor = userWords.length > 0 ? userWords[userWords.length - 1] : null;
+            
+            const recoveries = anchor
+              ? [
+                  `Oh, ${anchor}! What happened with that?`,
+                  `Wait — ${anchor}? Tell me about that.`,
+                  `Hmm, ${anchor}. And then what?`,
+                  `${anchor.charAt(0).toUpperCase() + anchor.slice(1)} — I want to hear more about that.`,
+                ]
+              : [
+                  'Oh interesting — and then what happened?',
+                  'Hmm, tell me more about that.',
+                  'Ha — and then?',
+                ];
+            aiResponseText = recoveries[Math.floor(Math.random() * recoveries.length)];
           }
           
           // Check if AI suggested a break

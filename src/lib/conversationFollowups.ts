@@ -64,26 +64,30 @@ const FOLLOWUP_LINES: Record<FollowupType, string[]> = {
     "What's one word for it?",
     "Start small — one thing.",
   ],
-  // CRITICAL: acknowledge now uses peer-level, natural language (no "Nice!" spam)
+  // Peer-level, varied reactions — no repeated patterns
   acknowledge: [
     "Mm-hmm. And?",
     "Right, right. Go on.",
     "Got it. What else?",
     "Okay. Then what?",
     "Makes sense. Go on.",
-    "Got it. Tell me more.",
     "Ah, okay. Keep going.",
     "Oh really? Go on.",
     "I see. And?",
     "Got it, got it. Then?",
-    "Okay, okay. Continue.",
     "Hmm. Then what?",
+    "Oh wow. And then?",
+    "Ha, interesting. Go on.",
+    "Huh! What happened next?",
+    "Oh I like that. Tell me more.",
+    "Wait, really? Keep going.",
   ],
   wrap_up: [
-    "Great chat! Talk again soon.",
-    "Good conversation. Let's stop there.",
-    "That was nice. We're done for now.",
-    "Thanks for chatting! See you next time.",
+    "This was really nice. Let's chat again soon!",
+    "I enjoyed that — talk to you next time.",
+    "Good stuff today. See you soon!",
+    "That was fun! We'll pick up next time.",
+    "Nice chatting with you. Until next time!",
   ],
 };
 
@@ -185,6 +189,8 @@ export const WARMUP_GREETINGS = [
   "Hey there!",
   "Nice to chat!",
   "Hi!",
+  "Hey! Good to have you.",
+  "Oh hey! Ready to chat?",
 ];
 
 /**
