@@ -18,13 +18,13 @@ import {
   type SpeechAnalysisForOrchestrator,
   type NextAction,
   type CardType,
-} from '../src/lib/coachOrchestrator';
-import { type StuckType } from '../src/lib/stuckTypeClassifier';
+} from '@/lib/coachOrchestrator';
+import { type StuckType } from '@/lib/stuckTypeClassifier';
 import { 
   getFollowupLine, 
   getRandomOpener, 
   type FollowupType 
-} from '../src/lib/conversationFollowups';
+} from '@/lib/conversationFollowups';
 
 // ============================================================================
 // USER PROFILES - Different aphasia presentations
