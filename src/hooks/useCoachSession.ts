@@ -595,7 +595,12 @@ export function useCoachSession({
             // Suggested cue if user is struggling
             suggestedCue,
             // Prior session memory for continuity
-            priorSessionMemory: priorSessionSummary ? formatMemoryForPrompt(priorSessionSummary) : undefined,
+            // Maya intelligence context for continuity
+            priorSessionMemory: mayaState
+              ? formatMayaStateForCoachPrompt(mayaState)
+              : fallbackSummary
+                ? `PRIOR SESSION: ${fallbackSummary.maya_summary || 'No summary'}`
+                : undefined,
           }
         });
 
