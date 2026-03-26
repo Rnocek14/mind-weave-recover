@@ -12,6 +12,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
@@ -460,11 +461,12 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
-      // Trigger popup exercise modal
+      // FLOW ENGINE: Context-aware popup transition
       const introLines = [
-        "Let's try a quick practice together.",
-        "I have a short exercise that might help.",
-        "Let's work on this a different way.",
+        "Let's try a quick practice based on what we were talking about.",
+        "I noticed something — let me show you a quick exercise.",
+        "Let's work on that a different way for a moment.",
+        "Based on what I'm hearing, let's try this.",
       ];
       const intro = introLines[Math.floor(Math.random() * introLines.length)];
       addMessage({ type: 'ai', text: intro, id: generateId() });
@@ -494,7 +496,26 @@ export function useCoachSession({
         }));
       const topic = extractTopicFromMessages(conversationHistory);
       
-      const intro = getCardIntro(action.cardType, topic);
+      // FLOW ENGINE: Use context-aware bridge instead of canned intro
+      const intro = generateContextBridge(
+        {
+          phase: orchestratorStateRef.current.sessionPhase === 'warmup' ? 'warmup' : 'explore',
+          turnCount: orchestratorStateRef.current.turnNumber,
+          turnsSinceLastProbe: orchestratorStateRef.current.turnsSinceLastCard,
+          turnsOnCurrentTopic: orchestratorStateRef.current.turnsOnCurrentTopic,
+          consecutiveStruggles: 0,
+          consecutiveFlowTurns: 0,
+          fatigueLevel: orchestratorStateRef.current.fatigueState,
+          lastActionType: 'conversation',
+          probeCountThisSession: orchestratorStateRef.current.cardsInsertedThisSession,
+          conversationTurnsBeforeFirstProbe: 0,
+          currentTopic: topic,
+          lastUserTranscript: transcript,
+        },
+        stuckType,
+        action.cardType,
+        topic,
+      );
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
@@ -769,8 +790,8 @@ export function useCoachSession({
       }
     }
 
-    // Use topic-connected outro
-    const outro = getCardOutro(currentTopic || undefined);
+    // FLOW ENGINE: Use context-aware return instead of canned outro
+    const outro = generateTaskReturn(!!cardSuccess, currentTopic);
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     

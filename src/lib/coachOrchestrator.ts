@@ -117,14 +117,14 @@ const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
   MAX_CARDS_PER_SESSION: 8,
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
-  MAX_CONSECUTIVE_FOLLOWUPS: 3,  // HARDENED: was 1, now 3 before forced intervention
-  TURNS_BETWEEN_REPS: 3,
-  WARMUP_CARDS_REQUIRED: 2,
-  MAX_TURNS_ON_TOPIC: 5,  // NEW: Force topic shift after this many turns
+  MAX_CONSECUTIVE_FOLLOWUPS: 3,
+  TURNS_BETWEEN_REPS: 5,        // FLOW ENGINE: was 3, now 5 — let conversation breathe
+  WARMUP_CARDS_REQUIRED: 0,     // FLOW ENGINE: warmup is now conversation-only (no forced cards)
+  MAX_TURNS_ON_TOPIC: 6,
   // Popup exercise limits
   MAX_POPUP_PER_SESSION: 3,
   MIN_TURNS_BETWEEN_POPUPS: 5,
-  REPEATED_STUCK_THRESHOLD: 2,  // same stuck type N times → popup
+  REPEATED_STUCK_THRESHOLD: 2,
 };
 
 /**
@@ -163,22 +163,26 @@ export function getNextAction(
     };
   }
 
-  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first (with variety)
-  if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
-    // Alternate card types so warmup doesn't feel repetitive
-    const warmupCardSequence: CardType[] = ['photo_naming', 'yes_no', 'recall_prompt', 'semantic_features'];
-    const warmupCard = warmupCardSequence[warmupCardsCompleted % warmupCardSequence.length];
-    console.log('[orchestrator] Warmup phase - inserting card:', {
-      warmupCardsCompleted,
-      required: LIMITS.WARMUP_CARDS_REQUIRED,
-      cardType: warmupCard,
-      cardsInsertedThisSession,
-    });
+  // 1. FLOW ENGINE: Warmup phase is now conversation-only — NO cards
+  // Maya listens, builds comfort, and samples natural speech first
+  if (sessionPhase === 'warmup' && state.turnNumber < 3) {
+    console.log('[orchestrator] Warmup phase - conversation only, turn:', state.turnNumber);
+    // Even during warmup, if user is silent, offer gentle support (not a card)
+    if (stuckType === 'no_speech' || stuckType === 'prompt_overload') {
+      return {
+        type: 'chat_followup',
+        followupType: 'clarify_small',
+        objective: 'topic_exploration',
+        therapyIntent: 'build_confidence',
+        showTiles: true,
+      };
+    }
     return {
-      type: 'insert_card',
-      cardType: warmupCard,
-      config: { difficulty: 'easy' },
-      objective: 'word_retrieval',
+      type: 'chat_followup',
+      followupType: selectFollowupForFlow(state.turnNumber),
+      objective: 'topic_exploration',
+      therapyIntent: 'expand_topic',
+      showTiles: false,
     };
   }
 
@@ -298,19 +302,26 @@ export function getNextAction(
     };
   }
 
-  // 6. Proactive rep every 3 turns (even if flowing)
+  // 6. FLOW ENGINE: Proactive rep — but ONLY if conversation has had enough space
+  // Don't interrupt flow. Let user talk. Conversation IS therapy.
   if (turnsSinceLastCard >= LIMITS.TURNS_BETWEEN_REPS && 
       cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
       stuckType !== 'strong_flow') {
-    return {
-      type: 'insert_card',
-      cardType: selectQuickRepCard(state),
-      config: { difficulty: 'easy' },
-      objective: 'rep_practice',
-    };
+    // Additional flow check: skip if user is engaged and fluent
+    const isFlowing = speechAnalysis && speechAnalysis.fluencyScore > 60 && speechAnalysis.wordCount >= 5;
+    if (!isFlowing) {
+      return {
+        type: 'insert_card',
+        cardType: selectQuickRepCard(state),
+        config: { difficulty: 'easy' },
+        objective: 'rep_practice',
+      };
+    }
+    // User is flowing — let them continue, don't force a card
+    console.log('[orchestrator] Skipping proactive rep — user is flowing well');
   }
 
-  // 7. User flowing well - continue but track follow-up depth
+  // 7. User flowing well - continue conversation (this IS therapy)
   if (stuckType === 'strong_flow') {
     return {
       type: 'chat_followup',
@@ -597,24 +608,21 @@ export function updateState(
   const newSuccessStreak = stuckType === 'strong_flow' ? state.successStreak + 1 : 0;
   const yesNoSucceeded = state.yesNoSucceeded || (cardType === 'yes_no' && cardSuccess === true);
 
-  // Phase transitions
+  // Phase transitions — FLOW ENGINE: conversation-first warmup
   let newPhase = state.sessionPhase;
   let warmupCardsCompleted = state.warmupCardsCompleted;
   let buildComplete = state.buildComplete;
   let primedVocabulary = [...state.primedVocabulary];
   
+  // Warmup ends after enough conversation turns (not card completions)
+  if (state.sessionPhase === 'warmup' && state.turnNumber >= 2) {
+    newPhase = 'conversation'; // Skip 'build' — go straight to conversation
+    buildComplete = true;
+  }
+  
   if (cardInserted && cardSuccess) {
-    if (state.sessionPhase === 'warmup') {
-      warmupCardsCompleted++;
-      if (userWords) primedVocabulary.push(...userWords);
-      if (warmupCardsCompleted >= LIMITS.WARMUP_CARDS_REQUIRED) {
-        newPhase = 'build';
-      }
-    } else if (state.sessionPhase === 'build') {
-      if (userWords) primedVocabulary.push(...userWords);
-      buildComplete = true;
-      newPhase = 'conversation';
-    }
+    warmupCardsCompleted++;
+    if (userWords) primedVocabulary.push(...userWords);
   }
 
   // Track consecutive follow-ups (anti-loop)
