@@ -608,24 +608,21 @@ export function updateState(
   const newSuccessStreak = stuckType === 'strong_flow' ? state.successStreak + 1 : 0;
   const yesNoSucceeded = state.yesNoSucceeded || (cardType === 'yes_no' && cardSuccess === true);
 
-  // Phase transitions
+  // Phase transitions — FLOW ENGINE: conversation-first warmup
   let newPhase = state.sessionPhase;
   let warmupCardsCompleted = state.warmupCardsCompleted;
   let buildComplete = state.buildComplete;
   let primedVocabulary = [...state.primedVocabulary];
   
+  // Warmup ends after enough conversation turns (not card completions)
+  if (state.sessionPhase === 'warmup' && state.turnNumber >= 2) {
+    newPhase = 'conversation'; // Skip 'build' — go straight to conversation
+    buildComplete = true;
+  }
+  
   if (cardInserted && cardSuccess) {
-    if (state.sessionPhase === 'warmup') {
-      warmupCardsCompleted++;
-      if (userWords) primedVocabulary.push(...userWords);
-      if (warmupCardsCompleted >= LIMITS.WARMUP_CARDS_REQUIRED) {
-        newPhase = 'build';
-      }
-    } else if (state.sessionPhase === 'build') {
-      if (userWords) primedVocabulary.push(...userWords);
-      buildComplete = true;
-      newPhase = 'conversation';
-    }
+    warmupCardsCompleted++;
+    if (userWords) primedVocabulary.push(...userWords);
   }
 
   // Track consecutive follow-ups (anti-loop)
