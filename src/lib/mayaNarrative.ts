@@ -121,16 +121,84 @@ export function generateContinuityLine(session: MayaSessionInput, domains: MayaD
   return "Every session builds stronger connections 🧠";
 }
 
+// ── Verbosity Decision ──
+
+export function determineVerbosity(
+  domains: MayaDomainInput[],
+  session: MayaSessionInput,
+): MayaVerbosity {
+  // Detailed: significant changes detected
+  const declining = domains.filter(d => d.trend === "declining" && d.trialCount >= 5);
+  const improving = domains.filter(d => d.trend === "improving" && d.trialCount >= 5);
+  if (declining.length >= 2 || (session.correctDelta && session.correctDelta < -3)) return "detailed";
+  if (improving.length >= 2 || (session.correctDelta && session.correctDelta >= 5)) return "detailed";
+
+  // Minimal: steady state, nothing dramatic
+  const allStable = domains.every(d => !d.trend || d.trend === "stable");
+  if (allStable && session.recentSessionCount >= 3 && !session.correctDelta) return "minimal";
+
+  return "standard";
+}
+
+// ── Longitudinal Memory Line ──
+
+export function generateMemoryLine(
+  domains: MayaDomainInput[],
+  session: MayaSessionInput,
+  mastery: MayaMasteryInput,
+): string | null {
+  // Need enough history for longitudinal statements
+  if (session.sessionCount < 5) return null;
+
+  // Week-over-week session comparison
+  if (session.previousWeekSessionCount !== undefined && session.recentSessionCount > 0) {
+    const delta = session.recentSessionCount - session.previousWeekSessionCount;
+    if (delta >= 2) {
+      return "You've been practicing more this week than last — that dedication shows";
+    }
+  }
+
+  // Multi-week domain improvement
+  const consistentlyImproving = domains.filter(
+    d => d.trend === "improving" && d.trialCount >= 10
+  );
+  if (consistentlyImproving.length > 0) {
+    const label = getDomainLabel(consistentlyImproving[0].domainSlug);
+    return `Over the past weeks, your ${label} has been steadily getting stronger`;
+  }
+
+  // Mastery growth
+  if (mastery.previousMastered !== undefined && mastery.mastered > mastery.previousMastered) {
+    const newWords = mastery.mastered - mastery.previousMastered;
+    if (newWords >= 3) {
+      return `You've learned ${newWords} new words this week — your vocabulary is growing`;
+    }
+  }
+
+  // Consistency narrative
+  if (session.totalSessionsLast14Days && session.totalSessionsLast14Days >= 8) {
+    return "You've been showing up consistently — that's what builds lasting progress";
+  }
+
+  return null;
+}
+
 // ── Summary Sentence (cohesive narrative) ──
 
 export function buildSummary(
   interpretation: MayaInsight["interpretation"],
   cues: MayaCueInput[],
+  verbosity: MayaVerbosity,
 ): string | null {
   const { seeing, helping } = interpretation;
   if (seeing.length === 0) return null;
 
-  // Build a flowing sentence from the first observation + first helping strategy
+  // Minimal: just the key observation
+  if (verbosity === "minimal") {
+    return `${seeing[0].replace(/\.$/, "")}.`;
+  }
+
+  // Standard/detailed: weave observation + strategy
   const observation = seeing[0].replace(/\.$/, "");
   
   if (helping.length > 0 && !helping[0].includes("Keep practicing")) {
