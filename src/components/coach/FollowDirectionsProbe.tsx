@@ -186,9 +186,9 @@ export function FollowDirectionsProbe({ totalTrials = 5, difficultyLevel = 2, on
       {/* Instruction */}
       <div className={cn(
         "text-center p-4 rounded-xl min-h-[60px] flex items-center justify-center w-full",
-        feedback === 'correct' ? 'bg-green-100 dark:bg-green-900/30' :
-        feedback === 'incorrect' ? 'bg-red-100 dark:bg-red-900/30' :
-        'bg-muted/30'
+      feedback === 'correct' ? 'bg-primary/10' :
+      feedback === 'incorrect' ? 'bg-destructive/10' :
+      'bg-muted/30'
       )}>
         <p className="text-base font-medium">{trial.text}</p>
       </div>

@@ -173,8 +173,8 @@ export function SequenceBuilderProbe({ totalTrials = 3, onComplete }: SequenceBu
             key={item.id}
             className={cn(
               "flex items-center gap-2 p-3 rounded-lg border transition-colors",
-              feedback === 'correct' ? 'border-green-500 bg-green-50 dark:bg-green-900/20' :
-              feedback === 'incorrect' ? 'border-destructive bg-red-50 dark:bg-red-900/20' :
+              feedback === 'correct' ? 'border-primary bg-primary/10' :
+              feedback === 'incorrect' ? 'border-destructive bg-destructive/10' :
               'border-border bg-card'
             )}
           >
