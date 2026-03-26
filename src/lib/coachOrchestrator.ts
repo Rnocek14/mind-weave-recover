@@ -71,6 +71,11 @@ export interface OrchestratorState {
   currentTopic: string | null;
   userRequestedCards: number;
   scaffoldingLevel: 'open' | 'guided' | 'choice';
+  
+  // Popup exercise tracking
+  popupExercisesThisSession: number;
+  turnsSinceLastPopup: number;
+  repeatedStuckCount: number;  // consecutive same stuck type
 }
 
 // Speech analysis data for smarter card selection
