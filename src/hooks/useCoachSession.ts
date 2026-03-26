@@ -214,6 +214,8 @@ export function useCoachSession({
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
+  // Rolling semantic memory — AI-maintained conversation summary
+  const rollingMemoryRef = useRef<string>('');
   
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
