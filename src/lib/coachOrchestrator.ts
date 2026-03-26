@@ -302,19 +302,26 @@ export function getNextAction(
     };
   }
 
-  // 6. Proactive rep every 3 turns (even if flowing)
+  // 6. FLOW ENGINE: Proactive rep — but ONLY if conversation has had enough space
+  // Don't interrupt flow. Let user talk. Conversation IS therapy.
   if (turnsSinceLastCard >= LIMITS.TURNS_BETWEEN_REPS && 
       cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
       stuckType !== 'strong_flow') {
-    return {
-      type: 'insert_card',
-      cardType: selectQuickRepCard(state),
-      config: { difficulty: 'easy' },
-      objective: 'rep_practice',
-    };
+    // Additional flow check: skip if user is engaged and fluent
+    const isFlowing = speechAnalysis && speechAnalysis.fluencyScore > 60 && speechAnalysis.wordCount >= 5;
+    if (!isFlowing) {
+      return {
+        type: 'insert_card',
+        cardType: selectQuickRepCard(state),
+        config: { difficulty: 'easy' },
+        objective: 'rep_practice',
+      };
+    }
+    // User is flowing — let them continue, don't force a card
+    console.log('[orchestrator] Skipping proactive rep — user is flowing well');
   }
 
-  // 7. User flowing well - continue but track follow-up depth
+  // 7. User flowing well - continue conversation (this IS therapy)
   if (stuckType === 'strong_flow') {
     return {
       type: 'chat_followup',
