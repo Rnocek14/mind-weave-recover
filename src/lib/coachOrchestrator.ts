@@ -45,7 +45,7 @@ export type PopupReason = 'repeated_struggle' | 'targeted_probe' | 'domain_boost
 
 // Possible actions the orchestrator can take
 export type NextAction =
-  | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; showTiles?: boolean; showFrames?: boolean }
+  | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; therapyIntent: TherapyIntent; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
   | { type: 'summary_verify'; summary: string }
