@@ -158,6 +158,7 @@ export function useCoachSession({
   profileId,
   sessionId,
   maxTurns, // No default - undefined means unlimited
+  mayaState,
   userSpeechProfile,
 }: UseCoachSessionProps): UseCoachSessionReturn {
   const [messages, setMessages] = useState<FeedMessage[]>([]);
