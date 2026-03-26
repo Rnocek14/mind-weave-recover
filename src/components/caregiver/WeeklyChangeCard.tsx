@@ -59,6 +59,7 @@ function DeltaRow({ delta }: { delta: WeeklyDelta }) {
 
 export function WeeklyChangeCard({ userId, patientName }: WeeklyChangeCardProps) {
   const { sessions } = useSessionHistory(userId);
+  const { primaryStruggle } = useCaregiverDomainGuidance(userId);
 
   const deltas = useMemo(() => {
     const now = Date.now();
