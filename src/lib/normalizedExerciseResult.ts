@@ -223,6 +223,67 @@ export function normalizeStoryRetellResult(raw: unknown): NormalizedExerciseResu
   };
 }
 
+export function normalizeFollowDirectionsResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const correct = r.correct ?? 0;
+  const total = r.total ?? 5;
+  const score = total > 0 ? correct / total : 0;
+
+  return {
+    slug: 'follow-directions',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: score,
+    reactionTimeMs: r.avgLatencyMs,
+    targetDomain: 'comprehension',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: 'none',
+    summary: `Followed ${correct} of ${total} directions correctly (max ${r.maxComplexity ?? 1}-step).`,
+    raw,
+  };
+}
+
+export function normalizeCategoryFluencyResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const wordCount = r.uniqueWordCount ?? r.wordCount ?? 0;
+  // Norm: ~15 words/30s is strong for healthy adults; scale for aphasia
+  const score = Math.min(wordCount / 10, 1); // 10+ words = 1.0
+
+  return {
+    slug: 'category-fluency',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: score,
+    targetDomain: 'expressive_language',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: 'none',
+    summary: `Named ${wordCount} unique ${r.category || 'items'} in ${r.durationSec ?? 30}s (${(r.wordsPerSecond ?? 0).toFixed(1)}/sec).`,
+    raw,
+  };
+}
+
+export function normalizeSequenceBuilderResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const correct = r.correct ?? 0;
+  const total = r.total ?? 3;
+  const score = total > 0 ? correct / total : 0;
+
+  return {
+    slug: 'sequence-builder',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: r.avgPositionAccuracy ?? score,
+    targetDomain: 'discourse',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: 'none',
+    summary: `Sequenced ${correct} of ${total} stories correctly (${Math.round((r.avgPositionAccuracy ?? 0) * 100)}% position accuracy).`,
+    raw,
+  };
+}
+
 // ─── Registry ───
 
 const NORMALIZERS: Record<string, (raw: unknown) => NormalizedExerciseResult> = {
@@ -233,6 +294,9 @@ const NORMALIZERS: Record<string, (raw: unknown) => NormalizedExerciseResult> = 
   'sentence-construction': normalizeSentenceConstructionResult,
   'yes-no-comprehension': normalizeYesNoComprehensionResult,
   'story-retell': normalizeStoryRetellResult,
+  'follow-directions': normalizeFollowDirectionsResult,
+  'category-fluency': normalizeCategoryFluencyResult,
+  'sequence-builder': normalizeSequenceBuilderResult,
 };
 
 /**
