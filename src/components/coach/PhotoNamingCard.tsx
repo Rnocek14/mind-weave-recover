@@ -242,8 +242,9 @@ export function PhotoNamingCard({
     if (wordCount >= 1 && trial) {
       const match = checkMatch(transcript, trial.target);
       
-      // If good match, complete faster
-      const timeout = match.isMatch ? 1500 : 2500;
+      // IMPROVED: Much faster completion on match (800ms vs 1500ms)
+      // Non-match gets a shorter window too (1500ms vs 2500ms) for responsiveness
+      const timeout = match.isMatch ? 800 : 1500;
       
       silenceTimerRef.current = setTimeout(() => {
         if (!hasCompletedRef.current) {
