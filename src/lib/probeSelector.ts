@@ -224,10 +224,12 @@ export function selectNextProbe(input: ProbeSelectionInput): ProbeDecision {
 
   // Decide: chat probe vs structured exercise
   // Use structured exercise if: profile weakness + popup budget + not fatigued
+  const notFatigued = fatigueState === 'fresh';
+  const mildlyTired = fatigueState === 'mild';
   const shouldPopup =
     popupCount < MAX_POPUPS &&
     scored[0].score >= 5 && // strong signal
-    fatigueState === 'fresh' &&
+    (notFatigued || mildlyTired) &&
     turnNumber >= 4; // give conversation time first
 
   if (shouldPopup) {
