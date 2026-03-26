@@ -90,6 +90,7 @@ export const useExerciseTelemetry = (
   const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   const [trialNumber, setTrialNumber] = useState(0);
   const [trialStartTime, setTrialStartTime] = useState<number | null>(null);
+  const { trackTrial: trackEncouragement, reset: resetEncouragement } = useMicroEncouragement();
 
   const startTrial = useCallback(() => {
     setTrialStartTime(Date.now());
