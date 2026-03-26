@@ -5,13 +5,14 @@ import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight, Star } from "l
 import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
-import { generateAnticipation, type MayaDomainInput } from "@/lib/mayaNarrative";
+import { generateThreadReinforcement, type MayaNarrativeThread } from "@/lib/mayaNarrative";
 
 interface PostSessionCardProps {
   feedback: LastSessionFeedback;
   onDismiss: () => void;
   onStartSession?: () => void;
   anticipation?: string | null;
+  thread?: MayaNarrativeThread | null;
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -56,7 +57,7 @@ function getMotivationalNudge(feedback: LastSessionFeedback, domainLabel: string
   return "Every session builds stronger connections 🧠";
 }
 
-export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation }: PostSessionCardProps) {
+export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation, thread }: PostSessionCardProps) {
   const [minimized, setMinimized] = useState(false);
   const { text, emoji } = getHeadline(feedback);
   const domainLabel = getDomainLabel(feedback.exerciseNames);
@@ -162,10 +163,17 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipat
           </div>
         </div>
 
-        {/* Motivational nudge — now domain-aware */}
+        {/* Motivational nudge */}
         <p className="text-sm text-center text-muted-foreground">
           {getMotivationalNudge(feedback, domainLabel)}
         </p>
+
+        {/* Thread reinforcement — connects session to ongoing story */}
+        {thread && generateThreadReinforcement(thread) && (
+          <p className="text-sm text-center text-foreground/70 font-medium italic">
+            {generateThreadReinforcement(thread)}
+          </p>
+        )}
 
         {/* Forward-looking anticipation */}
         {anticipation && (

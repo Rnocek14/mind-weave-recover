@@ -45,6 +45,14 @@ export interface MayaMasteryInput {
 
 export type MayaVerbosity = "minimal" | "standard" | "detailed";
 
+export interface MayaNarrativeThread {
+  primaryTheme: string;              // e.g. "word_finding_improving"
+  primaryDomainSlug: string | null;  // domain driving the theme
+  primaryDomainLabel: string | null;
+  supportingInsight: string | null;  // e.g. "phonemic cues help"
+  tone: "celebrating" | "encouraging" | "steady" | "supportive";
+}
+
 export interface MayaInsight {
   continuityLine: string;
   summary: string | null;
@@ -58,6 +66,7 @@ export interface MayaInsight {
   anticipation: string | null;
   milestone: MayaMilestone | null;
   verbosity: MayaVerbosity;          // controls how much detail to show
+  thread: MayaNarrativeThread;       // unified theme across surfaces
 }
 
 export interface MayaMilestone {
@@ -410,6 +419,77 @@ export function checkMilestone(
   return null;
 }
 
+// ── Narrative Thread (Cross-Surface Coherence) ──
+
+export function computeNarrativeThread(
+  domains: MayaDomainInput[],
+  session: MayaSessionInput,
+  cues: MayaCueInput[],
+): MayaNarrativeThread {
+  const sorted = [...domains].filter(d => d.trialCount >= 3).sort((a, b) => b.score - a.score);
+  const improving = sorted.filter(d => d.trend === "improving");
+  const declining = sorted.filter(d => d.trend === "declining");
+  const weakest = [...sorted].sort((a, b) => a.score - b.score)[0] || null;
+
+  // Pick primary theme
+  let primaryTheme = "general_practice";
+  let primaryDomain = weakest;
+  let tone: MayaNarrativeThread["tone"] = "steady";
+
+  if (improving.length > 0 && improving[0].score >= 0.5) {
+    primaryTheme = `${improving[0].domainSlug}_improving`;
+    primaryDomain = improving[0];
+    tone = "celebrating";
+  } else if (declining.length > 0) {
+    primaryTheme = `${declining[0].domainSlug}_needs_support`;
+    primaryDomain = declining[0];
+    tone = "supportive";
+  } else if (weakest && weakest.score < 0.4) {
+    primaryTheme = `${weakest.domainSlug}_focus`;
+    primaryDomain = weakest;
+    tone = "encouraging";
+  }
+
+  if (session.streak >= 5) tone = "celebrating";
+
+  // Supporting insight from cues
+  let supportingInsight: string | null = null;
+  const effectiveCue = [...cues]
+    .filter(c => c.totalGiven >= 3 && c.efficacyRate >= 0.5)
+    .sort((a, b) => b.efficacyRate - a.efficacyRate)[0];
+  if (effectiveCue) {
+    supportingInsight = `${getCuePlainLabel(effectiveCue.cueType)} helps`;
+  }
+
+  return {
+    primaryTheme,
+    primaryDomainSlug: primaryDomain?.domainSlug || null,
+    primaryDomainLabel: primaryDomain ? getDomainLabel(primaryDomain.domainSlug) : null,
+    supportingInsight,
+    tone,
+  };
+}
+
+/**
+ * Generate a thread-aware reinforcement line for post-session context.
+ * Connects what just happened back to the ongoing narrative thread.
+ */
+export function generateThreadReinforcement(thread: MayaNarrativeThread): string | null {
+  if (!thread.primaryDomainLabel) return null;
+
+  const label = thread.primaryDomainLabel;
+  switch (thread.tone) {
+    case "celebrating":
+      return `That session reinforced what we've been seeing — your ${label} is getting stronger`;
+    case "encouraging":
+      return `Every round of ${label} practice builds new pathways — you're doing the work`;
+    case "supportive":
+      return `${label.charAt(0).toUpperCase() + label.slice(1)} takes time — today's effort matters`;
+    case "steady":
+      return `Consistent practice like this is what makes the difference`;
+  }
+}
+
 // ── Main Generator ──
 
 export function generateMayaInsight(
@@ -427,8 +507,9 @@ export function generateMayaInsight(
   const summary = buildSummary(interpretation, cues, verbosity);
   const rightNow = generateRightNow(domains, session);
   const memoryLine = generateMemoryLine(domains, session, mastery);
+  const thread = computeNarrativeThread(domains, session, cues);
 
-  return { continuityLine, summary, rightNow, memoryLine, interpretation, anticipation, milestone, verbosity };
+  return { continuityLine, summary, rightNow, memoryLine, interpretation, anticipation, milestone, verbosity, thread };
 }
 
 // ── Caregiver Urgency ──

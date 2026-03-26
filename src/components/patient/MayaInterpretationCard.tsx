@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Eye, Lightbulb, Target, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { MayaInsight, MayaVerbosity } from "@/lib/mayaNarrative";
+import type { MayaInsight, MayaVerbosity, MayaNarrativeThread } from "@/lib/mayaNarrative";
 
 interface MayaInterpretationCardProps {
   interpretation: MayaInsight["interpretation"];
@@ -11,6 +11,7 @@ interface MayaInterpretationCardProps {
   rightNow: string | null;
   memoryLine: string | null;
   verbosity: MayaVerbosity;
+  thread?: MayaNarrativeThread | null;
 }
 
 interface SectionProps {
@@ -52,6 +53,7 @@ export function MayaInterpretationCard({
   rightNow,
   memoryLine,
   verbosity,
+  thread,
 }: MayaInterpretationCardProps) {
   const { seeing, helping, workingOn } = interpretation;
   const hasContent = seeing.length > 0 || helping.length > 0 || workingOn.length > 0;
