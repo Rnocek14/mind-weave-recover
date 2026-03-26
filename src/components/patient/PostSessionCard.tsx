@@ -52,16 +52,18 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
   // Mini banner after first dismiss
   if (minimized) {
     return (
-      <button
-        onClick={onDismiss}
-        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/10 text-sm text-muted-foreground hover:bg-primary/10 transition-colors animate-fade-in"
-      >
-        <span>
+      <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/10 text-sm text-muted-foreground animate-fade-in">
+        <button
+          onClick={() => setMinimized(false)}
+          className="flex-1 text-left hover:text-foreground transition-colors"
+        >
           {emoji} {text} — {feedback.correct}/{feedback.total} correct
           {feedback.streak >= 2 && ` • ${feedback.streak}-day streak`}
-        </span>
-        <X className="w-3.5 h-3.5 shrink-0 ml-2" />
-      </button>
+        </button>
+        <button onClick={onDismiss} className="p-0.5 ml-2 hover:text-foreground transition-colors" aria-label="Dismiss">
+          <X className="w-3.5 h-3.5 shrink-0" />
+        </button>
+      </div>
     );
   }
 
