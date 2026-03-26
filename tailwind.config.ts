@@ -111,6 +111,16 @@ export default {
           "0%, 100%": { boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" },
           "50%": { boxShadow: "0 0 40px hsl(var(--primary) / 0.6)" },
         },
+        "streak-glow": {
+          "0%": { transform: "scale(1)", filter: "brightness(1)" },
+          "50%": { transform: "scale(1.08)", filter: "brightness(1.2)" },
+          "100%": { transform: "scale(1)", filter: "brightness(1)" },
+        },
+        "badge-pop": {
+          "0%": { transform: "scale(0.5)", opacity: "0" },
+          "60%": { transform: "scale(1.15)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
         "slide-up": {
           "0%": { transform: "translateY(20px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
