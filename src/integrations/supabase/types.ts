@@ -621,6 +621,59 @@ export type Database = {
           },
         ]
       }
+      coach_conversation_summaries: {
+        Row: {
+          avg_score: number | null
+          created_at: string
+          exercise_summaries: Json | null
+          id: string
+          maya_summary: string | null
+          metadata: Json | null
+          primary_domain: string | null
+          session_id: string | null
+          top_struggles: string[] | null
+          top_wins: string[] | null
+          total_popup_exercises: number | null
+          user_id: string
+        }
+        Insert: {
+          avg_score?: number | null
+          created_at?: string
+          exercise_summaries?: Json | null
+          id?: string
+          maya_summary?: string | null
+          metadata?: Json | null
+          primary_domain?: string | null
+          session_id?: string | null
+          top_struggles?: string[] | null
+          top_wins?: string[] | null
+          total_popup_exercises?: number | null
+          user_id: string
+        }
+        Update: {
+          avg_score?: number | null
+          created_at?: string
+          exercise_summaries?: Json | null
+          id?: string
+          maya_summary?: string | null
+          metadata?: Json | null
+          primary_domain?: string | null
+          session_id?: string | null
+          top_struggles?: string[] | null
+          top_wins?: string[] | null
+          total_popup_exercises?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversation_summaries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cognitive_domain_scores: {
         Row: {
           computed_at: string

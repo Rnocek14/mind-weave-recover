@@ -309,6 +309,8 @@ serve(async (req) => {
       sessionMetrics,
       engagementState,
       suggestedCue,
+      exerciseContext,
+      priorSessionMemory,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -320,6 +322,17 @@ serve(async (req) => {
       sessionMetrics?: SessionMetrics;
       engagementState?: EngagementState;
       suggestedCue?: CueContext;
+      exerciseContext?: {
+        slug: string;
+        summary: string;
+        accuracy?: number;
+        cueLevelUsed?: number;
+        successBand?: string;
+        targetDomain?: string;
+        errorTypes?: string[];
+        struggleSignal?: string;
+      };
+      priorSessionMemory?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -368,6 +381,14 @@ serve(async (req) => {
       { role: 'system', content: systemPrompt }
     ];
 
+    // Add prior session memory for continuity
+    if (priorSessionMemory) {
+      messages.push({
+        role: 'system',
+        content: `[${priorSessionMemory}]`
+      });
+    }
+
     // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
       conversationHistory.slice(-6).forEach((turn) => {
@@ -387,6 +408,14 @@ serve(async (req) => {
         role: 'system',
         content: cardResultNote
       });
+    }
+
+    // Add exercise context if user just completed a popup exercise
+    if (exerciseContext) {
+      const exNote = exerciseContext.successBand === 'high' || exerciseContext.successBand === 'target'
+        ? `[EXERCISE COMPLETED: ${exerciseContext.summary}. Acknowledge their effort naturally. Reference what went well. Then smoothly return to conversation. Do NOT list scores.]`
+        : `[EXERCISE COMPLETED: ${exerciseContext.summary}. Be encouraging. Note their effort, not the difficulty. Smoothly return to conversation. Do NOT list scores or say "you struggled".]`;
+      messages.push({ role: 'system', content: exNote });
     }
 
     // Add speech analysis context

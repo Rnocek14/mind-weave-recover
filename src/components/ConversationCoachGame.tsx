@@ -153,10 +153,16 @@ export function ConversationCoachGame({
 
   // Exercise modal controller
   const exerciseModal = useExerciseModal();
+  const popupLaunchedSlugRef = useRef<string | null>(null);
 
-  // Launch popup when coach session requests one
+  // Launch popup when coach session requests one (with dedup guard)
   useEffect(() => {
-    if (pendingPopupExercise && !exerciseModal.isOpen) {
+    if (
+      pendingPopupExercise &&
+      !exerciseModal.isOpen &&
+      popupLaunchedSlugRef.current !== pendingPopupExercise.slug
+    ) {
+      popupLaunchedSlugRef.current = pendingPopupExercise.slug;
       exerciseModal.launchExerciseModal(pendingPopupExercise.slug, {
         targetDomain: pendingPopupExercise.targetDomain,
         targetPhonemes: pendingPopupExercise.targetPhonemes,
@@ -164,6 +170,10 @@ export function ConversationCoachGame({
         sessionId: sessionId ?? undefined,
         totalTrials: 5,
       });
+    }
+    // Reset guard when popup is consumed
+    if (!pendingPopupExercise) {
+      popupLaunchedSlugRef.current = null;
     }
   }, [pendingPopupExercise, exerciseModal.isOpen]);
 
@@ -962,7 +972,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Completion - use new summary component */}
+      {/* Completion - use new summary component */}
         {currentPhase === 'complete' && (
           <CoachSessionSummary
             metrics={metrics}
@@ -971,6 +981,36 @@ export function ConversationCoachGame({
           />
         )}
       </div>
+
+      {/* Exercise popup modal */}
+      <ExerciseModalHost
+        activeExercise={exerciseModal.activeExercise}
+        isOpen={exerciseModal.isOpen}
+        onClose={exerciseModal.closeExerciseModal}
+        onComplete={async (result) => {
+          setConversationState('processing');
+          const followup = await ingestExerciseResult(result);
+          if (followup) {
+            setConversationState('ai_speaking');
+            try {
+              await speakStream(followup);
+            } catch (err) {
+              console.warn('TTS failed after popup:', err);
+            }
+            clearPendingAI();
+            if (!isComplete) {
+              setConversationState('listening');
+              startConversationTurn();
+            } else {
+              setConversationState('idle');
+            }
+          } else {
+            setConversationState('idle');
+          }
+        }}
+        userId={userId}
+        sessionId={sessionId}
+      />
     </div>
   );
 }

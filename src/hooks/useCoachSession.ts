@@ -9,8 +9,9 @@
  * - Anti-loop enforcement from orchestrator
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { saveCoachSessionSummary, loadLatestCoachSummary, formatMemoryForPrompt, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { 
   getNextAction, 
   createInitialState, 
@@ -163,6 +164,15 @@ export function useCoachSession({
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
+  
+  // Cross-session memory
+  const [priorSessionSummary, setPriorSessionSummary] = useState<CoachSessionSummary | null>(null);
+  const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
+  
+  // Load prior session summary on mount
+  useEffect(() => {
+    loadLatestCoachSummary(userId).then(setPriorSessionSummary);
+  }, [userId]);
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
@@ -577,6 +587,8 @@ export function useCoachSession({
             } : undefined,
             // Suggested cue if user is struggling
             suggestedCue,
+            // Prior session memory for continuity
+            priorSessionMemory: priorSessionSummary ? formatMemoryForPrompt(priorSessionSummary) : undefined,
           }
         });
 
@@ -807,11 +819,23 @@ export function useCoachSession({
     difficultyStateRef.current = createInitialDifficultyState();
   }, [maxTurns, speechAnalysis]);
 
-  // User-initiated session end
+  // User-initiated session end — also persists summary
   const endSession = useCallback(() => {
     setIsComplete(true);
     setCurrentPhase('complete');
-  }, []);
+    
+    // Save session summary for cross-session memory
+    const sessionMetrics = speechAnalysis.getSessionMetrics();
+    saveCoachSessionSummary({
+      userId,
+      sessionId,
+      popupResults: popupResultsRef.current,
+      turnsCompleted: orchestratorStateRef.current.turnNumber,
+      avgFluency: sessionMetrics?.avgFluency,
+      fluencyTrend: sessionMetrics?.fluencyTrend,
+      primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
+    });
+  }, [userId, sessionId, speechAnalysis]);
 
   // NEW: Assistive panel interaction handlers
   // FIX #1: Tile taps are INPUT-ONLY - no scoring, no orchestrator updates
@@ -856,6 +880,7 @@ export function useCoachSession({
   // Ingest result from popup exercise and generate Maya follow-up
   const ingestExerciseResult = useCallback(async (result: NormalizedExerciseResult): Promise<string> => {
     setPendingPopupExercise(null);
+    popupResultsRef.current.push(result);
     
     // Update orchestrator state
     orchestratorStateRef.current = updateStateAfterPopup(
@@ -887,9 +912,9 @@ export function useCoachSession({
           },
         }
       });
-      followupText = data?.response || result.score >= 0.7
+      followupText = data?.response || (result.score >= 0.7
         ? "Nice work on that! Let's keep going with our conversation."
-        : "Good effort — that gives me a better sense of what to focus on. Let's continue.";
+        : "Good effort — that gives me a better sense of what to focus on. Let's continue.");
     } catch {
       followupText = result.score >= 0.7
         ? "Great job on that practice! Now, where were we?"
