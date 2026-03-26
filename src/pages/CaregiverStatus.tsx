@@ -88,7 +88,7 @@ export default function CaregiverStatus() {
         <CaregiverStatusHero userId={user!.id} streak={streak} />
 
         {/* 2. How You Can Help */}
-        <HowYouCanHelpCard userId={user!.id} />
+        <HowYouCanHelpCard userId={user!.id} patientName={activeProfile?.profile_name || undefined} />
 
         {/* 3. Adherence */}
         <Card className="p-6">
