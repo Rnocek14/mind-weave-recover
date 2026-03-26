@@ -21,6 +21,7 @@ import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
 import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
+import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
 
 
