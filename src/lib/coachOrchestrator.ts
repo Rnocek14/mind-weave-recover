@@ -117,14 +117,14 @@ const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
   MAX_CARDS_PER_SESSION: 8,
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
-  MAX_CONSECUTIVE_FOLLOWUPS: 3,  // HARDENED: was 1, now 3 before forced intervention
-  TURNS_BETWEEN_REPS: 3,
-  WARMUP_CARDS_REQUIRED: 2,
-  MAX_TURNS_ON_TOPIC: 5,  // NEW: Force topic shift after this many turns
+  MAX_CONSECUTIVE_FOLLOWUPS: 3,
+  TURNS_BETWEEN_REPS: 5,        // FLOW ENGINE: was 3, now 5 — let conversation breathe
+  WARMUP_CARDS_REQUIRED: 0,     // FLOW ENGINE: warmup is now conversation-only (no forced cards)
+  MAX_TURNS_ON_TOPIC: 6,
   // Popup exercise limits
   MAX_POPUP_PER_SESSION: 3,
   MIN_TURNS_BETWEEN_POPUPS: 5,
-  REPEATED_STUCK_THRESHOLD: 2,  // same stuck type N times → popup
+  REPEATED_STUCK_THRESHOLD: 2,
 };
 
 /**
