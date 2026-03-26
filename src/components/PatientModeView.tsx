@@ -113,13 +113,18 @@ export function PatientModeView({
     return `Good evening${nameStr} 🌙`;
   }, [activeProfile]);
 
-  // Encouragement message
+  // Encouragement — dynamic based on last session feedback
   const encouragement = useMemo(() => {
+    if (feedback) {
+      if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct last time — nice! 📈`;
+      if (feedback.accuracy >= 80) return "You're doing really well — keep it up! 💪";
+      if (feedback.streak >= 3) return `${feedback.streak} days in a row — amazing consistency! 🔥`;
+    }
     if (streak >= 7) return "Amazing consistency! 🌟";
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";
     return "Let's get started! 💛";
-  }, [streak, sessions.length]);
+  }, [streak, sessions.length, feedback]);
 
 
   const handleStartSession = () => {
