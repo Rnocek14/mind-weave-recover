@@ -168,6 +168,36 @@ export function ExerciseModalHost({
           />
         );
 
+      case 'follow-directions':
+        return (
+          <FollowDirectionsProbe
+            totalTrials={config.totalTrials ?? 5}
+            difficultyLevel={config.difficultyTier ?? 2}
+            onComplete={(results) => {
+              handleGameComplete('follow-directions', results);
+            }}
+          />
+        );
+
+      case 'category-fluency':
+        return (
+          <CategoryFluencyProbe
+            onComplete={(results) => {
+              handleGameComplete('category-fluency', results);
+            }}
+          />
+        );
+
+      case 'sequence-builder':
+        return (
+          <SequenceBuilderProbe
+            totalTrials={config.totalTrials ?? 3}
+            onComplete={(results) => {
+              handleGameComplete('sequence-builder', results);
+            }}
+          />
+        );
+
       default:
         return (
           <div className="p-6 text-center text-muted-foreground">
