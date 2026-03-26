@@ -5,11 +5,13 @@ import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight, Star } from "l
 import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
+import { generateAnticipation, type MayaDomainInput } from "@/lib/mayaNarrative";
 
 interface PostSessionCardProps {
   feedback: LastSessionFeedback;
   onDismiss: () => void;
   onStartSession?: () => void;
+  anticipation?: string | null;
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -54,7 +56,7 @@ function getMotivationalNudge(feedback: LastSessionFeedback, domainLabel: string
   return "Every session builds stronger connections 🧠";
 }
 
-export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSessionCardProps) {
+export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation }: PostSessionCardProps) {
   const [minimized, setMinimized] = useState(false);
   const { text, emoji } = getHeadline(feedback);
   const domainLabel = getDomainLabel(feedback.exerciseNames);
@@ -164,6 +166,13 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
         <p className="text-sm text-center text-muted-foreground">
           {getMotivationalNudge(feedback, domainLabel)}
         </p>
+
+        {/* Forward-looking anticipation */}
+        {anticipation && (
+          <p className="text-xs text-center text-muted-foreground/80 italic">
+            ✨ {anticipation}
+          </p>
+        )}
 
         {/* Next action CTA */}
         {onStartSession && (

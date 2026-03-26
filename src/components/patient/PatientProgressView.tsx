@@ -20,6 +20,9 @@ import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { MayaInterpretationCard } from "@/components/patient/MayaInterpretationCard";
+import { MilestoneToast } from "@/components/patient/MilestoneToast";
 
 interface PatientProgressViewProps {
   userId: string;
@@ -56,6 +59,7 @@ export const PatientProgressView = memo(function PatientProgressView({
   const { flags: redFlags } = useRedFlagDetection(userId);
   const { analytics } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
   const { achievements, newAchievements } = useAchievements(userId, profileId);
+  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
 
   const weekStats = useMemo(() => {
     const activeDays = timeline.filter((d) => d.hasAnySignal).length;
@@ -175,6 +179,17 @@ export const PatientProgressView = memo(function PatientProgressView({
           </h2>
         </div>
       )}
+
+      {/* Maya Interpretation — anchor narrative */}
+      {mayaInsight && (
+        <MayaInterpretationCard
+          interpretation={mayaInsight.interpretation}
+          anticipation={mayaInsight.anticipation}
+        />
+      )}
+
+      {/* Milestone celebrations */}
+      {mayaInsight && <MilestoneToast milestone={mayaInsight.milestone} />}
 
       {/* Core Metrics Grid */}
       <div className="grid grid-cols-2 gap-4">

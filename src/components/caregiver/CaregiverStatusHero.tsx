@@ -5,6 +5,7 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useProfile } from "@/hooks/useProfile";
 import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
+import { getCaregiverUrgency } from "@/lib/mayaNarrative";
 import { useMemo } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
 
@@ -203,6 +204,20 @@ export function HowYouCanHelpCard({ userId, patientName }: { userId: string; pat
       {headline && (
         <p className="text-sm font-medium text-foreground">{headline}</p>
       )}
+
+      {/* Urgency/confidence signal */}
+      {primaryStruggle && (() => {
+        const urgency = getCaregiverUrgency(primaryStruggle.score);
+        return (
+          <p className={`text-xs font-medium ${
+            urgency.level === "urgent" ? "text-destructive" :
+            urgency.level === "moderate" ? "text-amber-600" :
+            "text-emerald-600"
+          }`}>
+            {urgency.signal}
+          </p>
+        );
+      })()}
 
       <div className="space-y-2.5">
         {tips.map((tip, i) => {

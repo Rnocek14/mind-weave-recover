@@ -14,7 +14,6 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useAchievements } from "@/hooks/useAchievements";
-import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
@@ -26,6 +25,8 @@ import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { PostSessionCard } from "@/components/patient/PostSessionCard";
 import { useProfile } from "@/hooks/useProfile";
 import { useLastSessionFeedback } from "@/hooks/useLastSessionFeedback";
+import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { MilestoneToast } from "@/components/patient/MilestoneToast";
 import { toast } from "sonner";
 
 
@@ -68,10 +69,11 @@ export function PatientModeView({
   const { currentAssessment, loading: assessmentLoading } = useAssessmentContext();
   const { sessions } = useSessionHistory(userId);
   const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
-  const { primaryStruggle } = useCaregiverDomainGuidance(userId);
+  
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
+  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
 
   // Scroll to top on tab switch
   useEffect(() => {
@@ -115,22 +117,13 @@ export function PatientModeView({
     return `Good evening${nameStr} 🌙`;
   }, [activeProfile]);
 
-  // Encouragement — dynamic based on last session feedback + domain
+  // Encouragement — powered by Maya continuity line
   const encouragement = useMemo(() => {
-    if (feedback) {
-      if (feedback.independentCorrect >= 3) return `${feedback.independentCorrect} answers on your own last time — impressive! ⭐`;
-      if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct answers than last session — nice! 📈`;
-      if (feedback.accuracy >= 80) return "You're doing really well — keep it up! 💪";
-      if (feedback.streak >= 3) return `${feedback.streak} days in a row — amazing consistency! 🔥`;
-    }
-    if (primaryStruggle && sessions.length >= 3) {
-      return `You're working on ${primaryStruggle.caregiverLabel} — every session helps ✨`;
-    }
-    if (streak >= 7) return "Amazing consistency! 🌟";
+    if (mayaInsight?.continuityLine) return mayaInsight.continuityLine;
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";
     return "Your recovery journey starts here 💛";
-  }, [streak, sessions.length, feedback, primaryStruggle]);
+  }, [mayaInsight, streak, sessions.length]);
 
 
   const handleStartSession = () => {
@@ -332,12 +325,16 @@ export function PatientModeView({
                 </p>
               </div>
 
+              {/* Milestone celebrations */}
+              {mayaInsight && <MilestoneToast milestone={mayaInsight.milestone} />}
+
               {/* Post-session feedback — shows after completing a session */}
               {feedback && (
                 <PostSessionCard
                   feedback={feedback}
                   onDismiss={() => dismissFeedback(feedback.sessionId)}
                   onStartSession={lesson ? handleStartSession : undefined}
+                  anticipation={mayaInsight?.anticipation}
                 />
               )}
 
