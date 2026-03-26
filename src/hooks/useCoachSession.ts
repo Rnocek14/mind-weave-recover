@@ -98,6 +98,8 @@ interface UseCoachSessionProps {
   profileId: string;
   sessionId: string | null;
   maxTurns?: number;
+  // Unified Maya intelligence state
+  mayaState?: MayaState | null;
   // User speech profile for personalization
   userSpeechProfile?: {
     primaryChallenge?: string;
