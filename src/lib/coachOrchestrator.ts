@@ -444,6 +444,11 @@ export function updateState(
     newSuccessStreak
   );
 
+  // Track repeated stuck types for popup trigger
+  const repeatedStuckCount = (stuckType !== 'strong_flow' && stuckType === state.lastStuckType)
+    ? state.repeatedStuckCount + 1
+    : 0;
+
   return {
     ...state,
     sessionPhase: newPhase,
@@ -463,6 +468,9 @@ export function updateState(
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
     scaffoldingLevel: newScaffoldingLevel,
+    popupExercisesThisSession: state.popupExercisesThisSession,
+    turnsSinceLastPopup: state.turnsSinceLastPopup + 1,
+    repeatedStuckCount,
   };
 }
 
