@@ -185,6 +185,8 @@ export const PatientProgressView = memo(function PatientProgressView({
         <MayaInterpretationCard
           interpretation={mayaInsight.interpretation}
           anticipation={mayaInsight.anticipation}
+          summary={mayaInsight.summary}
+          rightNow={mayaInsight.rightNow}
         />
       )}
 

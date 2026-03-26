@@ -42,6 +42,8 @@ export interface MayaMasteryInput {
 
 export interface MayaInsight {
   continuityLine: string;
+  summary: string | null;
+  rightNow: string | null;
   interpretation: {
     seeing: string[];
     helping: string[];
@@ -78,44 +80,81 @@ function getCuePlainLabel(cueType: string): string {
 // ── Continuity Line (Home) ──
 
 export function generateContinuityLine(session: MayaSessionInput, domains: MayaDomainInput[]): string {
-  // No sessions yet
   if (session.sessionCount === 0) {
     return "Your recovery journey starts here — let's begin 💛";
   }
 
-  // Independence highlight (highest priority)
   if (session.lastSessionIndependent && session.lastSessionIndependent >= 3) {
-    return `${session.lastSessionIndependent} answers on your own last time — impressive! ⭐`;
+    return `Last time you answered more on your own — that's real progress ⭐`;
   }
 
-  // Improvement delta
   if (session.correctDelta && session.correctDelta > 0) {
-    return `${session.correctDelta} more correct than last time — you're getting stronger 📈`;
+    return `You got stronger since last time — keep it going 📈`;
   }
 
-  // Streak continuity
   if (session.streak >= 7) {
-    return `${session.streak} days in a row — what amazing consistency! 🌟`;
+    return `${session.streak} days of practice — what incredible dedication 🌟`;
   }
   if (session.streak >= 3) {
-    return `${session.streak} days in a row — keep the momentum going! 🔥`;
+    return `${session.streak} days in a row — your consistency is paying off 🔥`;
   }
 
-  // Domain-aware encouragement
   const improving = domains.filter(d => d.trend === "improving" && d.trialCount >= 5);
   if (improving.length > 0) {
-    return `You've been improving at ${getDomainLabel(improving[0].domainSlug)} — nice work ✨`;
+    return `You've been getting better at ${getDomainLabel(improving[0].domainSlug)} — nice work ✨`;
   }
 
-  // General engagement
   if (session.recentSessionCount >= 3) {
-    return "Great week of practice — every session counts ✨";
+    return "Great week of practice — every session makes a difference ✨";
   }
   if (session.recentSessionCount > 0) {
     return "Ready to pick up where you left off? 💪";
   }
 
   return "Every session builds stronger connections 🧠";
+}
+
+// ── Summary Sentence (cohesive narrative) ──
+
+export function buildSummary(
+  interpretation: MayaInsight["interpretation"],
+  cues: MayaCueInput[],
+): string | null {
+  const { seeing, helping } = interpretation;
+  if (seeing.length === 0) return null;
+
+  // Build a flowing sentence from the first observation + first helping strategy
+  const observation = seeing[0].replace(/\.$/, "");
+  
+  if (helping.length > 0 && !helping[0].includes("Keep practicing")) {
+    const strategy = helping[0].charAt(0).toLowerCase() + helping[0].slice(1);
+    return `${observation}, and ${strategy}.`;
+  }
+  
+  return `${observation}.`;
+}
+
+// ── "Right Now" Line ──
+
+export function generateRightNow(domains: MayaDomainInput[], session: MayaSessionInput): string | null {
+  if (session.sessionCount === 0) return "Start with your first session — even 5 minutes helps";
+
+  const sorted = [...domains].filter(d => d.trialCount >= 3).sort((a, b) => a.score - b.score);
+  
+  if (sorted.length > 0) {
+    const weakest = sorted[0];
+    const label = getDomainLabel(weakest.domainSlug);
+    if (weakest.score < 0.4) {
+      return `Let's focus on ${label} today — short practice goes a long way`;
+    }
+    return `Today's a great day to practice ${label}`;
+  }
+
+  if (session.streak >= 1) {
+    return "Keep the momentum — start today's session";
+  }
+  
+  return "A quick practice session will make a difference today";
 }
 
 // ── Interpretation (My Progress) ──
@@ -309,8 +348,10 @@ export function generateMayaInsight(
   const interpretation = generateInterpretation(domains, cues, mastery, session);
   const anticipation = generateAnticipation(domains);
   const milestone = checkMilestone(mastery, session.streak, independencePct);
+  const summary = buildSummary(interpretation, cues);
+  const rightNow = generateRightNow(domains, session);
 
-  return { continuityLine, interpretation, anticipation, milestone };
+  return { continuityLine, summary, rightNow, interpretation, anticipation, milestone };
 }
 
 // ── Caregiver Urgency ──

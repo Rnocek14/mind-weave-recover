@@ -5,6 +5,8 @@ import type { MayaInsight } from "@/lib/mayaNarrative";
 interface MayaInterpretationCardProps {
   interpretation: MayaInsight["interpretation"];
   anticipation: string | null;
+  summary: string | null;
+  rightNow: string | null;
 }
 
 interface SectionProps {
@@ -39,14 +41,15 @@ function Section({ icon: Icon, title, items, accentClass, iconClass }: SectionPr
  * Maya's interpretation of recovery progress.
  * Shows "What I'm Seeing", "What's Helping", and "What We're Working On".
  */
-export function MayaInterpretationCard({ interpretation, anticipation }: MayaInterpretationCardProps) {
+export function MayaInterpretationCard({ interpretation, anticipation, summary, rightNow }: MayaInterpretationCardProps) {
   const { seeing, helping, workingOn } = interpretation;
   const hasContent = seeing.length > 0 || helping.length > 0 || workingOn.length > 0;
 
-  if (!hasContent) return null;
+  if (!hasContent && !summary) return null;
 
   return (
     <Card className="p-4 border-2 space-y-3">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
           <span className="text-xs">🧠</span>
@@ -56,6 +59,21 @@ export function MayaInterpretationCard({ interpretation, anticipation }: MayaInt
         </h3>
       </div>
 
+      {/* Summary sentence — cohesive narrative first */}
+      {summary && (
+        <p className="text-sm text-foreground leading-relaxed font-medium">
+          {summary}
+        </p>
+      )}
+
+      {/* "Right now" action line */}
+      {rightNow && (
+        <p className="text-sm text-primary font-medium">
+          👉 {rightNow}
+        </p>
+      )}
+
+      {/* Detail sections */}
       <div className="space-y-2.5">
         <Section
           icon={Eye}
