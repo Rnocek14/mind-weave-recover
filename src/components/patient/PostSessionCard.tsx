@@ -56,7 +56,7 @@ function getMotivationalNudge(feedback: LastSessionFeedback, domainLabel: string
   return "Every session builds stronger connections 🧠";
 }
 
-export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSessionCardProps) {
+export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation }: PostSessionCardProps) {
   const [minimized, setMinimized] = useState(false);
   const { text, emoji } = getHeadline(feedback);
   const domainLabel = getDomainLabel(feedback.exerciseNames);
