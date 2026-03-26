@@ -25,7 +25,7 @@ import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { PostSessionCard } from "@/components/patient/PostSessionCard";
 import { useProfile } from "@/hooks/useProfile";
 import { useLastSessionFeedback } from "@/hooks/useLastSessionFeedback";
-import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { useMayaState } from "@/hooks/useMayaState";
 import { MilestoneToast } from "@/components/patient/MilestoneToast";
 import { toast } from "sonner";
 
