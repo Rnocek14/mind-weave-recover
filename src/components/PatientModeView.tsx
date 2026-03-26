@@ -337,6 +337,7 @@ export function PatientModeView({
                   onDismiss={() => dismissFeedback(feedback.sessionId)}
                   onStartSession={lesson ? handleStartSession : undefined}
                   anticipation={mayaInsight?.anticipation}
+                  thread={mayaInsight?.thread}
                 />
               )}
 
