@@ -44,9 +44,11 @@ const FOLLOWUP_LINES: Record<FollowupType, string[]> = {
     "Tell me more.",
     "Go on...",
     "Keep going, I'm listening.",
-    "Yeah? What else?",
+    "What else?",
     "And?",
-    "Oh really? Tell me more.",
+    "Tell me more about that.",
+    "I'm listening.",
+    "Keep going.",
   ],
   clarify_small: [
     "Just one small part of that.",
