@@ -71,13 +71,13 @@ export interface OrchestratorState {
   cardsInsertedThisSession: number;
   
   // ANTI-LOOP: Follow-up depth tracking
-  consecutiveFollowups: number;  // NEW: Count of follow-ups on same micro-topic
-  lastMicroTopic: string | null;  // NEW: Track micro-topic (e.g., "eggs", "scrambled")
-  lastObjective: TherapyObjective | null;  // NEW: Previous turn's objective
+  consecutiveFollowups: number;
+  lastMicroTopic: string | null;
+  lastObjective: TherapyObjective | null;
   
   // Vocabulary priming
-  primedVocabulary: string[];  // NEW: Words from exercises to reuse
-  usedVocabulary: string[];    // NEW: Words user has produced
+  primedVocabulary: string[];
+  usedVocabulary: string[];
   
   // Success tracking
   recentStuckTypes: StuckType[];
@@ -91,7 +91,14 @@ export interface OrchestratorState {
   // Popup exercise tracking
   popupExercisesThisSession: number;
   turnsSinceLastPopup: number;
-  repeatedStuckCount: number;  // consecutive same stuck type
+  repeatedStuckCount: number;
+
+  // Profile-driven probe context
+  clinicalProfile: ClinicalProfile | null;
+  mayaState: MayaState | null;
+  recentExerciseResults: NormalizedExerciseResult[];
+  recentPopupSlugs: string[];
+  fatigueState: FatigueState;
 }
 
 // Speech analysis data for smarter card selection
