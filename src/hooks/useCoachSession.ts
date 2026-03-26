@@ -789,8 +789,8 @@ export function useCoachSession({
       }
     }
 
-    // Use topic-connected outro
-    const outro = getCardOutro(currentTopic || undefined);
+    // FLOW ENGINE: Use context-aware return instead of canned outro
+    const outro = generateTaskReturn(!!cardSuccess, currentTopic);
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     
