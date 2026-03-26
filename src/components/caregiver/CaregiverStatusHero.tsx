@@ -10,6 +10,14 @@ import { format, parseISO, differenceInDays } from "date-fns";
 interface CaregiverStatusHeroProps {
   userId: string;
   streak: number;
+  patientName?: string;
+}
+
+function getTimeGreeting(): { text: string; icon: typeof Sun } {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: "Good morning", icon: Sun };
+  if (hour < 17) return { text: "Good afternoon", icon: Sunset };
+  return { text: "Good evening", icon: Moon };
 }
 
 type OverallStatus = "good" | "needs-support" | "concern";
