@@ -25,7 +25,7 @@ import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { PostSessionCard } from "@/components/patient/PostSessionCard";
 import { useProfile } from "@/hooks/useProfile";
 import { useLastSessionFeedback } from "@/hooks/useLastSessionFeedback";
-import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { useMayaState } from "@/hooks/useMayaState";
 import { MilestoneToast } from "@/components/patient/MilestoneToast";
 import { toast } from "sonner";
 
@@ -73,7 +73,9 @@ export function PatientModeView({
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
-  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
+  const { state: mayaState } = useMayaState({ userId, profileId });
+  // Backward-compat alias
+  const mayaInsight = mayaState;
 
   // Scroll to top on tab switch
   useEffect(() => {
@@ -120,8 +122,8 @@ export function PatientModeView({
   // Encouragement — powered by Maya continuity line + thread coherence
   const encouragement = useMemo(() => {
     // Prefer memory line for longitudinal feel, then continuity
-    if (mayaInsight?.memoryLine) return mayaInsight.memoryLine;
-    if (mayaInsight?.continuityLine) return mayaInsight.continuityLine;
+    if (mayaInsight?.trends?.memoryLine) return mayaInsight.trends.memoryLine;
+    if (mayaInsight?.trends?.continuityLine) return mayaInsight.trends.continuityLine;
     // Thread-aware fallback
     if (mayaInsight?.thread?.primaryDomainLabel && mayaInsight.thread.tone === "celebrating") {
       return `Your ${mayaInsight.thread.primaryDomainLabel} is on a great trajectory ✨`;
@@ -340,7 +342,7 @@ export function PatientModeView({
                   feedback={feedback}
                   onDismiss={() => dismissFeedback(feedback.sessionId)}
                   onStartSession={lesson ? handleStartSession : undefined}
-                  anticipation={mayaInsight?.anticipation}
+                  anticipation={mayaInsight?.trends?.anticipation}
                   thread={mayaInsight?.thread}
                 />
               )}

@@ -20,7 +20,7 @@ import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
 import { useAchievements } from "@/hooks/useAchievements";
-import { useMayaInsight } from "@/hooks/useMayaInsight";
+import { useMayaState } from "@/hooks/useMayaState";
 import { MayaInterpretationCard } from "@/components/patient/MayaInterpretationCard";
 import { MilestoneToast } from "@/components/patient/MilestoneToast";
 
@@ -59,7 +59,9 @@ export const PatientProgressView = memo(function PatientProgressView({
   const { flags: redFlags } = useRedFlagDetection(userId);
   const { analytics } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
   const { achievements, newAchievements } = useAchievements(userId, profileId);
-  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
+  const { state: mayaState } = useMayaState({ userId, profileId });
+  // Backward-compat alias
+  const mayaInsight = mayaState;
 
   const weekStats = useMemo(() => {
     const activeDays = timeline.filter((d) => d.hasAnySignal).length;
@@ -184,10 +186,10 @@ export const PatientProgressView = memo(function PatientProgressView({
       {mayaInsight && (
         <MayaInterpretationCard
           interpretation={mayaInsight.interpretation}
-          anticipation={mayaInsight.anticipation}
-          summary={mayaInsight.summary}
-          rightNow={mayaInsight.rightNow}
-          memoryLine={mayaInsight.memoryLine}
+          anticipation={mayaInsight.trends.anticipation}
+          summary={mayaInsight.trends.summary}
+          rightNow={mayaInsight.trends.rightNow}
+          memoryLine={mayaInsight.trends.memoryLine}
           verbosity={mayaInsight.verbosity}
           thread={mayaInsight.thread}
         />
