@@ -253,6 +253,11 @@ export function ConversationCoachGame({
   // Smart speech end detection - faster thresholds for responsive feel
   const speechEndDetection = useSpeechEndDetection({
     onSpeechEnd: (transcript) => {
+      // CRITICAL: Don't trigger conversation processing during card mode
+      if (isCardActiveRef.current) {
+        console.log('🎯 Speech end during card_active — routing to card, not conversation');
+        return;
+      }
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
