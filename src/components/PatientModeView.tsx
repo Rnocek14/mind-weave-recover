@@ -304,15 +304,18 @@ export function PatientModeView({
               {/* Greeting + encouragement */}
               <div className="text-center space-y-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  {streak > 0 ? `${streak}-day streak 🔥` : "Start here"}
+                  {streak > 0 ? `${streak}-day streak 🔥` : "Welcome"}
                 </p>
                 <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
-                  Ready to practice?
+                  {greeting}
                 </h1>
                 <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-medium">
                   {encouragement}
                 </p>
               </div>
+
+              {/* Why Today explanation — ABOVE CTA for trust */}
+              {lesson && <WhyTodayCard lesson={lesson} />}
 
               {/* Primary CTA */}
               <Button
@@ -326,9 +329,6 @@ export function PatientModeView({
                   Start Today's Session
                 </span>
               </Button>
-
-              {/* Why Today explanation */}
-              {lesson && <WhyTodayCard lesson={lesson} />}
 
               {/* Progress card with trend arrows */}
               <PatientProgressCard userId={userId} profileId={profileId} />
