@@ -309,6 +309,8 @@ serve(async (req) => {
       sessionMetrics,
       engagementState,
       suggestedCue,
+      exerciseContext,
+      priorSessionMemory,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -320,6 +322,17 @@ serve(async (req) => {
       sessionMetrics?: SessionMetrics;
       engagementState?: EngagementState;
       suggestedCue?: CueContext;
+      exerciseContext?: {
+        slug: string;
+        summary: string;
+        accuracy?: number;
+        cueLevelUsed?: number;
+        successBand?: string;
+        targetDomain?: string;
+        errorTypes?: string[];
+        struggleSignal?: string;
+      };
+      priorSessionMemory?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
