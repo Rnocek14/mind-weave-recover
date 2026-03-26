@@ -69,6 +69,7 @@ export function PatientModeView({
   const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
 
   // Scroll to top on tab switch
   useEffect(() => {
