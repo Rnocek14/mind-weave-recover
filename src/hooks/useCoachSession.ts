@@ -9,8 +9,9 @@
  * - Anti-loop enforcement from orchestrator
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { saveCoachSessionSummary, loadLatestCoachSummary, formatMemoryForPrompt, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { 
   getNextAction, 
   createInitialState, 

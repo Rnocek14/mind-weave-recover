@@ -962,7 +962,7 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Completion - use new summary component */}
+      {/* Completion - use new summary component */}
         {currentPhase === 'complete' && (
           <CoachSessionSummary
             metrics={metrics}
@@ -971,6 +971,18 @@ export function ConversationCoachGame({
           />
         )}
       </div>
+
+      {/* Exercise popup modal */}
+      <ExerciseModalHost
+        activeExercise={exerciseModal.activeExercise}
+        isOpen={exerciseModal.isOpen}
+        onClose={exerciseModal.closeExerciseModal}
+        onComplete={(result) => {
+          ingestExerciseResult(result);
+        }}
+        userId={userId}
+        sessionId={sessionId}
+      />
     </div>
   );
 }
