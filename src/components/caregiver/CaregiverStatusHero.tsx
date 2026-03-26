@@ -4,6 +4,7 @@ import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useProfile } from "@/hooks/useProfile";
+import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
 import { useMemo } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
 
