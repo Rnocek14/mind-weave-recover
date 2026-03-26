@@ -561,6 +561,7 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     lastCardType: null,
     yesNoSucceeded: false,
     currentTopic: null,
+    turnsOnCurrentTopic: 0,
     userRequestedCards: 0,
     scaffoldingLevel: 'guided',
     popupExercisesThisSession: 0,
