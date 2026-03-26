@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useMayaState } from '@/hooks/useMayaState';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee, HelpCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
