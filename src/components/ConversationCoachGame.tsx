@@ -152,6 +152,7 @@ export function ConversationCoachGame({
     userId,
     profileId,
     sessionId,
+    mayaState,
     userSpeechProfile: userSpeechProfileForSession,
   });
 
