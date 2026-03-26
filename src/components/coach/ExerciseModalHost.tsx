@@ -135,7 +135,7 @@ export function ExerciseModalHost({
         return (
           <SentenceConstructionGame
             config={{ startDifficulty: config.difficultyTier ?? 1, cueLevel: config.cueLevel ?? 2 }}
-            bounds={{ minDifficulty: 1, maxDifficulty: 5, currentDifficulty: config.difficultyTier ?? 1 }}
+            bounds={{ floor: 1, ceiling: 5, suggestedStart: config.difficultyTier ?? 1 }}
             difficultyLevel={config.difficultyTier ?? 1}
             onGameComplete={(finalScore, totalTrials) => {
               handleGameComplete('sentence-construction', { correct: finalScore, total: totalTrials });
