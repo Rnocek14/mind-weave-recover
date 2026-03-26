@@ -116,7 +116,7 @@ export function PatientModeView({
   // Encouragement — dynamic based on last session feedback
   const encouragement = useMemo(() => {
     if (feedback) {
-      if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct last time — nice! 📈`;
+      if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct answers than last session — nice! 📈`;
       if (feedback.accuracy >= 80) return "You're doing really well — keep it up! 💪";
       if (feedback.streak >= 3) return `${feedback.streak} days in a row — amazing consistency! 🔥`;
     }
@@ -330,7 +330,8 @@ export function PatientModeView({
               {feedback && (
                 <PostSessionCard
                   feedback={feedback}
-                  onDismiss={() => dismissFeedback(feedback.endedAt)}
+                  onDismiss={() => dismissFeedback(feedback.sessionId)}
+                  onStartSession={lesson ? handleStartSession : undefined}
                 />
               )}
 

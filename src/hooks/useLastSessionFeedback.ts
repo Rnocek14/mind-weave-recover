@@ -20,6 +20,8 @@ export interface LastSessionFeedback {
   exerciseNames: string[];
   /** Timestamp of session end */
   endedAt: string;
+  /** Session ID for dismiss tracking */
+  sessionId: string;
 }
 
 export function useLastSessionFeedback(userId: string, profileId: string) {
@@ -121,6 +123,7 @@ export function useLastSessionFeedback(userId: string, profileId: string) {
           streak,
           exerciseNames: exercises as string[],
           endedAt: latest.ended_at!,
+          sessionId: latest.id,
         });
       } catch (err) {
         console.error("Error fetching last session feedback:", err);
