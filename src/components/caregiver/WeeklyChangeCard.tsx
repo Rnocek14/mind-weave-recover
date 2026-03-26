@@ -117,17 +117,21 @@ export function WeeklyChangeCard({ userId, patientName }: WeeklyChangeCardProps)
     return result;
   }, [sessions]);
 
-  // Generate a plain-language summary
+  // Generate a plain-language summary with domain awareness
   const summaryText = useMemo(() => {
     if (!deltas.length) return null;
     const daysDelta = deltas[0];
     const diff = daysDelta.thisWeek - daysDelta.lastWeek;
-    if (diff > 0) return `${patientName} practiced more this week than last — great progress!`;
+    const domainHint = primaryStruggle
+      ? `, focusing on ${primaryStruggle.caregiverLabel}`
+      : "";
+
+    if (diff > 0) return `${patientName} practiced more this week than last${domainHint} — great progress!`;
     if (diff < 0) return `Practice was lower this week — a little encouragement may help.`;
-    if (daysDelta.thisWeek >= 4) return `${patientName} is staying consistent — keep it up!`;
+    if (daysDelta.thisWeek >= 4) return `${patientName} is staying consistent${domainHint} — keep it up!`;
     if (daysDelta.thisWeek === 0) return `No practice this week yet — today is a good day to start.`;
-    return `${patientName} has been practicing — every session counts.`;
-  }, [deltas, patientName]);
+    return `${patientName} has been practicing${domainHint} — every session counts.`;
+  }, [deltas, patientName, primaryStruggle]);
 
   return (
     <Card className="p-5 border-2 space-y-3">
