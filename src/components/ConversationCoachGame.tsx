@@ -522,6 +522,9 @@ export function ConversationCoachGame({
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
+    // Reset card refs immediately
+    isCardActiveRef.current = false;
+    isCardListeningRef.current = false;
     setIsCardListening(false);
     stopListening();
     setCardTranscript('');
