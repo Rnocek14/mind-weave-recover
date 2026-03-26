@@ -22,6 +22,9 @@ import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { SentenceConstructionGame } from '@/components/SentenceConstructionGame';
 import { YesNoComprehensionProbe } from './YesNoComprehensionProbe';
 import { StoryRetellProbe } from './StoryRetellProbe';
+import { FollowDirectionsProbe } from './FollowDirectionsProbe';
+import { CategoryFluencyProbe } from './CategoryFluencyProbe';
+import { SequenceBuilderProbe } from './SequenceBuilderProbe';
 
 interface ExerciseModalHostProps {
   activeExercise: ActiveModalExercise | null;
@@ -41,6 +44,9 @@ const MODAL_EXERCISE_TITLES: Record<string, string> = {
   'sentence-construction': 'Sentence Building',
   'yes-no-comprehension': 'Quick Comprehension',
   'story-retell': 'Story Retell',
+  'follow-directions': 'Follow Directions',
+  'category-fluency': 'Category Fluency',
+  'sequence-builder': 'Sequence Builder',
 };
 
 export function ExerciseModalHost({
@@ -158,6 +164,36 @@ export function ExerciseModalHost({
           <StoryRetellProbe
             onComplete={(results) => {
               handleGameComplete('story-retell', results);
+            }}
+          />
+        );
+
+      case 'follow-directions':
+        return (
+          <FollowDirectionsProbe
+            totalTrials={config.totalTrials ?? 5}
+            difficultyLevel={config.difficultyTier ?? 2}
+            onComplete={(results) => {
+              handleGameComplete('follow-directions', results);
+            }}
+          />
+        );
+
+      case 'category-fluency':
+        return (
+          <CategoryFluencyProbe
+            onComplete={(results) => {
+              handleGameComplete('category-fluency', results);
+            }}
+          />
+        );
+
+      case 'sequence-builder':
+        return (
+          <SequenceBuilderProbe
+            totalTrials={config.totalTrials ?? 3}
+            onComplete={(results) => {
+              handleGameComplete('sequence-builder', results);
             }}
           />
         );

@@ -38,6 +38,9 @@ const SLUG_TO_DOMAIN: Record<string, ClinicalDomain> = {
   'word-practice': 'expressive_language',
   'describe-and-guess': 'expressive_language',
   'narrative-retell': 'discourse',
+  'follow-directions': 'receptive_language',
+  'category-fluency': 'expressive_language',
+  'sequence-builder': 'discourse',
 };
 
 // ── Per-Session Metrics ──
