@@ -27,6 +27,8 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
 
 import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
+import { WeeklyChangeCard } from "@/components/caregiver/WeeklyChangeCard";
+import { CaregiverReassuranceCard } from "@/components/caregiver/CaregiverReassuranceCard";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { OverviewSection } from "@/components/insights";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
