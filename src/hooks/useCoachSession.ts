@@ -626,12 +626,20 @@ export function useCoachSession({
         } else {
           aiResponseText = data.response;
           
-          // Double-check: if AI response is a dead-end, enhance it
+          // Store AI-generated conversation memory for next turn
+          if (data.memoryUpdate) {
+            rollingMemoryRef.current = data.memoryUpdate;
+          }
+          
+          // Dead-end recovery (should be rare with intent-driven prompt)
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.'];
           const lowerResponse = aiResponseText.toLowerCase().trim();
           if (deadEnds.some(de => lowerResponse === de || lowerResponse === de.replace('.', ''))) {
-            // AI gave dead-end, enhance with smart acknowledge
-            aiResponseText = getSmartAcknowledge(transcript);
+            // Use simple contextual continuation instead of canned template
+            const lastWord = transcript.trim().split(/\s+/).pop();
+            aiResponseText = lastWord && lastWord.length > 2
+              ? `${lastWord.charAt(0).toUpperCase() + lastWord.slice(1)}! And then?`
+              : 'Go on...';
           }
           
           // Check if AI suggested a break
