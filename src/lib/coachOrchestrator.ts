@@ -202,8 +202,17 @@ export function getNextAction(
   }
 
   // 4. ANTI-LOOP: Too many consecutive follow-ups → force intervention
-  if (consecutiveFollowups >= LIMITS.MAX_CONSECUTIVE_FOLLOWUPS) {
-    // Option A: Insert a micro-game rep
+  // FLOW ENGINE: Higher threshold for flowing users — conversation IS therapy
+  const effectiveFollowupCap = stuckType === 'strong_flow' 
+    ? LIMITS.MAX_CONSECUTIVE_FOLLOWUPS * 3  // 9 turns of conversation is fine when flowing
+    : LIMITS.MAX_CONSECUTIVE_FOLLOWUPS;
+  if (consecutiveFollowups >= effectiveFollowupCap) {
+    // If user is flowing well, just shift topic instead of inserting a card
+    if (stuckType === 'strong_flow') {
+      return { type: 'topic_shift' };
+    }
+    
+    // Option A: Insert a micro-game rep (only when not flowing)
     if (turnsSinceLastCard >= 2 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
       return {
         type: 'insert_card',
