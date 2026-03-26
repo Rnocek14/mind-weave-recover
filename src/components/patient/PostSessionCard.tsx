@@ -149,7 +149,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
             size="sm"
             className="w-full text-primary hover:text-primary hover:bg-primary/10"
           >
-            Keep it going tomorrow
+            Practice again tomorrow
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}
