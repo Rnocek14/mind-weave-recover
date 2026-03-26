@@ -544,6 +544,29 @@ export function updateState(
   };
 }
 
+/**
+ * Update state after a popup exercise completes
+ */
+export function updateStateAfterPopup(
+  state: OrchestratorState,
+  success: boolean,
+  userWords?: string[]
+): OrchestratorState {
+  const primedVocabulary = userWords
+    ? [...new Set([...state.primedVocabulary, ...userWords])].slice(0, 15)
+    : state.primedVocabulary;
+
+  return {
+    ...state,
+    popupExercisesThisSession: state.popupExercisesThisSession + 1,
+    turnsSinceLastPopup: 0,
+    repeatedStuckCount: 0,
+    successStreak: success ? state.successStreak + 1 : 0,
+    primedVocabulary,
+    consecutiveFollowups: 0,
+  };
+}
+
 function calculateScaffoldingLevel(
   recentStuckTypes: StuckType[],
   successStreak: number
