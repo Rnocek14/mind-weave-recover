@@ -22,6 +22,8 @@ export interface LastSessionFeedback {
   endedAt: string;
   /** Session ID for dismiss tracking */
   sessionId: string;
+  /** Answers without any cues (cue_level 0) */
+  independentCorrect: number;
 }
 
 export function useLastSessionFeedback(userId: string, profileId: string) {
