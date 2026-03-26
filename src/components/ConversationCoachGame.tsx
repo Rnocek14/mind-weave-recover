@@ -627,7 +627,9 @@ export function ConversationCoachGame({
       console.warn('TTS failed:', err);
     }
     
-    // Insert the card
+    // Set refs BEFORE inserting card and starting listening to prevent race condition
+    isCardActiveRef.current = true;
+    isCardListeningRef.current = true;
     insertPendingCard();
     setConversationState('idle');
     setCardTranscript('');
