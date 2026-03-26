@@ -180,6 +180,17 @@ export const PatientProgressView = memo(function PatientProgressView({
         </div>
       )}
 
+      {/* Maya Interpretation — anchor narrative */}
+      {mayaInsight && (
+        <MayaInterpretationCard
+          interpretation={mayaInsight.interpretation}
+          anticipation={mayaInsight.anticipation}
+        />
+      )}
+
+      {/* Milestone celebrations */}
+      {mayaInsight && <MilestoneToast milestone={mayaInsight.milestone} />}
+
       {/* Core Metrics Grid */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="p-5 text-center border-2">

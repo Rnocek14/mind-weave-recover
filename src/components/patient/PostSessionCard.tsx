@@ -167,6 +167,13 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipat
           {getMotivationalNudge(feedback, domainLabel)}
         </p>
 
+        {/* Forward-looking anticipation */}
+        {anticipation && (
+          <p className="text-xs text-center text-muted-foreground/80 italic">
+            ✨ {anticipation}
+          </p>
+        )}
+
         {/* Next action CTA */}
         {onStartSession && (
           <Button

@@ -205,6 +205,20 @@ export function HowYouCanHelpCard({ userId, patientName }: { userId: string; pat
         <p className="text-sm font-medium text-foreground">{headline}</p>
       )}
 
+      {/* Urgency/confidence signal */}
+      {primaryStruggle && (() => {
+        const urgency = getCaregiverUrgency(primaryStruggle.score);
+        return (
+          <p className={`text-xs font-medium ${
+            urgency.level === "urgent" ? "text-destructive" :
+            urgency.level === "moderate" ? "text-amber-600" :
+            "text-emerald-600"
+          }`}>
+            {urgency.signal}
+          </p>
+        );
+      })()}
+
       <div className="space-y-2.5">
         {tips.map((tip, i) => {
           const Icon = tip.icon;
