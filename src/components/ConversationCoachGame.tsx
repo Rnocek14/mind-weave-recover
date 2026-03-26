@@ -987,8 +987,26 @@ export function ConversationCoachGame({
         activeExercise={exerciseModal.activeExercise}
         isOpen={exerciseModal.isOpen}
         onClose={exerciseModal.closeExerciseModal}
-        onComplete={(result) => {
-          ingestExerciseResult(result);
+        onComplete={async (result) => {
+          setConversationState('processing');
+          const followup = await ingestExerciseResult(result);
+          if (followup) {
+            setConversationState('ai_speaking');
+            try {
+              await speakStream(followup);
+            } catch (err) {
+              console.warn('TTS failed after popup:', err);
+            }
+            clearPendingAI();
+            if (!isComplete) {
+              setConversationState('listening');
+              startConversationTurn();
+            } else {
+              setConversationState('idle');
+            }
+          } else {
+            setConversationState('idle');
+          }
         }}
         userId={userId}
         sessionId={sessionId}
