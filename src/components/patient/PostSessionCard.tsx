@@ -52,16 +52,18 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
   // Mini banner after first dismiss
   if (minimized) {
     return (
-      <button
-        onClick={onDismiss}
-        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/10 text-sm text-muted-foreground hover:bg-primary/10 transition-colors animate-fade-in"
-      >
-        <span>
+      <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/10 text-sm text-muted-foreground animate-fade-in">
+        <button
+          onClick={() => setMinimized(false)}
+          className="flex-1 text-left hover:text-foreground transition-colors"
+        >
           {emoji} {text} — {feedback.correct}/{feedback.total} correct
           {feedback.streak >= 2 && ` • ${feedback.streak}-day streak`}
-        </span>
-        <X className="w-3.5 h-3.5 shrink-0 ml-2" />
-      </button>
+        </button>
+        <button onClick={onDismiss} className="p-0.5 ml-2 hover:text-foreground transition-colors" aria-label="Dismiss">
+          <X className="w-3.5 h-3.5 shrink-0" />
+        </button>
+      </div>
     );
   }
 
@@ -135,7 +137,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
           {feedback.streak >= 3
             ? `${feedback.streak} days in a row — keep the momentum going!`
             : feedback.correctDelta > 0
-              ? `${feedback.correctDelta} more correct answers than last session — real progress!`
+              ? `You got ${feedback.correctDelta} more correct answers than yesterday — real progress!`
               : "Every session builds stronger connections 🧠"}
         </p>
 
@@ -147,7 +149,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
             size="sm"
             className="w-full text-primary hover:text-primary hover:bg-primary/10"
           >
-            Keep it going tomorrow
+            Practice again tomorrow
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}
