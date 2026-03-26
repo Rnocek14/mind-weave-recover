@@ -194,6 +194,7 @@ const MODAL_CAPABLE_SLUGS = [
   'photo-naming', 'minimal-pairs', 'meaning-match',
   'semantic-features', 'sentence-construction',
   'yes-no-comprehension', 'story-retell',
+  'follow-directions', 'category-fluency', 'sequence-builder',
 ];
 
 export function selectNextProbe(input: ProbeSelectionInput): ProbeDecision {
