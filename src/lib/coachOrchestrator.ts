@@ -725,7 +725,7 @@ export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
     recall_prompt: ["Name anyone who comes to mind."],
   },
   activities: {
-    photo_naming: ["What's this?"],
+    photo_naming: ["Name this one!", "How about this?", "Quick — what is it?"],
     semantic_features: ["Describe this."],
     thought_prompt: ["Complete this..."],
     phrase_starter: ["Pick one."],
