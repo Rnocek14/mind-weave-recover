@@ -27,6 +27,8 @@ import { GamePickerDialog } from '@/components/coach/GamePickerDialog';
 import { AssistivePanel } from '@/components/coach/AssistivePanel';
 import { SessionPhaseIndicator } from '@/components/coach/SessionProgressBar';
 import { CardType } from '@/lib/coachOrchestrator';
+import { useExerciseModal } from '@/hooks/useExerciseModal';
+import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 
 interface ConversationCoachGameProps {
