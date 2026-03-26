@@ -5,6 +5,7 @@ import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight, Star } from "l
 import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
+import { generateAnticipation, type MayaDomainInput } from "@/lib/mayaNarrative";
 
 interface PostSessionCardProps {
   feedback: LastSessionFeedback;
