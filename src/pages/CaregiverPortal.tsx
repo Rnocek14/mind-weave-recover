@@ -27,6 +27,8 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { calculateStreak } from "@/hooks/useStreakCalculation";
 
 import { CaregiverStatusHero, HowYouCanHelpCard } from "@/components/caregiver/CaregiverStatusHero";
+import { WeeklyChangeCard } from "@/components/caregiver/WeeklyChangeCard";
+import { CaregiverReassuranceCard } from "@/components/caregiver/CaregiverReassuranceCard";
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { OverviewSection } from "@/components/insights";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
@@ -71,6 +73,8 @@ export default function CaregiverPortal() {
     );
   }
 
+  const patientName = activeProfile?.profile_name || "your loved one";
+
   const alertCount = redFlags.filter(
     (f) => f.severity === "red" || f.severity === "orange"
   ).length;
@@ -90,17 +94,20 @@ export default function CaregiverPortal() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            How they're doing, what to watch, and how you can help.
+            How {patientName} is doing, what to watch, and how you can help.
           </p>
         </div>
 
-        {/* 1. Status Hero */}
-        <CaregiverStatusHero userId={user!.id} streak={streak} />
+        {/* 1. Status Hero — warm greeting + status */}
+        <CaregiverStatusHero userId={user!.id} streak={streak} patientName={patientName} />
 
-        {/* 2. How You Can Help */}
+        {/* 2. Reassurance — validates caregiver effort */}
+        <CaregiverReassuranceCard userId={user!.id} patientName={patientName} streak={streak} />
+
+        {/* 3. How You Can Help */}
         <HowYouCanHelpCard userId={user!.id} />
 
-        {/* 3. Concerns — only if they exist */}
+        {/* 4. Concerns — only if they exist */}
         {!flagsLoading && redFlags.length > 0 && (
           <Card className="p-5 border-2 border-destructive/20 space-y-3">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -120,12 +127,15 @@ export default function CaregiverPortal() {
           </Card>
         )}
 
-        {/* 4. Adherence */}
+        {/* 5. What Changed This Week */}
+        <WeeklyChangeCard userId={user!.id} patientName={patientName} />
+
+        {/* 6. Adherence */}
         <Card className="p-6">
           <SessionAdherenceTracker userId={user!.id} currentStreak={streak} />
         </Card>
 
-        {/* 5. Progress Summary */}
+        {/* 7. Progress Summary */}
         <div className="space-y-2">
           <h3 className="text-base font-semibold text-foreground px-1">Progress Summary</h3>
           <OverviewSection userId={user!.id} profileId={activeProfile?.id} />
