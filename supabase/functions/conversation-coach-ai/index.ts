@@ -315,13 +315,22 @@ serve(async (req) => {
       ...(sessionMetrics?.challengingSounds || []),
     ];
 
-    // Build system prompt (slimmed, intent-aware)
+    // Derive speech state for prompt-level constraints
+    const speechState: 'struggling' | 'flowing' | 'neutral' = 
+      speechAnalysis?.effortfulSpeech || speechAnalysis?.pausePattern === 'very_slow'
+        ? 'struggling'
+        : speechAnalysis?.fluencyScore && speechAnalysis.fluencyScore > 60
+          ? 'flowing'
+          : 'neutral';
+
+    // Build system prompt (slimmed, intent-aware, speech-state-aware)
     const systemPrompt = buildSystemPrompt(
       userProfile || null,
       sessionMetrics || null,
       challengingSounds,
       semanticMemory,
       therapyIntent,
+      speechState,
     );
 
     // Construct messages
