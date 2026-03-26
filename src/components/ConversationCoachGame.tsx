@@ -47,7 +47,7 @@ interface ConversationCoachGameProps {
   onExit?: () => void;
 }
 
-type ConversationState = 'idle' | 'ai_speaking' | 'listening' | 'processing';
+// REMOVED: type ConversationState — replaced by InputMode
 
 export function ConversationCoachGame({
   userId,
