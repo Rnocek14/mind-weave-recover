@@ -26,6 +26,8 @@ export interface MayaSessionInput {
   lastSessionIndependent?: number;
   correctDelta?: number;      // vs previous session
   streak: number;
+  previousWeekSessionCount?: number; // sessions last week (for week-over-week)
+  totalSessionsLast14Days?: number;
 }
 
 export interface MayaCueInput {
@@ -38,12 +40,16 @@ export interface MayaMasteryInput {
   mastered: number;
   emerging: number;
   struggling: number;
+  previousMastered?: number; // mastered count ~7 days ago (for delta)
 }
+
+export type MayaVerbosity = "minimal" | "standard" | "detailed";
 
 export interface MayaInsight {
   continuityLine: string;
   summary: string | null;
   rightNow: string | null;
+  memoryLine: string | null;         // longitudinal: "Over the last 2 weeks..."
   interpretation: {
     seeing: string[];
     helping: string[];
@@ -51,6 +57,7 @@ export interface MayaInsight {
   };
   anticipation: string | null;
   milestone: MayaMilestone | null;
+  verbosity: MayaVerbosity;          // controls how much detail to show
 }
 
 export interface MayaMilestone {
