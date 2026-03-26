@@ -227,65 +227,98 @@ export function updateFlowState(
  * Generate a context-aware bridge for transitioning into a task.
  * This replaces canned intros like "Quick one! Name this."
  */
+// DEDUP GUARD for bridges and returns
+const _lastBridges: string[] = [];
+const _lastReturns: string[] = [];
+
+function pickUnique(pool: string[], history: string[], maxHistory = 3): string {
+  const available = pool.filter(l => !history.includes(l));
+  const usePool = available.length > 0 ? available : pool;
+  const picked = usePool[Math.floor(Math.random() * usePool.length)];
+  history.push(picked);
+  if (history.length > maxHistory) history.shift();
+  return picked;
+}
+
 export function generateContextBridge(
   flowState: FlowState,
   stuckType: StuckType,
   cardType: string,
   topic: string | null,
 ): string {
-  const lastWords = flowState.lastUserTranscript;
+  const lastWords = flowState.lastUserTranscript?.trim() || '';
+  
+  // Extract a key word from user's last message for anchoring
+  const fillers = new Set(['the','a','an','i','my','me','you','we','it','is','was','and','but','or','so','to','um','uh','like','just','yeah','yes','no','ok','okay']);
+  const keyWords = lastWords.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !fillers.has(w));
+  const anchor = keyWords.length > 0 ? keyWords[keyWords.length - 1] : null;
 
-  // === Bridge from topic ===
-  if (topic && lastWords) {
+  // === Bridge from topic + anchor ===
+  if (topic && anchor) {
+    const anchoredBridges = [
+      `You mentioned ${anchor} — let me show you a quick one.`,
+      `Since you brought up ${anchor} — how about this?`,
+      `Oh, ${anchor}! That reminds me — try this one.`,
+      `Hmm, ${anchor}. Let's do a quick one related to that.`,
+    ];
+    return pickUnique(anchoredBridges, _lastBridges);
+  }
+
+  // === Bridge from topic (no anchor) ===
+  if (topic) {
     const topicBridges: Record<string, string[]> = {
       food: [
-        "You mentioned food — let's try a quick one.",
-        "Since we're talking about eating — how about this?",
-        "Speaking of food — name this for me.",
+        "Since we're on food — want to try a quick one?",
+        "That reminds me — let me show you something food-related.",
+        "Oh nice, speaking of eating — how about this?",
       ],
       family: [
-        "You were talking about family — let's try something.",
-        "Since we're on people — how about this one?",
+        "Since we're talking about people — try this one.",
+        "That reminds me — quick one about people.",
+        "Oh, speaking of family — how about this?",
       ],
       activities: [
         "Since we're talking about what you did — try this.",
-        "Based on what you were saying — how about this?",
+        "That reminds me of something — have a look.",
+        "Oh, related to that — how about this one?",
       ],
     };
     if (topicBridges[topic]) {
-      const bridges = topicBridges[topic];
-      return bridges[Math.floor(Math.random() * bridges.length)];
+      return pickUnique(topicBridges[topic], _lastBridges);
     }
   }
 
-  // === Bridge from struggle ===
+  // === Bridge from struggle (warm, not clinical) ===
   if (stuckType === 'word_search_stall' || stuckType === 'thought_abandonment') {
     const struggleBridges = [
-      "That word looked tricky — let me show you something.",
-      "No worries. Let's try it a different way.",
-      "Let me help with that — try this one.",
-      "That's okay. How about we try this?",
+      "I think I know what you mean — let me show you something.",
+      "No rush. How about we try it this way?",
+      "That's okay — let me give you a hand with this.",
+      "Hmm, let me try something that might help.",
+      "All good. Want to try a different angle on that?",
     ];
-    return struggleBridges[Math.floor(Math.random() * struggleBridges.length)];
+    return pickUnique(struggleBridges, _lastBridges);
   }
 
   // === Bridge from success ===
   if (stuckType === 'strong_flow') {
     const successBridges = [
-      "You're doing well — let's stretch it a bit.",
-      "Nice flow! Let's try a quick challenge.",
-      "You're on a roll — how about this one?",
+      "You're doing really well — want to try a quick one?",
+      "That was smooth! Let's stretch it a little.",
+      "Nice! How about a quick challenge?",
+      "You're on a roll — let me show you one more thing.",
     ];
-    return successBridges[Math.floor(Math.random() * successBridges.length)];
+    return pickUnique(successBridges, _lastBridges);
   }
 
-  // === Generic but still natural ===
+  // === Generic but warm ===
   const genericBridges = [
-    "Let's try a quick one based on that.",
-    "Here's something related — give it a try.",
-    "Let me show you something quick.",
+    "Oh hey — let me show you something quick.",
+    "That reminds me — try this one.",
+    "Want to try a quick one? Just for fun.",
+    "Here — have a look at this.",
   ];
-  return genericBridges[Math.floor(Math.random() * genericBridges.length)];
+  return pickUnique(genericBridges, _lastBridges);
 }
 
 /**
