@@ -15,6 +15,7 @@ import {
   getNextAction, 
   createInitialState, 
   updateState,
+  updateStateAfterPopup,
   OrchestratorState,
   CardType,
   getCardIntro,
@@ -25,7 +26,9 @@ import {
   SessionPhase,
   TherapyObjective,
   NextAction,
+  type PopupReason,
 } from '@/lib/coachOrchestrator';
+import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { 
   getFollowupLine, 
   getRandomOpener,
