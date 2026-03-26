@@ -177,6 +177,9 @@ export const useExerciseTelemetry = (
         const { error } = await supabase.from('exercise_events').insert(eventData);
 
         if (error) throw error;
+
+        // Trigger micro-encouragement after successful log
+        trackEncouragement(trial.correct, trial.reactionTimeMs, trial.cueLevel);
       } catch (error) {
         console.error('Error logging trial:', error);
       }
