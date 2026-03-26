@@ -161,16 +161,20 @@ export function getNextAction(
     };
   }
 
-  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first
+  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first (with variety)
   if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
+    // Alternate card types so warmup doesn't feel repetitive
+    const warmupCardSequence: CardType[] = ['photo_naming', 'yes_no', 'recall_prompt', 'semantic_features'];
+    const warmupCard = warmupCardSequence[warmupCardsCompleted % warmupCardSequence.length];
     console.log('[orchestrator] Warmup phase - inserting card:', {
       warmupCardsCompleted,
       required: LIMITS.WARMUP_CARDS_REQUIRED,
+      cardType: warmupCard,
       cardsInsertedThisSession,
     });
     return {
       type: 'insert_card',
-      cardType: 'photo_naming',
+      cardType: warmupCard,
       config: { difficulty: 'easy' },
       objective: 'word_retrieval',
     };
@@ -695,7 +699,7 @@ function calculateScaffoldingLevel(
 
 // Card intro/outro lines
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: ["Quick one! Name this.", "What's this?", "Easy warm-up."],
+  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?"],
   semantic_features: ["Describe this for me.", "Tell me about this."],
   thought_prompt: ["Finish this thought.", "Complete this."],
   phrase_starter: ["Pick one to start.", "Use any of these."],
@@ -721,7 +725,7 @@ export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
     recall_prompt: ["Name anyone who comes to mind."],
   },
   activities: {
-    photo_naming: ["What's this?"],
+    photo_naming: ["Name this one!", "How about this?", "Quick — what is it?"],
     semantic_features: ["Describe this."],
     thought_prompt: ["Complete this..."],
     phrase_starter: ["Pick one."],
