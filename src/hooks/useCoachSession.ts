@@ -36,7 +36,6 @@ import {
   getFollowupLine, 
   getRandomOpener,
   getSmartFallback,
-  getSmartAcknowledge,
 } from '@/lib/conversationFollowups';
 import { classifyStuckType } from '@/lib/stuckTypeClassifier';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
@@ -214,6 +213,8 @@ export function useCoachSession({
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
+  // Rolling semantic memory — AI-maintained conversation summary
+  const rollingMemoryRef = useRef<string>('');
   
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
@@ -601,6 +602,12 @@ export function useCoachSession({
               : fallbackSummary
                 ? `PRIOR SESSION: ${fallbackSummary.maya_summary || 'No summary'}`
                 : undefined,
+            // Rolling semantic memory from previous turns
+            rollingMemory: rollingMemoryRef.current || undefined,
+            // Therapy intent for purposeful conversation
+            therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
+              ? (action as any).therapyIntent
+              : undefined,
           }
         });
 
@@ -618,12 +625,20 @@ export function useCoachSession({
         } else {
           aiResponseText = data.response;
           
-          // Double-check: if AI response is a dead-end, enhance it
+          // Store AI-generated conversation memory for next turn
+          if (data.memoryUpdate) {
+            rollingMemoryRef.current = data.memoryUpdate;
+          }
+          
+          // Dead-end recovery (should be rare with intent-driven prompt)
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.'];
           const lowerResponse = aiResponseText.toLowerCase().trim();
           if (deadEnds.some(de => lowerResponse === de || lowerResponse === de.replace('.', ''))) {
-            // AI gave dead-end, enhance with smart acknowledge
-            aiResponseText = getSmartAcknowledge(transcript);
+            // Use simple contextual continuation instead of canned template
+            const lastWord = transcript.trim().split(/\s+/).pop();
+            aiResponseText = lastWord && lastWord.length > 2
+              ? `${lastWord.charAt(0).toUpperCase() + lastWord.slice(1)}! And then?`
+              : 'Go on...';
           }
           
           // Check if AI suggested a break
@@ -805,6 +820,7 @@ export function useCoachSession({
     setEngagementState(null);
     setSessionPhase('warmup');
     primedVocabularyRef.current = []; // FIX #4: Reset ref
+    rollingMemoryRef.current = ''; // Reset rolling semantic memory
     setAssistivePanelState({
       wordTiles: [],
       sentenceFrames: [],

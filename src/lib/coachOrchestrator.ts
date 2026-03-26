@@ -22,6 +22,18 @@ export type SessionPhase = 'warmup' | 'build' | 'conversation' | 'wrapup';
 // Therapy objectives for each turn
 export type TherapyObjective = 'word_retrieval' | 'sentence_building' | 'comprehension_check' | 'topic_exploration' | 'rep_practice' | 'carryover';
 
+// Therapy intent — gives Maya a *reason* for each conversational turn
+export type TherapyIntent =
+  | 'expand_topic'          // Get user to elaborate on current topic
+  | 'probe_word_finding'    // Elicit specific word retrieval
+  | 'probe_sentence'        // Encourage longer utterance
+  | 'confirm_understanding' // Verify comprehension
+  | 'build_confidence'      // Supportive, low-pressure
+  | 'gentle_repair'         // Help after breakdown
+  | 'shift_topic'           // Move to new area
+  | 'prepare_exercise'      // Transition to card/popup
+  | 'reflect_progress';     // Acknowledge improvement
+
 // Configuration for each card type
 export interface CardConfig {
   difficulty: 'easy' | 'medium';
@@ -33,7 +45,7 @@ export type PopupReason = 'repeated_struggle' | 'targeted_probe' | 'domain_boost
 
 // Possible actions the orchestrator can take
 export type NextAction =
-  | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; showTiles?: boolean; showFrames?: boolean }
+  | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; therapyIntent: TherapyIntent; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
   | { type: 'summary_verify'; summary: string }
@@ -133,6 +145,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: 'what_next',
       objective: 'topic_exploration',
+      therapyIntent: 'expand_topic',
       showTiles: true,
     };
   }
@@ -210,6 +223,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: 'clarify_small',
       objective: 'word_retrieval',
+      therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
       showTiles: true,
       showFrames: true,
     };
@@ -233,6 +247,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: selectFollowupForFlow(turnNumber),
       objective: 'topic_exploration',
+      therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
       showTiles: false,
     };
   }
@@ -274,6 +289,7 @@ export function getNextAction(
     type: 'chat_followup',
     followupType: selectFollowupForStuckType(stuckType, turnNumber),
     objective: 'sentence_building' as TherapyObjective,
+    therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
     showTiles: state.scaffoldingLevel === 'choice',
     showFrames: state.scaffoldingLevel === 'choice',
   };
@@ -423,6 +439,40 @@ function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): F
     default:
       return 'tell_more';
   }
+}
+
+/**
+ * Select therapy intent based on stuck type, session phase, and speech analysis.
+ * Gives Maya a *reason* for each turn instead of just a response type.
+ */
+function selectTherapyIntent(
+  stuckType: StuckType,
+  state: OrchestratorState,
+  speechAnalysis?: SpeechAnalysisForOrchestrator
+): TherapyIntent {
+  // After silence → build confidence with easy question
+  if (stuckType === 'no_speech') return 'build_confidence';
+
+  // Prompt overload → simplify, build confidence
+  if (stuckType === 'prompt_overload') return 'build_confidence';
+
+  // Word search stall → probe word finding or repair
+  if (stuckType === 'word_search_stall') {
+    return speechAnalysis?.circumlocutionDetected ? 'probe_word_finding' : 'gentle_repair';
+  }
+
+  // Thought abandonment → repair
+  if (stuckType === 'thought_abandonment') return 'gentle_repair';
+
+  // Strong flow → vary intent based on context
+  if (stuckType === 'strong_flow') {
+    if (speechAnalysis && speechAnalysis.wordCount < 5) return 'probe_sentence';
+    if (state.turnNumber > 8 && state.successStreak >= 3) return 'reflect_progress';
+    if (state.turnNumber % 4 === 0) return 'confirm_understanding';
+    return 'expand_topic';
+  }
+
+  return 'expand_topic';
 }
 
 /**
