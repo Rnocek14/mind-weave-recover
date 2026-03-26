@@ -189,6 +189,8 @@ export const WARMUP_GREETINGS = [
   "Hey there!",
   "Nice to chat!",
   "Hi!",
+  "Hey! Good to have you.",
+  "Oh hey! Ready to chat?",
 ];
 
 /**

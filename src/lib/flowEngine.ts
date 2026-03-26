@@ -331,22 +331,28 @@ export function generateTaskReturn(
   if (success) {
     const successReturns = topic
       ? [
-          `Nice! Let's go back to what you were saying about ${topic}.`,
-          `Good one! So, you were telling me about ${topic}...`,
-          `That came quick! Back to our chat — what else about ${topic}?`,
+          `That came out really clearly! So, back to ${topic} — what else?`,
+          `Oh, that was smoother! You were telling me about ${topic}...`,
+          `Nice one! Okay, so — more about ${topic}?`,
+          `Ha, you got that quick! So where were we with ${topic}?`,
+          `See? That came easier. Anyway — ${topic}, what else happened?`,
         ]
       : [
-          "Nice — that came easier. So, what were you saying?",
-          "Good one! Let's keep chatting.",
-          "That was quick! So, where were we?",
+          "That came out nice! So, what were you saying?",
+          "See? Smoother that time. Anyway — where were we?",
+          "Ha, nice! Okay, let's keep going.",
+          "Got it! So, you were telling me about...",
+          "That was quick! Okay — back to our chat.",
         ];
-    return successReturns[Math.floor(Math.random() * successReturns.length)];
+    return pickUnique(successReturns, _lastReturns);
   }
 
   const struggleReturns = [
-    "That's okay — no rush. Let's keep talking.",
-    "Don't worry about that one. So, what else?",
-    "That's alright. Let's go back to chatting.",
+    "That's totally fine. Anyway — what were you telling me?",
+    "No worries at all. So, what else is going on?",
+    "All good! Let's go back to what we were chatting about.",
+    "Hey, that's okay. So, you were saying...",
+    "Don't even worry about it. What else?",
   ];
-  return struggleReturns[Math.floor(Math.random() * struggleReturns.length)];
+  return pickUnique(struggleReturns, _lastReturns);
 }
