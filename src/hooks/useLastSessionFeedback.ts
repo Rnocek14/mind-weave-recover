@@ -123,6 +123,7 @@ export function useLastSessionFeedback(userId: string, profileId: string) {
           streak,
           exerciseNames: exercises as string[],
           endedAt: latest.ended_at!,
+          sessionId: latest.id,
         });
       } catch (err) {
         console.error("Error fetching last session feedback:", err);
