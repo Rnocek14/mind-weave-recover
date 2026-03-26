@@ -163,22 +163,26 @@ export function getNextAction(
     };
   }
 
-  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first (with variety)
-  if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
-    // Alternate card types so warmup doesn't feel repetitive
-    const warmupCardSequence: CardType[] = ['photo_naming', 'yes_no', 'recall_prompt', 'semantic_features'];
-    const warmupCard = warmupCardSequence[warmupCardsCompleted % warmupCardSequence.length];
-    console.log('[orchestrator] Warmup phase - inserting card:', {
-      warmupCardsCompleted,
-      required: LIMITS.WARMUP_CARDS_REQUIRED,
-      cardType: warmupCard,
-      cardsInsertedThisSession,
-    });
+  // 1. FLOW ENGINE: Warmup phase is now conversation-only — NO cards
+  // Maya listens, builds comfort, and samples natural speech first
+  if (sessionPhase === 'warmup' && state.turnNumber < 3) {
+    console.log('[orchestrator] Warmup phase - conversation only, turn:', state.turnNumber);
+    // Even during warmup, if user is silent, offer gentle support (not a card)
+    if (stuckType === 'no_speech' || stuckType === 'prompt_overload') {
+      return {
+        type: 'chat_followup',
+        followupType: 'clarify_small',
+        objective: 'topic_exploration',
+        therapyIntent: 'build_confidence',
+        showTiles: true,
+      };
+    }
     return {
-      type: 'insert_card',
-      cardType: warmupCard,
-      config: { difficulty: 'easy' },
-      objective: 'word_retrieval',
+      type: 'chat_followup',
+      followupType: selectFollowupForFlow(state.turnNumber),
+      objective: 'topic_exploration',
+      therapyIntent: 'expand_topic',
+      showTiles: false,
     };
   }
 
