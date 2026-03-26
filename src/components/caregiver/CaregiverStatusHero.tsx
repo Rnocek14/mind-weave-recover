@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { CheckCircle, AlertTriangle, TrendingDown, Clock, Heart, Lightbulb } from "lucide-react";
+import { CheckCircle, AlertTriangle, TrendingDown, Clock, Heart, Lightbulb, Sun, Moon, Sunset } from "lucide-react";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
