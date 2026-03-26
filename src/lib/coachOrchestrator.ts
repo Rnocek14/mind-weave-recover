@@ -22,6 +22,18 @@ export type SessionPhase = 'warmup' | 'build' | 'conversation' | 'wrapup';
 // Therapy objectives for each turn
 export type TherapyObjective = 'word_retrieval' | 'sentence_building' | 'comprehension_check' | 'topic_exploration' | 'rep_practice' | 'carryover';
 
+// Therapy intent — gives Maya a *reason* for each conversational turn
+export type TherapyIntent =
+  | 'expand_topic'          // Get user to elaborate on current topic
+  | 'probe_word_finding'    // Elicit specific word retrieval
+  | 'probe_sentence'        // Encourage longer utterance
+  | 'confirm_understanding' // Verify comprehension
+  | 'build_confidence'      // Supportive, low-pressure
+  | 'gentle_repair'         // Help after breakdown
+  | 'shift_topic'           // Move to new area
+  | 'prepare_exercise'      // Transition to card/popup
+  | 'reflect_progress';     // Acknowledge improvement
+
 // Configuration for each card type
 export interface CardConfig {
   difficulty: 'easy' | 'medium';
