@@ -202,8 +202,11 @@ export function getNextAction(
   }
 
   // 4. ANTI-LOOP: Too many consecutive follow-ups → force intervention
-  // FLOW ENGINE: But NOT when user is flowing well — conversation IS therapy
-  if (consecutiveFollowups >= LIMITS.MAX_CONSECUTIVE_FOLLOWUPS) {
+  // FLOW ENGINE: Higher threshold for flowing users — conversation IS therapy
+  const effectiveFollowupCap = stuckType === 'strong_flow' 
+    ? LIMITS.MAX_CONSECUTIVE_FOLLOWUPS * 3  // 9 turns of conversation is fine when flowing
+    : LIMITS.MAX_CONSECUTIVE_FOLLOWUPS;
+  if (consecutiveFollowups >= effectiveFollowupCap) {
     // If user is flowing well, just shift topic instead of inserting a card
     if (stuckType === 'strong_flow') {
       return { type: 'topic_shift' };
