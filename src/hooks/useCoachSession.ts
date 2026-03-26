@@ -912,9 +912,9 @@ export function useCoachSession({
           },
         }
       });
-      followupText = data?.response || result.score >= 0.7
+      followupText = data?.response || (result.score >= 0.7
         ? "Nice work on that! Let's keep going with our conversation."
-        : "Good effort — that gives me a better sense of what to focus on. Let's continue.";
+        : "Good effort — that gives me a better sense of what to focus on. Let's continue.");
     } catch {
       followupText = result.score >= 0.7
         ? "Great job on that practice! Now, where were we?"
