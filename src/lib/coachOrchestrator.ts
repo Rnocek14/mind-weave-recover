@@ -202,8 +202,14 @@ export function getNextAction(
   }
 
   // 4. ANTI-LOOP: Too many consecutive follow-ups → force intervention
+  // FLOW ENGINE: But NOT when user is flowing well — conversation IS therapy
   if (consecutiveFollowups >= LIMITS.MAX_CONSECUTIVE_FOLLOWUPS) {
-    // Option A: Insert a micro-game rep
+    // If user is flowing well, just shift topic instead of inserting a card
+    if (stuckType === 'strong_flow') {
+      return { type: 'topic_shift' };
+    }
+    
+    // Option A: Insert a micro-game rep (only when not flowing)
     if (turnsSinceLastCard >= 2 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
       return {
         type: 'insert_card',
