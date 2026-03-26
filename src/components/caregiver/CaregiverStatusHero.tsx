@@ -58,7 +58,7 @@ function getOverallStatus(
  * Above-the-fold status hero for caregiver dashboard.
  * Answers "How are they doing?" in <5 seconds.
  */
-export function CaregiverStatusHero({ userId, streak }: CaregiverStatusHeroProps) {
+export function CaregiverStatusHero({ userId, streak, patientName }: CaregiverStatusHeroProps) {
   const { sessions } = useSessionHistory(userId);
   const { flags } = useRedFlagDetection(userId);
   const { activeProfile } = useProfile();
