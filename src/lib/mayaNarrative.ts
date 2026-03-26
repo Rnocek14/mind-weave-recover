@@ -419,14 +419,16 @@ export function generateMayaInsight(
   mastery: MayaMasteryInput,
   independencePct: number | null,
 ): MayaInsight {
+  const verbosity = determineVerbosity(domains, session);
   const continuityLine = generateContinuityLine(session, domains);
   const interpretation = generateInterpretation(domains, cues, mastery, session);
   const anticipation = generateAnticipation(domains);
   const milestone = checkMilestone(mastery, session.streak, independencePct);
-  const summary = buildSummary(interpretation, cues);
+  const summary = buildSummary(interpretation, cues, verbosity);
   const rightNow = generateRightNow(domains, session);
+  const memoryLine = generateMemoryLine(domains, session, mastery);
 
-  return { continuityLine, summary, rightNow, interpretation, anticipation, milestone };
+  return { continuityLine, summary, rightNow, memoryLine, interpretation, anticipation, milestone, verbosity };
 }
 
 // ── Caregiver Urgency ──
