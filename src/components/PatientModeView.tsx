@@ -74,6 +74,7 @@ export function PatientModeView({
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
+  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
 
   // Scroll to top on tab switch
   useEffect(() => {
