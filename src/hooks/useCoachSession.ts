@@ -880,6 +880,7 @@ export function useCoachSession({
   // Ingest result from popup exercise and generate Maya follow-up
   const ingestExerciseResult = useCallback(async (result: NormalizedExerciseResult): Promise<string> => {
     setPendingPopupExercise(null);
+    popupResultsRef.current.push(result);
     
     // Update orchestrator state
     orchestratorStateRef.current = updateStateAfterPopup(
