@@ -55,6 +55,7 @@ export function PatientModeView({
 }: PatientModeViewProps) {
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
+  const { activeProfile } = useProfile();
   const {
     lesson,
     loading: lessonLoading,
