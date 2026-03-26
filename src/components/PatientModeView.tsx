@@ -331,6 +331,7 @@ export function PatientModeView({
                 <PostSessionCard
                   feedback={feedback}
                   onDismiss={() => dismissFeedback(feedback.sessionId)}
+                  onStartSession={lesson ? handleStartSession : undefined}
                 />
               )}
 
