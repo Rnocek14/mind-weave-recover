@@ -42,6 +42,8 @@ export interface MayaMasteryInput {
 
 export interface MayaInsight {
   continuityLine: string;
+  summary: string | null;
+  rightNow: string | null;
   interpretation: {
     seeing: string[];
     helping: string[];
