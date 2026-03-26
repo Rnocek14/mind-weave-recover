@@ -289,6 +289,7 @@ export function getNextAction(
     type: 'chat_followup',
     followupType: selectFollowupForStuckType(stuckType, turnNumber),
     objective: 'sentence_building' as TherapyObjective,
+    therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
     showTiles: state.scaffoldingLevel === 'choice',
     showFrames: state.scaffoldingLevel === 'choice',
   };
