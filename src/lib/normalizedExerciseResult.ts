@@ -181,12 +181,58 @@ export function normalizeGenericResult(slug: string, raw: unknown): NormalizedEx
 
 // ─── Registry ───
 
+export function normalizeYesNoComprehensionResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const correct = r.correct ?? 0;
+  const total = r.total ?? 5;
+  const score = total > 0 ? correct / total : 0;
+  const avgLatency = r.avgLatencyMs ?? undefined;
+
+  return {
+    slug: 'yes-no-comprehension',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: score,
+    reactionTimeMs: avgLatency,
+    targetDomain: 'comprehension',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: avgLatency && avgLatency > 5000 ? 'mild' : 'none',
+    summary: `Answered ${correct} of ${total} comprehension questions correctly.`,
+    raw,
+  };
+}
+
+export function normalizeStoryRetellResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const recalled = r.ideaUnitsRecalled ?? 0;
+  const total = r.ideaUnitsTotal ?? 10;
+  const score = total > 0 ? recalled / total : 0;
+
+  return {
+    slug: 'story-retell',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: score,
+    targetDomain: 'discourse',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: 'none',
+    summary: `Retold "${r.storyTitle || 'story'}": recalled ${recalled} of ${total} key details, ${r.sentenceCount ?? 0} sentences, ${r.wordCount ?? 0} words.`,
+    raw,
+  };
+}
+
+// ─── Registry ───
+
 const NORMALIZERS: Record<string, (raw: unknown) => NormalizedExerciseResult> = {
   'photo-naming': normalizePhotoNamingResult,
   'semantic-features': normalizeSemanticFeatureResult,
   'minimal-pairs': normalizeMinimalPairsResult,
   'meaning-match': normalizeMeaningMatchResult,
   'sentence-construction': normalizeSentenceConstructionResult,
+  'yes-no-comprehension': normalizeYesNoComprehensionResult,
+  'story-retell': normalizeStoryRetellResult,
 };
 
 /**

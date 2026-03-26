@@ -12,6 +12,10 @@
 
 import { StuckType } from './stuckTypeClassifier';
 import { FollowupType } from './conversationFollowups';
+import { selectNextProbe, type ProbeSelectionInput, type FatigueState } from './probeSelector';
+import type { ClinicalProfile } from './clinicalProfileMapper';
+import type { MayaState } from './buildMayaState';
+import type { NormalizedExerciseResult } from './normalizedExerciseResult';
 
 // Card types that can be inserted inline
 export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
@@ -67,13 +71,13 @@ export interface OrchestratorState {
   cardsInsertedThisSession: number;
   
   // ANTI-LOOP: Follow-up depth tracking
-  consecutiveFollowups: number;  // NEW: Count of follow-ups on same micro-topic
-  lastMicroTopic: string | null;  // NEW: Track micro-topic (e.g., "eggs", "scrambled")
-  lastObjective: TherapyObjective | null;  // NEW: Previous turn's objective
+  consecutiveFollowups: number;
+  lastMicroTopic: string | null;
+  lastObjective: TherapyObjective | null;
   
   // Vocabulary priming
-  primedVocabulary: string[];  // NEW: Words from exercises to reuse
-  usedVocabulary: string[];    // NEW: Words user has produced
+  primedVocabulary: string[];
+  usedVocabulary: string[];
   
   // Success tracking
   recentStuckTypes: StuckType[];
@@ -87,7 +91,14 @@ export interface OrchestratorState {
   // Popup exercise tracking
   popupExercisesThisSession: number;
   turnsSinceLastPopup: number;
-  repeatedStuckCount: number;  // consecutive same stuck type
+  repeatedStuckCount: number;
+
+  // Profile-driven probe context
+  clinicalProfile: ClinicalProfile | null;
+  mayaState: MayaState | null;
+  recentExerciseResults: NormalizedExerciseResult[];
+  recentPopupSlugs: string[];
+  fatigueState: FatigueState;
 }
 
 // Speech analysis data for smarter card selection
@@ -209,9 +220,35 @@ export function getNextAction(
     sessionPhase === 'conversation'; // Only during conversation phase
   
   if (canPopup && state.repeatedStuckCount >= LIMITS.REPEATED_STUCK_THRESHOLD) {
+    // Use profile-driven probe selection
+    const probeInput: ProbeSelectionInput = {
+      profile: state.clinicalProfile,
+      mayaState: state.mayaState,
+      recentResults: state.recentExerciseResults,
+      speechAnalysis: speechAnalysis || null,
+      sessionPhase: state.sessionPhase,
+      fatigueState: state.fatigueState,
+      popupCount: state.popupExercisesThisSession,
+      recentPopupSlugs: state.recentPopupSlugs,
+      turnNumber: state.turnNumber,
+    };
+    const probeDecision = selectNextProbe(probeInput);
+    
+    if (probeDecision.action === 'launch_exercise') {
+      console.log('[orchestrator] Profile-driven popup:', probeDecision);
+      return {
+        type: 'popup_exercise',
+        slug: probeDecision.slug,
+        reason: probeDecision.reason,
+        targetDomain: probeDecision.targetDomain,
+        difficultyHint: probeDecision.difficultyHint,
+      };
+    }
+    
+    // Fallback to old heuristic if probe selector says stay conversational
     const popupDecision = selectPopupExercise(stuckType, speechAnalysis);
     if (popupDecision) {
-      console.log('[orchestrator] Triggering popup exercise:', popupDecision);
+      console.log('[orchestrator] Fallback popup exercise:', popupDecision);
       return popupDecision;
     }
   }
@@ -503,6 +540,11 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     popupExercisesThisSession: 0,
     turnsSinceLastPopup: 99,
     repeatedStuckCount: 0,
+    clinicalProfile: null,
+    mayaState: null,
+    recentExerciseResults: [],
+    recentPopupSlugs: [],
+    fatigueState: 'fresh',
   };
 }
 
@@ -600,11 +642,30 @@ export function updateState(
 export function updateStateAfterPopup(
   state: OrchestratorState,
   success: boolean,
-  userWords?: string[]
+  userWords?: string[],
+  exerciseSlug?: string,
+  normalizedResult?: NormalizedExerciseResult
 ): OrchestratorState {
   const primedVocabulary = userWords
     ? [...new Set([...state.primedVocabulary, ...userWords])].slice(0, 15)
     : state.primedVocabulary;
+
+  const recentPopupSlugs = exerciseSlug
+    ? [...state.recentPopupSlugs, exerciseSlug].slice(-5)
+    : state.recentPopupSlugs;
+
+  const recentExerciseResults = normalizedResult
+    ? [...state.recentExerciseResults, normalizedResult].slice(-5)
+    : state.recentExerciseResults;
+
+  // Infer fatigue from accumulated popup results
+  let fatigueState = state.fatigueState;
+  if (recentExerciseResults.length >= 3) {
+    const lastThree = recentExerciseResults.slice(-3);
+    const avgScore = lastThree.reduce((s, r) => s + r.score, 0) / 3;
+    if (avgScore < 0.4) fatigueState = 'high';
+    else if (avgScore < 0.6) fatigueState = 'mild';
+  }
 
   return {
     ...state,
@@ -614,6 +675,9 @@ export function updateStateAfterPopup(
     successStreak: success ? state.successStreak + 1 : 0,
     primedVocabulary,
     consecutiveFollowups: 0,
+    recentPopupSlugs,
+    recentExerciseResults,
+    fatigueState,
   };
 }
 

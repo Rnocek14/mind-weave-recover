@@ -18,6 +18,10 @@ import type { ActiveModalExercise } from '@/hooks/useExerciseModal';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { MinimalPairsGame } from '@/components/MinimalPairsGame';
 import { MeaningMatchGame } from '@/components/MeaningMatchGame';
+import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
+import { SentenceConstructionGame } from '@/components/SentenceConstructionGame';
+import { YesNoComprehensionProbe } from './YesNoComprehensionProbe';
+import { StoryRetellProbe } from './StoryRetellProbe';
 
 interface ExerciseModalHostProps {
   activeExercise: ActiveModalExercise | null;
@@ -33,6 +37,10 @@ const MODAL_EXERCISE_TITLES: Record<string, string> = {
   'photo-naming': 'Photo Naming',
   'minimal-pairs': 'Sound Pairs',
   'meaning-match': 'Meaning Match',
+  'semantic-features': 'Semantic Features',
+  'sentence-construction': 'Sentence Building',
+  'yes-no-comprehension': 'Quick Comprehension',
+  'story-retell': 'Story Retell',
 };
 
 export function ExerciseModalHost({
@@ -105,6 +113,51 @@ export function ExerciseModalHost({
             onTrialComplete={() => {}}
             onGameComplete={(results) => {
               handleGameComplete('meaning-match', results);
+            }}
+          />
+        );
+
+      case 'semantic-features':
+        return (
+          <SemanticFeatureGame
+            totalTrials={config.totalTrials ?? 5}
+            config={{ startDifficulty: config.difficultyTier ?? 1, cueLevel: config.cueLevel ?? 2 }}
+            bounds={{ floor: 1, ceiling: 5, suggestedStart: config.difficultyTier ?? 1 }}
+            onGameComplete={(finalScore, totalTrials) => {
+              handleGameComplete('semantic-features', { correct: finalScore, total: totalTrials });
+            }}
+            userId={userId}
+            sessionId={sessionId ?? undefined}
+          />
+        );
+
+      case 'sentence-construction':
+        return (
+          <SentenceConstructionGame
+            config={{ startDifficulty: config.difficultyTier ?? 1, cueLevel: config.cueLevel ?? 2 }}
+            bounds={{ floor: 1, ceiling: 5, suggestedStart: config.difficultyTier ?? 1 }}
+            difficultyLevel={config.difficultyTier ?? 1}
+            onGameComplete={(finalScore, totalTrials) => {
+              handleGameComplete('sentence-construction', { correct: finalScore, total: totalTrials });
+            }}
+          />
+        );
+
+      case 'yes-no-comprehension':
+        return (
+          <YesNoComprehensionProbe
+            totalTrials={config.totalTrials ?? 5}
+            onComplete={(results) => {
+              handleGameComplete('yes-no-comprehension', results);
+            }}
+          />
+        );
+
+      case 'story-retell':
+        return (
+          <StoryRetellProbe
+            onComplete={(results) => {
+              handleGameComplete('story-retell', results);
             }}
           />
         );
