@@ -223,6 +223,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: 'clarify_small',
       objective: 'word_retrieval',
+      therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
       showTiles: true,
       showFrames: true,
     };
