@@ -110,7 +110,7 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
   }
 }
 
-// ─── Load Latest ───
+// ─── Load Latest (single) ───
 
 export async function loadLatestCoachSummary(userId: string): Promise<CoachSessionSummary | null> {
   const { data, error } = await (supabase as any)
@@ -123,6 +123,82 @@ export async function loadLatestCoachSummary(userId: string): Promise<CoachSessi
 
   if (error || !data) return null;
   return data as CoachSessionSummary;
+}
+
+// ─── Load Aggregated (multi-session memory) ───
+
+export async function loadAggregatedMemory(userId: string, limit = 10): Promise<CoachSessionSummary | null> {
+  const { data, error } = await (supabase as any)
+    .from('coach_conversation_summaries')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data || data.length === 0) return null;
+
+  const summaries = data as CoachSessionSummary[];
+  const latest = summaries[0];
+
+  // Aggregate struggles and wins across sessions (deduplicated, weighted by recency)
+  const allStruggles: string[] = [];
+  const allWins: string[] = [];
+  const allExercises: { slug: string; summary: string; score: number }[] = [];
+
+  for (const s of summaries) {
+    if (s.top_struggles) allStruggles.push(...s.top_struggles);
+    if (s.top_wins) allWins.push(...s.top_wins);
+    if (s.exercise_summaries) {
+      for (const e of s.exercise_summaries as any[]) {
+        allExercises.push({ slug: e.slug ?? '', summary: e.summary ?? '', score: e.score ?? 0 });
+      }
+    }
+  }
+
+  // Count frequency for persistent patterns
+  const struggleCounts = countFrequency(allStruggles);
+  const winCounts = countFrequency(allWins);
+
+  // Persistent = appeared in 2+ sessions
+  const persistentStruggles = Object.entries(struggleCounts)
+    .filter(([, count]) => count >= 2)
+    .sort(([, a], [, b]) => b - a)
+    .map(([item]) => item)
+    .slice(0, 5);
+
+  const persistentWins = Object.entries(winCounts)
+    .filter(([, count]) => count >= 2)
+    .sort(([, a], [, b]) => b - a)
+    .map(([item]) => item)
+    .slice(0, 5);
+
+  // Build aggregated summary narrative
+  const parts: string[] = [];
+  parts.push(`${summaries.length} sessions tracked`);
+  if (persistentStruggles.length > 0) parts.push(`persistent challenges: ${persistentStruggles.join(', ')}`);
+  if (persistentWins.length > 0) parts.push(`consistent strengths: ${persistentWins.join(', ')}`);
+
+  const avgScore = summaries
+    .filter(s => s.avg_score !== null)
+    .reduce((sum, s) => sum + (s.avg_score ?? 0), 0) / Math.max(summaries.filter(s => s.avg_score !== null).length, 1);
+
+  return {
+    ...latest,
+    top_struggles: persistentStruggles.length > 0 ? persistentStruggles : latest.top_struggles,
+    top_wins: persistentWins.length > 0 ? persistentWins : latest.top_wins,
+    maya_summary: parts.join('. ') + '.',
+    avg_score: Math.round(avgScore * 1000) / 1000,
+    exercise_summaries: allExercises.slice(0, 10),
+  };
+}
+
+function countFrequency(items: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    const key = item.toLowerCase().trim();
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
 }
 
 // ─── Format for AI Prompt ───

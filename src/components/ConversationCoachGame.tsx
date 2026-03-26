@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useMayaState } from '@/hooks/useMayaState';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Volume2, Loader2, MessageCircle, Sparkles, X, CheckCircle2, RefreshCw, Coffee, HelpCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -75,6 +76,9 @@ export function ConversationCoachGame({
   // NEW: Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
   const [inputBuffer, setInputBuffer] = useState('');
+
+  // Unified Maya intelligence
+  const { state: mayaState } = useMayaState({ userId, profileId });
 
   // Fetch user speech profile for personalization
   const { profile: speechProfile } = useUserSpeechProfile(userId, { profileId });
@@ -148,6 +152,7 @@ export function ConversationCoachGame({
     userId,
     profileId,
     sessionId,
+    mayaState,
     userSpeechProfile: userSpeechProfileForSession,
   });
 

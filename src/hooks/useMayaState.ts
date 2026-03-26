@@ -40,11 +40,14 @@ export function useMayaState({ userId, profileId }: UseMayaStateOptions): UseMay
   useEffect(() => {
     let cancelled = false;
     setSummaryLoading(true);
-    loadLatestCoachSummary(userId).then(summary => {
-      if (!cancelled) {
-        setPriorSummary(summary);
-        setSummaryLoading(false);
-      }
+    // Use aggregated memory (last 10 sessions) for richer cross-session context
+    import('@/lib/coachSessionMemory').then(({ loadAggregatedMemory }) => {
+      loadAggregatedMemory(userId, 10).then(summary => {
+        if (!cancelled) {
+          setPriorSummary(summary);
+          setSummaryLoading(false);
+        }
+      });
     });
     return () => { cancelled = true; };
   }, [userId]);

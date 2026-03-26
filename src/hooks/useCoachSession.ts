@@ -11,7 +11,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { saveCoachSessionSummary, loadLatestCoachSummary, formatMemoryForPrompt, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import type { MayaState } from '@/lib/buildMayaState';
+import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
   getNextAction, 
   createInitialState, 
@@ -96,6 +98,8 @@ interface UseCoachSessionProps {
   profileId: string;
   sessionId: string | null;
   maxTurns?: number;
+  // Unified Maya intelligence state
+  mayaState?: MayaState | null;
   // User speech profile for personalization
   userSpeechProfile?: {
     primaryChallenge?: string;
@@ -154,6 +158,7 @@ export function useCoachSession({
   profileId,
   sessionId,
   maxTurns, // No default - undefined means unlimited
+  mayaState,
   userSpeechProfile,
 }: UseCoachSessionProps): UseCoachSessionReturn {
   const [messages, setMessages] = useState<FeedMessage[]>([]);
@@ -165,14 +170,16 @@ export function useCoachSession({
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
-  // Cross-session memory
-  const [priorSessionSummary, setPriorSessionSummary] = useState<CoachSessionSummary | null>(null);
+  // Cross-session memory (now via MayaState from parent, fallback to direct load)
+  const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
   
-  // Load prior session summary on mount
+  // Only load directly if MayaState not provided
   useEffect(() => {
-    loadLatestCoachSummary(userId).then(setPriorSessionSummary);
-  }, [userId]);
+    if (!mayaState) {
+      loadLatestCoachSummary(userId).then(setFallbackSummary);
+    }
+  }, [userId, mayaState]);
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
@@ -588,7 +595,12 @@ export function useCoachSession({
             // Suggested cue if user is struggling
             suggestedCue,
             // Prior session memory for continuity
-            priorSessionMemory: priorSessionSummary ? formatMemoryForPrompt(priorSessionSummary) : undefined,
+            // Maya intelligence context for continuity
+            priorSessionMemory: mayaState
+              ? formatMayaStateForCoachPrompt(mayaState)
+              : fallbackSummary
+                ? `PRIOR SESSION: ${fallbackSummary.maya_summary || 'No summary'}`
+                : undefined,
           }
         });
 
