@@ -441,6 +441,29 @@ export function useCoachSession({
       aiResponseText = wrapUpText;
       setIsComplete(true);
       setCurrentPhase('complete');
+    } else if (action.type === 'popup_exercise') {
+      // Trigger popup exercise modal
+      const introLines = [
+        "Let's try a quick practice together.",
+        "I have a short exercise that might help.",
+        "Let's work on this a different way.",
+      ];
+      const intro = introLines[Math.floor(Math.random() * introLines.length)];
+      addMessage({ type: 'ai', text: intro, id: generateId() });
+      aiWordsRef.current += countWords(intro);
+      aiResponseText = intro;
+      
+      setPendingPopupExercise({
+        slug: action.slug,
+        reason: action.reason,
+        targetDomain: action.targetDomain,
+        targetPhonemes: action.targetPhonemes,
+        difficultyHint: action.difficultyHint,
+      });
+      
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current, stuckType, false
+      );
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
