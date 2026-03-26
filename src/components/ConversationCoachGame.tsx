@@ -153,10 +153,16 @@ export function ConversationCoachGame({
 
   // Exercise modal controller
   const exerciseModal = useExerciseModal();
+  const popupLaunchedSlugRef = useRef<string | null>(null);
 
-  // Launch popup when coach session requests one
+  // Launch popup when coach session requests one (with dedup guard)
   useEffect(() => {
-    if (pendingPopupExercise && !exerciseModal.isOpen) {
+    if (
+      pendingPopupExercise &&
+      !exerciseModal.isOpen &&
+      popupLaunchedSlugRef.current !== pendingPopupExercise.slug
+    ) {
+      popupLaunchedSlugRef.current = pendingPopupExercise.slug;
       exerciseModal.launchExerciseModal(pendingPopupExercise.slug, {
         targetDomain: pendingPopupExercise.targetDomain,
         targetPhonemes: pendingPopupExercise.targetPhonemes,
@@ -164,6 +170,10 @@ export function ConversationCoachGame({
         sessionId: sessionId ?? undefined,
         totalTrials: 5,
       });
+    }
+    // Reset guard when popup is consumed
+    if (!pendingPopupExercise) {
+      popupLaunchedSlugRef.current = null;
     }
   }, [pendingPopupExercise, exerciseModal.isOpen]);
 
