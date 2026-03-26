@@ -117,11 +117,15 @@ export function PatientModeView({
     return `Good evening${nameStr} 🌙`;
   }, [activeProfile]);
 
-  // Encouragement — powered by Maya continuity line
+  // Encouragement — powered by Maya continuity line + thread coherence
   const encouragement = useMemo(() => {
     // Prefer memory line for longitudinal feel, then continuity
     if (mayaInsight?.memoryLine) return mayaInsight.memoryLine;
     if (mayaInsight?.continuityLine) return mayaInsight.continuityLine;
+    // Thread-aware fallback
+    if (mayaInsight?.thread?.primaryDomainLabel && mayaInsight.thread.tone === "celebrating") {
+      return `Your ${mayaInsight.thread.primaryDomainLabel} is on a great trajectory ✨`;
+    }
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";
     return "Your recovery journey starts here 💛";
