@@ -603,6 +603,12 @@ export function useCoachSession({
               : fallbackSummary
                 ? `PRIOR SESSION: ${fallbackSummary.maya_summary || 'No summary'}`
                 : undefined,
+            // Rolling semantic memory from previous turns
+            rollingMemory: rollingMemoryRef.current || undefined,
+            // Therapy intent for purposeful conversation
+            therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
+              ? (action as any).therapyIntent
+              : undefined,
           }
         });
 
