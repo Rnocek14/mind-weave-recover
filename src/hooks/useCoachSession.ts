@@ -853,6 +853,57 @@ export function useCoachSession({
     }));
   }, []);
 
+  // Ingest result from popup exercise and generate Maya follow-up
+  const ingestExerciseResult = useCallback(async (result: NormalizedExerciseResult): Promise<string> => {
+    setPendingPopupExercise(null);
+    
+    // Update orchestrator state
+    orchestratorStateRef.current = updateStateAfterPopup(
+      orchestratorStateRef.current,
+      result.score >= 0.5,
+      result.targetWords
+    );
+
+    // Generate AI follow-up that references the exercise
+    let followupText: string;
+    try {
+      const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
+        body: {
+          userTranscript: `[Completed ${result.slug} exercise]`,
+          turnNumber: orchestratorStateRef.current.turnNumber,
+          conversationHistory: messages
+            .filter(m => m.type === 'ai' || m.type === 'user')
+            .slice(-4)
+            .map(m => ({ role: m.type as 'ai' | 'user', text: (m as any).text || '' })),
+          exerciseContext: {
+            slug: result.slug,
+            summary: result.summary,
+            accuracy: result.accuracy,
+            cueLevelUsed: result.cueLevelUsed,
+            successBand: result.successBand,
+            targetDomain: result.targetDomain,
+            errorTypes: result.errorTypes,
+            struggleSignal: result.struggleSignal,
+          },
+        }
+      });
+      followupText = data?.response || result.score >= 0.7
+        ? "Nice work on that! Let's keep going with our conversation."
+        : "Good effort — that gives me a better sense of what to focus on. Let's continue.";
+    } catch {
+      followupText = result.score >= 0.7
+        ? "Great job on that practice! Now, where were we?"
+        : "Thanks for working through that. Let's keep chatting.";
+    }
+
+    addMessage({ type: 'ai', text: followupText, id: generateId() });
+    aiWordsRef.current += countWords(followupText);
+    setPendingAIText(followupText);
+    setCurrentPhase('user_turn');
+    
+    return followupText;
+  }, [messages, addMessage]);
+
   // Calculate enhanced metrics
   const sessionMetrics = speechAnalysis.getSessionMetrics();
   
@@ -867,7 +918,6 @@ export function useCoachSession({
     completionRate: orchestratorStateRef.current.turnNumber > 0
       ? (orchestratorStateRef.current.successStreak / orchestratorStateRef.current.turnNumber) * 100
       : 0,
-    // Enhanced metrics
     avgFluency: sessionMetrics?.avgFluency,
     fluencyTrend: sessionMetrics?.fluencyTrend,
     effortfulCount: sessionMetrics?.effortfulCount,
@@ -884,10 +934,11 @@ export function useCoachSession({
     hasPendingCard,
     engagementState,
     currentTopic: orchestratorStateRef.current.currentTopic,
-    // NEW: Session phase and assistive panel
     sessionPhase,
     assistivePanelState,
     lastAction,
+    pendingPopupExercise,
+    ingestExerciseResult,
     startSession,
     processUserTurn,
     insertPendingCard,
@@ -896,11 +947,9 @@ export function useCoachSession({
     reset,
     requestCard,
     endSession,
-    // NEW: Assistive panel interactions
     handleWordTileTap,
     handleFrameTap,
     requestCue,
-    // FIX #1: Return reactive state, not stale ref read
     currentSupportLevel,
   };
 }
