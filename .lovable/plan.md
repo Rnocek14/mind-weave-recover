@@ -1,157 +1,115 @@
 
-# Recovery Intelligence Platform — Implementation Plan
 
-## Strategic Position
+# Maya Intelligence Layer — Implementation Plan
 
-**From:** Speech therapy app
-**To:** Out-of-Hospital Recovery Intelligence Layer
+## What We're Building
 
-Speech is the first vertical module. PT, OT, cognitive, cardiac are future modules plugged into the same spine.
+A unified "recovery companion" narrative system that adds **continuity**, **interpretation**, and **anticipation** across the patient and caregiver surfaces. Maya is not a chatbot — it's a presence layer that makes the system feel like it *knows* the patient.
 
-## Architecture: Three-Layer Model
+## Architecture
 
-| Layer | Purpose | Changes With New Disciplines? |
-|-------|---------|-------------------------------|
-| **Core Recovery Spine** | Readiness, dose tracking, trends, alerts, snapshot | No — therapy-agnostic |
-| **Discipline Modules** | Speech telemetry, PT exercises, cognitive tasks | Yes — one module per discipline |
-| **Hospital Interface** | Weekly Snapshot, team export, RTM docs, risk dashboard | No — consumes spine data |
+### New Files
 
-## Database Schema (Recovery Spine)
+1. **`src/lib/mayaNarrative.ts`** — Pure logic module. Takes existing data (domain scores, session history, cue efficacy, learning rates) and produces structured narratives:
+   - `generateMayaInsight(domains, sessions, cueEfficacy, learningRates)` returns:
+     - `continuityLine` — "Yesterday you answered 5 more on your own"
+     - `interpretation` — { seeing: string[], helping: string[], workingOn: string[] }
+     - `anticipation` — "Tomorrow we'll focus more on sentence building"
+     - `milestone` — { type, message } | null (e.g., "You mastered 20 words!")
+   - Uses existing `COGNITIVE_DOMAINS`, `getCueLabel`, `insightLanguageMap` for language
+   - Deterministic, rule-based (no LLM) — consistent with clinical interpretation engine pattern
 
-### recovery_domains ✅ Created
-Registry of discipline modules. Each domain has a `slug`, `display_name`, `dose_unit`, and `icon_name`.
-Seeded: `speech`, `pt`, `ot`, `cognitive`, `activity`.
+2. **`src/hooks/useMayaInsight.ts`** — Orchestrator hook that calls existing hooks (`useCognitiveState`, `useSessionHistory`, `useWordMastery`, `useErrorPatternAnalytics`, `useCaregiverDomainGuidance`) and feeds them into `mayaNarrative.ts`. Returns typed `MayaInsight` object. Memoized, staleTime-cached.
 
-### daily_readiness ✅ Created
-Patient self-report (discipline-agnostic). One row per profile per day.
-- `fatigue_rating` (1-5), `fatigue_limited_practice` (bool)
-- Optional: `sleep_quality`, `pain_level`, `mood_rating`, `notes`
-- Unique on `(profile_id, checkin_date)` — upsert-friendly
+3. **`src/components/patient/MayaInterpretationCard.tsx`** — "My Progress" surface component with three sections:
+   - "What I'm Seeing" (purple accent) — domain-aware observations
+   - "What's Helping" (green accent) — cue strategies in plain language  
+   - "What We're Working On" (amber accent) — forward-looking guidance
+   - Compact card design consistent with existing PatientProgressView style
 
-### dose_targets ✅ Created
-Prescribed dose per domain per patient. Supports time-windowed targets.
-- `domain_slug` → recovery_domains, `target_value`, `target_frequency`
-- `effective_from` / `effective_until` for versioned prescriptions
+4. **`src/components/patient/MilestoneToast.tsx`** — Celebration moments triggered on milestones (20/50/100 words mastered, 7/14/30 day streak, 30% independence improvement). Uses existing toast system.
 
-### dose_logs ✅ Created
-Actual dose delivered per domain per day.
-- `domain_slug`, `log_date`, `dose_value`, `source` (manual/auto/wearable/system)
-- Optional: `intensity_score`, `quality_score`, `metadata` (jsonb)
+### Modified Files
 
-### recovery_alerts ✅ Created
-Cross-domain actionable flags for clinicians.
-- `alert_type`: engagement_failure, fatigue_risk, deterioration, dose_inadequacy, plateau_risk, regression_risk
-- `severity`: info, warning, critical
-- `domain_slug`: nullable (NULL = cross-domain alert)
-- Resolvable with `resolved_at`, `resolved_by`, `resolution_notes`
+5. **`src/components/PatientModeView.tsx`** — Home tab:
+   - Replace static `encouragement` logic with `useMayaInsight().continuityLine`
+   - Add anticipation line below encouragement ("Tomorrow we'll focus on...")
+   - Add milestone celebration trigger via `useEffect`
 
-## Clinician Dashboard — Phased Build
+6. **`src/components/patient/PatientProgressView.tsx`** — My Progress tab:
+   - Insert `MayaInterpretationCard` between Hero Headline and Core Metrics Grid (Tier 1)
+   - This becomes the anchor narrative — replaces need for separate Insights tabs
 
-### Sprint 1: Single-Patient Intelligence ✅ In Progress
+7. **`src/components/patient/PostSessionCard.tsx`** — Add anticipation line:
+   - Below motivational nudge: "Next time, we'll keep building on [domain]"
+   - Data from `mayaNarrative.anticipation`
 
-#### Auto Progress Note Generator ✅ Done
-- `src/lib/generateProgressNote.ts` — template-driven, deterministic narrative
-- Numbers in, sentences out — no LLM, no clinical claims beyond data
-- Data confidence assessment (high/moderate/low/insufficient)
-- Headline generation for card display
-- `src/hooks/useWeeklySessionStats.ts` — fetches 7d + prior 7d session/trial aggregates
-- "Note" button in `ClinicianPatientHeader` with dialog showing narrative + copy
+8. **`src/components/caregiver/CaregiverStatusHero.tsx`** — Upgrade guidance headline:
+   - Add urgency/confidence signals ("This is important to focus on now" vs "Making strong progress")
+   - Use `mayaNarrative` confidence level based on score severity
 
-#### Plateau & Regression Alerts ✅ Done
-- `plateau_risk` (info): dose + speech volume flat across 14d window, ≥60% adherence
-- `regression_risk` (info/warning): speech drops >40% WoW despite engagement (≥3/7 active days)
-- Both have adherence guardrails to avoid false alerts on under-dosing
+## Narrative Logic (mayaNarrative.ts)
 
-### Sprint 2: Multi-Patient Caseload UI ⏳ Next
-- [ ] `ClinicianPanel.tsx` — card grid for all assigned patients
-- [ ] `PatientCard.tsx` — compact summary (compliance, accuracy trend, flags, fatigue sparkline)
-- [ ] Temporary linking via admin-seeded list (dev phase)
-- [ ] Route: `/clinician/caseload`
+### Continuity Line (Home)
+```text
+Input: last session data + domain scores + previous session
+Output examples:
+  - "Yesterday you answered 5 more on your own — nice!"
+  - "You've been improving at word finding this week"
+  - "Two sessions this week — every one counts"
+  - (no sessions): "Ready to pick up where you left off?"
+```
 
-### Sprint 3: Clinician-Patient Linking + RLS
-- [ ] `clinician_patient_links` table (clinician_user_id, patient_profile_id, role, status, assigned_at, revoked_at)
-- [ ] RLS policies: clinician read-only, admin full, patient self
-- [ ] Swap caseload hook to query real links
+### Interpretation (My Progress)
+```text
+"What I'm Seeing":
+  - Map top improving domain → "You're getting faster at naming everyday objects"
+  - Map declining domain → "Sentences are a bit harder right now — that's okay"
 
-### Sprint 4: Cross-Domain Recovery Overlay
-- [ ] `CrossDomainOverlayChart.tsx` — speech accuracy + steps + fatigue on aligned axes
-- [ ] Daily aggregation rules (mean accuracy weighted by trials)
-- [ ] Missing data handling (visual gaps, not interpolation)
+"What's Helping":
+  - Map best cue → "Hearing the first sound helps you find the word"
+  - Map consistency → "Practicing regularly is making a real difference"
 
-### Sprint 5: Cue Effectiveness Summary
-- [ ] `CueEffectivenessSummary.tsx` — cue type, success rate, usage %, independence growth
-- [ ] Data from `exercise_events` (cue_type_given, cue_was_effective)
+"What We're Working On":
+  - Map focusNext domains → "We're focusing on building sentences"
+  - Map anticipation → "Next we'll challenge you with longer phrases"
+```
 
-## Implementation Phases (Data Capture)
+### Milestones
+```text
+Triggers (checked on mount):
+  - Word mastery: 10, 20, 50, 100 words → toast celebration
+  - Streak: 7, 14, 30 days → toast celebration
+  - Independence: cue-free accuracy crosses 50%/70% → toast celebration
+  - Tracked via localStorage to avoid repeat firing
+```
 
-### Phase 1: Data Capture ⏳ Next
-- [ ] Daily Readiness Check-in component (fatigue + optional fields)
-- [ ] Manual dose logging UI (PT/OT minutes, activity)
-- [ ] Auto-log speech dose from existing session data (`source = 'system'`)
-- [ ] Wire existing `MoodCheckIn` into daily_readiness
+### Anticipation (Forward-Looking)
+```text
+Input: current focusNext domains + adaptation state
+Output: "Tomorrow we'll keep building on [weakest domain label]"
+  - If improving: "You're ready for more challenge in [domain]"
+  - If steady: "We'll keep strengthening [domain]"
+  - If declining: "We'll take it easier on [domain] to rebuild confidence"
+```
 
-### Phase 2: Weekly Recovery Snapshot ✅ Done
-- [x] `useRecoverySnapshot` hook — aggregates all domains
-- [x] `WeeklyRecoverySnapshot` component with domain sparklines
-- [x] Dose adequacy bars (target vs actual per domain)
-- [x] Auto-interpretation text
-- [x] Cross-domain overlay chart (basic)
+## Data Flow
 
-### Phase 3: Alert Engine ✅ Done
-- [x] `lib/recoveryAlertDetector.ts` — rule-based alert generation
-- [x] 3-day engagement failure detection
-- [x] Fatigue risk (high fatigue + dose drop)
-- [x] Dose inadequacy flagging
-- [x] Deconditioning risk (physical inactivity)
-- [x] Overexertion risk (activity spike + fatigue/dose correlation)
-- [x] Plateau risk (flat dose + speech volume)
-- [x] Regression risk (speech dose drop despite engagement)
-- [x] Integration with existing RedFlagAlerts pattern
+All inputs already exist — no new DB queries needed:
+- `useCognitiveState` → domain scores, trends
+- `useSessionHistory` → continuity data
+- `useWordMastery` → milestone counts
+- `useErrorPatternAnalytics` → cue efficacy
+- `useCaregiverDomainGuidance` → domain struggle mapping
 
-### Phase 4: Hospital Interface (After Pilot)
-- [ ] Clinician dashboard with patient list + traffic-light status
-- [ ] Weekly report export (PDF / clipboard)
-- [ ] RTM documentation support
-- [ ] Population risk dashboard
+## Implementation Order
 
-### Phase 5: Module Expansion (After Validation)
-- [ ] Wearable integration (Apple Health / Google Fit → dose_logs)
-- [ ] Additional discipline modules
-- [ ] Exercise-before-speech correlation analysis
+1. `mayaNarrative.ts` (pure logic, testable)
+2. `useMayaInsight.ts` (orchestrator hook)
+3. `MayaInterpretationCard.tsx` (My Progress surface)
+4. Update `PatientProgressView.tsx` (insert card)
+5. Update `PatientModeView.tsx` (continuity + anticipation on Home)
+6. Update `PostSessionCard.tsx` (anticipation line)
+7. `MilestoneToast.tsx` + milestone triggers
+8. Update `CaregiverStatusHero.tsx` (urgency/confidence signals)
 
----
-
-## Navigation Restructure (Implemented)
-
-### Constraints Applied
-1. Patient = 3 bottom tabs (Home, Practice, My Progress) — header hidden
-2. Old routes (/recovery-progress, /insights, /history) kept alive for deep-links and clinician/admin access
-3. Patient My Progress uses visibility tiers (always-visible hero/metrics/domains, collapsible history/achievements)
-4. Caregiver = 2 header tabs (Home, Status) — Status is caregiver-first, not relabeled patient
-5. Clinician = 2 header tabs (Caseload, Review) — Recovery/Insights/History demoted to settings/deep-links
-6. Admin stays hub-and-spoke unchanged
-
-### Data Mapping (nothing lost)
-| Old Location | New Location |
-|---|---|
-| /recovery-progress metrics | My Progress → hero + metrics grid |
-| /insights → Overview | My Progress → hero headline |
-| /insights → What's Hard | My Progress → "Focus Next" (always visible) |
-| /insights → What Helps | My Progress → "What Helps You" (always visible) |
-| /insights → Alerts | My Progress → inline concern card (conditional) |
-| /insights → Adaptations | Hidden from patient (caregiver+ only) |
-| /history | My Progress → collapsible session history |
-| Dashboard → Progress tab | Eliminated (merged into My Progress) |
-
-## Prior Work (Speech Telemetry)
-
-### Azure Pronunciation Assessment
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| A | NBest phoneme capture + gop_data enrichment | ✅ Done |
-| B | Substitution pattern aggregation in compute-speech-profile | ⏳ Next |
-| C | Pronunciation diagnostics parity (Two Clues + Phrase Practice) | ⏳ Planned |
-| D | Prosody score surfacing | ⏳ Deferred |
-
-See git history for Phase A details (NBest extraction, azure-pa-v2 schema).
