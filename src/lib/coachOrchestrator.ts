@@ -247,6 +247,7 @@ export function getNextAction(
       type: 'chat_followup',
       followupType: selectFollowupForFlow(turnNumber),
       objective: 'topic_exploration',
+      therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
       showTiles: false,
     };
   }
