@@ -782,10 +782,11 @@ export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
 };
 
 export const CARD_OUTRO_LINES: string[] = [
-  "Nice! Back to chatting.",
-  "Good one! So...",
-  "Great! Tell me more.",
-  "Perfect! What else?",
+  "Ha, nice! Okay — where were we?",
+  "See? That came out well. So...",
+  "Got it! Okay, back to chatting.",
+  "That was good! So, you were saying...",
+  "Nice one! Anyway — what else?",
 ];
 
 export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
