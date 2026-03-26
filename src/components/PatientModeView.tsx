@@ -330,7 +330,7 @@ export function PatientModeView({
               {feedback && (
                 <PostSessionCard
                   feedback={feedback}
-                  onDismiss={() => dismissFeedback(feedback.endedAt)}
+                  onDismiss={() => dismissFeedback(feedback.sessionId)}
                 />
               )}
 
