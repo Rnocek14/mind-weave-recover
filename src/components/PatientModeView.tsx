@@ -99,6 +99,16 @@ export function PatientModeView({
     return count;
   }, [sessions]);
 
+  // Time-of-day greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const name = activeProfile?.display_name || activeProfile?.profile_name || null;
+    const nameStr = name ? `, ${name}` : "";
+    if (hour < 12) return `Good morning${nameStr} ☀️`;
+    if (hour < 17) return `Good afternoon${nameStr} 🌤️`;
+    return `Good evening${nameStr} 🌙`;
+  }, [activeProfile]);
+
   // Encouragement message
   const encouragement = useMemo(() => {
     if (streak >= 7) return "Amazing consistency! 🌟";
