@@ -162,6 +162,7 @@ export function useCoachSession({
   const [pendingAIText, setPendingAIText] = useState<string | null>(null);
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
+  const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
