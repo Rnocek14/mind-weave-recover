@@ -642,11 +642,30 @@ export function updateState(
 export function updateStateAfterPopup(
   state: OrchestratorState,
   success: boolean,
-  userWords?: string[]
+  userWords?: string[],
+  exerciseSlug?: string,
+  normalizedResult?: NormalizedExerciseResult
 ): OrchestratorState {
   const primedVocabulary = userWords
     ? [...new Set([...state.primedVocabulary, ...userWords])].slice(0, 15)
     : state.primedVocabulary;
+
+  const recentPopupSlugs = exerciseSlug
+    ? [...state.recentPopupSlugs, exerciseSlug].slice(-5)
+    : state.recentPopupSlugs;
+
+  const recentExerciseResults = normalizedResult
+    ? [...state.recentExerciseResults, normalizedResult].slice(-5)
+    : state.recentExerciseResults;
+
+  // Infer fatigue from accumulated popup results
+  let fatigueState = state.fatigueState;
+  if (recentExerciseResults.length >= 3) {
+    const lastThree = recentExerciseResults.slice(-3);
+    const avgScore = lastThree.reduce((s, r) => s + r.score, 0) / 3;
+    if (avgScore < 0.4) fatigueState = 'high';
+    else if (avgScore < 0.6) fatigueState = 'mild';
+  }
 
   return {
     ...state,
@@ -656,6 +675,9 @@ export function updateStateAfterPopup(
     successStreak: success ? state.successStreak + 1 : 0,
     primedVocabulary,
     consecutiveFollowups: 0,
+    recentPopupSlugs,
+    recentExerciseResults,
+    fatigueState,
   };
 }
 
