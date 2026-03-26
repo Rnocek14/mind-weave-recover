@@ -227,7 +227,7 @@ export function selectNextProbe(input: ProbeSelectionInput): ProbeDecision {
   const shouldPopup =
     popupCount < MAX_POPUPS &&
     scored[0].score >= 5 && // strong signal
-    fatigueState !== 'high' &&
+    fatigueState === 'fresh' &&
     turnNumber >= 4; // give conversation time first
 
   if (shouldPopup) {
