@@ -6,6 +6,7 @@ import {
   Flame, Home, BarChart3, Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { useDailyLesson } from "@/hooks/useDailyLesson";
@@ -21,6 +22,7 @@ import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
 import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
+import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
 
 
@@ -54,6 +56,7 @@ export function PatientModeView({
 }: PatientModeViewProps) {
   const navigate = useNavigate();
   const { setUiMode } = useUiMode();
+  const { activeProfile } = useProfile();
   const {
     lesson,
     loading: lessonLoading,
@@ -96,6 +99,16 @@ export function PatientModeView({
     }
     return count;
   }, [sessions]);
+
+  // Time-of-day greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const name = activeProfile?.display_name || activeProfile?.profile_name || null;
+    const nameStr = name ? `, ${name}` : "";
+    if (hour < 12) return `Good morning${nameStr} ☀️`;
+    if (hour < 17) return `Good afternoon${nameStr} 🌤️`;
+    return `Good evening${nameStr} 🌙`;
+  }, [activeProfile]);
 
   // Encouragement message
   const encouragement = useMemo(() => {
@@ -291,16 +304,22 @@ export function PatientModeView({
             <div className="flex flex-col justify-center min-h-full animate-fade-in py-4 gap-4">
               {/* Greeting + encouragement */}
               <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  {streak > 0 ? `${streak}-day streak 🔥` : "Start here"}
+                <p className={cn(
+                  "text-sm font-medium text-muted-foreground uppercase tracking-wide",
+                  streak >= 3 && "animate-streak-glow"
+                )}>
+                  {streak > 0 ? `${streak}-day streak 🔥` : "Welcome"}
                 </p>
                 <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
-                  Ready to practice?
+                  {greeting}
                 </h1>
                 <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-medium">
                   {encouragement}
                 </p>
               </div>
+
+              {/* Why Today explanation — ABOVE CTA for trust */}
+              {lesson && <WhyTodayCard lesson={lesson} />}
 
               {/* Primary CTA */}
               <Button
@@ -314,9 +333,6 @@ export function PatientModeView({
                   Start Today's Session
                 </span>
               </Button>
-
-              {/* Why Today explanation */}
-              {lesson && <WhyTodayCard lesson={lesson} />}
 
               {/* Progress card with trend arrows */}
               <PatientProgressCard userId={userId} profileId={profileId} />

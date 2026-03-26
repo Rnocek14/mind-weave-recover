@@ -40,7 +40,7 @@ export function AchievementBadges({ achievements, newAchievements = [] }: Achiev
             key={badge.type}
             className={`px-3 py-2 border flex items-center gap-2 transition-all ${
               badge.isNew
-                ? "border-primary/50 bg-primary/10 animate-pulse shadow-md"
+                ? "border-primary/50 bg-primary/10 animate-badge-pop shadow-md"
                 : "border-border"
             }`}
           >

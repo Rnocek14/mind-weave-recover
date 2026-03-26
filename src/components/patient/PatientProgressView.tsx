@@ -124,21 +124,57 @@ export const PatientProgressView = memo(function PatientProgressView({
       .slice(0, 2);
   }, [redFlags]);
 
+  const isFirstTime = sessions.length === 0 && mastered === 0 && streak === 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ════════════════════════════════════════════
+          TIER 0: FIRST-TIME EMPTY STATE
+          ════════════════════════════════════════════ */}
+      {isFirstTime && (
+        <Card className="p-6 border-2 border-primary/20 bg-primary/5 text-center space-y-3">
+          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+            <TrendingUp className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Your progress story starts here</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+            After your first session, you'll see:
+          </p>
+          <div className="text-left max-w-xs mx-auto space-y-2">
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle className="w-4 h-4 text-success shrink-0" />
+              What you're getting better at
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <Target className="w-4 h-4 text-amber-500 shrink-0" />
+              What to focus on next
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <Lightbulb className="w-4 h-4 text-primary shrink-0" />
+              What helps you most
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground pt-1">
+            Go to the Home tab and start your first session! 💛
+          </p>
+        </Card>
+      )}
+
       {/* ════════════════════════════════════════════
           TIER 1: ALWAYS VISIBLE
           ════════════════════════════════════════════ */}
 
       {/* Hero Headline */}
-      <div className="text-center space-y-2 py-4">
-        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          My Progress
-        </p>
-        <h2 className="text-xl md:text-2xl font-bold text-foreground">
-          {heroText}
-        </h2>
-      </div>
+      {!isFirstTime && (
+        <div className="text-center space-y-2 py-4">
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            My Progress
+          </p>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            {heroText}
+          </h2>
+        </div>
+      )}
 
       {/* Core Metrics Grid */}
       <div className="grid grid-cols-2 gap-4">
