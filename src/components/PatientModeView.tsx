@@ -14,6 +14,7 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
 import { trackSessionStartTap } from '@/lib/sessionFlowAnalytics';
 
 import { PatientProgressView } from "@/components/patient/PatientProgressView";
