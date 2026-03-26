@@ -20,6 +20,8 @@ export interface LastSessionFeedback {
   exerciseNames: string[];
   /** Timestamp of session end */
   endedAt: string;
+  /** Session ID for dismiss tracking */
+  sessionId: string;
 }
 
 export function useLastSessionFeedback(userId: string, profileId: string) {
