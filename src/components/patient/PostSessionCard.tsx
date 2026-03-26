@@ -11,6 +11,7 @@ interface PostSessionCardProps {
   feedback: LastSessionFeedback;
   onDismiss: () => void;
   onStartSession?: () => void;
+  anticipation?: string | null;
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
