@@ -364,21 +364,21 @@ serve(async (req) => {
       messages.push({ role: 'system', content: note });
     }
 
-    // Speech analysis context
+    // Speech analysis context — drives struggle/flow state
     if (speechAnalysis) {
-      let note = '[SPEECH: ';
-      if (speechAnalysis.effortfulSpeech) {
-        note += 'HIGH EFFORT — validate, don\'t push. ';
+      let note = '[SPEECH STATE: ';
+      if (speechAnalysis.effortfulSpeech || speechAnalysis.pausePattern === 'very_slow') {
+        note += 'STRUGGLING — one simple question only, yes/no or A-or-B. No open questions. ';
       } else if (speechAnalysis.pausePattern === 'hesitant') {
-        note += 'Hesitant — keep simple. ';
+        note += 'HESITANT — keep question simple, offer choices. ';
+      } else if (speechAnalysis.fluencyScore > 60) {
+        note += 'FLOWING — do NOT say "no rush" or "take your time". They are fine. ';
       }
       if (speechAnalysis.circumlocutionDetected) {
-        note += 'Circumlocution — help find the word. ';
+        note += 'Circumlocution detected — offer the word naturally. ';
       }
-      if (speechAnalysis.wordCount < 4) {
-        note += 'Brief response. ';
-      } else if (speechAnalysis.fluencyScore > 80) {
-        note += 'Flowing well. ';
+      if (speechAnalysis.wordCount < 3 && speechAnalysis.fluencyScore > 50) {
+        note += 'Short but confident — they are okay, just brief. ';
       }
       if (speechAnalysis.speechContext) {
         note += speechAnalysis.speechContext;
