@@ -36,7 +36,6 @@ import {
   getFollowupLine, 
   getRandomOpener,
   getSmartFallback,
-  getSmartAcknowledge,
 } from '@/lib/conversationFollowups';
 import { classifyStuckType } from '@/lib/stuckTypeClassifier';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
