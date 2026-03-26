@@ -348,8 +348,10 @@ export function generateMayaInsight(
   const interpretation = generateInterpretation(domains, cues, mastery, session);
   const anticipation = generateAnticipation(domains);
   const milestone = checkMilestone(mastery, session.streak, independencePct);
+  const summary = buildSummary(interpretation, cues);
+  const rightNow = generateRightNow(domains, session);
 
-  return { continuityLine, interpretation, anticipation, milestone };
+  return { continuityLine, summary, rightNow, interpretation, anticipation, milestone };
 }
 
 // ── Caregiver Urgency ──
