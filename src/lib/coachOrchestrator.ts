@@ -744,14 +744,14 @@ function calculateScaffoldingLevel(
   return 'guided';
 }
 
-// Card intro/outro lines - DIVERSIFIED to prevent repetition
+// Card intro/outro lines - warm and human, never clinical
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?", "What do you see here?", "Name this for me."],
-  semantic_features: ["Describe this for me.", "Tell me about this.", "What do you know about this?", "How would you describe this?"],
-  thought_prompt: ["Finish this thought.", "Complete this.", "How would you finish this?", "Try finishing this one."],
-  phrase_starter: ["Pick one to start.", "Use any of these.", "Try one of these.", "Which one sounds right?"],
-  yes_no: ["Quick yes or no.", "Simple question.", "True or false?", "What do you think?"],
-  recall_prompt: ["Name anything that fits.", "What comes to mind?", "Think of any you know.", "List a few if you can."],
+  photo_naming: ["Oh — what's this one?", "Hey, take a look.", "How about this — know what it is?", "Quick one — what do you see?", "Here, have a look."],
+  semantic_features: ["Tell me what you know about this.", "How would you describe this one?", "What comes to mind when you see this?"],
+  thought_prompt: ["Hmm — how would you finish this?", "Try this one.", "What do you think comes next?"],
+  phrase_starter: ["Pick whichever feels right.", "Any of these work — try one.", "Which one sounds good to you?"],
+  yes_no: ["Quick one — yes or no?", "What do you think?", "Simple one for you."],
+  recall_prompt: ["What comes to mind?", "Name any that you can think of.", "Just say whatever pops up."],
 };
 
 export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
