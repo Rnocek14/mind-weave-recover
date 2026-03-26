@@ -48,7 +48,7 @@ const DOMAIN_TARGETS: DomainTarget[] = [
   {
     domain: 'expressive_language',
     label: 'Word Finding',
-    exerciseSlugs: ['photo-naming', 'semantic-features'],
+    exerciseSlugs: ['photo-naming', 'semantic-features', 'category-fluency'],
     chatProbeType: 'word_finding',
   },
   {
@@ -72,14 +72,20 @@ const DOMAIN_TARGETS: DomainTarget[] = [
   {
     domain: 'comprehension',
     label: 'Understanding',
-    exerciseSlugs: ['meaning-match', 'yes-no-comprehension'],
+    exerciseSlugs: ['meaning-match', 'yes-no-comprehension', 'follow-directions'],
     chatProbeType: 'comprehension',
   },
   {
     domain: 'discourse',
     label: 'Connected Speech',
-    exerciseSlugs: ['story-retell'],
+    exerciseSlugs: ['story-retell', 'sequence-builder'],
     chatProbeType: 'fluency',
+  },
+  {
+    domain: 'cognitive_linguistic',
+    label: 'Memory & Sequencing',
+    exerciseSlugs: ['follow-directions', 'sequence-builder'],
+    chatProbeType: 'comprehension',
   },
 ];
 
