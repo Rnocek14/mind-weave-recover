@@ -91,11 +91,15 @@ export interface SpeechAnalysisForOrchestrator {
 // ANTI-LOOP LIMITS
 const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
-  MAX_CARDS_PER_SESSION: 8,  // Increased for structured session
+  MAX_CARDS_PER_SESSION: 8,
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
-  MAX_CONSECUTIVE_FOLLOWUPS: 1,  // NEW: Force intervention after 1 follow-up
-  TURNS_BETWEEN_REPS: 3,  // NEW: Proactive rep every 3 turns
+  MAX_CONSECUTIVE_FOLLOWUPS: 1,
+  TURNS_BETWEEN_REPS: 3,
   WARMUP_CARDS_REQUIRED: 2,
+  // Popup exercise limits
+  MAX_POPUP_PER_SESSION: 3,
+  MIN_TURNS_BETWEEN_POPUPS: 5,
+  REPEATED_STUCK_THRESHOLD: 2,  // same stuck type N times → popup
 };
 
 /**
