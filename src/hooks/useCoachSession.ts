@@ -461,11 +461,12 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
-      // Trigger popup exercise modal
+      // FLOW ENGINE: Context-aware popup transition
       const introLines = [
-        "Let's try a quick practice together.",
-        "I have a short exercise that might help.",
-        "Let's work on this a different way.",
+        "Let's try a quick practice based on what we were talking about.",
+        "I noticed something — let me show you a quick exercise.",
+        "Let's work on that a different way for a moment.",
+        "Based on what I'm hearing, let's try this.",
       ];
       const intro = introLines[Math.floor(Math.random() * introLines.length)];
       addMessage({ type: 'ai', text: intro, id: generateId() });
