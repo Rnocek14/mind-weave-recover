@@ -717,40 +717,40 @@ function calculateScaffoldingLevel(
   return 'guided';
 }
 
-// Card intro/outro lines
+// Card intro/outro lines - DIVERSIFIED to prevent repetition
 export const CARD_INTRO_LINES: Record<CardType, string[]> = {
-  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?"],
-  semantic_features: ["Describe this for me.", "Tell me about this."],
-  thought_prompt: ["Finish this thought.", "Complete this."],
-  phrase_starter: ["Pick one to start.", "Use any of these."],
-  yes_no: ["Quick yes or no.", "Simple question."],
-  recall_prompt: ["Name anything that fits.", "What comes to mind?"],
+  photo_naming: ["Quick one! Name this.", "Let's try one.", "Easy warm-up — name this.", "Know what this is?", "How about this one?", "What do you see here?", "Name this for me."],
+  semantic_features: ["Describe this for me.", "Tell me about this.", "What do you know about this?", "How would you describe this?"],
+  thought_prompt: ["Finish this thought.", "Complete this.", "How would you finish this?", "Try finishing this one."],
+  phrase_starter: ["Pick one to start.", "Use any of these.", "Try one of these.", "Which one sounds right?"],
+  yes_no: ["Quick yes or no.", "Simple question.", "True or false?", "What do you think?"],
+  recall_prompt: ["Name anything that fits.", "What comes to mind?", "Think of any you know.", "List a few if you can."],
 };
 
 export const TOPIC_CARD_INTROS: Record<string, Record<CardType, string[]>> = {
   food: {
-    photo_naming: ["Speaking of food, name this."],
-    semantic_features: ["Describe this food."],
-    thought_prompt: ["Finish this about food..."],
-    phrase_starter: ["Try one of these..."],
-    yes_no: ["Quick food question."],
-    recall_prompt: ["Name any foods you like."],
+    photo_naming: ["Speaking of food, name this.", "Quick food one!", "Know this food?"],
+    semantic_features: ["Describe this food.", "Tell me about this food."],
+    thought_prompt: ["Finish this about food...", "Complete this one..."],
+    phrase_starter: ["Try one of these...", "Pick a food phrase."],
+    yes_no: ["Quick food question.", "Yes or no — about food.", "True or false?"],
+    recall_prompt: ["Name any foods you like.", "Think of some foods.", "What foods come to mind?"],
   },
   family: {
-    photo_naming: ["Quick one."],
-    semantic_features: ["Tell me about them."],
-    thought_prompt: ["Finish this thought..."],
-    phrase_starter: ["Start with one of these."],
-    yes_no: ["Quick question."],
-    recall_prompt: ["Name anyone who comes to mind."],
+    photo_naming: ["Quick one.", "Know who this is?", "Name this one."],
+    semantic_features: ["Tell me about them.", "Describe this person."],
+    thought_prompt: ["Finish this thought...", "Complete this..."],
+    phrase_starter: ["Start with one of these.", "Try a phrase."],
+    yes_no: ["Quick question.", "Yes or no?", "Simple one."],
+    recall_prompt: ["Name anyone who comes to mind.", "Think of some people."],
   },
   activities: {
-    photo_naming: ["Name this one!", "How about this?", "Quick — what is it?"],
-    semantic_features: ["Describe this."],
-    thought_prompt: ["Complete this..."],
-    phrase_starter: ["Pick one."],
-    yes_no: ["Yes or no?"],
-    recall_prompt: ["Name any activities."],
+    photo_naming: ["Name this one!", "How about this?", "Quick — what is it?", "Know what this is?"],
+    semantic_features: ["Describe this.", "Tell me about this activity."],
+    thought_prompt: ["Complete this...", "Finish this thought."],
+    phrase_starter: ["Pick one.", "Try any of these."],
+    yes_no: ["Yes or no?", "Quick question.", "True or false?"],
+    recall_prompt: ["Name any activities.", "What activities come to mind?"],
   },
 };
 

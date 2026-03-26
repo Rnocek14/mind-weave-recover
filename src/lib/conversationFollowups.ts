@@ -54,6 +54,13 @@ const FOLLOWUP_LINES: Record<FollowupType, string[]> = {
     "What's one detail you remember?",
     "Start with just one thing.",
     "Any one thing is fine.",
+    "Even one word works.",
+    "What's the first thing that comes to mind?",
+    "Just say whatever pops up.",
+    "One little thing — anything.",
+    "Think of just one moment.",
+    "What's one word for it?",
+    "Start small — one thing.",
   ],
   // CRITICAL: acknowledge now uses peer-level, natural language (no "Nice!" spam)
   acknowledge: [
