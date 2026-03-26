@@ -5,6 +5,8 @@ import type { MayaInsight } from "@/lib/mayaNarrative";
 interface MayaInterpretationCardProps {
   interpretation: MayaInsight["interpretation"];
   anticipation: string | null;
+  summary: string | null;
+  rightNow: string | null;
 }
 
 interface SectionProps {
