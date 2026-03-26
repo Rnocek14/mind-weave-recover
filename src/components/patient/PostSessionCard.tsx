@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight } from "lucide-react";
+import { CheckCircle2, TrendingUp, Clock, Flame, X, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
@@ -18,6 +18,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   executive_function: "thinking & planning",
   syntax: "sentence building",
   phonology: "sounds & pronunciation",
+  discourse_organization: "conversation",
   discourse: "conversation",
   motor: "movement",
   visual_spatial: "visual skills",
@@ -31,12 +32,26 @@ function getDomainLabel(exercises: string[]): string | null {
 }
 
 function getHeadline(feedback: LastSessionFeedback): { text: string; emoji: string } {
-  const { accuracy, correctDelta, streak } = feedback;
+  const { accuracy, correctDelta, streak, independentCorrect } = feedback;
   if (accuracy >= 90) return { text: "Amazing work!", emoji: "🎉" };
+  if (independentCorrect >= 5) return { text: "So many on your own!", emoji: "⭐" };
   if (accuracy >= 75) return { text: "Great session!", emoji: "💪" };
   if (correctDelta > 0) return { text: "You're improving!", emoji: "📈" };
   if (streak >= 3) return { text: "Consistency pays off!", emoji: "🔥" };
   return { text: "You showed up — that matters!", emoji: "💛" };
+}
+
+function getMotivationalNudge(feedback: LastSessionFeedback, domainLabel: string | null): string {
+  const { streak, correctDelta, independentCorrect, accuracy } = feedback;
+
+  if (independentCorrect >= 3 && domainLabel) {
+    return `${independentCorrect} answers without any help in ${domainLabel} — that's real progress! 🌟`;
+  }
+  if (streak >= 5) return `${streak} days in a row — you're building a powerful habit! 🔥`;
+  if (streak >= 3) return `${streak} days in a row — keep the momentum going!`;
+  if (correctDelta > 0) return `${correctDelta} more correct than last time — you're getting stronger! 📈`;
+  if (accuracy >= 80 && domainLabel) return `Strong work on ${domainLabel} today!`;
+  return "Every session builds stronger connections 🧠";
 }
 
 export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSessionCardProps) {
@@ -46,7 +61,6 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
 
   const handleDismiss = () => {
     setMinimized(true);
-    // Keep mini banner visible, full dismiss on second tap
   };
 
   // Mini banner after first dismiss
@@ -85,13 +99,16 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
           <h3 className="text-xl font-bold text-foreground">{text}</h3>
           {domainLabel && (
             <p className="text-sm text-primary font-medium">
-              You improved in {domainLabel} today 💬
+              You worked on {domainLabel} today
             </p>
           )}
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className={cn(
+          "grid gap-3",
+          feedback.independentCorrect > 0 ? "grid-cols-4" : "grid-cols-3"
+        )}>
           {/* Correct answers */}
           <div className="text-center p-3 rounded-xl bg-accent/30 border border-accent/40">
             <CheckCircle2 className="w-5 h-5 mx-auto text-primary mb-1" />
@@ -110,6 +127,17 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
             <p className="text-xs text-muted-foreground">Practiced</p>
           </div>
 
+          {/* Independent answers — only if > 0 */}
+          {feedback.independentCorrect > 0 && (
+            <div className="text-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <Star className="w-5 h-5 mx-auto text-emerald-600 mb-1" />
+              <p className="text-lg font-bold text-foreground">
+                {feedback.independentCorrect}
+              </p>
+              <p className="text-xs text-muted-foreground">On your own</p>
+            </div>
+          )}
+
           {/* Streak or delta */}
           <div className="text-center p-3 rounded-xl bg-accent/30 border border-accent/40">
             {feedback.correctDelta > 0 ? (
@@ -118,7 +146,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
                 <p className="text-lg font-bold text-foreground">
                   +{feedback.correctDelta}
                 </p>
-                <p className="text-xs text-muted-foreground">vs last session</p>
+                <p className="text-xs text-muted-foreground">vs last time</p>
               </>
             ) : (
               <>
@@ -132,13 +160,9 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
           </div>
         </div>
 
-        {/* Motivational nudge */}
+        {/* Motivational nudge — now domain-aware */}
         <p className="text-sm text-center text-muted-foreground">
-          {feedback.streak >= 3
-            ? `${feedback.streak} days in a row — keep the momentum going!`
-            : feedback.correctDelta > 0
-              ? `You got ${feedback.correctDelta} more correct answers than yesterday — real progress!`
-              : "Every session builds stronger connections 🧠"}
+          {getMotivationalNudge(feedback, domainLabel)}
         </p>
 
         {/* Next action CTA */}

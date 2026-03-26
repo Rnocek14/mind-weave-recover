@@ -22,6 +22,8 @@ export interface LastSessionFeedback {
   endedAt: string;
   /** Session ID for dismiss tracking */
   sessionId: string;
+  /** Answers without any cues (cue_level 0) */
+  independentCorrect: number;
 }
 
 export function useLastSessionFeedback(userId: string, profileId: string) {
@@ -70,12 +72,13 @@ export function useLastSessionFeedback(userId: string, profileId: string) {
         // Get events for latest session
         const { data: latestEvents } = await supabase
           .from("exercise_events")
-          .select("score, exercise_slug")
+          .select("score, exercise_slug, cue_level")
           .eq("session_id", latest.id);
 
         const correct = latestEvents?.filter(e => e.score === 100).length || 0;
         const total = latestEvents?.length || 0;
         const exercises = [...new Set(latestEvents?.map(e => e.exercise_slug).filter(Boolean) || [])];
+        const independentCorrect = latestEvents?.filter(e => e.score === 100 && (e.cue_level === 0 || e.cue_level === null)).length || 0;
 
         // Get events for previous session to compute delta
         let prevCorrect = 0;
@@ -124,6 +127,7 @@ export function useLastSessionFeedback(userId: string, profileId: string) {
           exerciseNames: exercises as string[],
           endedAt: latest.ended_at!,
           sessionId: latest.id,
+          independentCorrect,
         });
       } catch (err) {
         console.error("Error fetching last session feedback:", err);

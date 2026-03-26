@@ -144,19 +144,21 @@ export function CaregiverStatusHero({ userId, streak, patientName }: CaregiverSt
  * "How You Can Help Today" — personalized, data-driven caregiver guidance.
  * Uses cognitive domain scores to suggest real-world activities.
  */
-export function HowYouCanHelpCard({ userId }: { userId: string }) {
+export function HowYouCanHelpCard({ userId, patientName }: { userId: string; patientName?: string }) {
   const { flags } = useRedFlagDetection(userId);
   const { sessions } = useSessionHistory(userId);
   const { activeProfile } = useProfile();
   const { todayCheckin } = useDailyReadiness(activeProfile?.id || "");
   const { primaryStruggle, isLoading: guidanceLoading } = useCaregiverDomainGuidance(userId);
 
+  const displayName = patientName || "they";
+
   const tips = useMemo(() => {
     const result: Array<{ text: string; icon: typeof Heart; highlight?: boolean }> = [];
 
     // Fatigue-based tips (highest priority)
     if (todayCheckin?.fatigue_rating && todayCheckin.fatigue_rating >= 4) {
-      result.push({ text: "They're feeling tired today — suggest a short, easy session or rest", icon: Heart });
+      result.push({ text: `${displayName} is feeling tired today — suggest a short, easy session or rest`, icon: Heart });
     }
 
     // Alert-based tips
@@ -175,20 +177,20 @@ export function HowYouCanHelpCard({ userId }: { userId: string }) {
     const weekAgo = Date.now() - 7 * 86_400_000;
     const recentCount = sessions.filter((s) => new Date(s.startedAt).getTime() > weekAgo).length;
     if (recentCount < 2) {
-      result.push({ text: "Gently encourage them to try a session — even 5 minutes helps", icon: Lightbulb });
+      result.push({ text: `Gently encourage ${displayName} to try a session — even 5 minutes helps`, icon: Lightbulb });
     }
 
     // Default positive tips (only if nothing else)
     if (result.length === 0) {
       result.push({ text: "Celebrate their progress — positive reinforcement helps recovery", icon: Heart });
-      result.push({ text: "Practice together — you can sit with them during a session", icon: Lightbulb });
+      result.push({ text: `Practice together — you can sit with ${displayName} during a session`, icon: Lightbulb });
     }
 
     return result.slice(0, 4);
-  }, [todayCheckin, sessions, flags, primaryStruggle]);
+  }, [todayCheckin, sessions, flags, primaryStruggle, displayName]);
 
   const headline = primaryStruggle
-    ? `This week, they're working on ${primaryStruggle.caregiverLabel}`
+    ? `This week, ${displayName} is working on ${primaryStruggle.caregiverLabel}`
     : null;
 
   return (
@@ -199,7 +201,7 @@ export function HowYouCanHelpCard({ userId }: { userId: string }) {
       </h3>
 
       {headline && (
-        <p className="text-sm text-muted-foreground italic">{headline}</p>
+        <p className="text-sm font-medium text-foreground">{headline}</p>
       )}
 
       <div className="space-y-2.5">
@@ -215,7 +217,7 @@ export function HowYouCanHelpCard({ userId }: { userId: string }) {
       </div>
 
       <p className="text-xs text-muted-foreground pt-1">
-        Small moments like these make a big difference 💛
+        These small moments directly support {displayName}'s recovery 💛
       </p>
     </Card>
   );

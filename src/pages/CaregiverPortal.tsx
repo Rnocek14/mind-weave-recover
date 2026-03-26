@@ -105,7 +105,7 @@ export default function CaregiverPortal() {
         <CaregiverReassuranceCard userId={user!.id} patientName={patientName} streak={streak} />
 
         {/* 3. How You Can Help */}
-        <HowYouCanHelpCard userId={user!.id} />
+        <HowYouCanHelpCard userId={user!.id} patientName={patientName} />
 
         {/* 4. Concerns — only if they exist */}
         {!flagsLoading && redFlags.length > 0 && (
