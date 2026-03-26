@@ -127,6 +127,7 @@ export function useLastSessionFeedback(userId: string, profileId: string) {
           exerciseNames: exercises as string[],
           endedAt: latest.ended_at!,
           sessionId: latest.id,
+          independentCorrect,
         });
       } catch (err) {
         console.error("Error fetching last session feedback:", err);
