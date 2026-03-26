@@ -219,6 +219,12 @@ export function getNextAction(
     return { type: 'topic_shift' };
   }
 
+  // 4a. TOPIC ESCAPE: Same topic too long → force shift
+  if (state.turnsOnCurrentTopic >= LIMITS.MAX_TURNS_ON_TOPIC && state.currentTopic) {
+    console.log('[orchestrator] Topic escape triggered after', state.turnsOnCurrentTopic, 'turns on', state.currentTopic);
+    return { type: 'topic_shift' };
+  }
+
   // 4b. POPUP EXERCISE: Repeated struggle → launch full exercise
   const canPopup = 
     state.popupExercisesThisSession < LIMITS.MAX_POPUP_PER_SESSION &&
