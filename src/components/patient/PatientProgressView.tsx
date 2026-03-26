@@ -59,6 +59,7 @@ export const PatientProgressView = memo(function PatientProgressView({
   const { flags: redFlags } = useRedFlagDetection(userId);
   const { analytics } = useErrorPatternAnalytics(userId, { weeksBack: 4 });
   const { achievements, newAchievements } = useAchievements(userId, profileId);
+  const { insight: mayaInsight } = useMayaInsight({ userId, profileId });
 
   const weekStats = useMemo(() => {
     const activeDays = timeline.filter((d) => d.hasAnySignal).length;
