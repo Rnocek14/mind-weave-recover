@@ -662,6 +662,7 @@ export function updateState(
     lastCardType: cardInserted && cardType ? cardType : state.lastCardType,
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
+    turnsOnCurrentTopic: (topic && topic !== state.currentTopic) ? 1 : state.turnsOnCurrentTopic + 1,
     scaffoldingLevel: newScaffoldingLevel,
     popupExercisesThisSession: state.popupExercisesThisSession,
     turnsSinceLastPopup: state.turnsSinceLastPopup + 1,
