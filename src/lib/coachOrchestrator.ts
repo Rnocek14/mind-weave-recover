@@ -161,16 +161,20 @@ export function getNextAction(
     };
   }
 
-  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first
+  // 1. PHASE-BASED LOGIC: Warmup phase forces cards first (with variety)
   if (sessionPhase === 'warmup' && warmupCardsCompleted < LIMITS.WARMUP_CARDS_REQUIRED) {
+    // Alternate card types so warmup doesn't feel repetitive
+    const warmupCardSequence: CardType[] = ['photo_naming', 'yes_no', 'recall_prompt', 'semantic_features'];
+    const warmupCard = warmupCardSequence[warmupCardsCompleted % warmupCardSequence.length];
     console.log('[orchestrator] Warmup phase - inserting card:', {
       warmupCardsCompleted,
       required: LIMITS.WARMUP_CARDS_REQUIRED,
+      cardType: warmupCard,
       cardsInsertedThisSession,
     });
     return {
       type: 'insert_card',
-      cardType: 'photo_naming',
+      cardType: warmupCard,
       config: { difficulty: 'easy' },
       objective: 'word_retrieval',
     };
