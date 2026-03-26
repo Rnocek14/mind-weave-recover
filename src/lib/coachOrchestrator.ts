@@ -85,6 +85,7 @@ export interface OrchestratorState {
   lastCardType: CardType | null;
   yesNoSucceeded: boolean;
   currentTopic: string | null;
+  turnsOnCurrentTopic: number; // NEW: Track how long we've been on same topic
   userRequestedCards: number;
   scaffoldingLevel: 'open' | 'guided' | 'choice';
   
