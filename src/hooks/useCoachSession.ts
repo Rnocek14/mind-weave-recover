@@ -165,6 +165,15 @@ export function useCoachSession({
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
+  // Cross-session memory
+  const [priorSessionSummary, setPriorSessionSummary] = useState<CoachSessionSummary | null>(null);
+  const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
+  
+  // Load prior session summary on mount
+  useEffect(() => {
+    loadLatestCoachSummary(userId).then(setPriorSessionSummary);
+  }, [userId]);
+  
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
   // FIX #1: Make supportLevel reactive (not read from ref at render time)
