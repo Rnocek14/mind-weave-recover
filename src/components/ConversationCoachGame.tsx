@@ -72,6 +72,9 @@ export function ConversationCoachGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
+  // CRITICAL: Ref to track card phase for onResult callback (avoids stale closure)
+  const isCardActiveRef = useRef(false);
+  const isCardListeningRef = useRef(false);
   
   // NEW: Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
