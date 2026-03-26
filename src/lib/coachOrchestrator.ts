@@ -514,6 +514,11 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     popupExercisesThisSession: 0,
     turnsSinceLastPopup: 99,
     repeatedStuckCount: 0,
+    clinicalProfile: null,
+    mayaState: null,
+    recentExerciseResults: [],
+    recentPopupSlugs: [],
+    fatigueState: 'fresh',
   };
 }
 
