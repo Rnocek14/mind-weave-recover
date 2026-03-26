@@ -22,6 +22,9 @@ import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { SentenceConstructionGame } from '@/components/SentenceConstructionGame';
 import { YesNoComprehensionProbe } from './YesNoComprehensionProbe';
 import { StoryRetellProbe } from './StoryRetellProbe';
+import { FollowDirectionsProbe } from './FollowDirectionsProbe';
+import { CategoryFluencyProbe } from './CategoryFluencyProbe';
+import { SequenceBuilderProbe } from './SequenceBuilderProbe';
 
 interface ExerciseModalHostProps {
   activeExercise: ActiveModalExercise | null;
@@ -41,6 +44,9 @@ const MODAL_EXERCISE_TITLES: Record<string, string> = {
   'sentence-construction': 'Sentence Building',
   'yes-no-comprehension': 'Quick Comprehension',
   'story-retell': 'Story Retell',
+  'follow-directions': 'Follow Directions',
+  'category-fluency': 'Category Fluency',
+  'sequence-builder': 'Sequence Builder',
 };
 
 export function ExerciseModalHost({
