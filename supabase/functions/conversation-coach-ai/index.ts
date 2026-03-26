@@ -410,6 +410,14 @@ serve(async (req) => {
       });
     }
 
+    // Add exercise context if user just completed a popup exercise
+    if (exerciseContext) {
+      const exNote = exerciseContext.successBand === 'high' || exerciseContext.successBand === 'target'
+        ? `[EXERCISE COMPLETED: ${exerciseContext.summary}. Acknowledge their effort naturally. Reference what went well. Then smoothly return to conversation. Do NOT list scores.]`
+        : `[EXERCISE COMPLETED: ${exerciseContext.summary}. Be encouraging. Note their effort, not the difficulty. Smoothly return to conversation. Do NOT list scores or say "you struggled".]`;
+      messages.push({ role: 'system', content: exNote });
+    }
+
     // Add speech analysis context
     if (speechAnalysis) {
       let analysisNote = `[SPEECH ANALYSIS for this turn: `;
