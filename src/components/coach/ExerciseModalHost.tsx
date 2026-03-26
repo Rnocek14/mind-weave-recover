@@ -18,6 +18,10 @@ import type { ActiveModalExercise } from '@/hooks/useExerciseModal';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { MinimalPairsGame } from '@/components/MinimalPairsGame';
 import { MeaningMatchGame } from '@/components/MeaningMatchGame';
+import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
+import { SentenceConstructionGame } from '@/components/SentenceConstructionGame';
+import { YesNoComprehensionProbe } from './YesNoComprehensionProbe';
+import { StoryRetellProbe } from './StoryRetellProbe';
 
 interface ExerciseModalHostProps {
   activeExercise: ActiveModalExercise | null;
@@ -33,6 +37,10 @@ const MODAL_EXERCISE_TITLES: Record<string, string> = {
   'photo-naming': 'Photo Naming',
   'minimal-pairs': 'Sound Pairs',
   'meaning-match': 'Meaning Match',
+  'semantic-features': 'Semantic Features',
+  'sentence-construction': 'Sentence Building',
+  'yes-no-comprehension': 'Quick Comprehension',
+  'story-retell': 'Story Retell',
 };
 
 export function ExerciseModalHost({
