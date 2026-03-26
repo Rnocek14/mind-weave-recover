@@ -103,12 +103,25 @@ export const NARROWING_PROMPTS = [
   "Any word at all is good.",
 ];
 
+// DEDUP GUARD: Track last used lines to prevent consecutive repetition
+const _lastUsedLines: string[] = [];
+const MAX_DEDUP_HISTORY = 4;
+
+function pickWithoutRepeat(lines: string[]): string {
+  const available = lines.filter(l => !_lastUsedLines.includes(l));
+  const pool = available.length > 0 ? available : lines;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  _lastUsedLines.push(picked);
+  if (_lastUsedLines.length > MAX_DEDUP_HISTORY) _lastUsedLines.shift();
+  return picked;
+}
+
 /**
- * Get a random line for a follow-up type
+ * Get a random line for a follow-up type (with dedup guard)
  */
 export function getFollowupLine(type: FollowupType): string {
   const lines = FOLLOWUP_LINES[type];
-  return lines[Math.floor(Math.random() * lines.length)];
+  return pickWithoutRepeat(lines);
 }
 
 /**

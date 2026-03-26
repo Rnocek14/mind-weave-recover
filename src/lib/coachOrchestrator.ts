@@ -768,13 +768,19 @@ export const CARD_OUTRO_WITH_TOPIC: Record<string, string[]> = {
   activities: ["Great! What else did you do?"],
 };
 
+// DEDUP GUARD: Track last used card intros
+const _lastCardIntros: string[] = [];
+
 export function getCardIntro(cardType: CardType, topic?: string | null): string {
-  if (topic && TOPIC_CARD_INTROS[topic]?.[cardType]) {
-    const lines = TOPIC_CARD_INTROS[topic][cardType];
-    return lines[Math.floor(Math.random() * lines.length)];
-  }
-  const lines = CARD_INTRO_LINES[cardType];
-  return lines[Math.floor(Math.random() * lines.length)];
+  const lines = (topic && TOPIC_CARD_INTROS[topic]?.[cardType])
+    ? TOPIC_CARD_INTROS[topic][cardType]
+    : CARD_INTRO_LINES[cardType];
+  const available = lines.filter(l => !_lastCardIntros.includes(l));
+  const pool = available.length > 0 ? available : lines;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  _lastCardIntros.push(picked);
+  if (_lastCardIntros.length > 4) _lastCardIntros.shift();
+  return picked;
 }
 
 export function getCardOutro(topic?: string): string {

@@ -499,9 +499,21 @@ export function useCoachSession({
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
       
-      pendingCardTypeRef.current = action.cardType;
-      pendingCardDifficultyRef.current = action.config.difficulty;
-      setHasPendingCard(true);
+      // CRITICAL FIX: Insert card IMMEDIATELY and atomically — don't leave it as "pending"
+      // This prevents the bug where Maya announces a card but speech events block insertion
+      const cardId = generateId();
+      pendingCardIdRef.current = cardId;
+      addMessage({ 
+        type: 'card', 
+        cardType: action.cardType, 
+        difficulty: action.config.difficulty, 
+        id: cardId,
+        completed: false,
+      });
+      setCurrentPhase('card_active');
+      // Clear pending flags since card is already inserted
+      pendingCardTypeRef.current = null;
+      setHasPendingCard(false);
       
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
