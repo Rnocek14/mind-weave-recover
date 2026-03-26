@@ -22,7 +22,9 @@ import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
 import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
+import { PostSessionCard } from "@/components/patient/PostSessionCard";
 import { useProfile } from "@/hooks/useProfile";
+import { useLastSessionFeedback } from "@/hooks/useLastSessionFeedback";
 import { toast } from "sonner";
 
 
@@ -67,6 +69,7 @@ export function PatientModeView({
   const { achievements, newAchievements, clearNew } = useAchievements(userId, profileId);
   const [activeTab, setActiveTab] = useState<PatientTab>("home");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { feedback, dismiss: dismissFeedback } = useLastSessionFeedback(userId, profileId);
 
   // Scroll to top on tab switch
   useEffect(() => {
@@ -110,13 +113,18 @@ export function PatientModeView({
     return `Good evening${nameStr} 🌙`;
   }, [activeProfile]);
 
-  // Encouragement message
+  // Encouragement — dynamic based on last session feedback
   const encouragement = useMemo(() => {
+    if (feedback) {
+      if (feedback.correctDelta > 0) return `You got ${feedback.correctDelta} more correct last time — nice! 📈`;
+      if (feedback.accuracy >= 80) return "You're doing really well — keep it up! 💪";
+      if (feedback.streak >= 3) return `${feedback.streak} days in a row — amazing consistency! 🔥`;
+    }
     if (streak >= 7) return "Amazing consistency! 🌟";
     if (streak >= 3) return "You're on a roll! 🔥";
     if (sessions.length > 0) return "Every session counts ✨";
     return "Let's get started! 💛";
-  }, [streak, sessions.length]);
+  }, [streak, sessions.length, feedback]);
 
 
   const handleStartSession = () => {
@@ -317,6 +325,14 @@ export function PatientModeView({
                   {encouragement}
                 </p>
               </div>
+
+              {/* Post-session feedback — shows after completing a session */}
+              {feedback && (
+                <PostSessionCard
+                  feedback={feedback}
+                  onDismiss={() => dismissFeedback(feedback.endedAt)}
+                />
+              )}
 
               {/* Why Today explanation — ABOVE CTA for trust */}
               {lesson && <WhyTodayCard lesson={lesson} />}
