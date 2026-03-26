@@ -257,12 +257,32 @@ export function getNextAction(
     }
   }
 
-  // 5. ANTI-LOOP: Low-content response → MUST show tiles (no open-ended)
+  // 5. ANTI-LOOP: Low-content response handling
+  // CRITICAL FIX: After 2+ consecutive clarify_small, escalate to card/popup instead of looping
   if (speechAnalysis && (speechAnalysis.wordCount < 3 || speechAnalysis.pausePattern === 'very_slow')) {
-    // Force scaffolded response, not open-ended prompt
+    const recentClarifyCount = state.recentStuckTypes.slice(-3).filter(
+      t => t === 'no_speech' || t === 'prompt_overload' || t === 'word_search_stall'
+    ).length;
+    
+    // After 3+ low-content turns in a row, force a card/popup to break the loop
+    if (recentClarifyCount >= 3 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
+      // Choose an easy, receptive task (no production pressure)
+      const escapeCard: CardType = !state.yesNoSucceeded ? 'yes_no' : 'phrase_starter';
+      return {
+        type: 'insert_card',
+        cardType: escapeCard,
+        config: { difficulty: 'easy' },
+        objective: 'comprehension_check',
+      };
+    }
+    
+    // Vary the followup type to avoid clarify_small monotony
+    const lowContentFollowups: FollowupType[] = ['clarify_small', 'tell_more', 'acknowledge'];
+    const followupType = lowContentFollowups[state.turnNumber % lowContentFollowups.length];
+    
     return {
       type: 'chat_followup',
-      followupType: 'clarify_small',
+      followupType,
       objective: 'word_retrieval',
       therapyIntent: selectTherapyIntent(stuckType, state, speechAnalysis),
       showTiles: true,
