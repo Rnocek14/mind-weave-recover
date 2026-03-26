@@ -189,6 +189,20 @@ export function getNextAction(
     return { type: 'topic_shift' };
   }
 
+  // 4b. POPUP EXERCISE: Repeated struggle → launch full exercise
+  const canPopup = 
+    state.popupExercisesThisSession < LIMITS.MAX_POPUP_PER_SESSION &&
+    state.turnsSinceLastPopup >= LIMITS.MIN_TURNS_BETWEEN_POPUPS &&
+    sessionPhase === 'conversation'; // Only during conversation phase
+  
+  if (canPopup && state.repeatedStuckCount >= LIMITS.REPEATED_STUCK_THRESHOLD) {
+    const popupDecision = selectPopupExercise(stuckType, speechAnalysis);
+    if (popupDecision) {
+      console.log('[orchestrator] Triggering popup exercise:', popupDecision);
+      return popupDecision;
+    }
+  }
+
   // 5. ANTI-LOOP: Low-content response → MUST show tiles (no open-ended)
   if (speechAnalysis && (speechAnalysis.wordCount < 3 || speechAnalysis.pausePattern === 'very_slow')) {
     // Force scaffolded response, not open-ended prompt
