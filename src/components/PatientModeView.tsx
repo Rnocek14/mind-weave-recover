@@ -326,6 +326,14 @@ export function PatientModeView({
                 </p>
               </div>
 
+              {/* Post-session feedback — shows after completing a session */}
+              {feedback && (
+                <PostSessionCard
+                  feedback={feedback}
+                  onDismiss={() => dismissFeedback(feedback.endedAt)}
+                />
+              )}
+
               {/* Why Today explanation — ABOVE CTA for trust */}
               {lesson && <WhyTodayCard lesson={lesson} />}
 
