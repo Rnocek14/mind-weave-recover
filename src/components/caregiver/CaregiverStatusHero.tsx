@@ -92,13 +92,25 @@ export function CaregiverStatusHero({ userId, streak, patientName }: CaregiverSt
     ? AlertTriangle
     : TrendingDown;
 
+  const greeting = getTimeGreeting();
+  const GreetingIcon = greeting.icon;
+  const displayName = patientName || "your loved one";
+
   return (
     <Card className={`p-5 border-2 ${overall.color}`}>
+      {/* Warm greeting */}
+      <div className="flex items-center gap-2 mb-3">
+        <GreetingIcon className="w-4 h-4 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {greeting.text} — here's how {displayName} is doing
+        </p>
+      </div>
+
       <div className="flex items-start gap-4">
         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-          overall.status === "good" ? "bg-emerald-100 text-emerald-600" :
+          overall.status === "good" ? "bg-primary/10 text-primary" :
           overall.status === "concern" ? "bg-destructive/10 text-destructive" :
-          "bg-amber-100 text-amber-600"
+          "bg-amber-500/10 text-amber-600"
         }`}>
           <StatusIcon className="w-6 h-6" />
         </div>
