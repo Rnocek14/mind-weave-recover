@@ -109,6 +109,15 @@ interface UseCoachSessionProps {
   } | null;
 }
 
+// Pending popup exercise info
+export interface PendingPopupExercise {
+  slug: string;
+  reason: PopupReason;
+  targetDomain?: string;
+  targetPhonemes?: string[];
+  difficultyHint?: 'easier' | 'same' | 'harder';
+}
+
 interface UseCoachSessionReturn {
   messages: FeedMessage[];
   isComplete: boolean;
@@ -119,10 +128,12 @@ interface UseCoachSessionReturn {
   hasPendingCard: boolean;
   engagementState: MonitorEngagementState | null;
   currentTopic: string | null;
-  // NEW: Session phase and assistive panel state
   sessionPhase: SessionPhase;
   assistivePanelState: AssistivePanelState;
   lastAction: NextAction | null;
+  // Popup exercise
+  pendingPopupExercise: PendingPopupExercise | null;
+  ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
@@ -131,11 +142,9 @@ interface UseCoachSessionReturn {
   reset: () => void;
   requestCard: (cardType: CardType) => string;
   endSession: () => void;
-  // NEW: Assistive panel interactions
   handleWordTileTap: (word: string) => string;
   handleFrameTap: (frame: string) => string;
   requestCue: (level?: number) => void;
-  // NEW: Expose support level for UI
   currentSupportLevel: SupportLevel;
 }
 
