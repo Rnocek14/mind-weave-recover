@@ -393,6 +393,9 @@ export function ConversationCoachGame({
       
       if (hasPendingCard) {
         await new Promise(resolve => setTimeout(resolve, 600));
+        // Set ref BEFORE inserting card and starting listening to prevent race condition
+        isCardActiveRef.current = true;
+        isCardListeningRef.current = true;
         insertPendingCard();
         setConversationState('idle');
         setCardTranscript('');
