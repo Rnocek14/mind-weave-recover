@@ -352,6 +352,58 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
   }
 }
 
+/**
+ * Select a popup exercise based on stuck type and speech analysis
+ */
+function selectPopupExercise(
+  stuckType: StuckType,
+  speechAnalysis?: SpeechAnalysisForOrchestrator
+): NextAction | null {
+  // Map stuck types to appropriate full exercises
+  switch (stuckType) {
+    case 'word_search_stall':
+      return {
+        type: 'popup_exercise',
+        slug: 'photo-naming',
+        reason: 'repeated_struggle',
+        targetDomain: 'expressive_language',
+        difficultyHint: 'easier',
+      };
+    case 'no_speech':
+      // Receptive task is safer when user can't produce speech
+      return {
+        type: 'popup_exercise',
+        slug: 'minimal-pairs',
+        reason: 'fatigue_safe_switch',
+        targetDomain: 'phonology',
+        difficultyHint: 'easier',
+      };
+    case 'prompt_overload':
+      // Comprehension-based, no production pressure
+      return {
+        type: 'popup_exercise',
+        slug: 'meaning-match',
+        reason: 'targeted_probe',
+        targetDomain: 'comprehension',
+        difficultyHint: 'easier',
+      };
+    case 'thought_abandonment':
+      if (speechAnalysis?.circumlocutionDetected) {
+        return {
+          type: 'popup_exercise',
+          slug: 'photo-naming',
+          reason: 'targeted_probe',
+          targetDomain: 'expressive_language',
+          difficultyHint: 'same',
+        };
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+
 function selectFollowupForFlow(turnNumber: number): FollowupType {
   const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more', 'what_did'];
   return flowFollowups[turnNumber % flowFollowups.length];
