@@ -117,6 +117,51 @@ export function ExerciseModalHost({
           />
         );
 
+      case 'semantic-features':
+        return (
+          <SemanticFeatureGame
+            totalTrials={config.totalTrials ?? 5}
+            config={{ startDifficulty: config.difficultyTier ?? 1, cueLevel: config.cueLevel ?? 2 }}
+            bounds={{ minDifficulty: 1, maxDifficulty: 5, currentDifficulty: config.difficultyTier ?? 1 }}
+            onGameComplete={(finalScore, totalTrials) => {
+              handleGameComplete('semantic-features', { correct: finalScore, total: totalTrials });
+            }}
+            userId={userId}
+            sessionId={sessionId ?? undefined}
+          />
+        );
+
+      case 'sentence-construction':
+        return (
+          <SentenceConstructionGame
+            config={{ startDifficulty: config.difficultyTier ?? 1, cueLevel: config.cueLevel ?? 2 }}
+            bounds={{ minDifficulty: 1, maxDifficulty: 5, currentDifficulty: config.difficultyTier ?? 1 }}
+            difficultyLevel={config.difficultyTier ?? 1}
+            onGameComplete={(finalScore, totalTrials) => {
+              handleGameComplete('sentence-construction', { correct: finalScore, total: totalTrials });
+            }}
+          />
+        );
+
+      case 'yes-no-comprehension':
+        return (
+          <YesNoComprehensionProbe
+            totalTrials={config.totalTrials ?? 5}
+            onComplete={(results) => {
+              handleGameComplete('yes-no-comprehension', results);
+            }}
+          />
+        );
+
+      case 'story-retell':
+        return (
+          <StoryRetellProbe
+            onComplete={(results) => {
+              handleGameComplete('story-retell', results);
+            }}
+          />
+        );
+
       default:
         return (
           <div className="p-6 text-center text-muted-foreground">
