@@ -253,6 +253,11 @@ export function ConversationCoachGame({
   // Smart speech end detection - faster thresholds for responsive feel
   const speechEndDetection = useSpeechEndDetection({
     onSpeechEnd: (transcript) => {
+      // CRITICAL: Don't trigger conversation processing during card mode
+      if (isCardActiveRef.current) {
+        console.log('🎯 Speech end during card_active — routing to card, not conversation');
+        return;
+      }
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
@@ -388,6 +393,9 @@ export function ConversationCoachGame({
       
       if (hasPendingCard) {
         await new Promise(resolve => setTimeout(resolve, 600));
+        // Set ref BEFORE inserting card and starting listening to prevent race condition
+        isCardActiveRef.current = true;
+        isCardListeningRef.current = true;
         insertPendingCard();
         setConversationState('idle');
         setCardTranscript('');
@@ -514,6 +522,9 @@ export function ConversationCoachGame({
 
   // Handle card completion
   const handleCardDone = async (messageId: string, result: unknown) => {
+    // Reset card refs immediately
+    isCardActiveRef.current = false;
+    isCardListeningRef.current = false;
     setIsCardListening(false);
     stopListening();
     setCardTranscript('');
@@ -619,7 +630,9 @@ export function ConversationCoachGame({
       console.warn('TTS failed:', err);
     }
     
-    // Insert the card
+    // Set refs BEFORE inserting card and starting listening to prevent race condition
+    isCardActiveRef.current = true;
+    isCardListeningRef.current = true;
     insertPendingCard();
     setConversationState('idle');
     setCardTranscript('');
