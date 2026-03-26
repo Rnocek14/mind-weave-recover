@@ -101,7 +101,16 @@ export default function AbstractCompareExercise() {
     }
   }, [fromLesson, completeSession]);
 
-  const handleBack = useCallback(() => navigate(fromLesson ? '/lesson' : '/dashboard'), [navigate, fromLesson]);
+  const handleBack = useCallback(() => {
+    if (fromLesson) {
+      // Signal lesson flow to skip this exercise and move on
+      window.dispatchEvent(new CustomEvent('exercise-complete', { 
+        detail: { exerciseSlug: EXERCISE_SLUG, skipped: true } 
+      }));
+    } else {
+      navigate('/dashboard');
+    }
+  }, [fromLesson, navigate]);
   const handleContinue = useCallback(() => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
