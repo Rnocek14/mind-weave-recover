@@ -819,11 +819,23 @@ export function useCoachSession({
     difficultyStateRef.current = createInitialDifficultyState();
   }, [maxTurns, speechAnalysis]);
 
-  // User-initiated session end
+  // User-initiated session end — also persists summary
   const endSession = useCallback(() => {
     setIsComplete(true);
     setCurrentPhase('complete');
-  }, []);
+    
+    // Save session summary for cross-session memory
+    const sessionMetrics = speechAnalysis.getSessionMetrics();
+    saveCoachSessionSummary({
+      userId,
+      sessionId,
+      popupResults: popupResultsRef.current,
+      turnsCompleted: orchestratorStateRef.current.turnNumber,
+      avgFluency: sessionMetrics?.avgFluency,
+      fluencyTrend: sessionMetrics?.fluencyTrend,
+      primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
+    });
+  }, [userId, sessionId, speechAnalysis]);
 
   // NEW: Assistive panel interaction handlers
   // FIX #1: Tile taps are INPUT-ONLY - no scoring, no orchestrator updates
