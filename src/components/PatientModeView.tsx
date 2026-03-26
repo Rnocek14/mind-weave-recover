@@ -326,6 +326,9 @@ export function PatientModeView({
                 </p>
               </div>
 
+              {/* Milestone celebrations */}
+              {mayaInsight && <MilestoneToast milestone={mayaInsight.milestone} />}
+
               {/* Post-session feedback — shows after completing a session */}
               {feedback && (
                 <PostSessionCard
