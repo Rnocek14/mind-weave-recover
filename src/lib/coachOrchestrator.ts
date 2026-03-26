@@ -442,6 +442,40 @@ function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): F
 }
 
 /**
+ * Select therapy intent based on stuck type, session phase, and speech analysis.
+ * Gives Maya a *reason* for each turn instead of just a response type.
+ */
+function selectTherapyIntent(
+  stuckType: StuckType,
+  state: OrchestratorState,
+  speechAnalysis?: SpeechAnalysisForOrchestrator
+): TherapyIntent {
+  // After silence → build confidence with easy question
+  if (stuckType === 'no_speech') return 'build_confidence';
+
+  // Prompt overload → simplify, build confidence
+  if (stuckType === 'prompt_overload') return 'build_confidence';
+
+  // Word search stall → probe word finding or repair
+  if (stuckType === 'word_search_stall') {
+    return speechAnalysis?.circumlocutionDetected ? 'probe_word_finding' : 'gentle_repair';
+  }
+
+  // Thought abandonment → repair
+  if (stuckType === 'thought_abandonment') return 'gentle_repair';
+
+  // Strong flow → vary intent based on context
+  if (stuckType === 'strong_flow') {
+    if (speechAnalysis && speechAnalysis.wordCount < 5) return 'probe_sentence';
+    if (state.turnNumber > 8 && state.successStreak >= 3) return 'reflect_progress';
+    if (state.turnNumber % 4 === 0) return 'confirm_understanding';
+    return 'expand_topic';
+  }
+
+  return 'expand_topic';
+}
+
+/**
  * Create initial orchestrator state - ENHANCED
  */
 export function createInitialState(maxTurns: number = 999): OrchestratorState {

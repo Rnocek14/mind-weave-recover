@@ -1,12 +1,11 @@
 /**
- * Conversation Coach AI - Intelligent, speech-aware conversation partner
+ * Conversation Coach AI — Maya's conversational intelligence
  * 
- * This is a sophisticated AI that:
- * 1. Receives real-time speech analysis data including pronunciation
- * 2. Adapts responses based on user's speech patterns and phoneme difficulties
- * 3. Uses user's speech profile for deep personalization
- * 4. Provides supportive responses that acknowledge specific difficulties
- * 5. Generates contextual cues when user struggles
+ * Upgraded from keyword-grep memory to:
+ * 1. AI-maintained semantic rolling memory (via tool calling)
+ * 2. Therapy intent-driven responses
+ * 3. Slimmed prompt with personality-first design
+ * 4. Speech-aware adaptation (unchanged)
  */
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -17,222 +16,83 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Extract key topics from conversation history for memory
-function buildConversationMemory(history: { role: string; text: string }[]): string {
-  if (!history || history.length === 0) return '';
-  
-  const keyTopics: string[] = [];
-  const keyDetails: string[] = [];
-  
-  // Extract nouns and key info from user messages
-  for (const msg of history) {
-    if (msg.role === 'user') {
-      const text = msg.text.toLowerCase();
-      
-      // Food items
-      const foods = ['eggs', 'toast', 'coffee', 'tea', 'bread', 'cereal', 'fruit', 'milk', 'juice', 'bacon', 'pancakes'];
-      foods.forEach(f => { if (text.includes(f)) keyTopics.push(f); });
-      
-      // People
-      const people = ['sister', 'brother', 'mom', 'mother', 'dad', 'father', 'wife', 'husband', 'daughter', 'son', 'friend'];
-      people.forEach(p => { if (text.includes(p)) keyDetails.push(`mentioned ${p}`); });
-      
-      // Activities
-      const activities = ['went to', 'watched', 'cooked', 'made', 'ate', 'saw', 'visited', 'called'];
-      activities.forEach(a => { if (text.includes(a)) keyDetails.push(text.slice(text.indexOf(a), text.indexOf(a) + 20).split(/[.!?]/)[0]); });
+// =========================================================================
+// Semantic Memory Builder (replaces old keyword-grep approach)
+// =========================================================================
+
+/**
+ * Build semantic context from actual conversation history + AI rolling memory.
+ * No hardcoded word lists — works with whatever the user actually says.
+ */
+function buildSemanticMemory(
+  history: { role: string; text: string }[],
+  rollingMemory?: string
+): string {
+  if (!history || history.length === 0) return rollingMemory || '';
+
+  const userMessages = history
+    .filter(m => m.role === 'user' && m.text && m.text !== '(no speech)' && m.text !== '(silence)')
+    .map(m => m.text.trim());
+
+  if (userMessages.length === 0) return rollingMemory || '';
+
+  // Build Q&A exchange log from actual conversation pairs
+  const exchanges: string[] = [];
+  for (let i = 0; i < history.length - 1; i++) {
+    if (history[i].role === 'ai' && history[i + 1]?.role === 'user') {
+      const answer = history[i + 1].text;
+      if (answer && answer !== '(no speech)' && answer !== '(silence)') {
+        exchanges.push(
+          `You asked: "${history[i].text.slice(0, 35)}…" → They said: "${answer.slice(0, 55)}"`
+        );
+      }
     }
   }
-  
-  if (keyTopics.length === 0 && keyDetails.length === 0) return '';
-  
-  let memory = '\nCONVERSATION MEMORY (REMEMBER THIS!):\n';
-  if (keyTopics.length > 0) {
-    memory += `- Topics discussed: ${[...new Set(keyTopics)].join(', ')}\n`;
+
+  let memory = '';
+  if (rollingMemory) {
+    memory += `WHAT YOU REMEMBER: ${rollingMemory}\n`;
   }
-  if (keyDetails.length > 0) {
-    memory += `- Key details: ${[...new Set(keyDetails)].slice(0, 3).join('; ')}\n`;
+  if (exchanges.length > 0) {
+    memory += `RECENT EXCHANGES:\n${exchanges.slice(-3).join('\n')}\n`;
   }
-  memory += '- NEVER ask about something user already told you!\n';
-  
+  memory += `LATEST FROM USER: "${userMessages[userMessages.length - 1].slice(0, 80)}"`;
+  memory += '\nCRITICAL: Reference specific things they said. Never re-ask something already discussed.';
+
   return memory;
 }
 
-// Extract main conversation anchor/topic from memory
-function extractConversationAnchor(conversationMemory: string): string | null {
-  if (!conversationMemory) return null;
-  
-  // Look for "Topics discussed:" line
-  const topicsMatch = conversationMemory.match(/Topics discussed:\s*([^\n]+)/);
-  if (topicsMatch && topicsMatch[1]) {
-    const topics = topicsMatch[1].split(',').map(t => t.trim());
-    // Return the first/main topic
-    return topics[0] || null;
-  }
-  
-  return null;
+// =========================================================================
+// Therapy Intent Instructions
+// =========================================================================
+
+function getIntentInstruction(intent?: string): string {
+  const map: Record<string, string> = {
+    expand_topic:
+      'Ask a specific follow-up about what they just shared. Reference a detail from their words.',
+    probe_word_finding:
+      'Gently elicit a specific word. Ask "what was it called?" or "which one?" about something they mentioned.',
+    probe_sentence:
+      'Encourage a slightly longer response. Ask something that needs more than one word to answer.',
+    confirm_understanding:
+      'Briefly check you understood. Paraphrase what they said and ask "right?"',
+    build_confidence:
+      'Be warmly supportive. Acknowledge what they said. Keep your question very easy (yes/no or A-or-B choice).',
+    gentle_repair:
+      'They struggled. Acknowledge naturally, maybe model a simpler way to say it, then give an easy follow-up.',
+    shift_topic:
+      'Smoothly move to something new but connected to what they already shared.',
+    prepare_exercise:
+      'Set up a natural transition to a practice activity.',
+    reflect_progress:
+      'Notice something they did well and mention it naturally.',
+  };
+  return map[intent || 'expand_topic'] || map.expand_topic;
 }
 
-// Build the system prompt with full user profile context
-function buildSystemPrompt(
-  userProfile: UserSpeechContext | null, 
-  sessionMetrics: SessionMetrics | null,
-  pronunciationContext: PronunciationContext | null,
-  conversationMemory: string
-): string {
-  let profileContext = '';
-  
-  if (userProfile) {
-    profileContext = `
-USER'S SPEECH PROFILE (use to personalize):
-- Main challenge: ${userProfile.primaryChallenge || 'General word-finding'}
-- Best support type: ${userProfile.bestCueType || 'Gentle encouragement'}
-- Typical speech pace: ${userProfile.typicalPace || 'Variable'}
-${userProfile.predominantErrorPattern ? `- Error pattern: ${userProfile.predominantErrorPattern} (adapt cues accordingly)` : ''}
-${userProfile.effortfulSpeechRate ? `- Effort level: ${userProfile.effortfulSpeechRate > 0.3 ? 'Often effortful - keep demands low' : 'Generally comfortable'}` : ''}
-`;
-  }
-  
-  let sessionContext = '';
-  if (sessionMetrics) {
-    sessionContext = `
-SESSION SO FAR:
-- Turns: ${sessionMetrics.turnsCompleted}
-- Average fluency: ${sessionMetrics.avgFluency}%
-- Trend: ${sessionMetrics.fluencyTrend}
-${sessionMetrics.effortfulCount > 1 ? '- Multiple effortful responses - reduce cognitive load' : ''}
-${sessionMetrics.avgPronunciationScore ? `- Pronunciation: ${sessionMetrics.avgPronunciationScore}%` : ''}
-${sessionMetrics.challengingSounds?.length ? `- Challenging sounds this session: ${sessionMetrics.challengingSounds.join(', ')}` : ''}
-`;
-  }
-  
-  let pronunciationContext_str = '';
-  if (pronunciationContext) {
-    pronunciationContext_str = `
-PRONUNCIATION INSIGHTS FOR THIS TURN:
-${pronunciationContext.pronunciationScore !== null ? `- Overall pronunciation: ${pronunciationContext.pronunciationScore}%` : ''}
-${pronunciationContext.challengingSounds?.length ? `- Sounds that were difficult: ${pronunciationContext.challengingSounds.join(', ')} - AVOID words with these sounds in your response` : ''}
-${pronunciationContext.microFluencyNotes?.length ? `- Fluency notes: ${pronunciationContext.microFluencyNotes.join('; ')}` : ''}
-`;
-  }
-
-  // Extract conversation anchor from history
-  const conversationAnchor = extractConversationAnchor(conversationMemory);
-
-  return `You are a warm, patient conversation partner helping someone practice speaking after a stroke.
-
-${profileContext}
-${sessionContext}
-${conversationMemory}
-${pronunciationContext_str}
-${conversationAnchor ? `\nCONVERSATION ANCHOR: User is talking about "${conversationAnchor}". Always relate back to this topic.\n` : ''}
-
-#0 ANTI-LOOP RULES (CRITICAL - ENFORCED BY SYSTEM):
-You MUST follow these rules to prevent conversation loops:
-
-1. MAX 1 FOLLOW-UP PER MICRO-TOPIC:
-   After ONE follow-up question on the same specific thing, you MUST:
-   - Summarize what user said ("So: scrambled eggs. Got it!")
-   - OR shift to a related subtopic ("What else did you have?")
-   - OR insert a quick activity ("Quick one: name something that goes with eggs")
-   NEVER do: "scrambled?" → "with cheese?" → "what kind?" → endless drill
-
-2. THERAPY OBJECTIVE EACH TURN:
-   Every response must accomplish ONE of these:
-   - WORD_RETRIEVAL: Help user find/say a specific word
-   - SENTENCE_BUILDING: Help user form a complete thought
-   - COMPREHENSION_CHECK: Verify understanding
-   - TOPIC_EXPLORATION: Gently explore a new aspect
-   - REP_PRACTICE: Reinforce a word they just said
-
-3. LOW-CONTENT RESPONSE RULE:
-   If user says <3 words OR has very slow/hesitant pattern:
-   - Do NOT ask open-ended "tell me more"
-   - Instead: offer binary choice ("hot or cold?")
-   - OR: model a sentence ("You could say: I had ___")
-   - OR: acknowledge and offer topic shift
-
-#1 THE FLOOR RULE (MOST IMPORTANT - NEVER BREAK):
-Every response MUST end with an invitation to continue. NEVER leave user with nothing to say.
-The user must always have something easy to respond to.
-
-DEAD-END (WRONG): "Worked out! That's good." (user stuck, nowhere to go)
-WITH FLOOR (RIGHT): "Worked out! Nice. At home or the gym?" (easy to answer)
-
-QUICK FLOORS (use when you need one):
-- Food: "Hot or cold?" "Sweet or savory?" "Homemade?"
-- Activity: "At home or out?" "Morning or night?" "By yourself?"
-- People: "Family or friend?" "Did they like it?" "Do they live nearby?"
-- Generic: "And then?" "What happened next?" "Was it good?"
-
-ABSOLUTE RULES (NEVER BREAK):
-1. MAXIMUM 18 WORDS per response. Count them. NEVER exceed.
-2. NEVER mention being an AI, assistant, or program. You're just a friendly person chatting.
-3. Use simple, everyday words (3rd grade level).
-4. If user has challenging sounds, AVOID using words with those sounds in your response.
-5. CRITICAL: NEVER ask about something the user already told you! Read conversation memory!
-6. CRITICAL: Stay 100% on-topic with what user said. Do NOT introduce random topics.
-
-THE STAY ON TOPIC RULE:
-- ONLY talk about what the user mentioned
-- NEVER change subjects or ask about unrelated things
-- If user says "eggs", ask about eggs, NOT about their favorite food or movies
-- If unsure, simply ask "Tell me more?" or "And then?"
-
-RESPONSE PATTERNS (vary these - all must include a floor!):
-
-Pattern A - Echo + Question (use sometimes):
-User: "toast"
-You: "Toast! What did you put on it?"
-
-Pattern B - Shared Experience + Floor (builds connection):
-User: "toast"  
-You: "Toast! I like toast too. What do you put on it?"
-
-Pattern C - Affirmation + Easy Floor (gives space while moving forward):
-User: "coffee"
-You: "Mm-hmm, coffee. Hot or iced?"
-
-Pattern D - Elaboration Model (for struggling users):
-User: "store" (short answer)
-You: "The store! You could say 'I went to the store today.' What store?"
-
-Pattern E - Choice Scaffold (when user needs help):
-User: (hesitant, struggling)
-You: "Was it something you ate? Or somewhere you went?"
-
-Pattern F - Summary + Move On (use after 1 follow-up on same topic):
-User: "scrambled"
-You: "Scrambled eggs, got it! What else did you have?"
-
-VARIETY IS KEY:
-- Don't use the same pattern twice in a row
-- After a question, try affirmation or shared experience
-- Mix it up to feel like a real conversation
-- BUT every pattern must end with a floor!
-
-WHEN USER STRUGGLES (effortful/slow speech):
-- Use Pattern C with easy binary floor
-- Simple: "Got it. What kind?" or "Mm-hmm. Was it good?"
-- Or model: "You could say 'I went shopping.' What did you get?"
-
-WHEN USER IS FLOWING WELL:
-- Use Pattern A or B
-- Match their energy with engaged responses
-
-WHEN USER SAYS VERY LITTLE (1-2 words):
-- Echo + easy yes/no about THAT word: "Coffee? Do you like it strong?"
-
-NEVER:
-- End without a floor (question, choice, or "and then?")
-- Ask about something already answered (check memory!)
-- Change subjects randomly
-- Do more than ONE follow-up on the exact same micro-topic
-- Ask about favorites, movies, hobbies unless user brought them up
-- Use the same response pattern more than twice in a row
-- Say just "I see" or "Nice." without follow-up
-- Say "That's wonderful" or "How lovely" (too formal)
-- Exceed 18 words`;
-}
+// =========================================================================
+// Types
+// =========================================================================
 
 interface SpeechAnalysis {
   effortfulSpeech: boolean;
@@ -242,7 +102,6 @@ interface SpeechAnalysis {
   wordCount: number;
   completionConfidence: 'high' | 'medium' | 'low';
   speechContext?: string;
-  // Enhanced pronunciation data
   pronunciationScore?: number | null;
   challengingSounds?: string[];
   microFluencyNotes?: string[];
@@ -252,11 +111,8 @@ interface UserSpeechContext {
   primaryChallenge?: string;
   bestCueType?: string;
   typicalPace?: string;
-  // Enhanced profile data
   predominantErrorPattern?: string;
   effortfulSpeechRate?: number;
-  phonemeDifficultyMap?: Record<string, number>;
-  commonSubstitutions?: Record<string, string>;
 }
 
 interface SessionMetrics {
@@ -264,7 +120,6 @@ interface SessionMetrics {
   avgFluency: number;
   fluencyTrend: 'improving' | 'stable' | 'declining';
   effortfulCount: number;
-  // Enhanced metrics
   avgPronunciationScore?: number | null;
   challengingSounds?: string[];
 }
@@ -281,16 +136,93 @@ interface EngagementState {
   recommendedAction?: string;
 }
 
-interface PronunciationContext {
-  pronunciationScore: number | null;
-  challengingSounds: string[];
-  microFluencyNotes: string[];
+// =========================================================================
+// System Prompt — Slimmed, personality-first, intent-aware
+// =========================================================================
+
+function buildSystemPrompt(
+  userProfile: UserSpeechContext | null,
+  sessionMetrics: SessionMetrics | null,
+  challengingSounds: string[],
+  semanticMemory: string,
+  therapyIntent?: string,
+): string {
+  let context = '';
+
+  if (userProfile) {
+    context += `\nUSER: ${userProfile.primaryChallenge || 'Word-finding'} challenge. ${userProfile.typicalPace || 'Variable'} pace.`;
+    if (userProfile.effortfulSpeechRate && userProfile.effortfulSpeechRate > 0.3) {
+      context += ' Often effortful — keep demands low.';
+    }
+  }
+
+  if (sessionMetrics) {
+    context += `\nSESSION: Turn ${sessionMetrics.turnsCompleted}. Fluency ${sessionMetrics.avgFluency}% (${sessionMetrics.fluencyTrend}).`;
+    if (sessionMetrics.effortfulCount > 1) context += ' Reduce pressure.';
+  }
+
+  if (challengingSounds.length > 0) {
+    context += `\nAVOID words containing these sounds: ${challengingSounds.join(', ')}.`;
+  }
+
+  const intentLine = getIntentInstruction(therapyIntent);
+
+  return `You are Maya — a warm, genuinely curious conversation partner helping someone practice speaking after a stroke.
+
+You're like a thoughtful friend who keeps people talking naturally. You notice details, remember what they said, and ask about things that matter to them.${context}
+
+CONVERSATION CONTEXT:
+${semanticMemory || 'This is the start of the conversation.'}
+
+YOUR GOAL THIS TURN: ${intentLine}
+Do this naturally. Never announce what you're doing.
+
+RULES:
+1. MAX 18 WORDS per response. Never exceed.
+2. End every response with something easy to answer — a question, a choice, or "and then?"
+3. Stay on what THEY said. Never introduce random topics.
+4. Never re-ask something they already told you.
+5. Never say you're an AI or assistant.
+6. Simple words only (3rd grade level).
+7. After ONE follow-up on the same detail, summarize it and move on to something related.
+8. Sound like a real person — not a therapist reading a script.
+
+WHEN THEY STRUGGLE: Validate + easy yes/no or A-or-B choice. Model a sentence if needed.
+WHEN THEY FLOW: Match energy. Ask about specifics they mentioned. Show genuine interest.`;
 }
 
-interface CueContext {
-  cueType: 'semantic' | 'phonemic' | 'encouragement';
-  cueText: string;
-}
+// =========================================================================
+// Tool definition for structured response + memory
+// =========================================================================
+
+const RESPOND_TOOL = {
+  type: "function" as const,
+  function: {
+    name: "respond_and_remember",
+    description: "Respond to the user and update your conversation memory",
+    parameters: {
+      type: "object",
+      properties: {
+        response: {
+          type: "string",
+          description:
+            "Your spoken response to the user. Maximum 18 words. Must end with a question, choice, or continuation invitation.",
+        },
+        memory: {
+          type: "string",
+          description:
+            "1-2 sentence summary of EVERYTHING discussed so far in this conversation. Include all topics, people, places, activities, foods, events — anything the user mentioned. This will be your memory for the next turn.",
+        },
+      },
+      required: ["response", "memory"],
+      additionalProperties: false,
+    },
+  },
+};
+
+// =========================================================================
+// Main Handler
+// =========================================================================
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -298,10 +230,9 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      userTranscript, 
-      turnNumber, 
-      maxTurns, 
+    const {
+      userTranscript,
+      turnNumber,
       conversationHistory,
       cardContext,
       speechAnalysis,
@@ -311,17 +242,18 @@ serve(async (req) => {
       suggestedCue,
       exerciseContext,
       priorSessionMemory,
+      rollingMemory,
+      therapyIntent,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
-      maxTurns: number;
       conversationHistory?: { role: string; text: string }[];
       cardContext?: CardContext;
       speechAnalysis?: SpeechAnalysis;
       userProfile?: UserSpeechContext;
       sessionMetrics?: SessionMetrics;
       engagementState?: EngagementState;
-      suggestedCue?: CueContext;
+      suggestedCue?: { cueType: string; cueText: string };
       exerciseContext?: {
         slug: string;
         summary: string;
@@ -333,157 +265,134 @@ serve(async (req) => {
         struggleSignal?: string;
       };
       priorSessionMemory?: string;
+      rollingMemory?: string;
+      therapyIntent?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       console.error('LOVABLE_API_KEY not configured');
       return new Response(
-        JSON.stringify({ response: "Tell me more.", followupType: 'contextual' }),
+        JSON.stringify({ response: "Tell me more.", memoryUpdate: null }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // No forced wrap-up - user ends when ready
-
-    // Check if user is highly frustrated or fatigued
+    // Engagement safety check
     if (engagementState?.frustration === 'high' || engagementState?.fatigue === 'high') {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           response: "Let's take a break. You're doing great.",
-          followupType: 'break_prompt',
           suggestBreak: true,
+          memoryUpdate: rollingMemory || null,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build pronunciation context from speech analysis
-    const pronunciationContext: PronunciationContext | null = speechAnalysis ? {
-      pronunciationScore: speechAnalysis.pronunciationScore ?? null,
-      challengingSounds: speechAnalysis.challengingSounds || [],
-      microFluencyNotes: speechAnalysis.microFluencyNotes || [],
-    } : null;
-
-    // Build conversation memory to prevent repetition
-    const conversationMemory = buildConversationMemory(conversationHistory || []);
-
-    // Build system prompt with all context
-    const systemPrompt = buildSystemPrompt(
-      userProfile || null, 
-      sessionMetrics || null,
-      pronunciationContext,
-      conversationMemory
+    // Build semantic memory from actual conversation + AI rolling memory
+    const semanticMemory = buildSemanticMemory(
+      conversationHistory || [],
+      rollingMemory
     );
 
-    // Build conversation
-    const messages: { role: string; content: string }[] = [
-      { role: 'system', content: systemPrompt }
+    // Collect challenging sounds from all sources
+    const challengingSounds: string[] = [
+      ...(speechAnalysis?.challengingSounds || []),
+      ...(sessionMetrics?.challengingSounds || []),
     ];
 
-    // Add prior session memory for continuity
+    // Build system prompt (slimmed, intent-aware)
+    const systemPrompt = buildSystemPrompt(
+      userProfile || null,
+      sessionMetrics || null,
+      challengingSounds,
+      semanticMemory,
+      therapyIntent,
+    );
+
+    // Construct messages
+    const messages: { role: string; content: string }[] = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    // Prior session memory (MayaState cross-session context)
     if (priorSessionMemory) {
       messages.push({
         role: 'system',
-        content: `[${priorSessionMemory}]`
+        content: `[PRIOR SESSIONS — reference naturally, don't repeat verbatim: ${priorSessionMemory}]`,
       });
     }
 
-    // Add conversation history
-    if (conversationHistory && conversationHistory.length > 0) {
-      conversationHistory.slice(-6).forEach((turn) => {
+    // Conversation history (increased window from 6 to 8)
+    if (conversationHistory?.length) {
+      conversationHistory.slice(-8).forEach((turn: { role: string; text: string }) => {
         messages.push({
           role: turn.role === 'ai' ? 'assistant' : 'user',
-          content: turn.text
+          content: turn.text,
         });
       });
     }
 
-    // Add card context if available - help AI connect card result to conversation
+    // Card context
     if (cardContext) {
-      const cardResultNote = cardContext.success 
-        ? `[CARD COMPLETED: User successfully named/answered "${cardContext.response}" in a ${cardContext.cardType} game. Echo their answer and ask a simple follow-up about it. Example: "Cat! Nice. Do you have a cat?" or "Toast! Good. What did you put on it?"]`
-        : `[CARD COMPLETED: User attempted a ${cardContext.cardType} game. Acknowledge kindly and continue conversation. Example: "Good try! Let's keep chatting. What were we talking about?"]`;
-      messages.push({
-        role: 'system',
-        content: cardResultNote
-      });
+      const note = cardContext.success
+        ? `[User named "${cardContext.response}" in a ${cardContext.cardType}. Echo it naturally and ask a follow-up about it.]`
+        : `[User tried a ${cardContext.cardType}. Be encouraging, then continue conversation.]`;
+      messages.push({ role: 'system', content: note });
     }
 
-    // Add exercise context if user just completed a popup exercise
+    // Exercise context
     if (exerciseContext) {
-      const exNote = exerciseContext.successBand === 'high' || exerciseContext.successBand === 'target'
-        ? `[EXERCISE COMPLETED: ${exerciseContext.summary}. Acknowledge their effort naturally. Reference what went well. Then smoothly return to conversation. Do NOT list scores.]`
-        : `[EXERCISE COMPLETED: ${exerciseContext.summary}. Be encouraging. Note their effort, not the difficulty. Smoothly return to conversation. Do NOT list scores or say "you struggled".]`;
-      messages.push({ role: 'system', content: exNote });
+      const note =
+        exerciseContext.successBand === 'high' || exerciseContext.successBand === 'target'
+          ? `[Exercise done: ${exerciseContext.summary}. Acknowledge naturally, return to conversation.]`
+          : `[Exercise done: ${exerciseContext.summary}. Be encouraging, return to conversation.]`;
+      messages.push({ role: 'system', content: note });
     }
 
-    // Add speech analysis context
+    // Speech analysis context
     if (speechAnalysis) {
-      let analysisNote = `[SPEECH ANALYSIS for this turn: `;
-      
+      let note = '[SPEECH: ';
       if (speechAnalysis.effortfulSpeech) {
-        analysisNote += 'HIGH EFFORT - Do NOT ask questions, just validate. ';
+        note += 'HIGH EFFORT — validate, don\'t push. ';
       } else if (speechAnalysis.pausePattern === 'hesitant') {
-        analysisNote += 'Some hesitation - keep response simple. ';
+        note += 'Hesitant — keep simple. ';
       }
-      
       if (speechAnalysis.circumlocutionDetected) {
-        analysisNote += 'Circumlocution detected - help name the word naturally. ';
+        note += 'Circumlocution — help find the word. ';
       }
-      
       if (speechAnalysis.wordCount < 4) {
-        analysisNote += 'Very brief response - don\'t push for more. ';
+        note += 'Brief response. ';
       } else if (speechAnalysis.fluencyScore > 80) {
-        analysisNote += 'Flowing well - can ask follow-up question. ';
+        note += 'Flowing well. ';
       }
-      
-      // Add pronunciation context
-      if (speechAnalysis.pronunciationScore !== undefined && speechAnalysis.pronunciationScore !== null) {
-        if (speechAnalysis.pronunciationScore < 60) {
-          analysisNote += `Low pronunciation score (${speechAnalysis.pronunciationScore}%) - use simple words. `;
-        }
-      }
-      
-      if (speechAnalysis.challengingSounds && speechAnalysis.challengingSounds.length > 0) {
-        analysisNote += `AVOID words with: ${speechAnalysis.challengingSounds.join(', ')}. `;
-      }
-      
       if (speechAnalysis.speechContext) {
-        analysisNote += speechAnalysis.speechContext;
+        note += speechAnalysis.speechContext;
       }
-      
-      analysisNote += ']';
-      messages.push({ role: 'system', content: analysisNote });
+      note += ']';
+      messages.push({ role: 'system', content: note });
     }
 
-    // Add cue context if provided
+    // Cue context
     if (suggestedCue) {
       messages.push({
         role: 'system',
-        content: `[User is struggling. Naturally incorporate this ${suggestedCue.cueType} cue into your response: "${suggestedCue.cueText}". Do NOT say "here's a hint".]`
+        content: `[User struggling. Work this ${suggestedCue.cueType} cue in naturally: "${suggestedCue.cueText}"]`,
       });
     }
 
-    // Add current user message
-    const userMessage = userTranscript?.trim() || "(silence)";
-    messages.push({ role: 'user', content: userMessage });
+    // Current user message
+    messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
-    // No forced wrap-up hints - user ends when ready
-
-    // Log for debugging
-    console.log(`Turn ${turnNumber}/${maxTurns}:`, {
+    console.log(`Turn ${turnNumber}:`, {
       transcript: userTranscript?.slice(0, 50),
-      analysis: speechAnalysis ? {
-        effortful: speechAnalysis.effortfulSpeech,
-        fluency: speechAnalysis.fluencyScore,
-        circumlocution: speechAnalysis.circumlocutionDetected,
-        pronunciationScore: speechAnalysis.pronunciationScore,
-        challengingSounds: speechAnalysis.challengingSounds,
-      } : 'none',
-      hasCue: !!suggestedCue,
+      intent: therapyIntent,
+      hasMemory: !!rollingMemory,
+      effortful: speechAnalysis?.effortfulSpeech,
     });
 
+    // Call AI with tool calling for structured response + memory
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -493,77 +402,85 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages,
+        tools: [RESPOND_TOOL],
+        tool_choice: { type: "function", function: { name: "respond_and_remember" } },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limited', response: "Go on..." }),
+          JSON.stringify({ error: 'Rate limited', response: 'Go on...', memoryUpdate: rollingMemory }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Payment required', response: "Tell me more." }),
+          JSON.stringify({ error: 'Payment required', response: 'Tell me more.', memoryUpdate: rollingMemory }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      // Fallback based on speech analysis
-      const fallback = speechAnalysis?.effortfulSpeech 
-        ? "Take your time."
-        : "Interesting! Go on.";
+
+      const fallback = speechAnalysis?.effortfulSpeech ? "Take your time." : "Interesting! Go on.";
       return new Response(
-        JSON.stringify({ response: fallback }),
+        JSON.stringify({ response: fallback, memoryUpdate: rollingMemory || null }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    let aiResponse = data.choices?.[0]?.message?.content?.trim() || 'Tell me more.';
-    
-    // STRICT word limit enforcement
+
+    // Parse structured response from tool call
+    let aiResponse = 'Tell me more.';
+    let memoryUpdate: string | null = rollingMemory || null;
+
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      try {
+        const args = JSON.parse(toolCall.function.arguments);
+        aiResponse = args.response || aiResponse;
+        memoryUpdate = args.memory || memoryUpdate;
+      } catch (e) {
+        console.warn('Failed to parse tool call, using content fallback:', e);
+        aiResponse = data.choices?.[0]?.message?.content?.trim() || aiResponse;
+      }
+    } else {
+      // Fallback: model returned plain text instead of tool call
+      aiResponse = data.choices?.[0]?.message?.content?.trim() || aiResponse;
+    }
+
+    // Enforce word limit
     const words = aiResponse.split(/\s+/);
     if (words.length > 20) {
-      // Find natural break point
       let cutoff = 18;
-      const questionIdx = words.slice(0, 20).findIndex((w: string) => w.includes('?'));
-      if (questionIdx > 5) {
-        cutoff = questionIdx + 1;
-      }
+      const qIdx = words.slice(0, 20).findIndex((w: string) => w.includes('?'));
+      if (qIdx > 5) cutoff = qIdx + 1;
       aiResponse = words.slice(0, cutoff).join(' ');
-      if (!aiResponse.match(/[.!?]$/)) {
-        aiResponse += '.';
-      }
-      console.log('Truncated response to:', aiResponse);
+      if (!aiResponse.match(/[.!?]$/)) aiResponse += '?';
     }
-    
-    // Remove any AI self-references that slipped through
+
+    // Remove AI self-references
     aiResponse = aiResponse
       .replace(/as an ai/gi, '')
       .replace(/I'm an AI/gi, '')
       .replace(/I am an AI/gi, '')
       .replace(/as your assistant/gi, '')
       .trim();
-    
-    console.log('AI response:', aiResponse);
+
+    console.log('Maya:', aiResponse, '| Memory:', memoryUpdate?.slice(0, 60));
 
     return new Response(
-      JSON.stringify({ 
-        response: aiResponse,
-        followupType: 'contextual', // No forced wrap-up
-      }),
+      JSON.stringify({ response: aiResponse, memoryUpdate }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in conversation-coach-ai:', error);
     return new Response(
-      JSON.stringify({ response: "What else?" }),
+      JSON.stringify({ response: "What else?", memoryUpdate: null }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

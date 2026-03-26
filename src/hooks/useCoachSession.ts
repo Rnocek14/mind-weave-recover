@@ -821,6 +821,7 @@ export function useCoachSession({
     setEngagementState(null);
     setSessionPhase('warmup');
     primedVocabularyRef.current = []; // FIX #4: Reset ref
+    rollingMemoryRef.current = ''; // Reset rolling semantic memory
     setAssistivePanelState({
       wordTiles: [],
       sentenceFrames: [],
