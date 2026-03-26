@@ -587,6 +587,8 @@ export function useCoachSession({
             } : undefined,
             // Suggested cue if user is struggling
             suggestedCue,
+            // Prior session memory for continuity
+            priorSessionMemory: priorSessionSummary ? formatMemoryForPrompt(priorSessionSummary) : undefined,
           }
         });
 
