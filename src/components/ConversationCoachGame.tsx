@@ -72,6 +72,9 @@ export function ConversationCoachGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
+  // CRITICAL: Ref to track card phase for onResult callback (avoids stale closure)
+  const isCardActiveRef = useRef(false);
+  const isCardListeningRef = useRef(false);
   
   // NEW: Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
@@ -258,10 +261,27 @@ export function ConversationCoachGame({
     enabled: conversationState === 'listening',
   });
 
+  // Keep card refs in sync with state
+  useEffect(() => {
+    isCardActiveRef.current = currentPhase === 'card_active';
+  }, [currentPhase]);
+  useEffect(() => {
+    isCardListeningRef.current = isCardListening;
+  }, [isCardListening]);
+
   // Speech recognition
   const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
     onResult: (transcript) => {
       console.log('🎤 Received final transcript:', transcript);
+      
+      // CRITICAL FIX: During card_active, route final transcript to card — NOT to conversation flow
+      if (isCardActiveRef.current && isCardListeningRef.current) {
+        console.log('🎤 Routing final transcript to card:', transcript);
+        setCardTranscript(transcript);
+        // Do NOT call speechEndDetection — card handles its own completion
+        return;
+      }
+      
       if (!firstWordTimeRef.current && transcript.trim().length > 0) {
         firstWordTimeRef.current = Date.now();
       }
@@ -273,7 +293,6 @@ export function ConversationCoachGame({
     enabled: micPermission === 'granted',
   });
   
-  // Track live transcript
   // Track live transcript - route to card or conversation appropriately
   useEffect(() => {
     if (liveTranscript) {
