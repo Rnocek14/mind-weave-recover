@@ -45,6 +45,14 @@ export interface MayaMasteryInput {
 
 export type MayaVerbosity = "minimal" | "standard" | "detailed";
 
+export interface MayaNarrativeThread {
+  primaryTheme: string;              // e.g. "word_finding_improving"
+  primaryDomainSlug: string | null;  // domain driving the theme
+  primaryDomainLabel: string | null;
+  supportingInsight: string | null;  // e.g. "phonemic cues help"
+  tone: "celebrating" | "encouraging" | "steady" | "supportive";
+}
+
 export interface MayaInsight {
   continuityLine: string;
   summary: string | null;
@@ -58,6 +66,7 @@ export interface MayaInsight {
   anticipation: string | null;
   milestone: MayaMilestone | null;
   verbosity: MayaVerbosity;          // controls how much detail to show
+  thread: MayaNarrativeThread;       // unified theme across surfaces
 }
 
 export interface MayaMilestone {
