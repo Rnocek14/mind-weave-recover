@@ -1,11 +1,13 @@
 /**
  * "What Changed This Week" — caregiver-facing weekly delta summary.
  * Shows improvement signals in plain, reassuring language.
+ * Now includes domain-level improvement narrative.
  */
 
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
+import { useCaregiverDomainGuidance } from "@/hooks/useCaregiverDomainGuidance";
 import { useMemo } from "react";
 
 interface WeeklyChangeCardProps {
