@@ -137,7 +137,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession }: PostSes
           {feedback.streak >= 3
             ? `${feedback.streak} days in a row — keep the momentum going!`
             : feedback.correctDelta > 0
-              ? `${feedback.correctDelta} more correct answers than last session — real progress!`
+              ? `You got ${feedback.correctDelta} more correct answers than yesterday — real progress!`
               : "Every session builds stronger connections 🧠"}
         </p>
 
