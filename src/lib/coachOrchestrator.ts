@@ -28,12 +28,16 @@ export interface CardConfig {
   itemId?: string;
 }
 
+// Popup exercise trigger reasons
+export type PopupReason = 'repeated_struggle' | 'targeted_probe' | 'domain_boost' | 'fatigue_safe_switch';
+
 // Possible actions the orchestrator can take
 export type NextAction =
   | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
-  | { type: 'summary_verify'; summary: string }  // NEW: Summarize and verify before moving on
-  | { type: 'topic_shift' }  // NEW: Force topic change
+  | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
+  | { type: 'summary_verify'; summary: string }
+  | { type: 'topic_shift' }
   | { type: 'wrap_up' };
 
 // Session state for making decisions - ENHANCED
@@ -67,6 +71,11 @@ export interface OrchestratorState {
   currentTopic: string | null;
   userRequestedCards: number;
   scaffoldingLevel: 'open' | 'guided' | 'choice';
+  
+  // Popup exercise tracking
+  popupExercisesThisSession: number;
+  turnsSinceLastPopup: number;
+  repeatedStuckCount: number;  // consecutive same stuck type
 }
 
 // Speech analysis data for smarter card selection
@@ -82,11 +91,15 @@ export interface SpeechAnalysisForOrchestrator {
 // ANTI-LOOP LIMITS
 const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
-  MAX_CARDS_PER_SESSION: 8,  // Increased for structured session
+  MAX_CARDS_PER_SESSION: 8,
   SUCCESS_STREAK_TO_AVOID_CARDS: 3,
-  MAX_CONSECUTIVE_FOLLOWUPS: 1,  // NEW: Force intervention after 1 follow-up
-  TURNS_BETWEEN_REPS: 3,  // NEW: Proactive rep every 3 turns
+  MAX_CONSECUTIVE_FOLLOWUPS: 1,
+  TURNS_BETWEEN_REPS: 3,
   WARMUP_CARDS_REQUIRED: 2,
+  // Popup exercise limits
+  MAX_POPUP_PER_SESSION: 3,
+  MIN_TURNS_BETWEEN_POPUPS: 5,
+  REPEATED_STUCK_THRESHOLD: 2,  // same stuck type N times → popup
 };
 
 /**
@@ -174,6 +187,20 @@ export function getNextAction(
     
     // Option C: Topic shift
     return { type: 'topic_shift' };
+  }
+
+  // 4b. POPUP EXERCISE: Repeated struggle → launch full exercise
+  const canPopup = 
+    state.popupExercisesThisSession < LIMITS.MAX_POPUP_PER_SESSION &&
+    state.turnsSinceLastPopup >= LIMITS.MIN_TURNS_BETWEEN_POPUPS &&
+    sessionPhase === 'conversation'; // Only during conversation phase
+  
+  if (canPopup && state.repeatedStuckCount >= LIMITS.REPEATED_STUCK_THRESHOLD) {
+    const popupDecision = selectPopupExercise(stuckType, speechAnalysis);
+    if (popupDecision) {
+      console.log('[orchestrator] Triggering popup exercise:', popupDecision);
+      return popupDecision;
+    }
   }
 
   // 5. ANTI-LOOP: Low-content response → MUST show tiles (no open-ended)
@@ -325,6 +352,58 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
   }
 }
 
+/**
+ * Select a popup exercise based on stuck type and speech analysis
+ */
+function selectPopupExercise(
+  stuckType: StuckType,
+  speechAnalysis?: SpeechAnalysisForOrchestrator
+): NextAction | null {
+  // Map stuck types to appropriate full exercises
+  switch (stuckType) {
+    case 'word_search_stall':
+      return {
+        type: 'popup_exercise',
+        slug: 'photo-naming',
+        reason: 'repeated_struggle',
+        targetDomain: 'expressive_language',
+        difficultyHint: 'easier',
+      };
+    case 'no_speech':
+      // Receptive task is safer when user can't produce speech
+      return {
+        type: 'popup_exercise',
+        slug: 'minimal-pairs',
+        reason: 'fatigue_safe_switch',
+        targetDomain: 'phonology',
+        difficultyHint: 'easier',
+      };
+    case 'prompt_overload':
+      // Comprehension-based, no production pressure
+      return {
+        type: 'popup_exercise',
+        slug: 'meaning-match',
+        reason: 'targeted_probe',
+        targetDomain: 'comprehension',
+        difficultyHint: 'easier',
+      };
+    case 'thought_abandonment':
+      if (speechAnalysis?.circumlocutionDetected) {
+        return {
+          type: 'popup_exercise',
+          slug: 'photo-naming',
+          reason: 'targeted_probe',
+          targetDomain: 'expressive_language',
+          difficultyHint: 'same',
+        };
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+
 function selectFollowupForFlow(turnNumber: number): FollowupType {
   const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more', 'what_did'];
   return flowFollowups[turnNumber % flowFollowups.length];
@@ -371,6 +450,9 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     currentTopic: null,
     userRequestedCards: 0,
     scaffoldingLevel: 'guided',
+    popupExercisesThisSession: 0,
+    turnsSinceLastPopup: 99,
+    repeatedStuckCount: 0,
   };
 }
 
@@ -432,6 +514,11 @@ export function updateState(
     newSuccessStreak
   );
 
+  // Track repeated stuck types for popup trigger
+  const repeatedStuckCount = (stuckType !== 'strong_flow' && stuckType === state.lastStuckType)
+    ? state.repeatedStuckCount + 1
+    : 0;
+
   return {
     ...state,
     sessionPhase: newPhase,
@@ -451,6 +538,32 @@ export function updateState(
     yesNoSucceeded,
     currentTopic: topic || state.currentTopic,
     scaffoldingLevel: newScaffoldingLevel,
+    popupExercisesThisSession: state.popupExercisesThisSession,
+    turnsSinceLastPopup: state.turnsSinceLastPopup + 1,
+    repeatedStuckCount,
+  };
+}
+
+/**
+ * Update state after a popup exercise completes
+ */
+export function updateStateAfterPopup(
+  state: OrchestratorState,
+  success: boolean,
+  userWords?: string[]
+): OrchestratorState {
+  const primedVocabulary = userWords
+    ? [...new Set([...state.primedVocabulary, ...userWords])].slice(0, 15)
+    : state.primedVocabulary;
+
+  return {
+    ...state,
+    popupExercisesThisSession: state.popupExercisesThisSession + 1,
+    turnsSinceLastPopup: 0,
+    repeatedStuckCount: 0,
+    successStreak: success ? state.successStreak + 1 : 0,
+    primedVocabulary,
+    consecutiveFollowups: 0,
   };
 }
 

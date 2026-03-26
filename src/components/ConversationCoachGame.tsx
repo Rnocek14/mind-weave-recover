@@ -27,6 +27,8 @@ import { GamePickerDialog } from '@/components/coach/GamePickerDialog';
 import { AssistivePanel } from '@/components/coach/AssistivePanel';
 import { SessionPhaseIndicator } from '@/components/coach/SessionProgressBar';
 import { CardType } from '@/lib/coachOrchestrator';
+import { useExerciseModal } from '@/hooks/useExerciseModal';
+import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 
 interface ConversationCoachGameProps {
@@ -136,18 +138,34 @@ export function ConversationCoachGame({
     reset,
     requestCard,
     endSession,
-    // NEW: Assistive panel interactions
     handleWordTileTap,
     handleFrameTap,
     requestCue,
     currentSupportLevel,
+    pendingPopupExercise,
+    ingestExerciseResult,
   } = useCoachSession({
     userId,
     profileId,
     sessionId,
-    // No maxTurns - conversation flows naturally
     userSpeechProfile: userSpeechProfileForSession,
   });
+
+  // Exercise modal controller
+  const exerciseModal = useExerciseModal();
+
+  // Launch popup when coach session requests one
+  useEffect(() => {
+    if (pendingPopupExercise && !exerciseModal.isOpen) {
+      exerciseModal.launchExerciseModal(pendingPopupExercise.slug, {
+        targetDomain: pendingPopupExercise.targetDomain,
+        targetPhonemes: pendingPopupExercise.targetPhonemes,
+        difficultyTier: pendingPopupExercise.difficultyHint === 'easier' ? 1 : 2,
+        sessionId: sessionId ?? undefined,
+        totalTrials: 5,
+      });
+    }
+  }, [pendingPopupExercise, exerciseModal.isOpen]);
 
   // Check for break prompts from engagement state
   useEffect(() => {

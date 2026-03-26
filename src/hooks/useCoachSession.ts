@@ -15,6 +15,7 @@ import {
   getNextAction, 
   createInitialState, 
   updateState,
+  updateStateAfterPopup,
   OrchestratorState,
   CardType,
   getCardIntro,
@@ -25,7 +26,9 @@ import {
   SessionPhase,
   TherapyObjective,
   NextAction,
+  type PopupReason,
 } from '@/lib/coachOrchestrator';
+import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { 
   getFollowupLine, 
   getRandomOpener,
@@ -106,6 +109,15 @@ interface UseCoachSessionProps {
   } | null;
 }
 
+// Pending popup exercise info
+export interface PendingPopupExercise {
+  slug: string;
+  reason: PopupReason;
+  targetDomain?: string;
+  targetPhonemes?: string[];
+  difficultyHint?: 'easier' | 'same' | 'harder';
+}
+
 interface UseCoachSessionReturn {
   messages: FeedMessage[];
   isComplete: boolean;
@@ -116,10 +128,12 @@ interface UseCoachSessionReturn {
   hasPendingCard: boolean;
   engagementState: MonitorEngagementState | null;
   currentTopic: string | null;
-  // NEW: Session phase and assistive panel state
   sessionPhase: SessionPhase;
   assistivePanelState: AssistivePanelState;
   lastAction: NextAction | null;
+  // Popup exercise
+  pendingPopupExercise: PendingPopupExercise | null;
+  ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
@@ -128,11 +142,9 @@ interface UseCoachSessionReturn {
   reset: () => void;
   requestCard: (cardType: CardType) => string;
   endSession: () => void;
-  // NEW: Assistive panel interactions
   handleWordTileTap: (word: string) => string;
   handleFrameTap: (frame: string) => string;
   requestCue: (level?: number) => void;
-  // NEW: Expose support level for UI
   currentSupportLevel: SupportLevel;
 }
 
@@ -150,6 +162,7 @@ export function useCoachSession({
   const [pendingAIText, setPendingAIText] = useState<string | null>(null);
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
+  const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
@@ -428,6 +441,29 @@ export function useCoachSession({
       aiResponseText = wrapUpText;
       setIsComplete(true);
       setCurrentPhase('complete');
+    } else if (action.type === 'popup_exercise') {
+      // Trigger popup exercise modal
+      const introLines = [
+        "Let's try a quick practice together.",
+        "I have a short exercise that might help.",
+        "Let's work on this a different way.",
+      ];
+      const intro = introLines[Math.floor(Math.random() * introLines.length)];
+      addMessage({ type: 'ai', text: intro, id: generateId() });
+      aiWordsRef.current += countWords(intro);
+      aiResponseText = intro;
+      
+      setPendingPopupExercise({
+        slug: action.slug,
+        reason: action.reason,
+        targetDomain: action.targetDomain,
+        targetPhonemes: action.targetPhonemes,
+        difficultyHint: action.difficultyHint,
+      });
+      
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current, stuckType, false
+      );
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
@@ -817,6 +853,57 @@ export function useCoachSession({
     }));
   }, []);
 
+  // Ingest result from popup exercise and generate Maya follow-up
+  const ingestExerciseResult = useCallback(async (result: NormalizedExerciseResult): Promise<string> => {
+    setPendingPopupExercise(null);
+    
+    // Update orchestrator state
+    orchestratorStateRef.current = updateStateAfterPopup(
+      orchestratorStateRef.current,
+      result.score >= 0.5,
+      result.targetWords
+    );
+
+    // Generate AI follow-up that references the exercise
+    let followupText: string;
+    try {
+      const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
+        body: {
+          userTranscript: `[Completed ${result.slug} exercise]`,
+          turnNumber: orchestratorStateRef.current.turnNumber,
+          conversationHistory: messages
+            .filter(m => m.type === 'ai' || m.type === 'user')
+            .slice(-4)
+            .map(m => ({ role: m.type as 'ai' | 'user', text: (m as any).text || '' })),
+          exerciseContext: {
+            slug: result.slug,
+            summary: result.summary,
+            accuracy: result.accuracy,
+            cueLevelUsed: result.cueLevelUsed,
+            successBand: result.successBand,
+            targetDomain: result.targetDomain,
+            errorTypes: result.errorTypes,
+            struggleSignal: result.struggleSignal,
+          },
+        }
+      });
+      followupText = data?.response || result.score >= 0.7
+        ? "Nice work on that! Let's keep going with our conversation."
+        : "Good effort — that gives me a better sense of what to focus on. Let's continue.";
+    } catch {
+      followupText = result.score >= 0.7
+        ? "Great job on that practice! Now, where were we?"
+        : "Thanks for working through that. Let's keep chatting.";
+    }
+
+    addMessage({ type: 'ai', text: followupText, id: generateId() });
+    aiWordsRef.current += countWords(followupText);
+    setPendingAIText(followupText);
+    setCurrentPhase('user_turn');
+    
+    return followupText;
+  }, [messages, addMessage]);
+
   // Calculate enhanced metrics
   const sessionMetrics = speechAnalysis.getSessionMetrics();
   
@@ -831,7 +918,6 @@ export function useCoachSession({
     completionRate: orchestratorStateRef.current.turnNumber > 0
       ? (orchestratorStateRef.current.successStreak / orchestratorStateRef.current.turnNumber) * 100
       : 0,
-    // Enhanced metrics
     avgFluency: sessionMetrics?.avgFluency,
     fluencyTrend: sessionMetrics?.fluencyTrend,
     effortfulCount: sessionMetrics?.effortfulCount,
@@ -848,10 +934,11 @@ export function useCoachSession({
     hasPendingCard,
     engagementState,
     currentTopic: orchestratorStateRef.current.currentTopic,
-    // NEW: Session phase and assistive panel
     sessionPhase,
     assistivePanelState,
     lastAction,
+    pendingPopupExercise,
+    ingestExerciseResult,
     startSession,
     processUserTurn,
     insertPendingCard,
@@ -860,11 +947,9 @@ export function useCoachSession({
     reset,
     requestCard,
     endSession,
-    // NEW: Assistive panel interactions
     handleWordTileTap,
     handleFrameTap,
     requestCue,
-    // FIX #1: Return reactive state, not stale ref read
     currentSupportLevel,
   };
 }
