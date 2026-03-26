@@ -381,6 +381,14 @@ serve(async (req) => {
       { role: 'system', content: systemPrompt }
     ];
 
+    // Add prior session memory for continuity
+    if (priorSessionMemory) {
+      messages.push({
+        role: 'system',
+        content: `[${priorSessionMemory}]`
+      });
+    }
+
     // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
       conversationHistory.slice(-6).forEach((turn) => {
