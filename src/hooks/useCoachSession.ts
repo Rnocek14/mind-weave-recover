@@ -170,14 +170,16 @@ export function useCoachSession({
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
-  // Cross-session memory
-  const [priorSessionSummary, setPriorSessionSummary] = useState<CoachSessionSummary | null>(null);
+  // Cross-session memory (now via MayaState from parent, fallback to direct load)
+  const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
   
-  // Load prior session summary on mount
+  // Only load directly if MayaState not provided
   useEffect(() => {
-    loadLatestCoachSummary(userId).then(setPriorSessionSummary);
-  }, [userId]);
+    if (!mayaState) {
+      loadLatestCoachSummary(userId).then(setFallbackSummary);
+    }
+  }, [userId, mayaState]);
   
   // NEW: Session phase & assistive panel state
   const [sessionPhase, setSessionPhase] = useState<SessionPhase>('warmup');
