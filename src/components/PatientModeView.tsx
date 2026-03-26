@@ -22,7 +22,9 @@ import { PatientProgressCard } from "@/components/patient/PatientProgressCard";
 import { WhyTodayCard } from "@/components/patient/WhyTodayCard";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 import { AchievementBadges } from "@/components/patient/AchievementBadges";
+import { PostSessionCard } from "@/components/patient/PostSessionCard";
 import { useProfile } from "@/hooks/useProfile";
+import { useLastSessionFeedback } from "@/hooks/useLastSessionFeedback";
 import { toast } from "sonner";
 
 
