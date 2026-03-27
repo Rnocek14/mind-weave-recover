@@ -23,7 +23,8 @@ import { cn } from '@/lib/utils';
 export type FeedMessage = 
   | { type: 'ai'; text: string; id: string }
   | { type: 'user'; text: string; id: string }
-  | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean };
+  | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean }
+  | { type: 'inline_photo'; imageUrl: string; target: string; id: string; answered: boolean; revealedWord?: string };
 
 interface CoachChatFeedProps {
   messages: FeedMessage[];
