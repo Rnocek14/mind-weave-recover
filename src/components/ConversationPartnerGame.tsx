@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
