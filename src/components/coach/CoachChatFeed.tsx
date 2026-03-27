@@ -193,6 +193,17 @@ export function CoachChatFeed({
             )}
           </div>
         );
+
+      case 'inline_photo':
+        return (
+          <div key={message.id} className="py-2 animate-fade-in">
+            <InlinePhotoMessage
+              imageUrl={message.imageUrl}
+              answered={message.answered}
+              revealedWord={message.revealedWord}
+            />
+          </div>
+        );
     }
   };
 
