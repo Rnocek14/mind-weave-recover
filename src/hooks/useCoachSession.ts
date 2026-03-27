@@ -249,16 +249,16 @@ export function useCoachSession({
           if (overrideData?.[0]?.value_after) {
             const clinicianOverride = overrideData[0].value_after as ClinicianStrategyOverride;
             
-            // If clinician locked a specific strategy, re-select it
+            // FIX: If clinician locked a specific strategy, force-select it by ID
             if (clinicianOverride.lockedStrategyId && clinicianOverride.lockedStrategyId !== strategy.id) {
               const { strategy: lockedStrategy } = selectTherapyStrategy({
                 patientProfile: profile,
                 todayFocus: null,
                 sessionSnapshot: null,
+                forceStrategyId: clinicianOverride.lockedStrategyId,
               });
-              // Override strategy ID manually
               finalStrategy = applyClinicianOverride(lockedStrategy, clinicianOverride);
-              console.log('[strategy] Clinician override applied:', clinicianOverride);
+              console.log('[strategy] Clinician lock applied:', clinicianOverride.lockedStrategyId);
             } else {
               finalStrategy = applyClinicianOverride(strategy, clinicianOverride);
             }
