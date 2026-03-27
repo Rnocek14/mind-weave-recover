@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
+import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer } from '@/lib/therapistFeedback';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
