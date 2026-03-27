@@ -408,19 +408,19 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
-        // Intelligence-driven: bias toward minimal pairs if phoneme confusion detected
-        const mpBias = state.intelligenceBiases?.minimalPairBias ?? 0;
-        const minimalPairChance = Math.min(0.3 + mpBias, 0.7); // base 30% + bias
-        if (Math.random() < minimalPairChance) {
+        // Strategy-driven: use strategy weight if available, else fall back to intelligence bias
+        const minimalPairChance = getStrategyMinimalPairWeight(state) + (state.intelligenceBiases?.minimalPairBias ?? 0);
+        const effectiveDifficulty = getStrategyDifficulty(state);
+        if (Math.random() < Math.min(minimalPairChance, 0.8)) {
           return {
             type: 'inline_minimal_pairs',
-            difficulty: cardDecision.config.difficulty,
+            difficulty: effectiveDifficulty,
             objective: 'phoneme_discrimination' as TherapyObjective,
           };
         }
         return {
           type: 'inline_photo_naming',
-          difficulty: cardDecision.config.difficulty,
+          difficulty: effectiveDifficulty,
           objective: 'word_retrieval' as TherapyObjective,
         };
       }
