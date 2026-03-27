@@ -171,39 +171,34 @@ export function RecallPromptCard({ difficulty = 'easy', transcript, isListening,
 
   return (
     <CardContainer>
-      <CardContent className="p-5 space-y-4">
-        {/* Category icon and prompt */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="w-7 h-7 text-primary" />
+      <CardContent className="p-3 space-y-2">
+        {/* Prompt row — compact */}
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5 text-primary" />
           </div>
-          
-          <div className="flex items-center gap-2">
-            <AudioButton
-              onPlay={handleReplay}
-              isPlaying={isPlaying}
-              isLoading={audioLoading}
-              label=""
-              size="sm"
-              variant="ghost"
-            />
-            <p className="text-xl font-medium text-foreground">{prompt.prompt}</p>
-          </div>
-          
-          <p className="text-sm text-muted-foreground">Any word is great!</p>
+          <AudioButton
+            onPlay={handleReplay}
+            isPlaying={isPlaying}
+            isLoading={audioLoading}
+            label=""
+            size="sm"
+            variant="ghost"
+          />
+          <p className="text-base font-medium text-foreground flex-1">{prompt.prompt}</p>
         </div>
 
         {/* Listening phase */}
         {(phase === 'listening' || phase === 'moreWords') && (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {/* Show accumulated words */}
             {allWords.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-1.5">
                 {allWords.map((word, i) => (
                   <span 
                     key={i}
                     className={cn(
-                      "px-3 py-1 rounded-full text-sm font-medium",
+                      "px-2.5 py-0.5 rounded-full text-sm font-medium",
                       validateWord(word) 
                         ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30"
                         : "bg-primary/10 text-primary border border-primary/30"
@@ -213,15 +208,6 @@ export function RecallPromptCard({ difficulty = 'easy', transcript, isListening,
                   </span>
                 ))}
               </div>
-            )}
-
-            {/* Live transcript for new words */}
-            {phase === 'listening' && (
-              <TranscriptDisplay 
-                transcript={transcript}
-                placeholder="..."
-                minHeight="min-h-[40px]"
-              />
             )}
 
             {/* Example hint */}
@@ -234,43 +220,46 @@ export function RecallPromptCard({ difficulty = 'easy', transcript, isListening,
               </div>
             )}
 
-            {/* Status */}
-            <SpeechStatusBar 
-              isListening={isListening} 
-              wordCount={currentWords.length}
-              showWordCount={false}
-            />
+            {/* Live transcript */}
+            {phase === 'listening' && !showExamples && (
+              <TranscriptDisplay 
+                transcript={transcript}
+                placeholder="Say any word..."
+                minHeight="min-h-[32px]"
+              />
+            )}
 
             {/* Action buttons */}
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex justify-center gap-2">
               {currentWords.length > 0 && phase === 'listening' && (
                 <LargeTouchButton 
                   onClick={handleDone} 
                   variant="success"
-                  icon={<Check className="w-5 h-5" />}
+                  icon={<Check className="w-4 h-4" />}
                 >
                   Done
                 </LargeTouchButton>
               )}
               
               {phase === 'moreWords' && (
-                <div className="flex gap-3">
+                <>
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={handleSayAnother}
-                    className="gap-2 min-h-[44px]"
+                    className="gap-1.5"
                   >
-                    <Plus className="w-4 h-4" />
-                    Say another
+                    <Plus className="w-3.5 h-3.5" />
+                    Another
                   </Button>
                   <LargeTouchButton 
                     onClick={handleDone} 
                     variant="success"
-                    icon={<Check className="w-5 h-5" />}
+                    icon={<Check className="w-4 h-4" />}
                   >
                     All done
                   </LargeTouchButton>
-                </div>
+                </>
               )}
             </div>
           </div>
