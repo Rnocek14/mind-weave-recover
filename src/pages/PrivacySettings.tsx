@@ -99,7 +99,7 @@ export default function PrivacySettings() {
     
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech-stream`,
         {
           method: 'POST',
           headers: {
@@ -108,7 +108,7 @@ export default function PrivacySettings() {
           },
           body: JSON.stringify({
             text: sampleText,
-            voice: voiceMap[voiceType]
+            voiceId: 'XrExE9yKIg1WjnnlVkGX'
           }),
         }
       );
@@ -117,16 +117,7 @@ export default function PrivacySettings() {
         throw new Error('Failed to generate speech preview');
       }
 
-      const data = await response.json();
-      
-      // Convert base64 to audio and play
-      const audioData = atob(data.audioContent);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
-      }
-      
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       
