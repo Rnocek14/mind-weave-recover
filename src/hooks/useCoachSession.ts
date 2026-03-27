@@ -216,7 +216,7 @@ export function useCoachSession({
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
     // Always load patient intelligence for exercise biasing + strategy selection
-    loadPatientIntelligence(userId).then(profile => {
+    loadPatientIntelligence(userId).then(async (profile) => {
       if (profile) {
         setPatientIntelligence(profile);
         const biases = getIntelligenceBiases(profile);
