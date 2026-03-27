@@ -39,6 +39,7 @@ import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
+import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 
 interface ConversationCoachGameProps {
   userId: string;
@@ -157,6 +158,7 @@ export function ConversationCoachGame({
     currentSupportLevel,
     pendingPopupExercise,
     ingestExerciseResult,
+    activeInlinePhoto,
   } = useCoachSession({
     userId,
     profileId,
@@ -164,6 +166,12 @@ export function ConversationCoachGame({
     mayaState,
     userSpeechProfile: userSpeechProfileForSession,
   });
+
+  // Keep activeInlinePhoto accessible in setInterval closures
+  const activeInlinePhotoLocalRef = useRef(activeInlinePhoto);
+  useEffect(() => {
+    activeInlinePhotoLocalRef.current = activeInlinePhoto;
+  }, [activeInlinePhoto]);
 
   // Exercise modal controller
   const exerciseModal = useExerciseModal();
@@ -443,14 +451,39 @@ export function ConversationCoachGame({
         
         // Graduated silence response — only when user hasn't spoken
         if (!firstWordTimeRef.current) {
-          const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
-          if (cue) {
-            lastSilenceCueLevelRef.current = cue.levelIndex;
-            setSilenceCueText(cue.text);
-            
-            // Speak the cue aloud if it's a spoken level (semantic/narrowing)
-            if (cue.level.spoken) {
-              speakStream(cue.text).catch(() => {});
+          // When inline photo is active, use photo-specific cues instead of generic
+          const photo = activeInlinePhotoLocalRef.current;
+          if (photo && newVal >= 4) {
+            // Photo-specific cueing ladder
+            if (newVal === 4) {
+              const cueText = "Take your time...";
+              setSilenceCueText(cueText);
+            } else if (newVal === 7) {
+              // Semantic cue about the photo
+              const cueText = generateSemanticCue(photo.category, photo.target, photo.features);
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            } else if (newVal === 11) {
+              // Phonemic cue
+              const cueText = generatePhonologicalCue(photo.target, photo.features);
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            } else if (newVal === 15) {
+              // Model the word
+              const cueText = `The word is "${photo.target}."`;
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            }
+          } else {
+            const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
+            if (cue) {
+              lastSilenceCueLevelRef.current = cue.levelIndex;
+              setSilenceCueText(cue.text);
+              
+              // Speak the cue aloud if it's a spoken level (semantic/narrowing)
+              if (cue.level.spoken) {
+                speakStream(cue.text).catch(() => {});
+              }
             }
           }
         }

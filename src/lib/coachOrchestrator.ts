@@ -51,6 +51,7 @@ export type PopupReason = 'repeated_struggle' | 'targeted_probe' | 'domain_boost
 export type NextAction =
   | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; therapyIntent: TherapyIntent; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
+  | { type: 'inline_photo_naming'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
   | { type: 'summary_verify'; summary: string }
   | { type: 'topic_shift' }
@@ -351,6 +352,14 @@ export function getNextAction(
   if (canInsertCard && speechAnalysis) {
     const cardDecision = selectCardBasedOnSpeechAnalysis(speechAnalysis, state);
     if (cardDecision) {
+      // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
+      if (cardDecision.cardType === 'photo_naming') {
+        return {
+          type: 'inline_photo_naming',
+          difficulty: cardDecision.config.difficulty,
+          objective: 'word_retrieval' as TherapyObjective,
+        };
+      }
       return {
         type: 'insert_card',
         cardType: cardDecision.cardType,
@@ -364,6 +373,14 @@ export function getNextAction(
   if (canInsertCard) {
     const cardDecision = selectCardForStuckType(stuckType, state);
     if (cardDecision) {
+      // INLINE PHOTO NAMING: Convert photo_naming cards to inline
+      if (cardDecision.cardType === 'photo_naming') {
+        return {
+          type: 'inline_photo_naming',
+          difficulty: cardDecision.config.difficulty,
+          objective: 'word_retrieval' as TherapyObjective,
+        };
+      }
       return {
         type: 'insert_card',
         cardType: cardDecision.cardType,
@@ -388,8 +405,8 @@ export function getNextAction(
  * Select a quick rep card that uses primed vocabulary
  */
 function selectQuickRepCard(state: OrchestratorState): CardType {
-  // Vary card types for engagement
-  const options: CardType[] = ['photo_naming', 'recall_prompt', 'semantic_features'];
+  // photo_naming now handled inline — use other card types for quick reps
+  const options: CardType[] = ['recall_prompt', 'semantic_features', 'phrase_starter'];
   const lastUsed = state.lastCardType;
   const available = options.filter(c => c !== lastUsed);
   return available[Math.floor(Math.random() * available.length)];

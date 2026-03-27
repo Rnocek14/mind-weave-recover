@@ -16,13 +16,15 @@ import { ThoughtPromptCard } from './ThoughtPromptCard';
 import { PhraseStarterCard } from './PhraseStarterCard';
 import { YesNoCard } from './YesNoCard';
 import { RecallPromptCard } from './RecallPromptCard';
+import { InlinePhotoMessage } from './InlinePhotoMessage';
 import { cn } from '@/lib/utils';
 
 // Message types in the feed
 export type FeedMessage = 
   | { type: 'ai'; text: string; id: string }
   | { type: 'user'; text: string; id: string }
-  | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean };
+  | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean }
+  | { type: 'inline_photo'; imageUrl: string; target: string; id: string; answered: boolean; revealedWord?: string };
 
 interface CoachChatFeedProps {
   messages: FeedMessage[];
@@ -189,6 +191,17 @@ export function CoachChatFeed({
                 </span>
               </div>
             )}
+          </div>
+        );
+
+      case 'inline_photo':
+        return (
+          <div key={message.id} className="py-2 animate-fade-in">
+            <InlinePhotoMessage
+              imageUrl={message.imageUrl}
+              answered={message.answered}
+              revealedWord={message.revealedWord}
+            />
           </div>
         );
     }

@@ -13,7 +13,9 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
-import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer } from '@/lib/therapistFeedback';
+import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
+import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
+import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
@@ -140,6 +142,8 @@ interface UseCoachSessionReturn {
   // Popup exercise
   pendingPopupExercise: PendingPopupExercise | null;
   ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
+  // Inline photo naming
+  activeInlinePhoto: { target: string; category: string; features: any } | null;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
@@ -170,6 +174,16 @@ export function useCoachSession({
   const [hasPendingCard, setHasPendingCard] = useState(false);
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
+  
+  // ═══════════════════════════════════════════════════════════════
+  // INLINE PHOTO NAMING — No mode switch, stays in chat_listening
+  // ═══════════════════════════════════════════════════════════════
+  const activeInlinePhotoRef = useRef<{
+    trial: PhotoTrial;
+    messageId: string;
+    startTime: number;
+    cueLevel: number; // 0=none, 1=semantic, 2=phonemic
+  } | null>(null);
   
   // Cross-session memory (now via MayaState from parent, fallback to direct load)
   const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
@@ -263,7 +277,93 @@ export function useCoachSession({
   ): Promise<string | null> => {
     setIsProcessing(true);
     
-    // Add user message
+    // ═══════════════════════════════════════════════════════════════
+    // INLINE PHOTO NAMING — Check answer before regular flow
+    // ═══════════════════════════════════════════════════════════════
+    if (activeInlinePhotoRef.current && transcript.trim().length > 0) {
+      const photo = activeInlinePhotoRef.current;
+      const spokenLower = transcript.toLowerCase().trim();
+      const targetLower = photo.trial.target.toLowerCase();
+      
+      // Check match (exact, contains, or partial)
+      const isMatch = spokenLower === targetLower 
+        || spokenLower.includes(targetLower)
+        || targetLower.startsWith(spokenLower.slice(0, 3))
+        || spokenLower.startsWith(targetLower.slice(0, 3));
+      
+      const latencyFromPhoto = Date.now() - photo.startTime;
+      const wasQuick = latencyFromPhoto < 4000;
+      
+      // Mark inline photo as answered
+      setMessages(prev => prev.map(msg => 
+        msg.id === photo.messageId && msg.type === 'inline_photo'
+          ? { ...msg, answered: true, revealedWord: photo.trial.target }
+          : msg
+      ));
+      
+      // Add user message
+      const userMessageId = generateId();
+      addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
+      userWordsRef.current += countWords(transcript);
+      
+      // Generate therapist-style feedback (not "Correct!")
+      let feedback: string;
+      if (isMatch) {
+        feedback = getSuccessFeedback({ wasQuick, wasEffortful: photo.cueLevel > 0 });
+      } else {
+        // Check for circumlocution — user describing the thing
+        const isCircumlocution = transcript.split(/\s+/).length >= 3;
+        if (isCircumlocution) {
+          feedback = `You described it well! The word is "${photo.trial.target}."`;
+        } else {
+          feedback = getStruggleFeedback() + ` The word is "${photo.trial.target}."`;
+        }
+      }
+      
+      // Add Maya's natural response + continue conversation
+      const topic = orchestratorStateRef.current.currentTopic;
+      let continuation = '';
+      if (isMatch && topic) {
+        const continuations = [
+          ` Speaking of ${topic}, what else?`,
+          ` Anyway — you were telling me about ${topic}...`,
+          ` So, back to ${topic}?`,
+        ];
+        continuation = continuations[Math.floor(Math.random() * continuations.length)];
+      } else if (isMatch) {
+        const continuations = [
+          ' So, what were you saying?',
+          ' Okay, keep going!',
+          ' Nice — what else is on your mind?',
+        ];
+        continuation = continuations[Math.floor(Math.random() * continuations.length)];
+      }
+      
+      const fullResponse = feedback + continuation;
+      addMessage({ type: 'ai', text: fullResponse, id: generateId() });
+      aiWordsRef.current += countWords(fullResponse);
+      
+      // Update orchestrator state (counts as a card interaction)
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current,
+        isMatch ? 'strong_flow' : 'word_search_stall',
+        true, // counts as card inserted
+        'photo_naming',
+        isMatch,
+        topic || undefined,
+        [photo.trial.target]
+      );
+      
+      // Clear active inline photo
+      activeInlinePhotoRef.current = null;
+      
+      setPendingAIText(fullResponse);
+      setIsProcessing(false);
+      setCurrentPhase('user_turn');
+      return fullResponse;
+    }
+    
+    // Add user message (regular flow)
     const userMessageId = generateId();
     addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
     userWordsRef.current += countWords(transcript);
@@ -505,6 +605,63 @@ export function useCoachSession({
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current, stuckType, false
       );
+    } else if (action.type === 'inline_photo_naming') {
+      // ═══════════════════════════════════════════════════════════
+      // INLINE PHOTO NAMING — No mode switch, image appears in chat
+      // Maya introduces it naturally, user responds through normal speech
+      // ═══════════════════════════════════════════════════════════
+      const maxDifficulty = action.difficulty === 'easy' ? 2 : 3;
+      const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
+      const trial = photos[Math.floor(Math.random() * photos.length)];
+      
+      if (trial) {
+        // Natural intro — Maya says something casual
+        const currentTopic = orchestratorStateRef.current.currentTopic;
+        const intros = [
+          "Oh wait — look at this for a second.",
+          "Hey, check this out real quick.",
+          "Hold on — what do you see here?",
+          "Take a look at this.",
+          "Hmm, here's one for you —",
+        ];
+        const intro = intros[Math.floor(Math.random() * intros.length)];
+        addMessage({ type: 'ai', text: intro, id: generateId() });
+        aiWordsRef.current += countWords(intro);
+        
+        // Insert the photo inline
+        const photoMessageId = generateId();
+        addMessage({
+          type: 'inline_photo',
+          imageUrl: trial.imageUrl,
+          target: trial.target,
+          id: photoMessageId,
+          answered: false,
+        });
+        
+        // Follow-up prompt
+        const prompt = "What is this?";
+        addMessage({ type: 'ai', text: prompt, id: generateId() });
+        aiWordsRef.current += countWords(prompt);
+        
+        // Track the active photo — answer will be checked on next processUserTurn
+        activeInlinePhotoRef.current = {
+          trial,
+          messageId: photoMessageId,
+          startTime: Date.now(),
+          cueLevel: 0,
+        };
+        
+        aiResponseText = intro;
+        setCurrentPhase('user_turn');
+        
+        orchestratorStateRef.current = updateState(
+          orchestratorStateRef.current, stuckType, false
+        );
+      } else {
+        // Fallback to regular chat if no photos available
+        aiResponseText = getSmartFallback(undefined, transcript);
+        addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      }
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
@@ -898,6 +1055,7 @@ export function useCoachSession({
     setEngagementState(null);
     setSessionPhase('warmup');
     primedVocabularyRef.current = []; // FIX #4: Reset ref
+    activeInlinePhotoRef.current = null; // Reset inline photo
     rollingMemoryRef.current = ''; // Reset rolling semantic memory
     setAssistivePanelState({
       wordTiles: [],
@@ -1070,6 +1228,9 @@ export function useCoachSession({
     lastAction,
     pendingPopupExercise,
     ingestExerciseResult,
+    activeInlinePhoto: activeInlinePhotoRef.current 
+      ? { target: activeInlinePhotoRef.current.trial.target, category: activeInlinePhotoRef.current.trial.category, features: activeInlinePhotoRef.current.trial.features }
+      : null,
     startSession,
     processUserTurn,
     insertPendingCard,
