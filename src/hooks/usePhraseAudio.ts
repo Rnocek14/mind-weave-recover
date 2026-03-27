@@ -75,27 +75,32 @@ export function usePhraseAudio() {
 
   const generateOpenAIAudio = async (
     text: string,
-    voice: string = 'alloy'
+    _voice: string = 'alloy'
   ): Promise<string | null> => {
     try {
-      const response = await supabase.functions.invoke('text-to-speech', {
-        body: { text, voice },
-      });
-
-      if (response.error) throw response.error;
-      if (!response.data?.audioContent) throw new Error('No audio data');
-
-      // Convert base64 to blob URL
-      const audioData = atob(response.data.audioContent);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/text-to-speech-stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': ANON_KEY,
+          },
+          body: JSON.stringify({ text, voiceId: 'XrExE9yKIg1WjnnlVkGX' }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`TTS request failed: ${response.status}`);
+
+      const audioBlob = await response.blob();
       return URL.createObjectURL(audioBlob);
     } catch (error) {
-      console.error('OpenAI TTS failed:', error);
+      console.error('ElevenLabs TTS failed:', error);
       return null;
     }
   };
