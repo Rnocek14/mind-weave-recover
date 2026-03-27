@@ -937,6 +937,10 @@ export function useCoachSession({
                 : undefined,
             // Rolling semantic memory from previous turns
             rollingMemory: rollingMemoryRef.current || undefined,
+            // Cross-session patient intelligence for longitudinal awareness
+            crossSessionIntelligence: patientIntelligence
+              ? formatPatientIntelligenceForPrompt(patientIntelligence)
+              : undefined,
             // Therapy intent for purposeful conversation
             therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
               ? (action as any).therapyIntent
