@@ -177,7 +177,16 @@ export function CoachChatFeed({
 
       case 'card':
         return (
-          <div key={message.id} className="py-3 animate-fade-in">
+          <div 
+            key={message.id} 
+            className="py-3 animate-fade-in"
+            ref={(el) => {
+              // Auto-scroll card into view so answers are visible without scrolling
+              if (el && !message.completed) {
+                setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+              }
+            }}
+          >
             {!message.completed && renderCard(
               message.cardType, 
               message.difficulty, 
@@ -306,7 +315,7 @@ export function CoachChatFeed({
   return (
     <div 
       ref={feedRef}
-      className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
+      className="flex flex-col gap-5 overflow-y-auto max-h-[70vh] p-6"
     >
       {/* Topic indicator with momentum */}
       {currentTopic && messages.length > 2 && (
