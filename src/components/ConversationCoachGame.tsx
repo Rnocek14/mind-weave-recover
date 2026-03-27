@@ -884,6 +884,7 @@ export function ConversationCoachGame({
         <CoachChatFeed 
           messages={messages}
           onCardComplete={handleCardDone}
+          onMinimalPairSelect={handleMinimalPairSelect}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
           isCardListening={isCardActive && isListening}
