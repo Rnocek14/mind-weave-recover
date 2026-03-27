@@ -148,6 +148,7 @@ function buildSystemPrompt(
   therapyIntent?: string,
   speechState?: 'struggling' | 'flowing' | 'neutral',
   sessionIntelligence?: string,
+  crossSessionIntelligence?: string,
 ): string {
   let context = '';
 
