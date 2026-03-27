@@ -58,27 +58,29 @@ export function ConversationCoachGame({
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
   const [cardTranscript, setCardTranscript] = useState('');
-  const [isCardListening, setIsCardListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'pending' | 'checking' | 'granted' | 'denied'>('pending');
-  const [conversationState, setConversationState] = useState<ConversationState>('idle');
   const [silenceSeconds, setSilenceSeconds] = useState(0);
   const [showSkipPrompt, setShowSkipPrompt] = useState(false);
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
-  const [autoListenEnabled, setAutoListenEnabled] = useState(true); // Auto-listen after AI speaks
+  const [autoListenEnabled, setAutoListenEnabled] = useState(true);
   const [showHelpers, setShowHelpers] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
   
+  // ═══════════════════════════════════════════════════════════════
+  // UNIFIED INPUT MODE — Single source of truth for mic ownership
+  // Replaces: conversationState, isCardActiveRef, isCardListeningRef,
+  //           hasPendingCard checks, and all the scattered if/else guards
+  // ═══════════════════════════════════════════════════════════════
+  const { mode: inputMode, modeRef: inputModeRef, setMode: setInputMode } = useInputMode('idle');
+
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const isProcessingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
-  // CRITICAL: Ref to track card phase for onResult callback (avoids stale closure)
-  const isCardActiveRef = useRef(false);
-  const isCardListeningRef = useRef(false);
   
-  // NEW: Assistive panel state
+  // Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
   const [inputBuffer, setInputBuffer] = useState('');
 
