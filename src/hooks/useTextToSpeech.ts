@@ -221,75 +221,9 @@ export const useTextToSpeech = () => {
       }
 
       // Try to use MediaSource for true streaming playback
-      if ('MediaSource' in window && MediaSource.isTypeSupported('audio/mpeg')) {
-        const mediaSource = new MediaSource();
-        const audio = new Audio();
-        audio.src = URL.createObjectURL(mediaSource);
-        audioRef.current = audio;
-
-        return new Promise((resolve, reject) => {
-          mediaSource.addEventListener('sourceopen', async () => {
-            try {
-              const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-              const reader = response.body?.getReader();
-              
-              if (!reader) {
-                throw new Error('No response body');
-              }
-
-              setIsLoading(false);
-              setIsSpeaking(true);
-              
-              // Start playback immediately
-              audio.play().catch(console.warn);
-
-              // Stream chunks into the source buffer
-              const pump = async (): Promise<void> => {
-                const { done, value } = await reader.read();
-                
-                if (done) {
-                  // Wait for buffer to finish processing
-                  if (!sourceBuffer.updating) {
-                    mediaSource.endOfStream();
-                  } else {
-                    sourceBuffer.addEventListener('updateend', () => {
-                      mediaSource.endOfStream();
-                    }, { once: true });
-                  }
-                  return;
-                }
-
-                // Append chunk to buffer
-                if (!sourceBuffer.updating) {
-                  sourceBuffer.appendBuffer(value);
-                  await pump();
-                } else {
-                  sourceBuffer.addEventListener('updateend', async () => {
-                    sourceBuffer.appendBuffer(value);
-                    await pump();
-                  }, { once: true });
-                }
-              };
-
-              await pump();
-
-              audio.onended = () => {
-                setIsSpeaking(false);
-                URL.revokeObjectURL(audio.src);
-                resolve();
-              };
-
-              audio.onerror = () => {
-                setIsSpeaking(false);
-                URL.revokeObjectURL(audio.src);
-                reject(new Error('Audio playback failed'));
-              };
-            } catch (err) {
-              reject(err);
-            }
-          }, { once: true });
-        });
-      } else {
+      // Always use blob fallback — MediaSource streaming has fragile recursive pump() 
+      // that can silently fail and leave the session stuck in tts_playing mode forever
+      {
         // Fallback: wait for full blob then play
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -301,22 +235,36 @@ export const useTextToSpeech = () => {
         setIsSpeaking(true);
 
         return new Promise((resolve, reject) => {
+          // Safety timeout — never stay stuck in tts_playing for more than 30s
+          const safetyTimeout = setTimeout(() => {
+            console.warn('[TTS] Safety timeout — resolving after 30s');
+            setIsSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+          }, 30000);
+
           audio.onended = () => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
             resolve();
           };
 
           audio.onerror = () => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
-            reject(new Error('Audio playback failed'));
+            // Don't reject — fall through gracefully so session continues
+            console.warn('[TTS] Audio playback error, resolving gracefully');
+            resolve();
           };
 
           audio.play().catch((playError) => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
-            reject(playError);
+            console.warn('[TTS] Play failed, falling back to browser:', playError);
+            speakBrowser(text).then(resolve).catch(() => resolve());
           });
         });
       }
