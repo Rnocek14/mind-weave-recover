@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -110,7 +111,7 @@ export function ConversationPartnerGame({
     setPhase('ai_speaking');
     
     try {
-      await speak(opener, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+      await speak(opener, { voiceId: MAYA_VOICE_ID });
     } catch (err) {
       console.warn('TTS failed, continuing without voice:', err);
     }
@@ -209,7 +210,7 @@ export function ConversationPartnerGame({
       setPhase('ai_speaking');
       
       try {
-        await speak(followupText, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        await speak(followupText, { voiceId: MAYA_VOICE_ID });
       } catch (err) {
         console.warn('TTS failed:', err);
       }
@@ -233,7 +234,7 @@ export function ConversationPartnerGame({
       setPhase('ai_speaking');
       
       try {
-        await speak(followupText, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        await speak(followupText, { voiceId: MAYA_VOICE_ID });
       } catch (err) {
         console.warn('TTS failed:', err);
       }
@@ -254,7 +255,7 @@ export function ConversationPartnerGame({
       const timer = setTimeout(async () => {
         const nudge = getNudge(8000);
         try {
-          await speak(nudge, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+          await speak(nudge, { voiceId: MAYA_VOICE_ID });
         } catch (err) {
           console.warn('Nudge TTS failed:', err);
         }

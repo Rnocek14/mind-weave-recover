@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voiceId = 'EXAVITQu4vr4xnSDxMaL' } = await req.json(); // Default: Sarah
+    const { text, voiceId = 'XrExE9yKIg1WjnnlVkGX' } = await req.json(); // Default: Matilda (Maya's voice)
     
     if (!text) {
       return new Response(
