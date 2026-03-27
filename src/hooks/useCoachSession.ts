@@ -1322,7 +1322,7 @@ export function useCoachSession({
       avgFluency: sessionMetrics?.avgFluency,
       fluencyTrend: sessionMetrics?.fluencyTrend,
       primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
-      sessionIntelligence: serializedIntelligence,
+      sessionIntelligence: serializedIntelligence as unknown as Record<string, unknown>,
     });
     
     console.log('[session-end] Persisted intelligence:', {
