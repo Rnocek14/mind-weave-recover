@@ -678,6 +678,67 @@ export function useCoachSession({
         aiResponseText = getSmartFallback(undefined, transcript);
         addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
       }
+    } else if (action.type === 'inline_minimal_pairs') {
+      // ═══════════════════════════════════════════════════════════
+      // INLINE MINIMAL PAIRS — Two images in chat, user taps one
+      // Maya says a word, user picks the matching picture
+      // ═══════════════════════════════════════════════════════════
+      const allTrials = getMinimalPairTrials();
+      const maxDiff = action.difficulty === 'easy' ? 1 : 2;
+      const eligible = allTrials.filter(t => t.pair.difficulty <= maxDiff);
+      const trial = eligible.length > 0 
+        ? eligible[Math.floor(Math.random() * eligible.length)]
+        : allTrials[Math.floor(Math.random() * allTrials.length)];
+      
+      if (trial) {
+        const currentTopic = orchestratorStateRef.current.currentTopic;
+        const intros = currentTopic ? [
+          `Hey — let's try something quick while we're talking about ${currentTopic}.`,
+          `Here's a fun one for you.`,
+          `Let me test your ears for a second.`,
+        ] : [
+          "Okay, here's a quick listening one.",
+          "Let me try something different — listen carefully.",
+          "Here's a fun one for your ears.",
+        ];
+        const intro = intros[Math.floor(Math.random() * intros.length)];
+        addMessage({ type: 'ai', text: intro, id: generateId() });
+        aiWordsRef.current += countWords(intro);
+        
+        const pairMessageId = generateId();
+        addMessage({
+          type: 'inline_minimal_pair',
+          image1Url: trial.trial1.imageUrl,
+          image2Url: trial.trial2.imageUrl,
+          word1: trial.pair.word1,
+          word2: trial.pair.word2,
+          targetIndex: trial.targetIndex,
+          id: pairMessageId,
+          answered: false,
+          selectedIndex: null,
+          wasCorrect: null,
+        });
+        
+        const prompt = `I'm going to say a word: "${trial.targetWord}." Which picture matches?`;
+        addMessage({ type: 'ai', text: prompt, id: generateId() });
+        aiWordsRef.current += countWords(prompt);
+        
+        activeInlineMinimalPairRef.current = {
+          trial,
+          messageId: pairMessageId,
+          startTime: Date.now(),
+        };
+        
+        aiResponseText = intro;
+        setCurrentPhase('user_turn');
+        
+        orchestratorStateRef.current = updateState(
+          orchestratorStateRef.current, stuckType, false
+        );
+      } else {
+        aiResponseText = getSmartFallback(undefined, transcript);
+        addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      }
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
