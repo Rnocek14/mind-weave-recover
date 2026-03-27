@@ -812,8 +812,15 @@ export function useCoachSession({
       }
     }
 
-    // FLOW ENGINE: Use context-aware return instead of canned outro
-    const outro = generateTaskReturn(!!cardSuccess, currentTopic);
+    // FLOW ENGINE: Use therapist feedback for post-card return
+    const outro = getPostCardReturn({
+      success: !!cardSuccess,
+      cardType: cardType || 'naming',
+      userResponse: String(userResponse),
+      topic: currentTopic,
+      wasQuick: false, // TODO: track from card timing
+      wasHardBefore: false, // TODO: track from historical data
+    });
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     
