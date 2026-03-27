@@ -372,23 +372,21 @@ export function getNextAction(
     };
   }
 
-  // 6. FLOW ENGINE: Proactive rep — but ONLY if conversation has had enough space
-  // Don't interrupt flow. Let user talk. Conversation IS therapy.
-  if (turnsSinceLastCard >= limits.TURNS_BETWEEN_REPS && 
-      cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION &&
-      stuckType !== 'strong_flow') {
-    // Additional flow check: skip if user is engaged and fluent
-    const isFlowing = speechAnalysis && speechAnalysis.fluencyScore > 60 && speechAnalysis.wordCount >= 5;
-    if (!isFlowing) {
-      return {
-        type: 'insert_card',
-        cardType: selectQuickRepCard(state),
-        config: { difficulty: 'easy' },
-        objective: 'rep_practice',
-      };
-    }
-    // User is flowing — let them continue, don't force a card
-    console.log('[orchestrator] Skipping proactive rep — user is flowing well');
+  // 6. FLOW ENGINE: Proactive rep — conversation IS therapy, but variety prevents boredom
+  // Even flowing users need periodic exercises to keep the session engaging
+  const flowingRepInterval = stuckType === 'strong_flow' 
+    ? Math.max(limits.TURNS_BETWEEN_REPS + 2, 7)  // Flowing: every 7+ turns
+    : limits.TURNS_BETWEEN_REPS;                    // Non-flowing: every 5 turns
+  
+  if (turnsSinceLastCard >= flowingRepInterval && 
+      cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION) {
+    console.log('[orchestrator] Proactive rep inserted — turnsSinceLastCard:', turnsSinceLastCard, 'flowing:', stuckType === 'strong_flow');
+    return {
+      type: 'insert_card',
+      cardType: selectQuickRepCard(state),
+      config: { difficulty: stuckType === 'strong_flow' ? 'medium' : 'easy' },
+      objective: 'rep_practice',
+    };
   }
 
   // 7. User flowing well - continue conversation (this IS therapy)
@@ -575,7 +573,8 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
       return { cardType: 'thought_prompt', config: { difficulty: 'easy' } };
 
     case 'strong_flow':
-      return null;
+      // Flowing users still benefit from variety — give them a challenge
+      return { cardType: 'recall_prompt', config: { difficulty: 'medium' as any } };
 
     default:
       return null;
@@ -779,9 +778,14 @@ export function updateState(
   let buildComplete = state.buildComplete;
   let primedVocabulary = [...state.primedVocabulary];
   
-  // Warmup ends after enough conversation turns (not card completions)
+  // Warmup ends after enough conversation turns — transition through build for first card
   if (state.sessionPhase === 'warmup' && state.turnNumber >= 2) {
-    newPhase = 'conversation'; // Skip 'build' — go straight to conversation
+    newPhase = 'build'; // Go through build phase to get the recall_prompt card
+    buildComplete = false;
+  }
+  // Build phase completes after its card is inserted
+  if (state.sessionPhase === 'build' && cardInserted) {
+    newPhase = 'conversation';
     buildComplete = true;
   }
   
