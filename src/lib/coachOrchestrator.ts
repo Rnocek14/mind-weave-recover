@@ -464,9 +464,19 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline
       if (cardDecision.cardType === 'photo_naming') {
+        if (!enforceExerciseBeforeInsert('photo-naming', state)) {
+          return { type: 'topic_shift' };
+        }
         const minimalPairChance = getStrategyMinimalPairWeight(state) + (state.intelligenceBiases?.minimalPairBias ?? 0);
         const effectiveDifficulty = getStrategyDifficulty(state);
         if (Math.random() < Math.min(minimalPairChance, 0.8)) {
+          if (!enforceExerciseBeforeInsert('minimal-pairs', state)) {
+            return {
+              type: 'inline_photo_naming',
+              difficulty: effectiveDifficulty,
+              objective: 'word_retrieval' as TherapyObjective,
+            };
+          }
           return {
             type: 'inline_minimal_pairs',
             difficulty: effectiveDifficulty,
