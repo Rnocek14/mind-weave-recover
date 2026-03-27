@@ -159,6 +159,8 @@ export function ConversationCoachGame({
     pendingPopupExercise,
     ingestExerciseResult,
     activeInlinePhoto,
+    activeInlineMinimalPair,
+    handleMinimalPairSelect,
   } = useCoachSession({
     userId,
     profileId,
@@ -882,6 +884,7 @@ export function ConversationCoachGame({
         <CoachChatFeed 
           messages={messages}
           onCardComplete={handleCardDone}
+          onMinimalPairSelect={handleMinimalPairSelect}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
           isCardListening={isCardActive && isListening}

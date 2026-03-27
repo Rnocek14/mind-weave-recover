@@ -52,6 +52,7 @@ export type NextAction =
   | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; therapyIntent: TherapyIntent; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
   | { type: 'inline_photo_naming'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
+  | { type: 'inline_minimal_pairs'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
   | { type: 'summary_verify'; summary: string }
   | { type: 'topic_shift' }
@@ -354,6 +355,14 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
+        // Occasionally use minimal pairs instead for variety (30% chance)
+        if (Math.random() < 0.3) {
+          return {
+            type: 'inline_minimal_pairs',
+            difficulty: cardDecision.config.difficulty,
+            objective: 'phoneme_discrimination' as TherapyObjective,
+          };
+        }
         return {
           type: 'inline_photo_naming',
           difficulty: cardDecision.config.difficulty,
@@ -375,6 +384,13 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline
       if (cardDecision.cardType === 'photo_naming') {
+        if (Math.random() < 0.3) {
+          return {
+            type: 'inline_minimal_pairs',
+            difficulty: cardDecision.config.difficulty,
+            objective: 'phoneme_discrimination' as TherapyObjective,
+          };
+        }
         return {
           type: 'inline_photo_naming',
           difficulty: cardDecision.config.difficulty,

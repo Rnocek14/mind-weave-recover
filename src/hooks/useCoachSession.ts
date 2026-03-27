@@ -16,6 +16,7 @@ import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
+import { getMinimalPairTrials, MinimalPairTrial } from '@/data/minimalPairsBank';
 import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
@@ -145,6 +146,9 @@ interface UseCoachSessionReturn {
   ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
   // Inline photo naming
   activeInlinePhoto: { target: string; category: string; features: any } | null;
+  // Inline minimal pairs
+  activeInlineMinimalPair: { word1: string; word2: string; targetWord: string; targetIndex: 0 | 1; phoneme1: string; phoneme2: string } | null;
+  handleMinimalPairSelect: (messageId: string, selectedIndex: 0 | 1) => void;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
@@ -184,6 +188,13 @@ export function useCoachSession({
     messageId: string;
     startTime: number;
     cueLevel: number; // 0=none, 1=semantic, 2=phonemic
+  } | null>(null);
+  
+  // INLINE MINIMAL PAIRS — No mode switch, tap-based in chat
+  const activeInlineMinimalPairRef = useRef<{
+    trial: MinimalPairTrial;
+    messageId: string;
+    startTime: number;
   } | null>(null);
   
   // Cross-session memory (now via MayaState from parent, fallback to direct load)
@@ -667,6 +678,67 @@ export function useCoachSession({
         aiResponseText = getSmartFallback(undefined, transcript);
         addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
       }
+    } else if (action.type === 'inline_minimal_pairs') {
+      // ═══════════════════════════════════════════════════════════
+      // INLINE MINIMAL PAIRS — Two images in chat, user taps one
+      // Maya says a word, user picks the matching picture
+      // ═══════════════════════════════════════════════════════════
+      const allTrials = getMinimalPairTrials();
+      const maxDiff = action.difficulty === 'easy' ? 1 : 2;
+      const eligible = allTrials.filter(t => t.pair.difficulty <= maxDiff);
+      const trial = eligible.length > 0 
+        ? eligible[Math.floor(Math.random() * eligible.length)]
+        : allTrials[Math.floor(Math.random() * allTrials.length)];
+      
+      if (trial) {
+        const currentTopic = orchestratorStateRef.current.currentTopic;
+        const intros = currentTopic ? [
+          `Hey — let's try something quick while we're talking about ${currentTopic}.`,
+          `Here's a fun one for you.`,
+          `Let me test your ears for a second.`,
+        ] : [
+          "Okay, here's a quick listening one.",
+          "Let me try something different — listen carefully.",
+          "Here's a fun one for your ears.",
+        ];
+        const intro = intros[Math.floor(Math.random() * intros.length)];
+        addMessage({ type: 'ai', text: intro, id: generateId() });
+        aiWordsRef.current += countWords(intro);
+        
+        const pairMessageId = generateId();
+        addMessage({
+          type: 'inline_minimal_pair',
+          image1Url: trial.trial1.imageUrl,
+          image2Url: trial.trial2.imageUrl,
+          word1: trial.pair.word1,
+          word2: trial.pair.word2,
+          targetIndex: trial.targetIndex,
+          id: pairMessageId,
+          answered: false,
+          selectedIndex: null,
+          wasCorrect: null,
+        });
+        
+        const prompt = `I'm going to say a word: "${trial.targetWord}." Which picture matches?`;
+        addMessage({ type: 'ai', text: prompt, id: generateId() });
+        aiWordsRef.current += countWords(prompt);
+        
+        activeInlineMinimalPairRef.current = {
+          trial,
+          messageId: pairMessageId,
+          startTime: Date.now(),
+        };
+        
+        aiResponseText = intro;
+        setCurrentPhase('user_turn');
+        
+        orchestratorStateRef.current = updateState(
+          orchestratorStateRef.current, stuckType, false
+        );
+      } else {
+        aiResponseText = getSmartFallback(undefined, transcript);
+        addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      }
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
@@ -1050,6 +1122,92 @@ export function useCoachSession({
     }
   }, [addMessage]);
 
+  // ═══════════════════════════════════════════════════════════════
+  // INLINE MINIMAL PAIRS — Handle tap selection
+  // ═══════════════════════════════════════════════════════════════
+  const handleMinimalPairSelect = useCallback((messageId: string, selectedIndex: 0 | 1) => {
+    const pair = activeInlineMinimalPairRef.current;
+    if (!pair || pair.messageId !== messageId) return;
+    
+    const isCorrect = selectedIndex === pair.trial.targetIndex;
+    const latency = Date.now() - pair.startTime;
+    const wasQuick = latency < 3000;
+    
+    // Update the message to show result
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId && msg.type === 'inline_minimal_pair'
+        ? { ...msg, answered: true, selectedIndex, wasCorrect: isCorrect }
+        : msg
+    ));
+    
+    // Generate natural therapist feedback
+    const targetWord = pair.trial.targetWord;
+    const otherWord = pair.trial.targetIndex === 0 ? pair.trial.pair.word2 : pair.trial.pair.word1;
+    let feedback: string;
+    
+    if (isCorrect) {
+      if (wasQuick) {
+        const quickFeedback = [
+          `Yes! "${targetWord}" — you heard that right away.`,
+          `"${targetWord}" — no hesitation. Nice ear!`,
+          `That's it! You caught the difference between "${targetWord}" and "${otherWord}" instantly.`,
+        ];
+        feedback = quickFeedback[Math.floor(Math.random() * quickFeedback.length)];
+      } else {
+        const normalFeedback = [
+          `Yes, "${targetWord}" — good listening!`,
+          `That's right! "${targetWord}" and "${otherWord}" sound similar, but you got it.`,
+          `"${targetWord}" — exactly. Those two can be tricky.`,
+        ];
+        feedback = normalFeedback[Math.floor(Math.random() * normalFeedback.length)];
+      }
+    } else {
+      const wrongFeedback = [
+        `Close — that was actually "${targetWord}." "${targetWord}" and "${otherWord}" sound really similar, so that's a tough one.`,
+        `Good try! The word was "${targetWord}." The difference between "${pair.trial.pair.phoneme1}" and "${pair.trial.pair.phoneme2}" is subtle.`,
+        `Not quite — it was "${targetWord}." Those two are easy to mix up. We'll practice more.`,
+      ];
+      feedback = wrongFeedback[Math.floor(Math.random() * wrongFeedback.length)];
+    }
+    
+    // Natural continuation
+    const topic = orchestratorStateRef.current.currentTopic;
+    let continuation = '';
+    if (topic) {
+      const continuations = [
+        ` Anyway — back to ${topic}.`,
+        ` So where were we with ${topic}?`,
+        ` Okay — you were telling me about ${topic}...`,
+      ];
+      continuation = continuations[Math.floor(Math.random() * continuations.length)];
+    } else {
+      const continuations = [
+        ' Okay — what else is on your mind?',
+        ' Alright, keep going!',
+        '',
+      ];
+      continuation = continuations[Math.floor(Math.random() * continuations.length)];
+    }
+    
+    const fullResponse = feedback + continuation;
+    addMessage({ type: 'ai', text: fullResponse, id: generateId() });
+    aiWordsRef.current += countWords(fullResponse);
+    
+    // Update orchestrator
+    orchestratorStateRef.current = updateState(
+      orchestratorStateRef.current,
+      isCorrect ? 'strong_flow' : 'word_search_stall',
+      true,
+      undefined,
+      isCorrect,
+      topic || undefined,
+    );
+    
+    activeInlineMinimalPairRef.current = null;
+    setPendingAIText(fullResponse);
+    setCurrentPhase('user_turn');
+  }, [addMessage]);
+
   const reset = useCallback(() => {
     setMessages([]);
     setIsComplete(false);
@@ -1061,6 +1219,7 @@ export function useCoachSession({
     setSessionPhase('warmup');
     primedVocabularyRef.current = []; // FIX #4: Reset ref
     activeInlinePhotoRef.current = null; // Reset inline photo
+    activeInlineMinimalPairRef.current = null; // Reset inline minimal pair
     rollingMemoryRef.current = ''; // Reset rolling semantic memory
     setAssistivePanelState({
       wordTiles: [],
@@ -1236,6 +1395,17 @@ export function useCoachSession({
     activeInlinePhoto: activeInlinePhotoRef.current 
       ? { target: activeInlinePhotoRef.current.trial.target, category: activeInlinePhotoRef.current.trial.category, features: activeInlinePhotoRef.current.trial.features }
       : null,
+    activeInlineMinimalPair: activeInlineMinimalPairRef.current
+      ? { 
+          word1: activeInlineMinimalPairRef.current.trial.pair.word1,
+          word2: activeInlineMinimalPairRef.current.trial.pair.word2,
+          targetWord: activeInlineMinimalPairRef.current.trial.targetWord,
+          targetIndex: activeInlineMinimalPairRef.current.trial.targetIndex,
+          phoneme1: activeInlineMinimalPairRef.current.trial.pair.phoneme1,
+          phoneme2: activeInlineMinimalPairRef.current.trial.pair.phoneme2,
+        }
+      : null,
+    handleMinimalPairSelect,
     startSession,
     processUserTurn,
     insertPendingCard,

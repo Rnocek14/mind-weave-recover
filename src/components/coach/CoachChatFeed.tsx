@@ -17,6 +17,7 @@ import { PhraseStarterCard } from './PhraseStarterCard';
 import { YesNoCard } from './YesNoCard';
 import { RecallPromptCard } from './RecallPromptCard';
 import { InlinePhotoMessage } from './InlinePhotoMessage';
+import { InlineMinimalPairMessage } from './InlineMinimalPairMessage';
 import { cn } from '@/lib/utils';
 
 // Message types in the feed
@@ -24,11 +25,13 @@ export type FeedMessage =
   | { type: 'ai'; text: string; id: string }
   | { type: 'user'; text: string; id: string }
   | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean }
-  | { type: 'inline_photo'; imageUrl: string; target: string; id: string; answered: boolean; revealedWord?: string };
+  | { type: 'inline_photo'; imageUrl: string; target: string; id: string; answered: boolean; revealedWord?: string }
+  | { type: 'inline_minimal_pair'; image1Url: string; image2Url: string; word1: string; word2: string; targetIndex: 0 | 1; id: string; answered: boolean; selectedIndex: number | null; wasCorrect: boolean | null };
 
 interface CoachChatFeedProps {
   messages: FeedMessage[];
   onCardComplete?: (messageId: string, result: unknown) => void;
+  onMinimalPairSelect?: (messageId: string, selectedIndex: 0 | 1) => void;
   isProcessing?: boolean;
   /** Current transcript from speech recognition (passed to active cards) */
   cardTranscript?: string;
@@ -81,7 +84,8 @@ function getConversationContext(messages: FeedMessage[]): string {
 
 export function CoachChatFeed({ 
   messages, 
-  onCardComplete, 
+  onCardComplete,
+  onMinimalPairSelect,
   isProcessing,
   cardTranscript = '',
   isCardListening = false,
@@ -201,6 +205,23 @@ export function CoachChatFeed({
               imageUrl={message.imageUrl}
               answered={message.answered}
               revealedWord={message.revealedWord}
+            />
+          </div>
+        );
+
+      case 'inline_minimal_pair':
+        return (
+          <div key={message.id} className="py-2 animate-fade-in">
+            <InlineMinimalPairMessage
+              image1Url={message.image1Url}
+              image2Url={message.image2Url}
+              word1={message.word1}
+              word2={message.word2}
+              targetIndex={message.targetIndex}
+              answered={message.answered}
+              selectedIndex={message.selectedIndex}
+              wasCorrect={message.wasCorrect}
+              onSelect={(idx) => onMinimalPairSelect?.(message.id, idx)}
             />
           </div>
         );
