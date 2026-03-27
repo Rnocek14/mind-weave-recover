@@ -173,6 +173,16 @@ export function useCoachSession({
   const [engagementState, setEngagementState] = useState<MonitorEngagementState | null>(null);
   const [pendingPopupExercise, setPendingPopupExercise] = useState<PendingPopupExercise | null>(null);
   
+  // ═══════════════════════════════════════════════════════════════
+  // INLINE PHOTO NAMING — No mode switch, stays in chat_listening
+  // ═══════════════════════════════════════════════════════════════
+  const activeInlinePhotoRef = useRef<{
+    trial: PhotoTrial;
+    messageId: string;
+    startTime: number;
+    cueLevel: number; // 0=none, 1=semantic, 2=phonemic
+  } | null>(null);
+  
   // Cross-session memory (now via MayaState from parent, fallback to direct load)
   const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
