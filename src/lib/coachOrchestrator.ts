@@ -234,8 +234,8 @@ export function getNextAction(
   // 4. ANTI-LOOP: Too many consecutive follow-ups → force intervention
   // FLOW ENGINE: Higher threshold for flowing users — conversation IS therapy
   const effectiveFollowupCap = stuckType === 'strong_flow' 
-    ? LIMITS.MAX_CONSECUTIVE_FOLLOWUPS * 3  // 9 turns of conversation is fine when flowing
-    : LIMITS.MAX_CONSECUTIVE_FOLLOWUPS;
+    ? limits.MAX_CONSECUTIVE_FOLLOWUPS * 3  // 9 turns of conversation is fine when flowing
+    : limits.MAX_CONSECUTIVE_FOLLOWUPS;
   if (consecutiveFollowups >= effectiveFollowupCap) {
     // If user is flowing well, just shift topic instead of inserting a card
     if (stuckType === 'strong_flow') {
@@ -243,7 +243,7 @@ export function getNextAction(
     }
     
     // Option A: Insert a micro-game rep (only when not flowing)
-    if (turnsSinceLastCard >= 2 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
+    if (turnsSinceLastCard >= 2 && cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION) {
       return {
         type: 'insert_card',
         cardType: selectQuickRepCard(state),
@@ -263,18 +263,18 @@ export function getNextAction(
   }
 
   // 4a. TOPIC ESCAPE: Same topic too long → force shift
-  if (state.turnsOnCurrentTopic >= LIMITS.MAX_TURNS_ON_TOPIC && state.currentTopic) {
+  if (state.turnsOnCurrentTopic >= limits.MAX_TURNS_ON_TOPIC && state.currentTopic) {
     console.log('[orchestrator] Topic escape triggered after', state.turnsOnCurrentTopic, 'turns on', state.currentTopic);
     return { type: 'topic_shift' };
   }
 
   // 4b. POPUP EXERCISE: Repeated struggle → launch full exercise
   const canPopup = 
-    state.popupExercisesThisSession < LIMITS.MAX_POPUP_PER_SESSION &&
-    state.turnsSinceLastPopup >= LIMITS.MIN_TURNS_BETWEEN_POPUPS &&
+    state.popupExercisesThisSession < limits.MAX_POPUP_PER_SESSION &&
+    state.turnsSinceLastPopup >= limits.MIN_TURNS_BETWEEN_POPUPS &&
     sessionPhase === 'conversation'; // Only during conversation phase
   
-  if (canPopup && state.repeatedStuckCount >= LIMITS.REPEATED_STUCK_THRESHOLD) {
+  if (canPopup && state.repeatedStuckCount >= limits.REPEATED_STUCK_THRESHOLD) {
     // Use profile-driven probe selection
     const probeInput: ProbeSelectionInput = {
       profile: state.clinicalProfile,
@@ -316,7 +316,7 @@ export function getNextAction(
     ).length;
     
     // After 3+ low-content turns in a row, force a card/popup to break the loop
-    if (recentClarifyCount >= 3 && cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION) {
+    if (recentClarifyCount >= 3 && cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION) {
       // Choose an easy, receptive task (no production pressure)
       const escapeCard: CardType = !state.yesNoSucceeded ? 'yes_no' : 'phrase_starter';
       return {
@@ -343,8 +343,8 @@ export function getNextAction(
 
   // 6. FLOW ENGINE: Proactive rep — but ONLY if conversation has had enough space
   // Don't interrupt flow. Let user talk. Conversation IS therapy.
-  if (turnsSinceLastCard >= LIMITS.TURNS_BETWEEN_REPS && 
-      cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
+  if (turnsSinceLastCard >= limits.TURNS_BETWEEN_REPS && 
+      cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION &&
       stuckType !== 'strong_flow') {
     // Additional flow check: skip if user is engaged and fluent
     const isFlowing = speechAnalysis && speechAnalysis.fluencyScore > 60 && speechAnalysis.wordCount >= 5;
@@ -373,9 +373,9 @@ export function getNextAction(
 
   // 8. Check if we can insert a card (frequency limiter)
   const canInsertCard = 
-    turnsSinceLastCard >= LIMITS.MIN_TURNS_BETWEEN_CARDS &&
-    cardsInsertedThisSession < LIMITS.MAX_CARDS_PER_SESSION &&
-    successStreak < LIMITS.SUCCESS_STREAK_TO_AVOID_CARDS;
+    turnsSinceLastCard >= limits.MIN_TURNS_BETWEEN_CARDS &&
+    cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION &&
+    successStreak < limits.SUCCESS_STREAK_TO_AVOID_CARDS;
 
   // 9. Use speech analysis for card selection
   if (canInsertCard && speechAnalysis) {
