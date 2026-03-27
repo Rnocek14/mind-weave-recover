@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
+import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer } from '@/lib/therapistFeedback';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
@@ -435,11 +436,22 @@ export function useCoachSession({
     // Update difficulty controller with turn result
     const turnSuccess = wordCount >= 3 && !analysis.effortfulSpeech;
     const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, turnSuccess);
+    const previousSupport = difficultyStateRef.current.supportLevel;
     difficultyStateRef.current = adjustResult.newState;
     
     // FIX #1: Update reactive supportLevel state when it changes
     if (adjustResult.newState.supportLevel !== currentSupportLevel) {
       setCurrentSupportLevel(adjustResult.newState.supportLevel);
+    }
+    
+    // TRANSPARENT ADAPTATION: Narrate difficulty changes so user understands
+    let difficultyNarration: string | null = null;
+    if (previousSupport !== adjustResult.newState.supportLevel) {
+      if (adjustResult.action === 'increase_support') {
+        difficultyNarration = getDifficultyNarration('easier');
+      } else if (adjustResult.action === 'decrease_support') {
+        difficultyNarration = getDifficultyNarration('harder');
+      }
     }
     
     // DEBUG LOGGING: Difficulty controller
@@ -448,6 +460,7 @@ export function useCoachSession({
       support: adjustResult.newState.supportLevel,
       cueFrequency: adjustResult.newState.cueFrequency,
       action: adjustResult.action,
+      narration: difficultyNarration,
     });
 
     let aiResponseText: string | null = null;
@@ -636,6 +649,10 @@ export function useCoachSession({
             } : undefined,
             // Suggested cue if user is struggling
             suggestedCue,
+            // In-conversation circumlocution detection — tell AI to help find the word
+            circumlocutionDetected: analysis.circumlocutionDetected,
+            // Difficulty narration to prepend
+            difficultyNarration,
             // Prior session memory for continuity
             // Maya intelligence context for continuity
             priorSessionMemory: mayaState
@@ -811,8 +828,15 @@ export function useCoachSession({
       }
     }
 
-    // FLOW ENGINE: Use context-aware return instead of canned outro
-    const outro = generateTaskReturn(!!cardSuccess, currentTopic);
+    // FLOW ENGINE: Use therapist feedback for post-card return
+    const outro = getPostCardReturn({
+      success: !!cardSuccess,
+      cardType: cardType || 'naming',
+      userResponse: String(userResponse),
+      topic: currentTopic,
+      wasQuick: false, // TODO: track from card timing
+      wasHardBefore: false, // TODO: track from historical data
+    });
     addMessage({ type: 'ai', text: outro, id: generateId() });
     aiWordsRef.current += countWords(outro);
     

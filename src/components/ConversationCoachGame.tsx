@@ -38,6 +38,7 @@ import { CardType } from '@/lib/coachOrchestrator';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
+import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
 
 interface ConversationCoachGameProps {
   userId: string;
@@ -68,6 +69,7 @@ export function ConversationCoachGame({
   const [autoListenEnabled, setAutoListenEnabled] = useState(true);
   const [showHelpers, setShowHelpers] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
+  const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
@@ -80,6 +82,7 @@ export function ConversationCoachGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
+  const lastSilenceCueLevelRef = useRef<number>(-1);
   
   // Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
@@ -430,11 +433,28 @@ export function ConversationCoachGame({
     if (silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
     }
+    lastSilenceCueLevelRef.current = -1;
+    setSilenceCueText(null);
     silenceTimerRef.current = setInterval(() => {
       setSilenceSeconds(prev => {
         const newVal = prev + 1;
         if (newVal >= 6) setShowHelpers(true);
         if (newVal >= 12) setShowSkipPrompt(true);
+        
+        // Graduated silence response — only when user hasn't spoken
+        if (!firstWordTimeRef.current) {
+          const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
+          if (cue) {
+            lastSilenceCueLevelRef.current = cue.levelIndex;
+            setSilenceCueText(cue.text);
+            
+            // Speak the cue aloud if it's a spoken level (semantic/narrowing)
+            if (cue.level.spoken) {
+              speakStream(cue.text).catch(() => {});
+            }
+          }
+        }
+        
         return newVal;
       });
     }, 1000);
@@ -463,6 +483,9 @@ export function ConversationCoachGame({
 
   // Start conversation
   const handleStart = async () => {
+    resetSilenceCueTracking();
+    lastSilenceCueLevelRef.current = -1;
+    setSilenceCueText(null);
     const hasPermission = micPermission === 'granted' || await requestMicPermission();
     if (!hasPermission) return;
     
@@ -952,7 +975,13 @@ export function ConversationCoachGame({
                 "text-lg min-h-[28px] transition-all",
                 userTranscript ? "text-foreground font-medium" : "text-muted-foreground"
               )}>
-                {userTranscript || (silenceSeconds < 3 ? "Your turn to speak..." : "Take your time...")}
+                {userTranscript || (
+                  silenceCueText 
+                    ? silenceCueText 
+                    : silenceSeconds < 3 
+                      ? "Your turn to speak..." 
+                      : "Take your time..."
+                )}
               </p>
             </div>
 
