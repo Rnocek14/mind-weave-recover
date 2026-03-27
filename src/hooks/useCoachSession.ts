@@ -283,19 +283,19 @@ export function useCoachSession({
     // ═══════════════════════════════════════════════════════════════
     if (activeInlinePhotoRef.current && transcript.trim().length > 0) {
       const photo = activeInlinePhotoRef.current;
-      const spokenLower = transcript.toLowerCase().trim();
-      const targetLower = photo.trial.target.toLowerCase();
       
-      // Check match (exact, contains, or partial)
-      const isMatch = spokenLower === targetLower 
-        || spokenLower.includes(targetLower)
-        || targetLower.startsWith(spokenLower.slice(0, 3))
-        || spokenLower.startsWith(targetLower.slice(0, 3));
+      // Smart answer matching — handles synonyms, phonetic errors, circumlocution
+      const match = matchAnswer(
+        transcript,
+        photo.trial.target,
+        photo.trial.semanticFoils,
+        photo.trial.category,
+      );
       
       const latencyFromPhoto = Date.now() - photo.startTime;
       const wasQuick = latencyFromPhoto < 4000;
       
-      // Mark inline photo as answered
+      // Mark inline photo as answered (reveal word only on correct or after giving it)
       setMessages(prev => prev.map(msg => 
         msg.id === photo.messageId && msg.type === 'inline_photo'
           ? { ...msg, answered: true, revealedWord: photo.trial.target }
@@ -307,35 +307,27 @@ export function useCoachSession({
       addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
       userWordsRef.current += countWords(transcript);
       
-      // Generate therapist-style feedback (not "Correct!")
-      let feedback: string;
-      if (isMatch) {
-        feedback = getSuccessFeedback({ wasQuick, wasEffortful: photo.cueLevel > 0 });
-      } else {
-        // Check for circumlocution — user describing the thing
-        const isCircumlocution = transcript.split(/\s+/).length >= 3;
-        if (isCircumlocution) {
-          feedback = `You described it well! The word is "${photo.trial.target}."`;
-        } else {
-          feedback = getStruggleFeedback() + ` The word is "${photo.trial.target}."`;
-        }
-      }
+      // Generate context-aware therapist feedback
+      const feedback = getFeedbackForMatch(match, photo.trial.target, {
+        wasQuick,
+        cueLevel: photo.cueLevel,
+      });
       
-      // Add Maya's natural response + continue conversation
+      // Natural continuation back into conversation
       const topic = orchestratorStateRef.current.currentTopic;
       let continuation = '';
-      if (isMatch && topic) {
+      if (match.countsAsCorrect && topic) {
         const continuations = [
-          ` Speaking of ${topic}, what else?`,
           ` Anyway — you were telling me about ${topic}...`,
           ` So, back to ${topic}?`,
+          ` Speaking of ${topic} — what else?`,
         ];
         continuation = continuations[Math.floor(Math.random() * continuations.length)];
-      } else if (isMatch) {
+      } else if (match.countsAsCorrect) {
         const continuations = [
           ' So, what were you saying?',
-          ' Okay, keep going!',
-          ' Nice — what else is on your mind?',
+          ' Okay — what else is on your mind?',
+          ' Alright, keep going!',
         ];
         continuation = continuations[Math.floor(Math.random() * continuations.length)];
       }
@@ -344,13 +336,13 @@ export function useCoachSession({
       addMessage({ type: 'ai', text: fullResponse, id: generateId() });
       aiWordsRef.current += countWords(fullResponse);
       
-      // Update orchestrator state (counts as a card interaction)
+      // Update orchestrator state
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
-        isMatch ? 'strong_flow' : 'word_search_stall',
-        true, // counts as card inserted
+        match.countsAsCorrect ? 'strong_flow' : 'word_search_stall',
+        true,
         'photo_naming',
-        isMatch,
+        match.countsAsCorrect,
         topic || undefined,
         [photo.trial.target]
       );
