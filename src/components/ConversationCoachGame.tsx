@@ -1,5 +1,10 @@
 /**
- * ConversationCoachGame - Revolutionary evidence-based conversation coach
+ * ConversationCoachGame - Evidence-based conversation coach with UNIFIED INPUT ARCHITECTURE
+ * 
+ * KEY ARCHITECTURE:
+ * - ONE authoritative InputMode determines who owns the microphone
+ * - ONE SpeechRouter routes all transcripts to the correct destination
+ * - NO competing pipelines — chat, card, and popup are true modes, not branch conditions
  * 
  * Features:
  * - Assistive Panel with word tiles, sentence frames, cue ladder
@@ -47,8 +52,6 @@ interface ConversationCoachGameProps {
   onExit?: () => void;
 }
 
-// REMOVED: type ConversationState — replaced by InputMode
-
 export function ConversationCoachGame({
   userId,
   profileId,
@@ -68,8 +71,6 @@ export function ConversationCoachGame({
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
-  // Replaces: conversationState, isCardActiveRef, isCardListeningRef,
-  //           hasPendingCard checks, and all the scattered if/else guards
   // ═══════════════════════════════════════════════════════════════
   const { mode: inputMode, modeRef: inputModeRef, setMode: setInputMode } = useInputMode('idle');
 
@@ -108,7 +109,7 @@ export function ConversationCoachGame({
   
   const turnCountRef = useRef(0);
   
-  // Map speech profile to session props - include full profile data for AI
+  // Map speech profile to session props
   const userSpeechProfileForSession = speechProfile ? {
     primaryChallenge: speechProfile.most_challenging_categories?.[0]?.category,
     bestCueType: speechProfile.cue_efficacy_by_type 
@@ -118,7 +119,6 @@ export function ConversationCoachGame({
     typicalPace: speechProfile.baseline_wpm 
       ? (speechProfile.baseline_wpm < 60 ? 'slow' : speechProfile.baseline_wpm < 100 ? 'moderate' : 'normal')
       : undefined,
-    // Enhanced profile data for better AI context
     errorTypeDistribution: speechProfile.error_type_distribution,
     phonemeDifficultyMap: speechProfile.phoneme_difficulty_map,
     avgStallDurationMs: speechProfile.avg_stall_duration_ms,
@@ -137,7 +137,6 @@ export function ConversationCoachGame({
     hasPendingCard,
     engagementState,
     currentTopic,
-    // NEW: Session phase and assistive panel
     sessionPhase,
     assistivePanelState,
     lastAction,
@@ -167,7 +166,7 @@ export function ConversationCoachGame({
   const exerciseModal = useExerciseModal();
   const popupLaunchedSlugRef = useRef<string | null>(null);
 
-  // Launch popup when coach session requests one (with dedup guard)
+  // Launch popup when coach session requests one
   useEffect(() => {
     if (
       pendingPopupExercise &&
@@ -183,13 +182,12 @@ export function ConversationCoachGame({
         totalTrials: 5,
       });
     }
-    // Reset guard when popup is consumed
     if (!pendingPopupExercise) {
       popupLaunchedSlugRef.current = null;
     }
   }, [pendingPopupExercise, exerciseModal.isOpen]);
 
-  // Check for break prompts from engagement state
+  // Break prompts from engagement state
   useEffect(() => {
     if (engagementState?.recommendedAction === 'break_prompt' && !showBreakPrompt) {
       setShowBreakPrompt(true);
@@ -214,161 +212,134 @@ export function ConversationCoachGame({
   // Check mic permission on mount
   useEffect(() => {
     let permissionStatus: PermissionStatus | null = null;
-    
     const handlePermissionChange = () => {
       if (permissionStatus) {
-        if (permissionStatus.state === 'granted') {
-          setMicPermission('granted');
-        } else if (permissionStatus.state === 'denied') {
-          setMicPermission('denied');
-        } else {
-          setMicPermission('pending');
-        }
+        if (permissionStatus.state === 'granted') setMicPermission('granted');
+        else if (permissionStatus.state === 'denied') setMicPermission('denied');
+        else setMicPermission('pending');
       }
     };
-    
     const checkPermission = async () => {
       try {
         if (navigator.permissions) {
           permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          if (permissionStatus.state === 'granted') {
-            setMicPermission('granted');
-          } else if (permissionStatus.state === 'denied') {
-            setMicPermission('denied');
-          }
+          if (permissionStatus.state === 'granted') setMicPermission('granted');
+          else if (permissionStatus.state === 'denied') setMicPermission('denied');
           permissionStatus.addEventListener('change', handlePermissionChange);
         }
-      } catch {
-        // Permissions API not supported
-      }
+      } catch { /* Permissions API not supported */ }
     };
     checkPermission();
-    
     return () => {
-      if (permissionStatus) {
-        permissionStatus.removeEventListener('change', handlePermissionChange);
-      }
+      if (permissionStatus) permissionStatus.removeEventListener('change', handlePermissionChange);
     };
   }, []);
 
   const processTurnAndRespondRef = useRef<(transcript: string) => Promise<void>>();
   const startConversationTurnRef = useRef<() => void>();
   
-  // Smart speech end detection - faster thresholds for responsive feel
+  // ═══════════════════════════════════════════════════════════════
+  // SPEECH END DETECTION — Only fires when inputMode === chat_listening
+  // Uses ref-based enabled check — no stale closure risk
+  // ═══════════════════════════════════════════════════════════════
   const speechEndDetection = useSpeechEndDetection({
     onSpeechEnd: (transcript) => {
-      // CRITICAL: Don't trigger conversation processing during card mode
-      if (isCardActiveRef.current) {
-        console.log('🎯 Speech end during card_active — routing to card, not conversation');
+      // Double-check: only process for chat mode
+      if (inputModeRef.current !== 'chat_listening') {
+        console.log('[SpeechEnd] Blocked — not in chat_listening mode:', inputModeRef.current);
         return;
       }
       console.log('🎯 Speech end detected:', transcript.slice(0, 50));
       processTurnAndRespondRef.current?.(transcript);
     },
-    incompletesilenceMs: 1000, // Reduced from 1500ms
-    completesilenceMs: 400,    // Reduced from 800ms
-    enabled: conversationState === 'listening',
+    incompletesilenceMs: 1000,
+    completesilenceMs: 400,
+    enabled: inputMode === 'chat_listening',
   });
 
-  // Keep card refs in sync with state
-  useEffect(() => {
-    isCardActiveRef.current = currentPhase === 'card_active';
-  }, [currentPhase]);
-  useEffect(() => {
-    isCardListeningRef.current = isCardListening;
-  }, [isCardListening]);
-
-  // Speech recognition
-  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
-    onResult: (transcript) => {
-      console.log('🎤 Received final transcript:', transcript);
-      
-      // CRITICAL FIX: During card_active, route final transcript to card — NOT to conversation flow
-      if (isCardActiveRef.current && isCardListeningRef.current) {
-        console.log('🎤 Routing final transcript to card:', transcript);
-        setCardTranscript(transcript);
-        // Do NOT call speechEndDetection — card handles its own completion
-        return;
-      }
-      
+  // ═══════════════════════════════════════════════════════════════
+  // UNIFIED SPEECH ROUTER — One place where transcript destination is decided
+  // ═══════════════════════════════════════════════════════════════
+  const speechRouter = useSpeechRouter({
+    modeRef: inputModeRef,
+    onChatTranscript: useCallback((transcript: string, isFinal: boolean) => {
       if (!firstWordTimeRef.current && transcript.trim().length > 0) {
         firstWordTimeRef.current = Date.now();
       }
       setUserTranscript(transcript);
-      speechEndDetection.onTranscriptUpdate(transcript, true);
+      speechEndDetection.onTranscriptUpdate(transcript, isFinal);
+    }, [speechEndDetection]),
+    onCardTranscript: useCallback((transcript: string, _isFinal: boolean) => {
+      setCardTranscript(transcript);
+    }, []),
+    onPopupTranscript: useCallback((_transcript: string, _isFinal: boolean) => {
+      // Popup exercises handle their own speech — this is a safety catch
+      console.log('[SpeechRouter] Popup transcript received — popup handles its own mic');
+    }, []),
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPEECH RECOGNITION — One mic, routed through the unified router
+  // ═══════════════════════════════════════════════════════════════
+  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
+    onResult: (transcript) => {
+      console.log('🎤 Received final transcript:', transcript);
+      // Route through unified router — it reads inputModeRef to decide destination
+      speechRouter.routeFinal(transcript);
     },
     patientMode: true,
     continuousListening: false,
     enabled: micPermission === 'granted',
   });
   
-  // Track live transcript - route to card or conversation appropriately
+  // Track live (interim) transcript — route through unified router
   useEffect(() => {
     if (liveTranscript) {
-      if (currentPhase === 'card_active' && isCardListening) {
-        // Route to card's transcript - do NOT trigger conversation flow
-        setCardTranscript(liveTranscript);
-      } else if (conversationState === 'listening' && currentPhase !== 'card_active') {
-        // Only route to conversation if we're NOT in card_active phase
-        setUserTranscript(liveTranscript);
-        if (!firstWordTimeRef.current && liveTranscript.trim().length > 0) {
-          firstWordTimeRef.current = Date.now();
-        }
-        speechEndDetection.onTranscriptUpdate(liveTranscript, false);
-      }
+      speechRouter.route(liveTranscript, false);
     }
-  }, [liveTranscript, conversationState, currentPhase, isCardListening, speechEndDetection]);
+  }, [liveTranscript, speechRouter]);
 
-  // Process turn and speak AI response
+  // ═══════════════════════════════════════════════════════════════
+  // PROCESS TURN AND RESPOND — Chat pipeline (only when mode = chat_listening)
+  // ═══════════════════════════════════════════════════════════════
   const processTurnAndRespond = useCallback(async (transcript: string) => {
     if (isProcessingRef.current) return;
     
-    // FIX: Don't process conversation turns while a card is active
-    // Card speech should go through handleCardDone instead
-    if (currentPhase === 'card_active' || hasPendingCard) {
-      console.log('[processTurnAndRespond] Skipping - card active or pending:', { currentPhase, hasPendingCard });
+    // Guard: only process in chat mode
+    if (inputModeRef.current !== 'chat_listening' && inputModeRef.current !== 'idle') {
+      console.log('[processTurnAndRespond] Blocked — mode is:', inputModeRef.current);
       return;
     }
     
     isProcessingRef.current = true;
-    
+    setInputMode('processing');
     stopListening();
     
-    // Stop audio recording and capture the blob
     const recordingResult = await stopAudioRecording();
     const audioBlob = recordingResult?.audioBlob || lastAudioBlobRef.current;
     lastAudioBlobRef.current = null;
-    
-    setConversationState('processing');
 
     const latencyMs = firstWordTimeRef.current && speechStartTimeRef.current
       ? firstWordTimeRef.current - speechStartTimeRef.current
       : null;
-    
-    // Calculate total duration for speech analysis
     const totalDurationMs = turnStartTimeRef.current 
       ? Date.now() - turnStartTimeRef.current 
       : null;
 
-    // Upload audio recording for clinical persistence
     let audioStoragePath: string | null = null;
     if (audioBlob && sessionId && userId) {
       audioStoragePath = await uploadRecording(
-        audioBlob,
-        userId,
-        sessionId,
-        turnCountRef.current,
+        audioBlob, userId, sessionId, turnCountRef.current,
         recordingResult?.mimeType || audioBlob.type
       );
     }
 
-    // Log utterance to utterance_analyses for clinical data persistence
     if (currentAttemptId) {
       await logFinalAnalysis({
         transcript: transcript || undefined,
         transcriptSource: 'browser',
         evaluationModel: 'flow',
-        isCorrect: null, // Conversation doesn't have correctness
+        isCorrect: null,
         didSpeak: transcript.trim().length > 0,
         utteranceComplete: transcript.trim().length > 0,
         latencyToFirstWordMs: latencyMs || undefined,
@@ -380,14 +351,12 @@ export function ConversationCoachGame({
       resetAttempt();
     }
 
-    // Pass audio blob for pronunciation analysis
     const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
     
     if (aiResponse) {
-      setConversationState('ai_speaking');
+      setInputMode('tts_playing');
       
       try {
-        // Use streaming TTS for faster response time
         await speakStream(aiResponse);
       } catch (err) {
         console.warn('TTS failed, continuing:', err);
@@ -397,38 +366,37 @@ export function ConversationCoachGame({
       
       if (hasPendingCard) {
         await new Promise(resolve => setTimeout(resolve, 600));
-        // Set ref BEFORE inserting card and starting listening to prevent race condition
-        isCardActiveRef.current = true;
-        isCardListeningRef.current = true;
+        // ATOMIC: Set mode to card_listening BEFORE inserting card and starting mic
+        setInputMode('card_listening');
         insertPendingCard();
-        setConversationState('idle');
         setCardTranscript('');
-        setIsCardListening(true);
         startListening();
       } else if (!isComplete) {
-        // AUTO-LISTEN: Automatically start listening after AI finishes speaking
         if (autoListenEnabled) {
-          setConversationState('listening');
+          // Will be set to chat_listening by startConversationTurn
           startConversationTurnRef.current?.();
         } else {
-          setConversationState('idle');
+          setInputMode('idle');
         }
       } else {
-        setConversationState('idle');
+        setInputMode('idle');
       }
     } else {
-      setConversationState('idle');
+      setInputMode('idle');
     }
 
     setUserTranscript('');
     setShowHelpers(false);
     isProcessingRef.current = false;
-  }, [processUserTurn, speak, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentPhase, currentAttemptId, logFinalAnalysis, resetAttempt, uploadRecording, userId, sessionId]);
+  }, [processUserTurn, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentAttemptId, logFinalAnalysis, resetAttempt, uploadRecording, userId, sessionId, setInputMode, speakStream]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
   }, [processTurnAndRespond]);
 
+  // ═══════════════════════════════════════════════════════════════
+  // START CONVERSATION TURN — Transitions to chat_listening mode
+  // ═══════════════════════════════════════════════════════════════
   const startConversationTurn = useCallback(async () => {
     console.log('[Coach] Starting conversation turn');
     setUserTranscript('');
@@ -440,7 +408,6 @@ export function ConversationCoachGame({
     setShowSkipPrompt(false);
     lastAudioBlobRef.current = null;
     
-    // Start a new utterance attempt for clinical logging
     turnCountRef.current += 1;
     startAttempt({
       sessionId: sessionId || 'standalone',
@@ -452,11 +419,11 @@ export function ConversationCoachGame({
       category: 'conversation',
     });
     
-    // Start audio recording for pronunciation analysis
     await startRecording();
     
+    // ATOMIC: Set mode, start detection, start listening
+    setInputMode('chat_listening');
     speechEndDetection.onStart();
-    setConversationState('listening');
     setShowHelpers(false);
     startListening();
     
@@ -466,34 +433,29 @@ export function ConversationCoachGame({
     silenceTimerRef.current = setInterval(() => {
       setSilenceSeconds(prev => {
         const newVal = prev + 1;
-        if (newVal >= 6) {
-          setShowHelpers(true);
-        }
-        if (newVal >= 12) {
-          setShowSkipPrompt(true);
-        }
+        if (newVal >= 6) setShowHelpers(true);
+        if (newVal >= 12) setShowSkipPrompt(true);
         return newVal;
       });
     }, 1000);
-  }, [speechEndDetection, startListening, startRecording, startAttempt, sessionId, userId, currentTopic]);
+  }, [speechEndDetection, startListening, startRecording, startAttempt, sessionId, userId, currentTopic, setInputMode]);
   
   useEffect(() => {
     return () => {
-      if (silenceTimerRef.current) {
-        clearInterval(silenceTimerRef.current);
-      }
+      if (silenceTimerRef.current) clearInterval(silenceTimerRef.current);
     };
   }, []);
   
+  // Clear silence timer when not listening
   useEffect(() => {
-    if (conversationState !== 'listening' && silenceTimerRef.current) {
+    if (inputMode !== 'chat_listening' && silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
       silenceTimerRef.current = null;
       setSilenceSeconds(0);
       setShowSkipPrompt(false);
       setShowHelpers(false);
     }
-  }, [conversationState]);
+  }, [inputMode]);
   
   useEffect(() => {
     startConversationTurnRef.current = startConversationTurn;
@@ -505,7 +467,7 @@ export function ConversationCoachGame({
     if (!hasPermission) return;
     
     const opener = startSession();
-    setConversationState('ai_speaking');
+    setInputMode('tts_playing');
     
     try {
       await speakStream(opener);
@@ -514,29 +476,29 @@ export function ConversationCoachGame({
     }
     
     clearPendingAI();
-    setConversationState('listening');
     startConversationTurn();
   };
 
+  // Stop speech end detection when mic stops unexpectedly during chat
   useEffect(() => {
-    if (!isListening && conversationState === 'listening') {
+    if (!isListening && inputMode === 'chat_listening') {
       speechEndDetection.onStop();
     }
-  }, [isListening, conversationState, speechEndDetection]);
+  }, [isListening, inputMode, speechEndDetection]);
 
-  // Handle card completion
+  // ═══════════════════════════════════════════════════════════════
+  // CARD COMPLETION — Transitions back from card_listening
+  // ═══════════════════════════════════════════════════════════════
   const handleCardDone = async (messageId: string, result: unknown) => {
-    // Reset card refs immediately
-    isCardActiveRef.current = false;
-    isCardListeningRef.current = false;
-    setIsCardListening(false);
+    // ATOMIC: Exit card mode immediately
+    setInputMode('idle');
     stopListening();
     setCardTranscript('');
     
     const outroText = handleCardComplete(messageId, result);
     
     if (outroText) {
-      setConversationState('ai_speaking');
+      setInputMode('tts_playing');
       
       try {
         await speakStream(outroText);
@@ -547,13 +509,26 @@ export function ConversationCoachGame({
       clearPendingAI();
       
       if (!isComplete) {
-        setConversationState('listening');
         startConversationTurn();
       } else {
-        setConversationState('idle');
+        setInputMode('idle');
       }
     }
   };
+
+  // Card fallback: force-submit if user is stuck (called from UI button)
+  const handleCardForceSubmit = useCallback(() => {
+    // Find the active card message
+    const activeCard = messages.find(m => m.type === 'card' && !m.completed);
+    if (activeCard) {
+      handleCardDone(activeCard.id, {
+        success: false,
+        spokenWord: cardTranscript || '(no answer)',
+        targetWord: 'unknown',
+        usedFallback: true,
+      });
+    }
+  }, [messages, cardTranscript, handleCardDone]);
 
   const handleFinish = () => {
     if (onComplete) {
@@ -584,65 +559,58 @@ export function ConversationCoachGame({
     await requestMicPermission();
   };
 
-  const handleDismissBreak = () => {
-    setShowBreakPrompt(false);
-  };
+  const handleDismissBreak = () => setShowBreakPrompt(false);
 
-  // Handle topic selection from helpers
   const handleTopicSelect = useCallback(async (prompt: string) => {
     setShowHelpers(false);
-    // AI will use this prompt for next response
     await processTurnAndRespond(`(Topic request: ${prompt})`);
   }, [processTurnAndRespond]);
 
-  // Handle "give me an idea" button
   const handleGiveIdea = useCallback(async () => {
     const idea = getRandomIdea();
     setShowHelpers(false);
-    // Speak the idea and then listen
-    setConversationState('ai_speaking');
+    setInputMode('tts_playing');
     try {
       await speakStream(idea);
     } catch (err) {
       console.warn('TTS failed:', err);
     }
-    setConversationState('listening');
     startConversationTurn();
-  }, [speakStream, startConversationTurn]);
+  }, [speakStream, startConversationTurn, setInputMode]);
 
-  // Handle "play a game" button - open game picker
   const handlePlayGame = useCallback(() => {
     setShowGamePicker(true);
   }, []);
 
-  // Handle game selection from picker
   const handleGameSelect = useCallback(async (cardType: CardType) => {
     setShowHelpers(false);
     stopListening();
-    
-    // Stop audio recording
     await stopAudioRecording();
     
-    // Insert the user-requested card
     const intro = requestCard(cardType);
     
-    // Speak the intro
-    setConversationState('ai_speaking');
+    setInputMode('tts_playing');
     try {
       await speakStream(intro);
     } catch (err) {
       console.warn('TTS failed:', err);
     }
     
-    // Set refs BEFORE inserting card and starting listening to prevent race condition
-    isCardActiveRef.current = true;
-    isCardListeningRef.current = true;
+    // ATOMIC: Mode → card_listening, then insert and start mic
+    setInputMode('card_listening');
     insertPendingCard();
-    setConversationState('idle');
     setCardTranscript('');
-    setIsCardListening(true);
     startListening();
-  }, [stopListening, stopAudioRecording, requestCard, speak, insertPendingCard, startListening]);
+  }, [stopListening, stopAudioRecording, requestCard, speakStream, insertPendingCard, startListening, setInputMode]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // DERIVED UI STATES — For rendering, derived from inputMode + currentPhase
+  // These are NOT used for routing decisions
+  // ═══════════════════════════════════════════════════════════════
+  const isAISpeaking = inputMode === 'tts_playing';
+  const isChatListening = inputMode === 'chat_listening';
+  const isCardActive = inputMode === 'card_listening';
+  const isIdle = inputMode === 'idle';
 
   if (!isSupported) {
     return (
@@ -731,14 +699,14 @@ export function ConversationCoachGame({
         </div>
       )}
 
-      {/* Header with progress and engagement indicator */}
+      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-card/80 backdrop-blur-md border-b shadow-soft sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-glow">
               <Sparkles className="w-6 h-6 text-primary-foreground" />
             </div>
-            {conversationState === 'ai_speaking' && (
+            {isAISpeaking && (
               <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-card animate-pulse" />
             )}
           </div>
@@ -748,7 +716,6 @@ export function ConversationCoachGame({
               <p className="text-sm text-muted-foreground">
                 Turn {metrics.turnsCompleted + 1}
               </p>
-              {/* Milestone encouragement */}
               {metrics.turnsCompleted === 5 && (
                 <span className="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">
                   Great flow! 🔥
@@ -759,7 +726,6 @@ export function ConversationCoachGame({
                   Nice session! 🎉
                 </span>
               )}
-              {/* Fluency indicator */}
               {metrics.avgFluency !== undefined && metrics.turnsCompleted >= 2 && (
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
@@ -776,21 +742,18 @@ export function ConversationCoachGame({
           </div>
         </div>
         
-        {/* Controls - removed fixed progress bar */}
         <div className="flex items-center gap-3">
-          {/* End conversation button */}
           {currentPhase !== 'ready' && currentPhase !== 'complete' && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { endSession(); setConversationState('idle'); }}
+              onClick={() => { endSession(); setInputMode('idle'); }}
               className="h-9 px-4 rounded-xl"
             >
               End Chat
             </Button>
           )}
-          {/* Help toggle button */}
-          {conversationState === 'listening' && (
+          {isChatListening && (
             <Button 
               variant="ghost" 
               size="icon" 
@@ -815,25 +778,21 @@ export function ConversationCoachGame({
           onCardComplete={handleCardDone}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
-          isCardListening={isCardListening && isListening}
-          isAISpeaking={conversationState === 'ai_speaking'}
+          isCardListening={isCardActive && isListening}
+          isAISpeaking={isAISpeaking}
           liveTranscript={userTranscript}
-          isListening={conversationState === 'listening' || isListening}
+          isListening={isChatListening || isListening}
         />
       </div>
 
-      {/* NEW: Assistive Panel - shows during listening/speaking phases */}
-      {/* FIX #6: Gate on showTiles/showFrames/cueText, not just wordTiles.length */}
-      {(conversationState === 'listening' || currentPhase === 'user_turn') && 
+      {/* Assistive Panel */}
+      {(isChatListening || currentPhase === 'user_turn') && 
        (assistivePanelState.showTiles || assistivePanelState.showFrames || assistivePanelState.cueText) && (
         <AssistivePanel
           wordTiles={assistivePanelState.wordTiles}
           primedVocabulary={assistivePanelState.primedVocabulary}
           usedWords={[]}
           onWordSelect={(word) => {
-            // FIX #1: Tile tap is input-only - just get the word and submit it
-            // handleWordTileTap returns the word (no scoring)
-            // processTurnAndRespond handles submission + scoring in one place
             const selectedWord = handleWordTileTap(word);
             processTurnAndRespond(selectedWord);
           }}
@@ -849,7 +808,6 @@ export function ConversationCoachGame({
           isExpanded={showAssistivePanel}
           onToggleExpand={() => setShowAssistivePanel(!showAssistivePanel)}
           isVisible={true}
-          // FIX #2: Pass overrides from assistivePanelState (cue engine/orchestrator)
           showTilesOverride={assistivePanelState.showTiles}
           showFramesOverride={assistivePanelState.showFrames}
           currentTopic={assistivePanelState.currentTopic}
@@ -858,7 +816,7 @@ export function ConversationCoachGame({
 
       {/* Control panel */}
       <div className="border-t bg-card/95 backdrop-blur-md p-6 pb-8 shadow-soft">
-        {/* Ready state - Enhanced with clear expectations */}
+        {/* Ready state */}
         {currentPhase === 'ready' && (
           <div className="text-center space-y-5">
             <div className="space-y-2">
@@ -885,8 +843,8 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* AI Speaking - with enhanced animation */}
-        {conversationState === 'ai_speaking' && (
+        {/* AI Speaking */}
+        {isAISpeaking && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow">
@@ -901,8 +859,8 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* User turn idle - simplified (shows less often with auto-listen) */}
-        {currentPhase === 'user_turn' && conversationState === 'idle' && !isProcessing && (
+        {/* User turn idle */}
+        {currentPhase === 'user_turn' && isIdle && !isProcessing && (
           <div className="text-center space-y-4">
             <Button
               size="lg"
@@ -915,8 +873,8 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Listening - with helpers integration */}
-        {(conversationState === 'listening' || isListening) && (
+        {/* Chat Listening */}
+        {(isChatListening || (isListening && !isCardActive)) && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-destructive/15 flex items-center justify-center border-4 border-destructive/60 shadow-lg">
@@ -939,7 +897,6 @@ export function ConversationCoachGame({
               </div>
             </div>
             
-            {/* Live transcript or listening prompt */}
             <div className="text-center max-w-sm">
               <p className={cn(
                 "text-lg min-h-[28px] transition-all",
@@ -949,7 +906,6 @@ export function ConversationCoachGame({
               </p>
             </div>
 
-            {/* Conversation helpers - shows when stuck */}
             {showHelpers && !userTranscript.trim() && (
               <ConversationHelpers
                 silenceSeconds={silenceSeconds}
@@ -961,7 +917,6 @@ export function ConversationCoachGame({
               />
             )}
 
-            {/* Action buttons */}
             <div className="flex flex-col items-center gap-3 mt-2">
               {userTranscript.trim() && (
                 <Button
@@ -974,7 +929,6 @@ export function ConversationCoachGame({
                 </Button>
               )}
               
-              {/* Simple skip for extended silence (without full helpers) */}
               {showSkipPrompt && !userTranscript.trim() && !showHelpers && (
                 <div className="animate-fade-in text-center space-y-2">
                   <p className="text-sm text-muted-foreground">Need more time?</p>
@@ -993,18 +947,28 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Card active */}
-        {currentPhase === 'card_active' && (
-          <div className="text-center">
+        {/* Card active — with FALLBACK SUBMIT BUTTON */}
+        {isCardActive && (
+          <div className="text-center space-y-3">
             <p className="text-base text-muted-foreground flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               Complete the activity above
             </p>
+            {/* Fallback: user can force-submit if stuck */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCardForceSubmit}
+              className="gap-2 min-h-[44px]"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              {cardTranscript.trim() ? "Submit Answer" : "Skip Activity"}
+            </Button>
           </div>
         )}
 
         {/* Processing */}
-        {conversationState === 'processing' && (
+        {inputMode === 'processing' && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center">
               <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -1013,11 +977,11 @@ export function ConversationCoachGame({
           </div>
         )}
 
-      {/* Completion - use new summary component */}
+        {/* Completion */}
         {currentPhase === 'complete' && (
           <CoachSessionSummary
             metrics={metrics}
-            onPlayAgain={() => { reset(); setConversationState('idle'); }}
+            onPlayAgain={() => { reset(); setInputMode('idle'); }}
             onFinish={() => { handleFinish(); onExit?.(); }}
           />
         )}
@@ -1029,10 +993,10 @@ export function ConversationCoachGame({
         isOpen={exerciseModal.isOpen}
         onClose={exerciseModal.closeExerciseModal}
         onComplete={async (result) => {
-          setConversationState('processing');
+          setInputMode('processing');
           const followup = await ingestExerciseResult(result);
           if (followup) {
-            setConversationState('ai_speaking');
+            setInputMode('tts_playing');
             try {
               await speakStream(followup);
             } catch (err) {
@@ -1040,13 +1004,12 @@ export function ConversationCoachGame({
             }
             clearPendingAI();
             if (!isComplete) {
-              setConversationState('listening');
               startConversationTurn();
             } else {
-              setConversationState('idle');
+              setInputMode('idle');
             }
           } else {
-            setConversationState('idle');
+            setInputMode('idle');
           }
         }}
         userId={userId}
