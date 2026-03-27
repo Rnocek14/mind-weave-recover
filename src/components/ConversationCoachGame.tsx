@@ -444,14 +444,40 @@ export function ConversationCoachGame({
         
         // Graduated silence response — only when user hasn't spoken
         if (!firstWordTimeRef.current) {
-          const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
-          if (cue) {
-            lastSilenceCueLevelRef.current = cue.levelIndex;
-            setSilenceCueText(cue.text);
-            
-            // Speak the cue aloud if it's a spoken level (semantic/narrowing)
-            if (cue.level.spoken) {
-              speakStream(cue.text).catch(() => {});
+          // When inline photo is active, use photo-specific cues instead of generic
+          if (activeInlinePhoto && newVal >= 4) {
+            // Photo-specific cueing ladder
+            if (newVal === 4) {
+              const cueText = "Take your time...";
+              setSilenceCueText(cueText);
+            } else if (newVal === 7) {
+              // Semantic cue about the photo
+              const { generateSemanticCue } = await import('@/lib/cueGenerator');
+              const cueText = generateSemanticCue(activeInlinePhoto.category, activeInlinePhoto.target, activeInlinePhoto.features);
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            } else if (newVal === 11) {
+              // Phonemic cue
+              const { generatePhonologicalCue } = await import('@/lib/cueGenerator');
+              const cueText = generatePhonologicalCue(activeInlinePhoto.target, activeInlinePhoto.features);
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            } else if (newVal === 15) {
+              // Model the word
+              const cueText = `The word is "${activeInlinePhoto.target}."`;
+              setSilenceCueText(cueText);
+              speakStream(cueText).catch(() => {});
+            }
+          } else {
+            const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
+            if (cue) {
+              lastSilenceCueLevelRef.current = cue.levelIndex;
+              setSilenceCueText(cue.text);
+              
+              // Speak the cue aloud if it's a spoken level (semantic/narrowing)
+              if (cue.level.spoken) {
+                speakStream(cue.text).catch(() => {});
+              }
             }
           }
         }
