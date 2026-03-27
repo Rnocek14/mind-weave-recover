@@ -167,6 +167,12 @@ export function ConversationCoachGame({
     userSpeechProfile: userSpeechProfileForSession,
   });
 
+  // Keep activeInlinePhoto accessible in setInterval closures
+  const activeInlinePhotoLocalRef = useRef(activeInlinePhoto);
+  useEffect(() => {
+    activeInlinePhotoLocalRef.current = activeInlinePhoto;
+  }, [activeInlinePhoto]);
+
   // Exercise modal controller
   const exerciseModal = useExerciseModal();
   const popupLaunchedSlugRef = useRef<string | null>(null);
