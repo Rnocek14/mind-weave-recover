@@ -16,6 +16,7 @@ import { selectNextProbe, type ProbeSelectionInput, type FatigueState } from './
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { MayaState } from './buildMayaState';
 import type { NormalizedExerciseResult } from './normalizedExerciseResult';
+import type { TherapyStrategy } from './therapyStrategyEngine';
 
 // Card types that can be inserted inline
 export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
