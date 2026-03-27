@@ -1208,7 +1208,7 @@ export function useCoachSession({
     setCurrentPhase('user_turn');
   }, [addMessage]);
 
-
+  const reset = useCallback(() => {
     setMessages([]);
     setIsComplete(false);
     setIsProcessing(false);
