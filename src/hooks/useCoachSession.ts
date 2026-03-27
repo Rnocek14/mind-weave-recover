@@ -216,13 +216,20 @@ export function useCoachSession({
     loadPatientIntelligence(userId).then(profile => {
       if (profile) {
         setPatientIntelligence(profile);
-        intelligenceBiasesRef.current = getIntelligenceBiases(profile);
+        const biases = getIntelligenceBiases(profile);
+        intelligenceBiasesRef.current = biases;
+        // Inject biases into orchestrator state
+        orchestratorStateRef.current = {
+          ...orchestratorStateRef.current,
+          intelligenceBiases: biases,
+        };
         console.log('[patient-intelligence] Loaded cross-session profile:', {
           sessions: profile.sessionCount,
           phonemeErrors: profile.persistentPhonemeErrors.length,
           struggledWords: profile.persistentStruggledWords.length,
           recoveredWords: profile.recoveredWords.length,
           trend: profile.successRateTrend,
+          biases,
         });
       }
     });
