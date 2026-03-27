@@ -405,8 +405,8 @@ export function getNextAction(
  * Select a quick rep card that uses primed vocabulary
  */
 function selectQuickRepCard(state: OrchestratorState): CardType {
-  // Vary card types for engagement
-  const options: CardType[] = ['photo_naming', 'recall_prompt', 'semantic_features'];
+  // photo_naming now handled inline — use other card types for quick reps
+  const options: CardType[] = ['recall_prompt', 'semantic_features', 'phrase_starter'];
   const lastUsed = state.lastCardType;
   const available = options.filter(c => c !== lastUsed);
   return available[Math.floor(Math.random() * available.length)];
