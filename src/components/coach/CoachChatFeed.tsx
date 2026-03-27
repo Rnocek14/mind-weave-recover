@@ -84,7 +84,8 @@ function getConversationContext(messages: FeedMessage[]): string {
 
 export function CoachChatFeed({ 
   messages, 
-  onCardComplete, 
+  onCardComplete,
+  onMinimalPairSelect,
   isProcessing,
   cardTranscript = '',
   isCardListening = false,
