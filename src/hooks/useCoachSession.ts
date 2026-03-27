@@ -1267,6 +1267,7 @@ export function useCoachSession({
     setLastAction(null);
     setCurrentSupportLevel('guided'); // FIX #1: Reset reactive support level
     orchestratorStateRef.current = createInitialState(maxTurns ?? 999);
+    sessionIntelRef.current.reset(); // Reset session intelligence
     latenciesRef.current = [];
     userWordsRef.current = 0;
     aiWordsRef.current = 0;
