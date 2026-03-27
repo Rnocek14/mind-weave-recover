@@ -16,6 +16,7 @@ import { ThoughtPromptCard } from './ThoughtPromptCard';
 import { PhraseStarterCard } from './PhraseStarterCard';
 import { YesNoCard } from './YesNoCard';
 import { RecallPromptCard } from './RecallPromptCard';
+import { InlinePhotoMessage } from './InlinePhotoMessage';
 import { cn } from '@/lib/utils';
 
 // Message types in the feed
