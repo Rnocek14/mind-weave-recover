@@ -452,24 +452,25 @@ export function ConversationCoachGame({
         // Graduated silence response — only when user hasn't spoken
         if (!firstWordTimeRef.current) {
           // When inline photo is active, use photo-specific cues instead of generic
-          if (activeInlinePhoto && newVal >= 4) {
+          const photo = activeInlinePhotoLocalRef.current;
+          if (photo && newVal >= 4) {
             // Photo-specific cueing ladder
             if (newVal === 4) {
               const cueText = "Take your time...";
               setSilenceCueText(cueText);
             } else if (newVal === 7) {
               // Semantic cue about the photo
-              const cueText = generateSemanticCue(activeInlinePhoto.category, activeInlinePhoto.target, activeInlinePhoto.features);
+              const cueText = generateSemanticCue(photo.category, photo.target, photo.features);
               setSilenceCueText(cueText);
               speakStream(cueText).catch(() => {});
             } else if (newVal === 11) {
               // Phonemic cue
-              const cueText = generatePhonologicalCue(activeInlinePhoto.target, activeInlinePhoto.features);
+              const cueText = generatePhonologicalCue(photo.target, photo.features);
               setSilenceCueText(cueText);
               speakStream(cueText).catch(() => {});
             } else if (newVal === 15) {
               // Model the word
-              const cueText = `The word is "${activeInlinePhoto.target}."`;
+              const cueText = `The word is "${photo.target}."`;
               setSilenceCueText(cueText);
               speakStream(cueText).catch(() => {});
             }
