@@ -13,7 +13,9 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
-import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer } from '@/lib/therapistFeedback';
+import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
+import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
+import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
 import { 
