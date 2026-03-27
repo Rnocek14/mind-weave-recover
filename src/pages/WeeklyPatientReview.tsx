@@ -376,6 +376,11 @@ export default function WeeklyPatientReview() {
         profileName={activeProfile?.profile_name || "Patient"}
       />
 
+      {/* ─── THERAPY INTELLIGENCE REPORT ─── */}
+      {intelligenceProfile && (
+        <TherapyIntelligenceReport profile={intelligenceProfile} />
+      )}
+
       {/* ─── 3. PENDING SUGGESTIONS (decision gate) ─── */}
       <PendingSuggestions
         suggestions={suggestedOverrides}
