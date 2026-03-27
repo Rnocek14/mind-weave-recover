@@ -53,6 +53,8 @@ import { ExerciseStruggleCard } from "@/components/clinician/ExerciseStruggleCar
 import { GoalTrackingCard } from "@/components/clinician/GoalTrackingCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
+import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
+import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
@@ -133,6 +135,7 @@ export default function WeeklyPatientReview() {
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
   const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize);
+  const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(user?.id);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
@@ -372,6 +375,11 @@ export default function WeeklyPatientReview() {
         accuracySlope={sessionStats.accuracySlope}
         profileName={activeProfile?.profile_name || "Patient"}
       />
+
+      {/* ─── THERAPY INTELLIGENCE REPORT ─── */}
+      {intelligenceProfile && (
+        <TherapyIntelligenceReport profile={intelligenceProfile} />
+      )}
 
       {/* ─── 3. PENDING SUGGESTIONS (decision gate) ─── */}
       <PendingSuggestions
