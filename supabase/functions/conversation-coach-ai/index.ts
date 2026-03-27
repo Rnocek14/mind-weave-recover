@@ -353,6 +353,7 @@ serve(async (req) => {
       semanticMemory,
       therapyIntent,
       speechState,
+      sessionIntelligence,
     );
 
     // Construct messages
