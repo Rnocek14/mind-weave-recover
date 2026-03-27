@@ -358,6 +358,7 @@ serve(async (req) => {
       therapyIntent,
       speechState,
       sessionIntelligence,
+      crossSessionIntelligence,
     );
 
     // Construct messages
