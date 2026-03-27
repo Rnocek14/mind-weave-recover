@@ -7,6 +7,10 @@
  * - Transcript patterns (trailing "um", "and..." vs natural endings)
  * 
  * Priority: Final transcript > Silence detection
+ * 
+ * IMPORTANT: Uses ref-based enabled check to avoid stale closure races.
+ * The `enabled` value is synced to a ref immediately, so checks inside
+ * callbacks always reflect the current truth — not a captured closure value.
  */
 
 import { useRef, useCallback, useEffect } from 'react';
@@ -36,8 +40,8 @@ interface SpeechEndDetection {
 
 export function useSpeechEndDetection({
   onSpeechEnd,
-  incompletesilenceMs = 1000, // 1s backup for "um", "and..." (reduced from 1.5s)
-  completesilenceMs = 400,    // 0.4s backup for natural endings (reduced from 0.8s)
+  incompletesilenceMs = 1000,
+  completesilenceMs = 400,
   enabled = true,
 }: UseSpeechEndDetectionOptions): SpeechEndDetection {
   
@@ -47,41 +51,41 @@ export function useSpeechEndDetection({
   const hasTriggeredRef = useRef(false);
   const isActiveRef = useRef(false);
   
+  // REF-BASED enabled — no stale closure risk
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+  
   const onSpeechEndRef = useRef(onSpeechEnd);
   useEffect(() => {
     onSpeechEndRef.current = onSpeechEnd;
   }, [onSpeechEnd]);
 
   const checkForSpeechEnd = useCallback(() => {
-    if (!isActiveRef.current || !enabled || hasTriggeredRef.current) {
+    // Use ref for enabled check — always current
+    if (!isActiveRef.current || !enabledRef.current || hasTriggeredRef.current) {
       return;
     }
 
     const transcript = lastTranscriptRef.current;
     const silenceDuration = Date.now() - lastUpdateTimeRef.current;
     
-    // Need some speech to analyze
     if (!transcript || transcript.trim().length === 0) {
       return;
     }
     
-    // Analyze utterance completeness
     const completion = detectUtteranceComplete(transcript);
     
-    // Determine silence threshold based on completeness
     let silenceThreshold: number;
     if (completion.isComplete && completion.confidence === 'high') {
-      // Natural ending detected - shorter wait
       silenceThreshold = completesilenceMs;
     } else if (completion.isComplete && completion.confidence === 'medium') {
-      // Probably complete - medium wait
       silenceThreshold = completesilenceMs + 500;
     } else {
-      // Trailing off ("um", "and...") or incomplete - more patience
       silenceThreshold = incompletesilenceMs;
     }
     
-    // Check if we've been silent long enough
     if (silenceDuration >= silenceThreshold) {
       console.log('🎯 Speech end detected:', {
         transcript: transcript.slice(0, 50) + '...',
@@ -93,32 +97,29 @@ export function useSpeechEndDetection({
       hasTriggeredRef.current = true;
       onSpeechEndRef.current(transcript);
     }
-  }, [enabled, completesilenceMs, incompletesilenceMs]);
+  }, [completesilenceMs, incompletesilenceMs]); // No `enabled` dependency — uses ref
 
   const onTranscriptUpdate = useCallback((transcript: string, isFinal: boolean) => {
-    if (!enabled) return;
+    // Use ref for enabled check — always current
+    if (!enabledRef.current) return;
     
-    // Update tracking
     lastTranscriptRef.current = transcript;
     lastUpdateTimeRef.current = Date.now();
     
-    // If it's a final transcript, trigger immediately - don't wait for silence
     if (isFinal && transcript.trim() && !hasTriggeredRef.current) {
       console.log('🎯 Final transcript received, triggering immediately:', transcript.slice(0, 50));
       hasTriggeredRef.current = true;
       onSpeechEndRef.current(transcript);
       return;
     }
-  }, [enabled]);
+  }, []); // No dependencies — uses refs for everything
 
   const onStart = useCallback(() => {
-    // Reset state
     lastTranscriptRef.current = '';
     lastUpdateTimeRef.current = Date.now();
     hasTriggeredRef.current = false;
     isActiveRef.current = true;
     
-    // Start checking for silence
     if (silenceCheckIntervalRef.current) {
       clearInterval(silenceCheckIntervalRef.current);
     }
@@ -144,7 +145,6 @@ export function useSpeechEndDetection({
     hasTriggeredRef.current = false;
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (silenceCheckIntervalRef.current) {
