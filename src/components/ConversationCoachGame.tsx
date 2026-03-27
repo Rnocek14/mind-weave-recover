@@ -433,11 +433,28 @@ export function ConversationCoachGame({
     if (silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
     }
+    lastSilenceCueLevelRef.current = -1;
+    setSilenceCueText(null);
     silenceTimerRef.current = setInterval(() => {
       setSilenceSeconds(prev => {
         const newVal = prev + 1;
         if (newVal >= 6) setShowHelpers(true);
         if (newVal >= 12) setShowSkipPrompt(true);
+        
+        // Graduated silence response — only when user hasn't spoken
+        if (!firstWordTimeRef.current) {
+          const cue = getSilenceCue(newVal, currentTopic, lastSilenceCueLevelRef.current);
+          if (cue) {
+            lastSilenceCueLevelRef.current = cue.levelIndex;
+            setSilenceCueText(cue.text);
+            
+            // Speak the cue aloud if it's a spoken level (semantic/narrowing)
+            if (cue.level.spoken) {
+              speakStream(cue.text).catch(() => {});
+            }
+          }
+        }
+        
         return newVal;
       });
     }, 1000);
