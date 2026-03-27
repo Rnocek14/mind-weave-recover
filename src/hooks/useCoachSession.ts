@@ -203,11 +203,29 @@ export function useCoachSession({
   const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
   
-  // Only load directly if MayaState not provided
+  // Cross-session patient intelligence profile
+  const [patientIntelligence, setPatientIntelligence] = useState<PatientIntelligenceProfile | null>(null);
+  const intelligenceBiasesRef = useRef<IntelligenceBiases>({ minimalPairBias: 0, photoNamingBias: 0, targetPhonemes: [], retryWords: [] });
+  
+  // Load cross-session intelligence and fallback summary
   useEffect(() => {
     if (!mayaState) {
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
+    // Always load patient intelligence for exercise biasing
+    loadPatientIntelligence(userId).then(profile => {
+      if (profile) {
+        setPatientIntelligence(profile);
+        intelligenceBiasesRef.current = getIntelligenceBiases(profile);
+        console.log('[patient-intelligence] Loaded cross-session profile:', {
+          sessions: profile.sessionCount,
+          phonemeErrors: profile.persistentPhonemeErrors.length,
+          struggledWords: profile.persistentStruggledWords.length,
+          recoveredWords: profile.recoveredWords.length,
+          trend: profile.successRateTrend,
+        });
+      }
+    });
   }, [userId, mayaState]);
   
   // NEW: Session phase & assistive panel state
