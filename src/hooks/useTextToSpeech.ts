@@ -235,22 +235,36 @@ export const useTextToSpeech = () => {
         setIsSpeaking(true);
 
         return new Promise((resolve, reject) => {
+          // Safety timeout — never stay stuck in tts_playing for more than 30s
+          const safetyTimeout = setTimeout(() => {
+            console.warn('[TTS] Safety timeout — resolving after 30s');
+            setIsSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+          }, 30000);
+
           audio.onended = () => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
             resolve();
           };
 
           audio.onerror = () => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
-            reject(new Error('Audio playback failed'));
+            // Don't reject — fall through gracefully so session continues
+            console.warn('[TTS] Audio playback error, resolving gracefully');
+            resolve();
           };
 
           audio.play().catch((playError) => {
+            clearTimeout(safetyTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
-            reject(playError);
+            console.warn('[TTS] Play failed, falling back to browser:', playError);
+            speakBrowser(text).then(resolve).catch(() => resolve());
           });
         });
       }
