@@ -479,10 +479,18 @@ export function ConversationCoachGame({
     startConversationTurn();
   };
 
-  // Stop speech end detection when mic stops unexpectedly during chat
+  // Sync speech-end detection with listening state during chat mode
+  // CRITICAL: When browser speech recognition briefly stops and auto-restarts (patient mode),
+  // we must restart speech-end detection too, otherwise the conversation flow dies
   useEffect(() => {
-    if (!isListening && inputMode === 'chat_listening') {
-      speechEndDetection.onStop();
+    if (inputMode === 'chat_listening') {
+      if (isListening) {
+        // Mic is active — ensure speech-end detection is running
+        speechEndDetection.onStart();
+      } else {
+        // Mic briefly stopped — pause detection (will restart when mic comes back)
+        speechEndDetection.onStop();
+      }
     }
   }, [isListening, inputMode, speechEndDetection]);
 
@@ -507,12 +515,15 @@ export function ConversationCoachGame({
       }
       
       clearPendingAI();
-      
-      if (!isComplete) {
-        startConversationTurn();
-      } else {
-        setInputMode('idle');
-      }
+    } else {
+      console.warn('[handleCardDone] No outro text returned — continuing anyway');
+    }
+    
+    // Always continue the conversation after card completion
+    if (!isComplete) {
+      startConversationTurn();
+    } else {
+      setInputMode('idle');
     }
   };
 
