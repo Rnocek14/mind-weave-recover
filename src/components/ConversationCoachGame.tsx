@@ -525,6 +525,10 @@ export function ConversationCoachGame({
     } else {
       setInputMode('idle');
     }
+  };
+
+  // Card fallback: force-submit if user is stuck (called from UI button or timeout)
+  const handleCardForceSubmit = useCallback(() => {
     const activeCard = messages.find(m => m.type === 'card' && !m.completed);
     if (activeCard) {
       console.log('[CardTimeout] Force-submitting card:', activeCard.id, 'transcript:', cardTranscript?.slice(0, 30));
