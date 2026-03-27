@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { loadPatientIntelligence, serializeSnapshotForStorage, formatPatientIntelligenceForPrompt, getIntelligenceBiases, type PatientIntelligenceProfile, type IntelligenceBiases } from '@/lib/patientIntelligence';
+import { selectTherapyStrategy, formatStrategyForPrompt, type TherapyStrategy } from '@/lib/therapyStrategyEngine';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
@@ -206,13 +207,14 @@ export function useCoachSession({
   // Cross-session patient intelligence profile
   const [patientIntelligence, setPatientIntelligence] = useState<PatientIntelligenceProfile | null>(null);
   const intelligenceBiasesRef = useRef<IntelligenceBiases>({ minimalPairBias: 0, photoNamingBias: 0, targetPhonemes: [], retryWords: [] });
+  const activeStrategyRef = useRef<TherapyStrategy | null>(null);
   
   // Load cross-session intelligence and fallback summary
   useEffect(() => {
     if (!mayaState) {
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
-    // Always load patient intelligence for exercise biasing
+    // Always load patient intelligence for exercise biasing + strategy selection
     loadPatientIntelligence(userId).then(profile => {
       if (profile) {
         setPatientIntelligence(profile);
@@ -223,6 +225,28 @@ export function useCoachSession({
           ...orchestratorStateRef.current,
           intelligenceBiases: biases,
         };
+        
+        // Select therapy strategy from cross-session intelligence
+        const { strategy, candidates } = selectTherapyStrategy({
+          patientProfile: profile,
+          todayFocus: null, // Will be enriched per-turn if available
+          sessionSnapshot: null, // Will be enriched after first exercise
+        });
+        activeStrategyRef.current = strategy;
+        // Inject strategy into orchestrator state
+        orchestratorStateRef.current = {
+          ...orchestratorStateRef.current,
+          activeStrategy: strategy,
+        };
+        
+        console.log('[therapy-strategy] Selected:', {
+          strategy: strategy.id,
+          label: strategy.label,
+          goal: strategy.sessionGoal,
+          confidence: strategy.confidence,
+          reasoning: strategy.reasoning,
+          candidates: candidates.slice(0, 3).map(c => `${c.id}(${c.score})`),
+        });
         console.log('[patient-intelligence] Loaded cross-session profile:', {
           sessions: profile.sessionCount,
           phonemeErrors: profile.persistentPhonemeErrors.length,
@@ -947,6 +971,10 @@ export function useCoachSession({
             // Cross-session patient intelligence for longitudinal awareness
             crossSessionIntelligence: patientIntelligence
               ? formatPatientIntelligenceForPrompt(patientIntelligence)
+              : undefined,
+            // Therapy strategy context for goal-driven behavior
+            therapyStrategy: activeStrategyRef.current
+              ? formatStrategyForPrompt(activeStrategyRef.current)
               : undefined,
             // Therapy intent for purposeful conversation
             therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
