@@ -972,6 +972,10 @@ export function useCoachSession({
             crossSessionIntelligence: patientIntelligence
               ? formatPatientIntelligenceForPrompt(patientIntelligence)
               : undefined,
+            // Therapy strategy context for goal-driven behavior
+            therapyStrategy: activeStrategyRef.current
+              ? formatStrategyForPrompt(activeStrategyRef.current)
+              : undefined,
             // Therapy intent for purposeful conversation
             therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
               ? (action as any).therapyIntent
