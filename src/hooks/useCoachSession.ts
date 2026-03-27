@@ -190,6 +190,13 @@ export function useCoachSession({
     cueLevel: number; // 0=none, 1=semantic, 2=phonemic
   } | null>(null);
   
+  // INLINE MINIMAL PAIRS — No mode switch, tap-based in chat
+  const activeInlineMinimalPairRef = useRef<{
+    trial: MinimalPairTrial;
+    messageId: string;
+    startTime: number;
+  } | null>(null);
+  
   // Cross-session memory (now via MayaState from parent, fallback to direct load)
   const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
