@@ -483,6 +483,9 @@ export function ConversationCoachGame({
 
   // Start conversation
   const handleStart = async () => {
+    resetSilenceCueTracking();
+    lastSilenceCueLevelRef.current = -1;
+    setSilenceCueText(null);
     const hasPermission = micPermission === 'granted' || await requestMicPermission();
     if (!hasPermission) return;
     
