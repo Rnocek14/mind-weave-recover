@@ -232,13 +232,15 @@ export function matchAnswer(
   
   // 5. CIRCUMLOCUTION — user is describing the thing
   // Heuristic: 3+ words that aren't a foil match → likely describing
-  if (words.length >= 3) {
+   if (words.length >= 3) {
     // Make sure they're not saying a foil word
     const isFoil = semanticFoils.some(foil => 
       words.some(w => w === foil.toLowerCase() || stem(w) === stem(foil.toLowerCase()))
     );
     if (!isFoil) {
-      return { isMatch: false, matchType: 'circumlocution', confidence: 0.5, inferredWord: target, countsAsCorrect: false, isWordFindingAttempt: true };
+      // FIX: Circumlocution is a PARTIAL SUCCESS — the user demonstrated word knowledge
+      // Scoring it as failure corrupts intelligence reports and difficulty adaptation
+      return { isMatch: true, matchType: 'circumlocution', confidence: 0.5, inferredWord: target, countsAsCorrect: true, isWordFindingAttempt: true };
     }
   }
   
