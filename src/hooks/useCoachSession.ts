@@ -1077,6 +1077,20 @@ export function useCoachSession({
         aiResponseText = getSmartFallback(lastAIText, transcript);
       }
 
+      // STRATEGY ENFORCEMENT: Validate AI response against strategy constraints
+      if (activeStrategyRef.current && aiResponseText) {
+        const speechState: 'struggling' | 'flowing' | 'neutral' = 
+          analysis.effortfulSpeech ? 'struggling' :
+          analysis.fluencyScore > 60 ? 'flowing' : 'neutral';
+        const validation = validateResponse(aiResponseText, activeStrategyRef.current, speechState);
+        if (!validation.valid) {
+          console.warn('[enforcement] Response violations:', validation.violations);
+          if (validation.sanitizedResponse) {
+            aiResponseText = validation.sanitizedResponse;
+          }
+        }
+      }
+
       addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
       aiWordsRef.current += countWords(aiResponseText);
       
