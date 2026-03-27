@@ -777,9 +777,14 @@ export function updateState(
   let buildComplete = state.buildComplete;
   let primedVocabulary = [...state.primedVocabulary];
   
-  // Warmup ends after enough conversation turns (not card completions)
+  // Warmup ends after enough conversation turns — transition through build for first card
   if (state.sessionPhase === 'warmup' && state.turnNumber >= 2) {
-    newPhase = 'conversation'; // Skip 'build' — go straight to conversation
+    newPhase = 'build'; // Go through build phase to get the recall_prompt card
+    buildComplete = false;
+  }
+  // Build phase completes after its card is inserted
+  if (state.sessionPhase === 'build' && cardInserted) {
+    newPhase = 'conversation';
     buildComplete = true;
   }
   
