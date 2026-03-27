@@ -105,6 +105,8 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
       user_id: input.userId,
       session_id: input.sessionId,
       ...summary,
+      // Persist session intelligence in metadata column
+      metadata: input.sessionIntelligence ? input.sessionIntelligence : null,
     } as any);
 
   if (error) {
