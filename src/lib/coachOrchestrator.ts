@@ -414,10 +414,29 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
+        // Strategy enforcement: check if photo naming is allowed
+        if (!enforceExerciseBeforeInsert('photo-naming', state)) {
+          // Blocked — fall through to conversation
+          return {
+            type: 'chat_followup',
+            followupType: selectFollowupForFlow(state.turnNumber),
+            objective: 'topic_exploration',
+            therapyIntent: 'expand_topic',
+            showTiles: false,
+          };
+        }
         // Strategy-driven: use strategy weight if available, else fall back to intelligence bias
         const minimalPairChance = getStrategyMinimalPairWeight(state) + (state.intelligenceBiases?.minimalPairBias ?? 0);
         const effectiveDifficulty = getStrategyDifficulty(state);
         if (Math.random() < Math.min(minimalPairChance, 0.8)) {
+          // Also enforce minimal pairs
+          if (!enforceExerciseBeforeInsert('minimal-pairs', state)) {
+            return {
+              type: 'inline_photo_naming',
+              difficulty: effectiveDifficulty,
+              objective: 'word_retrieval' as TherapyObjective,
+            };
+          }
           return {
             type: 'inline_minimal_pairs',
             difficulty: effectiveDifficulty,
@@ -445,9 +464,19 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline
       if (cardDecision.cardType === 'photo_naming') {
+        if (!enforceExerciseBeforeInsert('photo-naming', state)) {
+          return { type: 'topic_shift' };
+        }
         const minimalPairChance = getStrategyMinimalPairWeight(state) + (state.intelligenceBiases?.minimalPairBias ?? 0);
         const effectiveDifficulty = getStrategyDifficulty(state);
         if (Math.random() < Math.min(minimalPairChance, 0.8)) {
+          if (!enforceExerciseBeforeInsert('minimal-pairs', state)) {
+            return {
+              type: 'inline_photo_naming',
+              difficulty: effectiveDifficulty,
+              objective: 'word_retrieval' as TherapyObjective,
+            };
+          }
           return {
             type: 'inline_minimal_pairs',
             difficulty: effectiveDifficulty,

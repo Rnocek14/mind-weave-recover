@@ -19,7 +19,7 @@ import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
-import { getMinimalPairTrials, MinimalPairTrial } from '@/data/minimalPairsBank';
+import { getMinimalPairTrials, getMinimalPairTrialsForLevel, MinimalPairTrial } from '@/data/minimalPairsBank';
 import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 import type { MayaState } from '@/lib/buildMayaState';
 import { formatMayaStateForCoachPrompt } from '@/lib/buildMayaState';
@@ -249,16 +249,16 @@ export function useCoachSession({
           if (overrideData?.[0]?.value_after) {
             const clinicianOverride = overrideData[0].value_after as ClinicianStrategyOverride;
             
-            // If clinician locked a specific strategy, re-select it
+            // FIX: If clinician locked a specific strategy, force-select it by ID
             if (clinicianOverride.lockedStrategyId && clinicianOverride.lockedStrategyId !== strategy.id) {
               const { strategy: lockedStrategy } = selectTherapyStrategy({
                 patientProfile: profile,
                 todayFocus: null,
                 sessionSnapshot: null,
+                forceStrategyId: clinicianOverride.lockedStrategyId,
               });
-              // Override strategy ID manually
               finalStrategy = applyClinicianOverride(lockedStrategy, clinicianOverride);
-              console.log('[strategy] Clinician override applied:', clinicianOverride);
+              console.log('[strategy] Clinician lock applied:', clinicianOverride.lockedStrategyId);
             } else {
               finalStrategy = applyClinicianOverride(strategy, clinicianOverride);
             }
@@ -546,8 +546,9 @@ export function useCoachSession({
     const rawSilenceMs = totalDurationMs 
       ? Math.max(0, totalDurationMs - estimatedSpeechMs)
       : (latencyMs ?? 0);
-    // Only use silence triggers if they truly didn't speak
-    const effectiveSilenceMs = wordCount === 0 ? rawSilenceMs : 0;
+    // FIX: Allow silence detection for effortful speakers (1-2 words)
+    // Core aphasia users produce minimal speech — zeroing silence breaks cueing for them
+    const effectiveSilenceMs = wordCount <= 2 ? rawSilenceMs : 0;
     
     const cueRec = getCueForUtterance(
       {
@@ -787,7 +788,13 @@ export function useCoachSession({
       // INLINE MINIMAL PAIRS — Two images in chat, user taps one
       // Maya says a word, user picks the matching picture
       // ═══════════════════════════════════════════════════════════
-      const allTrials = getMinimalPairTrials();
+      // FIX: Use strategy's target phonemes to filter trials instead of random selection
+      const targetPhonemes = activeStrategyRef.current?.id === 'phonological_training'
+        ? (orchestratorStateRef.current.intelligenceBiases?.targetPhonemes ?? [])
+        : [];
+      const allTrials = targetPhonemes.length > 0
+        ? getMinimalPairTrialsForLevel(action.difficulty === 'easy' ? 1 : 4, 20, { focusPhonemes: targetPhonemes })
+        : getMinimalPairTrials();
       const maxDiff = action.difficulty === 'easy' ? 1 : 2;
       const eligible = allTrials.filter(t => t.pair.difficulty <= maxDiff);
       const trial = eligible.length > 0 

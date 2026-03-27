@@ -469,6 +469,8 @@ export interface StrategySelectionInput {
   patientProfile: PatientIntelligenceProfile | null;
   todayFocus: TodayFocus | null;
   sessionSnapshot: SessionIntelligenceSnapshot | null;
+  /** If set, force this strategy regardless of scoring (clinician lock) */
+  forceStrategyId?: StrategyId;
 }
 
 export interface StrategySelectionResult {
@@ -477,10 +479,14 @@ export interface StrategySelectionResult {
 }
 
 export function selectTherapyStrategy(input: StrategySelectionInput): StrategySelectionResult {
-  const { patientProfile, todayFocus, sessionSnapshot } = input;
+  const { patientProfile, todayFocus, sessionSnapshot, forceStrategyId } = input;
   
   const candidates = scoreStrategyCandidates(patientProfile, todayFocus, sessionSnapshot);
-  const winner = candidates[0];
+  
+  // If clinician locked a strategy, force it to win regardless of scoring
+  const winner = forceStrategyId
+    ? (candidates.find(c => c.id === forceStrategyId) || { id: forceStrategyId, score: 999, reasons: ['Clinician locked'] })
+    : candidates[0];
 
   // Build the winning strategy with full behavioral directives
   let strategy: TherapyStrategy;
