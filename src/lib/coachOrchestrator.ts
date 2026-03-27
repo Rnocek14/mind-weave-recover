@@ -163,6 +163,9 @@ export function getNextAction(
   state: OrchestratorState,
   speechAnalysis?: SpeechAnalysisForOrchestrator
 ): NextAction {
+  // Use strategy-driven limits when available
+  const limits = getEffectiveLimits(state);
+  
   const {
     sessionPhase,
     warmupCardsCompleted,
