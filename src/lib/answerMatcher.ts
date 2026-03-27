@@ -304,19 +304,34 @@ export function getFeedbackForMatch(
       ]);
     
     case 'synonym':
+      // High confidence synonym (≥0.85) → treat almost like exact
+      if (result.confidence >= 0.85) {
+        return pickRandom([
+          `Yes — "${target}!" I knew exactly what you meant.`,
+          `"${target}" — same thing. You knew it.`,
+          `Right! "${target}." You had the right idea.`,
+        ]);
+      }
       return pickRandom([
         `Close! That's actually called a "${target}" — but I knew what you meant.`,
         `I knew exactly what you meant! The word is "${target}."`,
         `Right idea! The specific word is "${target}."`,
-        `Yes — you're thinking of the right thing. It's "${target}."`,
       ]);
     
     case 'phonetic_close':
+      // High phonetic confidence (≥0.75) → very encouraging, almost there
+      if (result.confidence >= 0.75) {
+        return pickRandom([
+          `Almost perfect — "${target}!" You practically had it.`,
+          `"${target}" — so close! Just one tiny sound off.`,
+          `Yes, "${target}." Your mouth almost got there completely.`,
+        ]);
+      }
+      // Medium phonetic confidence → acknowledge effort
       return pickRandom([
-        `Almost! You were right there — it's "${target}."`,
-        `So close! "${target}" — you had the sounds right.`,
         `I could tell you knew it — "${target}." The sounds were almost there.`,
-        `"${target}" — you were really close on that one.`,
+        `"${target}" — you were on the right track with those sounds.`,
+        `Almost! You were reaching for "${target}." Keep at it.`,
       ]);
     
     case 'partial_fragment':
