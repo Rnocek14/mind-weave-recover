@@ -182,7 +182,7 @@ export const useTextToSpeech = () => {
     text: string,
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'XrExE9yKIg1WjnnlVkGX' } = options; // Matilda voice (same as non-streaming)
+    const { voiceId = MAYA_VOICE_ID } = options;
 
     setIsLoading(true);
     setIsSpeaking(false);
