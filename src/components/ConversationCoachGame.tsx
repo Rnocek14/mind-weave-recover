@@ -972,7 +972,13 @@ export function ConversationCoachGame({
                 "text-lg min-h-[28px] transition-all",
                 userTranscript ? "text-foreground font-medium" : "text-muted-foreground"
               )}>
-                {userTranscript || (silenceSeconds < 3 ? "Your turn to speak..." : "Take your time...")}
+                {userTranscript || (
+                  silenceCueText 
+                    ? silenceCueText 
+                    : silenceSeconds < 3 
+                      ? "Your turn to speak..." 
+                      : "Take your time..."
+                )}
               </p>
             </div>
 
