@@ -469,6 +469,8 @@ export interface StrategySelectionInput {
   patientProfile: PatientIntelligenceProfile | null;
   todayFocus: TodayFocus | null;
   sessionSnapshot: SessionIntelligenceSnapshot | null;
+  /** If set, force this strategy regardless of scoring (clinician lock) */
+  forceStrategyId?: StrategyId;
 }
 
 export interface StrategySelectionResult {
