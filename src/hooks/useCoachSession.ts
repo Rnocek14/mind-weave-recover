@@ -603,6 +603,63 @@ export function useCoachSession({
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current, stuckType, false
       );
+    } else if (action.type === 'inline_photo_naming') {
+      // ═══════════════════════════════════════════════════════════
+      // INLINE PHOTO NAMING — No mode switch, image appears in chat
+      // Maya introduces it naturally, user responds through normal speech
+      // ═══════════════════════════════════════════════════════════
+      const maxDifficulty = action.difficulty === 'easy' ? 2 : 3;
+      const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
+      const trial = photos[Math.floor(Math.random() * photos.length)];
+      
+      if (trial) {
+        // Natural intro — Maya says something casual
+        const currentTopic = orchestratorStateRef.current.currentTopic;
+        const intros = [
+          "Oh wait — look at this for a second.",
+          "Hey, check this out real quick.",
+          "Hold on — what do you see here?",
+          "Take a look at this.",
+          "Hmm, here's one for you —",
+        ];
+        const intro = intros[Math.floor(Math.random() * intros.length)];
+        addMessage({ type: 'ai', text: intro, id: generateId() });
+        aiWordsRef.current += countWords(intro);
+        
+        // Insert the photo inline
+        const photoMessageId = generateId();
+        addMessage({
+          type: 'inline_photo',
+          imageUrl: trial.imageUrl,
+          target: trial.target,
+          id: photoMessageId,
+          answered: false,
+        });
+        
+        // Follow-up prompt
+        const prompt = "What is this?";
+        addMessage({ type: 'ai', text: prompt, id: generateId() });
+        aiWordsRef.current += countWords(prompt);
+        
+        // Track the active photo — answer will be checked on next processUserTurn
+        activeInlinePhotoRef.current = {
+          trial,
+          messageId: photoMessageId,
+          startTime: Date.now(),
+          cueLevel: 0,
+        };
+        
+        aiResponseText = intro;
+        setCurrentPhase('user_turn');
+        
+        orchestratorStateRef.current = updateState(
+          orchestratorStateRef.current, stuckType, false
+        );
+      } else {
+        // Fallback to regular chat if no photos available
+        aiResponseText = getSmartFallback(undefined, transcript);
+        addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      }
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
