@@ -126,7 +126,7 @@ export interface SpeechAnalysisForOrchestrator {
   filledPauseCount: number;
 }
 
-// ANTI-LOOP LIMITS
+// ANTI-LOOP LIMITS — can be overridden by active therapy strategy
 const LIMITS = {
   MIN_TURNS_BETWEEN_CARDS: 2,
   MAX_CARDS_PER_SESSION: 8,
@@ -140,6 +140,19 @@ const LIMITS = {
   MIN_TURNS_BETWEEN_POPUPS: 5,
   REPEATED_STUCK_THRESHOLD: 2,
 };
+
+/** Get effective limits, applying strategy overrides */
+function getEffectiveLimits(state: OrchestratorState) {
+  const strategy = state.activeStrategy;
+  if (!strategy) return LIMITS;
+  
+  return {
+    ...LIMITS,
+    MAX_CARDS_PER_SESSION: strategy.pacing.maxExercisesPerSession,
+    // Higher conversation ratio = more turns between reps
+    TURNS_BETWEEN_REPS: strategy.pacing.conversationToTaskRatio >= 0.65 ? 7 : 5,
+  };
+}
 
 /**
  * Main orchestrator function - decides what to do next
