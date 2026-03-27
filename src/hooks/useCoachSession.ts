@@ -243,8 +243,9 @@ export function useCoachSession({
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
   // Rolling semantic memory — AI-maintained conversation summary
-  const rollingMemoryRef = useRef<string>('');
-  
+    const rollingMemoryRef = useRef<string>('');
+    // Session intelligence tracker — within-session memory for Maya
+    const sessionIntelRef = useRef(new SessionIntelligenceTracker());
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
     userId,
