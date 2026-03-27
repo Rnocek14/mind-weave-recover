@@ -308,6 +308,17 @@ export function useCoachSession({
       const latencyFromPhoto = Date.now() - photo.startTime;
       const wasQuick = latencyFromPhoto < 4000;
       
+      // SESSION INTELLIGENCE: Check history and record attempt
+      const wasHardBefore = sessionIntelRef.current.wasHardBefore(photo.trial.target);
+      const isImproving = sessionIntelRef.current.isImprovingOn(photo.trial.target);
+      sessionIntelRef.current.recordPhotoAttempt(
+        photo.trial.target,
+        match,
+        photo.cueLevel,
+        latencyFromPhoto,
+        orchestratorStateRef.current.turnNumber,
+      );
+      
       // Mark inline photo as answered (reveal word only on correct or after giving it)
       setMessages(prev => prev.map(msg => 
         msg.id === photo.messageId && msg.type === 'inline_photo'
@@ -320,10 +331,11 @@ export function useCoachSession({
       addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
       userWordsRef.current += countWords(transcript);
       
-      // Generate context-aware therapist feedback
+      // Generate context-aware therapist feedback with session memory
       const feedback = getFeedbackForMatch(match, photo.trial.target, {
         wasQuick,
         cueLevel: photo.cueLevel,
+        wasHardBefore,
       });
       
       // Natural continuation back into conversation
