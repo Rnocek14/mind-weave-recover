@@ -207,6 +207,36 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
           </section>
         )}
 
+        {/* ─── Active Therapy Strategy ─── */}
+        <section className="border-t border-border/50 pt-3">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Brain className="w-3.5 h-3.5 text-primary" />
+            System Strategy
+          </h4>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-semibold">
+                {clinicianStrategy.label}
+              </Badge>
+              <Badge variant="secondary" className="text-[10px]">
+                {clinicianStrategy.confidence} confidence
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground/80">{clinicianStrategy.goal}</p>
+            <div className="flex gap-3 text-[11px] text-muted-foreground">
+              <span>Cue: {clinicianStrategy.cueApproach}</span>
+              <span>Difficulty: {clinicianStrategy.difficultyBias}</span>
+            </div>
+            {clinicianStrategy.reasoning.length > 0 && (
+              <ul className="text-[11px] text-muted-foreground space-y-0.5 mt-1">
+                {clinicianStrategy.reasoning.slice(0, 3).map((r, i) => (
+                  <li key={i}>• {r}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         {/* ─── Recommended Focus Areas ─── */}
         <section className="border-t border-border/50 pt-3">
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
