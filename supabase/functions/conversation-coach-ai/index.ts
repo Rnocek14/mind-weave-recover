@@ -147,6 +147,7 @@ function buildSystemPrompt(
   semanticMemory: string,
   therapyIntent?: string,
   speechState?: 'struggling' | 'flowing' | 'neutral',
+  sessionIntelligence?: string,
 ): string {
   let context = '';
 
