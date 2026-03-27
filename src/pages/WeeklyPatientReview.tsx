@@ -55,6 +55,8 @@ import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionC
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
+import { ClinicianStrategyControls } from "@/components/clinician/ClinicianStrategyControls";
+import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
