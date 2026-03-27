@@ -363,13 +363,16 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
-        // Occasionally use minimal pairs instead for variety (30% chance)
-        if (Math.random() < 0.3) {
+        // Intelligence-driven: bias toward minimal pairs if phoneme confusion detected
+        const mpBias = state.intelligenceBiases?.minimalPairBias ?? 0;
+        const minimalPairChance = Math.min(0.3 + mpBias, 0.7); // base 30% + bias
+        if (Math.random() < minimalPairChance) {
           return {
             type: 'inline_minimal_pairs',
             difficulty: cardDecision.config.difficulty,
             objective: 'phoneme_discrimination' as TherapyObjective,
           };
+        }
         }
         return {
           type: 'inline_photo_naming',
