@@ -145,6 +145,9 @@ interface UseCoachSessionReturn {
   ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
   // Inline photo naming
   activeInlinePhoto: { target: string; category: string; features: any } | null;
+  // Inline minimal pairs
+  activeInlineMinimalPair: { word1: string; word2: string; targetWord: string; targetIndex: 0 | 1; phoneme1: string; phoneme2: string } | null;
+  handleMinimalPairSelect: (messageId: string, selectedIndex: 0 | 1) => void;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
