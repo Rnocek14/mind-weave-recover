@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { loadPatientIntelligence, serializeSnapshotForStorage, formatPatientIntelligenceForPrompt, getIntelligenceBiases, type PatientIntelligenceProfile, type IntelligenceBiases } from '@/lib/patientIntelligence';
 import { selectTherapyStrategy, formatStrategyForPrompt, shouldSwitchStrategy, type TherapyStrategy, type MidSessionSignals } from '@/lib/therapyStrategyEngine';
-import { validateResponse, applyClinicianOverride, type ClinicianStrategyOverride } from '@/lib/strategyEnforcement';
+import { validateResponse, applyClinicianOverride, enforceСueType, type ClinicianStrategyOverride } from '@/lib/strategyEnforcement';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
@@ -209,6 +209,7 @@ export function useCoachSession({
   const [patientIntelligence, setPatientIntelligence] = useState<PatientIntelligenceProfile | null>(null);
   const intelligenceBiasesRef = useRef<IntelligenceBiases>({ minimalPairBias: 0, photoNamingBias: 0, targetPhonemes: [], retryWords: [] });
   const activeStrategyRef = useRef<TherapyStrategy | null>(null);
+  const clinicianLockedRef = useRef<boolean>(false);
   
   // Load cross-session intelligence and fallback summary
   useEffect(() => {
@@ -258,6 +259,7 @@ export function useCoachSession({
                 forceStrategyId: clinicianOverride.lockedStrategyId,
               });
               finalStrategy = applyClinicianOverride(lockedStrategy, clinicianOverride);
+              clinicianLockedRef.current = true;
               console.log('[strategy] Clinician lock applied:', clinicianOverride.lockedStrategyId);
             } else {
               finalStrategy = applyClinicianOverride(strategy, clinicianOverride);
@@ -567,6 +569,21 @@ export function useCoachSession({
       cueStateRef.current
     );
     
+    // ENFORCE CUE TYPE based on active strategy
+    if (activeStrategyRef.current && cueRec.cueLevel >= 2) {
+      const requestedCueType = cueRec.cueLevel >= 4 ? 'full_word' as const
+        : cueRec.cueLevel >= 3 ? 'phonemic' as const
+        : 'semantic' as const;
+      const enforcedType = enforceСueType(requestedCueType, activeStrategyRef.current);
+      // Remap cue level if enforcement changed the type
+      if (enforcedType !== requestedCueType) {
+        const remappedLevel = enforcedType === 'full_word' ? 4
+          : enforcedType === 'phonemic' ? 3 : 2;
+        cueRec.cueLevel = remappedLevel;
+        console.log('[cue-enforce] Overrode cue type:', requestedCueType, '→', enforcedType);
+      }
+    }
+
     // DEBUG LOGGING: Cue engine recommendation
     console.log('[cue-engine]', { 
       turn: orchestratorStateRef.current.turnNumber,
@@ -1109,7 +1126,8 @@ export function useCoachSession({
       
       // MID-SESSION STRATEGY RE-EVALUATION
       // Check if session signals warrant a strategy switch
-      if (activeStrategyRef.current && patientIntelligence) {
+      // CRITICAL: Never override a clinician-locked strategy
+      if (activeStrategyRef.current && patientIntelligence && !clinicianLockedRef.current) {
         const snapshot = sessionIntelRef.current.getSnapshot();
         const midSignals: MidSessionSignals = {
           successRate: snapshot.successRate,
