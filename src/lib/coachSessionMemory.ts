@@ -32,6 +32,8 @@ export interface SessionSummaryInput {
   avgFluency?: number;
   fluencyTrend?: string;
   primaryDomain?: string;
+  /** Serialized session intelligence snapshot for cross-session persistence */
+  sessionIntelligence?: Record<string, unknown>;
 }
 
 // ─── Build Summary ───
