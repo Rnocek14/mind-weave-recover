@@ -285,40 +285,38 @@ export function PhotoNamingCard({
 
   return (
     <CardContainer>
-      <CardContent className="p-5 space-y-4">
-        {/* Photo - larger display */}
-        <div className="relative aspect-square max-w-[280px] mx-auto rounded-xl overflow-hidden bg-muted shadow-md">
-          <img
-            src={trial.imageUrl}
-            alt="What is this?"
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        {/* Prompt */}
-        <p className="text-center text-lg font-medium text-foreground">
-          What is this?
-        </p>
-
-        {/* Action buttons row */}
-        <div className="flex justify-center gap-3">
-          <AudioButton 
-            onPlay={handlePlayAudio}
-            isPlaying={isPlaying}
-            isLoading={audioLoading}
-            label="Hear it"
-            size="sm"
-          />
-          {!currentCue && (
-            <Button 
-              variant="outline" 
-              onClick={handleRequestHint}
-              className="h-10 gap-2"
-            >
-              <Lightbulb className="w-4 h-4" />
-              Get a hint
-            </Button>
-          )}
+      <CardContent className="p-3 space-y-2">
+        {/* Photo + prompt side by side for compactness */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shadow-md flex-shrink-0">
+            <img
+              src={trial.imageUrl}
+              alt="What is this?"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="flex-1 space-y-2">
+            <p className="text-base font-medium text-foreground">What is this?</p>
+            <div className="flex flex-wrap gap-2">
+              <AudioButton 
+                onPlay={handlePlayAudio}
+                isPlaying={isPlaying}
+                isLoading={audioLoading}
+                label="Hear it"
+                size="sm"
+              />
+              {!currentCue && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleRequestHint}
+                  className="h-9 gap-1.5 text-sm"
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Hint
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Cue display */}
@@ -330,23 +328,12 @@ export function PhotoNamingCard({
 
         {/* Status based on phase */}
         {phase === 'listening' && (
-          <div className="space-y-3">
-            <TranscriptDisplay 
-              transcript={transcript} 
-              placeholder="Say the word..."
-            />
-            
-            <SpeechStatusBar 
-              isListening={isListening} 
-              wordCount={wordCount}
-              showWordCount={false}
-            />
-
-            {/* Choice fallback */}
+          <div className="space-y-2">
+            {/* Choice fallback — shown prominently */}
             {showChoices && (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <p className="text-center text-sm text-muted-foreground">
-                  Or tap the correct word:
+                  Say the word or tap it:
                 </p>
                 <ChoiceButtonGrid 
                   choices={choices} 
@@ -355,10 +342,18 @@ export function PhotoNamingCard({
               </div>
             )}
 
+            {!showChoices && (
+              <TranscriptDisplay 
+                transcript={transcript} 
+                placeholder="Say the word..."
+                minHeight="min-h-[36px]"
+              />
+            )}
+
             {/* Done button */}
             {wordCount > 0 && (
               <div className="flex justify-center">
-                <LargeTouchButton onClick={handleDone} variant="success" icon={<Check className="w-5 h-5" />}>
+                <LargeTouchButton onClick={handleDone} variant="success" icon={<Check className="w-4 h-4" />}>
                   Done
                 </LargeTouchButton>
               </div>
@@ -368,20 +363,15 @@ export function PhotoNamingCard({
 
         {/* Retry phase */}
         {phase === 'retry' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="text-center space-y-2">
-              <p className="text-muted-foreground">
-                I heard: <span className="font-medium text-foreground">"{transcript}"</span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Try again or confirm if correct
-              </p>
-            </div>
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <p className="text-center text-sm text-muted-foreground">
+              I heard: <span className="font-medium text-foreground">"{transcript}"</span>
+            </p>
             
-            <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={handleRetry} className="gap-2 min-h-[44px]">
-                <RotateCcw className="w-4 h-4" />
-                Try again
+            <div className="flex justify-center gap-2">
+              <Button variant="outline" onClick={handleRetry} className="gap-1.5 h-10">
+                <RotateCcw className="w-3.5 h-3.5" />
+                Retry
               </Button>
               <LargeTouchButton onClick={() => handleComplete(transcript)} variant="primary">
                 That's right
@@ -389,15 +379,10 @@ export function PhotoNamingCard({
             </div>
             
             {/* Also show choices in retry */}
-            <div className="space-y-2">
-              <p className="text-center text-sm text-muted-foreground">
-                Or select:
-              </p>
-              <ChoiceButtonGrid 
-                choices={choices} 
-                onSelect={handleChoiceSelect}
-              />
-            </div>
+            <ChoiceButtonGrid 
+              choices={choices} 
+              onSelect={handleChoiceSelect}
+            />
           </div>
         )}
 

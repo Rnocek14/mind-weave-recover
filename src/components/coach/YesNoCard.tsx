@@ -142,104 +142,86 @@ export function YesNoCard({ transcript, isListening, onComplete }: YesNoCardProp
 
   return (
     <CardContainer>
-      <CardContent className="p-5 space-y-5">
-        {/* Question with audio indicator */}
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <AudioButton
-              onPlay={handleReplay}
-              isPlaying={isPlaying}
-              isLoading={audioLoading}
-              label=""
-              size="sm"
-              variant="ghost"
-            />
-            <p className="text-xl font-medium text-foreground flex-1 pt-1">
-              {question.question}
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground text-center">
-            Say yes or no, or tap below
+      <CardContent className="p-3 space-y-2">
+        {/* Question with audio */}
+        <div className="flex items-start gap-2">
+          <AudioButton
+            onPlay={handleReplay}
+            isPlaying={isPlaying}
+            isLoading={audioLoading}
+            label=""
+            size="sm"
+            variant="ghost"
+          />
+          <p className="text-base font-medium text-foreground flex-1 pt-1">
+            {question.question}
           </p>
         </div>
 
-        {/* Phase: Listening - Show buttons */}
+        {/* Phase: Listening */}
         {phase === 'listening' && (
-          <div className="space-y-4">
-            {/* Live transcript */}
-            {transcript && (
-              <div className="text-center">
-                <p className="text-lg font-medium text-foreground bg-muted/50 rounded-lg px-4 py-2 inline-block">
-                  {transcript}
-                </p>
-              </div>
-            )}
-            
-            {/* Large YES/NO buttons */}
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            {/* YES/NO buttons — compact */}
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleManualResponse('yes')}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-2",
-                  "min-h-[72px] rounded-xl font-semibold text-lg",
+                  "flex items-center justify-center gap-2",
+                  "min-h-[56px] rounded-xl font-semibold text-base",
                   "bg-green-500/10 hover:bg-green-500/20 border-2 border-green-500/30",
                   "text-green-700 dark:text-green-400",
                   "transition-all active:scale-95"
                 )}
               >
-                <ThumbsUp className="w-6 h-6" />
+                <ThumbsUp className="w-5 h-5" />
                 <span>Yes</span>
               </button>
               <button
                 onClick={() => handleManualResponse('no')}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-2",
-                  "min-h-[72px] rounded-xl font-semibold text-lg",
+                  "flex items-center justify-center gap-2",
+                  "min-h-[56px] rounded-xl font-semibold text-base",
                   "bg-muted/50 hover:bg-muted border-2 border-border",
                   "text-foreground",
                   "transition-all active:scale-95"
                 )}
               >
-                <ThumbsDown className="w-6 h-6" />
+                <ThumbsDown className="w-5 h-5" />
                 <span>No</span>
               </button>
             </div>
 
-            {/* Status bar */}
-            <SpeechStatusBar 
-              isListening={isListening} 
-              wordCount={transcript.split(/\s+/).filter(Boolean).length}
-              showWordCount={false}
-            />
+            <p className="text-xs text-muted-foreground text-center">
+              Say yes or no, or tap above
+            </p>
 
-            {/* Skip option */}
+            {/* Skip */}
             <div className="flex justify-center">
-              <SkipButton onSkip={handleSkip} label="Skip this question" />
+              <SkipButton onSkip={handleSkip} label="Skip" />
             </div>
           </div>
         )}
 
-        {/* Phase: Confirming - Show what we heard */}
+        {/* Phase: Confirming */}
         {phase === 'confirming' && detectedResponse && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="text-center py-4">
-              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full">
-                {detectedResponse === 'yes' && <ThumbsUp className="w-5 h-5" />}
-                {detectedResponse === 'no' && <ThumbsDown className="w-5 h-5" />}
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <div className="text-center py-2">
+              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm">
+                {detectedResponse === 'yes' && <ThumbsUp className="w-4 h-4" />}
+                {detectedResponse === 'no' && <ThumbsDown className="w-4 h-4" />}
                 <span className="font-medium capitalize">
                   Heard: {detectedResponse === 'other' ? `"${transcript}"` : detectedResponse}
                 </span>
               </div>
             </div>
             
-            {/* If unclear, show confirm/retry buttons */}
             {detectedResponse === 'other' && (
-              <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={handleReplay} className="gap-2">
-                  <RotateCcw className="w-4 h-4" />
-                  Try again
+              <div className="flex justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleReplay} className="gap-1.5">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retry
                 </Button>
-                <Button onClick={handleConfirm} className="gap-2">
+                <Button size="sm" onClick={handleConfirm}>
                   Continue
                 </Button>
               </div>
