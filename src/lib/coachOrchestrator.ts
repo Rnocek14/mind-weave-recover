@@ -352,6 +352,14 @@ export function getNextAction(
   if (canInsertCard && speechAnalysis) {
     const cardDecision = selectCardBasedOnSpeechAnalysis(speechAnalysis, state);
     if (cardDecision) {
+      // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
+      if (cardDecision.cardType === 'photo_naming') {
+        return {
+          type: 'inline_photo_naming',
+          difficulty: cardDecision.config.difficulty,
+          objective: 'word_retrieval' as TherapyObjective,
+        };
+      }
       return {
         type: 'insert_card',
         cardType: cardDecision.cardType,
