@@ -13,7 +13,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { loadPatientIntelligence, serializeSnapshotForStorage, formatPatientIntelligenceForPrompt, getIntelligenceBiases, type PatientIntelligenceProfile, type IntelligenceBiases } from '@/lib/patientIntelligence';
-import { selectTherapyStrategy, formatStrategyForPrompt, type TherapyStrategy } from '@/lib/therapyStrategyEngine';
+import { selectTherapyStrategy, formatStrategyForPrompt, shouldSwitchStrategy, type TherapyStrategy, type MidSessionSignals } from '@/lib/therapyStrategyEngine';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
