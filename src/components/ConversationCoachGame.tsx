@@ -515,17 +515,16 @@ export function ConversationCoachGame({
       }
       
       clearPendingAI();
-      
-      if (!isComplete) {
-        startConversationTurn();
-      } else {
-        setInputMode('idle');
-      }
+    } else {
+      console.warn('[handleCardDone] No outro text returned — continuing anyway');
     }
-  };
-
-  // Card fallback: force-submit if user is stuck (called from UI button or timeout)
-  const handleCardForceSubmit = useCallback(() => {
+    
+    // Always continue the conversation after card completion
+    if (!isComplete) {
+      startConversationTurn();
+    } else {
+      setInputMode('idle');
+    }
     const activeCard = messages.find(m => m.type === 'card' && !m.completed);
     if (activeCard) {
       console.log('[CardTimeout] Force-submitting card:', activeCard.id, 'transcript:', cardTranscript?.slice(0, 30));
