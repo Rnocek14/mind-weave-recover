@@ -272,6 +272,8 @@ serve(async (req) => {
       priorSessionMemory,
       rollingMemory,
       therapyIntent,
+      circumlocutionDetected,
+      difficultyNarration,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -295,6 +297,8 @@ serve(async (req) => {
       priorSessionMemory?: string;
       rollingMemory?: string;
       therapyIntent?: string;
+      circumlocutionDetected?: boolean;
+      difficultyNarration?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
