@@ -48,6 +48,7 @@ import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
 import { EngagementMonitor, EngagementState as MonitorEngagementState } from '@/lib/engagementMonitor';
 import { useConversationSpeechAnalysis, ConversationUtteranceAnalysis } from './useConversationSpeechAnalysis';
+import { SessionIntelligenceTracker } from '@/lib/sessionIntelligence';
 import { 
   getCueForUtterance, 
   createInitialCueState, 
