@@ -135,6 +135,7 @@ export default function WeeklyPatientReview() {
   const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
   const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize);
+  const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(user?.id);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
