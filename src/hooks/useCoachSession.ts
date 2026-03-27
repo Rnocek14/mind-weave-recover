@@ -788,7 +788,13 @@ export function useCoachSession({
       // INLINE MINIMAL PAIRS — Two images in chat, user taps one
       // Maya says a word, user picks the matching picture
       // ═══════════════════════════════════════════════════════════
-      const allTrials = getMinimalPairTrials();
+      // FIX: Use strategy's target phonemes to filter trials instead of random selection
+      const targetPhonemes = activeStrategyRef.current?.id === 'phonological_training'
+        ? (orchestratorStateRef.current.intelligenceBiases?.targetPhonemes ?? [])
+        : [];
+      const allTrials = targetPhonemes.length > 0
+        ? getMinimalPairTrialsForLevel(action.difficulty === 'easy' ? 1 : 4, 20, { focusPhonemes: targetPhonemes })
+        : getMinimalPairTrials();
       const maxDiff = action.difficulty === 'easy' ? 1 : 2;
       const eligible = allTrials.filter(t => t.pair.difficulty <= maxDiff);
       const trial = eligible.length > 0 
