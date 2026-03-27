@@ -1309,6 +1309,17 @@ export function useCoachSession({
     activeInlinePhoto: activeInlinePhotoRef.current 
       ? { target: activeInlinePhotoRef.current.trial.target, category: activeInlinePhotoRef.current.trial.category, features: activeInlinePhotoRef.current.trial.features }
       : null,
+    activeInlineMinimalPair: activeInlineMinimalPairRef.current
+      ? { 
+          word1: activeInlineMinimalPairRef.current.trial.pair.word1,
+          word2: activeInlineMinimalPairRef.current.trial.pair.word2,
+          targetWord: activeInlineMinimalPairRef.current.trial.targetWord,
+          targetIndex: activeInlineMinimalPairRef.current.trial.targetIndex,
+          phoneme1: activeInlineMinimalPairRef.current.trial.pair.phoneme1,
+          phoneme2: activeInlineMinimalPairRef.current.trial.pair.phoneme2,
+        }
+      : null,
+    handleMinimalPairSelect,
     startSession,
     processUserTurn,
     insertPendingCard,
