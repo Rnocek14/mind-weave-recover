@@ -315,7 +315,7 @@ export function CoachChatFeed({
   return (
     <div 
       ref={feedRef}
-      className="flex flex-col gap-5 overflow-y-auto max-h-[55vh] p-6"
+      className="flex flex-col gap-5 overflow-y-auto max-h-[70vh] p-6"
     >
       {/* Topic indicator with momentum */}
       {currentTopic && messages.length > 2 && (
