@@ -195,6 +195,7 @@ WHAT YOU KNOW:
 ${semanticMemory || 'This is the start of the conversation.'}
 ${crossSessionIntelligence ? `\n${crossSessionIntelligence}` : ''}
 ${sessionIntelligence ? `\n${sessionIntelligence}` : ''}
+${therapyStrategy ? `\n${therapyStrategy}` : ''}
 THIS TURN: ${intentLine}
 ${struggleRule}${flowRule}
 
