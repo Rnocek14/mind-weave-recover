@@ -17,6 +17,7 @@ import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { MayaState } from './buildMayaState';
 import type { NormalizedExerciseResult } from './normalizedExerciseResult';
 import type { TherapyStrategy } from './therapyStrategyEngine';
+import { enforceExerciseSelection, getEnforcedExerciseWeights, enforceDifficulty, enforceСueType, getEnforcedPacing, validateResponse, logEnforcement } from './strategyEnforcement';
 
 // Card types that can be inserted inline
 export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
