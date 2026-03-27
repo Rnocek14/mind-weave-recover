@@ -355,18 +355,18 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
+        // Occasionally use minimal pairs instead for variety (30% chance)
+        if (Math.random() < 0.3) {
+          return {
+            type: 'inline_minimal_pairs',
+            difficulty: cardDecision.config.difficulty,
+            objective: 'phoneme_discrimination' as TherapyObjective,
+          };
+        }
         return {
           type: 'inline_photo_naming',
           difficulty: cardDecision.config.difficulty,
           objective: 'word_retrieval' as TherapyObjective,
-        };
-      }
-      // INLINE MINIMAL PAIRS: Convert minimal_pairs cards to inline conversation-first
-      if (cardDecision.cardType === 'minimal_pairs') {
-        return {
-          type: 'inline_minimal_pairs',
-          difficulty: cardDecision.config.difficulty,
-          objective: 'phoneme_discrimination' as TherapyObjective,
         };
       }
       return {
