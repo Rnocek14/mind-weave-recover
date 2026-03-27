@@ -379,18 +379,32 @@ export default function WeeklyPatientReview() {
       />
 
       {/* ─── THERAPY INTELLIGENCE REPORT ─── */}
-      {intelligenceProfile && (
+      {intelligenceProfile ? (
         <TherapyIntelligenceReport profile={intelligenceProfile} />
+      ) : (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain className="w-4 h-4 text-primary" />
+              Therapy Intelligence Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              {intelligenceLoading ? "Loading intelligence data…" : "No session intelligence data yet. The report will appear after the patient completes conversational therapy sessions with Maya."}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* ─── CLINICIAN STRATEGY CONTROLS ─── */}
-      {intelligenceProfile && user?.id && profileId && (
+      {user?.id && profileId && (
         <ClinicianStrategyControls
           profileId={profileId}
           userId={user?.id || ""}
           clinicianId={user?.id || ""}
           currentStrategy={(() => {
-            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile, todayFocus: null, sessionSnapshot: null });
+            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile ?? undefined, todayFocus: null, sessionSnapshot: null });
             return strategy;
           })()}
           onOverrideApplied={refetchOverrides}
