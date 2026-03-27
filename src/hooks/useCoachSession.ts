@@ -1052,6 +1052,29 @@ export function useCoachSession({
         false
       );
       
+      // MID-SESSION STRATEGY RE-EVALUATION
+      // Check if session signals warrant a strategy switch
+      if (activeStrategyRef.current && patientIntelligence) {
+        const snapshot = sessionIntelRef.current.getSnapshot();
+        const midSignals: MidSessionSignals = {
+          successRate: snapshot.successRate,
+          totalAttempts: snapshot.totalAttempts,
+          circumlocutionCount: snapshot.circumlocutionCount,
+          phonemeErrorCount: snapshot.phonemeErrors.length,
+          avgLatencyMs: snapshot.avgLatencyMs,
+          frustrationDetected: currentEngagement?.frustration === 'high' || currentEngagement?.frustration === 'medium',
+        };
+        const newStrategy = shouldSwitchStrategy(activeStrategyRef.current, midSignals, patientIntelligence);
+        if (newStrategy) {
+          activeStrategyRef.current = newStrategy;
+          orchestratorStateRef.current = {
+            ...orchestratorStateRef.current,
+            activeStrategy: newStrategy,
+          };
+          console.log('[strategy-switch] Mid-session switch to:', newStrategy.id, newStrategy.sessionGoal);
+        }
+      }
+      
       // No automatic wrap-up - user ends when ready
       setCurrentPhase('user_turn');
     }
