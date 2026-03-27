@@ -265,6 +265,13 @@ export function getFeedbackForMatch(
 ): string {
   const { wasQuick, cueLevel = 0, wasHardBefore } = opts;
   
+  // ═══════════════════════════════════════════════════════════════
+  // CONFIDENCE-BASED BEHAVIOR
+  // High confidence (≥0.85) → confirm naturally, move on
+  // Medium confidence (0.5-0.84) → acknowledge + gently correct
+  // Low confidence (<0.5) → guide more, reinforce
+  // ═══════════════════════════════════════════════════════════════
+  
   switch (result.matchType) {
     case 'exact':
       if (wasHardBefore) {

@@ -52,6 +52,7 @@ export type NextAction =
   | { type: 'chat_followup'; followupType: FollowupType; objective: TherapyObjective; therapyIntent: TherapyIntent; showTiles?: boolean; showFrames?: boolean }
   | { type: 'insert_card'; cardType: CardType; config: CardConfig; objective: TherapyObjective }
   | { type: 'inline_photo_naming'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
+  | { type: 'inline_minimal_pairs'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
   | { type: 'summary_verify'; summary: string }
   | { type: 'topic_shift' }
