@@ -102,6 +102,14 @@ export interface OrchestratorState {
   recentExerciseResults: NormalizedExerciseResult[];
   recentPopupSlugs: string[];
   fatigueState: FatigueState;
+  
+  // Intelligence biases from cross-session patient profile
+  intelligenceBiases?: {
+    minimalPairBias: number;
+    photoNamingBias: number;
+    targetPhonemes: string[];
+    retryWords: string[];
+  };
 }
 
 // Speech analysis data for smarter card selection
