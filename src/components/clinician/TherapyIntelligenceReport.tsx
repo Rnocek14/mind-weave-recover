@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BookOpen, Volume2, MessageSquare, Lightbulb } from "lucide-react";
 import type { PatientIntelligenceProfile } from "@/lib/patientIntelligence";
+import { selectTherapyStrategy, formatStrategyForClinician } from "@/lib/therapyStrategyEngine";
 
 interface TherapyIntelligenceReportProps {
   profile: PatientIntelligenceProfile;
