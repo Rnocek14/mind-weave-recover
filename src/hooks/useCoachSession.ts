@@ -9,7 +9,7 @@
  * - Anti-loop enforcement from orchestrator
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
@@ -48,6 +48,7 @@ import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { FeedMessage } from '@/components/coach/CoachChatFeed';
 import { EngagementMonitor, EngagementState as MonitorEngagementState } from '@/lib/engagementMonitor';
 import { useConversationSpeechAnalysis, ConversationUtteranceAnalysis } from './useConversationSpeechAnalysis';
+import { SessionIntelligenceTracker } from '@/lib/sessionIntelligence';
 import { 
   getCueForUtterance, 
   createInitialCueState, 
@@ -242,8 +243,9 @@ export function useCoachSession({
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
   // Rolling semantic memory — AI-maintained conversation summary
-  const rollingMemoryRef = useRef<string>('');
-  
+    const rollingMemoryRef = useRef<string>('');
+    // Session intelligence tracker — within-session memory for Maya
+    const sessionIntelRef = useRef(new SessionIntelligenceTracker());
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
     userId,
@@ -306,6 +308,17 @@ export function useCoachSession({
       const latencyFromPhoto = Date.now() - photo.startTime;
       const wasQuick = latencyFromPhoto < 4000;
       
+      // SESSION INTELLIGENCE: Check history and record attempt
+      const wasHardBefore = sessionIntelRef.current.wasHardBefore(photo.trial.target);
+      const isImproving = sessionIntelRef.current.isImprovingOn(photo.trial.target);
+      sessionIntelRef.current.recordPhotoAttempt(
+        photo.trial.target,
+        match,
+        photo.cueLevel,
+        latencyFromPhoto,
+        orchestratorStateRef.current.turnNumber,
+      );
+      
       // Mark inline photo as answered (reveal word only on correct or after giving it)
       setMessages(prev => prev.map(msg => 
         msg.id === photo.messageId && msg.type === 'inline_photo'
@@ -318,10 +331,11 @@ export function useCoachSession({
       addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
       userWordsRef.current += countWords(transcript);
       
-      // Generate context-aware therapist feedback
+      // Generate context-aware therapist feedback with session memory
       const feedback = getFeedbackForMatch(match, photo.trial.target, {
         wasQuick,
         cueLevel: photo.cueLevel,
+        wasHardBefore,
       });
       
       // Natural continuation back into conversation
@@ -385,7 +399,13 @@ export function useCoachSession({
     );
     analysisHistoryRef.current.push(analysis);
 
-    // Update engagement monitor
+    // SESSION INTELLIGENCE: Record conversation-level signals
+    if (analysis.circumlocutionDetected) {
+      sessionIntelRef.current.recordConversationSignal('circumlocution', orchestratorStateRef.current.turnNumber, transcript);
+    }
+    if (analysis.effortfulSpeech) {
+      sessionIntelRef.current.recordConversationSignal('effortful', orchestratorStateRef.current.turnNumber);
+    }
     const wordCount = countWords(transcript);
     engagementMonitorRef.current.addTrial({
       correct: wordCount > 0 && !analysis.effortfulSpeech,
@@ -887,6 +907,8 @@ export function useCoachSession({
             circumlocutionDetected: analysis.circumlocutionDetected,
             // Difficulty narration to prepend
             difficultyNarration,
+            // SESSION INTELLIGENCE: Within-session memory for Maya
+            sessionIntelligence: sessionIntelRef.current.formatForPrompt() || undefined,
             // Prior session memory for continuity
             // Maya intelligence context for continuity
             priorSessionMemory: mayaState
@@ -1133,6 +1155,17 @@ export function useCoachSession({
     const latency = Date.now() - pair.startTime;
     const wasQuick = latency < 3000;
     
+    // SESSION INTELLIGENCE: Record minimal pair attempt
+    sessionIntelRef.current.recordMinimalPairAttempt(
+      pair.trial.targetWord,
+      pair.trial.targetIndex === 0 ? pair.trial.pair.word2 : pair.trial.pair.word1,
+      isCorrect,
+      latency,
+      orchestratorStateRef.current.turnNumber,
+      pair.trial.pair.phoneme1,
+      pair.trial.pair.phoneme2,
+    );
+    
     // Update the message to show result
     setMessages(prev => prev.map(msg => 
       msg.id === messageId && msg.type === 'inline_minimal_pair'
@@ -1234,6 +1267,7 @@ export function useCoachSession({
     setLastAction(null);
     setCurrentSupportLevel('guided'); // FIX #1: Reset reactive support level
     orchestratorStateRef.current = createInitialState(maxTurns ?? 999);
+    sessionIntelRef.current.reset(); // Reset session intelligence
     latenciesRef.current = [];
     userWordsRef.current = 0;
     aiWordsRef.current = 0;
