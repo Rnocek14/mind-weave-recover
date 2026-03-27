@@ -275,7 +275,93 @@ export function useCoachSession({
   ): Promise<string | null> => {
     setIsProcessing(true);
     
-    // Add user message
+    // ═══════════════════════════════════════════════════════════════
+    // INLINE PHOTO NAMING — Check answer before regular flow
+    // ═══════════════════════════════════════════════════════════════
+    if (activeInlinePhotoRef.current && transcript.trim().length > 0) {
+      const photo = activeInlinePhotoRef.current;
+      const spokenLower = transcript.toLowerCase().trim();
+      const targetLower = photo.trial.target.toLowerCase();
+      
+      // Check match (exact, contains, or partial)
+      const isMatch = spokenLower === targetLower 
+        || spokenLower.includes(targetLower)
+        || targetLower.startsWith(spokenLower.slice(0, 3))
+        || spokenLower.startsWith(targetLower.slice(0, 3));
+      
+      const latencyFromPhoto = Date.now() - photo.startTime;
+      const wasQuick = latencyFromPhoto < 4000;
+      
+      // Mark inline photo as answered
+      setMessages(prev => prev.map(msg => 
+        msg.id === photo.messageId && msg.type === 'inline_photo'
+          ? { ...msg, answered: true, revealedWord: photo.trial.target }
+          : msg
+      ));
+      
+      // Add user message
+      const userMessageId = generateId();
+      addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
+      userWordsRef.current += countWords(transcript);
+      
+      // Generate therapist-style feedback (not "Correct!")
+      let feedback: string;
+      if (isMatch) {
+        feedback = getSuccessFeedback({ wasQuick, wasEffortful: photo.cueLevel > 0 });
+      } else {
+        // Check for circumlocution — user describing the thing
+        const isCircumlocution = transcript.split(/\s+/).length >= 3;
+        if (isCircumlocution) {
+          feedback = `You described it well! The word is "${photo.trial.target}."`;
+        } else {
+          feedback = getStruggleFeedback() + ` The word is "${photo.trial.target}."`;
+        }
+      }
+      
+      // Add Maya's natural response + continue conversation
+      const topic = orchestratorStateRef.current.currentTopic;
+      let continuation = '';
+      if (isMatch && topic) {
+        const continuations = [
+          ` Speaking of ${topic}, what else?`,
+          ` Anyway — you were telling me about ${topic}...`,
+          ` So, back to ${topic}?`,
+        ];
+        continuation = continuations[Math.floor(Math.random() * continuations.length)];
+      } else if (isMatch) {
+        const continuations = [
+          ' So, what were you saying?',
+          ' Okay, keep going!',
+          ' Nice — what else is on your mind?',
+        ];
+        continuation = continuations[Math.floor(Math.random() * continuations.length)];
+      }
+      
+      const fullResponse = feedback + continuation;
+      addMessage({ type: 'ai', text: fullResponse, id: generateId() });
+      aiWordsRef.current += countWords(fullResponse);
+      
+      // Update orchestrator state (counts as a card interaction)
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current,
+        isMatch ? 'strong_flow' : 'word_search_stall',
+        true, // counts as card inserted
+        'photo_naming',
+        isMatch,
+        topic || undefined,
+        [photo.trial.target]
+      );
+      
+      // Clear active inline photo
+      activeInlinePhotoRef.current = null;
+      
+      setPendingAIText(fullResponse);
+      setIsProcessing(false);
+      setCurrentPhase('user_turn');
+      return fullResponse;
+    }
+    
+    // Add user message (regular flow)
     const userMessageId = generateId();
     addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
     userWordsRef.current += countWords(transcript);
