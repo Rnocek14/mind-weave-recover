@@ -1,23 +1,16 @@
 /**
- * PhotoNamingCard - Enhanced inline photo-naming exercise
+ * PhotoNamingCard — "Invisible" photo naming exercise
  * 
- * Features:
- * - Large, clear image display (280px)
- * - "Hear it" audio button using TTS
- * - Progressive cues (semantic → phonemic)
- * - Touch choice fallback after timeout
- * - Retry option for unclear responses
- * - Clinical feedback using feedbackGenerator
+ * Feels like Maya showing a photo in conversation, not launching a game.
+ * User sees image → knows instantly what to do → responds → moves on.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Lightbulb, Volume2, Loader2 } from 'lucide-react';
+import { CardContent } from '@/components/ui/card';
+import { Check, RotateCcw, Lightbulb } from 'lucide-react';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { 
   CardContainer, 
-  SpeechStatusBar, 
   AudioButton, 
   SuccessAnimation,
   HintChip,
@@ -47,16 +40,13 @@ interface PhotoNamingCardProps {
   onComplete: (result: PhotoNamingCardResult) => void;
 }
 
-// Generate 3 choices including the correct answer
 function generateChoices(target: string, allTrials: PhotoTrial[]): string[] {
   const distractors = allTrials
     .filter(t => t.target.toLowerCase() !== target.toLowerCase())
     .map(t => t.target)
     .sort(() => Math.random() - 0.5)
     .slice(0, 2);
-  
-  const choices = [target, ...distractors].sort(() => Math.random() - 0.5);
-  return choices;
+  return [target, ...distractors].sort(() => Math.random() - 0.5);
 }
 
 export function PhotoNamingCard({ 
@@ -83,7 +73,6 @@ export function PhotoNamingCard({
   const choiceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasCompletedRef = useRef(false);
 
-  // Select a photo on mount
   useEffect(() => {
     const maxDifficulty = difficulty === 'easy' ? 2 : 3;
     const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
@@ -92,14 +81,11 @@ export function PhotoNamingCard({
     setChoices(generateChoices(randomPhoto.target, photos));
     startTimeRef.current = Date.now();
     
-    // Set up progressive cue timers
     cueTimerRef.current = setTimeout(() => {
-      // Show semantic cue after 5 seconds
       if (!hasCompletedRef.current && randomPhoto) {
         const semanticCueText = generateSemanticCue(randomPhoto.category, randomPhoto.target);
         setCurrentCue({ text: semanticCueText, type: 'semantic' });
         
-        // Show phonemic cue after 8 more seconds
         cueTimerRef.current = setTimeout(() => {
           if (!hasCompletedRef.current) {
             const phonemicCueText = generatePhonologicalCue(randomPhoto.target);
@@ -109,11 +95,8 @@ export function PhotoNamingCard({
       }
     }, 5000);
     
-    // Show choice fallback after 10 seconds
     choiceTimerRef.current = setTimeout(() => {
-      if (!hasCompletedRef.current) {
-        setShowChoices(true);
-      }
+      if (!hasCompletedRef.current) setShowChoices(true);
     }, 10000);
     
     return () => {
@@ -122,50 +105,29 @@ export function PhotoNamingCard({
     };
   }, [difficulty]);
 
-  // Check if response matches target
-  const checkMatch = useCallback((spoken: string, target: string): { isMatch: boolean; quality: 'exact' | 'partial' | 'attempt' } => {
-    const spokenLower = spoken.toLowerCase().trim();
-    const targetLower = target.toLowerCase();
-    
-    if (spokenLower === targetLower || spokenLower.includes(targetLower)) {
-      return { isMatch: true, quality: 'exact' };
-    }
-    
-    // Check for partial match (first syllable or similar)
-    if (targetLower.startsWith(spokenLower.slice(0, 3)) || spokenLower.startsWith(targetLower.slice(0, 3))) {
-      return { isMatch: true, quality: 'partial' };
-    }
-    
-    // Any speech is an attempt
-    if (spokenLower.length >= 2) {
-      return { isMatch: false, quality: 'attempt' };
-    }
-    
-    return { isMatch: false, quality: 'attempt' };
+  const checkMatch = useCallback((spoken: string, target: string) => {
+    const s = spoken.toLowerCase().trim();
+    const t = target.toLowerCase();
+    if (s === t || s.includes(t)) return { isMatch: true, quality: 'exact' as const };
+    if (t.startsWith(s.slice(0, 3)) || s.startsWith(t.slice(0, 3))) return { isMatch: true, quality: 'partial' as const };
+    if (s.length >= 2) return { isMatch: false, quality: 'attempt' as const };
+    return { isMatch: false, quality: 'attempt' as const };
   }, []);
 
-  const handleComplete = useCallback((spoken: string, wasChoice: boolean = false) => {
+  const handleComplete = useCallback((spoken: string, wasChoice = false) => {
     if (hasCompletedRef.current || !trial) return;
     hasCompletedRef.current = true;
     
     const match = checkMatch(spoken, trial.target);
-    
-    // Generate appropriate feedback
     let feedback = "Got it!";
-    if (match.quality === 'exact') {
-      feedback = `Perfect! "${trial.target}"`;
-    } else if (match.quality === 'partial') {
-      feedback = generateGentleFeedback('attempted', trial.target, spoken);
-    } else {
-      feedback = `The word is "${trial.target}". Good try!`;
-    }
+    if (match.quality === 'exact') feedback = `"${trial.target}" ✓`;
+    else if (match.quality === 'partial') feedback = generateGentleFeedback('attempted', trial.target, spoken);
+    else feedback = `The word is "${trial.target}"`;
     
     setFeedbackMessage(feedback);
     setPhase('complete');
 
-    const latencyMs = firstWordTimeRef.current 
-      ? firstWordTimeRef.current - startTimeRef.current
-      : null;
+    const latencyMs = firstWordTimeRef.current ? firstWordTimeRef.current - startTimeRef.current : null;
 
     setTimeout(() => {
       onComplete({
@@ -177,38 +139,30 @@ export function PhotoNamingCard({
         usedAudio,
         usedChoices: wasChoice || usedChoices,
       });
-    }, 800);
+    }, 600);
   }, [trial, checkMatch, currentCue, usedAudio, usedChoices, onComplete]);
 
-  // Handle manual done (with potential retry)
   const handleDone = useCallback(() => {
     if (!trial || hasCompletedRef.current) return;
-    
     const match = checkMatch(transcript, trial.target);
-    
-    // If unclear match and user has spoken, offer retry
     if (!match.isMatch && transcript.trim().length > 0 && phase !== 'retry') {
       setPhase('retry');
       return;
     }
-    
     handleComplete(transcript);
   }, [trial, transcript, phase, checkMatch, handleComplete]);
 
-  // Handle choice selection
   const handleChoiceSelect = (choice: string) => {
     setUsedChoices(true);
     handleComplete(choice, true);
   };
 
-  // Handle retry attempt
   const handleRetry = () => {
     setPhase('listening');
     startTimeRef.current = Date.now();
     firstWordTimeRef.current = null;
   };
 
-  // Handle audio playback
   const handlePlayAudio = () => {
     if (trial) {
       setUsedAudio(true);
@@ -216,55 +170,37 @@ export function PhotoNamingCard({
     }
   };
 
-  // Handle hint request
   const handleRequestHint = () => {
     if (!trial || currentCue) return;
     const semanticCueText = generateSemanticCue(trial.category, trial.target);
     setCurrentCue({ text: semanticCueText, type: 'semantic' });
   };
 
-  // Track first word timing
   useEffect(() => {
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
     }
   }, [transcript]);
 
-  // Auto-complete after speech detection + silence
   useEffect(() => {
     if (hasCompletedRef.current || phase === 'complete') return;
-
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-    }
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
     const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
     if (wordCount >= 1 && trial) {
       const match = checkMatch(transcript, trial.target);
-      
-      // IMPROVED: Much faster completion on match (800ms vs 1500ms)
-      // Non-match gets a shorter window too (1500ms vs 2500ms) for responsiveness
       const timeout = match.isMatch ? 800 : 1500;
-      
       silenceTimerRef.current = setTimeout(() => {
         if (!hasCompletedRef.current) {
-          if (match.isMatch) {
-            handleComplete(transcript);
-          } else if (phase !== 'retry') {
-            setPhase('retry');
-          }
+          if (match.isMatch) handleComplete(transcript);
+          else if (phase !== 'retry') setPhase('retry');
         }
       }, timeout);
     }
 
-    return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-    };
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
   }, [transcript, phase, trial, checkMatch, handleComplete]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -273,125 +209,104 @@ export function PhotoNamingCard({
     };
   }, []);
 
-  if (!trial) {
-    return (
-      <Card className="bg-muted/50 animate-pulse">
-        <CardContent className="p-4 h-64" />
-      </Card>
-    );
-  }
+  if (!trial) return null;
 
   const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
 
   return (
     <CardContainer>
-      <CardContent className="p-3 space-y-2">
-        {/* Photo + prompt side by side for compactness */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shadow-md flex-shrink-0">
-            <img
-              src={trial.imageUrl}
-              alt="What is this?"
-              className="w-full h-full object-cover"
+      <CardContent className="p-0">
+        {/* Photo — the hero element, clean and prominent */}
+        <div className="relative overflow-hidden rounded-t-2xl">
+          <img
+            src={trial.imageUrl}
+            alt="What is this?"
+            className="w-full aspect-[16/10] object-cover"
+            draggable={false}
+          />
+          {/* Subtle gradient overlay at bottom for text readability */}
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/30 to-transparent" />
+          
+          {/* Audio + Hint floating over image bottom-right */}
+          <div className="absolute bottom-2 right-2 flex gap-1">
+            <AudioButton 
+              onPlay={handlePlayAudio}
+              isPlaying={isPlaying}
+              isLoading={audioLoading}
+              label=""
+              size="sm"
             />
-          </div>
-          <div className="flex-1 space-y-2">
-            <p className="text-base font-medium text-foreground">What is this?</p>
-            <div className="flex flex-wrap gap-2">
-              <AudioButton 
-                onPlay={handlePlayAudio}
-                isPlaying={isPlaying}
-                isLoading={audioLoading}
-                label="Hear it"
-                size="sm"
-              />
-              {!currentCue && (
-                <Button 
-                  variant="outline" 
-                  onClick={handleRequestHint}
-                  className="h-9 gap-1.5 text-sm"
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  Hint
-                </Button>
-              )}
-            </div>
+            {!currentCue && (
+              <button
+                onClick={handleRequestHint}
+                className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+              >
+                <Lightbulb className="w-4 h-4 text-white" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Cue display */}
-        {currentCue && (
-          <div className="flex justify-center">
-            <HintChip hint={currentCue.text} type={currentCue.type} />
-          </div>
-        )}
+        {/* Interaction area — compact, below photo */}
+        <div className="px-4 py-3 space-y-2">
+          {/* Prompt — minimal */}
+          <p className="text-sm text-muted-foreground text-center">
+            What is this?
+          </p>
 
-        {/* Status based on phase */}
-        {phase === 'listening' && (
-          <div className="space-y-2">
-            {/* Choice fallback — shown prominently */}
-            {showChoices && (
-              <div className="space-y-1.5">
-                <p className="text-center text-sm text-muted-foreground">
-                  Say the word or tap it:
-                </p>
-                <ChoiceButtonGrid 
-                  choices={choices} 
-                  onSelect={handleChoiceSelect}
+          {/* Cue */}
+          {currentCue && (
+            <div className="flex justify-center">
+              <HintChip hint={currentCue.text} type={currentCue.type} />
+            </div>
+          )}
+
+          {/* Listening phase */}
+          {phase === 'listening' && (
+            <div className="space-y-2">
+              {showChoices ? (
+                <ChoiceButtonGrid choices={choices} onSelect={handleChoiceSelect} />
+              ) : (
+                <TranscriptDisplay 
+                  transcript={transcript} 
+                  placeholder="Say the word..."
+                  minHeight="min-h-[24px]"
                 />
-              </div>
-            )}
+              )}
 
-            {!showChoices && (
-              <TranscriptDisplay 
-                transcript={transcript} 
-                placeholder="Say the word..."
-                minHeight="min-h-[36px]"
-              />
-            )}
+              {wordCount > 0 && (
+                <div className="flex justify-center">
+                  <LargeTouchButton onClick={handleDone} variant="success" icon={<Check className="w-4 h-4" />}>
+                    Done
+                  </LargeTouchButton>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Done button */}
-            {wordCount > 0 && (
-              <div className="flex justify-center">
-                <LargeTouchButton onClick={handleDone} variant="success" icon={<Check className="w-4 h-4" />}>
-                  Done
+          {/* Retry phase */}
+          {phase === 'retry' && (
+            <div className="space-y-2 animate-in fade-in duration-200">
+              <p className="text-center text-xs text-muted-foreground">
+                I heard: <span className="font-medium text-foreground">"{transcript}"</span>
+              </p>
+              <div className="flex justify-center gap-2">
+                <LargeTouchButton onClick={handleRetry} variant="outline" icon={<RotateCcw className="w-3.5 h-3.5" />}>
+                  Retry
+                </LargeTouchButton>
+                <LargeTouchButton onClick={() => handleComplete(transcript)} variant="primary">
+                  That's right
                 </LargeTouchButton>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Retry phase */}
-        {phase === 'retry' && (
-          <div className="space-y-2 animate-in fade-in duration-200">
-            <p className="text-center text-sm text-muted-foreground">
-              I heard: <span className="font-medium text-foreground">"{transcript}"</span>
-            </p>
-            
-            <div className="flex justify-center gap-2">
-              <Button variant="outline" onClick={handleRetry} className="gap-1.5 h-10">
-                <RotateCcw className="w-3.5 h-3.5" />
-                Retry
-              </Button>
-              <LargeTouchButton onClick={() => handleComplete(transcript)} variant="primary">
-                That's right
-              </LargeTouchButton>
+              <ChoiceButtonGrid choices={choices} onSelect={handleChoiceSelect} />
             </div>
-            
-            {/* Also show choices in retry */}
-            <ChoiceButtonGrid 
-              choices={choices} 
-              onSelect={handleChoiceSelect}
-            />
-          </div>
-        )}
+          )}
 
-        {/* Complete phase */}
-        {phase === 'complete' && (
-          <SuccessAnimation 
-            message={feedbackMessage}
-          />
-        )}
+          {/* Complete */}
+          {phase === 'complete' && (
+            <SuccessAnimation message={feedbackMessage} />
+          )}
+        </div>
       </CardContent>
     </CardContainer>
   );
