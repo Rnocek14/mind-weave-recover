@@ -1228,6 +1228,9 @@ export function useCoachSession({
     lastAction,
     pendingPopupExercise,
     ingestExerciseResult,
+    activeInlinePhoto: activeInlinePhotoRef.current 
+      ? { target: activeInlinePhotoRef.current.trial.target, category: activeInlinePhotoRef.current.trial.category, features: activeInlinePhotoRef.current.trial.features }
+      : null,
     startSession,
     processUserTurn,
     insertPendingCard,
