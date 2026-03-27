@@ -546,8 +546,9 @@ export function useCoachSession({
     const rawSilenceMs = totalDurationMs 
       ? Math.max(0, totalDurationMs - estimatedSpeechMs)
       : (latencyMs ?? 0);
-    // Only use silence triggers if they truly didn't speak
-    const effectiveSilenceMs = wordCount === 0 ? rawSilenceMs : 0;
+    // FIX: Allow silence detection for effortful speakers (1-2 words)
+    // Core aphasia users produce minimal speech — zeroing silence breaks cueing for them
+    const effectiveSilenceMs = wordCount <= 2 ? rawSilenceMs : 0;
     
     const cueRec = getCueForUtterance(
       {
