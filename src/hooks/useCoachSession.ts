@@ -1111,7 +1111,8 @@ export function useCoachSession({
       
       // MID-SESSION STRATEGY RE-EVALUATION
       // Check if session signals warrant a strategy switch
-      if (activeStrategyRef.current && patientIntelligence) {
+      // CRITICAL: Never override a clinician-locked strategy
+      if (activeStrategyRef.current && patientIntelligence && !clinicianLockedRef.current) {
         const snapshot = sessionIntelRef.current.getSnapshot();
         const midSignals: MidSessionSignals = {
           successRate: snapshot.successRate,
