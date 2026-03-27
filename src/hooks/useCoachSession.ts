@@ -214,7 +214,7 @@ export function useCoachSession({
     if (!mayaState) {
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
-    // Always load patient intelligence for exercise biasing
+    // Always load patient intelligence for exercise biasing + strategy selection
     loadPatientIntelligence(userId).then(profile => {
       if (profile) {
         setPatientIntelligence(profile);
@@ -225,6 +225,28 @@ export function useCoachSession({
           ...orchestratorStateRef.current,
           intelligenceBiases: biases,
         };
+        
+        // Select therapy strategy from cross-session intelligence
+        const { strategy, candidates } = selectTherapyStrategy({
+          patientProfile: profile,
+          todayFocus: null, // Will be enriched per-turn if available
+          sessionSnapshot: null, // Will be enriched after first exercise
+        });
+        activeStrategyRef.current = strategy;
+        // Inject strategy into orchestrator state
+        orchestratorStateRef.current = {
+          ...orchestratorStateRef.current,
+          activeStrategy: strategy,
+        };
+        
+        console.log('[therapy-strategy] Selected:', {
+          strategy: strategy.id,
+          label: strategy.label,
+          goal: strategy.sessionGoal,
+          confidence: strategy.confidence,
+          reasoning: strategy.reasoning,
+          candidates: candidates.slice(0, 3).map(c => `${c.id}(${c.score})`),
+        });
         console.log('[patient-intelligence] Loaded cross-session profile:', {
           sessions: profile.sessionCount,
           phonemeErrors: profile.persistentPhonemeErrors.length,
