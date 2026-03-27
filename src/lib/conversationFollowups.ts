@@ -109,7 +109,7 @@ export const NARROWING_PROMPTS = [
 
 // DEDUP GUARD: Track last used lines to prevent consecutive repetition
 const _lastUsedLines: string[] = [];
-const MAX_DEDUP_HISTORY = 4;
+const MAX_DEDUP_HISTORY = 8; // Increased from 4 to prevent repeats over longer sessions
 
 function pickWithoutRepeat(lines: string[]): string {
   const available = lines.filter(l => !_lastUsedLines.includes(l));
