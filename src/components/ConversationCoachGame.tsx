@@ -69,6 +69,7 @@ export function ConversationCoachGame({
   const [autoListenEnabled, setAutoListenEnabled] = useState(true);
   const [showHelpers, setShowHelpers] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
+  const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
@@ -81,6 +82,7 @@ export function ConversationCoachGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
+  const lastSilenceCueLevelRef = useRef<number>(-1);
   
   // Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
