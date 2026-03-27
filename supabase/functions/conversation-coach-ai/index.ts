@@ -363,6 +363,7 @@ serve(async (req) => {
       speechState,
       sessionIntelligence,
       crossSessionIntelligence,
+      therapyStrategy,
     );
 
     // Construct messages
