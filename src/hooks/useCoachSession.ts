@@ -1053,6 +1053,7 @@ export function useCoachSession({
     setEngagementState(null);
     setSessionPhase('warmup');
     primedVocabularyRef.current = []; // FIX #4: Reset ref
+    activeInlinePhotoRef.current = null; // Reset inline photo
     rollingMemoryRef.current = ''; // Reset rolling semantic memory
     setAssistivePanelState({
       wordTiles: [],
