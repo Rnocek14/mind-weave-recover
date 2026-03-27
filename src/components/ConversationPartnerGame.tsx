@@ -255,7 +255,7 @@ export function ConversationPartnerGame({
       const timer = setTimeout(async () => {
         const nudge = getNudge(8000);
         try {
-          await speak(nudge, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+          await speak(nudge, { voiceId: MAYA_VOICE_ID });
         } catch (err) {
           console.warn('Nudge TTS failed:', err);
         }

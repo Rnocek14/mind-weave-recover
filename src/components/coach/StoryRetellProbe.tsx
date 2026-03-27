@@ -7,11 +7,11 @@
  * - sentence count
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Volume2, Send, ThumbsUp, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface StoryItem {
   title: string;
@@ -61,26 +61,21 @@ export function StoryRetellProbe({ onComplete }: StoryRetellProbeProps) {
   const [phase, setPhase] = useState<Phase>('listen');
   const [retellText, setRetellText] = useState('');
   const [results, setResults] = useState<any>(null);
-  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const playStory = useCallback(() => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(story.text);
-      utt.rate = 0.85;
-      utt.onend = () => setIsPlaying(false);
-      synthRef.current = utt;
-      setIsPlaying(true);
-      window.speechSynthesis.speak(utt);
-    }
-  }, [story]);
+  const { speak, stop: stopTTS, isSpeaking } = useTextToSpeech();
 
   useEffect(() => {
     return () => {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopTTS();
     };
-  }, []);
+  }, [stopTTS]);
+
+  const playStory = useCallback(async () => {
+    try {
+      await speak(story.text);
+    } catch (err) {
+      console.warn('[StoryRetell] TTS failed:', err);
+    }
+  }, [story, speak]);
 
   const scoreRetell = useCallback((text: string) => {
     const lower = text.toLowerCase();
@@ -126,9 +121,9 @@ export function StoryRetellProbe({ onComplete }: StoryRetellProbeProps) {
         </div>
 
         <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={playStory} disabled={isPlaying}>
+          <Button variant="outline" size="sm" onClick={playStory} disabled={isSpeaking}>
             <Volume2 className="w-4 h-4 mr-1" />
-            {isPlaying ? 'Playing...' : 'Listen'}
+            {isSpeaking ? 'Playing...' : 'Listen'}
           </Button>
           <Button size="sm" onClick={() => setPhase('retell')}>
             Ready to retell
