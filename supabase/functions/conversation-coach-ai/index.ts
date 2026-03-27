@@ -402,8 +402,11 @@ serve(async (req) => {
       } else if (speechAnalysis.fluencyScore > 60) {
         note += 'FLOWING — do NOT say "no rush" or "take your time". They are fine. ';
       }
-      if (speechAnalysis.circumlocutionDetected) {
-        note += 'Circumlocution detected — offer the word naturally. ';
+      if (speechAnalysis.circumlocutionDetected || circumlocutionDetected) {
+        note += 'CIRCUMLOCUTION DETECTED — the user is describing a word they cannot find. ';
+        note += 'Try to guess the word from context and offer it naturally. ';
+        note += 'Example: If they say "the place where you buy food", say "The grocery store? Tell me about it." ';
+        note += 'Do NOT ask them to try again. Just offer the word and move on. ';
       }
       if (speechAnalysis.wordCount < 3 && speechAnalysis.fluencyScore > 50) {
         note += 'Short but confident — they are okay, just brief. ';
@@ -413,6 +416,14 @@ serve(async (req) => {
       }
       note += ']';
       messages.push({ role: 'system', content: note });
+    }
+
+    // Difficulty change narration — prepend to response
+    if (difficultyNarration) {
+      messages.push({
+        role: 'system',
+        content: `[IMPORTANT: Start your response with this difficulty adjustment: "${difficultyNarration}" — then continue with your normal reaction and question.]`,
+      });
     }
 
     // Cue context
