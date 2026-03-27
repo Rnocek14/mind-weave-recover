@@ -1122,7 +1122,93 @@ export function useCoachSession({
     }
   }, [addMessage]);
 
-  const reset = useCallback(() => {
+  // ═══════════════════════════════════════════════════════════════
+  // INLINE MINIMAL PAIRS — Handle tap selection
+  // ═══════════════════════════════════════════════════════════════
+  const handleMinimalPairSelect = useCallback((messageId: string, selectedIndex: 0 | 1) => {
+    const pair = activeInlineMinimalPairRef.current;
+    if (!pair || pair.messageId !== messageId) return;
+    
+    const isCorrect = selectedIndex === pair.trial.targetIndex;
+    const latency = Date.now() - pair.startTime;
+    const wasQuick = latency < 3000;
+    
+    // Update the message to show result
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId && msg.type === 'inline_minimal_pair'
+        ? { ...msg, answered: true, selectedIndex, wasCorrect: isCorrect }
+        : msg
+    ));
+    
+    // Generate natural therapist feedback
+    const targetWord = pair.trial.targetWord;
+    const otherWord = pair.trial.targetIndex === 0 ? pair.trial.pair.word2 : pair.trial.pair.word1;
+    let feedback: string;
+    
+    if (isCorrect) {
+      if (wasQuick) {
+        const quickFeedback = [
+          `Yes! "${targetWord}" — you heard that right away.`,
+          `"${targetWord}" — no hesitation. Nice ear!`,
+          `That's it! You caught the difference between "${targetWord}" and "${otherWord}" instantly.`,
+        ];
+        feedback = quickFeedback[Math.floor(Math.random() * quickFeedback.length)];
+      } else {
+        const normalFeedback = [
+          `Yes, "${targetWord}" — good listening!`,
+          `That's right! "${targetWord}" and "${otherWord}" sound similar, but you got it.`,
+          `"${targetWord}" — exactly. Those two can be tricky.`,
+        ];
+        feedback = normalFeedback[Math.floor(Math.random() * normalFeedback.length)];
+      }
+    } else {
+      const wrongFeedback = [
+        `Close — that was actually "${targetWord}." "${targetWord}" and "${otherWord}" sound really similar, so that's a tough one.`,
+        `Good try! The word was "${targetWord}." The difference between "${pair.trial.pair.phoneme1}" and "${pair.trial.pair.phoneme2}" is subtle.`,
+        `Not quite — it was "${targetWord}." Those two are easy to mix up. We'll practice more.`,
+      ];
+      feedback = wrongFeedback[Math.floor(Math.random() * wrongFeedback.length)];
+    }
+    
+    // Natural continuation
+    const topic = orchestratorStateRef.current.currentTopic;
+    let continuation = '';
+    if (topic) {
+      const continuations = [
+        ` Anyway — back to ${topic}.`,
+        ` So where were we with ${topic}?`,
+        ` Okay — you were telling me about ${topic}...`,
+      ];
+      continuation = continuations[Math.floor(Math.random() * continuations.length)];
+    } else {
+      const continuations = [
+        ' Okay — what else is on your mind?',
+        ' Alright, keep going!',
+        '',
+      ];
+      continuation = continuations[Math.floor(Math.random() * continuations.length)];
+    }
+    
+    const fullResponse = feedback + continuation;
+    addMessage({ type: 'ai', text: fullResponse, id: generateId() });
+    aiWordsRef.current += countWords(fullResponse);
+    
+    // Update orchestrator
+    orchestratorStateRef.current = updateState(
+      orchestratorStateRef.current,
+      isCorrect ? 'strong_flow' : 'word_search_stall',
+      true,
+      undefined,
+      isCorrect,
+      topic || undefined,
+    );
+    
+    activeInlineMinimalPairRef.current = null;
+    setPendingAIText(fullResponse);
+    setCurrentPhase('user_turn');
+  }, [addMessage]);
+
+
     setMessages([]);
     setIsComplete(false);
     setIsProcessing(false);
