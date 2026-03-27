@@ -399,7 +399,13 @@ export function useCoachSession({
     );
     analysisHistoryRef.current.push(analysis);
 
-    // Update engagement monitor
+    // SESSION INTELLIGENCE: Record conversation-level signals
+    if (analysis.circumlocutionDetected) {
+      sessionIntelRef.current.recordConversationSignal('circumlocution', orchestratorStateRef.current.turnNumber, transcript);
+    }
+    if (analysis.effortfulSpeech) {
+      sessionIntelRef.current.recordConversationSignal('effortful', orchestratorStateRef.current.turnNumber);
+    }
     const wordCount = countWords(transcript);
     engagementMonitorRef.current.addTrial({
       correct: wordCount > 0 && !analysis.effortfulSpeech,
