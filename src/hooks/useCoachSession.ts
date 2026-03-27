@@ -608,16 +608,22 @@ export function useCoachSession({
       const trial = photos[Math.floor(Math.random() * photos.length)];
       
       if (trial) {
-        // Natural intro — Maya says something casual
+        // Natural, varied intro — feels like a therapist, not a system
         const currentTopic = orchestratorStateRef.current.currentTopic;
-        const intros = [
-          "Oh wait — look at this for a second.",
-          "Hey, check this out real quick.",
-          "Hold on — what do you see here?",
-          "Take a look at this.",
-          "Hmm, here's one for you —",
+        const topicIntros = currentTopic ? [
+          `Hey — while we're talking about ${currentTopic}, take a look at this.`,
+          `Oh, this reminds me of something. What do you see here?`,
+          `Hold on — before I forget, check this out.`,
+        ] : [];
+        const genericIntros = [
+          "Hey — take a look at this for me.",
+          "Here's one for you — what do you see?",
+          "Oh wait, look at this real quick.",
+          "Check this out —",
+          "Okay, here's a quick one.",
         ];
-        const intro = intros[Math.floor(Math.random() * intros.length)];
+        const introPool = topicIntros.length > 0 && Math.random() < 0.4 ? topicIntros : genericIntros;
+        const intro = introPool[Math.floor(Math.random() * introPool.length)];
         addMessage({ type: 'ai', text: intro, id: generateId() });
         aiWordsRef.current += countWords(intro);
         
@@ -631,8 +637,14 @@ export function useCoachSession({
           answered: false,
         });
         
-        // Follow-up prompt
-        const prompt = "What is this?";
+        // Varied follow-up prompt (not always "What is this?")
+        const prompts = [
+          "What do you see here?",
+          "What's this one?",
+          "Know what this is?",
+          "What is it?",
+        ];
+        const prompt = intro.includes('what do you see') ? "Go ahead." : prompts[Math.floor(Math.random() * prompts.length)];
         addMessage({ type: 'ai', text: prompt, id: generateId() });
         aiWordsRef.current += countWords(prompt);
         
