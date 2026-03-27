@@ -84,6 +84,12 @@ export function ConversationCoachGame({
   const turnStartTimeRef = useRef<number | null>(null);
   const lastAudioBlobRef = useRef<Blob | null>(null);
   const lastSilenceCueLevelRef = useRef<number>(-1);
+  const activeInlinePhotoRef = useRef(activeInlinePhoto);
+  
+  // Keep ref in sync for setInterval closures
+  useEffect(() => {
+    activeInlinePhotoRef.current = activeInlinePhoto;
+  }, [activeInlinePhoto]);
   
   // Assistive panel state
   const [showAssistivePanel, setShowAssistivePanel] = useState(true);
