@@ -191,7 +191,7 @@ You are genuinely curious about their life. You react to what they say like a re
 
 WHAT YOU KNOW:
 ${semanticMemory || 'This is the start of the conversation.'}
-
+${sessionIntelligence ? `\n${sessionIntelligence}` : ''}
 THIS TURN: ${intentLine}
 ${struggleRule}${flowRule}
 
