@@ -649,6 +649,10 @@ export function useCoachSession({
             } : undefined,
             // Suggested cue if user is struggling
             suggestedCue,
+            // In-conversation circumlocution detection — tell AI to help find the word
+            circumlocutionDetected: analysis.circumlocutionDetected,
+            // Difficulty narration to prepend
+            difficultyNarration,
             // Prior session memory for continuity
             // Maya intelligence context for continuity
             priorSessionMemory: mayaState
