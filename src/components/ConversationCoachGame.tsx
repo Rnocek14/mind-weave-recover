@@ -39,6 +39,7 @@ import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
+import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 
 interface ConversationCoachGameProps {
   userId: string;
