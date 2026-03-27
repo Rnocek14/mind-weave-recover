@@ -111,7 +111,7 @@ export function ConversationPartnerGame({
     setPhase('ai_speaking');
     
     try {
-      await speak(opener, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+      await speak(opener, { voiceId: MAYA_VOICE_ID });
     } catch (err) {
       console.warn('TTS failed, continuing without voice:', err);
     }
