@@ -373,7 +373,6 @@ export function getNextAction(
             objective: 'phoneme_discrimination' as TherapyObjective,
           };
         }
-        }
         return {
           type: 'inline_photo_naming',
           difficulty: cardDecision.config.difficulty,
