@@ -986,14 +986,18 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Card active — with FALLBACK SUBMIT BUTTON */}
+        {/* Card active — with FALLBACK SUBMIT BUTTON + TIMEOUT */}
         {isCardActive && (
           <div className="text-center space-y-3">
             <p className="text-base text-muted-foreground flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               Complete the activity above
             </p>
-            {/* Fallback: user can force-submit if stuck */}
+            {cardCountdown !== null && (
+              <p className="text-sm text-warning animate-pulse">
+                Auto-skipping in {cardCountdown}s...
+              </p>
+            )}
             <Button
               variant="outline"
               size="sm"
