@@ -573,7 +573,8 @@ function selectCardForStuckType(stuckType: StuckType, state: OrchestratorState):
       return { cardType: 'thought_prompt', config: { difficulty: 'easy' } };
 
     case 'strong_flow':
-      return null;
+      // Flowing users still benefit from variety — give them a challenge
+      return { cardType: 'recall_prompt', config: { difficulty: 'medium' as any } };
 
     default:
       return null;
