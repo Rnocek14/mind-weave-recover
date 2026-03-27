@@ -453,13 +453,11 @@ export function ConversationCoachGame({
               setSilenceCueText(cueText);
             } else if (newVal === 7) {
               // Semantic cue about the photo
-              const { generateSemanticCue } = await import('@/lib/cueGenerator');
               const cueText = generateSemanticCue(activeInlinePhoto.category, activeInlinePhoto.target, activeInlinePhoto.features);
               setSilenceCueText(cueText);
               speakStream(cueText).catch(() => {});
             } else if (newVal === 11) {
               // Phonemic cue
-              const { generatePhonologicalCue } = await import('@/lib/cueGenerator');
               const cueText = generatePhonologicalCue(activeInlinePhoto.target, activeInlinePhoto.features);
               setSilenceCueText(cueText);
               speakStream(cueText).catch(() => {});
