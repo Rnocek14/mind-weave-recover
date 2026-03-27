@@ -111,6 +111,9 @@ export interface OrchestratorState {
     targetPhonemes: string[];
     retryWords: string[];
   };
+  
+  // Active therapy strategy from strategy engine
+  activeStrategy?: TherapyStrategy | null;
 }
 
 // Speech analysis data for smarter card selection
