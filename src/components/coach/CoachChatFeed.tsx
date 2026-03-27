@@ -208,6 +208,23 @@ export function CoachChatFeed({
             />
           </div>
         );
+
+      case 'inline_minimal_pair':
+        return (
+          <div key={message.id} className="py-2 animate-fade-in">
+            <InlineMinimalPairMessage
+              image1Url={message.image1Url}
+              image2Url={message.image2Url}
+              word1={message.word1}
+              word2={message.word2}
+              targetIndex={message.targetIndex}
+              answered={message.answered}
+              selectedIndex={message.selectedIndex}
+              wasCorrect={message.wasCorrect}
+              onSelect={(idx) => onMinimalPairSelect?.(message.id, idx)}
+            />
+          </div>
+        );
     }
   };
 
