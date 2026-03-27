@@ -53,6 +53,8 @@ import { ExerciseStruggleCard } from "@/components/clinician/ExerciseStruggleCar
 import { GoalTrackingCard } from "@/components/clinician/GoalTrackingCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
+import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
+import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
