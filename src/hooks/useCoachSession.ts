@@ -209,6 +209,7 @@ export function useCoachSession({
   const [patientIntelligence, setPatientIntelligence] = useState<PatientIntelligenceProfile | null>(null);
   const intelligenceBiasesRef = useRef<IntelligenceBiases>({ minimalPairBias: 0, photoNamingBias: 0, targetPhonemes: [], retryWords: [] });
   const activeStrategyRef = useRef<TherapyStrategy | null>(null);
+  const clinicianLockedRef = useRef<boolean>(false);
   
   // Load cross-session intelligence and fallback summary
   useEffect(() => {
