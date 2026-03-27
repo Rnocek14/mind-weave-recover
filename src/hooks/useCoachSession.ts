@@ -436,11 +436,22 @@ export function useCoachSession({
     // Update difficulty controller with turn result
     const turnSuccess = wordCount >= 3 && !analysis.effortfulSpeech;
     const adjustResult = recordTurnAndAdjust(difficultyStateRef.current, turnSuccess);
+    const previousSupport = difficultyStateRef.current.supportLevel;
     difficultyStateRef.current = adjustResult.newState;
     
     // FIX #1: Update reactive supportLevel state when it changes
     if (adjustResult.newState.supportLevel !== currentSupportLevel) {
       setCurrentSupportLevel(adjustResult.newState.supportLevel);
+    }
+    
+    // TRANSPARENT ADAPTATION: Narrate difficulty changes so user understands
+    let difficultyNarration: string | null = null;
+    if (previousSupport !== adjustResult.newState.supportLevel) {
+      if (adjustResult.action === 'increase_support') {
+        difficultyNarration = getDifficultyNarration('easier');
+      } else if (adjustResult.action === 'decrease_support') {
+        difficultyNarration = getDifficultyNarration('harder');
+      }
     }
     
     // DEBUG LOGGING: Difficulty controller
@@ -449,6 +460,7 @@ export function useCoachSession({
       support: adjustResult.newState.supportLevel,
       cueFrequency: adjustResult.newState.cueFrequency,
       action: adjustResult.action,
+      narration: difficultyNarration,
     });
 
     let aiResponseText: string | null = null;
