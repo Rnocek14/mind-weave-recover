@@ -148,6 +148,7 @@ function buildSystemPrompt(
   therapyIntent?: string,
   speechState?: 'struggling' | 'flowing' | 'neutral',
   sessionIntelligence?: string,
+  crossSessionIntelligence?: string,
 ): string {
   let context = '';
 
@@ -191,6 +192,7 @@ You are genuinely curious about their life. You react to what they say like a re
 
 WHAT YOU KNOW:
 ${semanticMemory || 'This is the start of the conversation.'}
+${crossSessionIntelligence ? `\n${crossSessionIntelligence}` : ''}
 ${sessionIntelligence ? `\n${sessionIntelligence}` : ''}
 THIS TURN: ${intentLine}
 ${struggleRule}${flowRule}
@@ -276,6 +278,7 @@ serve(async (req) => {
       circumlocutionDetected,
       difficultyNarration,
       sessionIntelligence,
+      crossSessionIntelligence,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -302,6 +305,7 @@ serve(async (req) => {
       circumlocutionDetected?: boolean;
       difficultyNarration?: string;
       sessionIntelligence?: string;
+      crossSessionIntelligence?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -354,6 +358,7 @@ serve(async (req) => {
       therapyIntent,
       speechState,
       sessionIntelligence,
+      crossSessionIntelligence,
     );
 
     // Construct messages

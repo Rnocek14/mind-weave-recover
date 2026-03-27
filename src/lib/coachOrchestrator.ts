@@ -102,6 +102,14 @@ export interface OrchestratorState {
   recentExerciseResults: NormalizedExerciseResult[];
   recentPopupSlugs: string[];
   fatigueState: FatigueState;
+  
+  // Intelligence biases from cross-session patient profile
+  intelligenceBiases?: {
+    minimalPairBias: number;
+    photoNamingBias: number;
+    targetPhonemes: string[];
+    retryWords: string[];
+  };
 }
 
 // Speech analysis data for smarter card selection
@@ -355,8 +363,10 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline conversation-first experience
       if (cardDecision.cardType === 'photo_naming') {
-        // Occasionally use minimal pairs instead for variety (30% chance)
-        if (Math.random() < 0.3) {
+        // Intelligence-driven: bias toward minimal pairs if phoneme confusion detected
+        const mpBias = state.intelligenceBiases?.minimalPairBias ?? 0;
+        const minimalPairChance = Math.min(0.3 + mpBias, 0.7); // base 30% + bias
+        if (Math.random() < minimalPairChance) {
           return {
             type: 'inline_minimal_pairs',
             difficulty: cardDecision.config.difficulty,
@@ -384,7 +394,9 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline
       if (cardDecision.cardType === 'photo_naming') {
-        if (Math.random() < 0.3) {
+        const mpBias = state.intelligenceBiases?.minimalPairBias ?? 0;
+        const minimalPairChance = Math.min(0.3 + mpBias, 0.7);
+        if (Math.random() < minimalPairChance) {
           return {
             type: 'inline_minimal_pairs',
             difficulty: cardDecision.config.difficulty,

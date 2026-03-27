@@ -32,6 +32,8 @@ export interface SessionSummaryInput {
   avgFluency?: number;
   fluencyTrend?: string;
   primaryDomain?: string;
+  /** Serialized session intelligence snapshot for cross-session persistence */
+  sessionIntelligence?: Record<string, unknown>;
 }
 
 // ─── Build Summary ───
@@ -103,6 +105,8 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
       user_id: input.userId,
       session_id: input.sessionId,
       ...summary,
+      // Persist session intelligence in metadata column
+      metadata: input.sessionIntelligence ? input.sessionIntelligence : null,
     } as any);
 
   if (error) {

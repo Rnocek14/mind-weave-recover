@@ -12,6 +12,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
+import { loadPatientIntelligence, serializeSnapshotForStorage, formatPatientIntelligenceForPrompt, getIntelligenceBiases, type PatientIntelligenceProfile, type IntelligenceBiases } from '@/lib/patientIntelligence';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
@@ -202,11 +203,36 @@ export function useCoachSession({
   const [fallbackSummary, setFallbackSummary] = useState<CoachSessionSummary | null>(null);
   const popupResultsRef = useRef<NormalizedExerciseResult[]>([]);
   
-  // Only load directly if MayaState not provided
+  // Cross-session patient intelligence profile
+  const [patientIntelligence, setPatientIntelligence] = useState<PatientIntelligenceProfile | null>(null);
+  const intelligenceBiasesRef = useRef<IntelligenceBiases>({ minimalPairBias: 0, photoNamingBias: 0, targetPhonemes: [], retryWords: [] });
+  
+  // Load cross-session intelligence and fallback summary
   useEffect(() => {
     if (!mayaState) {
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
+    // Always load patient intelligence for exercise biasing
+    loadPatientIntelligence(userId).then(profile => {
+      if (profile) {
+        setPatientIntelligence(profile);
+        const biases = getIntelligenceBiases(profile);
+        intelligenceBiasesRef.current = biases;
+        // Inject biases into orchestrator state
+        orchestratorStateRef.current = {
+          ...orchestratorStateRef.current,
+          intelligenceBiases: biases,
+        };
+        console.log('[patient-intelligence] Loaded cross-session profile:', {
+          sessions: profile.sessionCount,
+          phonemeErrors: profile.persistentPhonemeErrors.length,
+          struggledWords: profile.persistentStruggledWords.length,
+          recoveredWords: profile.recoveredWords.length,
+          trend: profile.successRateTrend,
+          biases,
+        });
+      }
+    });
   }, [userId, mayaState]);
   
   // NEW: Session phase & assistive panel state
@@ -918,6 +944,10 @@ export function useCoachSession({
                 : undefined,
             // Rolling semantic memory from previous turns
             rollingMemory: rollingMemoryRef.current || undefined,
+            // Cross-session patient intelligence for longitudinal awareness
+            crossSessionIntelligence: patientIntelligence
+              ? formatPatientIntelligenceForPrompt(patientIntelligence)
+              : undefined,
             // Therapy intent for purposeful conversation
             therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
               ? (action as any).therapyIntent
@@ -1281,13 +1311,20 @@ export function useCoachSession({
     difficultyStateRef.current = createInitialDifficultyState();
   }, [maxTurns, speechAnalysis]);
 
-  // User-initiated session end — also persists summary
+  // User-initiated session end — also persists summary + session intelligence
   const endSession = useCallback(() => {
     setIsComplete(true);
     setCurrentPhase('complete');
     
     // Save session summary for cross-session memory
     const sessionMetrics = speechAnalysis.getSessionMetrics();
+    
+    // Serialize session intelligence snapshot for persistence
+    const intelligenceSnapshot = sessionIntelRef.current.getSnapshot();
+    const serializedIntelligence = intelligenceSnapshot.totalAttempts > 0
+      ? serializeSnapshotForStorage(intelligenceSnapshot)
+      : undefined;
+    
     saveCoachSessionSummary({
       userId,
       sessionId,
@@ -1296,6 +1333,14 @@ export function useCoachSession({
       avgFluency: sessionMetrics?.avgFluency,
       fluencyTrend: sessionMetrics?.fluencyTrend,
       primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
+      sessionIntelligence: serializedIntelligence as unknown as Record<string, unknown>,
+    });
+    
+    console.log('[session-end] Persisted intelligence:', {
+      totalAttempts: intelligenceSnapshot.totalAttempts,
+      struggledWords: intelligenceSnapshot.struggledWords.length,
+      phonemeErrors: intelligenceSnapshot.phonemeErrors.length,
+      patterns: intelligenceSnapshot.patterns.length,
     });
   }, [userId, sessionId, speechAnalysis]);
 
