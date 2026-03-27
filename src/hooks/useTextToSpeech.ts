@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 
 // Get Supabase URL and anon key from the client
 const SUPABASE_URL = 'https://wjedbpjaiqdxhmjzkcxo.supabase.co';
