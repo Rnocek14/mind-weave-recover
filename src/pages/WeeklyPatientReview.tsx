@@ -404,7 +404,7 @@ export default function WeeklyPatientReview() {
           userId={user?.id || ""}
           clinicianId={user?.id || ""}
           currentStrategy={(() => {
-            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile ?? undefined, todayFocus: null, sessionSnapshot: null });
+            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile ?? null, todayFocus: null, sessionSnapshot: null });
             return strategy;
           })()}
           onOverrideApplied={refetchOverrides}
