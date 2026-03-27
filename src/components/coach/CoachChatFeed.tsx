@@ -17,6 +17,7 @@ import { PhraseStarterCard } from './PhraseStarterCard';
 import { YesNoCard } from './YesNoCard';
 import { RecallPromptCard } from './RecallPromptCard';
 import { InlinePhotoMessage } from './InlinePhotoMessage';
+import { InlineMinimalPairMessage } from './InlineMinimalPairMessage';
 import { cn } from '@/lib/utils';
 
 // Message types in the feed
