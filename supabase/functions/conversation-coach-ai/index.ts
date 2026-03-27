@@ -274,6 +274,7 @@ serve(async (req) => {
       therapyIntent,
       circumlocutionDetected,
       difficultyNarration,
+      sessionIntelligence,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -299,6 +300,7 @@ serve(async (req) => {
       therapyIntent?: string;
       circumlocutionDetected?: boolean;
       difficultyNarration?: string;
+      sessionIntelligence?: string;
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
