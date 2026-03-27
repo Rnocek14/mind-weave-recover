@@ -55,6 +55,8 @@ import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionC
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
+import { ClinicianStrategyControls } from "@/components/clinician/ClinicianStrategyControls";
+import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useAdaptationTimeline } from "@/hooks/useAdaptationTimeline";
 import { reverseOverride } from "@/lib/clinicianQuickActions";
@@ -379,6 +381,20 @@ export default function WeeklyPatientReview() {
       {/* ─── THERAPY INTELLIGENCE REPORT ─── */}
       {intelligenceProfile && (
         <TherapyIntelligenceReport profile={intelligenceProfile} />
+      )}
+
+      {/* ─── CLINICIAN STRATEGY CONTROLS ─── */}
+      {intelligenceProfile && user?.id && profileId && (
+        <ClinicianStrategyControls
+          profileId={profileId}
+          userId={user?.id || ""}
+          clinicianId={user?.id || ""}
+          currentStrategy={(() => {
+            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile, todayFocus: null, sessionSnapshot: null });
+            return strategy;
+          })()}
+          onOverrideApplied={refetchOverrides}
+        />
       )}
 
       {/* ─── 3. PENDING SUGGESTIONS (decision gate) ─── */}

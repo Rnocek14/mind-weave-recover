@@ -17,6 +17,7 @@ import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { MayaState } from './buildMayaState';
 import type { NormalizedExerciseResult } from './normalizedExerciseResult';
 import type { TherapyStrategy } from './therapyStrategyEngine';
+import { enforceExerciseSelection, getEnforcedExerciseWeights, enforceDifficulty, enforceСueType, getEnforcedPacing, validateResponse, logEnforcement } from './strategyEnforcement';
 
 // Card types that can be inserted inline
 export type CardType = 'photo_naming' | 'semantic_features' | 'thought_prompt' | 'phrase_starter' | 'yes_no' | 'recall_prompt';
@@ -141,42 +142,47 @@ const LIMITS = {
   REPEATED_STUCK_THRESHOLD: 2,
 };
 
-/** Get effective limits, applying strategy overrides */
+/** Get effective limits, applying strategy enforcement */
 function getEffectiveLimits(state: OrchestratorState) {
   const strategy = state.activeStrategy;
   if (!strategy) return LIMITS;
   
+  // Use enforcement layer for pacing
+  const pacing = getEnforcedPacing(strategy);
+  
   return {
     ...LIMITS,
-    MAX_CARDS_PER_SESSION: strategy.pacing.maxExercisesPerSession,
-    // Higher conversation ratio = more turns between reps
-    TURNS_BETWEEN_REPS: strategy.pacing.conversationToTaskRatio >= 0.65 ? 7 : 5,
-    // Strategy-driven popup limits
-    MAX_POPUP_PER_SESSION: Math.max(2, strategy.pacing.maxExercisesPerSession - 2),
+    MAX_CARDS_PER_SESSION: pacing.maxExercisesPerSession,
+    TURNS_BETWEEN_REPS: pacing.minTurnsBetweenExercises,
+    MAX_POPUP_PER_SESSION: Math.max(2, pacing.maxExercisesPerSession - 2),
   };
 }
 
-/** Get strategy-preferred difficulty for inline exercises */
+/** Get strategy-enforced difficulty for inline exercises */
 function getStrategyDifficulty(state: OrchestratorState): 'easy' | 'medium' {
-  const bias = state.activeStrategy?.difficultyBias;
-  if (bias === 'easier') return 'easy';
-  if (bias === 'harder') return 'medium';
-  return 'easy';
+  if (!state.activeStrategy) return 'easy';
+  const enforced = enforceDifficulty('easy', state.activeStrategy);
+  return enforced === 'hard' ? 'medium' : enforced as 'easy' | 'medium';
 }
 
-/** Should we prefer minimal pairs over photo naming based on strategy? */
+/** Get strategy-enforced exercise weights (deterministic, not heuristic) */
 function getStrategyMinimalPairWeight(state: OrchestratorState): number {
   const strategy = state.activeStrategy;
-  if (!strategy) return 0.3; // default 30%
+  if (!strategy) return 0.3;
   
-  const mpPref = strategy.exercisePreferences.find(p => p.slug === 'minimal-pairs');
-  const pnPref = strategy.exercisePreferences.find(p => p.slug === 'photo-naming');
-  
-  if (mpPref && pnPref) {
-    return mpPref.weight / (mpPref.weight + pnPref.weight);
+  const weights = getEnforcedExerciseWeights(strategy);
+  logEnforcement(strategy.id, 'exercise_weight', `MP=${weights.minimalPairWeight.toFixed(2)} PN=${weights.photoNamingWeight.toFixed(2)}`, true);
+  return weights.minimalPairWeight;
+}
+
+/** Validate and enforce exercise selection before insertion */
+function enforceExerciseBeforeInsert(slug: string, state: OrchestratorState): boolean {
+  if (!state.activeStrategy) return true;
+  const decision = enforceExerciseSelection(slug, state.activeStrategy);
+  if (!decision.allowed) {
+    logEnforcement(state.activeStrategy.id, 'exercise_blocked', decision.reason, true);
   }
-  if (mpPref) return Math.min(mpPref.weight, 0.7);
-  return 0.3;
+  return decision.allowed;
 }
 
 /**

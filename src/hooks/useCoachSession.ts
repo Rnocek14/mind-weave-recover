@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { loadPatientIntelligence, serializeSnapshotForStorage, formatPatientIntelligenceForPrompt, getIntelligenceBiases, type PatientIntelligenceProfile, type IntelligenceBiases } from '@/lib/patientIntelligence';
 import { selectTherapyStrategy, formatStrategyForPrompt, shouldSwitchStrategy, type TherapyStrategy, type MidSessionSignals } from '@/lib/therapyStrategyEngine';
+import { validateResponse, applyClinicianOverride, type ClinicianStrategyOverride } from '@/lib/strategyEnforcement';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
 import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
@@ -215,7 +216,7 @@ export function useCoachSession({
       loadLatestCoachSummary(userId).then(setFallbackSummary);
     }
     // Always load patient intelligence for exercise biasing + strategy selection
-    loadPatientIntelligence(userId).then(profile => {
+    loadPatientIntelligence(userId).then(async (profile) => {
       if (profile) {
         setPatientIntelligence(profile);
         const biases = getIntelligenceBiases(profile);
@@ -229,22 +230,55 @@ export function useCoachSession({
         // Select therapy strategy from cross-session intelligence
         const { strategy, candidates } = selectTherapyStrategy({
           patientProfile: profile,
-          todayFocus: null, // Will be enriched per-turn if available
-          sessionSnapshot: null, // Will be enriched after first exercise
+          todayFocus: null,
+          sessionSnapshot: null,
         });
-        activeStrategyRef.current = strategy;
-        // Inject strategy into orchestrator state
+        
+        // Check for clinician strategy overrides
+        let finalStrategy = strategy;
+        try {
+          const { data: overrideData } = await (supabase as any)
+            .from('clinician_overrides')
+            .select('value_after')
+            .eq('profile_id', profileId)
+            .eq('override_type', 'therapy_strategy')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (overrideData?.[0]?.value_after) {
+            const clinicianOverride = overrideData[0].value_after as ClinicianStrategyOverride;
+            
+            // If clinician locked a specific strategy, re-select it
+            if (clinicianOverride.lockedStrategyId && clinicianOverride.lockedStrategyId !== strategy.id) {
+              const { strategy: lockedStrategy } = selectTherapyStrategy({
+                patientProfile: profile,
+                todayFocus: null,
+                sessionSnapshot: null,
+              });
+              // Override strategy ID manually
+              finalStrategy = applyClinicianOverride(lockedStrategy, clinicianOverride);
+              console.log('[strategy] Clinician override applied:', clinicianOverride);
+            } else {
+              finalStrategy = applyClinicianOverride(strategy, clinicianOverride);
+            }
+          }
+        } catch (err) {
+          console.warn('[strategy] Failed to load clinician overrides:', err);
+        }
+        
+        activeStrategyRef.current = finalStrategy;
         orchestratorStateRef.current = {
           ...orchestratorStateRef.current,
-          activeStrategy: strategy,
+          activeStrategy: finalStrategy,
         };
         
         console.log('[therapy-strategy] Selected:', {
-          strategy: strategy.id,
-          label: strategy.label,
-          goal: strategy.sessionGoal,
-          confidence: strategy.confidence,
-          reasoning: strategy.reasoning,
+          strategy: finalStrategy.id,
+          label: finalStrategy.label,
+          goal: finalStrategy.sessionGoal,
+          confidence: finalStrategy.confidence,
+          reasoning: finalStrategy.reasoning,
           candidates: candidates.slice(0, 3).map(c => `${c.id}(${c.score})`),
         });
         console.log('[patient-intelligence] Loaded cross-session profile:', {
@@ -1041,6 +1075,20 @@ export function useCoachSession({
         const lastAIText = lastAIMessage?.type === 'ai' ? lastAIMessage.text : undefined;
         
         aiResponseText = getSmartFallback(lastAIText, transcript);
+      }
+
+      // STRATEGY ENFORCEMENT: Validate AI response against strategy constraints
+      if (activeStrategyRef.current && aiResponseText) {
+        const speechState: 'struggling' | 'flowing' | 'neutral' = 
+          analysis.effortfulSpeech ? 'struggling' :
+          analysis.fluencyScore > 60 ? 'flowing' : 'neutral';
+        const validation = validateResponse(aiResponseText, activeStrategyRef.current, speechState);
+        if (!validation.valid) {
+          console.warn('[enforcement] Response violations:', validation.violations);
+          if (validation.sanitizedResponse) {
+            aiResponseText = validation.sanitizedResponse;
+          }
+        }
       }
 
       addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
