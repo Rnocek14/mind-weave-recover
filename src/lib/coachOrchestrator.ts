@@ -390,6 +390,13 @@ export function getNextAction(
           objective: 'word_retrieval' as TherapyObjective,
         };
       }
+      if (cardDecision.cardType === 'minimal_pairs') {
+        return {
+          type: 'inline_minimal_pairs',
+          difficulty: cardDecision.config.difficulty,
+          objective: 'phoneme_discrimination' as TherapyObjective,
+        };
+      }
       return {
         type: 'insert_card',
         cardType: cardDecision.cardType,
