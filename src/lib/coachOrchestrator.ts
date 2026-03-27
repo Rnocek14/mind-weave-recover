@@ -151,7 +151,32 @@ function getEffectiveLimits(state: OrchestratorState) {
     MAX_CARDS_PER_SESSION: strategy.pacing.maxExercisesPerSession,
     // Higher conversation ratio = more turns between reps
     TURNS_BETWEEN_REPS: strategy.pacing.conversationToTaskRatio >= 0.65 ? 7 : 5,
+    // Strategy-driven popup limits
+    MAX_POPUP_PER_SESSION: Math.max(2, strategy.pacing.maxExercisesPerSession - 2),
   };
+}
+
+/** Get strategy-preferred difficulty for inline exercises */
+function getStrategyDifficulty(state: OrchestratorState): 'easy' | 'medium' {
+  const bias = state.activeStrategy?.difficultyBias;
+  if (bias === 'easier') return 'easy';
+  if (bias === 'harder') return 'medium';
+  return 'easy';
+}
+
+/** Should we prefer minimal pairs over photo naming based on strategy? */
+function getStrategyMinimalPairWeight(state: OrchestratorState): number {
+  const strategy = state.activeStrategy;
+  if (!strategy) return 0.3; // default 30%
+  
+  const mpPref = strategy.exercisePreferences.find(p => p.slug === 'minimal-pairs');
+  const pnPref = strategy.exercisePreferences.find(p => p.slug === 'photo-naming');
+  
+  if (mpPref && pnPref) {
+    return mpPref.weight / (mpPref.weight + pnPref.weight);
+  }
+  if (mpPref) return Math.min(mpPref.weight, 0.7);
+  return 0.3;
 }
 
 /**
