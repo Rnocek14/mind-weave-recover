@@ -234,7 +234,7 @@ export function ConversationPartnerGame({
       setPhase('ai_speaking');
       
       try {
-        await speak(followupText, { voiceId: 'EXAVITQu4vr4xnSDxMaL' });
+        await speak(followupText, { voiceId: MAYA_VOICE_ID });
       } catch (err) {
         console.warn('TTS failed:', err);
       }
