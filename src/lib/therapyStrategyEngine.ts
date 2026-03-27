@@ -540,8 +540,75 @@ export function formatStrategyForPrompt(strategy: TherapyStrategy): string {
   }
 
   parts.push(`CUE APPROACH: ${strategy.cueApproach.rationale}`);
+  
+  // Natural expression hints — how Maya should reference the strategy conversationally
+  const expressionHints: string[] = [];
+  if (strategy.id === 'semantic_retrieval_support') {
+    expressionHints.push('When user struggles, say something like "What does it look like?" or "Where would you find it?" — semantic associations');
+    expressionHints.push('If they describe around a word, acknowledge it: "Right, the thing you use to..." then offer the word');
+  } else if (strategy.id === 'phonological_training') {
+    expressionHints.push('Naturally reference sounds: "Listen to the beginning of this one" or "These two sound really similar, right?"');
+  } else if (strategy.id === 'spaced_reinforcement') {
+    expressionHints.push('Reference past progress: "You nailed this last time" or "Remember when this one was tricky?"');
+  } else if (strategy.id === 'confidence_building') {
+    expressionHints.push('Lead with warmth, celebrate every attempt: "Hey, you said it!" or "See? That one came right out"');
+    expressionHints.push('Keep questions easy — yes/no or A-or-B only');
+  } else if (strategy.id === 'fluency_promotion') {
+    expressionHints.push('Push tempo gently: "That was quick!" or "Okay okay — how about a harder one?"');
+  }
+  
+  if (expressionHints.length > 0) {
+    parts.push(`HOW TO NATURALLY EXPRESS THIS STRATEGY:\n${expressionHints.map(h => `- ${h}`).join('\n')}`);
+  }
 
   return parts.join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Mid-session strategy re-evaluation
+// ═══════════════════════════════════════════════════════════════
+
+export interface MidSessionSignals {
+  successRate: number;
+  totalAttempts: number;
+  circumlocutionCount: number;
+  phonemeErrorCount: number;
+  avgLatencyMs: number;
+  frustrationDetected: boolean;
+}
+
+/**
+ * Re-evaluate strategy mid-session when signals shift significantly.
+ * Returns new strategy only if it's meaningfully different from current.
+ */
+export function shouldSwitchStrategy(
+  currentStrategy: TherapyStrategy,
+  signals: MidSessionSignals,
+  patientProfile: PatientIntelligenceProfile | null,
+): TherapyStrategy | null {
+  // Don't switch with too few data points
+  if (signals.totalAttempts < 4) return null;
+  
+  // Confidence crash → switch to confidence building
+  if (signals.successRate < 0.35 && currentStrategy.id !== 'confidence_building') {
+    console.log('[strategy-switch] Confidence crash detected, switching to confidence_building');
+    return buildConfidenceBuildingStrategy(patientProfile!);
+  }
+  
+  // High circumlocution mid-session → switch to semantic retrieval
+  if (signals.circumlocutionCount >= 3 && currentStrategy.id !== 'semantic_retrieval_support') {
+    const retryWords = patientProfile?.persistentStruggledWords.slice(0, 5).map(w => w.word) || [];
+    console.log('[strategy-switch] High circumlocution, switching to semantic_retrieval_support');
+    return buildSemanticRetrievalStrategy(patientProfile!, retryWords);
+  }
+  
+  // Strong performance + was on confidence building → graduate to fluency
+  if (signals.successRate > 0.8 && signals.totalAttempts >= 6 && currentStrategy.id === 'confidence_building') {
+    console.log('[strategy-switch] Strong recovery from confidence building, graduating to fluency_promotion');
+    return buildFluencyPromotionStrategy(patientProfile!);
+  }
+  
+  return null; // No switch needed
 }
 
 // ═══════════════════════════════════════════════════════════════
