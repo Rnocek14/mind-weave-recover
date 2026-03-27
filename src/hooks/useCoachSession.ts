@@ -142,6 +142,8 @@ interface UseCoachSessionReturn {
   // Popup exercise
   pendingPopupExercise: PendingPopupExercise | null;
   ingestExerciseResult: (result: NormalizedExerciseResult) => Promise<string>;
+  // Inline photo naming
+  activeInlinePhoto: { target: string; category: string; features: any } | null;
   startSession: () => string;
   processUserTurn: (transcript: string, latencyMs: number | null, totalDurationMs?: number | null, audioBlob?: Blob) => Promise<string | null>;
   insertPendingCard: () => void;
