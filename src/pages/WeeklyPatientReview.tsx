@@ -381,6 +381,20 @@ export default function WeeklyPatientReview() {
         <TherapyIntelligenceReport profile={intelligenceProfile} />
       )}
 
+      {/* ─── CLINICIAN STRATEGY CONTROLS ─── */}
+      {intelligenceProfile && user?.id && profileId && (
+        <ClinicianStrategyControls
+          profileId={profileId}
+          userId={user?.id || ""}
+          clinicianId={user?.id || ""}
+          currentStrategy={(() => {
+            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile, todayFocus: null, sessionSnapshot: null });
+            return strategy;
+          })()}
+          onOverrideApplied={refetchOverrides}
+        />
+      )}
+
       {/* ─── 3. PENDING SUGGESTIONS (decision gate) ─── */}
       <PendingSuggestions
         suggestions={suggestedOverrides}
