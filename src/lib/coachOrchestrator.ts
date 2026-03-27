@@ -384,17 +384,17 @@ export function getNextAction(
     if (cardDecision) {
       // INLINE PHOTO NAMING: Convert photo_naming cards to inline
       if (cardDecision.cardType === 'photo_naming') {
+        if (Math.random() < 0.3) {
+          return {
+            type: 'inline_minimal_pairs',
+            difficulty: cardDecision.config.difficulty,
+            objective: 'phoneme_discrimination' as TherapyObjective,
+          };
+        }
         return {
           type: 'inline_photo_naming',
           difficulty: cardDecision.config.difficulty,
           objective: 'word_retrieval' as TherapyObjective,
-        };
-      }
-      if (cardDecision.cardType === 'minimal_pairs') {
-        return {
-          type: 'inline_minimal_pairs',
-          difficulty: cardDecision.config.difficulty,
-          objective: 'phoneme_discrimination' as TherapyObjective,
         };
       }
       return {
