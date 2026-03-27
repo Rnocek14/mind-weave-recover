@@ -1300,13 +1300,20 @@ export function useCoachSession({
     difficultyStateRef.current = createInitialDifficultyState();
   }, [maxTurns, speechAnalysis]);
 
-  // User-initiated session end — also persists summary
+  // User-initiated session end — also persists summary + session intelligence
   const endSession = useCallback(() => {
     setIsComplete(true);
     setCurrentPhase('complete');
     
     // Save session summary for cross-session memory
     const sessionMetrics = speechAnalysis.getSessionMetrics();
+    
+    // Serialize session intelligence snapshot for persistence
+    const intelligenceSnapshot = sessionIntelRef.current.getSnapshot();
+    const serializedIntelligence = intelligenceSnapshot.totalAttempts > 0
+      ? serializeSnapshotForStorage(intelligenceSnapshot)
+      : undefined;
+    
     saveCoachSessionSummary({
       userId,
       sessionId,
@@ -1315,6 +1322,14 @@ export function useCoachSession({
       avgFluency: sessionMetrics?.avgFluency,
       fluencyTrend: sessionMetrics?.fluencyTrend,
       primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
+      sessionIntelligence: serializedIntelligence,
+    });
+    
+    console.log('[session-end] Persisted intelligence:', {
+      totalAttempts: intelligenceSnapshot.totalAttempts,
+      struggledWords: intelligenceSnapshot.struggledWords.length,
+      phonemeErrors: intelligenceSnapshot.phonemeErrors.length,
+      patterns: intelligenceSnapshot.patterns.length,
     });
   }, [userId, sessionId, speechAnalysis]);
 
