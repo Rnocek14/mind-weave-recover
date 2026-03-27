@@ -259,6 +259,7 @@ export function useCoachSession({
                 forceStrategyId: clinicianOverride.lockedStrategyId,
               });
               finalStrategy = applyClinicianOverride(lockedStrategy, clinicianOverride);
+              clinicianLockedRef.current = true;
               console.log('[strategy] Clinician lock applied:', clinicianOverride.lockedStrategyId);
             } else {
               finalStrategy = applyClinicianOverride(strategy, clinicianOverride);
