@@ -569,6 +569,21 @@ export function useCoachSession({
       cueStateRef.current
     );
     
+    // ENFORCE CUE TYPE based on active strategy
+    if (activeStrategyRef.current && cueRec.cueLevel >= 2) {
+      const requestedCueType = cueRec.cueLevel >= 4 ? 'full_word' as const
+        : cueRec.cueLevel >= 3 ? 'phonemic' as const
+        : 'semantic' as const;
+      const enforcedType = enforceСueType(requestedCueType, activeStrategyRef.current);
+      // Remap cue level if enforcement changed the type
+      if (enforcedType !== requestedCueType) {
+        const remappedLevel = enforcedType === 'full_word' ? 4
+          : enforcedType === 'phonemic' ? 3 : 2;
+        cueRec.cueLevel = remappedLevel;
+        console.log('[cue-enforce] Overrode cue type:', requestedCueType, '→', enforcedType);
+      }
+    }
+
     // DEBUG LOGGING: Cue engine recommendation
     console.log('[cue-engine]', { 
       turn: orchestratorStateRef.current.turnNumber,
