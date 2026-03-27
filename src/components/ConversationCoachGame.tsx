@@ -516,11 +516,11 @@ export function ConversationCoachGame({
     }
   };
 
-  // Card fallback: force-submit if user is stuck (called from UI button)
+  // Card fallback: force-submit if user is stuck (called from UI button or timeout)
   const handleCardForceSubmit = useCallback(() => {
-    // Find the active card message
     const activeCard = messages.find(m => m.type === 'card' && !m.completed);
     if (activeCard) {
+      console.log('[CardTimeout] Force-submitting card:', activeCard.id, 'transcript:', cardTranscript?.slice(0, 30));
       handleCardDone(activeCard.id, {
         success: false,
         spokenWord: cardTranscript || '(no answer)',
@@ -529,6 +529,45 @@ export function ConversationCoachGame({
       });
     }
   }, [messages, cardTranscript, handleCardDone]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // GLOBAL CARD TIMEOUT — Auto-submit after 25s to prevent stuck state
+  // ═══════════════════════════════════════════════════════════════
+  const cardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [cardCountdown, setCardCountdown] = useState<number | null>(null);
+  const cardCountdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (inputMode === 'card_listening') {
+      // Start countdown display at 20s, auto-submit at 25s
+      cardCountdownRef.current = setTimeout(() => {
+        setCardCountdown(5);
+        const tick = setInterval(() => {
+          setCardCountdown(prev => {
+            if (prev !== null && prev <= 1) {
+              clearInterval(tick);
+              return null;
+            }
+            return prev !== null ? prev - 1 : null;
+          });
+        }, 1000);
+        cardTimeoutRef.current = setTimeout(() => {
+          clearInterval(tick);
+          setCardCountdown(null);
+          if (inputModeRef.current === 'card_listening') {
+            console.log('[CardTimeout] 25s elapsed — auto-submitting');
+            handleCardForceSubmit();
+          }
+        }, 5000);
+      }, 20000);
+
+      return () => {
+        if (cardCountdownRef.current) clearTimeout(cardCountdownRef.current);
+        if (cardTimeoutRef.current) clearTimeout(cardTimeoutRef.current);
+        setCardCountdown(null);
+      };
+    }
+  }, [inputMode, handleCardForceSubmit]);
 
   const handleFinish = () => {
     if (onComplete) {
@@ -947,14 +986,18 @@ export function ConversationCoachGame({
           </div>
         )}
 
-        {/* Card active — with FALLBACK SUBMIT BUTTON */}
+        {/* Card active — with FALLBACK SUBMIT BUTTON + TIMEOUT */}
         {isCardActive && (
           <div className="text-center space-y-3">
             <p className="text-base text-muted-foreground flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               Complete the activity above
             </p>
-            {/* Fallback: user can force-submit if stuck */}
+            {cardCountdown !== null && (
+              <p className="text-sm text-warning animate-pulse">
+                Auto-skipping in {cardCountdown}s...
+              </p>
+            )}
             <Button
               variant="outline"
               size="sm"

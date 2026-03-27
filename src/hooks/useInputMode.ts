@@ -36,13 +36,13 @@ export function useInputMode(initialMode: InputMode = 'idle'): InputModeControll
   const modeRef = useRef<InputMode>(initialMode);
 
   const setMode = useCallback((newMode: InputMode) => {
+    const prev = modeRef.current;
     // Atomic: ref updates synchronously, state triggers re-render
     modeRef.current = newMode;
     setModeState(newMode);
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[InputMode] ${modeRef.current} → ${newMode}`);
-    }
+    // Always log mode transitions for debugging
+    console.log(`[InputMode] ${prev} → ${newMode}`);
   }, []);
 
   const isMode = useCallback((checkMode: InputMode) => {
