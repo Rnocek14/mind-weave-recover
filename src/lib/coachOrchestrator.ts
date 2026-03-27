@@ -634,9 +634,40 @@ function selectPopupExercise(
 }
 
 
-function selectFollowupForFlow(turnNumber: number): FollowupType {
-  const flowFollowups: FollowupType[] = ['what_next', 'how_felt', 'tell_more', 'what_did'];
-  return flowFollowups[turnNumber % flowFollowups.length];
+// Weighted random follow-up selection with recent-history avoidance
+const _recentFollowupTypes: FollowupType[] = [];
+const MAX_FOLLOWUP_HISTORY = 3;
+
+function selectFollowupForFlow(_turnNumber: number): FollowupType {
+  const weighted: { type: FollowupType; weight: number }[] = [
+    { type: 'what_next', weight: 3 },
+    { type: 'how_felt', weight: 2 },
+    { type: 'tell_more', weight: 3 },
+    { type: 'what_did', weight: 2 },
+    { type: 'acknowledge', weight: 2 },
+  ];
+
+  // Filter out recently used types
+  const available = weighted.filter(w => !_recentFollowupTypes.includes(w.type));
+  const pool = available.length > 0 ? available : weighted;
+
+  // Weighted random pick
+  const totalWeight = pool.reduce((sum, w) => sum + w.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let picked: FollowupType = pool[0].type;
+  for (const entry of pool) {
+    roll -= entry.weight;
+    if (roll <= 0) {
+      picked = entry.type;
+      break;
+    }
+  }
+
+  // Track history
+  _recentFollowupTypes.push(picked);
+  if (_recentFollowupTypes.length > MAX_FOLLOWUP_HISTORY) _recentFollowupTypes.shift();
+
+  return picked;
 }
 
 function selectFollowupForStuckType(stuckType: StuckType, turnNumber: number): FollowupType {
