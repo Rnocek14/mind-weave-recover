@@ -38,6 +38,7 @@ import { CardType } from '@/lib/coachOrchestrator';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
+import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
 
 interface ConversationCoachGameProps {
   userId: string;
