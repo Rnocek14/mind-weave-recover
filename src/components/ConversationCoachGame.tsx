@@ -157,6 +157,7 @@ export function ConversationCoachGame({
     currentSupportLevel,
     pendingPopupExercise,
     ingestExerciseResult,
+    activeInlinePhoto,
   } = useCoachSession({
     userId,
     profileId,
