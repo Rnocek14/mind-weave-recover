@@ -283,85 +283,14 @@ export const useTextToSpeech = () => {
     }
   }, [speakBrowser]);
 
-  // Standard TTS - use ElevenLabs for natural voice
+  // Standard TTS — now routes through speakStream so ALL speech uses the same
+  // ElevenLabs streaming pipeline and Maya always sounds like one person.
   const speak = useCallback(async (
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = 'XrExE9yKIg1WjnnlVkGX' } = options; // Matilda - natural voice
-
-    setIsLoading(true);
-    setIsSpeaking(false);
-    setError(null);
-
-    try {
-      // Use ElevenLabs for natural voice
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/text-to-speech-elevenlabs`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`,
-            'apikey': ANON_KEY,
-          },
-          body: JSON.stringify({ text, voiceId }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.warn('[TTS] ElevenLabs failed, falling back to browser:', errorData);
-        return speakBrowser(text);
-      }
-
-      const data = await response.json();
-      
-      if (!data?.audioBase64) {
-        console.warn('[TTS] No audio data, falling back to browser');
-        return speakBrowser(text);
-      }
-
-      // Use data URI for cleaner base64 audio handling
-      const audioUrl = `data:audio/mpeg;base64,${data.audioBase64}`;
-
-      // Stop any currently playing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      
-      setIsLoading(false);
-      setIsSpeaking(true);
-
-      return new Promise((resolve, reject) => {
-        audio.onended = () => {
-          setIsSpeaking(false);
-          resolve();
-        };
-
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          console.warn('[TTS] Audio playback failed, using browser');
-          speakBrowser(text).then(resolve).catch(reject);
-        };
-
-        audio.play().catch((playError) => {
-          setIsSpeaking(false);
-          console.warn('[TTS] Play failed, using browser:', playError);
-          speakBrowser(text).then(resolve).catch(reject);
-        });
-      });
-    } catch (err) {
-      console.warn('[TTS] Error, falling back to browser:', err);
-      setIsLoading(false);
-      return speakBrowser(text);
-    }
-  }, [speakBrowser]);
+    return speakStream(text, options);
+  }, [speakStream]);
 
   const stop = useCallback(() => {
     // Abort any pending requests
