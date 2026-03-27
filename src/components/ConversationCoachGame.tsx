@@ -159,6 +159,8 @@ export function ConversationCoachGame({
     pendingPopupExercise,
     ingestExerciseResult,
     activeInlinePhoto,
+    activeInlineMinimalPair,
+    handleMinimalPairSelect,
   } = useCoachSession({
     userId,
     profileId,
