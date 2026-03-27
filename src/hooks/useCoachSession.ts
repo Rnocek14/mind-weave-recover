@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { saveCoachSessionSummary, loadLatestCoachSummary, type CoachSessionSummary } from '@/lib/coachSessionMemory';
 import { generateContextBridge, generateTaskReturn } from '@/lib/flowEngine';
 import { getPostCardReturn, getDifficultyNarration, getCircumlocutionOffer, getSuccessFeedback, getStruggleFeedback } from '@/lib/therapistFeedback';
+import { matchAnswer, getFeedbackForMatch } from '@/lib/answerMatcher';
 import { PHOTO_BANK, PhotoTrial } from '@/data/photoBank';
 import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
 import type { MayaState } from '@/lib/buildMayaState';
@@ -282,19 +283,19 @@ export function useCoachSession({
     // ═══════════════════════════════════════════════════════════════
     if (activeInlinePhotoRef.current && transcript.trim().length > 0) {
       const photo = activeInlinePhotoRef.current;
-      const spokenLower = transcript.toLowerCase().trim();
-      const targetLower = photo.trial.target.toLowerCase();
       
-      // Check match (exact, contains, or partial)
-      const isMatch = spokenLower === targetLower 
-        || spokenLower.includes(targetLower)
-        || targetLower.startsWith(spokenLower.slice(0, 3))
-        || spokenLower.startsWith(targetLower.slice(0, 3));
+      // Smart answer matching — handles synonyms, phonetic errors, circumlocution
+      const match = matchAnswer(
+        transcript,
+        photo.trial.target,
+        photo.trial.semanticFoils,
+        photo.trial.category,
+      );
       
       const latencyFromPhoto = Date.now() - photo.startTime;
       const wasQuick = latencyFromPhoto < 4000;
       
-      // Mark inline photo as answered
+      // Mark inline photo as answered (reveal word only on correct or after giving it)
       setMessages(prev => prev.map(msg => 
         msg.id === photo.messageId && msg.type === 'inline_photo'
           ? { ...msg, answered: true, revealedWord: photo.trial.target }
@@ -306,35 +307,27 @@ export function useCoachSession({
       addMessage({ type: 'user', text: transcript || '(no speech)', id: userMessageId });
       userWordsRef.current += countWords(transcript);
       
-      // Generate therapist-style feedback (not "Correct!")
-      let feedback: string;
-      if (isMatch) {
-        feedback = getSuccessFeedback({ wasQuick, wasEffortful: photo.cueLevel > 0 });
-      } else {
-        // Check for circumlocution — user describing the thing
-        const isCircumlocution = transcript.split(/\s+/).length >= 3;
-        if (isCircumlocution) {
-          feedback = `You described it well! The word is "${photo.trial.target}."`;
-        } else {
-          feedback = getStruggleFeedback() + ` The word is "${photo.trial.target}."`;
-        }
-      }
+      // Generate context-aware therapist feedback
+      const feedback = getFeedbackForMatch(match, photo.trial.target, {
+        wasQuick,
+        cueLevel: photo.cueLevel,
+      });
       
-      // Add Maya's natural response + continue conversation
+      // Natural continuation back into conversation
       const topic = orchestratorStateRef.current.currentTopic;
       let continuation = '';
-      if (isMatch && topic) {
+      if (match.countsAsCorrect && topic) {
         const continuations = [
-          ` Speaking of ${topic}, what else?`,
           ` Anyway — you were telling me about ${topic}...`,
           ` So, back to ${topic}?`,
+          ` Speaking of ${topic} — what else?`,
         ];
         continuation = continuations[Math.floor(Math.random() * continuations.length)];
-      } else if (isMatch) {
+      } else if (match.countsAsCorrect) {
         const continuations = [
           ' So, what were you saying?',
-          ' Okay, keep going!',
-          ' Nice — what else is on your mind?',
+          ' Okay — what else is on your mind?',
+          ' Alright, keep going!',
         ];
         continuation = continuations[Math.floor(Math.random() * continuations.length)];
       }
@@ -343,13 +336,13 @@ export function useCoachSession({
       addMessage({ type: 'ai', text: fullResponse, id: generateId() });
       aiWordsRef.current += countWords(fullResponse);
       
-      // Update orchestrator state (counts as a card interaction)
+      // Update orchestrator state
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
-        isMatch ? 'strong_flow' : 'word_search_stall',
-        true, // counts as card inserted
+        match.countsAsCorrect ? 'strong_flow' : 'word_search_stall',
+        true,
         'photo_naming',
-        isMatch,
+        match.countsAsCorrect,
         topic || undefined,
         [photo.trial.target]
       );
@@ -615,16 +608,22 @@ export function useCoachSession({
       const trial = photos[Math.floor(Math.random() * photos.length)];
       
       if (trial) {
-        // Natural intro — Maya says something casual
+        // Natural, varied intro — feels like a therapist, not a system
         const currentTopic = orchestratorStateRef.current.currentTopic;
-        const intros = [
-          "Oh wait — look at this for a second.",
-          "Hey, check this out real quick.",
-          "Hold on — what do you see here?",
-          "Take a look at this.",
-          "Hmm, here's one for you —",
+        const topicIntros = currentTopic ? [
+          `Hey — while we're talking about ${currentTopic}, take a look at this.`,
+          `Oh, this reminds me of something. What do you see here?`,
+          `Hold on — before I forget, check this out.`,
+        ] : [];
+        const genericIntros = [
+          "Hey — take a look at this for me.",
+          "Here's one for you — what do you see?",
+          "Oh wait, look at this real quick.",
+          "Check this out —",
+          "Okay, here's a quick one.",
         ];
-        const intro = intros[Math.floor(Math.random() * intros.length)];
+        const introPool = topicIntros.length > 0 && Math.random() < 0.4 ? topicIntros : genericIntros;
+        const intro = introPool[Math.floor(Math.random() * introPool.length)];
         addMessage({ type: 'ai', text: intro, id: generateId() });
         aiWordsRef.current += countWords(intro);
         
@@ -638,8 +637,14 @@ export function useCoachSession({
           answered: false,
         });
         
-        // Follow-up prompt
-        const prompt = "What is this?";
+        // Varied follow-up prompt (not always "What is this?")
+        const prompts = [
+          "What do you see here?",
+          "What's this one?",
+          "Know what this is?",
+          "What is it?",
+        ];
+        const prompt = intro.includes('what do you see') ? "Go ahead." : prompts[Math.floor(Math.random() * prompts.length)];
         addMessage({ type: 'ai', text: prompt, id: generateId() });
         aiWordsRef.current += countWords(prompt);
         
