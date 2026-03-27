@@ -1147,6 +1147,17 @@ export function useCoachSession({
     const latency = Date.now() - pair.startTime;
     const wasQuick = latency < 3000;
     
+    // SESSION INTELLIGENCE: Record minimal pair attempt
+    sessionIntelRef.current.recordMinimalPairAttempt(
+      pair.trial.targetWord,
+      pair.trial.targetIndex === 0 ? pair.trial.pair.word2 : pair.trial.pair.word1,
+      isCorrect,
+      latency,
+      orchestratorStateRef.current.turnNumber,
+      pair.trial.pair.phoneme1,
+      pair.trial.pair.phoneme2,
+    );
+    
     // Update the message to show result
     setMessages(prev => prev.map(msg => 
       msg.id === messageId && msg.type === 'inline_minimal_pair'
