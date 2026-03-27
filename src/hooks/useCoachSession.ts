@@ -901,6 +901,8 @@ export function useCoachSession({
             circumlocutionDetected: analysis.circumlocutionDetected,
             // Difficulty narration to prepend
             difficultyNarration,
+            // SESSION INTELLIGENCE: Within-session memory for Maya
+            sessionIntelligence: sessionIntelRef.current.formatForPrompt() || undefined,
             // Prior session memory for continuity
             // Maya intelligence context for continuity
             priorSessionMemory: mayaState
