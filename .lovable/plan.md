@@ -1,115 +1,63 @@
 
 
-# Maya Intelligence Layer — Implementation Plan
+# Unified Voice: Make Maya Sound Like One Person Throughout
 
-## What We're Building
+## The Problem
 
-A unified "recovery companion" narrative system that adds **continuity**, **interpretation**, and **anticipation** across the patient and caregiver surfaces. Maya is not a chatbot — it's a presence layer that makes the system feel like it *knows* the patient.
+Right now there are **three different TTS paths** in the system:
 
-## Architecture
+1. **Maya's conversation** → `speakStream()` → ElevenLabs streaming endpoint → Matilda voice (natural)
+2. **Card game instructions** (TwoClues reading clues, MinimalPairs playing words, etc.) → `speak()` → different ElevenLabs endpoint → falls back to **browser robot voice** on any failure
+3. **StoryRetellProbe** → `window.speechSynthesis.speak()` directly → always browser robot voice
 
-### New Files
+When a card pops up mid-conversation, the voice literally changes from ElevenLabs Matilda to the browser's built-in robotic voice. That breaks immersion completely.
 
-1. **`src/lib/mayaNarrative.ts`** — Pure logic module. Takes existing data (domain scores, session history, cue efficacy, learning rates) and produces structured narratives:
-   - `generateMayaInsight(domains, sessions, cueEfficacy, learningRates)` returns:
-     - `continuityLine` — "Yesterday you answered 5 more on your own"
-     - `interpretation` — { seeing: string[], helping: string[], workingOn: string[] }
-     - `anticipation` — "Tomorrow we'll focus more on sentence building"
-     - `milestone` — { type, message } | null (e.g., "You mastered 20 words!")
-   - Uses existing `COGNITIVE_DOMAINS`, `getCueLabel`, `insightLanguageMap` for language
-   - Deterministic, rule-based (no LLM) — consistent with clinical interpretation engine pattern
+## What Changes
 
-2. **`src/hooks/useMayaInsight.ts`** — Orchestrator hook that calls existing hooks (`useCognitiveState`, `useSessionHistory`, `useWordMastery`, `useErrorPatternAnalytics`, `useCaregiverDomainGuidance`) and feeds them into `mayaNarrative.ts`. Returns typed `MayaInsight` object. Memoized, staleTime-cached.
+### 1. Unify all TTS onto one path: `speakStream()` (ElevenLabs streaming)
 
-3. **`src/components/patient/MayaInterpretationCard.tsx`** — "My Progress" surface component with three sections:
-   - "What I'm Seeing" (purple accent) — domain-aware observations
-   - "What's Helping" (green accent) — cue strategies in plain language  
-   - "What We're Working On" (amber accent) — forward-looking guidance
-   - Compact card design consistent with existing PatientProgressView style
+**`src/hooks/useTextToSpeech.ts`**
+- Rewrite `speak()` to internally call `speakStream()` instead of hitting a separate endpoint
+- This means every component that calls `speak(text)` automatically gets Matilda's ElevenLabs voice
+- Keep `speakBrowser()` as emergency-only fallback (network down), not the primary fallback
+- Remove the separate `text-to-speech-elevenlabs` fetch path
 
-4. **`src/components/patient/MilestoneToast.tsx`** — Celebration moments triggered on milestones (20/50/100 words mastered, 7/14/30 day streak, 30% independence improvement). Uses existing toast system.
+### 2. Fix StoryRetellProbe to use Maya's voice
 
-### Modified Files
+**`src/components/coach/StoryRetellProbe.tsx`**
+- Replace `window.speechSynthesis.speak()` with the shared `speak()` from `useTextToSpeech`
+- Pass `speak` as a prop from the parent, or import the hook directly
+- This makes the story narration sound like Maya reading the story, not a robot
 
-5. **`src/components/PatientModeView.tsx`** — Home tab:
-   - Replace static `encouragement` logic with `useMayaInsight().continuityLine`
-   - Add anticipation line below encouragement ("Tomorrow we'll focus on...")
-   - Add milestone celebration trigger via `useEffect`
+### 3. Ensure consistent voice ID everywhere
 
-6. **`src/components/patient/PatientProgressView.tsx`** — My Progress tab:
-   - Insert `MayaInterpretationCard` between Hero Headline and Core Metrics Grid (Tier 1)
-   - This becomes the anchor narrative — replaces need for separate Insights tabs
+- All paths use Matilda (`XrExE9yKIg1WjnnlVkGX`) as default
+- Remove the `EXAVITQu4vr4xnSDxMaL` (Sarah) voice ID used in `ConversationPartnerGame.tsx` — or make it configurable from one constant
+- Create a single `MAYA_VOICE_ID` constant so voice is controlled from one place
 
-7. **`src/components/patient/PostSessionCard.tsx`** — Add anticipation line:
-   - Below motivational nudge: "Next time, we'll keep building on [domain]"
-   - Data from `mayaNarrative.anticipation`
+### 4. Make card transitions seamless in the conversation flow
 
-8. **`src/components/caregiver/CaregiverStatusHero.tsx`** — Upgrade guidance headline:
-   - Add urgency/confidence signals ("This is important to focus on now" vs "Making strong progress")
-   - Use `mayaNarrative` confidence level based on score severity
+**`src/hooks/useCoachSession.ts`** (card intro/outro text)
+- Review how card intro text is generated — Maya should say things like "Let me show you something — look at this picture and tell me what you see" rather than a generic system prompt
+- Ensure the intro text is spoken by `speakStream()` (same Maya voice) before card UI appears
+- Ensure the outro text after card completion uses the same voice
 
-## Narrative Logic (mayaNarrative.ts)
+## Technical Details
 
-### Continuity Line (Home)
-```text
-Input: last session data + domain scores + previous session
-Output examples:
-  - "Yesterday you answered 5 more on your own — nice!"
-  - "You've been improving at word finding this week"
-  - "Two sessions this week — every one counts"
-  - (no sessions): "Ready to pick up where you left off?"
-```
+**Files to modify:**
+- `src/hooks/useTextToSpeech.ts` — Consolidate `speak()` to use streaming path
+- `src/components/coach/StoryRetellProbe.tsx` — Replace `window.speechSynthesis` with hook
+- `src/components/ConversationPartnerGame.tsx` — Use `MAYA_VOICE_ID` constant
+- Add `src/lib/constants/voice.ts` — Single `MAYA_VOICE_ID` constant
 
-### Interpretation (My Progress)
-```text
-"What I'm Seeing":
-  - Map top improving domain → "You're getting faster at naming everyday objects"
-  - Map declining domain → "Sentences are a bit harder right now — that's okay"
+**What stays the same:**
+- Input architecture (unified mode system)
+- Card timing and flow engine logic
+- Speech recognition pipeline
+- All game scoring/completion logic
 
-"What's Helping":
-  - Map best cue → "Hearing the first sound helps you find the word"
-  - Map consistency → "Practicing regularly is making a real difference"
+## Expected Result
 
-"What We're Working On":
-  - Map focusNext domains → "We're focusing on building sentences"
-  - Map anticipation → "Next we'll challenge you with longer phrases"
-```
-
-### Milestones
-```text
-Triggers (checked on mount):
-  - Word mastery: 10, 20, 50, 100 words → toast celebration
-  - Streak: 7, 14, 30 days → toast celebration
-  - Independence: cue-free accuracy crosses 50%/70% → toast celebration
-  - Tracked via localStorage to avoid repeat firing
-```
-
-### Anticipation (Forward-Looking)
-```text
-Input: current focusNext domains + adaptation state
-Output: "Tomorrow we'll keep building on [weakest domain label]"
-  - If improving: "You're ready for more challenge in [domain]"
-  - If steady: "We'll keep strengthening [domain]"
-  - If declining: "We'll take it easier on [domain] to rebuild confidence"
-```
-
-## Data Flow
-
-All inputs already exist — no new DB queries needed:
-- `useCognitiveState` → domain scores, trends
-- `useSessionHistory` → continuity data
-- `useWordMastery` → milestone counts
-- `useErrorPatternAnalytics` → cue efficacy
-- `useCaregiverDomainGuidance` → domain struggle mapping
-
-## Implementation Order
-
-1. `mayaNarrative.ts` (pure logic, testable)
-2. `useMayaInsight.ts` (orchestrator hook)
-3. `MayaInterpretationCard.tsx` (My Progress surface)
-4. Update `PatientProgressView.tsx` (insert card)
-5. Update `PatientModeView.tsx` (continuity + anticipation on Home)
-6. Update `PostSessionCard.tsx` (anticipation line)
-7. `MilestoneToast.tsx` + milestone triggers
-8. Update `CaregiverStatusHero.tsx` (urgency/confidence signals)
+Before: Voice noticeably changes when a card appears — sounds like two different systems
+After: Maya's voice stays consistent throughout — conversation, game instructions, story narration, feedback — all sound like the same person talking to you
 
