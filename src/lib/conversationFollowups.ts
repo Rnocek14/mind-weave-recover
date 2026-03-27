@@ -132,6 +132,10 @@ export function getFollowupLine(type: FollowupType): string {
  * Get a smart acknowledge that references what the user said
  * This creates much more natural, connected conversation
  */
+// DEDUP GUARD for smart acknowledges
+const _recentAcknowledges: string[] = [];
+const MAX_ACK_HISTORY = 6;
+
 export function getSmartAcknowledge(userTranscript: string): string {
   if (!userTranscript || userTranscript.trim().length < 3) {
     return getFollowupLine('tell_more');
@@ -147,10 +151,12 @@ export function getSmartAcknowledge(userTranscript: string): string {
     return getFollowupLine('tell_more');
   }
   
-  // Pick last meaningful word or a random one
-  const keyWord = words[words.length - 1] || words[0];
+  // Pick from multiple meaningful words to vary the echo
+  const keyWord = words.length > 1 
+    ? words[Math.floor(Math.random() * words.length)]
+    : words[0];
   
-  // Templates that echo the topic and invite continuation
+  // Expanded templates with more variety
   const templates = [
     `${capitalize(keyWord)}! Nice. What else?`,
     `Ah, ${keyWord}. Tell me more about that.`,
@@ -158,9 +164,24 @@ export function getSmartAcknowledge(userTranscript: string): string {
     `Oh, ${keyWord}? What happened?`,
     `${capitalize(keyWord)}! Go on.`,
     `Nice, ${keyWord}. Then what?`,
+    `Hmm, ${keyWord}. What was that like?`,
+    `${capitalize(keyWord)} — interesting. Keep going.`,
+    `Oh, ${keyWord}! And then?`,
+    `Wait, ${keyWord}? Tell me more.`,
+    `${capitalize(keyWord)}, huh. What else happened?`,
+    `So, ${keyWord}. How did that go?`,
   ];
   
-  return templates[Math.floor(Math.random() * templates.length)];
+  // Filter out recently used templates (by structure, ignoring the keyword)
+  const available = templates.filter(t => !_recentAcknowledges.includes(t));
+  const pool = available.length > 0 ? available : templates;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  
+  // Track history
+  _recentAcknowledges.push(picked);
+  if (_recentAcknowledges.length > MAX_ACK_HISTORY) _recentAcknowledges.shift();
+  
+  return picked;
 }
 
 function capitalize(word: string): string {
