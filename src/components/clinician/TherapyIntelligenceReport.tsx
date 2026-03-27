@@ -67,6 +67,10 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
   const hasPhonology = profile.persistentPhonemeErrors.length > 0;
   const hasWordData = profile.persistentStruggledWords.length > 0 || profile.recoveredWords.length > 0;
   const hasBehavior = profile.dominantPatterns.length > 0 || profile.circumlocutionTendency !== 'low';
+  
+  // Strategy engine: compute what Maya would do with this patient
+  const { strategy } = selectTherapyStrategy({ patientProfile: profile, todayFocus: null, sessionSnapshot: null });
+  const clinicianStrategy = formatStrategyForClinician(strategy);
 
   return (
     <Card className="border-primary/20">
