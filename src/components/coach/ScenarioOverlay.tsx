@@ -551,3 +551,49 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
   }
   return "That sounds great! Tell me more.";
 }
+
+/**
+ * Functional intent assessment — determines if the user's response
+ * meaningfully addresses the expected intent for this conversation beat.
+ * 
+ * Phase 1: keyword + heuristic approach. Phase 2: LLM-based semantic matching.
+ */
+function assessIntentLanded(transcript: string, expectedIntent: string, partnerText: string): boolean {
+  const t = transcript.trim().toLowerCase();
+  
+  // Too short = didn't really respond
+  if (t.length < 2) return false;
+  
+  // Intent-specific keyword maps
+  const intentKeywords: Record<string, string[]> = {
+    'Order a drink': ['coffee', 'tea', 'latte', 'cappuccino', 'mocha', 'espresso', 'water', 'juice', 'hot chocolate', 'drink', 'please', 'like', 'want', 'have', 'get', 'one'],
+    'Specify preferences': ['large', 'medium', 'small', 'regular', 'big', 'milk', 'oat', 'cream', 'sugar', 'black', 'hot', 'iced', 'cold'],
+    'Confirm or correct': ['yes', 'yeah', 'yep', 'right', 'correct', 'perfect', 'good', 'great', 'that', 'no', 'change', 'actually'],
+    'Say goodbye': ['bye', 'thank', 'thanks', 'see you', 'goodbye', 'later', 'have a', 'day', 'cheers'],
+    'Request an appointment': ['appointment', 'see', 'doctor', 'visit', 'come in', 'schedule', 'book', 'need', 'want'],
+    'Describe the reason': ['check', 'feeling', 'pain', 'sick', 'not well', 'hurts', 'problem', 'checkup', 'follow', 'routine'],
+    'Choose a time': ['morning', 'afternoon', 'tuesday', 'monday', 'wednesday', 'thursday', 'friday', 'first', 'second', 'that one', 'works', 'good', 'fine', 'okay', 'ten', 'two'],
+    'Confirm and say goodbye': ['yes', 'thank', 'thanks', 'great', 'perfect', 'see you', 'bye', 'goodbye'],
+    'Respond warmly': ['hi', 'hello', 'hey', 'what', 'tell', 'really', 'wow', 'oh', 'sweetheart', 'dear', 'love'],
+    'React to the story': ['wow', 'cool', 'nice', 'great', 'fun', 'amazing', 'really', 'oh', 'that', 'sounds', 'good', 'love'],
+    'Share something about your day': ['i', 'went', 'did', 'had', 'was', 'today', 'walk', 'ate', 'read', 'watched', 'garden', 'morning'],
+    'Say goodbye warmly': ['bye', 'love', 'miss', 'talk', 'soon', 'see', 'sweetheart', 'dear', 'take care'],
+  };
+
+  const keywords = intentKeywords[expectedIntent];
+  if (keywords) {
+    const matched = keywords.some(kw => t.includes(kw));
+    if (matched) return true;
+  }
+
+  // Fallback: if user produced 3+ words it's likely a meaningful attempt
+  const wordCount = t.split(/\s+/).filter(Boolean).length;
+  if (wordCount >= 3) return true;
+
+  // Very short but is a yes/no response to a question
+  if (partnerText.includes('?') && /^(yes|no|yeah|yep|nah|nope|okay|ok|sure|right|mhm)$/i.test(t)) {
+    return true;
+  }
+
+  return false;
+}
