@@ -51,7 +51,8 @@ export interface VoiceSessionPlan {
   topic: SessionTopicDef;
 }
 
-// ─── Conversational Transitions (not "Next exercise!") ───
+// ─── Conversational Transitions ───
+// Arc-aware: same-topic continuity bridges vs generic transitions
 
 const TRANSITIONS_SAME_TOPIC = [
   "Nice. Here's another one along the same lines.",
@@ -68,6 +69,24 @@ const TRANSITIONS_DIFFERENT_GAME = [
   "Let's mix it up a bit.",
   "Alright, something new.",
 ];
+
+/** Pick a transition — arc-phase transitions take priority */
+export function pickTransition(sameGameType: boolean, arcPhase?: ArcPhase, topicDef?: SessionTopicDef): string {
+  // If entering a new arc phase, use the phase transition
+  if (arcPhase) {
+    const phaseConfig = ARC_PHASE_CONFIGS.find(c => c.phase === arcPhase);
+    if (phaseConfig && phaseConfig.transitions.length > 0) {
+      // For consolidate, prepend a continuity bridge
+      if (arcPhase === 'consolidate' && topicDef?.continuityBridges?.length) {
+        return pickRandom(topicDef.continuityBridges) + pickRandom(phaseConfig.transitions);
+      }
+      return pickRandom(phaseConfig.transitions);
+    }
+  }
+  return sameGameType
+    ? pickRandom(TRANSITIONS_SAME_TOPIC)
+    : pickRandom(TRANSITIONS_DIFFERENT_GAME);
+}
 
 // ─── Purpose Anchors (every ~3 rounds) ───
 const PURPOSE_ANCHORS = [
