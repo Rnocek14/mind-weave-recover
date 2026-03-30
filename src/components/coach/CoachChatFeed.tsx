@@ -10,6 +10,8 @@
 import React, { useRef, useEffect } from 'react';
 import { Sparkles, User, Loader2 } from 'lucide-react';
 import { CardType } from '@/lib/coachOrchestrator';
+import { ScenarioCard } from './ScenarioCard';
+import { getScenarioById } from '@/lib/scenarioEngine';
 import { PhotoNamingCard } from './PhotoNamingCard';
 import { SemanticFeaturesCard } from './SemanticFeaturesCard';
 import { ThoughtPromptCard } from './ThoughtPromptCard';
@@ -26,12 +28,14 @@ export type FeedMessage =
   | { type: 'user'; text: string; id: string }
   | { type: 'card'; cardType: CardType; difficulty: 'easy' | 'medium'; id: string; completed: boolean }
   | { type: 'inline_photo'; imageUrl: string; target: string; id: string; answered: boolean; revealedWord?: string }
-  | { type: 'inline_minimal_pair'; image1Url: string; image2Url: string; word1: string; word2: string; targetIndex: 0 | 1; id: string; answered: boolean; selectedIndex: number | null; wasCorrect: boolean | null };
+  | { type: 'inline_minimal_pair'; image1Url: string; image2Url: string; word1: string; word2: string; targetIndex: 0 | 1; id: string; answered: boolean; selectedIndex: number | null; wasCorrect: boolean | null }
+  | { type: 'scenario'; scenarioId: string; id: string; completed: boolean; score?: number };
 
 interface CoachChatFeedProps {
   messages: FeedMessage[];
   onCardComplete?: (messageId: string, result: unknown) => void;
   onMinimalPairSelect?: (messageId: string, selectedIndex: 0 | 1) => void;
+  onScenarioStart?: (scenarioId: string) => void;
   isProcessing?: boolean;
   /** Current transcript from speech recognition (passed to active cards) */
   cardTranscript?: string;
@@ -86,6 +90,7 @@ export function CoachChatFeed({
   messages, 
   onCardComplete,
   onMinimalPairSelect,
+  onScenarioStart,
   isProcessing,
   cardTranscript = '',
   isCardListening = false,
@@ -234,6 +239,24 @@ export function CoachChatFeed({
             />
           </div>
         );
+
+      case 'scenario': {
+        const scenarioDef = getScenarioById(message.scenarioId);
+        if (!scenarioDef) return null;
+        return (
+          <div key={message.id} className="flex items-start gap-4 animate-fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
+              <Sparkles className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <ScenarioCard
+              scenario={scenarioDef}
+              onStart={(id) => onScenarioStart?.(id)}
+              completed={message.completed}
+              score={message.score}
+            />
+          </div>
+        );
+      }
     }
   };
 

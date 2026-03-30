@@ -40,6 +40,8 @@ import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
 import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
+import { ScenarioOverlay } from '@/components/coach/ScenarioOverlay';
+import { getScenarioById, type ScenarioScore } from '@/lib/scenarioEngine';
 
 interface ConversationCoachGameProps {
   userId: string;
@@ -71,6 +73,7 @@ export function ConversationCoachGame({
   const [showHelpers, setShowHelpers] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
   const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
@@ -885,6 +888,7 @@ export function ConversationCoachGame({
           messages={messages}
           onCardComplete={handleCardDone}
           onMinimalPairSelect={handleMinimalPairSelect}
+          onScenarioStart={(scenarioId) => setActiveScenarioId(scenarioId)}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
           isCardListening={isCardActive && isListening}
@@ -1134,6 +1138,27 @@ export function ConversationCoachGame({
         userId={userId}
         sessionId={sessionId}
       />
+
+      {/* Real-World Scenario Overlay */}
+      {activeScenarioId && (() => {
+        const scenarioDef = getScenarioById(activeScenarioId);
+        if (!scenarioDef) return null;
+        return (
+          <ScenarioOverlay
+            scenario={scenarioDef}
+            onClose={() => setActiveScenarioId(null)}
+            onComplete={() => {
+              setActiveScenarioId(null);
+            }}
+            isListening={isListening}
+            liveTranscript={userTranscript}
+            onStartListening={startListening}
+            onStopListening={stopListening}
+            onSpeak={async (text) => { await speakStream(text); }}
+            isSpeaking={isSpeaking}
+          />
+        );
+      })()}
     </div>
   );
 }

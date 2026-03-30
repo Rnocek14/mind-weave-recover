@@ -56,6 +56,7 @@ export type NextAction =
   | { type: 'inline_photo_naming'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
   | { type: 'inline_minimal_pairs'; difficulty: 'easy' | 'medium'; objective: TherapyObjective }
   | { type: 'popup_exercise'; slug: string; reason: PopupReason; targetDomain?: string; targetPhonemes?: string[]; difficultyHint?: 'easier' | 'same' | 'harder' }
+  | { type: 'suggest_scenario'; scenarioId: string }
   | { type: 'summary_verify'; summary: string }
   | { type: 'topic_shift' }
   | { type: 'wrap_up' };
