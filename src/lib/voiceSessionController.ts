@@ -41,6 +41,8 @@ export interface VoiceGameRound {
   meta?: Record<string, any>;
   /** Follow-up prompt Maya can ask after the response */
   followUp?: string;
+  /** Which arc phase this round belongs to */
+  arcPhase: ArcPhase;
 }
 
 export interface VoiceSessionPlan {
