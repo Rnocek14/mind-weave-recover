@@ -888,6 +888,7 @@ export function ConversationCoachGame({
           messages={messages}
           onCardComplete={handleCardDone}
           onMinimalPairSelect={handleMinimalPairSelect}
+          onScenarioStart={(scenarioId) => setActiveScenarioId(scenarioId)}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
           isCardListening={isCardActive && isListening}
