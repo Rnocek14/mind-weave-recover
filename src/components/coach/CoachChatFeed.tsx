@@ -10,6 +10,8 @@
 import React, { useRef, useEffect } from 'react';
 import { Sparkles, User, Loader2 } from 'lucide-react';
 import { CardType } from '@/lib/coachOrchestrator';
+import { ScenarioCard } from './ScenarioCard';
+import { getScenarioById } from '@/lib/scenarioEngine';
 import { PhotoNamingCard } from './PhotoNamingCard';
 import { SemanticFeaturesCard } from './SemanticFeaturesCard';
 import { ThoughtPromptCard } from './ThoughtPromptCard';
