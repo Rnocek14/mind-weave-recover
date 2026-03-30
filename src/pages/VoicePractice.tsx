@@ -34,6 +34,7 @@ export default function VoicePractice() {
     submitResponse,
     skipRound,
     endSession,
+    sessionTopic,
   } = useVoicePracticeSession(6, 1);
 
   useEffect(() => {
@@ -295,7 +296,7 @@ function VoiceHeader({ onBack, roundInfo }: { onBack: () => void; roundInfo?: st
       <Button variant="ghost" size="icon" onClick={onBack}>
         <ArrowLeft className="w-5 h-5" />
       </Button>
-      <span className="text-sm font-medium text-muted-foreground">
+      <span className="text-sm font-medium text-muted-foreground truncate max-w-[200px]">
         {roundInfo || 'Voice Practice'}
       </span>
       <div className="w-10" /> {/* spacer */}

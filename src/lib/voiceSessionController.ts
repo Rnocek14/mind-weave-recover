@@ -2,10 +2,13 @@
  * Voice Session Controller
  * 
  * Manages the flow of a voice-only practice session:
- * - Picks games based on difficulty/variety
- * - Manages transitions between games
+ * - Picks a session TOPIC to thread everything together
+ * - Picks games biased toward that topic
+ * - Conversational prompts (not clinical)
+ * - Progress feedback, purpose language, follow-up loops
  * - Tracks session progress
- * - Provides Maya's verbal transitions
+ * 
+ * KEY PRINCIPLE: User thinks "conversation", system knows "therapy"
  */
 
 import {
@@ -19,6 +22,9 @@ import {
   DESCRIBE_PROMPTS,
   YES_NO_PROMPTS,
   VOICE_STORIES,
+  SESSION_TOPICS,
+  type SessionTopic,
+  type SessionTopicDef,
 } from '@/data/voiceGames';
 import { shuffleArray } from '@/lib/shuffle';
 
@@ -31,68 +37,214 @@ export interface VoiceGameRound {
   expectedAnswers: string[];
   /** Extra data for the game */
   meta?: Record<string, any>;
+  /** Follow-up prompt Maya can ask after the response */
+  followUp?: string;
 }
 
 export interface VoiceSessionPlan {
   rounds: VoiceGameRound[];
   totalRounds: number;
+  topic: SessionTopicDef;
 }
 
-const TRANSITIONS = [
-  "Nice work! Let's try something different.",
-  "Great job. Here's another one.",
-  "You're doing well! Let's keep going.",
-  "Okay, switching it up a bit.",
-  "Love it. Ready for the next one?",
-  "That was good! Here's something new.",
+// ─── Conversational Transitions (not "Next exercise!") ───
+
+const TRANSITIONS_SAME_TOPIC = [
+  "Nice. Here's another one along the same lines.",
+  "Good. Let's keep going with this.",
+  "Okay, staying on this — try this one.",
+  "Mm-hmm. One more thing about this.",
+  "Love it. Here's something related.",
 ];
 
-function pickTransition(): string {
-  return TRANSITIONS[Math.floor(Math.random() * TRANSITIONS.length)];
+const TRANSITIONS_DIFFERENT_GAME = [
+  "Let's try something a little different.",
+  "Okay, switching it up slightly.",
+  "Here's a different kind of question.",
+  "Let's mix it up a bit.",
+  "Alright, something new.",
+];
+
+// ─── Purpose Anchors (every ~3 rounds) ───
+const PURPOSE_ANCHORS = [
+  "This is great practice for everyday conversations.",
+  "This kind of practice helps you find words faster in real life.",
+  "The more you do this, the easier real conversations get.",
+  "This is exactly what helps when words feel stuck.",
+  "Every time you practice this, it gets a little smoother.",
+];
+
+// ─── Progress Feedback (specific, not generic) ───
+const PROGRESS_SPEED = [
+  "You found that word faster that time.",
+  "That came out quicker — nice.",
+  "You didn't hesitate there. Good.",
+];
+
+const PROGRESS_INDEPENDENCE = [
+  "You didn't need any help there — nice.",
+  "You got that on your own.",
+  "No hints needed. That's progress.",
+];
+
+const PROGRESS_EXPANSION = [
+  "That was a longer, more complete answer.",
+  "You added more detail that time.",
+  "Nice — that was a fuller response.",
+];
+
+const PROGRESS_GENERIC = [
+  "That sounded smoother.",
+  "You're getting the hang of this.",
+  "That was well said.",
+];
+
+// ─── Follow-up Prompts (create conversation loops) ───
+const FOLLOW_UPS_MORE = [
+  "Can you think of one more?",
+  "Any others come to mind?",
+  "What else?",
+  "One more?",
+];
+
+const FOLLOW_UPS_EXPAND = [
+  "Can you add a bit more to that?",
+  "Tell me one more detail.",
+  "Say that again, a bit longer this time.",
+  "Nice — now add why.",
+];
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function filterByDifficulty<T extends { difficulty: number }>(items: T[], maxDifficulty: number): T[] {
   return items.filter(i => i.difficulty <= maxDifficulty);
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+function filterByTopic<T extends { topics: SessionTopic[] }>(items: T[], topic: SessionTopic): T[] {
+  const topicMatches = items.filter(i => i.topics.includes(topic));
+  return topicMatches.length > 0 ? topicMatches : items; // fallback to all
+}
+
+/** Pick a transition that fits the context */
+export function pickTransition(sameGameType: boolean): string {
+  return sameGameType
+    ? pickRandom(TRANSITIONS_SAME_TOPIC)
+    : pickRandom(TRANSITIONS_DIFFERENT_GAME);
+}
+
+/** Get a purpose anchor (use every ~3 rounds) */
+export function getPurposeAnchor(): string {
+  return pickRandom(PURPOSE_ANCHORS);
+}
+
+/** Get specific progress feedback based on what happened */
+export function getProgressFeedback(
+  score: number,
+  wordCount: number,
+  gameType: VoiceGameType,
+  previousScores: number[],
+): string | null {
+  // Only give progress feedback if they did reasonably well
+  if (score < 0.4) return null;
+
+  // Check if they're improving
+  const recentAvg = previousScores.length > 0
+    ? previousScores.slice(-3).reduce((a, b) => a + b, 0) / Math.min(previousScores.length, 3)
+    : 0;
+
+  if (score > recentAvg + 0.1 && previousScores.length > 0) {
+    return pickRandom(PROGRESS_SPEED);
+  }
+
+  if (score >= 0.7 && gameType !== 'story_retell') {
+    return pickRandom(PROGRESS_INDEPENDENCE);
+  }
+
+  if (wordCount >= 8 && (gameType === 'sentence_expansion' || gameType === 'yes_no_why')) {
+    return pickRandom(PROGRESS_EXPANSION);
+  }
+
+  if (score >= 0.6) {
+    return pickRandom(PROGRESS_GENERIC);
+  }
+
+  return null;
+}
+
+/** Get a follow-up prompt based on game type */
+export function getFollowUp(gameType: VoiceGameType): string {
+  if (gameType === 'category_fluency') {
+    return pickRandom(FOLLOW_UPS_MORE);
+  }
+  if (gameType === 'sentence_expansion' || gameType === 'yes_no_why' || gameType === 'story_retell') {
+    return pickRandom(FOLLOW_UPS_EXPAND);
+  }
+  return pickRandom(FOLLOW_UPS_MORE);
 }
 
 /**
- * Build a voice session plan with a mix of game types.
- * @param roundCount Number of micro-games to include
- * @param difficulty 1-3 difficulty cap
- * @param preferredGames Optional subset of game types to prefer
+ * Build a voice session plan with a topic thread.
  */
 export function buildVoiceSessionPlan(
   roundCount: number = 6,
   difficulty: number = 1,
-  preferredGames?: VoiceGameType[]
+  preferredGames?: VoiceGameType[],
+  forceTopic?: SessionTopic,
 ): VoiceSessionPlan {
-  // Pick game types — ensure variety
-  const availableTypes = preferredGames?.length 
+  // Pick a session topic
+  const topicDef = forceTopic
+    ? SESSION_TOPICS.find(t => t.topic === forceTopic) || pickRandom(SESSION_TOPICS)
+    : pickRandom(SESSION_TOPICS);
+
+  // Bias game selection toward topic-preferred games
+  const availableTypes = preferredGames?.length
     ? VOICE_GAMES.filter(g => preferredGames.includes(g.type))
     : VOICE_GAMES;
-  
-  const shuffledTypes = shuffleArray([...availableTypes]);
-  const rounds: VoiceGameRound[] = [];
 
+  // Weight topic-preferred games higher
+  const weighted: typeof availableTypes = [];
+  for (const game of availableTypes) {
+    if (topicDef.preferredGames.includes(game.type)) {
+      weighted.push(game, game); // double weight
+    } else {
+      weighted.push(game);
+    }
+  }
+
+  const shuffledTypes = shuffleArray([...weighted]);
+  // Deduplicate consecutive same types
+  const selectedTypes: typeof availableTypes = [];
   for (let i = 0; i < roundCount; i++) {
-    const gameDef = shuffledTypes[i % shuffledTypes.length];
-    const round = generateRound(gameDef.type, difficulty);
+    const candidate = shuffledTypes[i % shuffledTypes.length];
+    // Avoid 3+ consecutive same type
+    if (selectedTypes.length >= 2 &&
+        selectedTypes[selectedTypes.length - 1].type === candidate.type &&
+        selectedTypes[selectedTypes.length - 2].type === candidate.type) {
+      // Pick a different one
+      const alt = shuffledTypes.find(g => g.type !== candidate.type) || candidate;
+      selectedTypes.push(alt);
+    } else {
+      selectedTypes.push(candidate);
+    }
+  }
+
+  const rounds: VoiceGameRound[] = [];
+  for (const gameDef of selectedTypes) {
+    const round = generateRound(gameDef.type, difficulty, topicDef.topic);
     if (round) rounds.push(round);
   }
 
-  return { rounds, totalRounds: rounds.length };
+  return { rounds, totalRounds: rounds.length, topic: topicDef };
 }
 
-function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | null {
+function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic): VoiceGameRound | null {
   const gameDef = VOICE_GAMES.find(g => g.type === type)!;
 
   switch (type) {
     case 'story_retell': {
-      const stories = filterByDifficulty(VOICE_STORIES, maxDiff);
+      const stories = filterByTopic(filterByDifficulty(VOICE_STORIES, maxDiff), topic);
       if (!stories.length) return null;
       const story = pickRandom(stories);
       return {
@@ -102,23 +254,25 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
         prompt: story.text,
         expectedAnswers: story.keyDetails,
         meta: { storyId: story.id },
+        followUp: "What part stood out to you the most?",
       };
     }
     case 'category_fluency': {
-      const cats = filterByDifficulty(CATEGORY_PROMPTS, maxDiff);
+      const cats = filterByTopic(filterByDifficulty(CATEGORY_PROMPTS, maxDiff), topic);
       if (!cats.length) return null;
       const cat = pickRandom(cats);
       return {
         gameType: type,
         label: gameDef.label,
         intro: gameDef.intro,
-        prompt: `Name as many ${cat.category} as you can.`,
+        prompt: cat.conversationalPrompt,
         expectedAnswers: cat.examples,
         meta: { category: cat.category },
+        followUp: pickRandom(FOLLOW_UPS_MORE),
       };
     }
     case 'sentence_expansion': {
-      const prompts = filterByDifficulty(SENTENCE_EXPANSION_PROMPTS, maxDiff);
+      const prompts = filterByTopic(filterByDifficulty(SENTENCE_EXPANSION_PROMPTS, maxDiff), topic);
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
@@ -127,7 +281,8 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
         intro: gameDef.intro,
         prompt: `Say: "${p.starter}"`,
         expectedAnswers: p.expansionHints,
-        meta: { starter: p.starter, hints: p.expansionHints },
+        meta: { starter: p.starter, hints: p.expansionHints, expansionCue: p.expansionCue },
+        followUp: p.expansionCue,
       };
     }
     case 'synonym_swap': {
@@ -138,7 +293,7 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
         gameType: type,
         label: gameDef.label,
         intro: gameDef.intro,
-        prompt: `What's another word for "${p.word}"?`,
+        prompt: p.conversationalPrompt,
         expectedAnswers: p.synonyms,
       };
     }
@@ -150,12 +305,12 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
         gameType: type,
         label: gameDef.label,
         intro: gameDef.intro,
-        prompt: `What's the opposite of "${p.word}"?`,
+        prompt: p.conversationalPrompt,
         expectedAnswers: [p.opposite],
       };
     }
     case 'fill_blank': {
-      const prompts = filterByDifficulty(FILL_BLANK_PROMPTS, maxDiff);
+      const prompts = filterByTopic(filterByDifficulty(FILL_BLANK_PROMPTS, maxDiff), topic);
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
@@ -167,20 +322,20 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
       };
     }
     case 'describe_without_naming': {
-      const prompts = filterByDifficulty(DESCRIBE_PROMPTS, maxDiff);
+      const prompts = filterByTopic(filterByDifficulty(DESCRIBE_PROMPTS, maxDiff), topic);
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
         gameType: type,
         label: gameDef.label,
         intro: gameDef.intro,
-        prompt: `Describe a "${p.word}" without saying the word.`,
+        prompt: `Describe a "${p.word}" without saying the word — like you're giving someone a clue.`,
         expectedAnswers: p.hints,
         meta: { targetWord: p.word },
       };
     }
     case 'yes_no_why': {
-      const prompts = filterByDifficulty(YES_NO_PROMPTS, maxDiff);
+      const prompts = filterByTopic(filterByDifficulty(YES_NO_PROMPTS, maxDiff), topic);
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
@@ -188,7 +343,8 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
         label: gameDef.label,
         intro: gameDef.intro,
         prompt: p.question,
-        expectedAnswers: [],  // open-ended
+        expectedAnswers: [],
+        followUp: "Why do you think that?",
       };
     }
   }
@@ -199,52 +355,51 @@ function generateRound(type: VoiceGameType, maxDiff: number): VoiceGameRound | n
 export function scoreVoiceRound(
   round: VoiceGameRound,
   transcript: string
-): { score: number; matchedCount: number; totalExpected: number; feedback: string } {
+): { score: number; matchedCount: number; totalExpected: number; feedback: string; wordCount: number } {
+  const wordCount = transcript ? transcript.trim().split(/\s+/).filter(w => w.length > 1).length : 0;
+
   if (!transcript || transcript.trim().length < 2) {
-    return { score: 0, matchedCount: 0, totalExpected: round.expectedAnswers.length, feedback: "I didn't catch that. Let's move on." };
+    return { score: 0, matchedCount: 0, totalExpected: round.expectedAnswers.length, feedback: "That's okay. Let's try the next one.", wordCount: 0 };
   }
 
   const lower = transcript.toLowerCase();
-  
+
   // For open-ended games (yes_no_why), score by word count
   if (round.gameType === 'yes_no_why') {
-    const words = lower.split(/\s+/).filter(w => w.length > 1).length;
-    const score = Math.min(1, words / 8); // 8+ words = full score
-    const feedback = words >= 5 
-      ? "Great answer! You explained that well."
-      : words >= 2 
-        ? "Good. Can you tell me a bit more next time?"
-        : "Try to say more. Even a short reason helps!";
-    return { score, matchedCount: words, totalExpected: 8, feedback };
+    const score = Math.min(1, wordCount / 8);
+    const feedback = wordCount >= 5
+      ? "Good answer. You explained that well."
+      : wordCount >= 2
+        ? "Good start. Try adding a bit more about why."
+        : "Even a short reason helps. Try telling me why next time.";
+    return { score, matchedCount: wordCount, totalExpected: 8, feedback, wordCount };
   }
 
-  // For sentence expansion, score by whether they expanded
+  // For sentence expansion
   if (round.gameType === 'sentence_expansion') {
     const starterWords = (round.meta?.starter as string || '').split(/\s+/).length;
-    const responseWords = lower.split(/\s+/).filter(w => w.length > 1).length;
-    const expanded = responseWords > starterWords;
-    const score = expanded ? Math.min(1, responseWords / (starterWords + 4)) : 0.3;
-    const feedback = expanded 
-      ? "Nice expansion! You added good detail."
-      : "Try to add more to the sentence next time.";
-    return { score, matchedCount: responseWords, totalExpected: starterWords + 4, feedback };
+    const expanded = wordCount > starterWords;
+    const score = expanded ? Math.min(1, wordCount / (starterWords + 4)) : 0.3;
+    const feedback = expanded
+      ? "Nice — you added good detail to that."
+      : "Try adding something more next time — where, when, or why.";
+    return { score, matchedCount: wordCount, totalExpected: starterWords + 4, feedback, wordCount };
   }
 
-  // For describe-without-naming, check they didn't say the word
+  // For describe-without-naming
   if (round.gameType === 'describe_without_naming') {
     const targetWord = (round.meta?.targetWord as string || '').toLowerCase();
     const saidTarget = lower.includes(targetWord);
-    const words = lower.split(/\s+/).filter(w => w.length > 1).length;
-    const score = saidTarget ? 0.3 : Math.min(1, words / 6);
+    const score = saidTarget ? 0.3 : Math.min(1, wordCount / 6);
     const feedback = saidTarget
-      ? `Oops, you said "${targetWord}"! Try describing it differently.`
-      : words >= 4
-        ? "Great description! I could tell what you meant."
-        : "Good start. Try adding more details.";
-    return { score, matchedCount: words, totalExpected: 6, feedback };
+      ? `Oops, you said "${targetWord}"! Try describing it without the word next time.`
+      : wordCount >= 4
+        ? "Good description! I could picture what you meant."
+        : "Good start. Try adding one more detail next time.";
+    return { score, matchedCount: wordCount, totalExpected: 6, feedback, wordCount };
   }
 
-  // Standard matching: count how many expected answers appear in transcript
+  // Standard matching
   let matched = 0;
   for (const answer of round.expectedAnswers) {
     if (lower.includes(answer.toLowerCase())) matched++;
@@ -252,50 +407,44 @@ export function scoreVoiceRound(
 
   const total = Math.max(1, round.expectedAnswers.length);
   const ratio = matched / total;
-  
+
   let feedback: string;
   if (round.gameType === 'story_retell') {
-    feedback = ratio >= 0.7 
-      ? `Excellent! You remembered ${matched} out of ${total} details.`
+    feedback = ratio >= 0.7
+      ? `You remembered most of that — ${matched} details. That's strong.`
       : ratio >= 0.4
-        ? `Good effort! You got ${matched} details. Let's keep practicing.`
-        : `You recalled ${matched} details. That's okay — it gets easier with practice.`;
+        ? `Good — you got ${matched} details. Try adding one more next time.`
+        : `You recalled ${matched} details. That's a start — it gets easier with practice.`;
   } else if (round.gameType === 'category_fluency') {
     feedback = matched >= 5
-      ? `Great! You named ${matched}. That's strong.`
+      ? `Nice! You came up with ${matched}. That's really good.`
       : matched >= 3
-        ? `Nice, you got ${matched}. Can you think of more next time?`
-        : `You named ${matched}. Let's try to get a few more next time.`;
+        ? `Good, you got ${matched}. Can you think of any more?`
+        : `You named ${matched}. Let's see if more come to mind next time.`;
   } else {
     feedback = ratio >= 0.5
-      ? "That's right! Well done."
+      ? "That's it. Well done."
       : matched > 0
-        ? "Close! Good try."
-        : "Not quite, but that's okay. Let's keep going.";
+        ? "Close! You're on the right track."
+        : "Not quite — but that's okay. Let's keep going.";
   }
 
-  return { score: ratio, matchedCount: matched, totalExpected: total, feedback };
+  return { score: ratio, matchedCount: matched, totalExpected: total, feedback, wordCount };
 }
 
-/** Get a warm session opening line */
-export function getSessionOpening(): string {
-  const openers = [
-    "Hey! Let's do some quick voice practice. Just listen and respond — no screen needed.",
-    "Ready for some voice exercises? I'll guide you through a few quick ones.",
-    "Let's practice together. I'll talk, you respond. Nice and easy.",
-    "Hi! Let's do a bit of talking practice. Just follow along with my voice.",
-  ];
-  return pickRandom(openers);
+/** Get a warm session opening line (topic-aware) */
+export function getSessionOpening(topicDef: SessionTopicDef): string {
+  return pickRandom(topicDef.openers);
 }
 
 /** Get a session wrap-up line */
 export function getSessionClosing(roundsCompleted: number, avgScore: number): string {
-  if (avgScore >= 0.7) {
-    return `Great session! You completed ${roundsCompleted} exercises and did really well. Keep it up!`;
-  } else if (avgScore >= 0.4) {
-    return `Good work! ${roundsCompleted} exercises done. You're making progress — every practice counts.`;
-  }
-  return `Nice effort! ${roundsCompleted} exercises completed. The more you practice, the easier it gets.`;
-}
+  const purposeClose = "Every practice like this makes real conversations easier.";
 
-export { pickTransition };
+  if (avgScore >= 0.7) {
+    return `That was a good one! You completed ${roundsCompleted} exercises and did really well. ${purposeClose}`;
+  } else if (avgScore >= 0.4) {
+    return `Nice work! ${roundsCompleted} exercises done. You're building up. ${purposeClose}`;
+  }
+  return `Good effort! ${roundsCompleted} done. The more you practice, the smoother it gets. ${purposeClose}`;
+}
