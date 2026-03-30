@@ -75,8 +75,9 @@ export function ScenarioOverlay({
     const currentBeat = scenario.beats[state.currentBeatIndex];
     const latencyMs = Date.now() - exchangeStartRef.current;
     
-    // Simple intent matching — check if user said something relevant
-    const intentLanded = transcript.trim().length >= 2; // Any real response counts
+    // Functional intent scoring — checks if the response is meaningful for this beat
+    const currentBeatExpected = currentBeat?.expectedUserIntent || '';
+    const intentLanded = assessIntentLanded(transcript, currentBeatExpected, partnerText);
     
     const exchange = {
       partnerText: partnerText,
