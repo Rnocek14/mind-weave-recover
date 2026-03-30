@@ -1,14 +1,16 @@
 /**
  * Voice Session Controller
  * 
- * Manages the flow of a voice-only practice session:
- * - Picks a session TOPIC to thread everything together
- * - Picks games biased toward that topic
- * - Conversational prompts (not clinical)
- * - Progress feedback, purpose language, follow-up loops
- * - Tracks session progress
+ * Manages the flow of a voice-only practice session using CONVERSATION ARCS:
  * 
- * KEY PRINCIPLE: User thinks "conversation", system knows "therapy"
+ * Arc Phases:
+ * 1. OPEN    — general, easy questions to warm up (category, yes/no)
+ * 2. EXPAND  — deepen the topic (sentence expansion, describe, why)
+ * 3. CHALLENGE — push retrieval/speed (synonyms, opposites, describe)
+ * 4. CONSOLIDATE — tie it together (retell, expansion, reflection)
+ * 
+ * To the user it feels like ONE evolving conversation about a topic.
+ * To the system it's structured therapy with measurable progression.
  */
 
 import {
@@ -35,13 +37,9 @@ export interface VoiceGameRound {
   label: string;
   intro: string;
   prompt: string;
-  /** For scoring — acceptable answers or key details */
   expectedAnswers: string[];
-  /** Extra data for the game */
   meta?: Record<string, any>;
-  /** Follow-up prompt Maya can ask after the response */
   followUp?: string;
-  /** Which arc phase this round belongs to */
   arcPhase: ArcPhase;
 }
 
@@ -51,42 +49,14 @@ export interface VoiceSessionPlan {
   topic: SessionTopicDef;
 }
 
-// ─── Conversational Transitions ───
-// Arc-aware: same-topic continuity bridges vs generic transitions
+// ─── Arc-aware Transitions ───
 
-const TRANSITIONS_SAME_TOPIC = [
+const TRANSITIONS_WITHIN_PHASE = [
   "Nice. Here's another one along the same lines.",
   "Good. Let's keep going with this.",
-  "Okay, staying on this — try this one.",
   "Mm-hmm. One more thing about this.",
   "Love it. Here's something related.",
 ];
-
-const TRANSITIONS_DIFFERENT_GAME = [
-  "Let's try something a little different.",
-  "Okay, switching it up slightly.",
-  "Here's a different kind of question.",
-  "Let's mix it up a bit.",
-  "Alright, something new.",
-];
-
-/** Pick a transition — arc-phase transitions take priority */
-export function pickTransition(sameGameType: boolean, arcPhase?: ArcPhase, topicDef?: SessionTopicDef): string {
-  // If entering a new arc phase, use the phase transition
-  if (arcPhase) {
-    const phaseConfig = ARC_PHASE_CONFIGS.find(c => c.phase === arcPhase);
-    if (phaseConfig && phaseConfig.transitions.length > 0) {
-      // For consolidate, prepend a continuity bridge
-      if (arcPhase === 'consolidate' && topicDef?.continuityBridges?.length) {
-        return pickRandom(topicDef.continuityBridges) + pickRandom(phaseConfig.transitions);
-      }
-      return pickRandom(phaseConfig.transitions);
-    }
-  }
-  return sameGameType
-    ? pickRandom(TRANSITIONS_SAME_TOPIC)
-    : pickRandom(TRANSITIONS_DIFFERENT_GAME);
-}
 
 // ─── Purpose Anchors (every ~3 rounds) ───
 const PURPOSE_ANCHORS = [
@@ -97,7 +67,7 @@ const PURPOSE_ANCHORS = [
   "Every time you practice this, it gets a little smoother.",
 ];
 
-// ─── Progress Feedback (specific, not generic) ───
+// ─── Progress Feedback ───
 const PROGRESS_SPEED = [
   "You found that word faster that time.",
   "That came out quicker — nice.",
@@ -122,7 +92,7 @@ const PROGRESS_GENERIC = [
   "That was well said.",
 ];
 
-// ─── Follow-up Prompts (create conversation loops) ───
+// ─── Follow-up Prompts ───
 const FOLLOW_UPS_MORE = [
   "Can you think of one more?",
   "Any others come to mind?",
@@ -147,68 +117,73 @@ function filterByDifficulty<T extends { difficulty: number }>(items: T[], maxDif
 
 function filterByTopic<T extends { topics: SessionTopic[] }>(items: T[], topic: SessionTopic): T[] {
   const topicMatches = items.filter(i => i.topics.includes(topic));
-  return topicMatches.length > 0 ? topicMatches : items; // fallback to all
+  return topicMatches.length > 0 ? topicMatches : items;
 }
 
-/** Pick a transition that fits the context */
-export function pickTransition(sameGameType: boolean): string {
-  return sameGameType
-    ? pickRandom(TRANSITIONS_SAME_TOPIC)
-    : pickRandom(TRANSITIONS_DIFFERENT_GAME);
+/** Pick a transition that fits the arc context */
+export function pickTransition(
+  prevPhase: ArcPhase | undefined,
+  nextPhase: ArcPhase,
+  topicDef?: SessionTopicDef,
+): string {
+  // Phase change → use arc phase transition
+  if (prevPhase !== nextPhase) {
+    const phaseConfig = ARC_PHASE_CONFIGS.find(c => c.phase === nextPhase);
+    if (phaseConfig && phaseConfig.transitions.length > 0) {
+      // Consolidate gets a continuity bridge prefix
+      if (nextPhase === 'consolidate' && topicDef?.continuityBridges?.length) {
+        return pickRandom(topicDef.continuityBridges) + pickRandom(phaseConfig.transitions).toLowerCase();
+      }
+      return pickRandom(phaseConfig.transitions);
+    }
+  }
+  // Same phase → within-phase transition
+  return pickRandom(TRANSITIONS_WITHIN_PHASE);
 }
 
-/** Get a purpose anchor (use every ~3 rounds) */
+/** Get a purpose anchor */
 export function getPurposeAnchor(): string {
   return pickRandom(PURPOSE_ANCHORS);
 }
 
-/** Get specific progress feedback based on what happened */
+/** Get specific progress feedback */
 export function getProgressFeedback(
   score: number,
   wordCount: number,
   gameType: VoiceGameType,
   previousScores: number[],
 ): string | null {
-  // Only give progress feedback if they did reasonably well
   if (score < 0.4) return null;
-
-  // Check if they're improving
   const recentAvg = previousScores.length > 0
     ? previousScores.slice(-3).reduce((a, b) => a + b, 0) / Math.min(previousScores.length, 3)
     : 0;
-
-  if (score > recentAvg + 0.1 && previousScores.length > 0) {
-    return pickRandom(PROGRESS_SPEED);
-  }
-
-  if (score >= 0.7 && gameType !== 'story_retell') {
-    return pickRandom(PROGRESS_INDEPENDENCE);
-  }
-
-  if (wordCount >= 8 && (gameType === 'sentence_expansion' || gameType === 'yes_no_why')) {
-    return pickRandom(PROGRESS_EXPANSION);
-  }
-
-  if (score >= 0.6) {
-    return pickRandom(PROGRESS_GENERIC);
-  }
-
+  if (score > recentAvg + 0.1 && previousScores.length > 0) return pickRandom(PROGRESS_SPEED);
+  if (score >= 0.7 && gameType !== 'story_retell') return pickRandom(PROGRESS_INDEPENDENCE);
+  if (wordCount >= 8 && (gameType === 'sentence_expansion' || gameType === 'yes_no_why')) return pickRandom(PROGRESS_EXPANSION);
+  if (score >= 0.6) return pickRandom(PROGRESS_GENERIC);
   return null;
 }
 
-/** Get a follow-up prompt based on game type */
+/** Get a follow-up prompt */
 export function getFollowUp(gameType: VoiceGameType): string {
-  if (gameType === 'category_fluency') {
-    return pickRandom(FOLLOW_UPS_MORE);
-  }
-  if (gameType === 'sentence_expansion' || gameType === 'yes_no_why' || gameType === 'story_retell') {
-    return pickRandom(FOLLOW_UPS_EXPAND);
-  }
+  if (gameType === 'category_fluency') return pickRandom(FOLLOW_UPS_MORE);
+  if (gameType === 'sentence_expansion' || gameType === 'yes_no_why' || gameType === 'story_retell') return pickRandom(FOLLOW_UPS_EXPAND);
   return pickRandom(FOLLOW_UPS_MORE);
 }
 
+// ─── Arc-based Session Planning ───
+
+/** Assign arc phases to round indices */
+function getArcPhaseForIndex(index: number, total: number): ArcPhase {
+  const ratio = index / total;
+  if (ratio < 0.25) return 'open';
+  if (ratio < 0.5) return 'expand';
+  if (ratio < 0.75) return 'challenge';
+  return 'consolidate';
+}
+
 /**
- * Build a voice session plan with a topic thread.
+ * Build a voice session plan with conversation arcs.
  */
 export function buildVoiceSessionPlan(
   roundCount: number = 6,
@@ -216,53 +191,58 @@ export function buildVoiceSessionPlan(
   preferredGames?: VoiceGameType[],
   forceTopic?: SessionTopic,
 ): VoiceSessionPlan {
-  // Pick a session topic
   const topicDef = forceTopic
     ? SESSION_TOPICS.find(t => t.topic === forceTopic) || pickRandom(SESSION_TOPICS)
     : pickRandom(SESSION_TOPICS);
 
-  // Bias game selection toward topic-preferred games
-  const availableTypes = preferredGames?.length
-    ? VOICE_GAMES.filter(g => preferredGames.includes(g.type))
-    : VOICE_GAMES;
-
-  // Weight topic-preferred games higher
-  const weighted: typeof availableTypes = [];
-  for (const game of availableTypes) {
-    if (topicDef.preferredGames.includes(game.type)) {
-      weighted.push(game, game); // double weight
-    } else {
-      weighted.push(game);
-    }
-  }
-
-  const shuffledTypes = shuffleArray([...weighted]);
-  // Deduplicate consecutive same types
-  const selectedTypes: typeof availableTypes = [];
-  for (let i = 0; i < roundCount; i++) {
-    const candidate = shuffledTypes[i % shuffledTypes.length];
-    // Avoid 3+ consecutive same type
-    if (selectedTypes.length >= 2 &&
-        selectedTypes[selectedTypes.length - 1].type === candidate.type &&
-        selectedTypes[selectedTypes.length - 2].type === candidate.type) {
-      // Pick a different one
-      const alt = shuffledTypes.find(g => g.type !== candidate.type) || candidate;
-      selectedTypes.push(alt);
-    } else {
-      selectedTypes.push(candidate);
-    }
-  }
-
   const rounds: VoiceGameRound[] = [];
-  for (const gameDef of selectedTypes) {
-    const round = generateRound(gameDef.type, difficulty, topicDef.topic);
+
+  for (let i = 0; i < roundCount; i++) {
+    const arcPhase = getArcPhaseForIndex(i, roundCount);
+    const phaseConfig = ARC_PHASE_CONFIGS.find(c => c.phase === arcPhase)!;
+
+    // Combine phase-preferred + topic-preferred games, weighted
+    const phaseGames = phaseConfig.preferredGames;
+    const topicGames = topicDef.preferredGames;
+    
+    // Games that match BOTH phase and topic get triple weight
+    const candidates = preferredGames?.length
+      ? VOICE_GAMES.filter(g => preferredGames.includes(g.type))
+      : VOICE_GAMES;
+
+    const weighted: VoiceGameType[] = [];
+    for (const game of candidates) {
+      const inPhase = phaseGames.includes(game.type);
+      const inTopic = topicGames.includes(game.type);
+      if (inPhase && inTopic) {
+        weighted.push(game.type, game.type, game.type); // triple
+      } else if (inPhase) {
+        weighted.push(game.type, game.type); // double
+      } else if (inTopic) {
+        weighted.push(game.type);
+      }
+    }
+
+    // Fallback if nothing matched
+    if (weighted.length === 0) {
+      for (const g of phaseGames) weighted.push(g);
+    }
+
+    // Avoid same game as previous round
+    let chosen = pickRandom(weighted);
+    if (rounds.length > 0 && rounds[rounds.length - 1].gameType === chosen) {
+      const alt = weighted.find(t => t !== chosen);
+      if (alt) chosen = alt;
+    }
+
+    const round = generateRound(chosen, difficulty, topicDef.topic, arcPhase);
     if (round) rounds.push(round);
   }
 
   return { rounds, totalRounds: rounds.length, topic: topicDef };
 }
 
-function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic): VoiceGameRound | null {
+function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic, arcPhase: ArcPhase): VoiceGameRound | null {
   const gameDef = VOICE_GAMES.find(g => g.type === type)!;
 
   switch (type) {
@@ -271,13 +251,10 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!stories.length) return null;
       const story = pickRandom(stories);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: story.text,
-        expectedAnswers: story.keyDetails,
-        meta: { storyId: story.id },
-        followUp: "What part stood out to you the most?",
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: story.text, expectedAnswers: story.keyDetails,
+        meta: { storyId: story.id }, followUp: "What part stood out to you the most?",
+        arcPhase,
       };
     }
     case 'category_fluency': {
@@ -285,13 +262,10 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!cats.length) return null;
       const cat = pickRandom(cats);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: cat.conversationalPrompt,
-        expectedAnswers: cat.examples,
-        meta: { category: cat.category },
-        followUp: pickRandom(FOLLOW_UPS_MORE),
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: cat.conversationalPrompt, expectedAnswers: cat.examples,
+        meta: { category: cat.category }, followUp: pickRandom(FOLLOW_UPS_MORE),
+        arcPhase,
       };
     }
     case 'sentence_expansion': {
@@ -299,13 +273,11 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: `Say: "${p.starter}"`,
-        expectedAnswers: p.expansionHints,
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: `Say: "${p.starter}"`, expectedAnswers: p.expansionHints,
         meta: { starter: p.starter, hints: p.expansionHints, expansionCue: p.expansionCue },
         followUp: p.expansionCue,
+        arcPhase,
       };
     }
     case 'synonym_swap': {
@@ -313,11 +285,9 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: p.conversationalPrompt,
-        expectedAnswers: p.synonyms,
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: p.conversationalPrompt, expectedAnswers: p.synonyms,
+        arcPhase,
       };
     }
     case 'opposites': {
@@ -325,11 +295,9 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: p.conversationalPrompt,
-        expectedAnswers: [p.opposite],
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: p.conversationalPrompt, expectedAnswers: [p.opposite],
+        arcPhase,
       };
     }
     case 'fill_blank': {
@@ -337,11 +305,9 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: p.sentence,
-        expectedAnswers: p.answer,
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: p.sentence, expectedAnswers: p.answer,
+        arcPhase,
       };
     }
     case 'describe_without_naming': {
@@ -349,12 +315,10 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
         prompt: `Describe a "${p.word}" without saying the word — like you're giving someone a clue.`,
-        expectedAnswers: p.hints,
-        meta: { targetWord: p.word },
+        expectedAnswers: p.hints, meta: { targetWord: p.word },
+        arcPhase,
       };
     }
     case 'yes_no_why': {
@@ -362,12 +326,10 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       if (!prompts.length) return null;
       const p = pickRandom(prompts);
       return {
-        gameType: type,
-        label: gameDef.label,
-        intro: gameDef.intro,
-        prompt: p.question,
-        expectedAnswers: [],
+        gameType: type, label: gameDef.label, intro: gameDef.intro,
+        prompt: p.question, expectedAnswers: [],
         followUp: "Why do you think that?",
+        arcPhase,
       };
     }
   }
@@ -387,7 +349,6 @@ export function scoreVoiceRound(
 
   const lower = transcript.toLowerCase();
 
-  // For open-ended games (yes_no_why), score by word count
   if (round.gameType === 'yes_no_why') {
     const score = Math.min(1, wordCount / 8);
     const feedback = wordCount >= 5
@@ -398,7 +359,6 @@ export function scoreVoiceRound(
     return { score, matchedCount: wordCount, totalExpected: 8, feedback, wordCount };
   }
 
-  // For sentence expansion
   if (round.gameType === 'sentence_expansion') {
     const starterWords = (round.meta?.starter as string || '').split(/\s+/).length;
     const expanded = wordCount > starterWords;
@@ -409,7 +369,6 @@ export function scoreVoiceRound(
     return { score, matchedCount: wordCount, totalExpected: starterWords + 4, feedback, wordCount };
   }
 
-  // For describe-without-naming
   if (round.gameType === 'describe_without_naming') {
     const targetWord = (round.meta?.targetWord as string || '').toLowerCase();
     const saidTarget = lower.includes(targetWord);
@@ -455,7 +414,7 @@ export function scoreVoiceRound(
   return { score: ratio, matchedCount: matched, totalExpected: total, feedback, wordCount };
 }
 
-/** Get a warm session opening line (topic-aware) */
+/** Get a warm session opening line */
 export function getSessionOpening(topicDef: SessionTopicDef): string {
   return pickRandom(topicDef.openers);
 }
@@ -463,7 +422,6 @@ export function getSessionOpening(topicDef: SessionTopicDef): string {
 /** Get a session wrap-up line */
 export function getSessionClosing(roundsCompleted: number, avgScore: number): string {
   const purposeClose = "Every practice like this makes real conversations easier.";
-
   if (avgScore >= 0.7) {
     return `That was a good one! You completed ${roundsCompleted} exercises and did really well. ${purposeClose}`;
   } else if (avgScore >= 0.4) {
