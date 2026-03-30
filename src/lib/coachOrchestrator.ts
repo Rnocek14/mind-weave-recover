@@ -98,6 +98,9 @@ export interface OrchestratorState {
   popupExercisesThisSession: number;
   turnsSinceLastPopup: number;
   repeatedStuckCount: number;
+  
+  // Scenario tracking
+  scenariosOfferedThisSession: number;
 
   // Profile-driven probe context
   clinicalProfile: ClinicalProfile | null;
