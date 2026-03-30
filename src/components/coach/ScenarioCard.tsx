@@ -50,7 +50,7 @@ export function ScenarioCard({ scenario, onStart, completed, score }: ScenarioCa
       {/* Action */}
       {completed ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-green-500">✓</span>
+          <span className="text-success">✓</span>
           <span>Completed{score !== undefined ? ` · Readiness: ${score}%` : ''}</span>
         </div>
       ) : (
