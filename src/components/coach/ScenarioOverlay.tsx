@@ -56,6 +56,7 @@ export function ScenarioOverlay({
   const [reflectionAnswer, setReflectionAnswer] = useState<string | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
+  const latestTranscriptRef = useRef<string>('');
 
   // ===== Phase transitions =====
   
