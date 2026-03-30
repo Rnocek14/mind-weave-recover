@@ -32,6 +32,7 @@ export default function VoicePractice() {
     currentMayaText,
     startSession,
     submitResponse,
+    submitFollowUp,
     skipRound,
     endSession,
     sessionTopic,
