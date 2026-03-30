@@ -34,6 +34,7 @@ export default function VoicePractice() {
     submitResponse,
     skipRound,
     endSession,
+    sessionTopic,
   } = useVoicePracticeSession(6, 1);
 
   useEffect(() => {
