@@ -90,6 +90,7 @@ export function CoachChatFeed({
   messages, 
   onCardComplete,
   onMinimalPairSelect,
+  onScenarioStart,
   isProcessing,
   cardTranscript = '',
   isCardListening = false,
