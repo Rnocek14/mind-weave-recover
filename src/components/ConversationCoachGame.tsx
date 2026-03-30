@@ -1147,15 +1147,7 @@ export function ConversationCoachGame({
           <ScenarioOverlay
             scenario={scenarioDef}
             onClose={() => setActiveScenarioId(null)}
-            onComplete={(score) => {
-              // Mark scenario card as completed in feed
-              const scenarioMsgIndex = messages.findIndex(
-                m => m.type === 'scenario' && (m as any).scenarioId === activeScenarioId
-              );
-              if (scenarioMsgIndex >= 0) {
-                // Update via addMessage pattern — add a return-to-chat summary
-                addMessage({ type: 'ai', text: score.emotionalFeedback + ` Your Real-World Readiness: ${score.overall}%. ${score.nextImprovement}`, id: `scenario_summary_${Date.now()}` });
-              }
+            onComplete={() => {
               setActiveScenarioId(null);
             }}
             isListening={isListening}
