@@ -56,6 +56,7 @@ export function ScenarioOverlay({
   const [reflectionAnswer, setReflectionAnswer] = useState<string | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
+  const latestTranscriptRef = useRef<string>('');
 
   // ===== Phase transitions =====
   
@@ -125,14 +126,23 @@ export function ScenarioOverlay({
     }
   }, [state, scenario, partnerText, onSpeak, onStartListening]);
 
+  // Keep transcript ref in sync so we always capture the latest value
+  useEffect(() => {
+    latestTranscriptRef.current = liveTranscript;
+  }, [liveTranscript]);
+
   // Silence detection → Maya whispers
   useEffect(() => {
-    if (state.phase !== 'live' || isListening === false || isSpeaking) return;
+    if (state.phase !== 'live' || !isListening || isSpeaking) return;
     
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
     const currentBeat = scenario.beats[state.currentBeatIndex];
     if (!currentBeat) return;
+
+    // Only trigger whisper if user hasn't produced meaningful speech yet
+    const hasSpoken = liveTranscript.trim().length > 0;
+    const silenceDelay = hasSpoken ? 12000 : 8000; // longer if they started speaking
 
     silenceTimerRef.current = setTimeout(() => {
       const whisperIndex = Math.min(state.whispersTriggered, currentBeat.whispers.length - 1);
@@ -141,19 +151,22 @@ export function ScenarioOverlay({
         setWhisperText(whisper);
         setState(prev => ({ ...prev, whispersTriggered: prev.whispersTriggered + 1 }));
       }
-    }, 8000); // 8s silence triggers whisper
+    }, silenceDelay);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats]);
+  }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats, liveTranscript]);
 
-  // When user stops speaking (transcript finalizes)
+  // When user stops speaking (transcript finalizes) — use ref to avoid stale closure
   useEffect(() => {
-    if (!isListening && liveTranscript.trim() && state.phase === 'live') {
-      handleUserTurn(liveTranscript);
+    if (!isListening && state.phase === 'live') {
+      const captured = latestTranscriptRef.current.trim();
+      if (captured) {
+        handleUserTurn(captured);
+      }
     }
-  }, [isListening]); // Intentionally only trigger on listening state change
+  }, [isListening, state.phase, handleUserTurn]);
 
   // ===== Support actions =====
   
@@ -513,6 +526,10 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
   const u = userSaid.toLowerCase().trim();
 
   const responses: Record<string, (u: string) => string[]> = {
+    // === Coffee scenario ===
+    'Greet and ask what they want': () => [
+      "Hi there! Welcome in. What can I get started for you today?",
+    ],
     'Ask about size or milk preference': (u) => {
       if (u.includes('latte') || u.includes('cappuccino'))
         return ["Nice choice! What size — regular or large?", "Ooh, good pick! Any milk preference?"];
@@ -540,6 +557,10 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
       "Have a great day! Come back anytime.",
       "Thanks! See you next time!",
     ],
+    // === Doctor call scenario ===
+    'Answer phone and ask how to help': () => [
+      "Good morning, Dr. Chen's office. How can I help you?",
+    ],
     'Ask what the appointment is for': () => [
       "Sure thing. What's it about — a check-up, or something bothering you?",
       "Of course. Is it for something specific, or just a general visit?",
@@ -558,6 +579,12 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
         "You're all set! We'll send a reminder.",
       ];
     },
+    // === Family chat scenario ===
+    'Greet and share exciting news': () => [
+      "Hi! Guess what happened at school today!",
+      "Hey! You'll never guess what we did today!",
+      "Hi! I had the BEST day today!",
+    ],
     'Tell a short, cute school story': () => [
       "We made a volcano in science and it actually EXPLODED! It was so cool!",
       "My friend and I built the tallest tower in the whole class! It was THIS big!",
@@ -571,7 +598,7 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
     'Say a loving goodbye': () => [
       "I love you so much! Talk soon! Bye bye!",
       "Bye! Love you! Miss you already!",
-      "Love you Grandma! Bye bye! Hugs!",
+      "Love you! Bye bye! Hugs!",
     ],
   };
 
@@ -580,7 +607,9 @@ function generatePartnerResponse(beat: { partnerAction: string; expectedUserInte
     const options = generator(u);
     return options[Math.floor(Math.random() * options.length)];
   }
-  return "That's great! Tell me more.";
+  // Fallback — should not happen if all beats are mapped
+  console.warn(`[ScenarioEngine] No partner response for action: "${beat.partnerAction}"`);
+  return "That sounds great! Tell me more.";
 }
 
 /**

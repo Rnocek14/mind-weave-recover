@@ -1149,8 +1149,8 @@ export function ConversationCoachGame({
             scenario={scenarioDef}
             onClose={() => setActiveScenarioId(null)}
             onComplete={(score) => {
-              // Return-to-chat: Maya posts a warm summary
-              // Build warm, conversational return message
+              // Return-to-chat: scenario-specific warm summary
+              const scenarioName = scenarioDef.title.toLowerCase();
               const readinessLine = score.overall >= 70
                 ? `Your real-world readiness is at ${score.overall}% — you're getting there.`
                 : score.overall >= 40
@@ -1159,6 +1159,7 @@ export function ConversationCoachGame({
               
               const mayaReturn = [
                 score.emotionalFeedback,
+                `You practiced ${scenarioName} — and that takes courage.`,
                 readinessLine,
                 '',
                 `💡 ${score.nextImprovement}`,
