@@ -85,6 +85,7 @@ export function useVoicePracticeSession(
   const planRef = useRef<VoiceSessionPlan | null>(null);
   const isProcessingRef = useRef(false);
   const scoresHistoryRef = useRef<number[]>([]);
+  const pendingFollowUpRef = useRef(false); // tracks if we're in a follow-up loop
 
   const plan = useMemo(() => {
     const p = buildVoiceSessionPlan(roundCount, difficulty);
