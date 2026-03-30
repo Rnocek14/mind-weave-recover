@@ -32,6 +32,7 @@ export default function VoicePractice() {
     currentMayaText,
     startSession,
     submitResponse,
+    submitFollowUp,
     skipRound,
     endSession,
     sessionTopic,
@@ -101,7 +102,7 @@ export default function VoicePractice() {
 
   // Auto-start listening when phase changes to 'listening'
   useEffect(() => {
-    if (phase === 'listening') {
+    if (phase === 'listening' || phase === 'listening_followup') {
       startListening();
     } else if (isRecording) {
       stopListening();
@@ -120,8 +121,12 @@ export default function VoicePractice() {
   const handleSubmit = useCallback(async () => {
     const captured = transcriptRef.current;
     stopListening();
-    await submitResponse(captured);
-  }, [submitResponse, stopListening]);
+    if (phase === 'listening_followup') {
+      await submitFollowUp(captured);
+    } else {
+      await submitResponse(captured);
+    }
+  }, [submitResponse, submitFollowUp, stopListening, phase]);
 
   const handleSkip = useCallback(async () => {
     stopListening();
@@ -218,10 +223,10 @@ export default function VoicePractice() {
             <p className="text-center text-foreground text-lg leading-relaxed animate-fade-in">
               {currentMayaText}
             </p>
-          ) : phase === 'listening' ? (
+          ) : (phase === 'listening' || phase === 'listening_followup') ? (
             <div className="text-center space-y-2">
               <p className="text-muted-foreground text-sm">
-                {currentRound?.label}
+                {phase === 'listening_followup' ? 'Follow-up' : currentRound?.label}
               </p>
               {transcript ? (
                 <p className="text-foreground text-lg">{transcript}</p>
@@ -238,7 +243,7 @@ export default function VoicePractice() {
 
         {/* Controls */}
         <div className="flex items-center gap-4">
-          {phase === 'listening' && (
+          {(phase === 'listening' || phase === 'listening_followup') && (
             <>
               <Button
                 variant="outline"
