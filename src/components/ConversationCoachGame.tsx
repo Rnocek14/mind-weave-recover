@@ -164,6 +164,7 @@ export function ConversationCoachGame({
     activeInlinePhoto,
     activeInlineMinimalPair,
     handleMinimalPairSelect,
+    addMessage,
   } = useCoachSession({
     userId,
     profileId,
