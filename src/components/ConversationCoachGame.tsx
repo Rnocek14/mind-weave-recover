@@ -1138,6 +1138,35 @@ export function ConversationCoachGame({
         userId={userId}
         sessionId={sessionId}
       />
+
+      {/* Real-World Scenario Overlay */}
+      {activeScenarioId && (() => {
+        const scenarioDef = getScenarioById(activeScenarioId);
+        if (!scenarioDef) return null;
+        return (
+          <ScenarioOverlay
+            scenario={scenarioDef}
+            onClose={() => setActiveScenarioId(null)}
+            onComplete={(score) => {
+              // Mark scenario card as completed in feed
+              const scenarioMsgIndex = messages.findIndex(
+                m => m.type === 'scenario' && (m as any).scenarioId === activeScenarioId
+              );
+              if (scenarioMsgIndex >= 0) {
+                // Update via addMessage pattern — add a return-to-chat summary
+                addMessage({ type: 'ai', text: score.emotionalFeedback + ` Your Real-World Readiness: ${score.overall}%. ${score.nextImprovement}`, id: `scenario_summary_${Date.now()}` });
+              }
+              setActiveScenarioId(null);
+            }}
+            isListening={isListening}
+            liveTranscript={userTranscript}
+            onStartListening={startListening}
+            onStopListening={stopListening}
+            onSpeak={async (text) => { await speakStream(text); }}
+            isSpeaking={isSpeaking}
+          />
+        );
+      })()}
     </div>
   );
 }
