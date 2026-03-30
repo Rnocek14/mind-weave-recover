@@ -869,6 +869,37 @@ export function useCoachSession({
         aiResponseText = getSmartFallback(undefined, transcript);
         addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
       }
+    } else if (action.type === 'suggest_scenario') {
+      // ═══════════════════════════════════════════════════════════
+      // REAL-WORLD SCENARIO — Suggest a functional roleplay
+      // ═══════════════════════════════════════════════════════════
+      const scenarioIntros = [
+        "Hey — you're doing great. Want to try something real-world?",
+        "You know what? Let's practice something you'd actually use.",
+        "I've got a fun challenge — want to try a real-life scenario?",
+        "You're flowing really well. Want to test that in a real situation?",
+      ];
+      const intro = scenarioIntros[Math.floor(Math.random() * scenarioIntros.length)];
+      addMessage({ type: 'ai', text: intro, id: generateId() });
+      aiWordsRef.current += countWords(intro);
+      aiResponseText = intro;
+      
+      // Insert scenario card
+      addMessage({
+        type: 'scenario',
+        scenarioId: action.scenarioId,
+        id: generateId(),
+        completed: false,
+      });
+      
+      // Update state
+      orchestratorStateRef.current = {
+        ...orchestratorStateRef.current,
+        scenariosOfferedThisSession: orchestratorStateRef.current.scenariosOfferedThisSession + 1,
+      };
+      orchestratorStateRef.current = updateState(
+        orchestratorStateRef.current, stuckType, true
+      );
     } else if (action.type === 'insert_card') {
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];

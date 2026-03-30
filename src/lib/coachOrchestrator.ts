@@ -98,6 +98,9 @@ export interface OrchestratorState {
   popupExercisesThisSession: number;
   turnsSinceLastPopup: number;
   repeatedStuckCount: number;
+  
+  // Scenario tracking
+  scenariosOfferedThisSession: number;
 
   // Profile-driven probe context
   clinicalProfile: ClinicalProfile | null;
@@ -371,6 +374,39 @@ export function getNextAction(
       showTiles: true,
       showFrames: true,
     };
+  }
+
+  // 5b. SCENARIO SUGGESTION: After enough flowing conversation, offer a real-world scenario
+  // Triggers once per session, when user has built momentum
+  const canSuggestScenario = 
+    state.scenariosOfferedThisSession === 0 &&
+    sessionPhase === 'conversation' &&
+    turnNumber >= 5 &&
+    stuckType === 'strong_flow' &&
+    successStreak >= 2;
+  
+  if (canSuggestScenario) {
+    // Pick a scenario based on topic affinity or random
+    const scenarioIds = ['coffee_order', 'doctor_call', 'family_chat'];
+    const topicToScenario: Record<string, string> = {
+      'food': 'coffee_order', 'coffee': 'coffee_order', 'restaurant': 'coffee_order',
+      'doctor': 'doctor_call', 'health': 'doctor_call', 'hospital': 'doctor_call', 'medical': 'doctor_call',
+      'family': 'family_chat', 'home': 'family_chat', 'kids': 'family_chat', 'wife': 'family_chat', 'husband': 'family_chat',
+    };
+    
+    let scenarioId = scenarioIds[Math.floor(Math.random() * scenarioIds.length)];
+    if (state.currentTopic) {
+      const topicLower = state.currentTopic.toLowerCase();
+      for (const [keyword, id] of Object.entries(topicToScenario)) {
+        if (topicLower.includes(keyword)) {
+          scenarioId = id;
+          break;
+        }
+      }
+    }
+    
+    console.log('[orchestrator] Suggesting scenario:', scenarioId, 'after', turnNumber, 'turns');
+    return { type: 'suggest_scenario', scenarioId };
   }
 
   // 6. FLOW ENGINE: Proactive rep — conversation IS therapy, but variety prevents boredom
@@ -749,6 +785,7 @@ export function createInitialState(maxTurns: number = 999): OrchestratorState {
     popupExercisesThisSession: 0,
     turnsSinceLastPopup: 99,
     repeatedStuckCount: 0,
+    scenariosOfferedThisSession: 0,
     clinicalProfile: null,
     mayaState: null,
     recentExerciseResults: [],
