@@ -68,6 +68,7 @@ import {
   AdjustmentResult,
 } from '@/lib/conversationDifficultyController';
 import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWords } from '@/lib/topicWordBanks';
+import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 
 // Store card results for AI context
 interface CardResult {
@@ -1151,6 +1152,45 @@ export function useCoachSession({
       
       // No automatic wrap-up - user ends when ready
       setCurrentPhase('user_turn');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // P0 TELEMETRY: Emit structured conversation turn event
+    // Fire-and-forget — never blocks the UI response
+    // ═══════════════════════════════════════════════════════════════
+    if (sessionId) {
+      const turnOutcome = classifyTurnOutcome(
+        wordCount,
+        cueRec.cueLevel,
+        stuckType,
+        analysis.effortfulSpeech,
+      );
+      
+      emitConversationTurnEvent({
+        sessionId,
+        turnNumber: orchestratorStateRef.current.turnNumber,
+        transcript,
+        wordCount,
+        latencyToFirstWordMs: latencyMs,
+        totalDurationMs: totalDurationMs ?? null,
+        speechRateWpm: analysis.speechRateWpm ?? null,
+        stuckType,
+        effortfulSpeech: analysis.effortfulSpeech,
+        circumlocutionDetected: analysis.circumlocutionDetected,
+        pausePattern: analysis.pausePattern,
+        fluencyScore: analysis.fluencyScore,
+        filledPauseCount: analysis.filledPauseCount || 0,
+        cueLevel: cueRec.cueLevel,
+        cueTypeOffered: cueRec.cueLevel >= 3 ? 'phonemic' 
+          : cueRec.cueLevel >= 2 ? 'semantic' 
+          : null,
+        cueAccepted: cueRec.cueLevel > 0 && wordCount >= 2,
+        supportLevel: difficultyStateRef.current.supportLevel,
+        outcome: turnOutcome,
+        pronunciationScore: analysis.pronunciationScore ?? null,
+        challengingSounds: analysis.challengingSounds || [],
+        asrConfidence: null,
+      }).catch(() => {}); // fire-and-forget
     }
 
     setPendingAIText(aiResponseText);
