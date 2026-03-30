@@ -68,6 +68,7 @@ import {
   AdjustmentResult,
 } from '@/lib/conversationDifficultyController';
 import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWords } from '@/lib/topicWordBanks';
+import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 
 // Store card results for AI context
 interface CardResult {
