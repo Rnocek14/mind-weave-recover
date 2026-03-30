@@ -73,6 +73,7 @@ export function ConversationCoachGame({
   const [showHelpers, setShowHelpers] = useState(false);
   const [showGamePicker, setShowGamePicker] = useState(false);
   const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
