@@ -23,8 +23,10 @@ import {
   YES_NO_PROMPTS,
   VOICE_STORIES,
   SESSION_TOPICS,
+  ARC_PHASE_CONFIGS,
   type SessionTopic,
   type SessionTopicDef,
+  type ArcPhase,
 } from '@/data/voiceGames';
 import { shuffleArray } from '@/lib/shuffle';
 
