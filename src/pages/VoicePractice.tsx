@@ -121,8 +121,12 @@ export default function VoicePractice() {
   const handleSubmit = useCallback(async () => {
     const captured = transcriptRef.current;
     stopListening();
-    await submitResponse(captured);
-  }, [submitResponse, stopListening]);
+    if (phase === 'listening_followup') {
+      await submitFollowUp(captured);
+    } else {
+      await submitResponse(captured);
+    }
+  }, [submitResponse, submitFollowUp, stopListening, phase]);
 
   const handleSkip = useCallback(async () => {
     stopListening();
