@@ -190,8 +190,11 @@ export function useVoicePracticeSession(
 
     setPhase('transition');
     const nextRound = plan.rounds[nextIdx];
-    const sameType = currentRound ? nextRound.gameType === currentRound.gameType : false;
-    await mayaSpeak(pickTransition(sameType));
+    const prevPhase = currentRound?.arcPhase;
+    const nextPhase = nextRound.arcPhase;
+    const phaseChanged = prevPhase !== nextPhase;
+    
+    await mayaSpeak(pickTransition(prevPhase, nextPhase, plan.topic));
 
     if ((nextIdx) % 3 === 0) {
       await mayaSpeak(getPurposeAnchor());
@@ -199,7 +202,8 @@ export function useVoicePracticeSession(
 
     setCurrentIndex(nextIdx);
     setPhase('speaking');
-    if (!sameType) {
+    // Only re-introduce when arc phase changes (new type of activity)
+    if (phaseChanged) {
       await mayaSpeak(nextRound.intro);
     }
     await mayaSpeak(nextRound.prompt);
