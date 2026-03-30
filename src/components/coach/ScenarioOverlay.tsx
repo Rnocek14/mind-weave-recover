@@ -126,14 +126,23 @@ export function ScenarioOverlay({
     }
   }, [state, scenario, partnerText, onSpeak, onStartListening]);
 
+  // Keep transcript ref in sync so we always capture the latest value
+  useEffect(() => {
+    latestTranscriptRef.current = liveTranscript;
+  }, [liveTranscript]);
+
   // Silence detection → Maya whispers
   useEffect(() => {
-    if (state.phase !== 'live' || isListening === false || isSpeaking) return;
+    if (state.phase !== 'live' || !isListening || isSpeaking) return;
     
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
     const currentBeat = scenario.beats[state.currentBeatIndex];
     if (!currentBeat) return;
+
+    // Only trigger whisper if user hasn't produced meaningful speech yet
+    const hasSpoken = liveTranscript.trim().length > 0;
+    const silenceDelay = hasSpoken ? 12000 : 8000; // longer if they started speaking
 
     silenceTimerRef.current = setTimeout(() => {
       const whisperIndex = Math.min(state.whispersTriggered, currentBeat.whispers.length - 1);
@@ -142,19 +151,22 @@ export function ScenarioOverlay({
         setWhisperText(whisper);
         setState(prev => ({ ...prev, whispersTriggered: prev.whispersTriggered + 1 }));
       }
-    }, 8000); // 8s silence triggers whisper
+    }, silenceDelay);
 
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats]);
+  }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats, liveTranscript]);
 
-  // When user stops speaking (transcript finalizes)
+  // When user stops speaking (transcript finalizes) — use ref to avoid stale closure
   useEffect(() => {
-    if (!isListening && liveTranscript.trim() && state.phase === 'live') {
-      handleUserTurn(liveTranscript);
+    if (!isListening && state.phase === 'live') {
+      const captured = latestTranscriptRef.current.trim();
+      if (captured) {
+        handleUserTurn(captured);
+      }
     }
-  }, [isListening]); // Intentionally only trigger on listening state change
+  }, [isListening, state.phase, handleUserTurn]);
 
   // ===== Support actions =====
   
