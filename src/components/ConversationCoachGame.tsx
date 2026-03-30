@@ -40,6 +40,8 @@ import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { cn } from '@/lib/utils';
 import { getSilenceCue, resetSilenceCueTracking } from '@/lib/graduatedSilenceResponse';
 import { generateSemanticCue, generatePhonologicalCue } from '@/lib/cueGenerator';
+import { ScenarioOverlay } from '@/components/coach/ScenarioOverlay';
+import { getScenarioById, type ScenarioScore } from '@/lib/scenarioEngine';
 
 interface ConversationCoachGameProps {
   userId: string;
