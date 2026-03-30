@@ -19,6 +19,7 @@ export const EXERCISE_DOMAIN_MAP: Record<string, string> = {
   'narrative-retell': 'discourse',
   'conversation-coach': 'discourse',
   'conversation-partner': 'discourse',
+  'conversation-turn': 'discourse',
   'abstract-compare': 'semantic_depth',
   'multi-step-plan': 'executive_function',
   'dual-load-naming': 'executive_function',
