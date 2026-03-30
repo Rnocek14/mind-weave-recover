@@ -1148,7 +1148,13 @@ export function ConversationCoachGame({
           <ScenarioOverlay
             scenario={scenarioDef}
             onClose={() => setActiveScenarioId(null)}
-            onComplete={() => {
+            onComplete={(score) => {
+              // Return-to-chat: Maya posts a warm summary
+              addMessage({
+                type: 'ai',
+                text: `${score.emotionalFeedback} Your Real-World Readiness: ${score.overall}%. ${score.nextImprovement}`,
+                id: `scenario_return_${Date.now()}`,
+              });
               setActiveScenarioId(null);
             }}
             isListening={isListening}
