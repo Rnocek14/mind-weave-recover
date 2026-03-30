@@ -33,13 +33,14 @@ import type { VoiceGameType, SessionTopic } from '@/data/voiceGames';
 import { supabase } from '@/integrations/supabase/client';
 
 export type VoicePracticePhase = 
-  | 'ready'       // Waiting to start
-  | 'speaking'    // Maya is talking
-  | 'listening'   // Waiting for user response
-  | 'scoring'     // Processing response
-  | 'feedback'    // Maya giving feedback
-  | 'transition'  // Between games
-  | 'complete';   // Session done
+  | 'ready'              // Waiting to start
+  | 'speaking'           // Maya is talking
+  | 'listening'          // Waiting for user response
+  | 'scoring'            // Processing response
+  | 'feedback'           // Maya giving feedback
+  | 'listening_followup' // Waiting for follow-up response (multi-turn loop)
+  | 'transition'         // Between games
+  | 'complete';          // Session done
 
 export interface VoiceRoundResult {
   gameType: VoiceGameType;
