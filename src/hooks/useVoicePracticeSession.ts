@@ -65,6 +65,7 @@ export interface UseVoicePracticeReturn {
   sessionTopic: string;
   startSession: () => Promise<void>;
   submitResponse: (transcript: string) => Promise<void>;
+  submitFollowUp: (transcript: string) => Promise<void>;
   skipRound: () => Promise<void>;
   endSession: () => void;
 }
