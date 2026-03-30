@@ -239,6 +239,24 @@ export function CoachChatFeed({
             />
           </div>
         );
+
+      case 'scenario': {
+        const scenarioDef = getScenarioById(message.scenarioId);
+        if (!scenarioDef) return null;
+        return (
+          <div key={message.id} className="flex items-start gap-4 animate-fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-glow">
+              <Sparkles className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <ScenarioCard
+              scenario={scenarioDef}
+              onStart={(id) => onScenarioStart?.(id)}
+              completed={message.completed}
+              score={message.score}
+            />
+          </div>
+        );
+      }
     }
   };
 
