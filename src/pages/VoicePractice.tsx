@@ -226,7 +226,14 @@ export default function VoicePractice() {
           ) : (phase === 'listening' || phase === 'listening_followup') ? (
             <div className="text-center space-y-2">
               <p className="text-muted-foreground text-sm">
-                {phase === 'listening_followup' ? 'Follow-up' : currentRound?.label}
+                {phase === 'listening_followup' ? 'Follow-up' : (
+                  <span>
+                    {currentRound?.arcPhase === 'open' ? '💬' : 
+                     currentRound?.arcPhase === 'expand' ? '🔍' : 
+                     currentRound?.arcPhase === 'challenge' ? '⚡' : '🎯'}{' '}
+                    {currentRound?.label}
+                  </span>
+                )}
               </p>
               {transcript ? (
                 <p className="text-foreground text-lg">{transcript}</p>

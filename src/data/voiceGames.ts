@@ -41,12 +41,64 @@ export type SessionTopic =
   | 'around_the_house'
   | 'health_and_body';
 
+/** Arc phase determines how the session evolves */
+export type ArcPhase = 'open' | 'expand' | 'challenge' | 'consolidate';
+
+/** Maps arc phases to preferred game types */
+export interface ArcPhaseConfig {
+  phase: ArcPhase;
+  /** Game types that fit this conversational phase */
+  preferredGames: VoiceGameType[];
+  /** Transition phrases INTO this phase */
+  transitions: string[];
+}
+
+export const ARC_PHASE_CONFIGS: ArcPhaseConfig[] = [
+  {
+    phase: 'open',
+    preferredGames: ['category_fluency', 'yes_no_why', 'fill_blank'],
+    transitions: [], // opener handles this
+  },
+  {
+    phase: 'expand',
+    preferredGames: ['sentence_expansion', 'describe_without_naming', 'yes_no_why'],
+    transitions: [
+      "Nice. Tell me more about that.",
+      "Good. Let's dig into that a bit.",
+      "Okay — going a bit deeper now.",
+      "Let's build on what you just said.",
+    ],
+  },
+  {
+    phase: 'challenge',
+    preferredGames: ['synonym_swap', 'opposites', 'describe_without_naming', 'category_fluency'],
+    transitions: [
+      "Let's try something a little trickier.",
+      "Good work so far. Here's a challenge.",
+      "Time to push a bit — you're ready.",
+      "Let's see how quick you are with this one.",
+    ],
+  },
+  {
+    phase: 'consolidate',
+    preferredGames: ['story_retell', 'sentence_expansion', 'yes_no_why'],
+    transitions: [
+      "Let's bring it together now.",
+      "Going back to what we talked about — ",
+      "Let's wrap up with something familiar.",
+      "One more, then we're done. Going back to what you said earlier.",
+    ],
+  },
+];
+
 export interface SessionTopicDef {
   topic: SessionTopic;
   label: string;
   openers: string[];
   /** Bias certain game types for this topic */
   preferredGames: VoiceGameType[];
+  /** Continuity phrases that reference earlier answers */
+  continuityBridges: string[];
 }
 
 export const SESSION_TOPICS: SessionTopicDef[] = [
@@ -59,6 +111,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's go through a typical morning together. Just talk to me.",
     ],
     preferredGames: ['category_fluency', 'sentence_expansion', 'fill_blank', 'yes_no_why'],
+    continuityBridges: [
+      "Going back to your morning — ",
+      "You mentioned your morning routine — ",
+      "Thinking about mornings again — ",
+    ],
   },
   {
     topic: 'food_and_cooking',
@@ -69,6 +126,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's talk about cooking and eating — just say whatever comes to mind.",
     ],
     preferredGames: ['category_fluency', 'describe_without_naming', 'sentence_expansion', 'synonym_swap'],
+    continuityBridges: [
+      "Back to food — ",
+      "Still on the topic of eating — ",
+      "Speaking of cooking — ",
+    ],
   },
   {
     topic: 'family_and_friends',
@@ -79,6 +141,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's chat about the people you spend time with.",
     ],
     preferredGames: ['story_retell', 'sentence_expansion', 'yes_no_why', 'describe_without_naming'],
+    continuityBridges: [
+      "Thinking about the people you mentioned — ",
+      "Going back to your family — ",
+      "About the people you know — ",
+    ],
   },
   {
     topic: 'going_out',
@@ -89,6 +156,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's chat about going out — stores, parks, restaurants, anything.",
     ],
     preferredGames: ['category_fluency', 'fill_blank', 'story_retell', 'opposites'],
+    continuityBridges: [
+      "Thinking about places you go — ",
+      "Back to going out — ",
+      "About getting out and about — ",
+    ],
   },
   {
     topic: 'around_the_house',
@@ -99,6 +171,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's chat about everyday stuff at home.",
     ],
     preferredGames: ['category_fluency', 'describe_without_naming', 'fill_blank', 'sentence_expansion'],
+    continuityBridges: [
+      "Back to things at home — ",
+      "Thinking about your house — ",
+      "About everyday things — ",
+    ],
   },
   {
     topic: 'health_and_body',
@@ -109,6 +186,11 @@ export const SESSION_TOPICS: SessionTopicDef[] = [
       "Let's chat about health — exercise, sleep, how you're doing.",
     ],
     preferredGames: ['yes_no_why', 'sentence_expansion', 'synonym_swap', 'opposites'],
+    continuityBridges: [
+      "About your health — ",
+      "Going back to how you're feeling — ",
+      "On the topic of staying healthy — ",
+    ],
   },
 ];
 
