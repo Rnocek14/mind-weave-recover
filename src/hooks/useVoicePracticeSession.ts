@@ -228,43 +228,9 @@ export function useVoicePracticeSession(
       return; // Wait for follow-up response via submitFollowUp
     }
     
-    // Check if session is done
-    const nextIdx = currentIndex + 1;
-    if (nextIdx >= plan.rounds.length) {
-      setPhase('speaking');
-      const allResults = [...results, roundResult];
-      const avg = allResults.reduce((s, r) => s + r.score, 0) / allResults.length;
-      const closing = getSessionClosing(allResults.length, avg);
-      await mayaSpeak(closing);
-      setPhase('complete');
-      isProcessingRef.current = false;
-      return;
-    }
-    
-    // ── Transition ──
-    setPhase('transition');
-    
-    const nextRound = plan.rounds[nextIdx];
-    const sameType = nextRound.gameType === currentRound.gameType;
-    const transition = pickTransition(sameType);
-    await mayaSpeak(transition);
-    
-    // 4. Purpose anchor (every ~3 rounds)
-    if ((nextIdx) % 3 === 0) {
-      await mayaSpeak(getPurposeAnchor());
-    }
-    
-    setCurrentIndex(nextIdx);
-    
-    setPhase('speaking');
-    if (!sameType) {
-      await mayaSpeak(nextRound.intro);
-    }
-    await mayaSpeak(nextRound.prompt);
-    
-    setPhase('listening');
-    isProcessingRef.current = false;
-  }, [currentRound, currentIndex, plan, results, mayaSpeak, emitVoicePracticeEvent]);
+    // No follow-up — advance directly
+    await advanceToNext();
+  }, [currentRound, currentIndex, plan, results, mayaSpeak, emitVoicePracticeEvent, advanceToNext]);
 
   const skipRound = useCallback(async () => {
     if (isProcessingRef.current || !currentRound) return;
