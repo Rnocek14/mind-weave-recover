@@ -303,8 +303,69 @@ export function useVoicePracticeSession(
     isProcessingRef.current = false;
   }, [currentRound, currentIndex, plan, mayaSpeak]);
 
+  // ─── Follow-up response handler (multi-turn within a round) ───
+  const advanceToNext = useCallback(async () => {
+    const nextIdx = currentIndex + 1;
+    if (nextIdx >= plan.rounds.length) {
+      setPhase('speaking');
+      const avg = results.length > 0 ? results.reduce((s, r) => s + r.score, 0) / results.length : 0;
+      const closing = getSessionClosing(results.length, avg);
+      await mayaSpeak(closing);
+      setPhase('complete');
+      isProcessingRef.current = false;
+      return;
+    }
+
+    setPhase('transition');
+    const nextRound = plan.rounds[nextIdx];
+    const sameType = currentRound ? nextRound.gameType === currentRound.gameType : false;
+    await mayaSpeak(pickTransition(sameType));
+
+    if ((nextIdx) % 3 === 0) {
+      await mayaSpeak(getPurposeAnchor());
+    }
+
+    setCurrentIndex(nextIdx);
+    setPhase('speaking');
+    if (!sameType) {
+      await mayaSpeak(nextRound.intro);
+    }
+    await mayaSpeak(nextRound.prompt);
+    setPhase('listening');
+    isProcessingRef.current = false;
+  }, [currentIndex, plan, results, currentRound, mayaSpeak]);
+
+  const submitFollowUp = useCallback(async (transcript: string) => {
+    if (isProcessingRef.current || !pendingFollowUpRef.current) return;
+    isProcessingRef.current = true;
+    pendingFollowUpRef.current = false;
+
+    setPhase('feedback');
+
+    const wordCount = transcript ? transcript.trim().split(/\s+/).filter(w => w.length > 1).length : 0;
+
+    if (wordCount >= 3) {
+      // Acknowledge the follow-up with progress-style feedback
+      const followUpFeedback = [
+        "Nice — you added more to that. That's exactly how real conversations work.",
+        "Good. You expanded on that well.",
+        "That was a fuller answer. This kind of practice really helps.",
+        "You said more that time. That's progress.",
+      ];
+      await mayaSpeak(followUpFeedback[Math.floor(Math.random() * followUpFeedback.length)]);
+    } else if (wordCount > 0) {
+      await mayaSpeak("Good try. Even a short answer counts.");
+    } else {
+      await mayaSpeak("That's okay. Let's move on.");
+    }
+
+    // Now advance to next round
+    await advanceToNext();
+  }, [advanceToNext, mayaSpeak]);
+
   const endSession = useCallback(() => {
     stopTTS();
+    pendingFollowUpRef.current = false;
     setPhase('complete');
   }, [stopTTS]);
 
@@ -324,6 +385,7 @@ export function useVoicePracticeSession(
     sessionTopic: plan.topic.label,
     startSession,
     submitResponse,
+    submitFollowUp,
     skipRound,
     endSession,
   };
