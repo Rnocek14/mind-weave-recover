@@ -276,7 +276,7 @@ export const SCENARIOS: ScenarioDefinition[] = [
     estimatedMinutes: 2,
     successCriteria: 'Have a short, warm conversation',
     confidencePrimer: "There's no wrong way to do this — just try.",
-    openingLine: "Hi Grandma! Guess what happened at school today!",
+    openingLine: "Hi! Guess what happened at school today!",
     partnerPersona: `You are Lily, an enthusiastic 8-year-old grandchild on a video call. You're excited, loving, and talkative.
     Speak in simple, short sentences. Be patient if grandparent takes time to respond.
     React with genuine excitement to anything they say. Share small stories about school, pets, or games.
