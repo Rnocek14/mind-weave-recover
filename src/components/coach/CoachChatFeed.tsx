@@ -35,6 +35,7 @@ interface CoachChatFeedProps {
   messages: FeedMessage[];
   onCardComplete?: (messageId: string, result: unknown) => void;
   onMinimalPairSelect?: (messageId: string, selectedIndex: 0 | 1) => void;
+  onScenarioStart?: (scenarioId: string) => void;
   isProcessing?: boolean;
   /** Current transcript from speech recognition (passed to active cards) */
   cardTranscript?: string;
