@@ -223,10 +223,10 @@ export default function VoicePractice() {
             <p className="text-center text-foreground text-lg leading-relaxed animate-fade-in">
               {currentMayaText}
             </p>
-          ) : phase === 'listening' ? (
+          ) : (phase === 'listening' || phase === 'listening_followup') ? (
             <div className="text-center space-y-2">
               <p className="text-muted-foreground text-sm">
-                {currentRound?.label}
+                {phase === 'listening_followup' ? 'Follow-up' : currentRound?.label}
               </p>
               {transcript ? (
                 <p className="text-foreground text-lg">{transcript}</p>
@@ -243,7 +243,7 @@ export default function VoicePractice() {
 
         {/* Controls */}
         <div className="flex items-center gap-4">
-          {phase === 'listening' && (
+          {(phase === 'listening' || phase === 'listening_followup') && (
             <>
               <Button
                 variant="outline"
