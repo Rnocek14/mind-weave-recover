@@ -503,53 +503,84 @@ function ScorePill({ label, value }: { label: string; value: number }) {
   );
 }
 
-// Simple partner response generator (will be replaced by AI later)
+/**
+ * Context-aware partner response generator.
+ * Picks a response based on beat AND what the user actually said,
+ * creating a more natural conversation flow.
+ * Phase 2 will replace this with AI-generated responses.
+ */
 function generatePartnerResponse(beat: { partnerAction: string; expectedUserIntent: string }, userSaid: string): string {
-  // Phase 1: rule-based responses. Phase 2: AI-generated via system prompt.
-  const responses: Record<string, string[]> = {
-    'Ask about size or milk preference': [
-      "Sure! What size would you like — small, medium, or large?",
-      "Great choice! Would you like that in a regular or large?",
+  const u = userSaid.toLowerCase().trim();
+
+  const responses: Record<string, (u: string) => string[]> = {
+    'Ask about size or milk preference': (u) => {
+      if (u.includes('latte') || u.includes('cappuccino'))
+        return ["Nice choice! What size — regular or large?", "Ooh, good pick! Any milk preference?"];
+      if (u.includes('tea'))
+        return ["Love it. What kind — black, green, or herbal?", "Sure! Hot or iced?"];
+      return [
+        "Sounds good! What size would you like?",
+        "Great! Small, medium, or large?",
+        "You got it. Regular or large?",
+      ];
+    },
+    'Repeat order back and give total': (u) => {
+      if (u.includes('large') || u.includes('big'))
+        return ["Large it is! That's $5.25.", "Perfect, one large coming up. $5.25!"];
+      if (u.includes('small'))
+        return ["Small, got it. That'll be $3.50!", "One small, perfect. $3.50!"];
+      return [
+        "Got it! That'll be $4.50.",
+        "Coming right up! $4.25.",
+        "Perfect. That's $4.50 — pay whenever you're ready!",
+      ];
+    },
+    'Say thanks and goodbye': () => [
+      "Thank you! Enjoy your drink!",
+      "Have a great day! Come back anytime.",
+      "Thanks! See you next time!",
     ],
-    'Repeat order back and give total': [
-      "Alright, I've got that for you. That'll be $4.50!",
-      "Perfect, coming right up! That's $4.25.",
+    'Ask what the appointment is for': () => [
+      "Sure thing. What's it about — a check-up, or something bothering you?",
+      "Of course. Is it for something specific, or just a general visit?",
+      "Absolutely. Can you tell me briefly what it's for?",
     ],
-    'Say thanks and goodbye': [
-      "Thank you! Have a wonderful day!",
-      "Thanks so much! See you next time!",
+    'Offer two time options': () => [
+      "Let me check… I've got Tuesday at 10am or Thursday at 2pm. Which works?",
+      "How about Monday morning at 9, or Wednesday at 3?",
+      "I can do tomorrow at 11am or Friday at 1pm. Either work?",
     ],
-    'Ask what the appointment is for': [
-      "Of course. Can you tell me a little bit about what it's for?",
-      "Sure thing. Is this for a check-up, or is something bothering you?",
+    'Confirm the appointment details': (u) => {
+      if (u.includes('tuesday') || u.includes('monday') || u.includes('first'))
+        return ["Great, you're booked! See you then.", "All set. We'll see you then!"];
+      return [
+        "Perfect, that's confirmed. See you soon!",
+        "You're all set! We'll send a reminder.",
+      ];
+    },
+    'Tell a short, cute school story': () => [
+      "We made a volcano in science and it actually EXPLODED! It was so cool!",
+      "My friend and I built the tallest tower in the whole class! It was THIS big!",
+      "We had a spelling bee and I got three words right! My teacher clapped!",
     ],
-    'Offer two time options': [
-      "I have Tuesday at 10am or Thursday at 2pm. Which works better?",
-      "How about Monday morning or Wednesday afternoon?",
+    'Ask what grandparent has been doing': () => [
+      "What did YOU do today? Did you go outside?",
+      "Have you been doing anything fun? Tell me tell me!",
+      "What about you? Did you do something nice today?",
     ],
-    'Confirm the appointment details': [
-      "Great, you're all set! We'll see you then.",
-      "Perfect, that's confirmed. See you soon!",
-    ],
-    'Tell a short, cute school story': [
-      "We made a volcano in science class and it actually exploded! It was SO cool!",
-      "My friend and I built the tallest tower in the whole class!",
-    ],
-    'Ask what grandparent has been doing': [
-      "What did you do today, Grandma? Did you go outside?",
-      "Have you been doing anything fun? I want to know!",
-    ],
-    'Say a loving goodbye': [
-      "I love you so much! Talk to you soon! Bye bye!",
-      "Bye Grandma! Love you! Miss you!",
+    'Say a loving goodbye': () => [
+      "I love you so much! Talk soon! Bye bye!",
+      "Bye! Love you! Miss you already!",
+      "Love you Grandma! Bye bye! Hugs!",
     ],
   };
 
-  const options = responses[beat.partnerAction];
-  if (options && options.length > 0) {
+  const generator = responses[beat.partnerAction];
+  if (generator) {
+    const options = generator(u);
     return options[Math.floor(Math.random() * options.length)];
   }
-  return "That sounds great! Tell me more.";
+  return "That's great! Tell me more.";
 }
 
 /**
