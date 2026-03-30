@@ -1621,6 +1621,7 @@ export function useCoachSession({
     handleFrameTap,
     requestCue,
     currentSupportLevel,
+    addMessage,
   };
 }
 
