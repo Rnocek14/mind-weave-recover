@@ -165,6 +165,7 @@ interface UseCoachSessionReturn {
   handleFrameTap: (frame: string) => string;
   requestCue: (level?: number) => void;
   currentSupportLevel: SupportLevel;
+  addMessage: (message: FeedMessage) => void;
 }
 
 export function useCoachSession({
