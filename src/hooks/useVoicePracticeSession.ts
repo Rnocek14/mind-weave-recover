@@ -140,11 +140,13 @@ export function useVoicePracticeSession(
           event_subtype: 'voice_practice',
           game_type: round.gameType,
           session_topic: plan.topic.topic,
+          arc_phase: round.arcPhase,
         },
         task_parameters: {
           event_subtype: 'voice_practice',
           game_type: round.gameType,
           session_topic: plan.topic.topic,
+          arc_phase: round.arcPhase,
           difficulty,
           fluency_unavailable_reason: 'voice_practice_task',
         },
