@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Sparkles, Loader2, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -217,6 +217,16 @@ export default function ConversationCoachExercise() {
 
             <Button size="lg" onClick={handleStart} className="w-full">
               Start Practice
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="lg" 
+              onClick={() => navigate('/exercise/voice-practice')} 
+              className="w-full gap-2"
+            >
+              <Headphones className="w-4 h-4" />
+              Voice-Only Mode
             </Button>
           </div>
         </div>

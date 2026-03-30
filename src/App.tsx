@@ -55,6 +55,7 @@ import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
 import AbstractCompareExercise from "./pages/AbstractCompareExercise";
 import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
 import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
+import VoicePractice from "./pages/VoicePractice";
 import SpeechProfile from "./pages/SpeechProfile";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
@@ -119,6 +120,7 @@ const App = () => (
                   <Route path="/exercise/abstract-compare" element={<AbstractCompareExercise />} />
                   <Route path="/exercise/multi-step-plan" element={<MultiStepPlanExercise />} />
                   <Route path="/exercise/dual-load-naming" element={<DualLoadNamingExercise />} />
+                  <Route path="/exercise/voice-practice" element={<VoicePractice />} />
                   <Route path="/lesson" element={<Lesson />} />
                   
                   {/* Main app routes - with persistent header */}
