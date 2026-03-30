@@ -102,7 +102,7 @@ export default function VoicePractice() {
   useEffect(() => {
     if (phase === 'listening') {
       startListening();
-    } else if (phase !== 'listening' && isRecording) {
+    } else if (isRecording) {
       stopListening();
     }
   }, [phase]);
