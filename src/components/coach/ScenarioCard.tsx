@@ -45,15 +45,12 @@ export function ScenarioCard({ scenario, onStart, completed, score }: ScenarioCa
           <Clock className="w-3 h-3" />
           ~{scenario.estimatedMinutes} min
         </span>
-        <span className="capitalize px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
-          {scenario.difficulty}
-        </span>
       </div>
 
       {/* Action */}
       {completed ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-green-500">✓</span>
+          <span className="text-success">✓</span>
           <span>Completed{score !== undefined ? ` · Readiness: ${score}%` : ''}</span>
         </div>
       ) : (
