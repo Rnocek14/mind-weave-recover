@@ -217,13 +217,15 @@ export function useVoicePracticeSession(
       await mayaSpeak(progressFB);
     }
     
-    // 3. Follow-up loop (for games that benefit from expansion)
-    // Only do follow-up ~50% of the time to keep it natural
-    if (currentRound.followUp && result.score >= 0.3 && Math.random() > 0.5) {
-      await mayaSpeak(currentRound.followUp);
-      // We don't wait for a response here in V2 — that would need
-      // a sub-state machine. For now, it's a rhetorical prompt that
-      // naturally transitions. Full follow-up loop = V3.
+    // 3. Follow-up loop — real interactive multi-turn
+    // ~50% chance, only when game has a follow-up and user did okay
+    const shouldFollowUp = currentRound.followUp && result.score >= 0.3 && Math.random() > 0.5;
+    if (shouldFollowUp) {
+      await mayaSpeak(currentRound.followUp!);
+      pendingFollowUpRef.current = true;
+      setPhase('listening_followup');
+      isProcessingRef.current = false;
+      return; // Wait for follow-up response via submitFollowUp
     }
     
     // Check if session is done
