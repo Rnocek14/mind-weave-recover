@@ -218,6 +218,16 @@ export default function ConversationCoachExercise() {
             <Button size="lg" onClick={handleStart} className="w-full">
               Start Practice
             </Button>
+            
+            <Button 
+              variant="outline" 
+              size="lg" 
+              onClick={() => navigate('/exercise/voice-practice')} 
+              className="w-full gap-2"
+            >
+              <Headphones className="w-4 h-4" />
+              Voice-Only Mode
+            </Button>
           </div>
         </div>
       </div>
