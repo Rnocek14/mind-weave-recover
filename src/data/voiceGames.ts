@@ -41,12 +41,64 @@ export type SessionTopic =
   | 'around_the_house'
   | 'health_and_body';
 
+/** Arc phase determines how the session evolves */
+export type ArcPhase = 'open' | 'expand' | 'challenge' | 'consolidate';
+
+/** Maps arc phases to preferred game types */
+export interface ArcPhaseConfig {
+  phase: ArcPhase;
+  /** Game types that fit this conversational phase */
+  preferredGames: VoiceGameType[];
+  /** Transition phrases INTO this phase */
+  transitions: string[];
+}
+
+export const ARC_PHASE_CONFIGS: ArcPhaseConfig[] = [
+  {
+    phase: 'open',
+    preferredGames: ['category_fluency', 'yes_no_why', 'fill_blank'],
+    transitions: [], // opener handles this
+  },
+  {
+    phase: 'expand',
+    preferredGames: ['sentence_expansion', 'describe_without_naming', 'yes_no_why'],
+    transitions: [
+      "Nice. Tell me more about that.",
+      "Good. Let's dig into that a bit.",
+      "Okay — going a bit deeper now.",
+      "Let's build on what you just said.",
+    ],
+  },
+  {
+    phase: 'challenge',
+    preferredGames: ['synonym_swap', 'opposites', 'describe_without_naming', 'category_fluency'],
+    transitions: [
+      "Let's try something a little trickier.",
+      "Good work so far. Here's a challenge.",
+      "Time to push a bit — you're ready.",
+      "Let's see how quick you are with this one.",
+    ],
+  },
+  {
+    phase: 'consolidate',
+    preferredGames: ['story_retell', 'sentence_expansion', 'yes_no_why'],
+    transitions: [
+      "Let's bring it together now.",
+      "Going back to what we talked about — ",
+      "Let's wrap up with something familiar.",
+      "One more, then we're done. Going back to what you said earlier.",
+    ],
+  },
+];
+
 export interface SessionTopicDef {
   topic: SessionTopic;
   label: string;
   openers: string[];
   /** Bias certain game types for this topic */
   preferredGames: VoiceGameType[];
+  /** Continuity phrases that reference earlier answers */
+  continuityBridges: string[];
 }
 
 export const SESSION_TOPICS: SessionTopicDef[] = [
