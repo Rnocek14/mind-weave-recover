@@ -936,21 +936,12 @@ export function useCoachSession({
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
       
-      // CRITICAL FIX: Insert card IMMEDIATELY and atomically — don't leave it as "pending"
-      // This prevents the bug where Maya announces a card but speech events block insertion
-      const cardId = generateId();
-      pendingCardIdRef.current = cardId;
-      addMessage({ 
-        type: 'card', 
-        cardType: action.cardType, 
-        difficulty: action.config.difficulty, 
-        id: cardId,
-        completed: false,
-      });
-      setCurrentPhase('card_active');
-      // Clear pending flags since card is already inserted
-      pendingCardTypeRef.current = null;
-      setHasPendingCard(false);
+      // Store card as pending — ConversationCoachGame will handle insertion
+      // and mode transition to card_listening atomically after TTS completes
+      pendingCardTypeRef.current = action.cardType;
+      pendingCardDifficultyRef.current = action.config.difficulty;
+      setHasPendingCard(true);
+      console.log('[CoachSession] Card queued as pending:', action.cardType, '— Game component will insert + switch to card_listening');
       
       orchestratorStateRef.current = updateState(
         orchestratorStateRef.current,
