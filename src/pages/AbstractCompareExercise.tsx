@@ -140,8 +140,10 @@ export default function AbstractCompareExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>
             <h2 className="text-2xl font-bold">Comparisons Complete!</h2>
-            <p className="text-muted-foreground">Great abstract thinking!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">
+              {fromLesson ? 'Loading next exercise…' : 'Great abstract thinking!'}
+            </p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
