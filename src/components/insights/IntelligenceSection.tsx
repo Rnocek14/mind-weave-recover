@@ -30,6 +30,7 @@ import { CuePreferenceLearner, type CueType } from '@/lib/cuePreferenceLearner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { HelpLabel } from '@/components/HelpTooltip';
+import { DeepDiveSection } from './DeepDiveSection';
 
 interface IntelligenceSectionProps {
   userId: string;
@@ -414,6 +415,11 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
             Preliminary data ({proof.totalTrials} trials). Trends become reliable after 50+ trials.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* ─── 5. DEEP DIVE (Clinical Data) ─── */}
+      {hasData && (
+        <DeepDiveSection userId={userId} profileId={profileId} />
       )}
     </div>
   );
