@@ -241,3 +241,4 @@ export default function SemanticFeatureExercise() {
       </main>
     </div>
   );
+}
