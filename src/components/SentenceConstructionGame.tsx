@@ -328,70 +328,131 @@ export const SentenceConstructionGame = ({
       {/* Main Task Card */}
       <Card className="p-3 sm:p-4">
         <div className="space-y-3">
-          {/* Sentence Construction Area */}
-          <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
-            {answerWords.length === 0 ? (
-              <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
-            ) : (
-              answerWords.map((word, idx) => (
-                <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
-                  {word}
-                </Badge>
-              ))
-            )}
-          </div>
+          {/* Speech mode (default) */}
+          {!showTiles && !showFeedback && (
+            <div className="space-y-3">
+              {/* Scrambled words shown as reference */}
+              <div className="flex flex-wrap gap-1.5 p-2.5 bg-muted/50 rounded-lg">
+                {trial.options.map((word, idx) => (
+                  <Badge key={idx} variant="outline" className="text-sm px-2.5 py-1">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
 
-          {/* Word Options — large touch targets */}
-          <div className="flex flex-wrap gap-2">
-            {getAvailableWords().map((item) => (
+              {/* Mic orb */}
+              <div className="flex flex-col items-center gap-3 py-4">
+                <button
+                  onClick={() => {
+                    if (isListening) {
+                      stopListening();
+                    } else {
+                      hasProcessedSpeechRef.current = false;
+                      setSpokenSentence(null);
+                      startListening();
+                    }
+                  }}
+                  className={cn(
+                    "w-20 h-20 rounded-full flex items-center justify-center transition-all",
+                    isListening
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 animate-pulse"
+                      : "bg-muted hover:bg-primary/10 text-muted-foreground"
+                  )}
+                >
+                  {isListening ? <Mic className="w-8 h-8" /> : <MicOff className="w-8 h-8" />}
+                </button>
+                <p className="text-sm text-muted-foreground text-center">
+                  {isListening
+                    ? (spokenSentence ? `"${spokenSentence}"` : 'Say the correct sentence...')
+                    : 'Tap to speak'}
+                </p>
+              </div>
+
+              {/* Switch to tiles */}
               <Button
-                key={item.index}
-                variant="outline"
-                onClick={() => selectWord(item.index)}
-                disabled={showFeedback}
-                className="text-base min-h-[48px] px-4"
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => {
+                  stopListening();
+                  setShowTiles(true);
+                }}
               >
-                {item.word}
+                <Keyboard className="w-3 h-3 mr-1" /> Switch to word tiles
               </Button>
-            ))}
-          </div>
+            </div>
+          )}
 
-          {/* Controls — compact row */}
-          <div className="flex gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={removeLastWord}
-              disabled={currentAnswer.length === 0 || showFeedback}
-              className="min-h-[44px]"
-            >
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Undo
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearAnswer}
-              disabled={currentAnswer.length === 0 || showFeedback}
-              className="min-h-[44px]"
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Clear
-            </Button>
-            <Button
-              className="ml-auto min-h-[48px]"
-              onClick={showFeedback ? handleNext : handleSubmit}
-              disabled={!canSubmit && !showFeedback}
-            >
-              {showFeedback ? (
-                <>
+          {/* Tile mode (fallback) */}
+          {showTiles && !showFeedback && (
+            <>
+              {/* Sentence Construction Area */}
+              <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
+                {answerWords.length === 0 ? (
+                  <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
+                ) : (
+                  answerWords.map((word, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
+                      {word}
+                    </Badge>
+                  ))
+                )}
+              </div>
+
+              {/* Word Options */}
+              <div className="flex flex-wrap gap-2">
+                {getAvailableWords().map((item) => (
+                  <Button
+                    key={item.index}
+                    variant="outline"
+                    onClick={() => selectWord(item.index)}
+                    disabled={showFeedback}
+                    className="text-base min-h-[48px] px-4"
+                  >
+                    {item.word}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Controls */}
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={removeLastWord} disabled={currentAnswer.length === 0} className="min-h-[44px]">
+                  <RotateCcw className="w-4 h-4 mr-1" /> Undo
+                </Button>
+                <Button variant="outline" size="sm" onClick={clearAnswer} disabled={currentAnswer.length === 0} className="min-h-[44px]">
+                  <Trash2 className="w-4 h-4 mr-1" /> Clear
+                </Button>
+                <Button className="ml-auto min-h-[48px]" onClick={handleSubmit} disabled={!canSubmit}>
+                  Submit
+                </Button>
+              </div>
+
+              {/* Switch to mic */}
+              <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowTiles(false)}>
+                <Mic className="w-3 h-3 mr-1" /> Switch to voice
+              </Button>
+            </>
+          )}
+
+          {/* Feedback (shared) */}
+          {showFeedback && (
+            <>
+              {/* Show what was built */}
+              <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-border rounded-lg">
+                {answerWords.map((word, idx) => (
+                  <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button className="min-h-[48px]" onClick={handleNext}>
                   Next <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              ) : (
-                "Submit"
-              )}
-            </Button>
-          </div>
+                </Button>
+              </div>
+            </>
+          )}
 
           {/* Feedback */}
           {showFeedback && (
