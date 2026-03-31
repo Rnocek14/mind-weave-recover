@@ -42,6 +42,7 @@ import AdminAlertRollup from "./pages/AdminAlertRollup";
 import AdminOverrideAudit from "./pages/AdminOverrideAudit";
 import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
+import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
