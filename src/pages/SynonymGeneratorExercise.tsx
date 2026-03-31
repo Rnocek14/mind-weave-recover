@@ -15,6 +15,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -78,10 +79,21 @@ export default function SynonymGeneratorExercise() {
     normalizeExerciseSlug(EXERCISE_SLUG)
   );
 
+  const pivot = useExerciseMidSessionPivot({
+    exerciseSlug: EXERCISE_SLUG,
+    domainSlug: 'semantic_depth',
+    fromLesson,
+  });
+
   const handleRoundComplete = useCallback((result: SynonymRoundResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
     scoreRef.current += result.matchCount;
+
+    pivot.recordTrialResult({
+      wasCorrect: result.matchCount >= 2,
+      reactionTimeMs: result.durationSec * 1000,
+    });
 
     logTrial({
       correct: result.matchCount >= 2,
@@ -94,10 +106,16 @@ export default function SynonymGeneratorExercise() {
         total_entered: result.totalEntered,
         time_limit: result.timeLimitSec,
         difficulty: result.difficulty,
+        pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry]);
+
+    if (pivot.shouldStepDown) {
+      console.log('[SynonymGenerator] Pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: SynonymRoundResult[]) => {
     setCompleted(true);
