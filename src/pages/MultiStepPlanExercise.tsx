@@ -37,6 +37,7 @@ export default function MultiStepPlanExercise() {
   const fromLesson = restored.fromLesson;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
+  const trialLimit = Number(location.state?.trialLimit) || 3;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 

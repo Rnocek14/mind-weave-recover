@@ -37,6 +37,7 @@ export default function DualLoadNamingExercise() {
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const fromLesson = restored.fromLesson;
   const providedSessionId = restored.sessionId;
+  const trialLimit = Number(location.state?.trialLimit) || 2;
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
