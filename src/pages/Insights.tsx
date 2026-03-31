@@ -107,7 +107,7 @@ export default function Insights() {
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
-    if (!showAdaptations && activeTab === 'adaptations') {
+    if (!showAdaptations && activeTab === 'intelligence') {
       setActiveTab('overview');
     }
   }, [showAdaptations, activeTab]);
