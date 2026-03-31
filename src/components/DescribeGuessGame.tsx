@@ -147,6 +147,7 @@ export function DescribeGuessGame({
 
   const {
     transcript,
+    fullTranscript,
     isListening: speechIsListening,
     startListening,
     stopListening,
@@ -156,6 +157,7 @@ export function DescribeGuessGame({
     autoStart: false,
     continuousListening: true,
     patientMode: true,
+    discourseMode: true, // CRITICAL: Accumulate across recognition restarts
   });
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
@@ -246,23 +248,24 @@ export function DescribeGuessGame({
     };
   }, []);
 
-  // Update display
+  // Update display — use fullTranscript (accumulated) for display and evaluation
   useEffect(() => {
-    if (transcript) {
-      setDisplayTranscript(transcript);
-      rawTranscriptRef.current = transcript;
+    if (fullTranscript) {
+      setDisplayTranscript(fullTranscript);
+      rawTranscriptRef.current = fullTranscript;
     }
-  }, [transcript]);
+  }, [fullTranscript]);
 
-  // Check for direct word match in real-time
+  // Check for direct word match in real-time (check both current and accumulated)
   useEffect(() => {
     const trial = currentTrialRef.current;
-    if (!transcript || !trial || evaluatedRef.current || awaitingWordAttempt) return;
+    const textToCheck = fullTranscript || transcript;
+    if (!textToCheck || !trial || evaluatedRef.current || awaitingWordAttempt) return;
 
-    if (game.checkWordMatch(transcript, trial)) {
+    if (game.checkWordMatch(textToCheck, trial)) {
       game.recordWordRetrieval();
     }
-  }, [transcript, game, awaitingWordAttempt]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt]);
 
   /**
    * Core evaluation function — extracted so it can be awaited properly.
@@ -396,8 +399,9 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech]);
 
   // Speech-end evaluation (debounced 3s after last transcript change)
+  // Use fullTranscript as trigger — it accumulates all speech segments
   useEffect(() => {
-    if (!transcript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+    if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
 
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
@@ -405,7 +409,7 @@ export function DescribeGuessGame({
       runEvaluation();
     }, SPEECH_END_DEBOUNCE_MS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, showFeedback]);
+  }, [fullTranscript, showFeedback]);
 
   const handleChipTap = useCallback((chip: PromptChip) => {
     game.recordFeatureChip(chip.featureType, chip.question);
