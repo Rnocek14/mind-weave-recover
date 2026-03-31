@@ -79,10 +79,21 @@ export default function CategoryFluencyExercise() {
     normalizeExerciseSlug(EXERCISE_SLUG)
   );
 
+  const pivot = useExerciseMidSessionPivot({
+    exerciseSlug: EXERCISE_SLUG,
+    domainSlug: 'lexical_retrieval',
+    fromLesson,
+  });
+
   const handleRoundComplete = useCallback((result: CategoryFluencyResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
     scoreRef.current += result.uniqueWordCount;
+
+    pivot.recordTrialResult({
+      wasCorrect: result.uniqueWordCount >= 3,
+      reactionTimeMs: result.durationSec * 1000,
+    });
 
     logTrial({
       correct: result.uniqueWordCount >= 3,
@@ -94,10 +105,16 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         words: result.words,
         difficulty: result.difficulty,
+        pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry]);
+
+    if (pivot.shouldStepDown) {
+      console.log('[CategoryFluency] Pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
     setCompleted(true);
