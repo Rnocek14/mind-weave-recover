@@ -33,6 +33,7 @@ import { DoseCapWarning } from "@/components/DoseCapWarning";
 import { useDoseCap } from "@/hooks/useDoseCap";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
+import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
