@@ -280,7 +280,7 @@ export function DualLoadNamingGame({
         </div>
         <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
       </div>
-      <Progress value={(currentSetIndex / totalSets) * 100} className="h-2" />
+      <Progress value={(currentSetIndex / totalSets) * 100} className="h-1.5" />
 
       {/* Memorize phase */}
       {phase === 'memorize' && (

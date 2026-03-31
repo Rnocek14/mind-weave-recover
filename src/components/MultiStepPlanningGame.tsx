@@ -210,7 +210,7 @@ export function MultiStepPlanningGame({
         </div>
         <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
       </div>
-      <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
+      <Progress value={(currentIndex / totalItems) * 100} className="h-1.5" />
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-3">

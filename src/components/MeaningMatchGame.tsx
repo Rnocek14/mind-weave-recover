@@ -194,7 +194,7 @@ export function MeaningMatchGame({
         </div>
       </div>
 
-      <Progress value={progressPercent} className="h-2" />
+      <Progress value={progressPercent} className="h-1.5" />
 
       {/* Sentence card */}
       <Card className="border-2 border-border/50">

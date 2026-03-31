@@ -187,7 +187,7 @@ export function DetectiveMindGame({
         </div>
       </div>
 
-      <Progress value={progressPercent} className="h-2" />
+      <Progress value={progressPercent} className="h-1.5" />
 
       {/* Case title */}
       <div className="flex items-center gap-2 py-2">
