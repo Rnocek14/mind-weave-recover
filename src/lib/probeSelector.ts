@@ -54,7 +54,7 @@ const DOMAIN_TARGETS: DomainTarget[] = [
   {
     domain: 'semantic_processing',
     label: 'Semantic Processing',
-    exerciseSlugs: ['semantic-features', 'meaning-match'],
+    exerciseSlugs: ['semantic-features', 'meaning-match', 'synonym-generator'],
     chatProbeType: 'word_finding',
   },
   {

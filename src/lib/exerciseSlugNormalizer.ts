@@ -30,6 +30,8 @@ export const CANONICAL_SLUGS = {
   // Mixed language exercises
   PHONOLOGICAL: 'phonological_awareness',
   SENTENCE_CONSTRUCTION: 'sentence_construction',
+  CATEGORY_FLUENCY: 'category_fluency',
+  SYNONYM_GENERATOR: 'synonym_generator',
 } as const;
 
 // Exercise modality types
