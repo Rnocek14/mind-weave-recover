@@ -717,7 +717,7 @@ export const PhotoNamingGame = ({
     
   }, [showFeedback, selectedAnswer, timedOut, utteranceState, state.choices, state.currentTrial, logBrowserTranscript, processStableTranscript]);
   
-  // Speech recognition hook - uses handleSpeechResult callback
+  // Speech recognition hook - use patient mode like the other mobile exercises to avoid mic flicker
   const { 
     isListening, 
     transcript, 
@@ -725,16 +725,25 @@ export const PhotoNamingGame = ({
     stopListening, 
     isSupported,
     error: speechError 
-  } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
-  
-  const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
-  const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
-  const showMicPausedHint = useDebouncedMicStatus(
-    isListening,
-    shouldExpectListening && !micAutoStartPending && !speechError && state.trialNumber > 0,
-    micStatusResetKey,
-    2500
-  );
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    autoStart: false,
+    continuousListening: true,
+    patientMode: true,
+  });
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  const micErrorMessage =
+    speechError && !speechError.toLowerCase().includes('no speech detected')
+      ? speechError.includes('Microphone access denied')
+        ? 'Microphone access is blocked — allow it in Safari settings.'
+        : speechError.includes('Failed to start speech recognition')
+          ? 'Microphone couldn’t start — tap Voice Off, then On.'
+          : speechError
+      : null;
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
