@@ -19,6 +19,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 const EXERCISE_SLUG = 'thought-continuation';
 
