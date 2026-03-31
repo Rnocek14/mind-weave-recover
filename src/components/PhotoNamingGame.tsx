@@ -2260,13 +2260,12 @@ export const PhotoNamingGame = ({
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative">
                 <Button
                   variant={selectedAnswer === choice ? "default" : "outline"}
-                  size="lg"
-                  className="w-full h-16 text-lg pr-12"
+                  className="w-full h-12 sm:h-14 text-sm sm:text-lg pr-10"
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
@@ -2275,7 +2274,7 @@ export const PhotoNamingGame = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
+                  className="absolute right-0.5 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
@@ -2283,7 +2282,7 @@ export const PhotoNamingGame = ({
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   <Volume2 
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
+                    className={`w-3.5 h-3.5 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
                   />
                 </Button>
               </div>
