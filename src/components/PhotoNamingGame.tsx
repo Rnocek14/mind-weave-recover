@@ -2278,7 +2278,7 @@ export const PhotoNamingGame = ({
               <div key={idx} className="relative">
                 <Button
                   variant={selectedAnswer === choice ? "default" : "outline"}
-                  className="w-full h-[56px] sm:h-[64px] text-base sm:text-lg font-medium pr-10"
+                  className="w-full h-[64px] sm:h-[72px] text-lg sm:text-xl font-medium pr-11"
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
