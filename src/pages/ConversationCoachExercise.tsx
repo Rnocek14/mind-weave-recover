@@ -9,7 +9,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 
