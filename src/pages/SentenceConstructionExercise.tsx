@@ -264,10 +264,11 @@ const SentenceConstructionExercise = () => {
     <div className="h-dvh flex flex-col bg-background overflow-hidden">
       {/* Compact header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
+          <span className="text-sm font-medium hidden sm:inline">Sentence Construction</span>
           <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
         <div className="flex items-center gap-1.5">
