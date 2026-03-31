@@ -30,6 +30,7 @@ import { CuePreferenceLearner, type CueType } from '@/lib/cuePreferenceLearner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { HelpLabel } from '@/components/HelpTooltip';
+import { DeepDiveSection } from './DeepDiveSection';
 
 interface IntelligenceSectionProps {
   userId: string;
