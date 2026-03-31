@@ -153,7 +153,7 @@ export default function Insights() {
 
   // Filter tabs based on role
   const visibleTabs = INSIGHT_TABS.filter(tab => {
-    if (tab.id === 'adaptations') return showAdaptations;
+    if (tab.id === 'intelligence') return showAdaptations;
     return true;
   });
 
