@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
 import { DescribeGuessTrialResult } from '@/hooks/useDescribeGuessGame';
@@ -20,7 +21,6 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 const EXERCISE_SLUG = 'describe_guess';
@@ -209,9 +209,8 @@ export default function DescribeGuessExercise() {
             <Home className="h-4 w-4" />
           </Button>
         </div>
+        {fromLesson && <InlineSessionProgress />}
       </header>
-
-      {fromLesson && <SessionProgressBubble />}
 
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         {completed ? (
