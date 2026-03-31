@@ -2,7 +2,7 @@
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
  * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
  */
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NarrativeRetellGame } from '@/components/NarrativeRetellGame';
 import { NarrativeTrialResult } from '@/hooks/useNarrativeRetellGame';
@@ -29,12 +29,30 @@ export default function NarrativeRetellExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const hasAdvancedLessonRef = useRef(false);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  // Restore lesson context from sessionStorage if route state is lost
+  const restoredLessonContext = useMemo(() => {
+    if (location.state?.fromLesson) return null;
+    try {
+      const saved = sessionStorage.getItem('lessonFlowState');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (parsed?.lesson?.exercises?.some((e: any) => 
+        e.slug === 'narrative-retell' || e.slug === 'narrative_retell'
+      )) {
+        return { fromLesson: true, sessionId: parsed.sessionId, adaptations: parsed.adaptations };
+      }
+    } catch { /* ignore */ }
+    return null;
+  }, [location.state]);
+
+  const fromLesson = location.state?.fromLesson ?? restoredLessonContext?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
   // Shared adaptation contract — profile-aware, not directly phoneme-targeted
@@ -91,26 +109,36 @@ export default function NarrativeRetellExercise() {
     });
   }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
 
+  const resumeLessonFlow = useCallback(() => {
+    if (hasAdvancedLessonRef.current) return;
+    hasAdvancedLessonRef.current = true;
+    if (!exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
+    }
+    navigate('/lesson', { state: { resuming: true }, replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
+  }, []);
+
   const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
     setCompleted(true);
     completeSession();
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: EXERCISE_SLUG, results },
-        }));
-      }, 2000);
+    if (fromLesson) {
+      completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, resumeLessonFlow]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? '/lesson' : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/dashboard');
-  }, [fromLesson, navigate]);
+    if (fromLesson) {
+      resumeLessonFlow();
+    } else {
+      navigate('/dashboard');
+    }
+  }, [fromLesson, navigate, resumeLessonFlow]);
 
   if (isCreatingSession || !activeSessionId) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
@@ -131,8 +159,10 @@ export default function NarrativeRetellExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📖</div>
             <h2 className="text-2xl font-bold">Stories Complete!</h2>
-            <p className="text-muted-foreground">Great job retelling those stories!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">
+              {fromLesson ? 'Loading next exercise...' : 'Great job retelling those stories!'}
+            </p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
