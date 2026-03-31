@@ -26,6 +26,8 @@ export const EXERCISE_DOMAIN_MAP: Record<string, string> = {
   'thought-continuation': 'discourse',
   'reach-tap': 'motor',
   'left-side-hunt': 'visual_spatial',
+  'category-fluency': 'lexical_retrieval',
+  'synonym-generator': 'semantic_depth',
 };
 
 /** Normalize various slug formats to hyphenated */

@@ -41,6 +41,7 @@ const SLUG_TO_DOMAIN: Record<string, ClinicalDomain> = {
   'follow-directions': 'receptive_language',
   'category-fluency': 'expressive_language',
   'sequence-builder': 'discourse',
+  'synonym-generator': 'semantic_processing',
 };
 
 // ── Per-Session Metrics ──
