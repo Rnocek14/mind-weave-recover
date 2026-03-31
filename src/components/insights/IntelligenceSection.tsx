@@ -94,9 +94,15 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground mb-1">System Intelligence</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {headline}
-              </p>
+              <div className="space-y-1">
+                {headline.map((line, i) => (
+                  <p key={i} className="text-sm text-muted-foreground leading-relaxed flex items-center gap-1.5">
+                    {i === 0 ? <TrendingUp className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : 
+                     <span className="w-3.5 flex-shrink-0 text-center text-muted-foreground/60">·</span>}
+                    {line}
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
 
