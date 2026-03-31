@@ -98,6 +98,7 @@ function buildSemanticRetrievalStrategy(
       { slug: 'photo-naming', weight: 0.8, difficultyHint: 'same' },
       { slug: 'semantic-features', weight: 0.7, difficultyHint: 'easier' },
       { slug: 'category-fluency', weight: 0.5, difficultyHint: 'same' },
+      { slug: 'synonym-generator', weight: 0.5, difficultyHint: 'easier' },
     ],
     cueApproach: {
       preferredType: 'semantic',
