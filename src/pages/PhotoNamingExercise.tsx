@@ -8,6 +8,7 @@ import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
