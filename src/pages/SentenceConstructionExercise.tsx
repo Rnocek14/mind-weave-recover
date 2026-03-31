@@ -28,7 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { DifficultyInfoBadge } from "@/components/DifficultyInfoBadge";
-import { SessionProgressBubble } from "@/components/SessionProgressBubble";
+import { InlineSessionProgress } from "@/components/InlineSessionProgress";
 import { SessionSidePanel } from "@/components/SessionSidePanel";
 
 const SentenceConstructionExercise = () => {
