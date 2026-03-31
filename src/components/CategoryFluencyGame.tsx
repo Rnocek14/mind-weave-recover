@@ -172,6 +172,7 @@ export function CategoryFluencyGame({
     onResult: handleSpeechResult,
     patientMode: true,
     continuousListening: true,
+    discourseMode: true,
     autoStart: false,
   });
 
