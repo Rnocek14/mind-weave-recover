@@ -68,7 +68,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_chair',
     target: 'chair',
-    photoBankId: 'chair_1',
+    photoBankId: 'chair_2',
     acceptedWords: ['chair', 'seat'],
     wordAliases: { chair: ['chairs', 'share'], seat: ['seats'] },
     featureKeywords: {
