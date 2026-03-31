@@ -204,6 +204,17 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
           onToggle={() => toggle('doesItWork')}
         >
           <div className="space-y-5">
+            {/* Key Takeaway */}
+            {(() => {
+              const takeaway = generateDoesItWorkTakeaway(proof);
+              return takeaway ? (
+                <Alert className="border-primary/20 bg-primary/5">
+                  <Target className="h-4 w-4" />
+                  <AlertDescription className="text-sm font-medium">{takeaway}</AlertDescription>
+                </Alert>
+              ) : null;
+            })()}
+
             {/* Latency Trend */}
             {proof.latencyTrend.length > 1 && (
               <div>
