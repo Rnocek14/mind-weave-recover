@@ -248,23 +248,24 @@ export function DescribeGuessGame({
     };
   }, []);
 
-  // Update display
+  // Update display — use fullTranscript (accumulated) for display and evaluation
   useEffect(() => {
-    if (transcript) {
-      setDisplayTranscript(transcript);
-      rawTranscriptRef.current = transcript;
+    if (fullTranscript) {
+      setDisplayTranscript(fullTranscript);
+      rawTranscriptRef.current = fullTranscript;
     }
-  }, [transcript]);
+  }, [fullTranscript]);
 
-  // Check for direct word match in real-time
+  // Check for direct word match in real-time (check both current and accumulated)
   useEffect(() => {
     const trial = currentTrialRef.current;
-    if (!transcript || !trial || evaluatedRef.current || awaitingWordAttempt) return;
+    const textToCheck = fullTranscript || transcript;
+    if (!textToCheck || !trial || evaluatedRef.current || awaitingWordAttempt) return;
 
-    if (game.checkWordMatch(transcript, trial)) {
+    if (game.checkWordMatch(textToCheck, trial)) {
       game.recordWordRetrieval();
     }
-  }, [transcript, game, awaitingWordAttempt]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt]);
 
   /**
    * Core evaluation function — extracted so it can be awaited properly.
