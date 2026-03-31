@@ -68,12 +68,16 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
-// Debounced mic status - only show "mic paused" after 2s of being off
-const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
+// Debounced mic status - only show "mic paused" when voice should be active but isn't
+const useDebouncedMicStatus = (
+  isListening: boolean,
+  shouldExpectListening: boolean,
+  delayMs = 2000
+) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
   useEffect(() => {
-    if (isListening) {
+    if (isListening || !shouldExpectListening) {
       setShowMicPaused(false);
       return;
     }
@@ -83,7 +87,7 @@ const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
     }, delayMs);
     
     return () => clearTimeout(timer);
-  }, [isListening, delayMs]);
+  }, [isListening, shouldExpectListening, delayMs]);
   
   return showMicPaused;
 };
