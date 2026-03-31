@@ -150,41 +150,28 @@ export default function PatternMatchExercise() {
   }
 
   return (
-    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       {fromLesson && <SessionSidePanel />}
-      {fromLesson && <InlineSessionProgress />}
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/dashboard')}
-              aria-label={fromLesson ? 'Back to Lesson' : 'Back to Dashboard'}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Pattern Match</h1>
-              <p className="text-muted-foreground">
-                Remember and match visual patterns to train attention and memory
-              </p>
-            </div>
-            
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
+        <div className="container flex h-14 items-center justify-between px-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />Back
+          </Button>
+          <h1 className="text-lg font-semibold">Pattern Match</h1>
+          <div className="flex items-center gap-1">
             {fromLesson && (
-              <Button
-                variant="outline"
-                onClick={handleSkipExercise}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
-              >
-                <SkipForward className="w-4 h-4 mr-2" />
-                Skip - Too Difficult
+              <Button variant="ghost" size="sm" onClick={handleSkipExercise} className="text-orange-600 text-xs">
+                <SkipForward className="w-3.5 h-3.5 mr-1" />Skip
               </Button>
             )}
+            <DifficultyInfoBadge level={config.startDifficulty || 3} floor={bounds.floor} ceiling={bounds.ceiling} />
           </div>
-          <DifficultyInfoBadge level={config.startDifficulty || 3} floor={bounds.floor} ceiling={bounds.ceiling} />
         </div>
+        {fromLesson && <InlineSessionProgress />}
+      </header>
+
+      <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
+        <div className="max-w-4xl mx-auto space-y-4">
 
         {/* Capability Adaptation Banner */}
         {hasCapabilityAdaptations && (
@@ -205,7 +192,8 @@ export default function PatternMatchExercise() {
             console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
           }}
         />
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
-import { ArrowLeft, Ear, Info } from 'lucide-react';
+import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
@@ -213,22 +213,31 @@ export default function MinimalPairsExercise() {
   }
   
   return (
-    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 md:p-8 flex flex-col`}>
-      {fromLesson && <InlineSessionProgress />}
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={handleBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          {fromLesson ? 'Back to Lesson' : 'Exit'}
-        </Button>
-        
-        <MinimalPairsGame
-          difficulty={difficulty}
-          totalTrials={Math.min(stats.total, 10)}
-          focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
-          onComplete={handleComplete}
-          onTrialComplete={handleTrialComplete}
-        />
-      </div>
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
+        <div className="container flex h-14 items-center justify-between px-4">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />Back
+          </Button>
+          <h1 className="text-lg font-semibold">👂 Minimal Pairs</h1>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
+        {fromLesson && <InlineSessionProgress />}
+      </header>
+
+      <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
+        <div className="max-w-2xl mx-auto">
+          <MinimalPairsGame
+            difficulty={difficulty}
+            totalTrials={Math.min(stats.total, 10)}
+            focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            onComplete={handleComplete}
+            onTrialComplete={handleTrialComplete}
+          />
+        </div>
+      </main>
       {fromLesson && <SessionSidePanel />}
     </div>
   );
