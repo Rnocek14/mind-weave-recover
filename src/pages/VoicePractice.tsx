@@ -115,6 +115,11 @@ export default function VoicePractice() {
   }, [isRecording]);
 
   const stopListening = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    hasSpokenRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
