@@ -244,7 +244,6 @@ export default function ConversationPartnerExercise() {
   // Game screen
   return (
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
-      {fromLesson && <SessionProgressBubble />}
       <div className="max-w-md mx-auto pt-4">
         <div className="flex items-center gap-2 mb-6">
           <MessageCircle className="w-5 h-5 text-primary" />
