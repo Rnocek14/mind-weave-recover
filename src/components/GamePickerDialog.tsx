@@ -72,6 +72,8 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'multi-step-plan': '/exercise/multi-step-plan',
   'dual-load-naming': '/exercise/dual-load-naming',
   'thought-continuation': '/exercise/thought-continuation',
+  'category-fluency': '/exercise/category-fluency',
+  'synonym-generator': '/exercise/synonym-generator',
 };
 
 interface GamePickerDialogProps {

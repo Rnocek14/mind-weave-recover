@@ -73,6 +73,8 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
   'thought-continuation': '/exercise/thought-continuation',
+  'category-fluency': '/exercise/category-fluency',
+  'synonym-generator': '/exercise/synonym-generator',
 };
 
 interface PatientPracticeViewProps {
