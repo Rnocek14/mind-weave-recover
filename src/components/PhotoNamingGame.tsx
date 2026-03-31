@@ -2043,16 +2043,16 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Trial {state.trialNumber} of {state.totalTrials}</span>
+    <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-4">
+      {/* Progress bar - compact on mobile */}
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+          <span>{state.trialNumber}/{state.totalTrials}</span>
           <span>Score: {state.score}</span>
         </div>
         <Progress 
           value={(state.trialNumber / state.totalTrials) * 100} 
-          className="h-2"
+          className="h-1.5 sm:h-2"
         />
       </div>
 
