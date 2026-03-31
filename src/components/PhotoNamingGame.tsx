@@ -73,7 +73,7 @@ const useDebouncedMicStatus = (
   isListening: boolean,
   shouldExpectListening: boolean,
   resetKey: string | number,
-  delayMs = 2000
+  delayMs = 5000
 ) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
@@ -132,7 +132,7 @@ export const PhotoNamingGame = ({
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
   const [currentCueText, setCurrentCueText] = useState('');
-  const [useVoice, setUseVoice] = useState(false); // Start off until user explicitly enables mic
+  const [useVoice, setUseVoice] = useState(true); // Auto-start mic
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
@@ -727,7 +727,7 @@ export const PhotoNamingGame = ({
   const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
   const showMicPausedHint = useDebouncedMicStatus(
     isListening,
-    shouldExpectListening && !micAutoStartPending && !speechError,
+    shouldExpectListening && !micAutoStartPending && !speechError && state.trialNumber > 0,
     micStatusResetKey,
     2500
   );
@@ -2199,21 +2199,6 @@ export const PhotoNamingGame = ({
         )}
       </div>
 
-      {/* Voice onboarding for first activation */}
-      {!useVoice && !showFeedback && !timedOut && !selectedAnswer && (
-        <Button
-          variant="default"
-          onClick={() => {
-            setUseVoice(true);
-            setMicAutoStartPending(true);
-            setTimeout(() => startListening(), 100);
-          }}
-          className="w-full h-14 sm:h-16 text-base sm:text-lg font-medium gap-2 shrink-0"
-        >
-          <Mic className="w-5 h-5" />
-          Tap to start microphone
-        </Button>
-      )}
 
       {/* Cue display - compact on mobile */}
 
