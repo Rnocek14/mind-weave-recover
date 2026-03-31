@@ -279,9 +279,9 @@ export const ReachTapGame = ({
   };
 
   return (
-    <div className="w-full space-y-2 flex flex-col min-h-0">
+    <div className="w-full space-y-2 flex flex-col min-h-0 max-h-full overflow-hidden">
       {/* Progress */}
-      <div className="space-y-2">
+      <div className="space-y-2 flex-shrink-0">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
             Trial {currentTrial} of {totalTrials}
