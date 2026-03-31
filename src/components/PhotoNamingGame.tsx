@@ -1186,17 +1186,17 @@ export const PhotoNamingGame = ({
         }, STALL_TIMER_DELAY_MS);
       }
       
-      // Auto-listen: Only initiate once per trial, with retry for STOPPING state
+      // Auto-listen: Only initiate once per trial, with retry for STOPPING/cooldown state
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
         autoListenInitiatedRef.current = state.trialNumber;
+        setMicAutoStartPending(true);
         
-        // Retry mechanism: try up to 4 times with increasing delay
-        // This handles the case where recognition is still in STOPPING state on mount
         let retryCount = 0;
-        const maxRetries = 4;
+        const maxRetries = 5;
         const tryStart = () => {
           retryCount++;
           console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
+
           if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
             try {
               startListening();
@@ -1204,23 +1204,26 @@ export const PhotoNamingGame = ({
               console.error('🎤 Error auto-starting listening:', err);
             }
           }
-          // If not listening after attempt, retry with backoff
+
           if (retryCount < maxRetries) {
-            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 800 : 1200;
+            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
             listeningTimeoutRef.current = setTimeout(() => {
-              // Only retry if still not listening
-              if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+              if (!isListening && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
                 tryStart();
+              } else {
+                setMicAutoStartPending(false);
               }
             }, delay);
+          } else {
+            setMicAutoStartPending(false);
           }
         };
         
-        // Initial attempt after short delay for mount stabilization
-        const timeoutId = setTimeout(tryStart, 300);
+        const timeoutId = setTimeout(tryStart, 250);
         
         return () => {
           clearTimeout(timeoutId);
+          setMicAutoStartPending(false);
           if (listeningTimeoutRef.current) {
             clearTimeout(listeningTimeoutRef.current);
           }
