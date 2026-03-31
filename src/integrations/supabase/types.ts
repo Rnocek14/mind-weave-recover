@@ -1730,6 +1730,74 @@ export type Database = {
         }
         Relationships: []
       }
+      recovery_score_snapshots: {
+        Row: {
+          accuracy_score: number | null
+          component_details: Json | null
+          confidence_level: string
+          consistency_score: number | null
+          created_at: string
+          cue_independence_score: number | null
+          endurance_score: number | null
+          error_quality_score: number | null
+          id: string
+          latency_score: number | null
+          profile_id: string | null
+          recovery_score: number
+          score_version: string
+          session_count: number
+          snapshot_date: string
+          trial_count: number
+          user_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          component_details?: Json | null
+          confidence_level?: string
+          consistency_score?: number | null
+          created_at?: string
+          cue_independence_score?: number | null
+          endurance_score?: number | null
+          error_quality_score?: number | null
+          id?: string
+          latency_score?: number | null
+          profile_id?: string | null
+          recovery_score: number
+          score_version?: string
+          session_count?: number
+          snapshot_date?: string
+          trial_count?: number
+          user_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          component_details?: Json | null
+          confidence_level?: string
+          consistency_score?: number | null
+          created_at?: string
+          cue_independence_score?: number | null
+          endurance_score?: number | null
+          error_quality_score?: number | null
+          id?: string
+          latency_score?: number | null
+          profile_id?: string | null
+          recovery_score?: number
+          score_version?: string
+          session_count?: number
+          snapshot_date?: string
+          trial_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_score_snapshots_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recovery_summaries: {
         Row: {
           ai_summary: string
