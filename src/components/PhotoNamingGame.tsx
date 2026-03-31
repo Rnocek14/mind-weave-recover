@@ -2229,35 +2229,31 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* Hear All Choices Button with Speed Control */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               onClick={handlePlayAllChoices}
               disabled={isPlayingChoices || showFeedback || timedOut}
               variant="secondary"
               size="sm"
-              className="flex-1"
+              className="flex-1 h-8 text-xs"
             >
-              <Volume2 className="w-4 h-4 mr-2" />
-              {isPlayingChoices ? 'Playing choices...' : 'Hear all choices'}
+              <Volume2 className="w-3.5 h-3.5 mr-1.5" />
+              {isPlayingChoices ? 'Playing...' : 'Hear choices'}
             </Button>
             
-            <div className="flex items-center gap-1 text-sm">
-              <label htmlFor="speed-control" className="text-muted-foreground text-xs whitespace-nowrap">Speed:</label>
-              <select
-                id="speed-control"
-                value={playbackSpeed}
-                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                className="px-2 py-1 rounded border border-border bg-background text-foreground text-xs"
-                disabled={isPlayingChoices}
-              >
-                <option value={0.5}>0.5×</option>
-                <option value={0.75}>0.75×</option>
-                <option value={1.0}>1×</option>
-                <option value={1.25}>1.25×</option>
-              </select>
-            </div>
+            <select
+              value={playbackSpeed}
+              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+              className="px-1.5 py-1 rounded border border-border bg-background text-foreground text-xs h-8"
+              disabled={isPlayingChoices}
+            >
+              <option value={0.5}>0.5×</option>
+              <option value={0.75}>0.75×</option>
+              <option value={1.0}>1×</option>
+              <option value={1.25}>1.25×</option>
+            </select>
           </div>
           
           <div className="grid grid-cols-2 gap-2">
