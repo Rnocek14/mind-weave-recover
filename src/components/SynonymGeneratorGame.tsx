@@ -2,7 +2,8 @@
  * Synonym Generator Game
  * 
  * "Give as many synonyms for [word] as you can"
- * Free-recall, time-pressured synonym generation
+ * PRIMARY INPUT: Speech (microphone) — say synonyms aloud
+ * FALLBACK: Text input for accessibility
  * Adaptive: harder words + shrinking timer with difficulty
  * Trial-by-trial adaptation via useAdaptiveDifficulty
  */
@@ -11,9 +12,10 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, ThumbsUp, RotateCcw, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { Timer, Plus, ThumbsUp, RotateCcw, Check, X, TrendingUp, TrendingDown, Mic, MicOff, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Word banks by difficulty tier with accepted synonyms
@@ -115,7 +117,6 @@ export function SynonymGeneratorGame({
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
 }: SynonymGeneratorGameProps) {
-  // === Trial-by-trial adaptive difficulty ===
   const {
     currentDifficulty,
     updateTrial,
@@ -140,20 +141,65 @@ export function SynonymGeneratorGame({
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
   const totalTime = getTimerForDifficulty(currentDifficulty);
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const wordsRef = useRef<string[]>([]);
+
+  useEffect(() => { wordsRef.current = words; }, [words]);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
+  // === Speech Recognition ===
+  const processedRef = useRef(new Set<string>());
+
+  const handleSpeechResult = useCallback((transcript: string) => {
+    if (phase !== 'active') return;
+    
+    const spokenWords = transcript
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .map(w => w.trim().replace(/[^a-zA-Z'-]/g, ''))
+      .filter(w => w.length >= 2);
+
+    const newWords: string[] = [];
+    for (const word of spokenWords) {
+      if (!processedRef.current.has(word)) {
+        processedRef.current.add(word);
+        newWords.push(word);
+      }
+    }
+
+    if (newWords.length > 0) {
+      setWords(prev => [...prev, ...newWords]);
+      setLastAddedWord(newWords[newWords.length - 1]);
+      setTimeout(() => setLastAddedWord(null), 800);
+    }
+  }, [phase]);
+
+  const {
+    isListening,
+    transcript: liveTranscript,
+    startListening,
+    stopListening,
+    isSupported: speechSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    patientMode: true,
+    continuousListening: true,
+    autoStart: false,
+  });
+
   const buildResult = useCallback((): SynonymRoundResult => {
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
-    const unique = [...new Set(words.map(w => w.toLowerCase().trim()))].filter(Boolean);
+    const unique = [...new Set(wordsRef.current.map(w => w.toLowerCase().trim()))].filter(Boolean);
     const matched = unique.filter(w => checkSynonym(w, prompt));
     const unmatched = unique.filter(w => !checkSynonym(w, prompt));
 
@@ -168,18 +214,17 @@ export function SynonymGeneratorGame({
       timeLimitSec: totalTime,
       difficulty: currentDifficulty,
     };
-  }, [words, prompt, totalTime, currentDifficulty]);
+  }, [prompt, totalTime, currentDifficulty]);
 
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    stopListening();
     const result = buildResult();
 
-    // Feed result to adaptive controller
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = result.matchCount >= threshold;
     updateTrial(wasSuccessful);
 
-    // Check if difficulty should change
     const prevDiff = currentDifficulty;
     const { newLevel } = checkAndAdjust();
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
@@ -196,16 +241,17 @@ export function SynonymGeneratorGame({
     } else {
       setPhase('round-done');
     }
-  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust]);
+  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust, stopListening]);
 
   const startRound = useCallback(() => {
-    // Pick prompt based on CURRENT adaptive difficulty
     const newPrompt = pickPrompt(currentDifficulty, usedWordsRef.current);
     setPrompt(newPrompt);
     setWords([]);
     setCurrentInput('');
     setPhase('active');
     setDifficultyShift(null);
+    processedRef.current.clear();
+    wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
@@ -220,8 +266,12 @@ export function SynonymGeneratorGame({
       });
     }, 1000);
 
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [currentDifficulty, finishRound]);
+    if (speechSupported) {
+      setTimeout(() => startListening(), 300);
+    } else {
+      setShowTextInput(true);
+    }
+  }, [currentDifficulty, finishRound, speechSupported, startListening]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
@@ -229,6 +279,7 @@ export function SynonymGeneratorGame({
     setWords([]);
     setCurrentInput('');
     setPhase('ready');
+    setShowTextInput(false);
   }, [prompt.word]);
 
   const addWord = useCallback(() => {
@@ -246,7 +297,6 @@ export function SynonymGeneratorGame({
     }
   }, [addWord]);
 
-  // Compute live match status for entered words
   const wordStatuses = useMemo(() => {
     return words.map(w => ({
       word: w,
@@ -267,9 +317,14 @@ export function SynonymGeneratorGame({
           <p className="text-sm text-muted-foreground mb-1">Think of synonyms for:</p>
           <p className="text-3xl font-bold text-primary">{nextPrompt.word}</p>
           <p className="text-sm text-muted-foreground mt-2">
-            Type as many words with a similar meaning as you can in {timer} seconds
+            <strong>Say</strong> as many words with a similar meaning as you can in {timer} seconds
           </p>
         </div>
+        {!speechSupported && (
+          <p className="text-xs text-amber-600">
+            Speech not available — you'll type instead
+          </p>
+        )}
         {currentRound > 0 && (
           <div className="flex flex-col items-center gap-1">
             <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
@@ -285,7 +340,7 @@ export function SynonymGeneratorGame({
           </div>
         )}
         <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
-          <Timer className="w-4 h-4 mr-2" />
+          <Mic className="w-4 h-4 mr-2" />
           {currentRound === 0 ? 'Start' : 'Next Word'}
         </Button>
       </div>
@@ -354,7 +409,7 @@ export function SynonymGeneratorGame({
     );
   }
 
-  // Active
+  // Active — speech-first with text fallback
   return (
     <div className="flex flex-col gap-4 max-w-sm mx-auto">
       {/* Prompt word */}
@@ -365,7 +420,12 @@ export function SynonymGeneratorGame({
 
       {/* Timer + count */}
       <div className="flex items-center justify-between">
-        <Badge variant="outline">{matchCount} matched</Badge>
+        <Badge variant="outline" className={cn(
+          "transition-all",
+          lastAddedWord && "ring-2 ring-primary scale-110"
+        )}>
+          {matchCount} matched
+        </Badge>
         <div className={cn(
           "flex items-center gap-1 text-lg font-mono font-bold tabular-nums",
           timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-muted-foreground'
@@ -375,21 +435,74 @@ export function SynonymGeneratorGame({
         </div>
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2">
-        <Input
-          ref={inputRef}
-          value={currentInput}
-          onChange={(e) => setCurrentInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a synonym + Enter"
-          className="min-h-[48px] text-base"
-          autoFocus
-        />
-        <Button size="icon" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
-          <Plus className="w-5 h-5" />
-        </Button>
-      </div>
+      {/* Mic status + live transcript */}
+      {speechSupported && !showTextInput && (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <button
+            onClick={isListening ? stopListening : startListening}
+            className={cn(
+              "w-20 h-20 rounded-full flex items-center justify-center transition-all",
+              "border-2 shadow-lg",
+              isListening
+                ? "bg-primary/10 border-primary animate-pulse shadow-primary/20"
+                : "bg-muted border-border hover:border-primary/50"
+            )}
+            aria-label={isListening ? "Microphone active" : "Start microphone"}
+          >
+            {isListening ? (
+              <Mic className="w-8 h-8 text-primary" />
+            ) : (
+              <MicOff className="w-8 h-8 text-muted-foreground" />
+            )}
+          </button>
+          
+          {isListening && (
+            <p className="text-sm text-muted-foreground animate-pulse">
+              {liveTranscript || "Listening — say synonyms aloud…"}
+            </p>
+          )}
+
+          {lastAddedWord && (
+            <Badge className={cn(
+              "animate-in fade-in zoom-in text-sm",
+              checkSynonym(lastAddedWord, prompt)
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            )}>
+              {checkSynonym(lastAddedWord, prompt) ? '✓' : '○'} {lastAddedWord}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* Text input fallback */}
+      {(showTextInput || !speechSupported) && (
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a synonym + Enter"
+            className="min-h-[48px] text-base"
+            autoFocus
+          />
+          <Button size="icon" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Toggle between speech and text */}
+      {speechSupported && (
+        <button
+          onClick={() => setShowTextInput(!showTextInput)}
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 self-center"
+        >
+          {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+          {showTextInput ? 'Switch to speech' : 'Switch to typing'}
+        </button>
+      )}
 
       {/* Words entered with live match feedback */}
       <div className="flex flex-wrap gap-1.5 min-h-[48px]">
@@ -397,7 +510,11 @@ export function SynonymGeneratorGame({
           <Badge
             key={i}
             variant={ws.isMatch ? 'default' : 'outline'}
-            className={cn("text-sm", ws.isMatch && "bg-primary/90")}
+            className={cn(
+              "text-sm transition-all",
+              ws.isMatch && "bg-primary/90",
+              ws.word === lastAddedWord && "ring-1 ring-primary"
+            )}
           >
             {ws.isMatch && <Check className="w-3 h-3 mr-1" />}
             {ws.word}
