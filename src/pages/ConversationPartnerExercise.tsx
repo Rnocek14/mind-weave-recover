@@ -29,10 +29,10 @@ export default function ConversationPartnerExercise() {
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext('conversation-partner');
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
