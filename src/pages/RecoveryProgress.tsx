@@ -205,6 +205,38 @@ export default function RecoveryProgress() {
           </div>
         </div>
 
+        {/* Recovery Score Hero */}
+        {recoveryScore != null && scoreConfidence !== 'insufficient' && (
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/2 to-transparent overflow-hidden">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div>
+                    <div className="text-4xl md:text-5xl font-bold text-foreground leading-none tracking-tight">
+                      {recoveryScore}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">Recovery Score</div>
+                  </div>
+                  {weeklyDelta != null && (
+                    <div className={cn(
+                      'flex items-center gap-1 text-sm font-semibold',
+                      weeklyDelta > 0 ? 'text-success' : weeklyDelta < 0 ? 'text-destructive' : 'text-muted-foreground'
+                    )}>
+                      {weeklyDelta > 0 ? <TrendingUp className="h-4 w-4" /> : weeklyDelta < 0 ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+                      {weeklyDelta > 0 ? '+' : ''}{weeklyDelta} this week
+                    </div>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary">
+                  <Link to="/recovery-score">
+                    View Breakdown <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* The headline card — instant conviction */}
         <div className={cn(
           'relative rounded-2xl p-6 md:p-8 overflow-hidden',
