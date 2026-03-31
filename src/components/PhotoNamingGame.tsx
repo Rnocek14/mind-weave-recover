@@ -68,17 +68,20 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
-// Debounced mic status - only show "mic paused" when voice should be active but isn't
+// Debounced mic status - only show "mic paused" after a fresh grace window for the current trial/start cycle
 const useDebouncedMicStatus = (
   isListening: boolean,
   shouldExpectListening: boolean,
+  resetKey: string | number,
   delayMs = 2000
 ) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
   useEffect(() => {
+    // Always clear stale warning state when a new listening cycle begins
+    setShowMicPaused(false);
+
     if (isListening || !shouldExpectListening) {
-      setShowMicPaused(false);
       return;
     }
     
@@ -87,7 +90,7 @@ const useDebouncedMicStatus = (
     }, delayMs);
     
     return () => clearTimeout(timer);
-  }, [isListening, shouldExpectListening, delayMs]);
+  }, [isListening, shouldExpectListening, resetKey, delayMs]);
   
   return showMicPaused;
 };
