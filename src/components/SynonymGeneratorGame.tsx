@@ -194,6 +194,7 @@ export function SynonymGeneratorGame({
     onResult: handleSpeechResult,
     patientMode: true,
     continuousListening: true,
+    discourseMode: true,
     autoStart: false,
   });
 

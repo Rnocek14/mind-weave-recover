@@ -140,7 +140,7 @@ export function CategoryFluencyGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
     
-    // Split transcript into individual words and add new ones
+    // Split full accumulated transcript into individual words and add any new ones
     const spokenWords = transcript
       .toLowerCase()
       .split(/[\s,]+/)
@@ -158,7 +158,6 @@ export function CategoryFluencyGame({
     if (newWords.length > 0) {
       setWords(prev => [...prev, ...newWords]);
       setLastAddedWord(newWords[newWords.length - 1]);
-      // Brief flash for feedback
       setTimeout(() => setLastAddedWord(null), 800);
     }
   }, [phase]);
@@ -173,6 +172,7 @@ export function CategoryFluencyGame({
     onResult: handleSpeechResult,
     patientMode: true,
     continuousListening: true,
+    discourseMode: true,
     autoStart: false,
   });
 
