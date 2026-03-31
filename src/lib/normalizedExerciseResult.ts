@@ -284,6 +284,27 @@ export function normalizeSequenceBuilderResult(raw: unknown): NormalizedExercise
   };
 }
 
+export function normalizeSynonymGeneratorResult(raw: unknown): NormalizedExerciseResult {
+  const r = raw as Record<string, any>;
+  const matchCount = r.matchCount ?? 0;
+  const totalEntered = r.totalEntered ?? 0;
+  // Norm: 5+ matched synonyms is strong
+  const score = Math.min(matchCount / 5, 1);
+
+  return {
+    slug: 'synonym-generator',
+    completed: true,
+    score,
+    successBand: computeSuccessBand(score),
+    accuracy: totalEntered > 0 ? matchCount / totalEntered : 0,
+    targetDomain: 'semantic_processing',
+    struggleSignal: computeStruggleSignal(score),
+    fatigueSignal: 'none',
+    summary: `Found ${matchCount} synonyms for "${r.targetWord || 'word'}" (${totalEntered} total attempts).`,
+    raw,
+  };
+}
+
 // ─── Registry ───
 
 const NORMALIZERS: Record<string, (raw: unknown) => NormalizedExerciseResult> = {
@@ -297,6 +318,7 @@ const NORMALIZERS: Record<string, (raw: unknown) => NormalizedExerciseResult> = 
   'follow-directions': normalizeFollowDirectionsResult,
   'category-fluency': normalizeCategoryFluencyResult,
   'sequence-builder': normalizeSequenceBuilderResult,
+  'synonym-generator': normalizeSynonymGeneratorResult,
 };
 
 /**
