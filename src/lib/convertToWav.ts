@@ -246,15 +246,20 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
     }
     
     // Step 2: Resample to 16kHz using OfflineAudioContext
-    // This is CRITICAL - AudioContext does NOT resample to its sampleRate
+    // Cap duration to MAX_AUDIO_DURATION_SEC to prevent memory issues in edge functions
+    const cappedDuration = Math.min(audioBuffer.duration, MAX_AUDIO_DURATION_SEC);
     const resampleStart = performance.now();
-    const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
+    const outputLength = Math.ceil(cappedDuration * TARGET_SAMPLE_RATE);
     const offlineCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
     
     const source = offlineCtx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(offlineCtx.destination);
     source.start(0);
+    // Stop source at cap to avoid rendering excess audio
+    if (cappedDuration < audioBuffer.duration) {
+      source.stop(cappedDuration);
+    }
     
     const resampledBuffer = await offlineCtx.startRendering();
     const samples = resampledBuffer.getChannelData(0);
@@ -262,6 +267,8 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
     
     console.log('🎵 [WAV] Audio resampled', {
       originalSampleRate: audioBuffer.sampleRate,
+      originalDuration: audioBuffer.duration.toFixed(2),
+      cappedDuration: cappedDuration.toFixed(2),
       outputSampleRate: resampledBuffer.sampleRate,
       outputSamples: samples.length,
       resampleMs: timings.resample
