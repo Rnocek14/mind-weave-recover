@@ -62,7 +62,8 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     if (!transcript || transcript.trim().length < 3) {
       return {
         storyId: story.id, transcript: '', eventsFound: 0, eventsTotal: story.keyEvents.length,
-        eventCoverage: 0, coherenceScore: 0, onTopicScore: 0, durationMs, meanUtteranceLength: 0,
+        eventCoverage: 0, matchedEvents: [], allKeyEvents: story.keyEvents,
+        coherenceScore: 0, onTopicScore: 0, durationMs, meanUtteranceLength: 0,
         wordCount: 0, skipped: true,
         depthTelemetry: { taskType: 'narrative_retell', eventCoverage: 0, coherenceScore: 0, ciuRate: null, meanUtteranceLength: 0 },
       };
