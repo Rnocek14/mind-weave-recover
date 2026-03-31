@@ -45,13 +45,14 @@ export default function MeaningMatchExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
   const trialLimit = Number(location.state?.trialLimit) || 10;
   const lessonSource = location.state?.lessonSource ?? null;
   const presetId = location.state?.presetId ?? null;
   const blockIndex = location.state?.blockIndex ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonAdaptations = restored.adaptations;
 
   // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
   const adaptation = useSessionAdaptation({
