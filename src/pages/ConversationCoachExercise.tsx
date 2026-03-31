@@ -28,9 +28,9 @@ export default function ConversationCoachExercise() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId as string | undefined;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
