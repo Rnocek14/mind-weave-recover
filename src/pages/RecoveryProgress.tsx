@@ -131,13 +131,15 @@ export default function RecoveryProgress() {
   const copy = <T extends string>(patient: T, caregiver: T, clinician: T): T =>
     isClinician ? clinician : isCaregiver ? caregiver : patient;
   const userId = user?.id;
+  const profileId = activeProfile?.id;
 
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
   const { dataPoints: cueData, currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
   const { words, mastered, emerging, struggling, loading: wordLoading } = useWordMastery(userId);
   const { dataPoints: errorData, currentScore: errorScore, trend: errorTrend, loading: errorLoading } = useErrorQualityScore(userId);
+  const { score: recoveryScore, weeklyDelta, confidence: scoreConfidence, loading: scoreLoading } = useRecoveryScore(userId, profileId);
 
-  const loading = lrLoading || cueLoading || wordLoading || errorLoading;
+  const loading = lrLoading || cueLoading || wordLoading || errorLoading || scoreLoading;
   const strokeDate = activeProfile?.stroke_date;
   const daysInProgram = strokeDate ? differenceInDays(new Date(), new Date(strokeDate)) : null;
 
