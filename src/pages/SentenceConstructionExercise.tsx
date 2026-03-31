@@ -261,85 +261,55 @@ const SentenceConstructionExercise = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl mx-auto p-4 md:p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/dashboard')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                Sentence Construction
-              </h1>
-              <p className="text-muted-foreground">
-                Build grammatically correct sentences
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
-              
-              <Dialog open={showSettings} onOpenChange={setShowSettings}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Settings className="w-5 h-5" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Difficulty Settings</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label>Difficulty Level: {level}</Label>
-                      <Slider
-                        value={[level]}
-                        onValueChange={([val]) => handleDifficultyChange(val)}
-                        min={1}
-                        max={10}
-                        step={1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Level 1: Basic SVO</span>
-                        <span>Level 10: Advanced</span>
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          <div className="flex gap-2 mt-4">
-            <Badge variant="secondary">Grammar Focus</Badge>
-            <Badge variant="outline">Level {level}</Badge>
-            {adaptation.adaptationReasons.length > 0 && (
-              <Badge variant="secondary" className="text-xs">Adapted</Badge>
-            )}
-          </div>
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+      {/* Compact header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+          <span className="text-sm font-medium hidden sm:inline">Sentence Construction</span>
         </div>
+        <div className="flex items-center gap-2">
+          <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
+          {adaptation.adaptationReasons.length > 0 && (
+            <Badge variant="secondary" className="text-xs">Adapted</Badge>
+          )}
+          <Dialog open={showSettings} onOpenChange={setShowSettings}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Difficulty Settings</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Difficulty Level: {level}</Label>
+                  <Slider
+                    value={[level]}
+                    onValueChange={([val]) => handleDifficultyChange(val)}
+                    min={1}
+                    max={10}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Level 1: Basic SVO</span>
+                    <span>Level 10: Advanced</span>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
 
-        {/* Capability Adaptation Banner */}
-        {hasCapabilityAdaptations && (
-          <div className="mb-4">
-            <ExerciseAdaptationBanner 
-              adaptation={getAdaptations('sentence-construction')} 
-              showDetails={true}
-            />
-          </div>
-        )}
-
-        {/* Game */}
+      {/* Game fills remaining space */}
+      <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
         <SentenceConstructionGame
           config={config}
           bounds={bounds}
