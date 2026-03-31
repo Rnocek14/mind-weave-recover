@@ -2223,7 +2223,7 @@ export const PhotoNamingGame = ({
             />
           </div>
         )}
-        {/* Mic + Hint controls spread across bottom of image */}
+        {/* Controls overlay on bottom of image */}
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
           <button
             onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
@@ -2234,6 +2234,19 @@ export const PhotoNamingGame = ({
             }`}
           >
             <Lightbulb className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handlePlayAllChoices}
+            disabled={isPlayingChoices || showFeedback || timedOut}
+            className={`h-8 px-3 rounded-full flex items-center gap-1.5 backdrop-blur-sm text-xs font-medium transition-colors ${
+              isPlayingChoices
+                ? 'bg-primary/80 text-primary-foreground'
+                : 'bg-black/40 text-white hover:bg-black/60'
+            }`}
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            {isPlayingChoices ? 'Playing...' : 'Hear choices'}
           </button>
 
           <div className="relative">
@@ -2292,32 +2305,6 @@ export const PhotoNamingGame = ({
       {/* Answer choices */}
       {!assistMode ? (
         <div className="space-y-2 shrink-0">
-          {/* Hear All Choices Button with Speed Control */}
-          <div className="flex items-center gap-1.5">
-            <Button
-              onClick={handlePlayAllChoices}
-              disabled={isPlayingChoices || showFeedback || timedOut}
-              variant="secondary"
-              size="sm"
-              className="flex-1 h-8 text-xs"
-            >
-              <Volume2 className="w-3.5 h-3.5 mr-1.5" />
-              {isPlayingChoices ? 'Playing...' : 'Hear choices'}
-            </Button>
-            
-            <select
-              value={playbackSpeed}
-              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-              className="px-1.5 py-1 rounded border border-border bg-background text-foreground text-xs h-8"
-              disabled={isPlayingChoices}
-            >
-              <option value={0.5}>0.5×</option>
-              <option value={0.75}>0.75×</option>
-              <option value={1.0}>1×</option>
-              <option value={1.25}>1.25×</option>
-            </select>
-          </div>
-          
           <div className="grid grid-cols-2 gap-2.5">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative">
