@@ -146,6 +146,9 @@ export default function VoicePractice() {
     };
   }, []);
 
+  // Ref-stable auto-submit (called from silence timer closure)
+  const handleAutoSubmitRef = useRef<() => void>(() => {});
+
   const handleSubmit = useCallback(async () => {
     const captured = transcriptRef.current;
     stopListening();
@@ -155,6 +158,12 @@ export default function VoicePractice() {
       await submitResponse(captured);
     }
   }, [submitResponse, submitFollowUp, stopListening, phase]);
+
+  // Keep auto-submit ref in sync
+  handleAutoSubmitRef.current = handleSubmit;
+  const handleAutoSubmit = useCallback(() => {
+    handleAutoSubmitRef.current();
+  }, []);
 
   const handleSkip = useCallback(async () => {
     stopListening();
