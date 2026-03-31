@@ -55,6 +55,8 @@ import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
 import AbstractCompareExercise from "./pages/AbstractCompareExercise";
 import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
 import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
+import CategoryFluencyExercise from "./pages/CategoryFluencyExercise";
+import SynonymGeneratorExercise from "./pages/SynonymGeneratorExercise";
 import VoicePractice from "./pages/VoicePractice";
 import SpeechProfile from "./pages/SpeechProfile";
 import NotFound from "./pages/NotFound";
