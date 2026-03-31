@@ -337,7 +337,11 @@ export function DescribeGuessGame({
         // Finalize after timeout
         feedbackTimerRef.current = setTimeout(async () => {
           await audioPromise; // Ensure audio is done
-          const finalResult = game.finalizeTrial(currentTranscript, guessResult, false);
+          // Check if user said the word during the word-attempt window
+          const postGuessTranscript = rawTranscriptRef.current;
+          const saidWord = game.checkWordMatch(postGuessTranscript, trial);
+          if (saidWord) game.recordWordRetrieval();
+          const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
           if (finalResult) {
             logFinalAnalysis({
               transcript: currentTranscript,
