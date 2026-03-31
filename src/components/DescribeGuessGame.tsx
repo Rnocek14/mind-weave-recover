@@ -417,7 +417,8 @@ export function DescribeGuessGame({
       processingRef.current = false;
     }
   }, [game, stopListening, isRecording, stopRecording, uploadRecording, sessionId, userId,
-      analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech]);
+      analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
+      startListening, speechIsListening]);
 
   // Speech-end evaluation (debounced 3s after last transcript change)
   // Use fullTranscript as trigger — it accumulates all speech segments
