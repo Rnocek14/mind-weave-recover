@@ -1532,6 +1532,7 @@ export const PhotoNamingGame = ({
       
       // Restart listening after audio finishes
       if (useVoice && !showFeedback && !timedOut && !selectedAnswer) {
+        setMicAutoStartPending(true);
         setTimeout(() => {
           try {
             startListening();
