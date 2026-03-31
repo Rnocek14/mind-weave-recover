@@ -5,7 +5,7 @@
  * Now consumes shared adaptation contract.
  */
 
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
 import { DescribeGuessTrialResult } from '@/hooks/useDescribeGuessGame';
@@ -35,6 +35,8 @@ export default function DescribeGuessExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+  const completionTimeoutRef = useRef<number | null>(null);
+  const hasAdvancedLessonRef = useRef(false);
 
   const fromLesson = location.state?.fromLesson ?? false;
   const providedSessionId = location.state?.sessionId ?? null;
@@ -79,6 +81,34 @@ export default function DescribeGuessExercise() {
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'lexical_retrieval', fromLesson });
 
+  const resumeLessonFlow = useCallback((results?: DescribeGuessTrialResult[]) => {
+    if (!fromLesson || hasAdvancedLessonRef.current) return;
+
+    hasAdvancedLessonRef.current = true;
+
+    if (completionTimeoutRef.current !== null) {
+      window.clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
+
+    window.dispatchEvent(new CustomEvent('exercise-complete', {
+      detail: {
+        exerciseSlug: EXERCISE_SLUG,
+        ...(results ? { results } : {}),
+      },
+    }));
+
+    navigate('/lesson', { state: { resuming: true }, replace: true });
+  }, [fromLesson, navigate]);
+
+  useEffect(() => {
+    return () => {
+      if (completionTimeoutRef.current !== null) {
+        window.clearTimeout(completionTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleTrialComplete = useCallback((result: DescribeGuessTrialResult) => {
     if (!activeSessionId) return;
     const points = (result.meaningWin ? 40 : 0) + (result.wordWin ? 40 : 0) + (result.strategyWin ? 20 : 0);
@@ -108,13 +138,11 @@ export default function DescribeGuessExercise() {
     completeSession();
 
     if (fromLesson) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: EXERCISE_SLUG, results },
-        }));
-      }, 2000);
+      completionTimeoutRef.current = window.setTimeout(() => {
+        resumeLessonFlow(results);
+      }, 1200);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, resumeLessonFlow]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? '/lesson' : '/dashboard');
@@ -122,13 +150,11 @@ export default function DescribeGuessExercise() {
 
   const handleContinue = useCallback(() => {
     if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete', {
-        detail: { exerciseSlug: EXERCISE_SLUG },
-      }));
+      resumeLessonFlow();
     } else {
       navigate('/dashboard');
     }
-  }, [fromLesson, navigate]);
+  }, [fromLesson, navigate, resumeLessonFlow]);
 
   const isReady = !isCreatingSession && !!activeSessionId;
 
