@@ -145,20 +145,21 @@ export async function getSemanticSimilarity(
     return 1.0;
   }
 
-  // Try embeddings-based similarity
-  try {
-    const [spokenEmbed, targetEmbed] = await Promise.all([
-      getEmbedding(normalized_spoken),
-      getEmbedding(normalized_target),
-    ]);
+  // Try embeddings-based similarity (skip if previous calls failed)
+  if (!embeddingDisabled) {
+    try {
+      const [spokenEmbed, targetEmbed] = await Promise.all([
+        getEmbedding(normalized_spoken),
+        getEmbedding(normalized_target),
+      ]);
 
-    if (spokenEmbed && targetEmbed) {
-      const similarity = cosineSimilarity(spokenEmbed, targetEmbed);
-      // Embeddings return -1 to 1, normalize to 0-1
-      return Math.max(0, Math.min(1, (similarity + 1) / 2));
+      if (spokenEmbed && targetEmbed) {
+        const similarity = cosineSimilarity(spokenEmbed, targetEmbed);
+        return Math.max(0, Math.min(1, (similarity + 1) / 2));
+      }
+    } catch (error) {
+      console.warn('Embeddings failed, using rule-based fallback:', error);
     }
-  } catch (error) {
-    console.warn('Embeddings failed, using rule-based fallback:', error);
   }
 
   // Fallback to rule-based if embeddings unavailable
