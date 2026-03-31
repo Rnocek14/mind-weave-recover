@@ -159,15 +159,17 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
     }
 
-    // Extract content words
+    // Extract content words — cap at 4 to limit API calls (was 6)
     const contentWords = cleaned.split(/\s+/).filter(w => w.length >= 2);
+    const wordsToCheck = contentWords.slice(0, 4);
     
-    // Compute similarity for each content word to target
-    const similarities: { word: string; sim: number }[] = [];
-    for (const word of contentWords.slice(0, 6)) { // Cap at 6 to limit API calls
-      const sim = await getSemanticSimilarity(word, trial.target, trial.category);
-      similarities.push({ word, sim });
-    }
+    // Compute ALL similarities in parallel (not sequentially!)
+    const similarities = await Promise.all(
+      wordsToCheck.map(async (word) => {
+        const sim = await getSemanticSimilarity(word, trial.target, trial.category);
+        return { word, sim };
+      })
+    );
     
     similarities.sort((a, b) => b.sim - a.sim);
     
