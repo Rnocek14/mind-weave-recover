@@ -28,7 +28,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
@@ -322,8 +322,8 @@ export function DescribeGuessGame({
       setIsEvaluating(false);
 
       if (guessResult.guessed && !wordWin) {
-        // App guessed — ask user to say the word, restart mic for their attempt
-        setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
+        // App guessed correctly — celebrate, then optionally let them try saying it
+        setGuessMessage(`I got it! It's "${trial.target}"! 🎉 Now try saying the word.`);
         setAwaitingWordAttempt(true);
 
         // Clear transcript so only post-guess speech is evaluated for word match
@@ -331,7 +331,7 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
 
         // Speak with mic off, then re-enable mic after TTS finishes
-        speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
+        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(() => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
@@ -490,11 +490,13 @@ export function DescribeGuessGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction — short on mobile */}
-      <div className="text-center shrink-0">
-        <p className="text-sm text-muted-foreground">
-          🗣️ <span className="hidden sm:inline">Describe this picture — don't worry if you can't say the exact word</span>
-          <span className="sm:hidden">Describe what you see</span>
+      {/* Instruction — clear Taboo-style */}
+      <div className="text-center shrink-0 space-y-1">
+        <p className="text-sm font-medium text-foreground">
+          🚫 Describe this <strong>without</strong> saying the word!
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
       </div>
 
@@ -606,21 +608,48 @@ export function DescribeGuessGame({
       <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
-            Thinking...
+            🤔 Guessing...
           </Badge>
-        ) : (
+        ) : !showFeedback && !awaitingWordAttempt ? (
+          <>
+            {/* Done button — primary action */}
+            <Button
+              size="sm"
+              onClick={() => {
+                if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+                runEvaluation();
+              }}
+              disabled={!displayTranscript || displayTranscript.trim().length < 3}
+              className="h-9"
+            >
+              <Check className="h-4 w-4 mr-1" /> I'm done
+            </Button>
+
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+            )}>
+              {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+              {isListening ? 'Listening...' : 'Mic off'}
+            </div>
+
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
+              <SkipForward className="h-4 w-4 mr-1" /> Skip
+            </Button>
+          </>
+        ) : awaitingWordAttempt ? (
           <div className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
           )}>
             {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-            {isListening ? 'Listening...' : (showFeedback ? 'Next up...' : 'Mic off')}
+            {isListening ? 'Say the word...' : 'Mic off'}
           </div>
+        ) : (
+          <Badge variant="secondary" className="text-sm px-3 py-1.5">
+            Next up...
+          </Badge>
         )}
-
-        <Button variant="ghost" size="sm" onClick={handleSkip} className="h-8">
-          <SkipForward className="h-4 w-4 mr-1" /> Skip
-        </Button>
       </div>
     </div>
   );
