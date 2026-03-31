@@ -147,6 +147,7 @@ export function DescribeGuessGame({
 
   const {
     transcript,
+    fullTranscript,
     isListening: speechIsListening,
     startListening,
     stopListening,
@@ -156,6 +157,7 @@ export function DescribeGuessGame({
     autoStart: false,
     continuousListening: true,
     patientMode: true,
+    discourseMode: true, // CRITICAL: Accumulate across recognition restarts
   });
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
