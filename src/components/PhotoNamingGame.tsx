@@ -720,8 +720,8 @@ export const PhotoNamingGame = ({
     error: speechError 
   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
   
-  // Debounce mic status to prevent flickering during auto-restart cycles
-  const showMicPausedHint = useDebouncedMicStatus(isListening, 2000);
+  const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
+  const showMicPausedHint = useDebouncedMicStatus(isListening, shouldExpectListening && !micAutoStartPending && !speechError, 2500);
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
