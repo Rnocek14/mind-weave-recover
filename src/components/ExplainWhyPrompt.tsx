@@ -104,6 +104,21 @@ export function ExplainWhyPrompt({
     }
   }, [liveTranscript]);
 
+  // Auto-submit after 3s silence once user has spoken 2+ words
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (stage !== 'listening') return;
+    const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (wordCount >= 2) {
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasProcessedRef.current) handleDoneSpeaking();
+      }, 3000);
+    }
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [stage, collectedTranscript, liveTranscript]);
+
   // Start recording
   const handleStartSpeaking = useCallback(() => {
     startTimeRef.current = Date.now();
