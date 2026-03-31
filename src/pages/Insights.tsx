@@ -234,17 +234,12 @@ export default function Insights() {
             <StrategiesSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
-          {/* Adaptations Tab (How It's Adapting) - caregiver+ */}
+          {/* Intelligence Tab - caregiver+ */}
           {showAdaptations && (
-            <TabsContent value="adaptations" className="mt-4">
-              <AdaptationsSection userId={user!.id} profileId={activeProfile?.id} />
+            <TabsContent value="intelligence" className="mt-4">
+              <IntelligenceSection userId={user!.id} profileId={activeProfile?.id} />
             </TabsContent>
           )}
-
-          {/* Outcome Proof Tab */}
-          <TabsContent value="proof" className="mt-4">
-            <OutcomeProofSection userId={user!.id} profileId={activeProfile?.id} />
-          </TabsContent>
 
           {/* Alerts Tab */}
           <TabsContent value="alerts" className="mt-4">
