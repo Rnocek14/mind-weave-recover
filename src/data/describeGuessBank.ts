@@ -84,7 +84,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_door',
     target: 'door',
-    photoBankId: 'door_1',
+    photoBankId: 'door_2',
     acceptedWords: ['door', 'doorway'],
     wordAliases: { door: ['doors', 'dor'] },
     featureKeywords: {
