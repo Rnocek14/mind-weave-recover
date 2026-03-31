@@ -98,6 +98,48 @@ export const useSpeechRecognition = (
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
 
+    const clearRestartTimers = () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      if (cooldownTimeoutRef.current) {
+        clearTimeout(cooldownTimeoutRef.current);
+        cooldownTimeoutRef.current = null;
+      }
+    };
+
+    const scheduleRestartAttempt = (attempt = 0) => {
+      const restartDelays = [COOLDOWN_MS, 450, 700, 1000, 1400];
+
+      if (attempt >= restartDelays.length) {
+        console.error('🎤 Failed to auto-restart after max attempts');
+        stateRef.current = 'IDLE';
+        setIsListening(false);
+        setError('Microphone paused. Please tap Voice Off, then On.');
+        return;
+      }
+
+      clearRestartTimers();
+      restartTimeoutRef.current = setTimeout(() => {
+        restartTimeoutRef.current = null;
+
+        if (manuallyStoppedRef.current) {
+          return;
+        }
+
+        try {
+          stateRef.current = 'STARTING';
+          recognitionRef.current?.start();
+          console.log(`🎤 Restart attempt ${attempt + 1}/${restartDelays.length}`);
+        } catch (err) {
+          console.error('🎤 Restart attempt failed:', err);
+          stateRef.current = 'RESTARTING';
+          scheduleRestartAttempt(attempt + 1);
+        }
+      }, restartDelays[attempt]);
+    };
+
     // Patient mode uses continuous recognition to avoid mic flickering
     recognition.continuous = patientMode;
     recognition.interimResults = true;
@@ -105,6 +147,7 @@ export const useSpeechRecognition = (
     recognition.maxAlternatives = 5;
 
     recognition.onstart = () => {
+      clearRestartTimers();
       console.log('🎤 Speech recognition started');
       stateRef.current = 'LISTENING';
       setIsListening(true);
@@ -164,41 +207,21 @@ export const useSpeechRecognition = (
       // Handle 'aborted' errors - don't auto-restart but allow manual restart
       if (event.error === 'aborted') {
         console.log('🎤 Recognition aborted - state reset (manual restart still allowed)');
+        clearRestartTimers();
         stateRef.current = 'IDLE';
         setIsListening(false);
         return;
       }
       
       if (event.error === 'no-speech') {
-        // Patient mode: always restart on no-speech (unlimited restarts)
-        // Standard mode: auto-restart if continuous listening is enabled (increased limit)
+        // Let onend handle the single restart path so we don't double-start and flicker the UI
         const maxRestarts = patientMode ? 999 : 15;
         const shouldRestart = (patientMode || optContinuous) && noSpeechCountRef.current < maxRestarts && !manuallyStoppedRef.current;
         
         if (shouldRestart) {
           noSpeechCountRef.current += 1;
-          console.log('🎤 No speech detected, auto-restarting (attempt', noSpeechCountRef.current, patientMode ? '/∞)' : '/15)');
-          
-          // Clear any existing restart timeout
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
-          }
-          
-          // Keep isListening true during restart to prevent UI flicker
+          console.log('🎤 No speech detected, waiting for end event before restart (attempt', noSpeechCountRef.current, patientMode ? '/∞)' : '/15)');
           stateRef.current = 'RESTARTING';
-          restartTimeoutRef.current = setTimeout(() => {
-            if (!manuallyStoppedRef.current) {
-              try {
-                stateRef.current = 'STARTING';
-                recognitionRef.current?.start();
-              } catch (err) {
-                console.error('🎤 Failed to restart after no-speech:', err);
-                stateRef.current = 'IDLE';
-                setIsListening(false);
-              }
-            }
-          }, 500);
-          
           return;
         }
         
@@ -207,11 +230,13 @@ export const useSpeechRecognition = (
         // Permission denied - set flag to prevent ALL restart attempts
         permissionDeniedRef.current = true;
         manuallyStoppedRef.current = true;
+        clearRestartTimers();
         setError('Microphone access denied. Please enable microphone permissions.');
         stateRef.current = 'IDLE';
         setIsListening(false);
         return; // Exit early, no restart
       } else {
+        clearRestartTimers();
         setError(`Error: ${event.error}`);
       }
       
@@ -221,8 +246,9 @@ export const useSpeechRecognition = (
 
     recognition.onend = () => {
       console.log('🎤 Speech recognition ended, state was:', stateRef.current);
-      const shouldHoldListeningUi = stateRef.current === 'RESTARTING' || (patientMode && !manuallyStoppedRef.current);
-      const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING' || stateRef.current === 'RESTARTING';
+      const restartingAfterSilence = stateRef.current === 'RESTARTING';
+      const shouldHoldListeningUi = restartingAfterSilence || (patientMode && !manuallyStoppedRef.current);
+      const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING' || restartingAfterSilence;
       stateRef.current = 'IDLE';
       if (!shouldHoldListeningUi) {
         setIsListening(false);
@@ -257,25 +283,8 @@ export const useSpeechRecognition = (
       
       if (shouldRestart) {
         console.log('🎤 Scheduling auto-restart for', patientMode ? 'patient' : 'continuous', 'listening...');
-        
-        // Use cooldown timeout to prevent race
-        if (cooldownTimeoutRef.current) {
-          clearTimeout(cooldownTimeoutRef.current);
-        }
-        
-        cooldownTimeoutRef.current = setTimeout(() => {
-          if (stateRef.current === 'IDLE' && !manuallyStoppedRef.current) {
-            try {
-              stateRef.current = 'STARTING';
-              recognitionRef.current?.start();
-              console.log('🎤 Successfully auto-restarted');
-            } catch (err) {
-              console.error('🎤 Failed to auto-restart:', err);
-              stateRef.current = 'IDLE';
-              setIsListening(false);
-            }
-          }
-        }, COOLDOWN_MS);
+        stateRef.current = 'RESTARTING';
+        scheduleRestartAttempt(0);
       }
     };
 
@@ -289,12 +298,7 @@ export const useSpeechRecognition = (
           // Ignore
         }
       }
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-      if (cooldownTimeoutRef.current) {
-        clearTimeout(cooldownTimeoutRef.current);
-      }
+      clearRestartTimers();
     };
   }, [isSupported, optContinuous, patientMode, discourseMode]);
 
