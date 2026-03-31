@@ -193,8 +193,8 @@ export default function ThoughtContinuationExercise() {
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4">
           <div className="flex items-center justify-between max-w-xl mx-auto h-14">
             <Button variant="ghost" size="sm" onClick={handleExit}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Exit
+              <ArrowLeft className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exit</span>
             </Button>
             <h1 className="text-lg font-semibold">Finish the Thought</h1>
             <div className="w-16" />
