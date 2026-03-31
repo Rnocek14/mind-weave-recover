@@ -243,6 +243,11 @@ export default function Insights() {
             </TabsContent>
           )}
 
+          {/* Outcome Proof Tab */}
+          <TabsContent value="proof" className="mt-4">
+            <OutcomeProofSection userId={user!.id} profileId={activeProfile?.id} />
+          </TabsContent>
+
           {/* Alerts Tab */}
           <TabsContent value="alerts" className="mt-4">
             <AlertsSection userId={user!.id} />
