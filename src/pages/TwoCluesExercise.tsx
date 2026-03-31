@@ -224,11 +224,13 @@ export default function TwoCluesExercise() {
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
             <p className="text-muted-foreground">
-              Great job practicing word associations!
+              {fromLesson ? 'Loading next exercise…' : 'Great job practicing word associations!'}
             </p>
-            <Button onClick={handleContinue} size="lg">
-              Continue
-            </Button>
+            {!fromLesson && (
+              <Button onClick={handleContinue} size="lg">
+                Continue
+              </Button>
+            )}
           </div>
         ) : (
           <TwoCluesGame

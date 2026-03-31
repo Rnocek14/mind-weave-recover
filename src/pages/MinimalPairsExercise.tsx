@@ -103,8 +103,8 @@ export default function MinimalPairsExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'minimal-pairs', results },
         }));
-        navigate('/lesson', { state: { resuming: true } });
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, navigate]);
   
