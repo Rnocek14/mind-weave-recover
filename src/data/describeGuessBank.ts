@@ -150,7 +150,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_spoon',
     target: 'spoon',
-    photoBankId: 'spoon_1',
+    photoBankId: 'spoon_2',
     acceptedWords: ['spoon'],
     wordAliases: { spoon: ['spoons', 'spun'] },
     featureKeywords: {
