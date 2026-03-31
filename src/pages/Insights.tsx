@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, AlertCircle, FileText,
-  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle, FlaskConical
+  LayoutGrid, Target, Lightbulb, AlertTriangle, Brain
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -31,9 +31,8 @@ import {
   OverviewSection,
   ChallengesSection, 
   StrategiesSection, 
-  AdaptationsSection,
   AlertsSection,
-  OutcomeProofSection 
+  IntelligenceSection 
 } from "@/components/insights";
 
 // Clinical tab components (removed - now only in Weekly Review)
@@ -47,8 +46,7 @@ const INSIGHT_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
-  { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
-  { id: 'proof', label: 'Proof', icon: FlaskConical },
+  { id: 'intelligence', label: 'Intelligence', icon: Brain },
   { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
 ] as const;
 
@@ -109,7 +107,7 @@ export default function Insights() {
 
   // Reset to overview if current tab is hidden
   useEffect(() => {
-    if (!showAdaptations && activeTab === 'adaptations') {
+    if (!showAdaptations && activeTab === 'intelligence') {
       setActiveTab('overview');
     }
   }, [showAdaptations, activeTab]);
@@ -155,7 +153,7 @@ export default function Insights() {
 
   // Filter tabs based on role
   const visibleTabs = INSIGHT_TABS.filter(tab => {
-    if (tab.id === 'adaptations') return showAdaptations;
+    if (tab.id === 'intelligence') return showAdaptations;
     return true;
   });
 
@@ -236,17 +234,12 @@ export default function Insights() {
             <StrategiesSection userId={user!.id} profileId={activeProfile?.id} />
           </TabsContent>
 
-          {/* Adaptations Tab (How It's Adapting) - caregiver+ */}
+          {/* Intelligence Tab - caregiver+ */}
           {showAdaptations && (
-            <TabsContent value="adaptations" className="mt-4">
-              <AdaptationsSection userId={user!.id} profileId={activeProfile?.id} />
+            <TabsContent value="intelligence" className="mt-4">
+              <IntelligenceSection userId={user!.id} profileId={activeProfile?.id} />
             </TabsContent>
           )}
-
-          {/* Outcome Proof Tab */}
-          <TabsContent value="proof" className="mt-4">
-            <OutcomeProofSection userId={user!.id} profileId={activeProfile?.id} />
-          </TabsContent>
 
           {/* Alerts Tab */}
           <TabsContent value="alerts" className="mt-4">

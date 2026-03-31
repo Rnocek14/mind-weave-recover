@@ -534,7 +534,7 @@ export default function SpeechProfile() {
       {/* Quick link to Insights */}
       <div className="text-center">
         <Button variant="link" size="sm" asChild>
-          <Link to="/insights?tab=adaptations">
+          <Link to="/insights?tab=intelligence">
             View detailed adaptation history →
           </Link>
         </Button>
