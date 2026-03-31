@@ -380,16 +380,28 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
             </ResponsiveContainer>
 
             {cueInsight && (
-              <Alert className="border-primary/20">
+              <Alert className="border-primary/20 bg-primary/5">
                 <Brain className="h-4 w-4" />
-                <AlertDescription className="text-xs">{cueInsight}</AlertDescription>
+                <AlertDescription className="text-sm font-medium">{cueInsight}</AlertDescription>
               </Alert>
             )}
 
-            <p className="text-[11px] text-muted-foreground">
-              The system uses 80% exploitation / 20% exploration to learn which cue types
-              work best for you, then automatically prioritizes them.
-            </p>
+            {/* "So what" — action statement */}
+            {(() => {
+              const best = cueData.reduce((a, b) => a.successRate > b.successRate ? a : b, cueData[0]);
+              return best && best.successRate > 0.5 ? (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  <Zap className="w-3 h-3 inline mr-1 text-primary" />
+                  The system will now prioritize <span className="font-medium text-foreground">{best.cueType}</span> cues 
+                  to help you respond faster, while still exploring other types occasionally.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  The system is still exploring which cue types work best for you. 
+                  It uses 80% exploitation / 20% exploration to learn your preferences.
+                </p>
+              );
+            })()}
           </div>
         </CollapsibleSection>
       )}
