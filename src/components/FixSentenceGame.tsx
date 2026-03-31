@@ -25,7 +25,7 @@ import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormali
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const SCORING_DEBOUNCE_MS = 1000;
+const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
 
 interface FixSentenceGameProps {
