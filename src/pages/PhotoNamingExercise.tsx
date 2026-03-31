@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { toast } from 'sonner';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { LiveAnalysisPanel } from '@/components/LiveAnalysisPanel';

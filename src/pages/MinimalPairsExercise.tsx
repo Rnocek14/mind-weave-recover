@@ -214,7 +214,7 @@ export default function MinimalPairsExercise() {
   
   return (
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 md:p-8 flex flex-col`}>
-      {fromLesson && <SessionProgressBubble />}
+      {fromLesson && <InlineSessionProgress />}
       <div className="max-w-2xl mx-auto space-y-6">
         <Button variant="ghost" onClick={handleBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
