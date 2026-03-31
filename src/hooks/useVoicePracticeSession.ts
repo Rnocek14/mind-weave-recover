@@ -26,6 +26,8 @@ import {
   getPurposeAnchor,
   getProgressFeedback,
   getFollowUp,
+  extractMemorySnippet,
+  getMemoryCallback,
   VoiceGameRound,
   VoiceSessionPlan,
 } from '@/lib/voiceSessionController';
@@ -86,6 +88,7 @@ export function useVoicePracticeSession(
   const isProcessingRef = useRef(false);
   const scoresHistoryRef = useRef<number[]>([]);
   const pendingFollowUpRef = useRef(false); // tracks if we're in a follow-up loop
+  const memorySnippetsRef = useRef<string[]>([]); // stores meaningful content from user responses
 
   const plan = useMemo(() => {
     const p = buildVoiceSessionPlan(roundCount, difficulty);
@@ -196,7 +199,15 @@ export function useVoicePracticeSession(
     const nextPhase = nextRound.arcPhase;
     const phaseChanged = prevPhase !== nextPhase;
     
-    await mayaSpeak(pickTransition(prevPhase, nextPhase, plan.topic));
+    // Memory callback — reference earlier user content when entering a new phase
+    if (phaseChanged && memorySnippetsRef.current.length > 0) {
+      const callback = getMemoryCallback(nextPhase, memorySnippetsRef.current);
+      if (callback) {
+        await mayaSpeak(callback);
+      }
+    } else {
+      await mayaSpeak(pickTransition(prevPhase, nextPhase, plan.topic));
+    }
 
     if ((nextIdx) % 3 === 0) {
       await mayaSpeak(getPurposeAnchor());
@@ -234,6 +245,12 @@ export function useVoicePracticeSession(
     
     setResults(prev => [...prev, roundResult]);
     scoresHistoryRef.current.push(result.score);
+    
+    // Store memory snippet for later arc callbacks
+    const snippet = extractMemorySnippet(transcript);
+    if (snippet) {
+      memorySnippetsRef.current.push(snippet);
+    }
     
     emitVoicePracticeEvent(currentRound, roundResult, currentIndex);
     
