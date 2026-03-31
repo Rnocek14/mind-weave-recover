@@ -4,14 +4,17 @@
  * "Give as many synonyms for [word] as you can"
  * Free-recall, time-pressured synonym generation
  * Adaptive: harder words + shrinking timer with difficulty
+ * Trial-by-trial adaptation via useAdaptiveDifficulty
  */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, ThumbsUp, RotateCcw, Check, X } from 'lucide-react';
+import { Timer, Plus, ThumbsUp, RotateCcw, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Word banks by difficulty tier with accepted synonyms
 interface SynonymPrompt {
@@ -67,10 +70,17 @@ function pickPrompt(difficulty: number, usedWords: Set<string>): SynonymPrompt {
 
 function checkSynonym(input: string, prompt: SynonymPrompt): boolean {
   const normalized = input.toLowerCase().trim().replace(/[-_]/g, ' ');
-  if (normalized === prompt.word.toLowerCase()) return false; // can't repeat the prompt word
+  if (normalized === prompt.word.toLowerCase()) return false;
   return prompt.acceptedSynonyms.some(s =>
     s.toLowerCase().replace(/[-_]/g, ' ') === normalized
   );
+}
+
+/** Success threshold scales with difficulty */
+function getSuccessThreshold(difficulty: number): number {
+  if (difficulty <= 2) return 2;
+  if (difficulty <= 4) return 3;
+  return 4;
 }
 
 export interface SynonymRoundResult {
@@ -83,33 +93,59 @@ export interface SynonymRoundResult {
   durationSec: number;
   timeLimitSec: number;
   difficulty: number;
+  difficultyChanged?: 'up' | 'down' | null;
 }
 
 interface SynonymGeneratorGameProps {
   difficulty?: number;
   onRoundComplete?: (result: SynonymRoundResult) => void;
   onGameComplete?: (results: SynonymRoundResult[]) => void;
+  onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
   roundCount?: number;
+  bounds?: DifficultyBounds;
 }
+
+const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
 
 export function SynonymGeneratorGame({
   difficulty = 1,
   onRoundComplete,
   onGameComplete,
+  onDifficultyChange,
   roundCount = 3,
+  bounds = DEFAULT_BOUNDS,
 }: SynonymGeneratorGameProps) {
+  // === Trial-by-trial adaptive difficulty ===
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: difficulty,
+    bounds,
+    windowSize: 3,
+    targetSuccessRate: 0.80,
+    adjustmentThreshold: 0.15,
+    onDifficultyChange: (newLevel) => {
+      const dir = newLevel > currentDifficulty ? 'up' : 'down';
+      onDifficultyChange?.(newLevel, dir);
+    },
+  });
+
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<SynonymRoundResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
   const usedWordsRef = useRef(new Set<string>());
-  const [prompt, setPrompt] = useState(() => pickPrompt(difficulty, usedWordsRef.current));
+  const [prompt, setPrompt] = useState(() => pickPrompt(currentDifficulty, usedWordsRef.current));
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
-  const [timeLeft, setTimeLeft] = useState(getTimerForDifficulty(difficulty));
+  const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
+
+  const totalTime = getTimerForDifficulty(currentDifficulty);
+  const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const totalTime = getTimerForDifficulty(difficulty);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -130,13 +166,26 @@ export function SynonymGeneratorGame({
       totalEntered: unique.length,
       durationSec: Math.round(durationSec),
       timeLimitSec: totalTime,
-      difficulty,
+      difficulty: currentDifficulty,
     };
-  }, [words, prompt, totalTime, difficulty]);
+  }, [words, prompt, totalTime, currentDifficulty]);
 
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     const result = buildResult();
+
+    // Feed result to adaptive controller
+    const threshold = getSuccessThreshold(currentDifficulty);
+    const wasSuccessful = result.matchCount >= threshold;
+    updateTrial(wasSuccessful);
+
+    // Check if difficulty should change
+    const prevDiff = currentDifficulty;
+    const { newLevel } = checkAndAdjust();
+    const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
+    setDifficultyShift(shift);
+    result.difficultyChanged = shift;
+
     const newResults = [...results, result];
     setResults(newResults);
     onRoundComplete?.(result);
@@ -147,14 +196,19 @@ export function SynonymGeneratorGame({
     } else {
       setPhase('round-done');
     }
-  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete]);
+  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust]);
 
   const startRound = useCallback(() => {
+    // Pick prompt based on CURRENT adaptive difficulty
+    const newPrompt = pickPrompt(currentDifficulty, usedWordsRef.current);
+    setPrompt(newPrompt);
     setWords([]);
     setCurrentInput('');
     setPhase('active');
+    setDifficultyShift(null);
+    const newTime = getTimerForDifficulty(currentDifficulty);
+    setTimeLeft(newTime);
     startTimeRef.current = Date.now();
-    setTimeLeft(totalTime);
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -167,18 +221,15 @@ export function SynonymGeneratorGame({
     }, 1000);
 
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [totalTime, finishRound]);
+  }, [currentDifficulty, finishRound]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
     usedWordsRef.current.add(prompt.word);
-    const newPrompt = pickPrompt(difficulty, usedWordsRef.current);
-    setPrompt(newPrompt);
     setWords([]);
     setCurrentInput('');
-    setTimeLeft(totalTime);
     setPhase('ready');
-  }, [difficulty, totalTime, prompt.word]);
+  }, [prompt.word]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
@@ -207,18 +258,31 @@ export function SynonymGeneratorGame({
 
   // Ready
   if (phase === 'ready') {
+    const nextPrompt = pickPrompt(currentDifficulty, usedWordsRef.current);
+    const timer = getTimerForDifficulty(currentDifficulty);
     return (
       <div className="flex flex-col items-center gap-5 py-8 max-w-sm mx-auto text-center">
         <div className="text-5xl">🔄</div>
         <div>
           <p className="text-sm text-muted-foreground mb-1">Think of synonyms for:</p>
-          <p className="text-3xl font-bold text-primary">{prompt.word}</p>
+          <p className="text-3xl font-bold text-primary">{nextPrompt.word}</p>
           <p className="text-sm text-muted-foreground mt-2">
-            Type as many words with a similar meaning as you can in {totalTime} seconds
+            Type as many words with a similar meaning as you can in {timer} seconds
           </p>
         </div>
         {currentRound > 0 && (
-          <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
+            {difficultyShift && (
+              <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
+                {difficultyShift === 'up' ? (
+                  <><TrendingUp className="w-3 h-3 mr-1" /> Harder words + less time</>
+                ) : (
+                  <><TrendingDown className="w-3 h-3 mr-1" /> Easier words + more time</>
+                )}
+              </Badge>
+            )}
+          </div>
         )}
         <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
           <Timer className="w-4 h-4 mr-2" />
@@ -247,10 +311,14 @@ export function SynonymGeneratorGame({
             );
           })}
         </div>
-        {lastResult.matchedSynonyms.length < prompt.acceptedSynonyms.length && (
-          <p className="text-xs text-muted-foreground">
-            Other synonyms: {prompt.acceptedSynonyms.filter(s => !lastResult.matchedSynonyms.includes(s)).slice(0, 3).join(', ')}…
-          </p>
+        {difficultyShift && (
+          <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
+            {difficultyShift === 'up' ? (
+              <><TrendingUp className="w-3 h-3 mr-1" /> Next round: harder words</>
+            ) : (
+              <><TrendingDown className="w-3 h-3 mr-1" /> Next round: easier words</>
+            )}
+          </Badge>
         )}
         <Button onClick={nextRound} className="min-h-[48px]">
           <RotateCcw className="w-4 h-4 mr-2" />
@@ -271,7 +339,14 @@ export function SynonymGeneratorGame({
           {results.map((r, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-2 rounded-lg bg-muted/50">
               <span className="font-medium">"{r.targetWord}"</span>
-              <Badge variant="secondary">{r.matchCount} found</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{r.matchCount} found</Badge>
+                {r.difficultyChanged && (
+                  r.difficultyChanged === 'up'
+                    ? <TrendingUp className="w-3 h-3 text-primary" />
+                    : <TrendingDown className="w-3 h-3 text-muted-foreground" />
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -3,14 +3,17 @@
  * 
  * "Name as many [category] as you can before time runs out"
  * Adaptive: harder categories + shrinking timer as difficulty increases
+ * Trial-by-trial adaptation via useAdaptiveDifficulty
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, ThumbsUp, RotateCcw } from 'lucide-react';
+import { Timer, Plus, ThumbsUp, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Categories ordered by difficulty
 const CATEGORY_TIERS = [
@@ -50,6 +53,13 @@ function pickCategory(difficulty: number) {
   return tier[Math.floor(Math.random() * tier.length)];
 }
 
+/** Success threshold scales with difficulty */
+function getSuccessThreshold(difficulty: number): number {
+  if (difficulty <= 2) return 3;
+  if (difficulty <= 4) return 5;
+  return 7;
+}
+
 export interface CategoryFluencyResult {
   category: string;
   words: string[];
@@ -58,32 +68,58 @@ export interface CategoryFluencyResult {
   durationSec: number;
   timeLimitSec: number;
   difficulty: number;
+  difficultyChanged?: 'up' | 'down' | null;
 }
 
 interface CategoryFluencyGameProps {
   difficulty?: number;
   onRoundComplete?: (result: CategoryFluencyResult) => void;
   onGameComplete?: (results: CategoryFluencyResult[]) => void;
+  onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
   roundCount?: number;
+  bounds?: DifficultyBounds;
 }
+
+const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
 
 export function CategoryFluencyGame({
   difficulty = 1,
   onRoundComplete,
   onGameComplete,
+  onDifficultyChange,
   roundCount = 3,
+  bounds = DEFAULT_BOUNDS,
 }: CategoryFluencyGameProps) {
+  // === Trial-by-trial adaptive difficulty ===
+  const {
+    currentDifficulty,
+    updateTrial,
+    checkAndAdjust,
+  } = useAdaptiveDifficulty({
+    initialDifficulty: difficulty,
+    bounds,
+    windowSize: 3, // Small window since rounds are expensive (30s+ each)
+    targetSuccessRate: 0.80,
+    adjustmentThreshold: 0.15,
+    onDifficultyChange: (newLevel) => {
+      const dir = newLevel > currentDifficulty ? 'up' : 'down';
+      onDifficultyChange?.(newLevel, dir);
+    },
+  });
+
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
-  const [config, setConfig] = useState(() => pickCategory(difficulty));
+  const [config, setConfig] = useState(() => pickCategory(currentDifficulty));
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
-  const [timeLeft, setTimeLeft] = useState(getTimerForDifficulty(difficulty));
+  const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
+
+  const totalTime = getTimerForDifficulty(currentDifficulty);
+  const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const totalTime = getTimerForDifficulty(difficulty);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -94,6 +130,17 @@ export function CategoryFluencyGame({
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
     const unique = [...new Set(words.map(w => w.toLowerCase().trim()))].filter(Boolean);
 
+    // Feed result to adaptive controller
+    const threshold = getSuccessThreshold(currentDifficulty);
+    const wasSuccessful = unique.length >= threshold;
+    updateTrial(wasSuccessful);
+
+    // Check if difficulty should change for next round
+    const prevDiff = currentDifficulty;
+    const { newLevel } = checkAndAdjust();
+    const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
+    setDifficultyShift(shift);
+
     const result: CategoryFluencyResult = {
       category: config.category,
       words: unique,
@@ -101,7 +148,8 @@ export function CategoryFluencyGame({
       wordsPerSecond: durationSec > 0 ? unique.length / durationSec : 0,
       durationSec: Math.round(durationSec),
       timeLimitSec: totalTime,
-      difficulty,
+      difficulty: currentDifficulty,
+      difficultyChanged: shift,
     };
 
     const newResults = [...results, result];
@@ -114,16 +162,18 @@ export function CategoryFluencyGame({
     } else {
       setPhase('round-done');
     }
-  }, [words, config, totalTime, difficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete]);
+  }, [words, config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust]);
 
   const startRound = useCallback(() => {
-    const cat = currentRound === 0 ? config : pickCategory(difficulty);
+    const cat = pickCategory(currentDifficulty);
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
     setPhase('active');
+    setDifficultyShift(null);
+    const newTime = getTimerForDifficulty(currentDifficulty);
+    setTimeLeft(newTime);
     startTimeRef.current = Date.now();
-    setTimeLeft(totalTime);
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -136,17 +186,14 @@ export function CategoryFluencyGame({
     }, 1000);
 
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [totalTime, difficulty, currentRound, config, finishRound]);
+  }, [currentDifficulty, finishRound]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
-    const cat = pickCategory(difficulty);
-    setConfig(cat);
     setWords([]);
     setCurrentInput('');
-    setTimeLeft(totalTime);
     setPhase('ready');
-  }, [difficulty, totalTime]);
+  }, []);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
@@ -167,18 +214,31 @@ export function CategoryFluencyGame({
 
   // Ready
   if (phase === 'ready') {
+    const cat = pickCategory(currentDifficulty);
+    const timer = getTimerForDifficulty(currentDifficulty);
     return (
       <div className="flex flex-col items-center gap-5 py-8 max-w-sm mx-auto text-center">
         <div className="text-5xl">🧠</div>
         <div>
-          <p className="text-xl font-bold mb-1">Name: {config.label}</p>
+          <p className="text-xl font-bold mb-1">Name: {cat.label}</p>
           <p className="text-muted-foreground">
-            Type as many <strong>{config.label.toLowerCase()}</strong> as you can in {totalTime} seconds
+            Type as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
           </p>
-          <p className="text-xs text-muted-foreground mt-1">e.g. {config.examples}</p>
+          <p className="text-xs text-muted-foreground mt-1">e.g. {cat.examples}</p>
         </div>
         {currentRound > 0 && (
-          <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
+            {difficultyShift && (
+              <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
+                {difficultyShift === 'up' ? (
+                  <><TrendingUp className="w-3 h-3 mr-1" /> Getting harder</>
+                ) : (
+                  <><TrendingDown className="w-3 h-3 mr-1" /> Easing up</>
+                )}
+              </Badge>
+            )}
+          </div>
         )}
         <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
           <Timer className="w-4 h-4 mr-2" />
@@ -200,6 +260,15 @@ export function CategoryFluencyGame({
             <Badge key={i} variant="secondary" className="text-xs">{w}</Badge>
           ))}
         </div>
+        {difficultyShift && (
+          <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
+            {difficultyShift === 'up' ? (
+              <><TrendingUp className="w-3 h-3 mr-1" /> Next round: harder category + less time</>
+            ) : (
+              <><TrendingDown className="w-3 h-3 mr-1" /> Next round: easier category + more time</>
+            )}
+          </Badge>
+        )}
         <Button onClick={nextRound} className="min-h-[48px]">
           <RotateCcw className="w-4 h-4 mr-2" />
           Next Category
@@ -219,7 +288,14 @@ export function CategoryFluencyGame({
           {results.map((r, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-2 rounded-lg bg-muted/50">
               <span className="font-medium capitalize">{r.category}</span>
-              <Badge variant="secondary">{r.uniqueWordCount} words</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{r.uniqueWordCount} words</Badge>
+                {r.difficultyChanged && (
+                  r.difficultyChanged === 'up' 
+                    ? <TrendingUp className="w-3 h-3 text-primary" />
+                    : <TrendingDown className="w-3 h-3 text-muted-foreground" />
+                )}
+              </div>
             </div>
           ))}
         </div>

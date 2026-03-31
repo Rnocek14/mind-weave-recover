@@ -85,6 +85,10 @@ export default function SynonymGeneratorExercise() {
     fromLesson,
   });
 
+  const handleDifficultyChange = useCallback((newLevel: number, direction: 'up' | 'down') => {
+    console.log(`[SynonymGenerator] Adaptive difficulty ${direction}: now level ${newLevel}`);
+  }, []);
+
   const handleRoundComplete = useCallback((result: SynonymRoundResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
@@ -106,6 +110,7 @@ export default function SynonymGeneratorExercise() {
         total_entered: result.totalEntered,
         time_limit: result.timeLimitSec,
         difficulty: result.difficulty,
+        difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
@@ -183,6 +188,7 @@ export default function SynonymGeneratorExercise() {
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
+            onDifficultyChange={handleDifficultyChange}
             roundCount={roundCount}
           />
         )}
