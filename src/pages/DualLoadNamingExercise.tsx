@@ -18,7 +18,7 @@ import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 const EXERCISE_SLUG = 'dual-load-naming';
