@@ -446,42 +446,39 @@ export const SentenceConstructionGame = ({
                 ))}
               </div>
 
+              <div
+                className={cn(
+                  "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
+                  feedbackCorrect
+                    ? "bg-success/10 border-success"
+                    : "bg-destructive/10 border-destructive"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  {feedbackCorrect ? (
+                    <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">
+                      {feedbackCorrect ? "Correct!" : "Not quite right"}
+                    </p>
+                    {!feedbackCorrect && (
+                      <p className="text-xs mt-0.5">
+                        Answer: <span className="font-medium">{trial.targetSentence}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-2 justify-end">
                 <Button className="min-h-[48px]" onClick={handleNext}>
                   Next <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </>
-          )}
-
-          {/* Feedback */}
-          {showFeedback && (
-            <div
-              className={cn(
-                "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
-                feedbackCorrect
-                  ? "bg-success/10 border-success"
-                  : "bg-destructive/10 border-destructive"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                {feedbackCorrect ? (
-                  <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                )}
-                <div className="flex-1">
-                  <p className="font-medium text-sm">
-                    {feedbackCorrect ? "Correct!" : "Not quite right"}
-                  </p>
-                  {!feedbackCorrect && (
-                    <p className="text-xs mt-0.5">
-                      Answer: <span className="font-medium">{trial.targetSentence}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </Card>
