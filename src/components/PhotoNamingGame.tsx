@@ -68,17 +68,20 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
-// Debounced mic status - only show "mic paused" when voice should be active but isn't
+// Debounced mic status - only show "mic paused" after a fresh grace window for the current trial/start cycle
 const useDebouncedMicStatus = (
   isListening: boolean,
   shouldExpectListening: boolean,
+  resetKey: string | number,
   delayMs = 2000
 ) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
   useEffect(() => {
+    // Always clear stale warning state when a new listening cycle begins
+    setShowMicPaused(false);
+
     if (isListening || !shouldExpectListening) {
-      setShowMicPaused(false);
       return;
     }
     
@@ -87,7 +90,7 @@ const useDebouncedMicStatus = (
     }, delayMs);
     
     return () => clearTimeout(timer);
-  }, [isListening, shouldExpectListening, delayMs]);
+  }, [isListening, shouldExpectListening, resetKey, delayMs]);
   
   return showMicPaused;
 };
@@ -721,7 +724,13 @@ export const PhotoNamingGame = ({
   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
   
   const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
-  const showMicPausedHint = useDebouncedMicStatus(isListening, shouldExpectListening && !micAutoStartPending && !speechError, 2500);
+  const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
+  const showMicPausedHint = useDebouncedMicStatus(
+    isListening,
+    shouldExpectListening && !micAutoStartPending && !speechError,
+    micStatusResetKey,
+    2500
+  );
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
@@ -1151,10 +1160,13 @@ export const PhotoNamingGame = ({
         });
       }
       
-      // Start audio recording if supported - USE activeSessionId for standalone mode
+      // Start audio recording after speech recognition has had a head start.
+      // On iOS Safari, grabbing MediaRecorder immediately can interfere with Web Speech startup.
       if (isRecordingSupported && user && activeSessionId) {
-        startRecording();
-        console.log('🎙️ Recording started for session:', activeSessionId);
+        setTimeout(() => {
+          startRecording();
+          console.log('🎙️ Recording started for session:', activeSessionId);
+        }, 900);
       }
       
       // Start stall detection timer (3 seconds of hesitation)
@@ -1232,6 +1244,7 @@ export const PhotoNamingGame = ({
           }
         };
       } else {
+        setMicAutoStartPending(false);
         // If not auto-listening, still need to cleanup stall timer
         return () => {
           if (stallTimerRef.current) {
