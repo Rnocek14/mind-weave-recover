@@ -166,7 +166,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_bird',
     target: 'bird',
-    photoBankId: 'bird_1',
+    photoBankId: 'bird_2',
     acceptedWords: ['bird', 'robin', 'sparrow'],
     wordAliases: { bird: ['birds', 'berd'] },
     featureKeywords: {
