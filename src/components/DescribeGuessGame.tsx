@@ -608,21 +608,48 @@ export function DescribeGuessGame({
       <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
-            Thinking...
+            🤔 Guessing...
           </Badge>
-        ) : (
+        ) : !showFeedback && !awaitingWordAttempt ? (
+          <>
+            {/* Done button — primary action */}
+            <Button
+              size="sm"
+              onClick={() => {
+                if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+                runEvaluation();
+              }}
+              disabled={!displayTranscript || displayTranscript.trim().length < 3}
+              className="h-9"
+            >
+              <Check className="h-4 w-4 mr-1" /> I'm done
+            </Button>
+
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+            )}>
+              {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+              {isListening ? 'Listening...' : 'Mic off'}
+            </div>
+
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
+              <SkipForward className="h-4 w-4 mr-1" /> Skip
+            </Button>
+          </>
+        ) : awaitingWordAttempt ? (
           <div className={cn(
             'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
           )}>
             {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-            {isListening ? 'Listening...' : (showFeedback ? 'Next up...' : 'Mic off')}
+            {isListening ? 'Say the word...' : 'Mic off'}
           </div>
+        ) : (
+          <Badge variant="secondary" className="text-sm px-3 py-1.5">
+            Next up...
+          </Badge>
         )}
-
-        <Button variant="ghost" size="sm" onClick={handleSkip} className="h-8">
-          <SkipForward className="h-4 w-4 mr-1" /> Skip
-        </Button>
       </div>
     </div>
   );
