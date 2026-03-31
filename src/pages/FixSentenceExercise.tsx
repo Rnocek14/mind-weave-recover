@@ -150,7 +150,7 @@ export default function FixSentenceExercise() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -165,7 +165,7 @@ export default function FixSentenceExercise() {
 
       {fromLesson && <SessionProgressBubble />}
 
-      <main className="container px-4 py-8">
+      <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>

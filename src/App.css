@@ -1,8 +1,5 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  /* No max-width or padding — layouts handle their own constraints */
 }
 
 .logo {

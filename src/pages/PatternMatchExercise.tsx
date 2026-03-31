@@ -150,7 +150,7 @@ export default function PatternMatchExercise() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
       {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
       <div className="max-w-4xl mx-auto space-y-6">

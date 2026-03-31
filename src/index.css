@@ -216,3 +216,32 @@ All colors MUST be HSL.
     }
   }
 }
+
+/* ── Mobile-first utilities ── */
+
+/* Safe-area padding for notched devices (iPhone, etc.) */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Prevent 300ms tap delay on all interactive elements */
+button, a, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Minimum tap targets on mobile (WCAG 2.5.8) */
+@media (max-width: 767px) {
+  button, [role="button"], a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Prevent rubber-banding on full-screen exercise views */
+.h-dvh {
+  overscroll-behavior: none;
+}
