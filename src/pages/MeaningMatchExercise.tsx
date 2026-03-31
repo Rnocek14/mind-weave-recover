@@ -206,11 +206,13 @@ export default function MeaningMatchExercise() {
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Arena Complete!</h2>
             <p className="text-muted-foreground">
-              Great work matching those meanings!
+              {fromLesson ? 'Loading next exercise…' : 'Great work matching those meanings!'}
             </p>
-            <Button onClick={handleContinue} size="lg">
-              Continue
-            </Button>
+            {!fromLesson && (
+              <Button onClick={handleContinue} size="lg">
+                Continue
+              </Button>
+            )}
           </div>
         ) : (
           <MeaningMatchGame
