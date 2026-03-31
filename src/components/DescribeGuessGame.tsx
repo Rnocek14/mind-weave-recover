@@ -399,8 +399,9 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech]);
 
   // Speech-end evaluation (debounced 3s after last transcript change)
+  // Use fullTranscript as trigger — it accumulates all speech segments
   useEffect(() => {
-    if (!transcript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+    if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
 
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
@@ -408,7 +409,7 @@ export function DescribeGuessGame({
       runEvaluation();
     }, SPEECH_END_DEBOUNCE_MS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, showFeedback]);
+  }, [fullTranscript, showFeedback]);
 
   const handleChipTap = useCallback((chip: PromptChip) => {
     game.recordFeatureChip(chip.featureType, chip.question);
