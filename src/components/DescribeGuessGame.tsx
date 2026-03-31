@@ -28,7 +28,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
