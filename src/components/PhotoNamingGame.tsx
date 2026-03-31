@@ -2199,21 +2199,6 @@ export const PhotoNamingGame = ({
         )}
       </div>
 
-      {/* Voice onboarding for first activation */}
-      {!useVoice && !showFeedback && !timedOut && !selectedAnswer && (
-        <Button
-          variant="default"
-          onClick={() => {
-            setUseVoice(true);
-            setMicAutoStartPending(true);
-            setTimeout(() => startListening(), 100);
-          }}
-          className="w-full h-14 sm:h-16 text-base sm:text-lg font-medium gap-2 shrink-0"
-        >
-          <Mic className="w-5 h-5" />
-          Tap to start microphone
-        </Button>
-      )}
 
       {/* Cue display - compact on mobile */}
 
