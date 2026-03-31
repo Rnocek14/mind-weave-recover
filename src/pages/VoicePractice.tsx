@@ -20,6 +20,9 @@ export default function VoicePractice() {
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpokenRef = useRef(false);
+  const SILENCE_TIMEOUT_MS = 3000; // auto-submit after 3s silence
 
   const {
     phase,
