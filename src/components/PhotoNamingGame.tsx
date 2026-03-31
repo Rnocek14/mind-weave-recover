@@ -2121,7 +2121,7 @@ export const PhotoNamingGame = ({
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-64 object-contain rounded-lg bg-muted"
+            className="w-full h-44 sm:h-52 md:h-64 object-contain rounded-lg bg-muted"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
