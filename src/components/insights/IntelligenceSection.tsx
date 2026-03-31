@@ -42,11 +42,11 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
 
   const isLoading = timelineLoading || proofLoading;
 
-  // Sections open state
+  // Sections open state — summary + whatChanged default open, others collapsed
   const [openSections, setOpenSections] = useState({
     whatChanged: true,
-    doesItWork: true,
-    cueLearning: true,
+    doesItWork: false,
+    cueLearning: false,
   });
 
   const toggle = (key: keyof typeof openSections) =>
