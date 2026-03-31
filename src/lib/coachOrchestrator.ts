@@ -343,16 +343,15 @@ export function getNextAction(
     }
   }
 
-  // 5. ANTI-LOOP: Low-content response handling
-  // CRITICAL FIX: After 2+ consecutive clarify_small, escalate to card/popup instead of looping
+  // 5. STRUGGLE RECOVERY: Detect consecutive low-content turns and intervene early
   if (speechAnalysis && (speechAnalysis.wordCount < 3 || speechAnalysis.pausePattern === 'very_slow')) {
-    const recentClarifyCount = state.recentStuckTypes.slice(-3).filter(
-      t => t === 'no_speech' || t === 'prompt_overload' || t === 'word_search_stall'
+    const recentStruggles = state.recentStuckTypes.slice(-3).filter(
+      t => t === 'no_speech' || t === 'prompt_overload' || t === 'word_search_stall' || t === 'thought_abandonment'
     ).length;
     
-    // After 3+ low-content turns in a row, force a card/popup to break the loop
-    if (recentClarifyCount >= 3 && cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION) {
-      // Choose an easy, receptive task (no production pressure)
+    // After 2+ consecutive struggle turns, immediately downshift to easy receptive task
+    if (recentStruggles >= 2 && cardsInsertedThisSession < limits.MAX_CARDS_PER_SESSION) {
+      console.log('[orchestrator] STRUGGLE RECOVERY: 2+ consecutive struggles, inserting easy card');
       const escapeCard: CardType = !state.yesNoSucceeded ? 'yes_no' : 'phrase_starter';
       return {
         type: 'insert_card',
@@ -362,7 +361,33 @@ export function getNextAction(
       };
     }
     
-    // Vary the followup type to avoid clarify_small monotony
+    // After 3+ struggles, escalate to popup if available
+    if (recentStruggles >= 3 && canPopup) {
+      const probeInput: ProbeSelectionInput = {
+        profile: state.clinicalProfile,
+        mayaState: state.mayaState,
+        recentResults: state.recentExerciseResults,
+        speechAnalysis: speechAnalysis || null,
+        sessionPhase: state.sessionPhase,
+        fatigueState: state.fatigueState,
+        popupCount: state.popupExercisesThisSession,
+        recentPopupSlugs: state.recentPopupSlugs,
+        turnNumber: state.turnNumber,
+      };
+      const probeDecision = selectNextProbe(probeInput);
+      if (probeDecision.action === 'launch_exercise') {
+        console.log('[orchestrator] STRUGGLE RECOVERY: escalating to popup:', probeDecision.slug);
+        return {
+          type: 'popup_exercise',
+          slug: probeDecision.slug,
+          reason: 'repeated_struggle' as PopupReason,
+          targetDomain: probeDecision.targetDomain,
+          difficultyHint: 'easier',
+        };
+      }
+    }
+    
+    // First struggle turn: use encouraging followup with tiles/frames
     const lowContentFollowups: FollowupType[] = ['clarify_small', 'tell_more', 'acknowledge'];
     const followupType = lowContentFollowups[state.turnNumber % lowContentFollowups.length];
     
