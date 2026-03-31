@@ -99,13 +99,14 @@ export const useAudioRecorder = () => {
       const fileExtension = mimeType.includes('webm') ? 'webm' : 
                            mimeType.includes('mp4') ? 'mp4' : 'webm';
       
-      const filePath = `${userId}/${sessionId}/trial-${trialNumber}.${fileExtension}`;
+      const timestamp = Date.now();
+      const filePath = `${userId}/${sessionId}/trial-${trialNumber}-${timestamp}.${fileExtension}`;
 
       const { data, error } = await supabase.storage
         .from('session-recordings')
         .upload(filePath, audioBlob, {
           contentType: mimeType,
-          upsert: false
+          upsert: true
         });
 
       if (error) {
