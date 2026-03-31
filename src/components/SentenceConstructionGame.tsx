@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,14 @@ import {
   RotateCcw,
   ArrowRight,
   Trash2,
-  Lightbulb
+  Lightbulb,
+  Mic,
+  MicOff,
+  Keyboard
 } from "lucide-react";
 import { useSentenceGame } from "@/hooks/useSentenceGame";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { cn } from "@/lib/utils";
 import { AdaptationBadges } from '@/components/AdaptationBadges';
 
@@ -78,14 +82,37 @@ export const SentenceConstructionGame = ({
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
-  
+  const [showTiles, setShowTiles] = useState(false);
+  const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
+  const hasProcessedSpeechRef = useRef(false);
 
   const trial = getCurrentTrial();
 
-  // Reset and auto-play audio when trial changes
+  // === Speech Recognition ===
+  const handleSpeechResult = useCallback((transcript: string) => {
+    if (hasProcessedSpeechRef.current) return;
+    setSpokenSentence(transcript);
+  }, []);
+
+  const {
+    isListening,
+    startListening,
+    stopListening,
+    isSupported: speechSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    patientMode: true,
+    continuousListening: true,
+    discourseMode: true,
+    autoStart: false,
+  });
+
+  // Auto-start mic when trial changes
   useEffect(() => {
     setTrialStartTime(Date.now());
     setHintUsed(false);
+    setSpokenSentence(null);
+    hasProcessedSpeechRef.current = false;
     stop();
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => {
@@ -95,11 +122,83 @@ export const SentenceConstructionGame = ({
     }
   }, [currentTrial, completed]);
 
+  // Auto-start mic after TTS finishes reading
+  useEffect(() => {
+    if (!isSpeaking && !isLoading && trial && !completed && !showFeedback && speechSupported && !showTiles) {
+      const timer = setTimeout(() => {
+        if (!hasProcessedSpeechRef.current) startListening();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking, isLoading, trial, completed, showFeedback, speechSupported, showTiles, startListening]);
+
   useEffect(() => {
     if (completed && onGameComplete) {
       onGameComplete(score, trials.length);
     }
   }, [completed]);
+
+  // Match spoken sentence to word tiles
+  const submitSpokenSentence = useCallback(() => {
+    if (!trial || !spokenSentence || hasProcessedSpeechRef.current) return;
+    hasProcessedSpeechRef.current = true;
+    stopListening();
+
+    const spokenWords = spokenSentence.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const correctWords = trial.correctAnswer.map(w => w.toLowerCase());
+
+    // Map spoken words to option indices
+    const usedIndices = new Set<number>();
+    const mappedIndices: number[] = [];
+
+    for (const spoken of spokenWords) {
+      // Find the best matching option that hasn't been used yet
+      let bestIdx = -1;
+      for (let i = 0; i < trial.options.length; i++) {
+        if (usedIndices.has(i)) continue;
+        if (trial.options[i].toLowerCase() === spoken) {
+          bestIdx = i;
+          break;
+        }
+      }
+      if (bestIdx >= 0) {
+        mappedIndices.push(bestIdx);
+        usedIndices.add(bestIdx);
+      }
+    }
+
+    // Set the answer via the mapped indices
+    if (mappedIndices.length > 0) {
+      // Clear and set all at once by selecting each word
+      clearAnswer();
+      mappedIndices.forEach(idx => selectWord(idx));
+    }
+
+    // Auto-submit after a beat
+    setTimeout(() => {
+      const result = submitAnswer();
+      if (!result) return;
+      const reactionTime = Date.now() - trialStartTime;
+      if (trial?.modelAudio) speak(trial.modelAudio);
+      if (onTrialComplete) {
+        onTrialComplete({
+          correct: result.correct,
+          reactionTime,
+          errorType: result.errorAnalysis.errorType,
+          grammarFocus: result.trial.grammarFocus,
+          trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
+        });
+      }
+    }, 300);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak]);
+
+  // Auto-submit when speech stops and we have a sentence
+  useEffect(() => {
+    if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
+      const timer = setTimeout(() => submitSpokenSentence(), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [spokenSentence, isListening, submitSpokenSentence]);
 
   const handleHint = () => {
     setHintUsed(true);
@@ -133,6 +232,7 @@ export const SentenceConstructionGame = ({
   };
 
   const handleNext = () => {
+    setShowTiles(false);
     nextTrial(difficultyLevel);
   };
 
@@ -228,99 +328,157 @@ export const SentenceConstructionGame = ({
       {/* Main Task Card */}
       <Card className="p-3 sm:p-4">
         <div className="space-y-3">
-          {/* Sentence Construction Area */}
-          <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
-            {answerWords.length === 0 ? (
-              <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
-            ) : (
-              answerWords.map((word, idx) => (
-                <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
-                  {word}
-                </Badge>
-              ))
-            )}
-          </div>
+          {/* Speech mode (default) */}
+          {!showTiles && !showFeedback && (
+            <div className="space-y-3">
+              {/* Scrambled words shown as reference */}
+              <div className="flex flex-wrap gap-1.5 p-2.5 bg-muted/50 rounded-lg">
+                {trial.options.map((word, idx) => (
+                  <Badge key={idx} variant="outline" className="text-sm px-2.5 py-1">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
 
-          {/* Word Options — large touch targets */}
-          <div className="flex flex-wrap gap-2">
-            {getAvailableWords().map((item) => (
-              <Button
-                key={item.index}
-                variant="outline"
-                onClick={() => selectWord(item.index)}
-                disabled={showFeedback}
-                className="text-base min-h-[48px] px-4"
-              >
-                {item.word}
-              </Button>
-            ))}
-          </div>
-
-          {/* Controls — compact row */}
-          <div className="flex gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={removeLastWord}
-              disabled={currentAnswer.length === 0 || showFeedback}
-              className="min-h-[44px]"
-            >
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Undo
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearAnswer}
-              disabled={currentAnswer.length === 0 || showFeedback}
-              className="min-h-[44px]"
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Clear
-            </Button>
-            <Button
-              className="ml-auto min-h-[48px]"
-              onClick={showFeedback ? handleNext : handleSubmit}
-              disabled={!canSubmit && !showFeedback}
-            >
-              {showFeedback ? (
-                <>
-                  Next <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              ) : (
-                "Submit"
-              )}
-            </Button>
-          </div>
-
-          {/* Feedback */}
-          {showFeedback && (
-            <div
-              className={cn(
-                "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
-                feedbackCorrect
-                  ? "bg-success/10 border-success"
-                  : "bg-destructive/10 border-destructive"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                {feedbackCorrect ? (
-                  <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                )}
-                <div className="flex-1">
-                  <p className="font-medium text-sm">
-                    {feedbackCorrect ? "Correct!" : "Not quite right"}
-                  </p>
-                  {!feedbackCorrect && (
-                    <p className="text-xs mt-0.5">
-                      Answer: <span className="font-medium">{trial.targetSentence}</span>
-                    </p>
+              {/* Mic orb */}
+              <div className="flex flex-col items-center gap-3 py-4">
+                <button
+                  onClick={() => {
+                    if (isListening) {
+                      stopListening();
+                    } else {
+                      hasProcessedSpeechRef.current = false;
+                      setSpokenSentence(null);
+                      startListening();
+                    }
+                  }}
+                  className={cn(
+                    "w-20 h-20 rounded-full flex items-center justify-center transition-all",
+                    isListening
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 animate-pulse"
+                      : "bg-muted hover:bg-primary/10 text-muted-foreground"
                   )}
+                >
+                  {isListening ? <Mic className="w-8 h-8" /> : <MicOff className="w-8 h-8" />}
+                </button>
+                <p className="text-sm text-muted-foreground text-center">
+                  {isListening
+                    ? (spokenSentence ? `"${spokenSentence}"` : 'Say the correct sentence...')
+                    : 'Tap to speak'}
+                </p>
+              </div>
+
+              {/* Switch to tiles */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => {
+                  stopListening();
+                  setShowTiles(true);
+                }}
+              >
+                <Keyboard className="w-3 h-3 mr-1" /> Switch to word tiles
+              </Button>
+            </div>
+          )}
+
+          {/* Tile mode (fallback) */}
+          {showTiles && !showFeedback && (
+            <>
+              {/* Sentence Construction Area */}
+              <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
+                {answerWords.length === 0 ? (
+                  <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
+                ) : (
+                  answerWords.map((word, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
+                      {word}
+                    </Badge>
+                  ))
+                )}
+              </div>
+
+              {/* Word Options */}
+              <div className="flex flex-wrap gap-2">
+                {getAvailableWords().map((item) => (
+                  <Button
+                    key={item.index}
+                    variant="outline"
+                    onClick={() => selectWord(item.index)}
+                    disabled={showFeedback}
+                    className="text-base min-h-[48px] px-4"
+                  >
+                    {item.word}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Controls */}
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={removeLastWord} disabled={currentAnswer.length === 0} className="min-h-[44px]">
+                  <RotateCcw className="w-4 h-4 mr-1" /> Undo
+                </Button>
+                <Button variant="outline" size="sm" onClick={clearAnswer} disabled={currentAnswer.length === 0} className="min-h-[44px]">
+                  <Trash2 className="w-4 h-4 mr-1" /> Clear
+                </Button>
+                <Button className="ml-auto min-h-[48px]" onClick={handleSubmit} disabled={!canSubmit}>
+                  Submit
+                </Button>
+              </div>
+
+              {/* Switch to mic */}
+              <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowTiles(false)}>
+                <Mic className="w-3 h-3 mr-1" /> Switch to voice
+              </Button>
+            </>
+          )}
+
+          {/* Feedback (shared) */}
+          {showFeedback && (
+            <>
+              {/* Show what was built */}
+              <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-border rounded-lg">
+                {answerWords.map((word, idx) => (
+                  <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
+                    {word}
+                  </Badge>
+                ))}
+              </div>
+
+              <div
+                className={cn(
+                  "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
+                  feedbackCorrect
+                    ? "bg-success/10 border-success"
+                    : "bg-destructive/10 border-destructive"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  {feedbackCorrect ? (
+                    <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">
+                      {feedbackCorrect ? "Correct!" : "Not quite right"}
+                    </p>
+                    {!feedbackCorrect && (
+                      <p className="text-xs mt-0.5">
+                        Answer: <span className="font-medium">{trial.targetSentence}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button className="min-h-[48px]" onClick={handleNext}>
+                  Next <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </Card>
