@@ -136,6 +136,7 @@ export const PhotoNamingGame = ({
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
   const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const [autoHintsEnabled, setAutoHintsEnabled] = useState(true); // Toggle for automatic hints
   
   // Phase 2: Utterance state for delayed scoring
