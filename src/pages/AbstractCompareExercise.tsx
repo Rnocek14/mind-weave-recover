@@ -133,8 +133,8 @@ export default function AbstractCompareExercise() {
           <h1 className="text-lg font-semibold">🔗 Abstract Comparison</h1>
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}><Home className="h-4 w-4" /></Button>
         </div>
+        {fromLesson && <InlineSessionProgress />}
       </header>
-      {fromLesson && <SessionProgressBubble />}
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">

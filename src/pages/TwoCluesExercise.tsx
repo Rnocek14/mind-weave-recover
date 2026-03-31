@@ -212,10 +212,8 @@ export default function TwoCluesExercise() {
             <Home className="h-4 w-4" />
           </Button>
         </div>
+        {fromLesson && <InlineSessionProgress />}
       </header>
-
-      {/* Session progress bubble (if from lesson) */}
-      {fromLesson && <SessionProgressBubble />}
 
       {/* Main content */}
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
