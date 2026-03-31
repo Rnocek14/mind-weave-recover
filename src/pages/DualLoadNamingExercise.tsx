@@ -132,8 +132,8 @@ export default function DualLoadNamingExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🧠</div>
             <h2 className="text-2xl font-bold">Dual-Load Complete!</h2>
-            <p className="text-muted-foreground">Great work under cognitive load!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great work under cognitive load!'}</p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />

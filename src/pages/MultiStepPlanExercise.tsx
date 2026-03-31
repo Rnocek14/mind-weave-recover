@@ -131,8 +131,8 @@ export default function MultiStepPlanExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📋</div>
             <h2 className="text-2xl font-bold">Planning Complete!</h2>
-            <p className="text-muted-foreground">Great executive planning!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great executive planning!'}</p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />
