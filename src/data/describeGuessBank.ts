@@ -198,7 +198,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_flower',
     target: 'flower',
-    photoBankId: 'flower_1',
+    photoBankId: 'flower_2',
     acceptedWords: ['flower', 'rose', 'daisy', 'blossom'],
     wordAliases: { flower: ['flowers', 'flour'], rose: ['roses'] },
     featureKeywords: {
