@@ -1121,6 +1121,7 @@ export const PhotoNamingGame = ({
   // =========================================================================
   useEffect(() => {
     console.log('🔄 Trial number changed - resetting cue state for trial:', state.trialNumber);
+    currentPronRequestIdRef.current = null;
     setCueLevel(0);
     setShowCue(false);
     setCurrentCueText('');
