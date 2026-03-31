@@ -2077,39 +2077,31 @@ export const PhotoNamingGame = ({
 
       {/* Recording/Analyzing/Processing indicator - Enhanced */}
       {(isRecording || isAnalyzing || isCreatingSession || processingAnswer) && (
-        <div className="flex items-center gap-2 text-sm p-3 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2 text-xs sm:text-sm px-2 py-1.5 sm:p-3 rounded-lg bg-muted/50 border border-border">
           {isCreatingSession && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              <span className="text-muted-foreground">Setting up session...</span>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">Setting up...</span>
             </>
           )}
           {isRecording && !isAnalyzing && !processingAnswer && (
             <>
-              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
-              <span className="text-destructive font-medium">🎙️ Listening... say the word!</span>
+              <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse shrink-0" />
+              <span className="text-destructive font-medium">🎙️ Listening...</span>
             </>
           )}
           {processingAnswer && !isAnalyzing && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <div className="flex flex-col">
-                <span className="text-primary font-medium">Processing your answer...</span>
-                {lastHeardText && (
-                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
-                )}
-              </div>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-primary font-medium">Processing...</span>
+              {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
           {isAnalyzing && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <div className="flex flex-col">
-                <span className="text-primary font-medium">🧠 Analyzing pronunciation...</span>
-                {lastHeardText && (
-                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
-                )}
-              </div>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-primary font-medium">Analyzing...</span>
+              {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
         </div>
