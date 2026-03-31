@@ -2357,21 +2357,21 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Feedback */}
+      {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
-        <div className={`p-6 rounded-lg text-center transition-all ${
+        <div className={`px-4 py-3 sm:p-6 rounded-lg text-center transition-all ${
           feedbackData.correct 
             ? 'bg-success/10 border border-success/20' 
             : 'bg-accent/10 border border-accent/20'
         }`}>
           {feedbackData.correct ? (
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-success animate-bounce" />
+            <CheckCircle2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-success animate-bounce" />
           ) : (
-            <div className="w-12 h-12 mx-auto mb-3 text-accent flex items-center justify-center text-3xl">
+            <div className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-accent flex items-center justify-center text-2xl sm:text-3xl">
               💪
             </div>
           )}
-          <p className="text-lg font-semibold mb-3">
+          <p className="text-sm sm:text-lg font-semibold">
             {state.currentTrial && generateGentleFeedback(
               feedbackData.errorType as any,
               state.currentTrial.target,
