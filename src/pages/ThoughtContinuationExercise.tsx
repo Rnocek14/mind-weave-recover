@@ -130,7 +130,6 @@ export default function ThoughtContinuationExercise() {
     
     return (
       <div className="min-h-screen bg-background p-4">
-        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto pt-12">
           <Card className="border-2 border-primary/20">
             <CardHeader className="text-center pb-2">
