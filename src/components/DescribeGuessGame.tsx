@@ -322,8 +322,8 @@ export function DescribeGuessGame({
       setIsEvaluating(false);
 
       if (guessResult.guessed && !wordWin) {
-        // App guessed — ask user to say the word, restart mic for their attempt
-        setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
+        // App guessed correctly — celebrate, then optionally let them try saying it
+        setGuessMessage(`I got it! It's "${trial.target}"! 🎉 Now try saying the word.`);
         setAwaitingWordAttempt(true);
 
         // Clear transcript so only post-guess speech is evaluated for word match
