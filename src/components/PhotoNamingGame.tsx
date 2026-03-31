@@ -2208,10 +2208,13 @@ export const PhotoNamingGame = ({
               variant="outline"
               size="sm"
               onClick={() => {
-                setUseVoice(!useVoice);
-                if (!useVoice && isSupported) {
+                const nextUseVoice = !useVoice;
+                setUseVoice(nextUseVoice);
+                if (nextUseVoice && isSupported) {
+                  setMicAutoStartPending(true);
                   setTimeout(() => startListening(), 500);
                 } else if (isListening) {
+                  setMicAutoStartPending(false);
                   stopListening();
                 }
               }}
