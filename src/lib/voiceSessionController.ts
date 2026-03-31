@@ -299,9 +299,16 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
       const stories = filterByTopic(filterByDifficulty(VOICE_STORIES, maxDiff), topic);
       if (!stories.length) return null;
       const story = pickRandom(stories);
+      const retellCues = [
+        "Now tell it back to me — in your own words.",
+        "Okay, now you retell that story. Include as many details as you can.",
+        "Your turn — tell me what happened in the story.",
+        "Now retell that back to me, like you're telling a friend.",
+      ];
+      const promptWithCue = story.text + ' ... ' + pickRandom(retellCues);
       return {
         gameType: type, label: gameDef.label, intro: gameDef.intro,
-        prompt: story.text, expectedAnswers: story.keyDetails,
+        prompt: promptWithCue, expectedAnswers: story.keyDetails,
         meta: { storyId: story.id }, followUp: "What part stood out to you the most?",
         arcPhase,
       };

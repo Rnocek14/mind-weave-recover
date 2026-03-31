@@ -20,6 +20,9 @@ export default function VoicePractice() {
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpokenRef = useRef(false);
+  const SILENCE_TIMEOUT_MS = 3000; // auto-submit after 3s silence
 
   const {
     phase,
@@ -68,6 +71,26 @@ export default function VoicePractice() {
       const full = (finalTranscript + ' ' + interimTranscript).trim();
       transcriptRef.current = full;
       setTranscript(full);
+
+      // Track that user has spoken meaningful content
+      const wordCount = full.split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount >= 2) {
+        hasSpokenRef.current = true;
+      }
+
+      // Reset silence timer on every new speech
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      if (hasSpokenRef.current) {
+        silenceTimerRef.current = setTimeout(() => {
+          // Auto-submit after silence
+          if (hasSpokenRef.current && transcriptRef.current.trim().length > 0) {
+            console.log('[VoicePractice] Auto-submitting after silence');
+            handleAutoSubmit();
+          }
+        }, SILENCE_TIMEOUT_MS);
+      }
     };
 
     recognition.onerror = (event: any) => {
@@ -92,6 +115,11 @@ export default function VoicePractice() {
   }, [isRecording]);
 
   const stopListening = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    hasSpokenRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
@@ -118,6 +146,9 @@ export default function VoicePractice() {
     };
   }, []);
 
+  // Ref-stable auto-submit (called from silence timer closure)
+  const handleAutoSubmitRef = useRef<() => void>(() => {});
+
   const handleSubmit = useCallback(async () => {
     const captured = transcriptRef.current;
     stopListening();
@@ -127,6 +158,12 @@ export default function VoicePractice() {
       await submitResponse(captured);
     }
   }, [submitResponse, submitFollowUp, stopListening, phase]);
+
+  // Keep auto-submit ref in sync
+  handleAutoSubmitRef.current = handleSubmit;
+  const handleAutoSubmit = useCallback(() => {
+    handleAutoSubmitRef.current();
+  }, []);
 
   const handleSkip = useCallback(async () => {
     stopListening();
@@ -236,7 +273,12 @@ export default function VoicePractice() {
                 )}
               </p>
               {transcript ? (
-                <p className="text-foreground text-lg">{transcript}</p>
+                <div className="space-y-1">
+                  <p className="text-foreground text-lg">{transcript}</p>
+                  <p className="text-muted-foreground/40 text-xs">
+                    Auto-submits when you pause
+                  </p>
+                </div>
               ) : (
                 <p className="text-muted-foreground/60 text-sm animate-pulse">
                   Listening...
