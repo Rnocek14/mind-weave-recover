@@ -7,6 +7,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -27,9 +28,9 @@ export default function ConversationCoachExercise() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId as string | undefined;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
@@ -81,8 +82,8 @@ export default function ConversationCoachExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-coach', results: metrics },
         }));
-        navigate('/lesson', { state: { resuming: true } });
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   };
 

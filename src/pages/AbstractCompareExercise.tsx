@@ -18,6 +18,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 const EXERCISE_SLUG = 'abstract-compare';
 
@@ -32,9 +33,10 @@ export default function AbstractCompareExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 4;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
@@ -97,7 +99,8 @@ export default function AbstractCompareExercise() {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
@@ -137,8 +140,10 @@ export default function AbstractCompareExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>
             <h2 className="text-2xl font-bold">Comparisons Complete!</h2>
-            <p className="text-muted-foreground">Great abstract thinking!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">
+              {fromLesson ? 'Loading next exercise…' : 'Great abstract thinking!'}
+            </p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />

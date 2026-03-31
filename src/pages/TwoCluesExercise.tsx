@@ -19,6 +19,7 @@ import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -38,9 +39,10 @@ export default function TwoCluesExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
 
@@ -153,7 +155,8 @@ export default function TwoCluesExercise() {
             totalScore: results.reduce((sum, r) => sum + r.score, 0),
           }
         }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
@@ -221,11 +224,13 @@ export default function TwoCluesExercise() {
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
             <p className="text-muted-foreground">
-              Great job practicing word associations!
+              {fromLesson ? 'Loading next exercise…' : 'Great job practicing word associations!'}
             </p>
-            <Button onClick={handleContinue} size="lg">
-              Continue
-            </Button>
+            {!fromLesson && (
+              <Button onClick={handleContinue} size="lg">
+                Continue
+              </Button>
+            )}
           </div>
         ) : (
           <TwoCluesGame

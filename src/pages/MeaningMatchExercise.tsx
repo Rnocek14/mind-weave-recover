@@ -18,6 +18,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -44,13 +45,14 @@ export default function MeaningMatchExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
   const trialLimit = Number(location.state?.trialLimit) || 10;
   const lessonSource = location.state?.lessonSource ?? null;
   const presetId = location.state?.presetId ?? null;
   const blockIndex = location.state?.blockIndex ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const lessonAdaptations = restored.adaptations;
 
   // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
   const adaptation = useSessionAdaptation({
@@ -149,7 +151,8 @@ export default function MeaningMatchExercise() {
             totalScore: results.reduce((sum, r) => sum + r.points, 0),
           }
         }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
@@ -203,11 +206,13 @@ export default function MeaningMatchExercise() {
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Arena Complete!</h2>
             <p className="text-muted-foreground">
-              Great work matching those meanings!
+              {fromLesson ? 'Loading next exercise…' : 'Great work matching those meanings!'}
             </p>
-            <Button onClick={handleContinue} size="lg">
-              Continue
-            </Button>
+            {!fromLesson && (
+              <Button onClick={handleContinue} size="lg">
+                Continue
+              </Button>
+            )}
           </div>
         ) : (
           <MeaningMatchGame

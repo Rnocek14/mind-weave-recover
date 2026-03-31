@@ -17,6 +17,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Info } from 'lucide-react';
@@ -29,9 +30,9 @@ export default function MinimalPairsExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const lessonSessionId = location.state?.sessionId ?? null;
+  const restored = useRestoredLessonContext('minimal-pairs');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -102,8 +103,8 @@ export default function MinimalPairsExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'minimal-pairs', results },
         }));
-        navigate('/lesson', { state: { resuming: true } });
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, navigate]);
   

@@ -15,6 +15,7 @@ import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionProgressBubble } from '@/components/SessionProgressBubble';
@@ -28,9 +29,10 @@ export default function SemanticFeatureExercise() {
   const { toast } = useToast();
   
   // Extract lesson flow state
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext('semantic-features');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({

@@ -12,6 +12,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -28,10 +29,10 @@ export default function ConversationPartnerExercise() {
   const [gameStarted, setGameStarted] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext('conversation-partner');
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
@@ -79,8 +80,8 @@ export default function ConversationPartnerExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-partner', results: summary },
         }));
-        navigate('/lesson', { state: { resuming: true } });
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   };
 

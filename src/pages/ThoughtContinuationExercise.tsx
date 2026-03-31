@@ -5,7 +5,7 @@
  * No right or wrong answers - only momentum and continuation.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -19,6 +19,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 const EXERCISE_SLUG = 'thought-continuation';
 
@@ -28,10 +29,11 @@ export default function ThoughtContinuationExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  // Lesson flow integration with sessionStorage fallback
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
@@ -74,8 +76,8 @@ export default function ThoughtContinuationExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'thought-continuation', results: summary },
         }));
-        navigate('/lesson', { state: { resuming: true } });
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   };
 
@@ -164,9 +166,7 @@ export default function ThoughtContinuationExercise() {
               
               <div className="flex flex-col gap-3">
                 {fromLesson ? (
-                  <Button onClick={handleContinue} className="w-full gap-2">
-                    Continue Lesson
-                  </Button>
+                  <p className="text-sm text-muted-foreground animate-pulse">Loading next exercise…</p>
                 ) : (
                   <>
                     <Button onClick={handlePlayAgain} className="w-full gap-2">

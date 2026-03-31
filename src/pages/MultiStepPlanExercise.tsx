@@ -18,6 +18,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 const EXERCISE_SLUG = 'multi-step-plan';
 
@@ -32,9 +33,10 @@ export default function MultiStepPlanExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
@@ -98,7 +100,8 @@ export default function MultiStepPlanExercise() {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
@@ -129,8 +132,8 @@ export default function MultiStepPlanExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📋</div>
             <h2 className="text-2xl font-bold">Planning Complete!</h2>
-            <p className="text-muted-foreground">Great executive planning!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great executive planning!'}</p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} />

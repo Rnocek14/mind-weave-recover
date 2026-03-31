@@ -33,6 +33,7 @@ import { DoseCapWarning } from "@/components/DoseCapWarning";
 import { useDoseCap } from "@/hooks/useDoseCap";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
+import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -41,9 +42,10 @@ const Exercise = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Check if we're coming from lesson flow
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
+  // Check if we're coming from lesson flow (with sessionStorage fallback)
+  const restored = useRestoredLessonContext(exerciseId || 'unknown');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId ?? (location.state?.sessionId as string | undefined);
   const lessonAdaptations = location.state?.adaptations as {
     timeoutMultiplier?: number;
     startDifficulty?: number;

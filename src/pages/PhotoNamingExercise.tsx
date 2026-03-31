@@ -8,6 +8,7 @@ import { formatPhonemeDisplay } from '@/hooks/useStrugglingPhonemes';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -90,10 +91,11 @@ function PhotoNamingExerciseInner() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract lesson flow state
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  // Extract lesson flow state (with sessionStorage fallback)
+  const restored = useRestoredLessonContext('photo-naming');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   const isTargetedPractice = location.state?.is_targeted_practice === true;
   const statePracticeSource = location.state?.practice_source as string | undefined;

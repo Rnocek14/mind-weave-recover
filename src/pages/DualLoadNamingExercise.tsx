@@ -14,6 +14,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -33,8 +34,9 @@ export default function DualLoadNamingExercise() {
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
   const trialLimit = Number(location.state?.trialLimit) || 2;
 
   // Shared adaptation contract
@@ -99,7 +101,8 @@ export default function DualLoadNamingExercise() {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
@@ -130,8 +133,8 @@ export default function DualLoadNamingExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🧠</div>
             <h2 className="text-2xl font-bold">Dual-Load Complete!</h2>
-            <p className="text-muted-foreground">Great work under cognitive load!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great work under cognitive load!'}</p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />

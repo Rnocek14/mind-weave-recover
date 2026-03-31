@@ -18,6 +18,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
@@ -27,9 +28,10 @@ export default function PatternMatchExercise() {
   const { toast } = useToast();
   
   // Extract lesson flow state
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext('pattern-match');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
