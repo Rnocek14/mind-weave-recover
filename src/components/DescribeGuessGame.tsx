@@ -9,6 +9,7 @@
  * - Cooldown timers on structured prompts (6s → 10s → 14s)
  * - Communication Win for any meaningful speech
  * - Embeddings only evaluated on speech-end
+ * - Min speech duration gate to prevent false positives
  */
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -24,7 +25,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
-import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag } from 'lucide-react';
@@ -32,6 +33,8 @@ import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 const SPEECH_END_DEBOUNCE_MS = 3000; // Wait 3s of silence before evaluating
+const MIN_SPEECH_CONTENT_WORDS = 2; // Minimum content words to trigger evaluation
+const MIN_LISTENING_DURATION_MS = 2000; // At least 2s of mic time before evaluating
 
 interface PromptChip {
   featureType: FeatureType;
@@ -69,7 +72,7 @@ export function DescribeGuessGame({
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
-  const [visiblePrompts, setVisiblePrompts] = useState<number>(0); // How many prompts are visible
+  const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
 
@@ -81,6 +84,7 @@ export function DescribeGuessGame({
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const listeningStartRef = useRef<number>(0);
+  const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
@@ -160,7 +164,6 @@ export function DescribeGuessGame({
 
   // Start prompt cooldown timers when trial begins
   const startPromptTimers = useCallback(() => {
-    // Clear old timers
     promptTimersRef.current.forEach(t => clearTimeout(t));
     promptTimersRef.current = [];
     setVisiblePrompts(0);
@@ -171,6 +174,21 @@ export function DescribeGuessGame({
       }, delay);
       promptTimersRef.current.push(timer);
     });
+  }, []);
+
+  /**
+   * Check if transcript has enough substance to evaluate.
+   * Prevents false positives from empty/filler-only speech.
+   */
+  const hasSubstantialSpeech = useCallback((text: string): boolean => {
+    if (!text || text.trim().length === 0) return false;
+    const cleaned = extractAnswerFromTranscript(text);
+    if (isMostlyFiller(cleaned)) return false;
+    if (getContentWordCount(cleaned) < MIN_SPEECH_CONTENT_WORDS) return false;
+    // Check mic was on long enough
+    const listeningDuration = Date.now() - listeningStartRef.current;
+    if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
+    return true;
   }, []);
 
   // Begin new trial
@@ -185,6 +203,13 @@ export function DescribeGuessGame({
     setDisplayTranscript('');
     rawTranscriptRef.current = '';
     processingRef.current = false;
+    setIsEvaluating(false);
+
+    // Clear any pending feedback timer from previous trial
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
 
     if (sessionId && userId) {
       startAttempt({
@@ -214,6 +239,7 @@ export function DescribeGuessGame({
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
@@ -235,44 +261,47 @@ export function DescribeGuessGame({
 
     if (game.checkWordMatch(transcript, trial)) {
       game.recordWordRetrieval();
-      // Don't auto-evaluate yet — let the debounce handle it for full scoring
     }
   }, [transcript, game, awaitingWordAttempt]);
 
-  // Speech-end evaluation (debounced 3s after last transcript change)
-  useEffect(() => {
-    if (!transcript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+  /**
+   * Core evaluation function — extracted so it can be awaited properly.
+   * Stops mic, evaluates speech, shows feedback, then advances.
+   */
+  const runEvaluation = useCallback(async () => {
+    const trial = currentTrialRef.current;
+    if (!trial || evaluatedRef.current || processingRef.current) return;
 
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    const currentTranscript = rawTranscriptRef.current;
 
-    debounceTimeoutRef.current = setTimeout(async () => {
-      const trial = currentTrialRef.current;
-      if (!trial || evaluatedRef.current || processingRef.current) return;
-      
-      const currentTranscript = rawTranscriptRef.current;
-      if (isMostlyFiller(currentTranscript)) return;
+    // CRITICAL: Gate on substantial speech to prevent false positives
+    if (!hasSubstantialSpeech(currentTranscript)) {
+      // Not enough speech — don't evaluate, let them keep talking
+      return;
+    }
 
-      processingRef.current = true;
-      evaluatedRef.current = true;
-      setIsEvaluating(true);
+    processingRef.current = true;
+    evaluatedRef.current = true;
+    setIsEvaluating(true);
 
-      try {
-        // Check word match
-        const wordWin = game.checkWordMatch(currentTranscript, trial);
-        if (wordWin) game.recordWordRetrieval();
+    try {
+      // Check word match
+      const wordWin = game.checkWordMatch(currentTranscript, trial);
+      if (wordWin) game.recordWordRetrieval();
 
-        // Evaluate guess (2-of-3 rule) — embeddings called here only
-        const guessResult = await game.evaluateGuess(currentTranscript, trial);
+      // Evaluate guess (2-of-3 rule) — embeddings called here only
+      const guessResult = await game.evaluateGuess(currentTranscript, trial);
 
-        // Stop mic
-        stopListening();
-        setIsListening(false);
+      // Stop mic AFTER evaluation completes (not before)
+      stopListening();
+      setIsListening(false);
 
-        // Handle audio
-        let audioStoragePath: string | undefined;
-        let recordingDurationMs: number | undefined;
-        let pronunciationData: any = null;
+      // Handle audio upload in background (don't block feedback)
+      let audioStoragePath: string | undefined;
+      let recordingDurationMs: number | undefined;
+      let pronunciationData: any = null;
 
+      const audioPromise = (async () => {
         if (isRecording) {
           const recResult = await stopRecording();
           if (recResult && sessionId && userId) {
@@ -285,49 +314,26 @@ export function DescribeGuessGame({
             if (pronResult?.ok) pronunciationData = pronResult.data;
           }
         }
+      })();
 
-        if (guessResult.guessed && !wordWin) {
-          // App guessed — ask user to say the word
-          setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
-          speak(`I think it's ${trial.target}. Can you try saying it?`);
-          setAwaitingWordAttempt(true);
-          
-          // Finalize after a timeout regardless
-          setTimeout(() => {
-            const finalResult = game.finalizeTrial(currentTranscript, guessResult, false);
-            if (finalResult) {
-              logFinalAnalysis({
-                transcript: currentTranscript,
-                transcriptSource: 'browser',
-                isCorrect: finalResult.meaningWin || finalResult.wordWin,
-                errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
-                semanticSimilarity: guessResult.confidence,
-                audioStoragePath,
-                recordingDurationMs,
-                ...(pronunciationData ? {
-                  pronunciationScore: pronunciationData.pronunciationScore,
-                  gopData: pronunciationData,
-                } : {}),
-              });
-              recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
-            }
-            setShowFeedback(true);
-            setAwaitingWordAttempt(false);
+      setIsEvaluating(false);
 
-            setTimeout(() => {
-              resetAttempt();
-              game.nextTrial();
-            }, 3000);
-          }, 8000);
-        } else {
-          // Finalize immediately
-          const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin);
+      if (guessResult.guessed && !wordWin) {
+        // App guessed — ask user to say the word
+        setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
+        speak(`I think it's ${trial.target}. Can you try saying it?`);
+        setAwaitingWordAttempt(true);
+
+        // Finalize after timeout
+        feedbackTimerRef.current = setTimeout(async () => {
+          await audioPromise; // Ensure audio is done
+          const finalResult = game.finalizeTrial(currentTranscript, guessResult, false);
           if (finalResult) {
-            await logFinalAnalysis({
+            logFinalAnalysis({
               transcript: currentTranscript,
               transcriptSource: 'browser',
               isCorrect: finalResult.meaningWin || finalResult.wordWin,
-              errorType: wordWin ? 'word_retrieved' : (finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess'),
+              errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
               semanticSimilarity: guessResult.confidence,
               audioStoragePath,
               recordingDurationMs,
@@ -339,16 +345,58 @@ export function DescribeGuessGame({
             recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
           }
           setShowFeedback(true);
+          setAwaitingWordAttempt(false);
 
-          setTimeout(() => {
+          feedbackTimerRef.current = setTimeout(() => {
             resetAttempt();
             game.nextTrial();
-          }, 3000);
+          }, 3500);
+        }, 8000);
+      } else {
+        // Finalize immediately — show feedback first, THEN advance
+        await audioPromise; // Ensure audio is done
+        const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin);
+        if (finalResult) {
+          await logFinalAnalysis({
+            transcript: currentTranscript,
+            transcriptSource: 'browser',
+            isCorrect: finalResult.meaningWin || finalResult.wordWin,
+            errorType: wordWin ? 'word_retrieved' : (finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess'),
+            semanticSimilarity: guessResult.confidence,
+            audioStoragePath,
+            recordingDurationMs,
+            ...(pronunciationData ? {
+              pronunciationScore: pronunciationData.pronunciationScore,
+              gopData: pronunciationData,
+            } : {}),
+          });
+          recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
         }
-      } finally {
-        processingRef.current = false;
-        setIsEvaluating(false);
+        setShowFeedback(true);
+
+        // Wait for user to see feedback before advancing
+        feedbackTimerRef.current = setTimeout(() => {
+          resetAttempt();
+          game.nextTrial();
+        }, 3500);
       }
+    } catch (err) {
+      console.error('Evaluation error:', err);
+      setIsEvaluating(false);
+    } finally {
+      processingRef.current = false;
+    }
+  }, [game, stopListening, isRecording, stopRecording, uploadRecording, sessionId, userId,
+      analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech]);
+
+  // Speech-end evaluation (debounced 3s after last transcript change)
+  useEffect(() => {
+    if (!transcript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      runEvaluation();
     }, SPEECH_END_DEBOUNCE_MS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, showFeedback]);
@@ -360,9 +408,11 @@ export function DescribeGuessGame({
 
   const handleSkip = useCallback(() => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     promptTimersRef.current.forEach(t => clearTimeout(t));
     stopListening();
     setIsListening(false);
+    setIsEvaluating(false);
     if (isRecording) stopRecording();
     resetAttempt();
     game.nextTrial();
@@ -438,9 +488,8 @@ export function DescribeGuessGame({
       {!showFeedback && !awaitingWordAttempt && (
         <div className="flex flex-wrap justify-center gap-2">
           {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip, i) => {
-            const isNew = i >= visiblePrompts && i < visiblePrompts + 2 ? false : true;
-            const isVisible = i < visiblePrompts + 2; // Show first 2 always + cooldown ones
-            if (i > 1 && i >= visiblePrompts + 2) return null; // Only first 2 + unlocked
+            const isVisible = i < visiblePrompts + 2;
+            if (i > 1 && i >= visiblePrompts + 2) return null;
             return (
               <Button
                 key={chip.featureType}
@@ -532,7 +581,7 @@ export function DescribeGuessGame({
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
           )}>
             {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-            {isListening ? 'Listening...' : 'Mic off'}
+            {isListening ? 'Listening...' : (showFeedback ? 'Next up...' : 'Mic off')}
           </div>
         )}
 
