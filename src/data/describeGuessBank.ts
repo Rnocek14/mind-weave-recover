@@ -68,7 +68,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_chair',
     target: 'chair',
-    photoBankId: 'chair_1',
+    photoBankId: 'chair_2',
     acceptedWords: ['chair', 'seat'],
     wordAliases: { chair: ['chairs', 'share'], seat: ['seats'] },
     featureKeywords: {
@@ -84,7 +84,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_door',
     target: 'door',
-    photoBankId: 'door_1',
+    photoBankId: 'door_2',
     acceptedWords: ['door', 'doorway'],
     wordAliases: { door: ['doors', 'dor'] },
     featureKeywords: {
@@ -100,7 +100,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_key',
     target: 'key',
-    photoBankId: 'key_1',
+    photoBankId: 'key_2',
     acceptedWords: ['key'],
     wordAliases: { key: ['keys', 'ki'] },
     featureKeywords: {
@@ -116,7 +116,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_shoe',
     target: 'shoe',
-    photoBankId: 'shoe_1',
+    photoBankId: 'shoe_2',
     acceptedWords: ['shoe', 'sneaker', 'boot'],
     wordAliases: { shoe: ['shoes', 'shoo'], sneaker: ['sneakers'], boot: ['boots'] },
     featureKeywords: {
@@ -132,7 +132,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_phone',
     target: 'phone',
-    photoBankId: 'phone_1',
+    photoBankId: 'phone_2',
     acceptedWords: ['phone', 'telephone', 'cell phone', 'mobile'],
     wordAliases: { phone: ['phones', 'fone'], telephone: ['telephones'], mobile: ['mobiles'] },
     featureKeywords: {
@@ -150,7 +150,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_spoon',
     target: 'spoon',
-    photoBankId: 'spoon_1',
+    photoBankId: 'spoon_2',
     acceptedWords: ['spoon'],
     wordAliases: { spoon: ['spoons', 'spun'] },
     featureKeywords: {
@@ -166,7 +166,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_bird',
     target: 'bird',
-    photoBankId: 'bird_1',
+    photoBankId: 'bird_2',
     acceptedWords: ['bird', 'robin', 'sparrow'],
     wordAliases: { bird: ['birds', 'berd'] },
     featureKeywords: {
@@ -182,7 +182,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_watch',
     target: 'watch',
-    photoBankId: 'watch_1',
+    photoBankId: 'watch_3',
     acceptedWords: ['watch', 'wristwatch'],
     wordAliases: { watch: ['watches', 'wotch'], wristwatch: ['wrist watch'] },
     featureKeywords: {
@@ -198,7 +198,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_flower',
     target: 'flower',
-    photoBankId: 'flower_1',
+    photoBankId: 'flower_2',
     acceptedWords: ['flower', 'rose', 'daisy', 'blossom'],
     wordAliases: { flower: ['flowers', 'flour'], rose: ['roses'] },
     featureKeywords: {
