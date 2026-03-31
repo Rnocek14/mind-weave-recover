@@ -155,7 +155,8 @@ export default function TwoCluesExercise() {
             totalScore: results.reduce((sum, r) => sum + r.score, 0),
           }
         }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
