@@ -14,7 +14,7 @@ import { useExerciseConfig } from '@/hooks/useExerciseConfig';
 import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
@@ -181,7 +181,7 @@ export default function PhonologicalExercise() {
   return (
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
       {fromLesson && <SessionSidePanel />}
-      {fromLesson && <SessionProgressBubble />}
+      {fromLesson && <InlineSessionProgress />}
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">

@@ -13,7 +13,7 @@ import { ThoughtContinuationGame } from '@/components/ThoughtContinuationGame';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
@@ -130,7 +130,6 @@ export default function ThoughtContinuationExercise() {
     
     return (
       <div className="min-h-screen bg-background p-4">
-        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto pt-12">
           <Card className="border-2 border-primary/20">
             <CardHeader className="text-center pb-2">
@@ -191,9 +190,8 @@ export default function ThoughtContinuationExercise() {
   if (gameStarted) {
     return (
       <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
-        {fromLesson && <SessionProgressBubble />}
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
-          <div className="flex items-center justify-between max-w-xl mx-auto">
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4">
+          <div className="flex items-center justify-between max-w-xl mx-auto h-14">
             <Button variant="ghost" size="sm" onClick={handleExit}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Exit
@@ -201,6 +199,7 @@ export default function ThoughtContinuationExercise() {
             <h1 className="text-lg font-semibold">Finish the Thought</h1>
             <div className="w-16" />
           </div>
+          {fromLesson && <InlineSessionProgress />}
         </header>
         
         <main className="pt-6">

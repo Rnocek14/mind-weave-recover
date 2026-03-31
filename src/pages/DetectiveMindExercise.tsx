@@ -21,7 +21,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 const EXERCISE_SLUG = 'detective_mind';
@@ -163,9 +163,8 @@ export default function DetectiveMindExercise() {
             <Home className="h-4 w-4" />
           </Button>
         </div>
+        {fromLesson && <InlineSessionProgress />}
       </header>
-
-      {fromLesson && <SessionProgressBubble />}
 
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         {completed ? (

@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -110,7 +110,6 @@ export default function ConversationPartnerExercise() {
   if (sessionSummary) {
     return (
       <div className="min-h-screen bg-background p-4">
-        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto space-y-6 pt-8">
           <Button
             variant="ghost"
@@ -245,7 +244,6 @@ export default function ConversationPartnerExercise() {
   // Game screen
   return (
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
-      {fromLesson && <SessionProgressBubble />}
       <div className="max-w-md mx-auto pt-4">
         <div className="flex items-center gap-2 mb-6">
           <MessageCircle className="w-5 h-5 text-primary" />
