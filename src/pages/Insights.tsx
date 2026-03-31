@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, AlertCircle, FileText,
-  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle
+  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle, FlaskConical
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
