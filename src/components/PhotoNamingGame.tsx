@@ -1247,6 +1247,12 @@ export const PhotoNamingGame = ({
     }
   }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, startAttempt, triggerAutoCue, isPlayingChoices, isCreatingSession]);
 
+  useEffect(() => {
+    if (isListening || speechError) {
+      setMicAutoStartPending(false);
+    }
+  }, [isListening, speechError]);
+
   // Handle game completion - end session properly
   useEffect(() => {
     if (state.isComplete) {
