@@ -331,7 +331,7 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
 
         // Speak with mic off, then re-enable mic after TTS finishes
-        speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
+        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(() => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
