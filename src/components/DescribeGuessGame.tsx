@@ -324,14 +324,15 @@ export function DescribeGuessGame({
       if (guessResult.guessed && !wordWin) {
         // App guessed — ask user to say the word, restart mic for their attempt
         setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
-        speak(`I think it's ${trial.target}. Can you try saying it?`);
         setAwaitingWordAttempt(true);
 
-        // Re-enable mic so user can attempt saying the word
-        setTimeout(() => {
+        // Speak FIRST with mic off, THEN re-enable mic after TTS finishes
+        // This prevents the mic from picking up Maya's own voice
+        speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
+          // Re-enable mic only after TTS is done speaking
           startListening();
           setIsListening(true);
-        }, 500);
+        });
 
         // Finalize after timeout
         feedbackTimerRef.current = setTimeout(async () => {
