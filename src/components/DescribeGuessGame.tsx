@@ -476,40 +476,41 @@ export function DescribeGuessGame({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-3 h-full flex flex-col">
-      {/* Progress */}
-      <div className="space-y-1 shrink-0">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Picture {game.currentIndex + 1} of {game.totalTrials}</span>
-          <div className="flex gap-3">
-            <span>🎯 {game.meaningWins}</span>
-            <span>💬 {game.wordWins}</span>
-            <span>⭐ {game.strategyWins}</span>
+    <div className="max-w-2xl mx-auto h-full flex flex-col gap-2">
+      {/* Progress — compact */}
+      <div className="shrink-0">
+        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+          <span>{game.currentIndex + 1}/{game.totalTrials}</span>
+          <div className="flex gap-2">
+            <span>🎯{game.meaningWins}</span>
+            <span>💬{game.wordWins}</span>
+            <span>⭐{game.strategyWins}</span>
           </div>
         </div>
-        <Progress value={game.progress} className="h-2" />
+        <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction */}
+      {/* Instruction — short on mobile */}
       <div className="text-center shrink-0">
-        <Badge variant="outline" className="text-base px-4 py-1">
-          🗣️ Describe this picture — don't worry if you can't say the exact word
-        </Badge>
+        <p className="text-sm text-muted-foreground">
+          🗣️ <span className="hidden sm:inline">Describe this picture — don't worry if you can't say the exact word</span>
+          <span className="sm:hidden">Describe what you see</span>
+        </p>
       </div>
 
-      {/* Image Card */}
-      <Card className="border-2 overflow-hidden shrink min-h-0 flex-1">
-        <CardContent className="p-0">
+      {/* Image Card — fills available space */}
+      <Card className="border-2 overflow-hidden flex-1 min-h-0">
+        <CardContent className="p-0 h-full">
           {currentImage ? (
-            <div className="h-full max-h-[180px] sm:max-h-[240px] md:max-h-[280px] mx-auto flex items-center justify-center bg-muted/30">
+            <div className="h-full flex items-center justify-center bg-muted/30">
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-[180px] sm:max-h-[240px] md:max-h-[280px] w-auto object-contain"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
           ) : (
-            <div className="h-[180px] sm:h-[240px] md:h-[280px] flex items-center justify-center bg-muted/30 text-muted-foreground">
+            <div className="h-full min-h-[120px] flex items-center justify-center bg-muted/30 text-muted-foreground">
               Loading image...
             </div>
           )}
@@ -518,7 +519,7 @@ export function DescribeGuessGame({
 
       {/* Prompt Chips (appear on cooldown) */}
       {!showFeedback && !awaitingWordAttempt && (
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-1.5 shrink-0">
           {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip, i) => {
             const isVisible = i < visiblePrompts + 2;
             if (i > 1 && i >= visiblePrompts + 2) return null;
@@ -529,7 +530,7 @@ export function DescribeGuessGame({
                 size="sm"
                 onClick={() => handleChipTap(chip)}
                 className={cn(
-                  'transition-all',
+                  'transition-all text-xs h-8',
                   i > 1 && i >= visiblePrompts ? 'opacity-0 pointer-events-none' : 'opacity-100',
                   game.featureTypesUsed.has(chip.featureType) && 'ring-2 ring-primary/50',
                 )}
@@ -544,57 +545,57 @@ export function DescribeGuessGame({
 
       {/* Transcript */}
       {displayTranscript && !showFeedback && (
-        <div className="text-center text-lg text-muted-foreground">
+        <div className="text-center text-sm sm:text-lg text-muted-foreground shrink-0">
           Heard: "<span className="font-medium text-foreground">{displayTranscript}</span>"
         </div>
       )}
 
       {/* Guess message */}
       {guessMessage && !showFeedback && (
-        <Card className="border-2 border-primary bg-primary/5">
-          <CardContent className="pt-4 pb-4 text-center">
-            <p className="text-lg font-medium text-primary">{guessMessage}</p>
+        <Card className="border-2 border-primary bg-primary/5 shrink-0">
+          <CardContent className="py-3 text-center">
+            <p className="text-base font-medium text-primary">{guessMessage}</p>
           </CardContent>
         </Card>
       )}
 
       {/* Feedback */}
       {showFeedback && game.lastResult && (
-        <Card className="border-2 border-primary/50 bg-primary/5">
-          <CardContent className="pt-4 pb-4 text-center space-y-3">
+        <Card className="border-2 border-primary/50 bg-primary/5 shrink-0">
+          <CardContent className="py-3 text-center space-y-2">
             <div className="flex justify-center gap-1">
               {Array.from({ length: getStarCount(game.lastResult) }, (_, i) => (
-                <Star key={i} className="h-6 w-6 fill-amber-400 text-amber-400" />
+                <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
               ))}
               {Array.from({ length: 3 - getStarCount(game.lastResult) }, (_, i) => (
-                <Star key={`empty-${i}`} className="h-6 w-6 text-muted-foreground/30" />
+                <Star key={`empty-${i}`} className="h-5 w-5 text-muted-foreground/30" />
               ))}
             </div>
             
-            <div className="flex flex-wrap justify-center gap-2 text-sm">
+            <div className="flex flex-wrap justify-center gap-1.5 text-xs">
               {game.lastResult.meaningWin && (
                 <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  🎯 Meaning Win
+                  🎯 Meaning
                 </Badge>
               )}
               {game.lastResult.wordWin && (
                 <Badge className="bg-primary/20 text-primary">
-                  💬 Word Win
+                  💬 Word
                 </Badge>
               )}
               {game.lastResult.strategyWin && (
                 <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  ⭐ Strategy Win
+                  ⭐ Strategy
                 </Badge>
               )}
               {game.lastResult.communicationWin && !game.lastResult.meaningWin && !game.lastResult.wordWin && (
                 <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                  🗣️ You explained it clearly
+                  🗣️ Clear
                 </Badge>
               )}
             </div>
 
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               The word was: <strong className="text-foreground">{game.lastResult.target}</strong>
             </p>
           </CardContent>
@@ -602,14 +603,14 @@ export function DescribeGuessGame({
       )}
 
       {/* Controls */}
-      <div className="flex justify-center gap-3 shrink-0">
+      <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
-          <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
+          <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
             Thinking...
           </Badge>
         ) : (
           <div className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
+            'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
           )}>
             {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
@@ -617,7 +618,7 @@ export function DescribeGuessGame({
           </div>
         )}
 
-        <Button variant="ghost" size="sm" onClick={handleSkip}>
+        <Button variant="ghost" size="sm" onClick={handleSkip} className="h-8">
           <SkipForward className="h-4 w-4 mr-1" /> Skip
         </Button>
       </div>
