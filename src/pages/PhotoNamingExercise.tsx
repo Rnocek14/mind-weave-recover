@@ -676,11 +676,11 @@ function PhotoNamingExerciseInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={fromLesson ? "h-screen bg-background flex flex-col overflow-hidden" : "min-h-screen bg-background flex flex-col"}>
       {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
       <LiveAnalysisPanel />
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 max-w-4xl flex-1 flex flex-col">
+      <div className="container mx-auto px-2 sm:px-4 py-2 max-w-4xl flex-1 flex flex-col min-h-0">
         {/* Compact header on mobile */}
         <div className="flex flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4">
           <div className="flex items-center gap-1 sm:gap-2">
