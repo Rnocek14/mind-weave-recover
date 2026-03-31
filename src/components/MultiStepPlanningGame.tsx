@@ -202,7 +202,7 @@ export function MultiStepPlanningGame({
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           <ListChecks className="h-4 w-4 text-primary" />
@@ -210,7 +210,7 @@ export function MultiStepPlanningGame({
         </div>
         <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
       </div>
-      <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
+      <Progress value={(currentIndex / totalItems) * 100} className="h-1.5" />
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-3">

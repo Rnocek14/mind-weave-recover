@@ -168,7 +168,7 @@ export function DetectiveMindGame({
   const progressPercent = (currentIndex / totalCases) * 100;
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
       {/* Header bar */}
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export function DetectiveMindGame({
         </div>
       </div>
 
-      <Progress value={progressPercent} className="h-2" />
+      <Progress value={progressPercent} className="h-1.5" />
 
       {/* Case title */}
       <div className="flex items-center gap-2 py-2">

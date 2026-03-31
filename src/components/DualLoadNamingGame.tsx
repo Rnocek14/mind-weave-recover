@@ -272,7 +272,7 @@ export function DualLoadNamingGame({
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" />
@@ -280,7 +280,7 @@ export function DualLoadNamingGame({
         </div>
         <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
       </div>
-      <Progress value={(currentSetIndex / totalSets) * 100} className="h-2" />
+      <Progress value={(currentSetIndex / totalSets) * 100} className="h-1.5" />
 
       {/* Memorize phase */}
       {phase === 'memorize' && (

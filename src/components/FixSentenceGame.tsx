@@ -371,26 +371,26 @@ export function FixSentenceGame({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-2 sm:space-y-6">
       {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Trial {game.currentIndex + 1} of {game.totalTrials}</span>
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+          <span>{game.currentIndex + 1}/{game.totalTrials}</span>
           <span>{game.correctCount} correct</span>
         </div>
-        <Progress value={game.progress} className="h-2" />
+        <Progress value={game.progress} className="h-1.5" />
       </div>
 
       {/* Instruction */}
       <div className="text-center">
-        <Badge variant="outline" className="text-base px-4 py-1">
+        <p className="text-sm text-muted-foreground">
           🔧 Find the wrong word and say a better one
-        </Badge>
+        </p>
       </div>
 
       {/* Sentence Card */}
       <Card className="border-2">
-        <CardContent className="pt-8 pb-8 px-6">
+        <CardContent className="pt-4 pb-4 sm:pt-8 sm:pb-8 px-4 sm:px-6">
           <div className="space-y-4">
             {renderSentence()}
             
