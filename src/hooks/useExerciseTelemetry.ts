@@ -92,6 +92,13 @@ export const useExerciseTelemetry = (
   const [trialStartTime, setTrialStartTime] = useState<number | null>(null);
   const { trackTrial: trackEncouragement, reset: resetEncouragement } = useMicroEncouragement();
 
+  // Reset encouragement state when exercise slug changes (new exercise)
+  const prevSlugRef = useRef(exerciseSlug);
+  if (prevSlugRef.current !== exerciseSlug) {
+    prevSlugRef.current = exerciseSlug;
+    resetEncouragement();
+  }
+
   const startTrial = useCallback(() => {
     setTrialStartTime(Date.now());
     setTrialNumber((prev) => prev + 1);
