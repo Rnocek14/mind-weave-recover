@@ -2206,24 +2206,24 @@ export const PhotoNamingGame = ({
 
       {/* Show transcript when listening */}
       {useVoice && isListening && transcript && (
-        <div className="text-sm text-center p-2 bg-muted rounded">
+        <div className="text-xs text-center px-2 py-1 bg-muted rounded">
           Heard: "{transcript}"
         </div>
       )}
       
-      {/* Phase 2: Gentle retry prompt when ASR doesn't match */}
+      {/* Retry prompt */}
       {retryPrompt && !showFeedback && !timedOut && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm animate-fade-in">
-          <Mic className="w-4 h-4 text-primary animate-pulse" />
+        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-primary/5 border border-primary/20 rounded-lg text-xs animate-fade-in">
+          <Mic className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
           <span className="text-primary">{retryPrompt}</span>
         </div>
       )}
       
-      {/* Phase 3: Visual indicator when voice is unexpectedly off - debounced to prevent flickering */}
+      {/* Mic paused indicator */}
       {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-warning/10 border border-warning rounded-lg text-sm animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-warning" />
-          <span className="text-warning">Voice paused - tap the mic to restart</span>
+        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
+          <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
+          <span className="text-warning">Voice paused — tap mic to restart</span>
         </div>
       )}
 
