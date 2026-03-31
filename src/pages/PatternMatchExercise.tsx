@@ -32,6 +32,7 @@ export default function PatternMatchExercise() {
   const fromLesson = restored.fromLesson;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
 
