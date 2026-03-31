@@ -238,12 +238,14 @@ export default function ConversationCoachExercise() {
   // Active game
   return (
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
-      {fromLesson && <SessionProgressBubble />}
-      <header className="p-4 flex items-center gap-3 border-b">
-        <Button variant="ghost" size="icon" onClick={handleExit}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">Conversation Coach</h1>
+      <header className="border-b">
+        <div className="p-4 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleExit}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Conversation Coach</h1>
+        </div>
+        {fromLesson && <InlineSessionProgress />}
       </header>
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full">

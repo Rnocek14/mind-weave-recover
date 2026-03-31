@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
