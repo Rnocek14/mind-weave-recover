@@ -2159,10 +2159,10 @@ export const PhotoNamingGame = ({
               <span className="text-muted-foreground">Setting up...</span>
             </>
           )}
-          {useVoice && (isListening || micAutoStartPending) && !isAnalyzing && !processingAnswer && (
+          {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
             <>
-              <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse shrink-0" />
-              <span className="text-destructive font-medium">🎙️ Listening...</span>
+              <div className="w-2.5 h-2.5 bg-primary rounded-full shrink-0" />
+              <span className="text-primary font-medium">🎙️ Mic on</span>
             </>
           )}
           {processingAnswer && !isAnalyzing && (
@@ -2250,8 +2250,8 @@ export const PhotoNamingGame = ({
           </button>
 
           <div className="relative">
-            {useVoice && (isListening || micAutoStartPending) && (
-              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping pointer-events-none" />
+            {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
+              <div className="absolute inset-0 rounded-full bg-primary/10 ring-2 ring-primary/30 pointer-events-none" />
             )}
             <button
               type="button"
@@ -2284,21 +2284,21 @@ export const PhotoNamingGame = ({
                 event.preventDefault();
               }}
               className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                useVoice && (isListening || micAutoStartPending)
-                  ? 'bg-primary/80 text-primary-foreground ring-2 ring-primary/50'
+                useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing
+                  ? 'bg-primary text-primary-foreground ring-2 ring-primary/40'
                   : 'bg-black/40 text-white hover:bg-black/60'
               }`}
             >
-              <div className={useVoice && (isListening || micAutoStartPending) ? 'animate-pulse' : ''}>
-                {useVoice || isListening || micAutoStartPending ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              <div>
+                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </div>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Show transcript when listening */}
-      {useVoice && isListening && transcript && (
+      {/* Show transcript while voice mode is active */}
+      {useVoice && transcript && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && (
         <div className="text-xs text-center px-2 py-1 bg-muted rounded">
           Heard: "{transcript}"
         </div>
