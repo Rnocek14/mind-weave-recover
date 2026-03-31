@@ -182,7 +182,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_watch',
     target: 'watch',
-    photoBankId: 'watch_1',
+    photoBankId: 'watch_3',
     acceptedWords: ['watch', 'wristwatch'],
     wordAliases: { watch: ['watches', 'wotch'], wristwatch: ['wrist watch'] },
     featureKeywords: {
