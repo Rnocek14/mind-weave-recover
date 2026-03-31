@@ -29,9 +29,10 @@ export default function PhonologicalExercise() {
   const { toast } = useToast();
   
   // Extract lesson flow state
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  const restored = useRestoredLessonContext('phonological-awareness');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
   
   // Shared adaptation contract - provides focusPhonemes from profile/engine

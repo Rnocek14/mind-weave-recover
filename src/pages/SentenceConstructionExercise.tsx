@@ -36,8 +36,9 @@ const SentenceConstructionExercise = () => {
   const { user } = useAuth();
   
   // Extract lesson flow state
-  const fromLesson = location.state?.fromLesson === true;
-  const lessonSessionId = location.state?.sessionId as string | undefined;
+  const restored = useRestoredLessonContext('sentence-construction');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
