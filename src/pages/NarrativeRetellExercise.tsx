@@ -29,12 +29,30 @@ export default function NarrativeRetellExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const hasAdvancedLessonRef = useRef(false);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  // Restore lesson context from sessionStorage if route state is lost
+  const restoredLessonContext = useMemo(() => {
+    if (location.state?.fromLesson) return null;
+    try {
+      const saved = sessionStorage.getItem('lessonFlowState');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (parsed?.lesson?.exercises?.some((e: any) => 
+        e.slug === 'narrative-retell' || e.slug === 'narrative_retell'
+      )) {
+        return { fromLesson: true, sessionId: parsed.sessionId, adaptations: parsed.adaptations };
+      }
+    } catch { /* ignore */ }
+    return null;
+  }, [location.state]);
+
+  const fromLesson = location.state?.fromLesson ?? restoredLessonContext?.fromLesson ?? false;
+  const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
   // Shared adaptation contract — profile-aware, not directly phoneme-targeted
