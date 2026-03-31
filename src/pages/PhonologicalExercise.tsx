@@ -20,6 +20,7 @@ import { getTrialsByTargetWords, getMixedTrials } from '@/data/phonologicalBank'
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
