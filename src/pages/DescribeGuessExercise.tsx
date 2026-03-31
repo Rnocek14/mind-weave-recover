@@ -5,7 +5,7 @@
  * Now consumes shared adaptation contract.
  */
 
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
 import { DescribeGuessTrialResult } from '@/hooks/useDescribeGuessGame';
@@ -38,13 +38,44 @@ export default function DescribeGuessExercise() {
   const completionTimeoutRef = useRef<number | null>(null);
   const hasAdvancedLessonRef = useRef(false);
 
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId ?? null;
+  const restoredLessonContext = useMemo(() => {
+    try {
+      const savedState = sessionStorage.getItem('lessonFlowState');
+      if (!savedState) return null;
+
+      const parsed = JSON.parse(savedState);
+      const savedIndex = typeof parsed?.currentBlockIndex === 'number' ? parsed.currentBlockIndex : -1;
+      const savedBlock = parsed?.lesson?.blocks?.[savedIndex];
+      const savedExerciseId = savedBlock?.exerciseId;
+      const normalizedSavedExerciseId = typeof savedExerciseId === 'string'
+        ? savedExerciseId.replace(/_/g, '-')
+        : null;
+
+      if (!savedBlock || normalizedSavedExerciseId !== 'describe-guess') {
+        return null;
+      }
+
+      return {
+        fromLesson: Boolean(parsed?.sessionId),
+        sessionId: parsed?.sessionId ?? null,
+        adaptations: savedBlock?.adaptations,
+      };
+    } catch (error) {
+      console.warn('[DescribeGuess] Failed to restore lesson context:', error);
+      return null;
+    }
+  }, [location.key]);
+
+  const hasRouteLessonContext = Boolean(location.state?.fromLesson || location.state?.sessionId);
+  const fromLesson = hasRouteLessonContext
+    ? Boolean(location.state?.fromLesson || location.state?.sessionId)
+    : (restoredLessonContext?.fromLesson ?? false);
+  const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
-    lessonAdaptations: location.state?.adaptations,
+    lessonAdaptations: location.state?.adaptations ?? restoredLessonContext?.adaptations,
     lessonFocusPhonemes: location.state?.focusPhonemes,
     defaultErrorType: 'semantic_paraphasia',
   });
@@ -140,7 +171,7 @@ export default function DescribeGuessExercise() {
     if (fromLesson) {
       completionTimeoutRef.current = window.setTimeout(() => {
         resumeLessonFlow(results);
-      }, 1200);
+      }, 400);
     }
   }, [fromLesson, completeSession, resumeLessonFlow]);
 
@@ -187,8 +218,10 @@ export default function DescribeGuessExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
-            <p className="text-muted-foreground">Amazing describing practice!</p>
-            <Button onClick={handleContinue} size="lg">Continue</Button>
+            <p className="text-muted-foreground">
+              {fromLesson ? 'Loading next exercise…' : 'Amazing describing practice!'}
+            </p>
+            {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
           <DescribeGuessGame
