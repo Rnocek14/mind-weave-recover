@@ -2064,7 +2064,7 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-4">
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
       {/* Progress bar - compact on mobile */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
@@ -2128,13 +2128,13 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Image or Audio-Only Indicator — large on mobile for visibility */}
-      <div className="relative flex-1 min-h-0">
+      {/* Image — grows to fill available space */}
+      <div className="relative flex-1 min-h-[120px]">
         {state.currentTrial.imageUrl ? (
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-48 sm:h-56 md:h-64 object-contain rounded-lg bg-muted"
+            className="w-full h-full object-contain rounded-lg bg-muted"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
@@ -2155,8 +2155,8 @@ export const PhotoNamingGame = ({
             </Button>
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <Camera className="w-6 h-6 text-muted-foreground" />
+        <div className="absolute top-1 right-1">
+          <Camera className="w-5 h-5 text-muted-foreground/50" />
         </div>
         
         {/* Timer for hard mode */}
@@ -2182,13 +2182,9 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Voice & hint controls - single compact row */}
-      <div className="flex items-center justify-between gap-1">
-        <p className="text-xs text-muted-foreground hidden sm:block">
-          {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
-        </p>
+      <div className="flex items-center justify-end gap-1 shrink-0">
         
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-1">
           <div className="relative">
             {isListening && (
               <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
@@ -2250,7 +2246,7 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-2">
+        <div className="space-y-2 shrink-0">
           {/* Hear All Choices Button with Speed Control */}
           <div className="flex items-center gap-1.5">
             <Button
