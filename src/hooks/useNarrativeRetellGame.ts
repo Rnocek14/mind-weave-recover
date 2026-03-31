@@ -20,6 +20,10 @@ export interface NarrativeTrialResult {
   eventsTotal: number;
   /** Event coverage ratio (0-1) */
   eventCoverage: number;
+  /** Which key events were matched */
+  matchedEvents: string[];
+  /** All key events for reference */
+  allKeyEvents: string[];
   /** Coherence proxy: clause count / expected */
   coherenceScore: number;
   /** On-topic score (Jaccard with story text) */
@@ -58,7 +62,8 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     if (!transcript || transcript.trim().length < 3) {
       return {
         storyId: story.id, transcript: '', eventsFound: 0, eventsTotal: story.keyEvents.length,
-        eventCoverage: 0, coherenceScore: 0, onTopicScore: 0, durationMs, meanUtteranceLength: 0,
+        eventCoverage: 0, matchedEvents: [], allKeyEvents: story.keyEvents,
+        coherenceScore: 0, onTopicScore: 0, durationMs, meanUtteranceLength: 0,
         wordCount: 0, skipped: true,
         depthTelemetry: { taskType: 'narrative_retell', eventCoverage: 0, coherenceScore: 0, ciuRate: null, meanUtteranceLength: 0 },
       };
@@ -81,6 +86,8 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
       eventsFound: score.conceptsFound,
       eventsTotal: score.conceptsTotal,
       eventCoverage: score.coverageRatio,
+      matchedEvents: score.matchedConcepts,
+      allKeyEvents: story.keyEvents,
       coherenceScore,
       onTopicScore: score.onTopicScore,
       durationMs,
