@@ -132,7 +132,7 @@ export const PhotoNamingGame = ({
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
   const [currentCueText, setCurrentCueText] = useState('');
-  const [useVoice, setUseVoice] = useState(false); // Start off until user explicitly enables mic
+  const [useVoice, setUseVoice] = useState(true); // Auto-start mic
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
