@@ -192,7 +192,8 @@ export default function PatternMatchExercise() {
             console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
           }}
         />
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
