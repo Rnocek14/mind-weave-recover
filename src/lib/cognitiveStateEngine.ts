@@ -40,7 +40,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Semantic Depth',
     patientLabel: 'Word Meaning',
     description: 'Meaning, categorization, and conceptual reasoning',
-    exerciseSlugs: ['meaning-match', 'semantic-features', 'category-sorting', 'odd-one-out', 'abstract-compare'],
+    exerciseSlugs: ['meaning-match', 'semantic-features', 'category-sorting', 'odd-one-out', 'abstract-compare', 'synonym-generator'],
     icon: 'Layers',
   },
   {
