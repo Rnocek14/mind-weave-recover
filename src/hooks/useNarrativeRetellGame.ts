@@ -86,6 +86,8 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
       eventsFound: score.conceptsFound,
       eventsTotal: score.conceptsTotal,
       eventCoverage: score.coverageRatio,
+      matchedEvents: score.matchedConcepts,
+      allKeyEvents: story.keyEvents,
       coherenceScore,
       onTopicScore: score.onTopicScore,
       durationMs,
