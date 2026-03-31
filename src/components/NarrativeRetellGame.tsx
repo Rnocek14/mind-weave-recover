@@ -352,6 +352,7 @@ export function NarrativeRetellGame({
               <span className="font-semibold text-sm">
                 Tell the story in your own words...
               </span>
+              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
             </div>
 
             {(fullTranscript || collectedTranscript) && (

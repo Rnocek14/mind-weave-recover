@@ -340,6 +340,7 @@ export function ExplainWhyPrompt({
               <span className="font-semibold text-sm">
                 {isListening ? 'Listening...' : 'Starting...'}
               </span>
+              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
             </div>
             
             {(liveTranscript || collectedTranscript) && (

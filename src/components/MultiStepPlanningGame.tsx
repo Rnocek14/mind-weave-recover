@@ -265,6 +265,7 @@ export function MultiStepPlanningGame({
                 )}
               </div>
               <span className="font-semibold text-sm">Tell me the steps...</span>
+              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
             </div>
             {(fullTranscript || collectedTranscript) && (
               <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
