@@ -351,7 +351,7 @@ export function NarrativeRetellGame({
             lastResult.eventCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
-            <CardContent className="pt-4 space-y-2">
+            <CardContent className="pt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">
                   {lastResult.eventCoverage >= 0.6 ? '🧠' : lastResult.eventCoverage >= 0.3 ? '👍' : '💡'}
@@ -363,6 +363,25 @@ export function NarrativeRetellGame({
                 <span className="ml-auto text-xs text-muted-foreground">
                   {lastResult.eventsFound}/{lastResult.eventsTotal} key events
                 </span>
+              </div>
+
+              {/* Key events checklist */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Key events:</p>
+                {lastResult.allKeyEvents.map((event, i) => {
+                  const matched = lastResult.matchedEvents.some(
+                    m => m.toLowerCase() === event.toLowerCase()
+                  );
+                  return (
+                    <div key={i} className={cn(
+                      "flex items-center gap-2 text-sm rounded-md px-2 py-1",
+                      matched ? "bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-300" : "bg-muted/40 text-muted-foreground"
+                    )}>
+                      <span>{matched ? '✅' : '○'}</span>
+                      <span className={cn(!matched && "opacity-70")}>{event}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {lastResult.transcript && (
