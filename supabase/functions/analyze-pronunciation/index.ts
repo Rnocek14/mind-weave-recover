@@ -130,6 +130,22 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
+
+    // Guard: reject audio over 1MB base64 (~750KB binary ≈ ~23 seconds at 16kHz WAV)
+    const MAX_BASE64_LEN = 1_400_000; // ~1MB binary
+    if (audioBlob.length > MAX_BASE64_LEN) {
+      console.warn('[analyze-pronunciation] Audio too large, rejecting', { 
+        pronRequestId, audioLen: audioBlob.length, maxLen: MAX_BASE64_LEN 
+      });
+      const response: ErrorResponse = {
+        ok: false,
+        error: { stage: 'validation', message: `Audio too large (${(audioBlob.length / 1_000_000).toFixed(1)}MB). Max ~1MB. Please record a shorter clip.` }
+      };
+      return new Response(JSON.stringify(response), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
     if (!referenceText) {
       const response: ErrorResponse = {

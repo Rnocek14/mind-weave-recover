@@ -9,6 +9,7 @@
  */
 
 const TARGET_SAMPLE_RATE = 16000;
+const MAX_AUDIO_DURATION_SEC = 10; // Cap to prevent edge function memory crashes
 
 self.onmessage = async (e) => {
   const { arrayBuffer, id } = e.data;
@@ -90,13 +91,19 @@ self.onmessage = async (e) => {
     let samples;
     try {
       // Always use OfflineAudioContext for resampling - sized correctly to output
-      const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
+      // Cap duration to prevent huge WAV files crashing edge functions
+      const cappedDuration = Math.min(audioBuffer.duration, MAX_AUDIO_DURATION_SEC);
+      const outputLength = Math.ceil(cappedDuration * TARGET_SAMPLE_RATE);
       const resampleCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
       
       const source = resampleCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(resampleCtx.destination);
       source.start(0);
+      if (cappedDuration < audioBuffer.duration) {
+        source.stop(cappedDuration);
+        console.log('[WAV Worker] Audio capped from', audioBuffer.duration.toFixed(1) + 's to', cappedDuration + 's');
+      }
       
       const resampledBuffer = await resampleCtx.startRendering();
       samples = resampledBuffer.getChannelData(0);
