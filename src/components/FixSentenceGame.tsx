@@ -173,6 +173,7 @@ export function FixSentenceGame({
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
