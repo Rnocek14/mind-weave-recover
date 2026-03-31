@@ -243,21 +243,29 @@ export default function ConversationPartnerExercise() {
 
   // Game screen
   return (
-    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background p-4 flex flex-col`}>
-      <div className="max-w-md mx-auto pt-4">
-        <div className="flex items-center gap-2 mb-6">
-          <MessageCircle className="w-5 h-5 text-primary" />
-          <h1 className="font-semibold">Free Talk</h1>
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
+      <header className="border-b shrink-0">
+        <div className="flex items-center justify-between px-4 h-14">
+          <Button variant="ghost" size="sm" onClick={handleExit}>
+            <ArrowLeft className="w-4 h-4 mr-2" />Back
+          </Button>
+          <h1 className="text-lg font-semibold">Free Talk</h1>
+          <div className="w-16" />
         </div>
+        {fromLesson && <InlineSessionProgress />}
+      </header>
 
-        <ConversationPartnerGame
-          userId={user.id}
-          profileId={activeProfile?.id || ''}
-          sessionId={activeSessionId}
-          onComplete={handleComplete}
-          onExit={handleExit}
-        />
-      </div>
+      <main className="flex-1 p-4 min-h-0 overflow-auto">
+        <div className="max-w-md mx-auto">
+          <ConversationPartnerGame
+            userId={user.id}
+            profileId={activeProfile?.id || ''}
+            sessionId={activeSessionId}
+            onComplete={handleComplete}
+            onExit={handleExit}
+          />
+        </div>
+      </main>
       {fromLesson && <SessionSidePanel />}
     </div>
   );
