@@ -166,10 +166,18 @@ export default function ThoughtContinuationExercise() {
               
               <div className="flex flex-col gap-3">
                 {fromLesson ? (
-                  <Button onClick={handleContinue} className="w-full gap-2">
-                    Continue Lesson
-                  </Button>
+                  <p className="text-sm text-muted-foreground animate-pulse">Loading next exercise…</p>
                 ) : (
+                  <>
+                    <Button onClick={handlePlayAgain} className="w-full gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Practice More
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/dashboard')} className="w-full">
+                      Back to Dashboard
+                    </Button>
+                  </>
+                )}
                   <>
                     <Button onClick={handlePlayAgain} className="w-full gap-2">
                       <TrendingUp className="w-4 h-4" />
