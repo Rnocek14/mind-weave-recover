@@ -252,7 +252,7 @@ export default function RecoveryScoreDetail() {
         <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           The Recovery Score is a directional measure based on practice data. It is not a validated clinical assessment.
-          Score version: {SCORE_VERSION}. Formula weights may be adjusted as more data is collected.
+          Score version: v1. Formula weights may be adjusted as more data is collected.
         </p>
       </footer>
     </div>
