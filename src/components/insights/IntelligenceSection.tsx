@@ -164,21 +164,27 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
                 {events.slice(0, 20).map(event => {
                   const { description, reason } = formatEvent(event);
                   return (
-                    <div key={event.id} className="p-3 rounded-lg border bg-card/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {event.layer}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium">{description}</p>
-                      {reason && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Why: {reason}
-                        </p>
-                      )}
+                     <div key={event.id} className="p-3 rounded-lg border bg-card/50">
+                       <div className="flex items-center gap-2 mb-1">
+                         {event.adaptation_type?.includes('up') || event.adaptation_type === 'difficulty_change' && (event.value_after as any) > (event.value_before as any)
+                           ? <ArrowUpRight className="w-4 h-4 text-primary flex-shrink-0" />
+                           : event.adaptation_type?.includes('down') || event.adaptation_type === 'frustration_stepdown'
+                           ? <ArrowDownRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                           : <Minus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                         }
+                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                           {event.layer}
+                         </Badge>
+                         <span className="text-[11px] text-muted-foreground ml-auto">
+                           {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                         </span>
+                       </div>
+                       <p className="text-sm font-medium">{description}</p>
+                       {reason && (
+                         <p className="text-xs text-muted-foreground mt-0.5 italic">
+                           {reason}
+                         </p>
+                       )}
                     </div>
                   );
                 })}
