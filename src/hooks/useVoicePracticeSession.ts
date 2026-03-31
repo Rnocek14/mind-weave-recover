@@ -238,6 +238,12 @@ export function useVoicePracticeSession(
     setResults(prev => [...prev, roundResult]);
     scoresHistoryRef.current.push(result.score);
     
+    // Store memory snippet for later arc callbacks
+    const snippet = extractMemorySnippet(transcript);
+    if (snippet) {
+      memorySnippetsRef.current.push(snippet);
+    }
+    
     emitVoicePracticeEvent(currentRound, roundResult, currentIndex);
     
     setPhase('feedback');
