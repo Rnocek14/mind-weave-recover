@@ -17,13 +17,16 @@ import { useLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
 import { useWordMastery } from '@/hooks/useWordMastery';
 import { useErrorQualityScore } from '@/hooks/useErrorQualityScore';
+import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { useProfile } from '@/hooks/useProfile';
 import { useUiMode } from '@/hooks/useUiMode';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, TrendingUp, TrendingDown, Minus, AlertTriangle, Target, Brain, BookOpen, Shield, ArrowRight, Info, Sparkles, HelpCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer, Area, AreaChart, Tooltip as RechartsTooltip,
 } from 'recharts';
