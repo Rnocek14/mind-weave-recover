@@ -197,7 +197,7 @@ export default function TwoCluesExercise() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
