@@ -110,7 +110,6 @@ export default function ConversationPartnerExercise() {
   if (sessionSummary) {
     return (
       <div className="min-h-screen bg-background p-4">
-        {fromLesson && <SessionProgressBubble />}
         <div className="max-w-md mx-auto space-y-6 pt-8">
           <Button
             variant="ghost"
