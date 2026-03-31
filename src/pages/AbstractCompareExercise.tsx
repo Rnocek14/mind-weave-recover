@@ -18,6 +18,7 @@ import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
 const EXERCISE_SLUG = 'abstract-compare';
 
