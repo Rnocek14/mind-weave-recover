@@ -187,6 +187,7 @@ export default function CategoryFluencyExercise() {
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
+            onDifficultyChange={handleDifficultyChange}
             roundCount={roundCount}
           />
         )}
