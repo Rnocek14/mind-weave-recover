@@ -9,6 +9,7 @@
  */
 
 const TARGET_SAMPLE_RATE = 16000;
+const MAX_AUDIO_DURATION_SEC = 10; // Cap to prevent edge function memory crashes
 
 self.onmessage = async (e) => {
   const { arrayBuffer, id } = e.data;
