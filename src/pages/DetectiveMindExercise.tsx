@@ -173,11 +173,13 @@ export default function DetectiveMindExercise() {
             <div className="text-6xl">🕵️</div>
             <h2 className="text-2xl font-bold">Investigation Complete!</h2>
             <p className="text-muted-foreground">
-              Great detective work on those cases!
+              {fromLesson ? 'Loading next exercise…' : 'Great detective work on those cases!'}
             </p>
-            <Button onClick={handleContinue} size="lg">
-              Continue
-            </Button>
+            {!fromLesson && (
+              <Button onClick={handleContinue} size="lg">
+                Continue
+              </Button>
+            )}
           </div>
         ) : (
           <DetectiveMindGame
