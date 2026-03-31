@@ -2246,7 +2246,7 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-2">
+        <div className="space-y-2 shrink-0">
           {/* Hear All Choices Button with Speed Control */}
           <div className="flex items-center gap-1.5">
             <Button
