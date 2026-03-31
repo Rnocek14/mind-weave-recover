@@ -198,8 +198,12 @@ export const PhotoNamingGame = ({
   
   // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);
+  const isListeningRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const trialRecordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
+  const attemptStartedTrialRef = useRef<number | null>(null);
+  const recordingStartedTrialRef = useRef<number | null>(null);
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
@@ -713,7 +717,7 @@ export const PhotoNamingGame = ({
     
   }, [showFeedback, selectedAnswer, timedOut, utteranceState, state.choices, state.currentTrial, logBrowserTranscript, processStableTranscript]);
   
-  // Speech recognition hook - uses handleSpeechResult callback
+  // Speech recognition hook - use patient mode like the other mobile exercises to avoid mic flicker
   const { 
     isListening, 
     transcript, 
@@ -721,16 +725,25 @@ export const PhotoNamingGame = ({
     stopListening, 
     isSupported,
     error: speechError 
-  } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
-  
-  const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
-  const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
-  const showMicPausedHint = useDebouncedMicStatus(
-    isListening,
-    shouldExpectListening && !micAutoStartPending && !speechError && state.trialNumber > 0,
-    micStatusResetKey,
-    2500
-  );
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    autoStart: false,
+    continuousListening: true,
+    patientMode: true,
+  });
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  const micErrorMessage =
+    speechError && !speechError.toLowerCase().includes('no speech detected')
+      ? speechError.includes('Microphone access denied')
+        ? 'Microphone access is blocked — allow it in Safari settings.'
+        : speechError.includes('Failed to start speech recognition')
+          ? 'Microphone couldn’t start — tap Voice Off, then On.'
+          : speechError
+      : null;
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
@@ -1108,6 +1121,7 @@ export const PhotoNamingGame = ({
   // =========================================================================
   useEffect(() => {
     console.log('🔄 Trial number changed - resetting cue state for trial:', state.trialNumber);
+    currentPronRequestIdRef.current = null;
     setCueLevel(0);
     setShowCue(false);
     setCurrentCueText('');
@@ -1116,149 +1130,161 @@ export const PhotoNamingGame = ({
     setStallDetected(false);
   }, [state.trialNumber]); // ONLY trialNumber - no other dependencies
 
-  // Start timing new trial and reset state (excluding cue state which is handled above)
+  // Start timing the new trial and reset visible state without coupling it to mic state
   useEffect(() => {
-    if (state.currentTrial && !showFeedback) {
-      setTrialStartTime(Date.now());
-      setSelectedAnswer(null);
-      setTimedOut(false);
-      // REMOVED: setCueLevel(0), setShowCue(false), setCurrentCueText('') - now in separate effect
-      setLastHeardText(null); // Reset "last heard" for new trial
-      setProcessingAnswer(false); // Reset processing state
-      
-      // Phase 2: Reset utterance state for new trial
-      setUtteranceState('idle');
-      setRetryPrompt(null);
-      
-      // Start a new attempt for utterance logging (no duplicates!)
+    if (!state.currentTrial) return;
+
+    setTrialStartTime(Date.now());
+    setSelectedAnswer(null);
+    setTimedOut(false);
+    setLastHeardText(null);
+    setProcessingAnswer(false);
+    setUtteranceState('idle');
+    setRetryPrompt(null);
+
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+
+    if (autoHintsEnabled && !isPlayingChoicesRef.current) {
+      stallTimerRef.current = setTimeout(() => {
+        const isIdle = !showFeedbackRef.current &&
+                       !selectedAnswerRef.current &&
+                       !timedOutRef.current &&
+                       !showCueRef.current &&
+                       !isPlayingChoicesRef.current;
+
+        if (isIdle && !autoCueShownThisTrialRef.current) {
+          console.log('🕐 Stall detected - triggering cue directly');
+          triggerAutoCue('stall');
+        }
+      }, STALL_TIMER_DELAY_MS);
+    }
+
+    return () => {
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
+    };
+  }, [state.currentTrial, state.trialNumber, triggerAutoCue]);
+
+  // Start attempt logging and recording once per trial, even if session data finishes loading later
+  useEffect(() => {
+    if (!state.currentTrial || showFeedback || !activeSessionId || !user?.id) return;
+
+    if (attemptStartedTrialRef.current !== state.trialNumber) {
       console.log('🎯 [PhotoNaming] New trial starting:', {
         target: state.currentTrial.target,
         trialNumber: state.trialNumber,
         activeSessionId,
-        userId: user?.id,
-        hasSession: !!activeSessionId,
-        hasUser: !!user?.id
+        userId: user.id,
+        hasSession: true,
+        hasUser: true
       });
-      
-      if (activeSessionId && user?.id) {
-        const { attemptId, pronRequestId } = startAttempt({
-          sessionId: activeSessionId,
-          userId: user.id,
-          exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
-          trialIndex: state.trialNumber,
-          attemptNumber: 1,
-          targetWord: state.currentTrial.target,
-          category: state.currentTrial.category
-        });
-        currentPronRequestIdRef.current = pronRequestId; // Store for pronunciation analysis
-        console.log('✅ [PhotoNaming] Attempt started:', { attemptId, pronRequestId });
-      } else {
-        currentPronRequestIdRef.current = null;
-        console.warn('⚠️ [PhotoNaming] Cannot start attempt - missing session or user:', {
-          activeSessionId,
-          userId: user?.id
-        });
+
+      const { attemptId, pronRequestId } = startAttempt({
+        sessionId: activeSessionId,
+        userId: user.id,
+        exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+        trialIndex: state.trialNumber,
+        attemptNumber: 1,
+        targetWord: state.currentTrial.target,
+        category: state.currentTrial.category
+      });
+
+      attemptStartedTrialRef.current = state.trialNumber;
+      currentPronRequestIdRef.current = pronRequestId;
+      console.log('✅ [PhotoNaming] Attempt started:', { attemptId, pronRequestId });
+    }
+
+    if (isRecordingSupported && recordingStartedTrialRef.current !== state.trialNumber) {
+      if (trialRecordingTimeoutRef.current) {
+        clearTimeout(trialRecordingTimeoutRef.current);
       }
-      
-      // Start audio recording after speech recognition has had a head start.
-      // On iOS Safari, grabbing MediaRecorder immediately can interfere with Web Speech startup.
-      if (isRecordingSupported && user && activeSessionId) {
-        setTimeout(() => {
-          startRecording();
+
+      trialRecordingTimeoutRef.current = setTimeout(() => {
+        trialRecordingTimeoutRef.current = null;
+
+        if (recordingStartedTrialRef.current === state.trialNumber) return;
+
+        void startRecording().then((started) => {
+          if (!started) return;
+          recordingStartedTrialRef.current = state.trialNumber;
           console.log('🎙️ Recording started for session:', activeSessionId);
-        }, 900);
-      }
-      
-      // Start stall detection timer (3 seconds of hesitation)
-      // Only start when trial is ready for user response
-      const trialIsReady = state.currentTrial && 
-                           !showFeedback && 
-                           !isPlayingChoices && 
-                           !isCreatingSession;
-      
-      if (stallTimerRef.current) {
-        clearTimeout(stallTimerRef.current);
-      }
-      
-      if (trialIsReady && autoHintsEnabled) {
-        stallTimerRef.current = setTimeout(() => {
-          // Read from refs to avoid stale closure
-          const isIdle = !showFeedbackRef.current && 
-                         !selectedAnswerRef.current && 
-                         !timedOutRef.current && 
-                         !showCueRef.current &&
-                         !isPlayingChoicesRef.current; // Don't stall during audio playback
-          
-          if (isIdle && !autoCueShownThisTrialRef.current) {
-            // CRITICAL FIX: Call triggerAutoCue DIRECTLY instead of setStallDetected
-            // This eliminates the two-phase state relay that was causing cues to never fire
-            console.log('🕐 Stall detected - triggering cue directly');
-            triggerAutoCue('stall');
-          }
-        }, STALL_TIMER_DELAY_MS);
-      }
-      
-      // Auto-listen only after voice has been explicitly enabled by the user.
-      if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
-        autoListenInitiatedRef.current = state.trialNumber;
-        setMicAutoStartPending(true);
-        
-        let retryCount = 0;
-        const maxRetries = 5;
-        const tryStart = () => {
-          retryCount++;
-          console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
+        });
+      }, 900);
+    }
 
-          if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
-            try {
-              startListening();
-            } catch (err) {
-              console.error('🎤 Error auto-starting listening:', err);
-            }
-          }
+    return () => {
+      if (trialRecordingTimeoutRef.current) {
+        clearTimeout(trialRecordingTimeoutRef.current);
+        trialRecordingTimeoutRef.current = null;
+      }
+    };
+  }, [state.currentTrial, state.trialNumber, showFeedback, activeSessionId, user?.id, isRecordingSupported, startRecording, startAttempt]);
 
-          if (retryCount < maxRetries) {
-            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
-            listeningTimeoutRef.current = setTimeout(() => {
-              if (!isListening && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
-                tryStart();
-              } else {
-                setMicAutoStartPending(false);
-              }
-            }, delay);
+  // Auto-start listening once per trial without retriggering trial initialization
+  useEffect(() => {
+    if (!state.currentTrial || showFeedback || !useVoice || !isSupported) {
+      setMicAutoStartPending(false);
+      return;
+    }
+
+    if (autoListenInitiatedRef.current === state.trialNumber) {
+      return;
+    }
+
+    autoListenInitiatedRef.current = state.trialNumber;
+    setMicAutoStartPending(true);
+
+    let retryCount = 0;
+    const maxRetries = 5;
+
+    const tryStart = () => {
+      retryCount++;
+      console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
+
+      if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+        try {
+          startListening();
+        } catch (err) {
+          console.error('🎤 Error auto-starting listening:', err);
+        }
+      }
+
+      if (retryCount < maxRetries) {
+        const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
+        listeningTimeoutRef.current = setTimeout(() => {
+          if (!isListeningRef.current && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
+            tryStart();
           } else {
             setMicAutoStartPending(false);
           }
-        };
-        
-        const timeoutId = setTimeout(tryStart, 250);
-        
-        return () => {
-          clearTimeout(timeoutId);
-          setMicAutoStartPending(false);
-          if (listeningTimeoutRef.current) {
-            clearTimeout(listeningTimeoutRef.current);
-          }
-          if (stallTimerRef.current) {
-            clearTimeout(stallTimerRef.current);
-          }
-        };
+        }, delay);
       } else {
         setMicAutoStartPending(false);
-        // If not auto-listening, still need to cleanup stall timer
-        return () => {
-          if (stallTimerRef.current) {
-            clearTimeout(stallTimerRef.current);
-          }
-        };
       }
-    }
-    
-    // Stop listening when showing feedback
+    };
+
+    const timeoutId = setTimeout(tryStart, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+      setMicAutoStartPending(false);
+    };
+  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening]);
+
+  useEffect(() => {
     if (showFeedback && isListening) {
       stopListening();
     }
-  }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, startAttempt, triggerAutoCue, isPlayingChoices, isCreatingSession]);
+  }, [showFeedback, isListening, stopListening]);
 
   useEffect(() => {
     if (isListening || speechError) {
@@ -2259,11 +2285,11 @@ export const PhotoNamingGame = ({
         </div>
       )}
       
-      {/* Mic paused indicator */}
-      {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
+      {/* Only show real microphone errors, not normal restart gaps */}
+      {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
         <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
           <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <span className="text-warning">Mic needs attention — tap once to restart</span>
+          <span className="text-warning">{micErrorMessage}</span>
         </div>
       )}
 
