@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';

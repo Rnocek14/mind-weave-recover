@@ -454,8 +454,8 @@ export const ReachTapGame = ({
       </div>
 
       {/* Instructions */}
-      <div className="text-center space-y-2">
-        <h3 className="text-xl font-semibold">
+      <div className="text-center space-y-1 flex-shrink-0 pb-1">
+        <h3 className="text-lg font-semibold">
           {variant === 'left-side-hunt' 
             ? '👀 Hunt for stars on the left side!' 
             : 'Tap the targets as they appear!'}
