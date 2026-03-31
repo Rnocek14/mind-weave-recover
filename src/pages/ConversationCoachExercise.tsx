@@ -113,7 +113,7 @@ export default function ConversationCoachExercise() {
   if (sessionSummary && !gameStarted) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        {fromLesson && <SessionProgressBubble />}
+        <header className="p-4 flex items-center gap-3 border-b">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
