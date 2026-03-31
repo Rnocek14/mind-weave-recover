@@ -21,7 +21,7 @@ import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Info } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
 export default function MinimalPairsExercise() {
