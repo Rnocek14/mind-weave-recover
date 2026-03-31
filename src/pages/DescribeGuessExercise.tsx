@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
 import { DescribeGuessTrialResult } from '@/hooks/useDescribeGuessGame';
