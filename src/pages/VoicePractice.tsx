@@ -273,7 +273,12 @@ export default function VoicePractice() {
                 )}
               </p>
               {transcript ? (
-                <p className="text-foreground text-lg">{transcript}</p>
+                <div className="space-y-1">
+                  <p className="text-foreground text-lg">{transcript}</p>
+                  <p className="text-muted-foreground/40 text-xs">
+                    Auto-submits when you pause
+                  </p>
+                </div>
               ) : (
                 <p className="text-muted-foreground/60 text-sm animate-pulse">
                   Listening...
