@@ -129,7 +129,7 @@ export default function AbstractCompareExercise() {
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
-          <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
+          <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>
           <h1 className="text-lg font-semibold">🔗 Abstract Comparison</h1>
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}><Home className="h-4 w-4" /></Button>
         </div>

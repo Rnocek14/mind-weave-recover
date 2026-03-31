@@ -246,8 +246,8 @@ export default function ConversationPartnerExercise() {
     <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       <header className="border-b shrink-0">
         <div className="flex items-center justify-between px-4 h-14">
-          <Button variant="ghost" size="sm" onClick={handleExit}>
-            <ArrowLeft className="w-4 h-4 mr-2" />Back
+           <Button variant="ghost" size="sm" onClick={handleExit}>
+            <ArrowLeft className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">Free Talk</h1>
           <div className="w-16" />
