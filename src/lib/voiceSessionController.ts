@@ -58,6 +58,55 @@ const TRANSITIONS_WITHIN_PHASE = [
   "Love it. Here's something related.",
 ];
 
+// ─── Memory Callback Templates ───
+const MEMORY_CALLBACKS_EXPAND = [
+  "Earlier you mentioned {snippet} — let's build on that.",
+  "Going back to when you talked about {snippet} — tell me more about that.",
+  "You said something about {snippet} before. Can you add to it?",
+];
+
+const MEMORY_CALLBACKS_CHALLENGE = [
+  "Remember when you mentioned {snippet}? Let's try something harder with that.",
+  "You brought up {snippet} earlier — can you describe that without saying the word?",
+  "Think back to {snippet}. Can you say it a different way?",
+];
+
+const MEMORY_CALLBACKS_CONSOLIDATE = [
+  "Let's go back to everything we talked about. You mentioned {snippet} — tell me the whole thing again.",
+  "We started with {snippet}. Can you retell what you remember from today?",
+  "You've talked about a lot today, including {snippet}. Let's bring it all together.",
+];
+
+/** Extract a short, meaningful snippet from a transcript for memory callbacks */
+export function extractMemorySnippet(transcript: string): string | null {
+  if (!transcript || transcript.trim().length < 5) return null;
+  const words = transcript.trim().split(/\s+/).filter(w => w.length > 1);
+  if (words.length < 2) return null;
+  // Take 2-5 meaningful words from the middle of the response
+  const start = Math.max(0, Math.floor(words.length * 0.2));
+  const end = Math.min(words.length, start + 5);
+  return words.slice(start, end).join(' ');
+}
+
+/** Get a memory callback line for a given arc phase, inserting the snippet */
+export function getMemoryCallback(
+  phase: ArcPhase,
+  snippets: string[],
+): string | null {
+  if (snippets.length === 0) return null;
+  const snippet = pickRandom(snippets);
+  
+  let templates: string[];
+  switch (phase) {
+    case 'expand': templates = MEMORY_CALLBACKS_EXPAND; break;
+    case 'challenge': templates = MEMORY_CALLBACKS_CHALLENGE; break;
+    case 'consolidate': templates = MEMORY_CALLBACKS_CONSOLIDATE; break;
+    default: return null; // 'open' phase doesn't reference earlier content
+  }
+  
+  return pickRandom(templates).replace('{snippet}', snippet);
+}
+
 // ─── Purpose Anchors (every ~3 rounds) ───
 const PURPOSE_ANCHORS = [
   "This is great practice for everyday conversations.",

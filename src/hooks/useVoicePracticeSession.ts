@@ -26,6 +26,8 @@ import {
   getPurposeAnchor,
   getProgressFeedback,
   getFollowUp,
+  extractMemorySnippet,
+  getMemoryCallback,
   VoiceGameRound,
   VoiceSessionPlan,
 } from '@/lib/voiceSessionController';
