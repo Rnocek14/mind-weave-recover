@@ -2354,21 +2354,7 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Admin-only Force Cue buttons for pipeline testing */}
-      {isAdmin && !showFeedback && !timedOut && !showCue && state.currentTrial && (
-        <div className="flex justify-center gap-2 mt-2 p-2 border border-dashed border-amber-500 rounded bg-amber-50 dark:bg-amber-950/30">
-          <span className="text-xs text-amber-700 dark:text-amber-400 self-center">Admin:</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => triggerAutoCue('user_request')}
-            className="gap-1 text-xs"
-          >
-            <Zap className="w-3 h-3" />
-            Force Cue (test)
-          </Button>
-        </div>
-      )}
+      {/* Admin Force Cue - only via debug overlay (Ctrl+Shift+D), not inline */}
 
       {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
