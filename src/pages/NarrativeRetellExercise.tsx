@@ -2,7 +2,7 @@
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
  * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
  */
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NarrativeRetellGame } from '@/components/NarrativeRetellGame';
 import { NarrativeTrialResult } from '@/hooks/useNarrativeRetellGame';
