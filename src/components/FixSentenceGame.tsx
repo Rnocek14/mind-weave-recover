@@ -25,7 +25,7 @@ import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormali
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const SCORING_DEBOUNCE_MS = 1000;
+const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
 
 interface FixSentenceGameProps {
@@ -173,6 +173,7 @@ export function FixSentenceGame({
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
@@ -186,7 +187,11 @@ export function FixSentenceGame({
     }
   }, [transcript]);
 
-  // Debounced scoring
+  // Debounced scoring — only score after transcript is stable (user stopped speaking)
+  const stableTranscriptRef = useRef<string>('');
+  const stabilityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track when transcript stabilises (no new results for SCORING_DEBOUNCE_MS)
   useEffect(() => {
     const trial = currentTrialRef.current;
     if (!transcript || !trial || processingRef.current || showFeedback) return;
@@ -195,17 +200,25 @@ export function FixSentenceGame({
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
     if (isMostlyFiller(candidate) || candidate.length < 2) return;
 
+    // Reset stability timer on every new transcript (user still speaking)
+    if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
-    debounceTimeoutRef.current = setTimeout(async () => {
-      if (processingRef.current) return;
+    stableTranscriptRef.current = candidate;
+
+    // Wait for transcript to stabilise before scoring
+    stabilityTimerRef.current = setTimeout(async () => {
+      // Double-check the candidate hasn't changed during the wait
+      const finalCandidate = stableTranscriptRef.current;
+      if (!finalCandidate || finalCandidate.length < 2 || processingRef.current) return;
+      
       processingRef.current = true;
       setIsProcessing(true);
-      lastScoredRef.current = candidate;
+      lastScoredRef.current = finalCandidate;
 
       try {
         const selfCorrected = !!prevWrongAttempt;
-        const result = await game.scoreAnswer(candidate, selfCorrected);
+        const result = await game.scoreAnswer(finalCandidate, selfCorrected);
         
         if (!result) {
           processingRef.current = false;
@@ -227,7 +240,7 @@ export function FixSentenceGame({
             recordingDurationMs = recResult.duration;
             const [uploaded, pronResult] = await Promise.all([
               uploadRecording(recResult.audioBlob, userId, sessionId, currentIndexRef.current + 1, recResult.mimeType),
-              analyzePronunciation(recResult.audioBlob, result.matchedFix || candidate).catch(() => null),
+              analyzePronunciation(recResult.audioBlob, result.matchedFix || finalCandidate).catch(() => null),
             ]);
             if (uploaded) audioStoragePath = uploaded;
             if (pronResult?.ok) pronunciationData = pronResult.data;
@@ -263,7 +276,7 @@ export function FixSentenceGame({
         setShowFeedback(true);
 
         if (!result.isCorrect && !result.isPartialCredit) {
-          setPrevWrongAttempt(candidate);
+          setPrevWrongAttempt(finalCandidate);
         }
 
         // Auto-advance on correct/partial
@@ -279,6 +292,10 @@ export function FixSentenceGame({
         setIsProcessing(false);
       }
     }, SCORING_DEBOUNCE_MS);
+
+    return () => {
+      if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, showFeedback]);
 
