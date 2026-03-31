@@ -98,6 +98,37 @@ export function NarrativeRetellGame({
     if (fullTranscript) latestTranscriptRef.current = fullTranscript;
   }, [fullTranscript]);
 
+  // Auto-submit after 3s silence once user has spoken 2+ words
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (phase !== 'retelling') return;
+    const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (wordCount >= 2) {
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasProcessedRef.current) handleDoneRetelling();
+      }, 3000);
+    }
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [phase, collectedTranscript, fullTranscript]);
+
+  // Auto-start mic after all scenes are read
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'reading' && allScenesRead && isSupported && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      // Small delay so user sees the "retell" prompt
+      const t = setTimeout(() => handleStartRetelling(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, isSupported]);
+
+  // Reset auto-start flag on story change
+  useEffect(() => {
+    autoStartedRef.current = false;
+  }, [currentIndex]);
+
   const handleNextScene = useCallback(() => {
     if (!currentStory) return;
     if (sceneIndex < currentStory.scenes.length - 1) {
