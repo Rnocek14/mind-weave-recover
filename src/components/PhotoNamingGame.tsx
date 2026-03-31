@@ -132,7 +132,7 @@ export const PhotoNamingGame = ({
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
   const [currentCueText, setCurrentCueText] = useState('');
-  const [useVoice, setUseVoice] = useState(true); // Toggle voice mode
+  const [useVoice, setUseVoice] = useState(false); // Start off until user explicitly enables mic
   const [isPlayingChoices, setIsPlayingChoices] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.75); // Default slower for accessibility
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
@@ -1198,7 +1198,7 @@ export const PhotoNamingGame = ({
         }, STALL_TIMER_DELAY_MS);
       }
       
-      // Auto-listen: Only initiate once per trial, with retry for STOPPING/cooldown state
+      // Auto-listen only after voice has been explicitly enabled by the user.
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
         autoListenInitiatedRef.current = state.trialNumber;
         setMicAutoStartPending(true);
@@ -2199,16 +2199,23 @@ export const PhotoNamingGame = ({
         )}
       </div>
 
-      {/* Cue display - compact on mobile */}
-      {showCue && currentCueText && (
-        <div className="bg-accent/10 border border-accent px-3 py-2 sm:p-4 rounded-lg flex items-start gap-2">
-          <Lightbulb className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-medium text-accent text-xs sm:text-sm">Hint {cueLevel}/3</p>
-            <p className="text-xs sm:text-sm">{currentCueText}</p>
-          </div>
-        </div>
+      {/* Voice onboarding for first activation */}
+      {!useVoice && !showFeedback && !timedOut && !selectedAnswer && (
+        <Button
+          variant="default"
+          onClick={() => {
+            setUseVoice(true);
+            setMicAutoStartPending(true);
+            setTimeout(() => startListening(), 100);
+          }}
+          className="w-full h-14 sm:h-16 text-base sm:text-lg font-medium gap-2 shrink-0"
+        >
+          <Mic className="w-5 h-5" />
+          Tap to start microphone
+        </Button>
       )}
+
+      {/* Cue display - compact on mobile */}
 
       <div className="flex items-center justify-end gap-1 shrink-0">
         
