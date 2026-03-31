@@ -2064,7 +2064,7 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-4">
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
       {/* Progress bar - compact on mobile */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
