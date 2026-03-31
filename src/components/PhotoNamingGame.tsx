@@ -2184,7 +2184,7 @@ export const PhotoNamingGame = ({
 
       <div className="flex items-center justify-end gap-1 shrink-0">
         
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-1">
           <div className="relative">
             {isListening && (
               <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
