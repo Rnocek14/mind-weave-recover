@@ -2223,8 +2223,19 @@ export const PhotoNamingGame = ({
             />
           </div>
         )}
-        {/* Mic + Hint controls overlaid on image bottom-right */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 z-10">
+        {/* Mic + Hint controls spread across bottom of image */}
+        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
+          <button
+            onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
+              autoHintsEnabled 
+                ? 'bg-yellow-500/80 text-white' 
+                : 'bg-black/40 text-white/60 hover:bg-black/60'
+            }`}
+          >
+            <Lightbulb className="w-4 h-4" />
+          </button>
+
           <div className="relative">
             {isListening && (
               <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
@@ -2252,17 +2263,6 @@ export const PhotoNamingGame = ({
               </div>
             </button>
           </div>
-          
-          <button
-            onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-              autoHintsEnabled 
-                ? 'bg-yellow-500/80 text-white' 
-                : 'bg-black/40 text-white/60 hover:bg-black/60'
-            }`}
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
