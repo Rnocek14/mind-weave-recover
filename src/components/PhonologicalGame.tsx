@@ -4,17 +4,17 @@ import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Check, X, Volume2, Ear, Sparkles, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { cn } from '@/lib/utils';
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import type { ExerciseAdaptation } from '@/lib/exerciseGating';
-import { AdaptationBadges } from '@/components/AdaptationBadges';
 import type { PhonologicalTrial } from '@/data/phonologicalBank';
 
 interface PhonologicalGameProps {
@@ -42,15 +42,8 @@ export const PhonologicalGame = ({
   userId,
   sessionId,
 }: PhonologicalGameProps) => {
-  const { saveLevel } = useExerciseDifficulty(
-    userId,
-    undefined,
-    'phonological-awareness'
-  );
-  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(
-    sessionId || null,
-    'phonological-awareness'
-  );
+  const { saveLevel } = useExerciseDifficulty(userId, undefined, 'phonological-awareness');
+  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId || null, 'phonological-awareness');
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { speak, stop: stopSpeech, isSpeaking } = useTextToSpeech();
@@ -70,7 +63,6 @@ export const PhonologicalGame = ({
       onDifficultyChange?.(newLevel);
       setTimeout(() => setShowDifficultyChange(false), 2000);
     },
-    // Adaptation logging context
     userId,
     sessionId: sessionId || undefined,
     exerciseSlug: 'phonological-awareness',
@@ -81,30 +73,18 @@ export const PhonologicalGame = ({
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
 
-  // Start trial and play audio when new trial begins
   useEffect(() => {
     if (!game.completed && !game.showFeedback && game.getCurrentTrial()) {
       startTrial();
       setHasSubmitted(false);
       setHasPlayedAudio(false);
-      
-      // Auto-play audio after short delay
-      const timer = setTimeout(() => {
-        handlePlayAudio();
-      }, 500);
-      
+      const timer = setTimeout(() => { handlePlayAudio(); }, 500);
       return () => clearTimeout(timer);
     }
   }, [game.currentTrial, game.completed]);
 
-  // Handle game completion (like PhotoNamingGame pattern)
   useEffect(() => {
     if (game.completed && onGameComplete) {
-      console.log('[PhonologicalGame] ✅ onGameComplete firing', {
-        score: game.score,
-        totalTrials,
-        gameType: 'PhonologicalAwareness'
-      });
       onGameComplete(game.score, totalTrials);
     }
   }, [game.completed, game.score, totalTrials, onGameComplete]);
@@ -112,11 +92,8 @@ export const PhonologicalGame = ({
   const handlePlayAudio = async () => {
     const trial = game.getCurrentTrial();
     if (!trial || isPlayingAudioRef.current) return;
-
-    // Stop any in-progress speech first
     stopSpeech();
     isPlayingAudioRef.current = true;
-    
     try {
       await speak(trial.word1);
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -129,22 +106,12 @@ export const PhonologicalGame = ({
 
   const handleAnswer = async (answer: 'same' | 'different') => {
     if (hasSubmitted) return;
-    
     setHasSubmitted(true);
     const result = game.submitAnswer(answer);
     const reactionTime = calculateReactionTime();
-    
-    // Update adaptive difficulty tracking
     updateTrial(result.correct);
+    if (result.correct) { playSuccess(); } else { playError(); }
     
-    // Play feedback sound
-    if (result.correct) {
-      playSuccess();
-    } else {
-      playError();
-    }
-    
-    // Log trial data
     const trial = game.getCurrentTrial();
     await logTrial({
       correct: result.correct,
@@ -168,20 +135,13 @@ export const PhonologicalGame = ({
       } : undefined,
     });
     
-    // Callback
     if (onTrialComplete) {
-      onTrialComplete({
-        correct: result.correct,
-        reactionTime,
-        relationType: result.relationType,
-      });
+      onTrialComplete({ correct: result.correct, reactionTime, relationType: result.relationType });
     }
   };
 
   const handleNext = () => {
-    // Check and adjust difficulty if needed
     checkAndAdjust();
-    
     game.nextTrial();
   };
 
@@ -194,228 +154,141 @@ export const PhonologicalGame = ({
 
   if (game.completed) {
     const errorAnalysis = game.getErrorAnalysis();
-    
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Session Complete!
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center space-y-2">
-            <p className="text-3xl font-bold text-primary">
-              {game.score} / {totalTrials}
-            </p>
-            <p className="text-muted-foreground">
-              {accuracy >= 80 ? 'Excellent' : accuracy >= 60 ? 'Good progress' : 'Keep practicing'} - {accuracy.toFixed(0)}% accuracy
-            </p>
-          </div>
-          
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <Sparkles className="h-8 w-8 text-primary mx-auto" />
+          <h2 className="text-xl font-bold">Session Complete!</h2>
+          <p className="text-2xl font-bold text-primary">{game.score} / {totalTrials}</p>
+          <p className="text-sm text-muted-foreground">
+            {accuracy >= 80 ? 'Excellent' : accuracy >= 60 ? 'Good progress' : 'Keep practicing'} — {accuracy.toFixed(0)}%
+          </p>
           {errorAnalysis.weakestPosition && (
-            <div className="bg-accent/50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
+            <div className="bg-accent/50 p-3 rounded-lg text-sm text-left">
+              <div className="flex items-center gap-2 mb-1">
                 <Ear className="h-4 w-4" />
-                Phonological Insights
-              </h3>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Weakest position: <span className="font-medium">{errorAnalysis.weakestPosition}</span></p>
-                {errorAnalysis.confusableContrasts.length > 0 && (
-                  <p>Most confused sounds: <span className="font-medium">
-                    {errorAnalysis.confusableContrasts.map(c => `${c.from}→${c.to}`).join(', ')}
-                  </span></p>
-                )}
+                <span className="font-semibold">Phonological Insights</span>
               </div>
+              <p className="text-muted-foreground">Weakest position: {errorAnalysis.weakestPosition}</p>
             </div>
           )}
-
-          <Button 
-            size="lg" 
-            className="w-full" 
-            onClick={() => {
-              console.log('[PhonologicalGame] ✅ Continue button clicked, dispatching exercise-complete', {
-                gameType: 'PhonologicalAwareness'
-              });
-              window.dispatchEvent(new CustomEvent('exercise-complete'));
-            }}
-          >
+          <Button size="lg" className="w-full min-h-[48px]" onClick={() => window.dispatchEvent(new CustomEvent('exercise-complete'))}>
             Continue
           </Button>
-        </CardContent>
+        </div>
       </Card>
     );
   }
 
-  return (
-    <div className="w-full max-w-4xl mx-auto space-y-4">
-      {/* Header with progress */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">
-                Trial {game.currentTrial + 1} of {totalTrials}
-              </span>
-              <div className="flex gap-2 items-center">
-                <Badge variant="outline">Level {currentDifficulty}</Badge>
-                <Badge variant="secondary">{game.score} correct</Badge>
-              </div>
-            </div>
-            <Progress value={game.progress} />
-            {adaptations && (
-              <div className="pt-2">
-                <AdaptationBadges adaptations={adaptations} />
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+  // Get question text based on relation type
+  const questionText = trial.relationType.includes('onset') || trial.relationType === 'unrelated'
+    ? 'Same starting sound?'
+    : trial.relationType.includes('coda')
+    ? 'Same ending sound?'
+    : trial.relationType === 'rhyme'
+    ? 'Do these rhyme?'
+    : trial.relationType.includes('vowel')
+    ? 'Same middle sound?'
+    : 'Same or different?';
 
-      {/* Difficulty change notification */}
+  return (
+    <div className="space-y-2 sm:space-y-3">
+      {/* Compact progress */}
+      <div className="flex justify-between items-center text-xs sm:text-sm">
+        <span className="text-muted-foreground">{game.currentTrial + 1} of {totalTrials}</span>
+        <div className="flex gap-2 items-center">
+          <Badge variant="outline" className="text-xs">Lv {currentDifficulty}</Badge>
+          <span className="font-medium">{game.score} correct</span>
+        </div>
+      </div>
+      <Progress value={game.progress} className="h-1.5" />
+
       {showDifficultyChange && (
-        <Card className="border-primary bg-primary/5">
-          <CardContent className="pt-6">
-            <p className="text-center font-medium flex items-center justify-center gap-2">
-              <Target className="h-4 w-4" />
-              Difficulty adjusted to Level {currentDifficulty}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center text-sm font-medium text-primary flex items-center justify-center gap-1 py-1">
+          <Target className="h-3.5 w-3.5" /> Level {currentDifficulty}
+        </div>
       )}
 
-      {/* Main game area */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-center flex items-center justify-center gap-2">
-            <Ear className="h-5 w-5 text-primary" />
-            {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
-              ? 'Do these words start with the same sound?'
-              : trial.relationType.includes('coda')
-              ? 'Do these words end with the same sound?'
-              : trial.relationType === 'rhyme'
-              ? 'Do these words rhyme?'
-              : trial.relationType.includes('vowel')
-              ? 'Do these words have the same middle sound?'
-              : 'Do these words sound the same or different?'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Word display with audio */}
-          <div className="flex flex-col items-center space-y-6">
-            <div className="grid grid-cols-2 gap-8 w-full max-w-md">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="text-4xl font-bold text-primary">
-                  {trial.word1}
-                </div>
-                {trial.isNonword && (
-                  <Badge variant="outline" className="text-xs">
-                    nonword
-                  </Badge>
-                )}
-              </div>
-              <div className="flex flex-col items-center space-y-2">
-                <div className="text-4xl font-bold text-primary">
-                  {trial.word2}
-                </div>
-                {trial.isNonword && (
-                  <Badge variant="outline" className="text-xs">
-                    nonword
-                  </Badge>
-                )}
-              </div>
-            </div>
+      {/* Question + words */}
+      <div className="text-center space-y-3 py-2">
+        <p className="text-base font-medium flex items-center justify-center gap-2">
+          <Ear className="h-4 w-4 text-primary" />
+          {questionText}
+        </p>
+        
+        <div className="flex items-center justify-center gap-6">
+          <div className="text-center">
+            <div className="text-3xl sm:text-4xl font-bold text-primary">{trial.word1}</div>
+            {trial.isNonword && <span className="text-xs text-muted-foreground">nonword</span>}
+          </div>
+          <div className="text-center">
+            <div className="text-3xl sm:text-4xl font-bold text-primary">{trial.word2}</div>
+            {trial.isNonword && <span className="text-xs text-muted-foreground">nonword</span>}
+          </div>
+        </div>
 
-            {/* Replay audio button */}
+        <Button
+          variant="outline"
+          onClick={handlePlayAudio}
+          disabled={isSpeaking || game.showFeedback}
+          className="gap-2 min-h-[44px]"
+        >
+          <Volume2 className="h-4 w-4" />
+          {!hasPlayedAudio ? 'Listen' : 'Replay'}
+        </Button>
+      </div>
+
+      {/* Answer buttons — large touch targets */}
+      <div className="flex gap-3 justify-center">
+        {!game.showFeedback ? (
+          <>
             <Button
-              variant="outline"
+              onClick={() => handleAnswer('same')}
+              disabled={hasSubmitted}
               size="lg"
-              onClick={handlePlayAudio}
-              disabled={isSpeaking || game.showFeedback}
-              className="gap-2"
+              variant="outline"
+              className="flex-1 max-w-[180px] min-h-[56px] text-base"
             >
-              <Volume2 className="h-5 w-5" />
-              {!hasPlayedAudio ? 'Listen' : 'Replay Audio'}
+              {trial.relationType === 'rhyme' ? 'Yes, rhyme' : 'Same'}
             </Button>
-
-            <p className="text-sm text-muted-foreground text-center max-w-md">
-              {trial.relationType.includes('onset') || trial.relationType === 'unrelated'
-                ? 'Focus on the very first sound of each word — not the ending or rhyme.'
-                : trial.relationType.includes('coda')
-                ? 'Focus on the very last sound of each word.'
-                : trial.relationType === 'rhyme'
-                ? 'Do these words have the same ending sound pattern?'
-                : trial.relationType.includes('vowel')
-                ? 'Focus on the vowel sound in the middle of each word.'
-                : 'Listen carefully and compare the sounds.'}
-            </p>
-          </div>
-
-          {/* Answer buttons */}
-          <div className="flex gap-4 justify-center pt-4">
-            {!game.showFeedback ? (
-              <>
-                <Button
-                  onClick={() => handleAnswer('same')}
-                  disabled={hasSubmitted}
-                  size="lg"
-                  variant="outline"
-                  className="min-w-32"
-                >
-                  {trial.relationType === 'rhyme' ? 'Yes, they rhyme' : 'Same Sound'}
-                </Button>
-                <Button
-                  onClick={() => handleAnswer('different')}
-                  disabled={hasSubmitted}
-                  size="lg"
-                  variant="outline"
-                  className="min-w-32"
-                >
-                  {trial.relationType === 'rhyme' ? 'No, different' : 'Different Sound'}
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={handleNext}
-                size="lg"
-                className="min-w-32"
-              >
-                Next Trial
-              </Button>
-            )}
-          </div>
-
-          {/* Feedback */}
-          {game.showFeedback && (
-            <div
-              className={`
-                p-4 rounded-lg text-center font-medium
-                ${game.feedbackCorrect
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-orange-50 text-orange-700 border border-orange-200'
-                }
-              `}
+            <Button
+              onClick={() => handleAnswer('different')}
+              disabled={hasSubmitted}
+              size="lg"
+              variant="outline"
+              className="flex-1 max-w-[180px] min-h-[56px] text-base"
             >
-              {game.feedbackCorrect ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Check className="h-5 w-5" />
-                  Correct! Great listening!
-                </span>
-              ) : (
-                <div className="space-y-2">
-                  <span className="flex items-center justify-center gap-2">
-                    <X className="h-5 w-5" />
-                    Not quite. These words sound {trial.areSame ? 'the same' : 'different'}.
-                  </span>
-                  <p className="text-sm opacity-80">
-                    Relationship: {trial.relationType.replace(/_/g, ' ')}
-                  </p>
-                </div>
-              )}
+              {trial.relationType === 'rhyme' ? 'No' : 'Different'}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleNext} size="lg" className="min-h-[48px] min-w-32">
+            Next
+          </Button>
+        )}
+      </div>
+
+      {/* Feedback — compact */}
+      {game.showFeedback && (
+        <div className={cn(
+          "p-3 rounded-lg text-center text-sm font-medium",
+          game.feedbackCorrect
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-orange-50 text-orange-700 border border-orange-200'
+        )}>
+          {game.feedbackCorrect ? (
+            <span className="flex items-center justify-center gap-2">
+              <Check className="h-4 w-4" /> Correct!
+            </span>
+          ) : (
+            <div className="space-y-1">
+              <span className="flex items-center justify-center gap-2">
+                <X className="h-4 w-4" /> These sound {trial.areSame ? 'the same' : 'different'}.
+              </span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 };

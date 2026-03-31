@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Check, X, Star, Award } from 'lucide-react';
+import { Check, X, Star, Award } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 interface PatternMatchGameProps {
@@ -62,16 +63,12 @@ export const PatternMatchGame = ({
   
   const isMobile = useIsMobile();
   
-  // Responsive shape sizes based on device
   const getShapeSize = (context: 'display' | 'option'): number => {
-    if (context === 'display') {
-      return isMobile ? 36 : 50;
-    }
-    // Options need slightly smaller shapes
+    if (context === 'display') return isMobile ? 36 : 50;
     return isMobile ? 28 : 36;
   };
 
-  const { playSuccess, playError, playLevelUp, playLevelDown, playStreak } = useGameSounds();
+  const { playSuccess, playError, playLevelUp, playLevelDown } = useGameSounds();
 
   const {
     currentDifficulty,
@@ -85,37 +82,18 @@ export const PatternMatchGame = ({
     adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
-      if (direction === 'up') {
-        playLevelUp();
-      } else {
-        playLevelDown();
-      }
-      const reason = direction === 'up'
-        ? `Great job! Moving to level ${newLevel}`
-        : `Adjusting to level ${newLevel}`;
-      onDifficultyChange?.(newLevel, reason);
+      if (direction === 'up') playLevelUp(); else playLevelDown();
+      onDifficultyChange?.(newLevel, direction === 'up' ? `Level ${newLevel}` : `Level ${newLevel}`);
     },
   });
 
-  // Calculate pattern size based on difficulty (2-5 items)
-  const getPatternSize = (difficulty: number): number => {
-    return Math.min(5, Math.max(2, Math.floor(difficulty / 2) + 1));
-  };
-
-  // Calculate number of options based on difficulty (2-4)
-  const getOptionCount = (difficulty: number): number => {
-    return Math.min(4, Math.max(2, Math.floor(difficulty / 3) + 2));
-  };
-
-  // Calculate display time in ms
+  const getPatternSize = (difficulty: number): number => Math.min(5, Math.max(2, Math.floor(difficulty / 2) + 1));
+  const getOptionCount = (difficulty: number): number => Math.min(4, Math.max(2, Math.floor(difficulty / 3) + 2));
   const getDisplayTime = (difficulty: number): number => {
-    if (slowMode) {
-      return Math.max(3000, 6000 - (difficulty * 300)); // 6s -> 3s
-    }
-    return Math.max(1500, 4000 - (difficulty * 250)); // 4s -> 1.5s
+    if (slowMode) return Math.max(3000, 6000 - (difficulty * 300));
+    return Math.max(1500, 4000 - (difficulty * 250));
   };
 
-  // Generate random pattern
   const generatePattern = useCallback((size: number): PatternItem[] => {
     return Array.from({ length: size }, () => ({
       shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
@@ -123,14 +101,10 @@ export const PatternMatchGame = ({
     }));
   }, []);
 
-  // Generate options with one correct and rest incorrect
   const generateOptions = useCallback((correctPattern: PatternItem[], count: number): PatternItem[][] => {
     const opts: PatternItem[][] = [correctPattern];
-    
     while (opts.length < count) {
-      // Create a slightly different pattern
-      const wrongPattern = correctPattern.map((item, idx) => {
-        // Change 1-2 items to make it different
+      const wrongPattern = correctPattern.map((item) => {
         if (Math.random() < 0.4) {
           return {
             shape: Math.random() < 0.5 ? SHAPES[Math.floor(Math.random() * SHAPES.length)] : item.shape,
@@ -139,54 +113,32 @@ export const PatternMatchGame = ({
         }
         return { ...item };
       });
-      
-      // Make sure it's actually different
       const isDifferent = wrongPattern.some((item, idx) => 
         item.shape !== correctPattern[idx].shape || item.color !== correctPattern[idx].color
       );
-      
-      if (isDifferent) {
-        opts.push(wrongPattern);
-      }
+      if (isDifferent) opts.push(wrongPattern);
     }
-    
-    // Shuffle and track correct index
-    const shuffled = [...opts].sort(() => Math.random() - 0.5);
-    const correctIdx = shuffled.findIndex(opt => 
-      opt.every((item, idx) => 
-        item.shape === correctPattern[idx].shape && item.color === correctPattern[idx].color
-      )
-    );
-    
-    return shuffled;
+    return [...opts].sort(() => Math.random() - 0.5);
   }, []);
 
-  // Start a new trial
   const startTrial = useCallback(() => {
     const patternSize = getPatternSize(currentDifficulty);
     const optionCount = getOptionCount(currentDifficulty);
     const newPattern = generatePattern(patternSize);
     const newOptions = generateOptions(newPattern, optionCount);
-    
-    // Find correct index
     const correctIdx = newOptions.findIndex(opt =>
-      opt.every((item, idx) =>
-        item.shape === newPattern[idx].shape && item.color === newPattern[idx].color
-      )
+      opt.every((item, idx) => item.shape === newPattern[idx].shape && item.color === newPattern[idx].color)
     );
-    
     setPattern(newPattern);
     setOptions(newOptions);
     setCorrectIndex(correctIdx);
     setPhase('showing');
     setShowingProgress(100);
     
-    // Show pattern for display time, then switch to matching
     const displayTime = getDisplayTime(currentDifficulty);
     const progressInterval = setInterval(() => {
       setShowingProgress(prev => Math.max(0, prev - (100 / (displayTime / 100))));
     }, 100);
-    
     setTimeout(() => {
       clearInterval(progressInterval);
       setPhase('matching');
@@ -194,168 +146,93 @@ export const PatternMatchGame = ({
     }, displayTime);
   }, [currentDifficulty, generatePattern, generateOptions, slowMode]);
 
-  // Handle option selection
   const handleSelect = (selectedIndex: number) => {
     if (phase !== 'matching') return;
-    
     const reactionTimeMs = Date.now() - trialStartTime;
     const correct = selectedIndex === correctIndex;
-    
     updateTrial(correct);
-    
-    if (correct) {
-      setScore(s => s + 1);
-      playSuccess();
-      setFeedbackType('success');
-    } else {
-      playError();
-      setFeedbackType('incorrect');
-    }
-    
+    if (correct) { setScore(s => s + 1); playSuccess(); setFeedbackType('success'); }
+    else { playError(); setFeedbackType('incorrect'); }
     setPhase('feedback');
-    
-    onTrialComplete({
-      correct,
-      reactionTimeMs,
-      difficultyLevel: currentDifficulty,
-      patternSize: pattern.length,
-    });
-    
-    // After feedback, check difficulty and move to next trial
+    onTrialComplete({ correct, reactionTimeMs, difficultyLevel: currentDifficulty, patternSize: pattern.length });
     setTimeout(() => {
       checkAndAdjust();
-      
-      if (currentTrial >= totalTrials) {
-        onGameComplete(score + (correct ? 1 : 0));
-      } else {
-        setCurrentTrial(t => t + 1);
-        startTrial();
-      }
+      if (currentTrial >= totalTrials) { onGameComplete(score + (correct ? 1 : 0)); }
+      else { setCurrentTrial(t => t + 1); startTrial(); }
     }, 1500);
   };
 
-  // Start first trial on mount
-  useEffect(() => {
-    startTrial();
-  }, []);
+  useEffect(() => { startTrial(); }, []);
 
-  // Render shape component
   const renderShape = (item: PatternItem, size: number = 40) => {
     const colorClass = COLOR_CLASSES[item.color];
-    
     switch (item.shape) {
-      case 'circle':
-        return (
-          <div 
-            className={`rounded-full ${colorClass}`} 
-            style={{ width: size, height: size }}
-          />
-        );
-      case 'square':
-        return (
-          <div 
-            className={`rounded-md ${colorClass}`} 
-            style={{ width: size, height: size }}
-          />
-        );
-      case 'triangle':
-        return (
-          <div
-            style={{
-              width: 0,
-              height: 0,
-              borderLeft: `${size/2}px solid transparent`,
-              borderRight: `${size/2}px solid transparent`,
-              borderBottom: `${size}px solid`,
-            }}
-            className={`border-b-current ${item.color === 'red' ? 'text-red-500' : item.color === 'blue' ? 'text-blue-500' : item.color === 'green' ? 'text-green-500' : item.color === 'yellow' ? 'text-yellow-500' : 'text-purple-500'}`}
-          />
-        );
-      case 'star':
-        return (
-          <Star 
-            className={`${item.color === 'red' ? 'text-red-500' : item.color === 'blue' ? 'text-blue-500' : item.color === 'green' ? 'text-green-500' : item.color === 'yellow' ? 'text-yellow-500' : 'text-purple-500'}`}
-            fill="currentColor"
-            size={size}
-          />
-        );
-      default:
-        return null;
+      case 'circle': return <div className={`rounded-full ${colorClass}`} style={{ width: size, height: size }} />;
+      case 'square': return <div className={`rounded-md ${colorClass}`} style={{ width: size, height: size }} />;
+      case 'triangle': return (
+        <div style={{ width: 0, height: 0, borderLeft: `${size/2}px solid transparent`, borderRight: `${size/2}px solid transparent`, borderBottom: `${size}px solid` }}
+          className={`border-b-current ${item.color === 'red' ? 'text-red-500' : item.color === 'blue' ? 'text-blue-500' : item.color === 'green' ? 'text-green-500' : item.color === 'yellow' ? 'text-yellow-500' : 'text-purple-500'}`} />
+      );
+      case 'star': return (
+        <Star className={`${item.color === 'red' ? 'text-red-500' : item.color === 'blue' ? 'text-blue-500' : item.color === 'green' ? 'text-green-500' : item.color === 'yellow' ? 'text-yellow-500' : 'text-purple-500'}`}
+          fill="currentColor" size={size} />
+      );
+      default: return null;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Pattern Match</h2>
-            <p className="text-sm text-muted-foreground">
-              Remember and find the matching pattern
-            </p>
-          </div>
-        </div>
+    <div className="space-y-2 sm:space-y-4">
+      {/* Compact header */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{currentTrial}/{totalTrials}</span>
         <div className="text-right">
-          <div className="text-2xl font-bold">{score}/{currentTrial}</div>
-          <div className="text-sm text-muted-foreground">Level {currentDifficulty}</div>
+          <span className="font-bold">{score}/{currentTrial}</span>
+          <span className="text-xs text-muted-foreground ml-2">Lv {currentDifficulty}</span>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <Progress value={(currentTrial / totalTrials) * 100} className="h-2" />
+      <Progress value={(currentTrial / totalTrials) * 100} className="h-1.5" />
 
-      {/* Instructions */}
-      <div className="text-center py-2">
+      {/* Phase instruction — compact */}
+      <div className="text-center py-1">
         {phase === 'showing' && (
-          <div className="space-y-2">
-            <p className="text-lg font-medium text-primary animate-pulse">
-              👀 Remember this pattern!
-            </p>
-            <Progress value={showingProgress} className="h-1 w-32 mx-auto" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-primary">👀 Remember this pattern!</p>
+            <Progress value={showingProgress} className="h-1 w-24 mx-auto" />
           </div>
         )}
-        {phase === 'matching' && (
-          <p className="text-lg font-medium">
-            🎯 Find the matching pattern below
-          </p>
-        )}
+        {phase === 'matching' && <p className="text-sm font-medium">🎯 Find the match</p>}
         {phase === 'feedback' && (
-          <p className={`text-lg font-medium ${feedbackType === 'success' ? 'text-green-600' : 'text-orange-600'}`}>
-            {feedbackType === 'success' ? '✨ Perfect match!' : '🔄 Not quite - keep trying!'}
+          <p className={cn("text-sm font-medium", feedbackType === 'success' ? 'text-green-600' : 'text-orange-600')}>
+            {feedbackType === 'success' ? '✨ Perfect!' : '🔄 Not quite'}
           </p>
         )}
       </div>
 
-      {/* Pattern display area */}
-      <div className="bg-card border rounded-xl p-4 md:p-6 min-h-[100px] md:min-h-[120px] flex items-center justify-center">
+      {/* Pattern display */}
+      <div className="bg-card border rounded-xl p-3 sm:p-4 min-h-[80px] flex items-center justify-center">
         {phase === 'showing' && (
-          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center animate-in fade-in zoom-in duration-300">
+          <div className="flex items-center gap-2 flex-wrap justify-center animate-in fade-in zoom-in duration-300">
             {pattern.map((item, idx) => (
-              <div key={idx} className="p-1.5 md:p-2 bg-background rounded-lg shadow-sm">
+              <div key={idx} className="p-1.5 bg-background rounded-lg shadow-sm">
                 {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
           </div>
         )}
         {phase === 'matching' && (
-          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center opacity-30">
+          <div className="flex items-center gap-2 flex-wrap justify-center opacity-30">
             {pattern.map((_, idx) => (
-              <div 
-                key={idx} 
-                className="border-2 border-dashed border-muted-foreground/30 rounded-lg"
-                style={{ width: getShapeSize('display'), height: getShapeSize('display') }}
-              />
+              <div key={idx} className="border-2 border-dashed border-muted-foreground/30 rounded-lg"
+                style={{ width: getShapeSize('display'), height: getShapeSize('display') }} />
             ))}
           </div>
         )}
         {phase === 'feedback' && (
-          <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             {pattern.map((item, idx) => (
-              <div key={idx} className={`p-1.5 md:p-2 rounded-lg ${feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background'}`}>
+              <div key={idx} className={cn("p-1.5 rounded-lg", feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background')}>
                 {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
@@ -363,20 +240,18 @@ export const PatternMatchGame = ({
         )}
       </div>
 
-      {/* Options grid */}
+      {/* Options — large touch targets */}
       {phase === 'matching' && (
-        <div className={`grid gap-2 md:gap-4 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+        <div className="grid grid-cols-2 gap-2">
           {options.map((option, optIdx) => (
             <button
               key={optIdx}
               onClick={() => handleSelect(optIdx)}
-              className="p-3 md:p-4 bg-card border-2 border-muted hover:border-primary rounded-xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] md:min-h-[80px]"
+              className="p-3 bg-card border-2 border-muted hover:border-primary rounded-xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[64px]"
             >
-              <div className="flex items-center justify-center gap-1.5 md:gap-2 flex-wrap">
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
                 {option.map((item, itemIdx) => (
-                  <div key={itemIdx}>
-                    {renderShape(item, getShapeSize('option'))}
-                  </div>
+                  <div key={itemIdx}>{renderShape(item, getShapeSize('option'))}</div>
                 ))}
               </div>
             </button>
@@ -384,36 +259,13 @@ export const PatternMatchGame = ({
         </div>
       )}
 
-      {/* Feedback overlay */}
-      {phase === 'feedback' && (
-        <div className="flex justify-center">
-          <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full ${
-            feedbackType === 'success' 
-              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
-              : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-          }`}>
-            {feedbackType === 'success' ? (
-              <>
-                <Check className="w-5 h-5" />
-                <span className="font-medium">Excellent!</span>
-              </>
-            ) : (
-              <>
-                <X className="w-5 h-5" />
-                <span className="font-medium">The correct pattern was shown above</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Game complete */}
       {currentTrial > totalTrials && (
-        <div className="text-center py-8 animate-in fade-in zoom-in">
-          <Award className="w-16 h-16 mx-auto text-yellow-500 mb-4" />
-          <h3 className="text-2xl font-bold mb-2">Session Complete!</h3>
-          <p className="text-muted-foreground">
-            You matched {score} out of {totalTrials} patterns
+        <div className="text-center py-6 animate-in fade-in zoom-in">
+          <Award className="w-12 h-12 mx-auto text-yellow-500 mb-3" />
+          <h3 className="text-xl font-bold mb-1">Session Complete!</h3>
+          <p className="text-muted-foreground text-sm">
+            {score} out of {totalTrials} patterns matched
           </p>
         </div>
       )}

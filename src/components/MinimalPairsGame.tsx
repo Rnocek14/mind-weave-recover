@@ -9,7 +9,6 @@ import { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
@@ -87,11 +86,8 @@ export function MinimalPairsGame({
   
   if (!currentTrial && !isComplete) {
     return (
-      <Card className="p-8 text-center">
+      <Card className="p-6 text-center">
         <p className="text-muted-foreground">No minimal pairs available for practice.</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Add more photos to the photo bank to enable this exercise.
-        </p>
       </Card>
     );
   }
@@ -102,33 +98,30 @@ export function MinimalPairsGame({
       : 0;
     
     return (
-      <Card className="p-8">
-        <div className="text-center space-y-6">
-          <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-            <Trophy className="w-10 h-10 text-primary" />
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+            <Trophy className="w-8 h-8 text-primary" />
           </div>
-          
           <div>
-            <h2 className="text-2xl font-bold">Exercise Complete!</h2>
-            <p className="text-muted-foreground mt-1">Great work on your phoneme discrimination practice</p>
+            <h2 className="text-xl font-bold">Exercise Complete!</h2>
+            <p className="text-muted-foreground mt-1 text-sm">Great work on phoneme discrimination</p>
           </div>
-          
-          <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-2xl font-bold text-primary">{score}</div>
+          <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-xl font-bold text-primary">{score}</div>
               <div className="text-xs text-muted-foreground">Score</div>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{correctCount}</div>
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-xl font-bold text-green-600">{correctCount}</div>
               <div className="text-xs text-muted-foreground">Correct</div>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-2xl font-bold">{accuracy}%</div>
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-xl font-bold">{accuracy}%</div>
               <div className="text-xs text-muted-foreground">Accuracy</div>
             </div>
           </div>
-          
-          <Button onClick={() => reset()} size="lg">
+          <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
             <RotateCcw className="w-4 h-4 mr-2" />
             Practice Again
           </Button>
@@ -140,41 +133,38 @@ export function MinimalPairsGame({
   const progress = ((trialIndex) / state.totalTrials) * 100;
   
   return (
-    <div className="space-y-6">
-      {/* Header with progress */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline">
-            {trialIndex + 1} / {state.totalTrials}
-          </Badge>
-          <Badge variant="secondary" className="gap-1">
+    <div className="space-y-2 sm:space-y-4">
+      {/* Compact header */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          {trialIndex + 1} / {state.totalTrials}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Check className="w-3 h-3" /> {correctCount}
-          </Badge>
+          </span>
+          <span className="font-medium">Score: {score}</span>
         </div>
-        <div className="text-lg font-semibold">Score: {score}</div>
       </div>
       
-      <Progress value={progress} className="h-2" />
+      <Progress value={progress} className="h-1.5" />
       
-      {/* Instruction and audio button */}
-      <Card className="p-6 text-center bg-primary/5 border-primary/20">
-        <p className="text-lg font-medium mb-3">
-          Which picture shows: <span className="text-primary font-bold text-xl">"{currentTrial.targetWord}"</span>?
+      {/* Target word + audio — compact inline */}
+      <div className="flex items-center justify-center gap-3 py-2">
+        <p className="text-lg font-medium">
+          Which is: <span className="text-primary font-bold text-xl">"{currentTrial.targetWord}"</span>?
         </p>
-        <Button 
-          variant="outline" 
-          size="lg"
+        <button
           onClick={() => speak(currentTrial.targetWord)}
           disabled={isSpeaking}
-          className="gap-2"
+          className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
         >
-          <Volume2 className="w-5 h-5" />
-          Hear Word Again
-        </Button>
-      </Card>
+          <Volume2 className="w-5 h-5 text-primary" />
+        </button>
+      </div>
       
-      {/* Side-by-side images */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Side-by-side images — full-width, large touch targets */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {[0, 1].map((index) => {
           const trial = index === 0 ? currentTrial.trial1 : currentTrial.trial2;
           const word = index === 0 ? currentTrial.pair.word1 : currentTrial.pair.word2;
@@ -187,12 +177,12 @@ export function MinimalPairsGame({
               onClick={() => !showFeedback && selectAnswer(index as 0 | 1)}
               disabled={showFeedback}
               className={cn(
-                "relative rounded-xl overflow-hidden border-4 transition-all duration-200",
+                "relative rounded-xl overflow-hidden border-3 transition-all duration-200",
                 "focus:outline-none focus:ring-4 focus:ring-primary/50",
-                !showFeedback && "hover:scale-[1.02] hover:border-primary/50 cursor-pointer",
-                !showFeedback && !isSelected && "border-border",
-                showFeedback && isTarget && "border-green-500 ring-4 ring-green-500/30",
-                showFeedback && isSelected && !isTarget && "border-red-500 ring-4 ring-red-500/30",
+                "active:scale-[0.98]",
+                !showFeedback && "hover:border-primary/50 cursor-pointer border-border",
+                showFeedback && isTarget && "border-green-500 ring-2 ring-green-500/30",
+                showFeedback && isSelected && !isTarget && "border-red-500 ring-2 ring-red-500/30",
                 showFeedback && !isSelected && !isTarget && "border-border opacity-50",
               )}
             >
@@ -211,13 +201,13 @@ export function MinimalPairsGame({
                   isTarget ? "bg-green-500/20" : isSelected ? "bg-red-500/20" : "bg-black/30"
                 )}>
                   {isTarget && (
-                    <div className="bg-green-500 text-white rounded-full p-3">
-                      <Check className="w-8 h-8" />
+                    <div className="bg-green-500 text-white rounded-full p-2.5">
+                      <Check className="w-6 h-6" />
                     </div>
                   )}
                   {isSelected && !isTarget && (
-                    <div className="bg-red-500 text-white rounded-full p-3">
-                      <X className="w-8 h-8" />
+                    <div className="bg-red-500 text-white rounded-full p-2.5">
+                      <X className="w-6 h-6" />
                     </div>
                   )}
                 </div>
@@ -226,7 +216,7 @@ export function MinimalPairsGame({
               {/* Word label (shown after selection) */}
               {showFeedback && (
                 <div className={cn(
-                  "absolute bottom-0 left-0 right-0 py-2 px-3 text-center font-bold text-lg",
+                  "absolute bottom-0 left-0 right-0 py-1.5 px-2 text-center font-bold text-sm",
                   isTarget ? "bg-green-500 text-white" : "bg-muted text-foreground"
                 )}>
                   {word}
@@ -237,28 +227,24 @@ export function MinimalPairsGame({
         })}
       </div>
       
-      {/* Contrast info (shown after selection) */}
+      {/* Contrast info + Next — compact */}
       {showFeedback && (
-        <Card className="p-4 bg-muted/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Phoneme Contrast</p>
-              <p className="font-medium">
-                <span className="text-primary">{currentTrial.pair.phoneme1}</span>
-                {" vs "}
-                <span className="text-primary">{currentTrial.pair.phoneme2}</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {currentTrial.pair.contrastDescription}
-              </p>
-            </div>
-            
-            <Button onClick={nextTrial} size="lg" className="gap-2">
-              Next
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+        <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">
+              <span className="text-primary font-medium">{currentTrial.pair.phoneme1}</span>
+              {" vs "}
+              <span className="text-primary font-medium">{currentTrial.pair.phoneme2}</span>
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {currentTrial.pair.contrastDescription}
+            </p>
           </div>
-        </Card>
+          <Button onClick={nextTrial} size="lg" className="gap-2 min-h-[48px] shrink-0 ml-3">
+            Next
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
       )}
     </div>
   );
