@@ -2161,48 +2161,45 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Voice mode toggle */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+      {/* Voice & hint controls - single compact row */}
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-xs text-muted-foreground hidden sm:block">
           {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
         </p>
         
-        <div className="relative">
-          {/* Listening pulse ring */}
-          {isListening && (
-            <div className="absolute inset-0 rounded-md animate-pulse">
+        <div className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            {isListening && (
               <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
-            </div>
-          )}
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setUseVoice(!useVoice);
+                if (!useVoice && isSupported) {
+                  setTimeout(() => startListening(), 500);
+                } else if (isListening) {
+                  stopListening();
+                }
+              }}
+              className={`gap-1 relative z-10 h-8 px-2 text-xs ${isListening ? 'ring-2 ring-primary/50 ring-offset-1' : ''}`}
+            >
+              <div className={isListening ? 'animate-pulse' : ''}>
+                {useVoice ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </div>
+              <span className="hidden sm:inline">{useVoice ? "Voice On" : "Voice Off"}</span>
+            </Button>
+          </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setUseVoice(!useVoice);
-              if (!useVoice && isSupported) {
-                setTimeout(() => startListening(), 500);
-              } else if (isListening) {
-                stopListening();
-              }
-            }}
-            className={`gap-2 relative z-10 ${isListening ? 'ring-2 ring-primary/50 ring-offset-2' : ''}`}
-          >
-            <div className={isListening ? 'animate-pulse' : ''}>
-              {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            </div>
-            {useVoice ? "Voice On" : "Voice Off"}
-          </Button>
-          
-          {/* Auto-hints toggle */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`gap-2 ${!autoHintsEnabled ? 'opacity-50' : ''}`}
+            className={`gap-1 h-8 px-2 text-xs ${!autoHintsEnabled ? 'opacity-50' : ''}`}
           >
-            <Lightbulb className={`w-4 h-4 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-            {autoHintsEnabled ? "Hints On" : "Hints Off"}
+            <Lightbulb className={`w-3.5 h-3.5 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+            <span className="hidden sm:inline">{autoHintsEnabled ? "Hints" : "Hints"}</span>
           </Button>
         </div>
       </div>
