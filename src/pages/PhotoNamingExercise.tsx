@@ -676,11 +676,11 @@ function PhotoNamingExerciseInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={fromLesson ? "h-screen bg-background flex flex-col overflow-hidden" : "min-h-screen bg-background flex flex-col"}>
       {fromLesson && <SessionSidePanel />}
       {fromLesson && <SessionProgressBubble />}
       <LiveAnalysisPanel />
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 max-w-4xl flex-1 flex flex-col">
+      <div className="container mx-auto px-2 sm:px-4 py-2 max-w-4xl flex-1 flex flex-col min-h-0">
         {/* Compact header on mobile */}
         <div className="flex flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -741,8 +741,8 @@ function PhotoNamingExerciseInner() {
           </div>
         </div>
 
-        {/* Active adaptations debug badges (visible when adaptations applied) */}
-        {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
+        {/* Active adaptations debug badges - hidden in lesson mode */}
+        {!fromLesson && lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
             {lessonAdaptations.timeoutMultiplier && lessonAdaptations.timeoutMultiplier !== 1 && (
               <Badge variant="secondary" className="text-xs">Timeout ×{lessonAdaptations.timeoutMultiplier}</Badge>
@@ -759,8 +759,8 @@ function PhotoNamingExerciseInner() {
           </div>
         )}
         
-        {/* Targeted practice banner */}
-        {targetedWords.length > 0 && (
+        {/* Targeted practice banner - hidden in lesson mode */}
+        {!fromLesson && targetedWords.length > 0 && (
           <Card className="p-3 bg-primary/10 border-primary/20 mb-3">
             <div className="flex items-center gap-2 text-sm">
               <Target className="h-4 w-4 text-primary" />
@@ -772,25 +772,27 @@ function PhotoNamingExerciseInner() {
           </Card>
         )}
 
-        {/* Optional caregiver notes - hidden on mobile */}
-        <Card className="hidden md:block p-4 bg-muted/50 mb-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">
-                Session Notes (optional)
-              </label>
-              <span className="text-xs text-muted-foreground">
-                Quick observations about mood, energy, engagement
-              </span>
+        {/* Optional caregiver notes - hidden in lesson mode and on mobile */}
+        {!fromLesson && (
+          <Card className="hidden md:block p-4 bg-muted/50 mb-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">
+                  Session Notes (optional)
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  Quick observations about mood, energy, engagement
+                </span>
+              </div>
+              <Textarea
+                placeholder="e.g., Alert and engaged today. Needed more time with family photos. Laughed at the dog picture."
+                value={caregiverNotes}
+                onChange={(e) => setCaregiverNotes(e.target.value)}
+                className="min-h-[60px] text-sm"
+              />
             </div>
-            <Textarea
-              placeholder="e.g., Alert and engaged today. Needed more time with family photos. Laughed at the dog picture."
-              value={caregiverNotes}
-              onChange={(e) => setCaregiverNotes(e.target.value)}
-              className="min-h-[60px] text-sm"
-            />
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Mid-session pivot suggestion banner */}
         {hasPendingPivot && pivotRecommendation && (

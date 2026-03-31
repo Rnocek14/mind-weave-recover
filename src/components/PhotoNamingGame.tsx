@@ -2121,11 +2121,11 @@ export const PhotoNamingGame = ({
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-64 object-contain rounded-lg bg-muted"
+            className="w-full h-44 sm:h-52 md:h-64 object-contain rounded-lg bg-muted"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
-          <div className="w-full h-64 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
+          <div className="w-full h-44 sm:h-52 md:h-64 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
               <Volume2 className="w-10 h-10 text-primary" />
             </div>
