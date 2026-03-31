@@ -193,9 +193,9 @@ export default function SemanticFeatureExercise() {
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         <div className="max-w-6xl mx-auto space-y-4">
 
-        {/* Adaptation badges */}
+        {/* Adaptation badges — desktop only */}
         {adaptation.adaptationReasons.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
+          <div className="hidden sm:flex flex-wrap gap-1.5 mb-2">
             {adaptation.adaptationReasons.slice(0, 3).map((reason, i) => (
               <Badge key={i} variant="secondary" className="text-xs">{reason}</Badge>
             ))}
