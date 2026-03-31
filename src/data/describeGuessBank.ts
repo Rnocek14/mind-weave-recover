@@ -132,7 +132,7 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
   {
     id: 'dg_phone',
     target: 'phone',
-    photoBankId: 'phone_1',
+    photoBankId: 'phone_2',
     acceptedWords: ['phone', 'telephone', 'cell phone', 'mobile'],
     wordAliases: { phone: ['phones', 'fone'], telephone: ['telephones'], mobile: ['mobiles'] },
     featureKeywords: {
