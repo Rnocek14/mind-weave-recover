@@ -353,8 +353,12 @@ export const useSpeechRecognition = (
   }, [discourseMode]);
 
   const stopListening = useCallback(() => {
-    // Only stop if actually listening or starting
-    if (stateRef.current !== 'LISTENING' && stateRef.current !== 'STARTING') {
+    // Only stop if recognition is active or auto-restarting
+    if (
+      stateRef.current !== 'LISTENING' &&
+      stateRef.current !== 'STARTING' &&
+      stateRef.current !== 'RESTARTING'
+    ) {
       console.log('🎤 stopListening - already stopped, state:', stateRef.current);
       return;
     }

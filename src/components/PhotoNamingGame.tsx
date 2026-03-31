@@ -2159,7 +2159,7 @@ export const PhotoNamingGame = ({
               <span className="text-muted-foreground">Setting up...</span>
             </>
           )}
-          {isRecording && !isAnalyzing && !processingAnswer && (
+          {useVoice && (isListening || micAutoStartPending) && !isAnalyzing && !processingAnswer && (
             <>
               <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse shrink-0" />
               <span className="text-destructive font-medium">🎙️ Listening...</span>
@@ -2250,29 +2250,47 @@ export const PhotoNamingGame = ({
           </button>
 
           <div className="relative">
-            {isListening && (
-              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+            {useVoice && (isListening || micAutoStartPending) && (
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping pointer-events-none" />
             )}
             <button
-              onClick={() => {
+              type="button"
+              onPointerUp={(event) => {
+                event.preventDefault();
                 const nextUseVoice = !useVoice;
                 setUseVoice(nextUseVoice);
                 if (nextUseVoice && isSupported) {
                   setMicAutoStartPending(true);
                   setTimeout(() => startListening(), 500);
-                } else if (isListening) {
+                } else {
                   setMicAutoStartPending(false);
                   stopListening();
                 }
               }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                const nextUseVoice = !useVoice;
+                setUseVoice(nextUseVoice);
+                if (nextUseVoice && isSupported) {
+                  setMicAutoStartPending(true);
+                  setTimeout(() => startListening(), 500);
+                } else {
+                  setMicAutoStartPending(false);
+                  stopListening();
+                }
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+              }}
               className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                isListening 
-                  ? 'bg-primary/80 text-primary-foreground ring-2 ring-primary/50' 
+                useVoice && (isListening || micAutoStartPending)
+                  ? 'bg-primary/80 text-primary-foreground ring-2 ring-primary/50'
                   : 'bg-black/40 text-white hover:bg-black/60'
               }`}
             >
-              <div className={isListening ? 'animate-pulse' : ''}>
-                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              <div className={useVoice && (isListening || micAutoStartPending) ? 'animate-pulse' : ''}>
+                {useVoice || isListening || micAutoStartPending ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </div>
             </button>
           </div>
