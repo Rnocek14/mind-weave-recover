@@ -32,6 +32,11 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 
     if (error) {
       console.error('Embedding API error:', error);
+      // Disable embeddings for rest of session on quota/billing errors
+      if (error?.message?.includes('503') || error?.message?.includes('429') || error?.message?.includes('quota')) {
+        embeddingDisabled = true;
+        console.warn('Embeddings disabled for this session due to quota limit');
+      }
       return null;
     }
 
