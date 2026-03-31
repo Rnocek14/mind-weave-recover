@@ -42,11 +42,11 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
 
   const isLoading = timelineLoading || proofLoading;
 
-  // Sections open state
+  // Sections open state — summary + whatChanged default open, others collapsed
   const [openSections, setOpenSections] = useState({
     whatChanged: true,
-    doesItWork: true,
-    cueLearning: true,
+    doesItWork: false,
+    cueLearning: false,
   });
 
   const toggle = (key: keyof typeof openSections) =>
@@ -94,9 +94,15 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground mb-1">System Intelligence</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {headline}
-              </p>
+              <div className="space-y-1">
+                {headline.map((line, i) => (
+                  <p key={i} className="text-sm text-muted-foreground leading-relaxed flex items-center gap-1.5">
+                    {i === 0 ? <TrendingUp className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : 
+                     <span className="w-3.5 flex-shrink-0 text-center text-muted-foreground/60">·</span>}
+                    {line}
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -158,21 +164,27 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
                 {events.slice(0, 20).map(event => {
                   const { description, reason } = formatEvent(event);
                   return (
-                    <div key={event.id} className="p-3 rounded-lg border bg-card/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {event.layer}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium">{description}</p>
-                      {reason && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Why: {reason}
-                        </p>
-                      )}
+                     <div key={event.id} className="p-3 rounded-lg border bg-card/50">
+                       <div className="flex items-center gap-2 mb-1">
+                         {event.adaptation_type?.includes('up') || event.adaptation_type === 'difficulty_change' && (event.value_after as any) > (event.value_before as any)
+                           ? <ArrowUpRight className="w-4 h-4 text-primary flex-shrink-0" />
+                           : event.adaptation_type?.includes('down') || event.adaptation_type === 'frustration_stepdown'
+                           ? <ArrowDownRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                           : <Minus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                         }
+                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                           {event.layer}
+                         </Badge>
+                         <span className="text-[11px] text-muted-foreground ml-auto">
+                           {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                         </span>
+                       </div>
+                       <p className="text-sm font-medium">{description}</p>
+                       {reason && (
+                         <p className="text-xs text-muted-foreground mt-0.5 italic">
+                           {reason}
+                         </p>
+                       )}
                     </div>
                   );
                 })}
@@ -192,6 +204,17 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
           onToggle={() => toggle('doesItWork')}
         >
           <div className="space-y-5">
+            {/* Key Takeaway */}
+            {(() => {
+              const takeaway = generateDoesItWorkTakeaway(proof);
+              return takeaway ? (
+                <Alert className="border-primary/20 bg-primary/5">
+                  <Target className="h-4 w-4" />
+                  <AlertDescription className="text-sm font-medium">{takeaway}</AlertDescription>
+                </Alert>
+              ) : null;
+            })()}
+
             {/* Latency Trend */}
             {proof.latencyTrend.length > 1 && (
               <div>
@@ -357,16 +380,28 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
             </ResponsiveContainer>
 
             {cueInsight && (
-              <Alert className="border-primary/20">
+              <Alert className="border-primary/20 bg-primary/5">
                 <Brain className="h-4 w-4" />
-                <AlertDescription className="text-xs">{cueInsight}</AlertDescription>
+                <AlertDescription className="text-sm font-medium">{cueInsight}</AlertDescription>
               </Alert>
             )}
 
-            <p className="text-[11px] text-muted-foreground">
-              The system uses 80% exploitation / 20% exploration to learn which cue types
-              work best for you, then automatically prioritizes them.
-            </p>
+            {/* "So what" — action statement */}
+            {(() => {
+              const best = cueData.reduce((a, b) => a.successRate > b.successRate ? a : b, cueData[0]);
+              return best && best.successRate > 0.5 ? (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  <Zap className="w-3 h-3 inline mr-1 text-primary" />
+                  The system will now prioritize <span className="font-medium text-foreground">{best.cueType}</span> cues 
+                  to help you respond faster, while still exploring other types occasionally.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  The system is still exploring which cue types work best for you. 
+                  It uses 80% exploitation / 20% exploration to learn your preferences.
+                </p>
+              );
+            })()}
           </div>
         </CollapsibleSection>
       )}
@@ -489,20 +524,20 @@ function generateHeadline(
   proof: ReturnType<typeof useOutcomeProof>['data'],
   adaptationCount: number,
   cueInsight: string | null,
-): string {
+): string[] {
   if (!proof || proof.totalTrials === 0) {
-    return 'The system is ready to adapt to you. Start practicing to see intelligence in action.';
+    return ['The system is ready to adapt to you. Start practicing to see intelligence in action.'];
   }
 
-  const parts: string[] = [];
+  const lines: string[] = [];
 
   // Accuracy assessment
   if (proof.overallAccuracy >= 0.85) {
-    parts.push('You\'re performing strongly');
+    lines.push('You are improving steadily.');
   } else if (proof.overallAccuracy >= 0.7) {
-    parts.push('The system is keeping you in the optimal challenge zone');
+    lines.push('The system is keeping you in the optimal challenge zone.');
   } else {
-    parts.push('The system is adjusting to find your sweet spot');
+    lines.push('The system is adjusting to find your sweet spot.');
   }
 
   // Latency trend
@@ -511,19 +546,53 @@ function generateHeadline(
     const last = proof.latencyTrend[proof.latencyTrend.length - 1].avgLatencyMs;
     const change = Math.round(((first - last) / first) * 100);
     if (change > 10) {
-      parts.push(`response time improved ${change}%`);
+      lines.push(`Response time is down ${change}% this week.`);
+    } else if (change < -10) {
+      lines.push(`Response time increased ${Math.abs(change)}% — the system is adjusting.`);
     }
   }
 
   // Adaptations
   if (adaptationCount > 0) {
-    parts.push(`${adaptationCount} real-time adjustments made`);
+    lines.push(`Difficulty is ${adaptationCount > 3 ? 'actively' : ''} adjusting as you practice.`);
   }
 
   // Cue learning
   if (cueInsight) {
-    parts.push(cueInsight.toLowerCase());
+    lines.push(cueInsight.charAt(0).toUpperCase() + cueInsight.slice(1) + '.');
   }
 
-  return parts.join('. ') + '.';
+  return lines;
+}
+
+function generateDoesItWorkTakeaway(
+  proof: ReturnType<typeof useOutcomeProof>['data'],
+): string | null {
+  if (!proof || proof.totalTrials === 0) return null;
+
+  // Latency improvement
+  if (proof.latencyTrend.length >= 2) {
+    const first = proof.latencyTrend[0].avgLatencyMs;
+    const last = proof.latencyTrend[proof.latencyTrend.length - 1].avgLatencyMs;
+    const change = Math.round(((first - last) / first) * 100);
+    if (change > 5) {
+      return `You are ${change}% faster than when you started.`;
+    }
+  }
+
+  // Accuracy trend
+  if (proof.accuracyTrends.length > 0) {
+    const improving = proof.accuracyTrends.filter(t => {
+      if (t.windows.length < 2) return false;
+      return t.windows[t.windows.length - 1].accuracy > t.windows[0].accuracy;
+    });
+    if (improving.length > 0) {
+      const best = improving[0];
+      const first = Math.round(best.windows[0].accuracy * 100);
+      const last = Math.round(best.windows[best.windows.length - 1].accuracy * 100);
+      return `Accuracy improved from ${first}% → ${last}% on ${best.exercise.replace(/-/g, ' ')}.`;
+    }
+  }
+
+  return `${proof.totalTrials} trials completed with ${Math.round(proof.overallAccuracy * 100)}% overall accuracy.`;
 }
