@@ -2182,11 +2182,7 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Voice & hint controls - single compact row */}
-      <div className="flex items-center justify-between gap-1">
-        <p className="text-xs text-muted-foreground hidden sm:block">
-          {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
-        </p>
+      <div className="flex items-center justify-end gap-1 shrink-0">
         
         <div className="flex items-center gap-1 ml-auto">
           <div className="relative">
