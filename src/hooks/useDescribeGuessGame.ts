@@ -6,11 +6,15 @@
  * via prompt chips instead of NLP classification.
  * 
  * Guess triggers (any 2 of 3):
- * (A) best-word similarity ≥ 0.78
- * (B) top-3 avg similarity ≥ 0.70
- * (C) feature coverage ≥ 2 types + any content word similarity ≥ 0.60
+ * (A) whole-description similarity ≥ 0.72 (embeddings compare full phrase to target)
+ * (B) best key-phrase similarity ≥ 0.65 (2-3 word chunks compared to target)
+ * (C) feature coverage ≥ 2 types (from chips or keyword detection)
  * 
- * Embeddings only called on speech-end (not continuously).
+ * KEY CHANGE: Previously compared individual words to target, which fails for 
+ * circumlocution (e.g., "you put them on your feet to walk" → each word alone
+ * has low similarity to "shoe"). Now compares the WHOLE description and 
+ * meaningful 2-3 word phrases to the target — which is how circumlocution 
+ * actually works.
  */
 
 import { useState, useCallback, useMemo, useRef } from 'react';
@@ -65,6 +69,27 @@ interface UseDescribeGuessGameOptions {
   difficulty?: number;
   onTrialComplete?: (result: DescribeGuessTrialResult) => void;
   onGameComplete?: (results: DescribeGuessTrialResult[]) => void;
+}
+
+/**
+ * Extract meaningful 2-3 word phrases from a transcript.
+ * These capture circumlocution patterns better than single words.
+ * e.g., "you sit on it" → ["you sit", "sit on", "on it"]
+ */
+function extractKeyPhrases(text: string): string[] {
+  const words = text.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+  const phrases: string[] = [];
+  
+  // 2-word phrases
+  for (let i = 0; i < words.length - 1; i++) {
+    phrases.push(`${words[i]} ${words[i + 1]}`);
+  }
+  // 3-word phrases
+  for (let i = 0; i < words.length - 2; i++) {
+    phrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
+  }
+  
+  return phrases;
 }
 
 export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) {
@@ -148,7 +173,16 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
 
   /**
    * Evaluate whether the app should "guess" — 2-of-3 rule
-   * Called on speech end (not continuously)
+   * 
+   * NEW STRATEGY (whole-description approach):
+   * Instead of comparing individual words to target, we compare:
+   * 1. The WHOLE description as a phrase → target (captures circumlocution context)
+   * 2. Key 2-3 word phrases → target (captures "sit on", "four legs", etc.)
+   * 3. Feature coverage from chips + keyword detection
+   * 
+   * This is vastly better for circumlocution because "you put them on before walking"
+   * as a whole phrase has HIGH similarity to "shoe", while individual words like 
+   * "walking" or "put" alone have LOW similarity.
    */
   const evaluateGuess = useCallback(async (
     transcript: string,
@@ -159,38 +193,66 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
     }
 
-    // Extract content words — cap at 4 to limit API calls (was 6)
-    const contentWords = cleaned.split(/\s+/).filter(w => w.length >= 2);
-    const wordsToCheck = contentWords.slice(0, 4);
+    // Strategy 1: Compare the WHOLE description to the target
+    // This is the key insight — circumlocution works at sentence level
+    const wholeDescSimilarity = await getSemanticSimilarity(cleaned, trial.target, trial.category);
+
+    // Strategy 2: Compare key 2-3 word phrases to the target
+    // Captures specific circumlocution fragments like "sit on", "four legs"
+    const keyPhrases = extractKeyPhrases(cleaned);
+    // Pick top 3 most relevant phrases (limit API calls)
+    const phrasesToCheck = keyPhrases.slice(0, Math.min(3, keyPhrases.length));
     
-    // Compute ALL similarities in parallel (not sequentially!)
-    const similarities = await Promise.all(
-      wordsToCheck.map(async (word) => {
-        const sim = await getSemanticSimilarity(word, trial.target, trial.category);
-        return { word, sim };
+    const phraseSimilarities = await Promise.all(
+      phrasesToCheck.map(async (phrase) => {
+        const sim = await getSemanticSimilarity(phrase, trial.target, trial.category);
+        return { word: phrase, sim };
       })
     );
     
-    similarities.sort((a, b) => b.sim - a.sim);
-    
-    const bestSimilarity = similarities[0]?.sim ?? 0;
-    const bestWord = similarities[0]?.word ?? null;
-    const top3 = similarities.slice(0, 3);
-    const top3Avg = top3.length > 0 ? top3.reduce((s, x) => s + x.sim, 0) / top3.length : 0;
+    phraseSimilarities.sort((a, b) => b.sim - a.sim);
+    const bestPhraseSim = phraseSimilarities[0]?.sim ?? 0;
+    const bestPhrase = phraseSimilarities[0]?.word ?? null;
+
+    // Use the best of whole-description or best-phrase
+    const bestSimilarity = Math.max(wholeDescSimilarity, bestPhraseSim);
+    const bestWord = wholeDescSimilarity >= bestPhraseSim ? cleaned : bestPhrase;
     
     // Combine chip-tracked features + keyword-detected features
     const keywordFeatures = detectFeatureKeywords(transcript, trial);
     const allFeatures = new Set([...featureTypesUsed, ...keywordFeatures]);
     const featureCount = allFeatures.size;
 
-    // 2-of-3 rule
+    // 2-of-3 rule (tuned for whole-description approach)
     const rulesPassed: string[] = [];
-    if (bestSimilarity >= 0.78) rulesPassed.push('A');
-    if (top3Avg >= 0.70) rulesPassed.push('B');
-    if (featureCount >= 2 && bestSimilarity >= 0.60) rulesPassed.push('C');
+    
+    // Rule A: Whole description captures meaning well
+    if (wholeDescSimilarity >= 0.72) rulesPassed.push('A');
+    
+    // Rule B: A key phrase is strongly related
+    if (bestPhraseSim >= 0.65) rulesPassed.push('B');
+    
+    // Rule C: Used 2+ feature types AND some semantic relevance
+    if (featureCount >= 2 && bestSimilarity >= 0.55) rulesPassed.push('C');
 
     const guessed = rulesPassed.length >= 2;
-    const confidence = Math.max(bestSimilarity, top3Avg);
+    const confidence = bestSimilarity;
+
+    // Top-3 average for telemetry
+    const top3Avg = phraseSimilarities.length > 0
+      ? phraseSimilarities.slice(0, 3).reduce((s, x) => s + x.sim, 0) / Math.min(3, phraseSimilarities.length)
+      : wholeDescSimilarity;
+
+    console.log('[DescribeGuess] Evaluation:', {
+      target: trial.target,
+      transcript: cleaned,
+      wholeDescSimilarity: wholeDescSimilarity.toFixed(3),
+      bestPhraseSim: bestPhraseSim.toFixed(3),
+      bestPhrase,
+      featureCount,
+      rulesPassed,
+      guessed,
+    });
 
     return { guessed, confidence, bestWord, bestSimilarity, top3Avg, featureCount, rulesPassed };
   }, [featureTypesUsed, detectFeatureKeywords]);
