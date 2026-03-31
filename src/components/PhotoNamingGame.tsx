@@ -2277,7 +2277,7 @@ export const PhotoNamingGame = ({
             </select>
           </div>
           
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative">
                 <Button
