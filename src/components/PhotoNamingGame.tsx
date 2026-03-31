@@ -73,7 +73,7 @@ const useDebouncedMicStatus = (
   isListening: boolean,
   shouldExpectListening: boolean,
   resetKey: string | number,
-  delayMs = 2000
+  delayMs = 5000
 ) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
