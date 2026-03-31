@@ -2223,7 +2223,7 @@ export const PhotoNamingGame = ({
             />
           </div>
         )}
-        {/* Mic + Hint controls spread across bottom of image */}
+        {/* Controls overlay on bottom of image */}
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
           <button
             onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
@@ -2234,6 +2234,19 @@ export const PhotoNamingGame = ({
             }`}
           >
             <Lightbulb className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handlePlayAllChoices}
+            disabled={isPlayingChoices || showFeedback || timedOut}
+            className={`h-8 px-3 rounded-full flex items-center gap-1.5 backdrop-blur-sm text-xs font-medium transition-colors ${
+              isPlayingChoices
+                ? 'bg-primary/80 text-primary-foreground'
+                : 'bg-black/40 text-white hover:bg-black/60'
+            }`}
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            {isPlayingChoices ? 'Playing...' : 'Hear choices'}
           </button>
 
           <div className="relative">
