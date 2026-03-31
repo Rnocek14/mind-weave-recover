@@ -326,46 +326,62 @@ export function DescribeGuessGame({
         setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
         setAwaitingWordAttempt(true);
 
-        // Speak FIRST with mic off, THEN re-enable mic after TTS finishes
-        // This prevents the mic from picking up Maya's own voice
+        // Clear transcript so only post-guess speech is evaluated for word match
+        rawTranscriptRef.current = '';
+        setDisplayTranscript('');
+
+        // Speak with mic off, then re-enable mic after TTS finishes
         speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
-          // Re-enable mic only after TTS is done speaking
-          startListening();
-          setIsListening(true);
+          // Reset transcript again in case speech recognition fired during TTS
+          rawTranscriptRef.current = '';
+
+          // Retry startListening with small delay in case state machine isn't IDLE yet
+          const tryStart = (retries = 3) => {
+            startListening();
+            setIsListening(true);
+            listeningStartRef.current = Date.now();
+            // If startListening was blocked, retry after a short delay
+            if (!speechIsListening && retries > 0) {
+              setTimeout(() => tryStart(retries - 1), 400);
+            }
+          };
+          setTimeout(() => tryStart(), 300);
+
+          // Start the word-attempt timer AFTER TTS finishes
+          const wordAttemptStart = Date.now();
+          feedbackTimerRef.current = setTimeout(async () => {
+            stopListening();
+            setIsListening(false);
+            await audioPromise;
+            const postGuessTranscript = rawTranscriptRef.current;
+            const saidWord = game.checkWordMatch(postGuessTranscript, trial);
+            if (saidWord) game.recordWordRetrieval();
+            const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
+            if (finalResult) {
+              logFinalAnalysis({
+                transcript: currentTranscript,
+                transcriptSource: 'browser',
+                isCorrect: finalResult.meaningWin || finalResult.wordWin,
+                errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
+                semanticSimilarity: guessResult.confidence,
+                audioStoragePath,
+                recordingDurationMs,
+                ...(pronunciationData ? {
+                  pronunciationScore: pronunciationData.pronunciationScore,
+                  gopData: pronunciationData,
+                } : {}),
+              });
+              recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+            }
+            setShowFeedback(true);
+            setAwaitingWordAttempt(false);
+
+            feedbackTimerRef.current = setTimeout(() => {
+              resetAttempt();
+              game.nextTrial();
+            }, 3500);
+          }, 6000);
         });
-
-        // Finalize after timeout
-        feedbackTimerRef.current = setTimeout(async () => {
-          await audioPromise; // Ensure audio is done
-          // Check if user said the word during the word-attempt window
-          const postGuessTranscript = rawTranscriptRef.current;
-          const saidWord = game.checkWordMatch(postGuessTranscript, trial);
-          if (saidWord) game.recordWordRetrieval();
-          const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
-          if (finalResult) {
-            logFinalAnalysis({
-              transcript: currentTranscript,
-              transcriptSource: 'browser',
-              isCorrect: finalResult.meaningWin || finalResult.wordWin,
-              errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
-              semanticSimilarity: guessResult.confidence,
-              audioStoragePath,
-              recordingDurationMs,
-              ...(pronunciationData ? {
-                pronunciationScore: pronunciationData.pronunciationScore,
-                gopData: pronunciationData,
-              } : {}),
-            });
-            recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
-          }
-          setShowFeedback(true);
-          setAwaitingWordAttempt(false);
-
-          feedbackTimerRef.current = setTimeout(() => {
-            resetAttempt();
-            game.nextTrial();
-          }, 3500);
-        }, 8000);
       } else {
         // Finalize immediately — show feedback first, THEN advance
         await audioPromise; // Ensure audio is done
@@ -401,7 +417,8 @@ export function DescribeGuessGame({
       processingRef.current = false;
     }
   }, [game, stopListening, isRecording, stopRecording, uploadRecording, sessionId, userId,
-      analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech]);
+      analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
+      startListening, speechIsListening]);
 
   // Speech-end evaluation (debounced 3s after last transcript change)
   // Use fullTranscript as trigger — it accumulates all speech segments
