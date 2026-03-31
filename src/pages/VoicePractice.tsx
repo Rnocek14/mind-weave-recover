@@ -71,6 +71,26 @@ export default function VoicePractice() {
       const full = (finalTranscript + ' ' + interimTranscript).trim();
       transcriptRef.current = full;
       setTranscript(full);
+
+      // Track that user has spoken meaningful content
+      const wordCount = full.split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount >= 2) {
+        hasSpokenRef.current = true;
+      }
+
+      // Reset silence timer on every new speech
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      if (hasSpokenRef.current) {
+        silenceTimerRef.current = setTimeout(() => {
+          // Auto-submit after silence
+          if (hasSpokenRef.current && transcriptRef.current.trim().length > 0) {
+            console.log('[VoicePractice] Auto-submitting after silence');
+            handleAutoSubmit();
+          }
+        }, SILENCE_TIMEOUT_MS);
+      }
     };
 
     recognition.onerror = (event: any) => {
