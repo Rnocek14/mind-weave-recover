@@ -761,14 +761,14 @@ function PhotoNamingExerciseInner() {
           </div>
         )}
         
-        {/* Targeted practice banner - hidden in lesson mode */}
-        {!fromLesson && targetedWords.length > 0 && (
-          <Card className="p-3 bg-primary/10 border-primary/20 mb-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Target className="h-4 w-4 text-primary" />
+        {/* Targeted practice banner - only show for intentional targeting (URL params, lesson focus), not auto-fallback */}
+        {!fromLesson && targetedWords.length > 0 && (isTargetedPractice || urlTargets.length > 0 || lessonFocusWords?.length) && (
+          <Card className="p-2 bg-primary/10 border-primary/20 mb-1 shrink-0">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Target className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="font-medium">Targeted Practice:</span>
-              <span className="text-muted-foreground">
-                Focusing on {targetedWords.slice(0, 3).join(', ')}{targetedWords.length > 3 ? ` +${targetedWords.length - 3} more` : ''}
+              <span className="text-muted-foreground truncate">
+                {targetedWords.slice(0, 3).join(', ')}{targetedWords.length > 3 ? ` +${targetedWords.length - 3} more` : ''}
               </span>
             </div>
           </Card>
