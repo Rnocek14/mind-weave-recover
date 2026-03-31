@@ -16,7 +16,7 @@ export const COGNITIVE_DOMAINS = [
     label: 'Lexical Retrieval',
     patientLabel: 'Word Finding',
     description: 'Word finding and naming ability',
-    exerciseSlugs: ['photo-naming', 'word-finding', 'describe-guess', 'dual-load-naming'],
+    exerciseSlugs: ['photo-naming', 'word-finding', 'describe-guess', 'dual-load-naming', 'category-fluency'],
     icon: 'MessageSquare',
   },
   {
