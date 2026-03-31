@@ -2223,21 +2223,13 @@ export const PhotoNamingGame = ({
             />
           </div>
         )}
-      </div>
-
-
-      {/* Cue display - compact on mobile */}
-
-      <div className="flex items-center justify-end gap-1 shrink-0">
-        
-        <div className="flex items-center gap-1">
+        {/* Mic + Hint controls overlaid on image bottom-right */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 z-10">
           <div className="relative">
             {isListening && (
-              <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
             )}
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => {
                 const nextUseVoice = !useVoice;
                 setUseVoice(nextUseVoice);
@@ -2249,24 +2241,28 @@ export const PhotoNamingGame = ({
                   stopListening();
                 }
               }}
-              className={`gap-1 relative z-10 h-8 px-2 text-xs ${isListening ? 'ring-2 ring-primary/50 ring-offset-1' : ''}`}
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
+                isListening 
+                  ? 'bg-primary/80 text-primary-foreground ring-2 ring-primary/50' 
+                  : 'bg-black/40 text-white hover:bg-black/60'
+              }`}
             >
               <div className={isListening ? 'animate-pulse' : ''}>
-                {useVoice ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </div>
-              <span className="hidden sm:inline">{useVoice ? "Voice On" : "Voice Off"}</span>
-            </Button>
+            </button>
           </div>
           
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`gap-1 h-8 px-2 text-xs ${!autoHintsEnabled ? 'opacity-50' : ''}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
+              autoHintsEnabled 
+                ? 'bg-yellow-500/80 text-white' 
+                : 'bg-black/40 text-white/60 hover:bg-black/60'
+            }`}
           >
-            <Lightbulb className={`w-3.5 h-3.5 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-            <span className="hidden sm:inline">{autoHintsEnabled ? "Hints" : "Hints"}</span>
-          </Button>
+            <Lightbulb className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
