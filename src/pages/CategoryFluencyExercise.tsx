@@ -85,6 +85,10 @@ export default function CategoryFluencyExercise() {
     fromLesson,
   });
 
+  const handleDifficultyChange = useCallback((newLevel: number, direction: 'up' | 'down') => {
+    console.log(`[CategoryFluency] Adaptive difficulty ${direction}: now level ${newLevel}`);
+  }, []);
+
   const handleRoundComplete = useCallback((result: CategoryFluencyResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
@@ -105,6 +109,7 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         words: result.words,
         difficulty: result.difficulty,
+        difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
