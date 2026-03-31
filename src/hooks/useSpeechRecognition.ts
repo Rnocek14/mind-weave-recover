@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING';
+type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING' | 'RESTARTING';
 
 interface SpeechRecognitionHook {
   isListening: boolean;
