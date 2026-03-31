@@ -151,7 +151,8 @@ export default function MeaningMatchExercise() {
             totalScore: results.reduce((sum, r) => sum + r.points, 0),
           }
         }));
-      }, 2000);
+        navigate('/lesson', { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession]);
 
