@@ -30,9 +30,9 @@ export default function MinimalPairsExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const lessonSessionId = location.state?.sessionId ?? null;
+  const restored = useRestoredLessonContext('minimal-pairs');
+  const fromLesson = restored.fromLesson;
+  const lessonSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
