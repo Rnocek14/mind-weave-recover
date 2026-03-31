@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
@@ -91,6 +91,13 @@ export const useExerciseTelemetry = (
   const [trialNumber, setTrialNumber] = useState(0);
   const [trialStartTime, setTrialStartTime] = useState<number | null>(null);
   const { trackTrial: trackEncouragement, reset: resetEncouragement } = useMicroEncouragement();
+
+  // Reset encouragement state when exercise slug changes (new exercise)
+  const prevSlugRef = useRef(exerciseSlug);
+  if (prevSlugRef.current !== exerciseSlug) {
+    prevSlugRef.current = exerciseSlug;
+    resetEncouragement();
+  }
 
   const startTrial = useCallback(() => {
     setTrialStartTime(Date.now());

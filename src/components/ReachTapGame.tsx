@@ -279,9 +279,9 @@ export const ReachTapGame = ({
   };
 
   return (
-    <div className="w-full space-y-2 flex flex-col min-h-0">
+    <div className="w-full space-y-2 flex flex-col min-h-0 max-h-full overflow-hidden">
       {/* Progress */}
-      <div className="space-y-2">
+      <div className="space-y-2 flex-shrink-0">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
             Trial {currentTrial} of {totalTrials}
@@ -297,7 +297,7 @@ export const ReachTapGame = ({
       </div>
 
       {/* Difficulty indicator */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2">
           {difficultyChanged && (
             <div className={`
@@ -331,7 +331,7 @@ export const ReachTapGame = ({
       {/* Game Area */}
       <div 
         ref={containerRef}
-        className={`relative w-full min-h-[320px] sm:min-h-[380px] flex-1 rounded-xl border-4 shadow-glow overflow-hidden ${
+        className={`relative w-full min-h-[280px] sm:min-h-[340px] flex-1 rounded-xl border-4 shadow-glow overflow-hidden ${
           variant === 'left-side-hunt' 
             ? 'bg-gradient-to-r from-amber-100/30 via-muted to-muted dark:from-amber-900/20 border-amber-500' 
             : 'bg-muted border-primary'
@@ -454,8 +454,8 @@ export const ReachTapGame = ({
       </div>
 
       {/* Instructions */}
-      <div className="text-center space-y-2">
-        <h3 className="text-xl font-semibold">
+      <div className="text-center space-y-1 flex-shrink-0 pb-1">
+        <h3 className="text-lg font-semibold">
           {variant === 'left-side-hunt' 
             ? '👀 Hunt for stars on the left side!' 
             : 'Tap the targets as they appear!'}
