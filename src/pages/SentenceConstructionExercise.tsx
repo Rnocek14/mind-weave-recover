@@ -263,19 +263,14 @@ const SentenceConstructionExercise = () => {
   return (
     <div className="h-dvh flex flex-col bg-background overflow-hidden">
       {/* Compact header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
+      <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm font-medium hidden sm:inline">Sentence Construction</span>
-        </div>
-        <div className="flex items-center gap-2">
           <DifficultyInfoBadge level={level} floor={bounds.floor} ceiling={bounds.ceiling} />
-          {adaptation.adaptationReasons.length > 0 && (
-            <Badge variant="secondary" className="text-xs">Adapted</Badge>
-          )}
+        </div>
+        <div className="flex items-center gap-1.5">
           <Dialog open={showSettings} onOpenChange={setShowSettings}>
             <DialogTrigger asChild>
               <Button variant="outline" size="icon" className="h-8 w-8">
