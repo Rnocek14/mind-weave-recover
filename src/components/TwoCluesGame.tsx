@@ -975,21 +975,21 @@ export function TwoCluesGame({
 
   return (
     <Card className="max-w-md mx-auto">
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <Badge variant="outline">
-            Round {currentIndex + 1} / {totalRounds}
+          <Badge variant="outline" className="text-xs">
+            {currentIndex + 1}/{totalRounds}
           </Badge>
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="text-xs">
             {game.totalScore} pts
           </Badge>
         </div>
 
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} className="h-1.5" />
 
         {/* Clue words */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-2 sm:space-y-4">
           <p className="text-sm text-muted-foreground">What word connects these clues?</p>
           <div className="flex justify-center gap-3 flex-wrap">
             {currentPuzzle.clues.map((clue, i) => (
