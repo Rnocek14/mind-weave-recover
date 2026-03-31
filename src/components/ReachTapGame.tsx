@@ -297,7 +297,7 @@ export const ReachTapGame = ({
       </div>
 
       {/* Difficulty indicator */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2">
           {difficultyChanged && (
             <div className={`
