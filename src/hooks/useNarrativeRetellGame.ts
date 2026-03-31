@@ -20,6 +20,10 @@ export interface NarrativeTrialResult {
   eventsTotal: number;
   /** Event coverage ratio (0-1) */
   eventCoverage: number;
+  /** Which key events were matched */
+  matchedEvents: string[];
+  /** All key events for reference */
+  allKeyEvents: string[];
   /** Coherence proxy: clause count / expected */
   coherenceScore: number;
   /** On-topic score (Jaccard with story text) */
