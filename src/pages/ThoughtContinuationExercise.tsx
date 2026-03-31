@@ -13,7 +13,7 @@ import { ThoughtContinuationGame } from '@/components/ThoughtContinuationGame';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
-import { SessionProgressBubble } from '@/components/SessionProgressBubble';
+import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
