@@ -2285,11 +2285,11 @@ export const PhotoNamingGame = ({
         </div>
       )}
       
-      {/* Mic paused indicator */}
-      {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
+      {/* Only show real microphone errors, not normal restart gaps */}
+      {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
         <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
           <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <span className="text-warning">Mic needs attention — tap once to restart</span>
+          <span className="text-warning">{micErrorMessage}</span>
         </div>
       )}
 
