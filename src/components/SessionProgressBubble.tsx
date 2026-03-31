@@ -10,8 +10,8 @@ export function SessionProgressBubble() {
   if (totalCount === 0) return null;
   
   return (
-    <div className="fixed top-4 right-4 z-50">
-      <Card className="flex items-center gap-2 px-3 py-2 shadow-lg bg-card/95 backdrop-blur-sm border">
+    <div className="fixed top-[60px] right-3 z-40">
+      <Card className="flex items-center gap-1.5 px-2 py-1 shadow-md bg-card/90 backdrop-blur-sm border text-xs">
         <div className="flex gap-1">
           {Array.from({ length: totalCount }).map((_, i) => (
             <div
