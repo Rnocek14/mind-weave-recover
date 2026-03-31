@@ -2150,13 +2150,13 @@ export const PhotoNamingGame = ({
         )}
       </div>
 
-      {/* Cue display */}
+      {/* Cue display - compact on mobile */}
       {showCue && currentCueText && (
-        <div className="bg-accent/10 border border-accent p-4 rounded-lg flex items-start gap-3">
-          <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+        <div className="bg-accent/10 border border-accent px-3 py-2 sm:p-4 rounded-lg flex items-start gap-2">
+          <Lightbulb className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium text-accent mb-1">Hint (Level {cueLevel}/3)</p>
-            <p className="text-sm">{currentCueText}</p>
+            <p className="font-medium text-accent text-xs sm:text-sm">Hint {cueLevel}/3</p>
+            <p className="text-xs sm:text-sm">{currentCueText}</p>
           </div>
         </div>
       )}
