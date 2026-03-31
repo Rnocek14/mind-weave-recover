@@ -82,14 +82,37 @@ export const SentenceConstructionGame = ({
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
-  
+  const [showTiles, setShowTiles] = useState(false);
+  const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
+  const hasProcessedSpeechRef = useRef(false);
 
   const trial = getCurrentTrial();
 
-  // Reset and auto-play audio when trial changes
+  // === Speech Recognition ===
+  const handleSpeechResult = useCallback((transcript: string) => {
+    if (hasProcessedSpeechRef.current) return;
+    setSpokenSentence(transcript);
+  }, []);
+
+  const {
+    isListening,
+    startListening,
+    stopListening,
+    isSupported: speechSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    patientMode: true,
+    continuousListening: true,
+    discourseMode: true,
+    autoStart: false,
+  });
+
+  // Auto-start mic when trial changes
   useEffect(() => {
     setTrialStartTime(Date.now());
     setHintUsed(false);
+    setSpokenSentence(null);
+    hasProcessedSpeechRef.current = false;
     stop();
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => {
@@ -99,11 +122,83 @@ export const SentenceConstructionGame = ({
     }
   }, [currentTrial, completed]);
 
+  // Auto-start mic after TTS finishes reading
+  useEffect(() => {
+    if (!isSpeaking && !isLoading && trial && !completed && !showFeedback && speechSupported && !showTiles) {
+      const timer = setTimeout(() => {
+        if (!hasProcessedSpeechRef.current) startListening();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking, isLoading, trial, completed, showFeedback, speechSupported, showTiles, startListening]);
+
   useEffect(() => {
     if (completed && onGameComplete) {
       onGameComplete(score, trials.length);
     }
   }, [completed]);
+
+  // Match spoken sentence to word tiles
+  const submitSpokenSentence = useCallback(() => {
+    if (!trial || !spokenSentence || hasProcessedSpeechRef.current) return;
+    hasProcessedSpeechRef.current = true;
+    stopListening();
+
+    const spokenWords = spokenSentence.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const correctWords = trial.correctAnswer.map(w => w.toLowerCase());
+
+    // Map spoken words to option indices
+    const usedIndices = new Set<number>();
+    const mappedIndices: number[] = [];
+
+    for (const spoken of spokenWords) {
+      // Find the best matching option that hasn't been used yet
+      let bestIdx = -1;
+      for (let i = 0; i < trial.options.length; i++) {
+        if (usedIndices.has(i)) continue;
+        if (trial.options[i].toLowerCase() === spoken) {
+          bestIdx = i;
+          break;
+        }
+      }
+      if (bestIdx >= 0) {
+        mappedIndices.push(bestIdx);
+        usedIndices.add(bestIdx);
+      }
+    }
+
+    // Set the answer via the mapped indices
+    if (mappedIndices.length > 0) {
+      // Clear and set all at once by selecting each word
+      clearAnswer();
+      mappedIndices.forEach(idx => selectWord(idx));
+    }
+
+    // Auto-submit after a beat
+    setTimeout(() => {
+      const result = submitAnswer();
+      if (!result) return;
+      const reactionTime = Date.now() - trialStartTime;
+      if (trial?.modelAudio) speak(trial.modelAudio);
+      if (onTrialComplete) {
+        onTrialComplete({
+          correct: result.correct,
+          reactionTime,
+          errorType: result.errorAnalysis.errorType,
+          grammarFocus: result.trial.grammarFocus,
+          trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
+        });
+      }
+    }, 300);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak]);
+
+  // Auto-submit when speech stops and we have a sentence
+  useEffect(() => {
+    if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
+      const timer = setTimeout(() => submitSpokenSentence(), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [spokenSentence, isListening, submitSpokenSentence]);
 
   const handleHint = () => {
     setHintUsed(true);
@@ -137,6 +232,7 @@ export const SentenceConstructionGame = ({
   };
 
   const handleNext = () => {
+    setShowTiles(false);
     nextTrial(difficultyLevel);
   };
 
