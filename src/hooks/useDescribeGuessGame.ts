@@ -19,6 +19,8 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/describeGuessBank';
+import { matchAnswer } from '@/lib/answerMatcher';
+import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
 import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
 import { useGameSounds } from '@/hooks/useGameSounds';
@@ -69,27 +71,6 @@ interface UseDescribeGuessGameOptions {
   difficulty?: number;
   onTrialComplete?: (result: DescribeGuessTrialResult) => void;
   onGameComplete?: (results: DescribeGuessTrialResult[]) => void;
-}
-
-/**
- * Extract meaningful 2-3 word phrases from a transcript.
- * These capture circumlocution patterns better than single words.
- * e.g., "you sit on it" → ["you sit", "sit on", "on it"]
- */
-function extractKeyPhrases(text: string): string[] {
-  const words = text.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
-  const phrases: string[] = [];
-  
-  // 2-word phrases
-  for (let i = 0; i < words.length - 1; i++) {
-    phrases.push(`${words[i]} ${words[i + 1]}`);
-  }
-  // 3-word phrases
-  for (let i = 0; i < words.length - 2; i++) {
-    phrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
-  }
-  
-  return phrases;
 }
 
 export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) {
@@ -188,35 +169,46 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     transcript: string,
     trial: DescribeGuessTrial
   ): Promise<GuessResult> => {
-    const cleaned = extractAnswerFromTranscript(transcript);
-    if (isMostlyFiller(cleaned) || getContentWordCount(cleaned) < 1) {
+    const analysisText = getSemanticAnalysisText(transcript);
+    const cleanedAnswer = extractAnswerFromTranscript(transcript);
+
+    if (!analysisText || (isMostlyFiller(cleanedAnswer) && getContentWordCount(analysisText) < 2)) {
       return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
+    }
+
+    const directMatch = matchAnswer(transcript, trial.target, trial.acceptedWords, trial.category);
+    if (directMatch.isMatch && directMatch.countsAsCorrect) {
+      return {
+        guessed: true,
+        confidence: Math.max(0.8, directMatch.confidence),
+        bestWord: directMatch.inferredWord || trial.target,
+        bestSimilarity: Math.max(0.8, directMatch.confidence),
+        top3Avg: Math.max(0.8, directMatch.confidence),
+        featureCount: new Set([...featureTypesUsed, ...detectFeatureKeywords(transcript, trial)]).size,
+        rulesPassed: ['DIRECT'],
+      };
     }
 
     // Strategy 1: Compare the WHOLE description to the target
     // This is the key insight — circumlocution works at sentence level
-    const wholeDescSimilarity = await getSemanticSimilarity(cleaned, trial.target, trial.category);
+    const candidatePhrases = extractCandidatePhrases(analysisText, 5);
+    const [wholeDescSimilarity, phraseSimilarities] = await Promise.all([
+      getSemanticSimilarity(analysisText, trial.target, trial.category),
+      Promise.all(
+        candidatePhrases.map(async (phrase) => {
+          const sim = await getSemanticSimilarity(phrase, trial.target, trial.category);
+          return { word: phrase, sim };
+        })
+      )
+    ]);
 
-    // Strategy 2: Compare key 2-3 word phrases to the target
-    // Captures specific circumlocution fragments like "sit on", "four legs"
-    const keyPhrases = extractKeyPhrases(cleaned);
-    // Pick top 3 most relevant phrases (limit API calls)
-    const phrasesToCheck = keyPhrases.slice(0, Math.min(3, keyPhrases.length));
-    
-    const phraseSimilarities = await Promise.all(
-      phrasesToCheck.map(async (phrase) => {
-        const sim = await getSemanticSimilarity(phrase, trial.target, trial.category);
-        return { word: phrase, sim };
-      })
-    );
-    
     phraseSimilarities.sort((a, b) => b.sim - a.sim);
     const bestPhraseSim = phraseSimilarities[0]?.sim ?? 0;
     const bestPhrase = phraseSimilarities[0]?.word ?? null;
 
     // Use the best of whole-description or best-phrase
     const bestSimilarity = Math.max(wholeDescSimilarity, bestPhraseSim);
-    const bestWord = wholeDescSimilarity >= bestPhraseSim ? cleaned : bestPhrase;
+    const bestWord = wholeDescSimilarity >= bestPhraseSim ? analysisText : bestPhrase;
     
     // Combine chip-tracked features + keyword-detected features
     const keywordFeatures = detectFeatureKeywords(transcript, trial);
@@ -227,15 +219,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     const rulesPassed: string[] = [];
     
     // Rule A: Whole description captures meaning well
-    if (wholeDescSimilarity >= 0.72) rulesPassed.push('A');
+    if (wholeDescSimilarity >= 0.68) rulesPassed.push('A');
     
     // Rule B: A key phrase is strongly related
-    if (bestPhraseSim >= 0.65) rulesPassed.push('B');
+    if (bestPhraseSim >= 0.62) rulesPassed.push('B');
     
     // Rule C: Used 2+ feature types AND some semantic relevance
-    if (featureCount >= 2 && bestSimilarity >= 0.55) rulesPassed.push('C');
+    if (featureCount >= 2 && bestSimilarity >= 0.5) rulesPassed.push('C');
 
-    const guessed = rulesPassed.length >= 2;
+    // Rule D: Strong whole-description alone can carry the guess even without chips
+    if (wholeDescSimilarity >= 0.8) rulesPassed.push('D');
+
+    const guessed = rulesPassed.includes('D') || rulesPassed.length >= 2;
     const confidence = bestSimilarity;
 
     // Top-3 average for telemetry
@@ -245,10 +240,11 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
 
     console.log('[DescribeGuess] Evaluation:', {
       target: trial.target,
-      transcript: cleaned,
+        transcript: analysisText,
       wholeDescSimilarity: wholeDescSimilarity.toFixed(3),
       bestPhraseSim: bestPhraseSim.toFixed(3),
       bestPhrase,
+        candidatePhrases,
       featureCount,
       rulesPassed,
       guessed,
