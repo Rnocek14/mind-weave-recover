@@ -416,6 +416,11 @@ export function IntelligenceSection({ userId, profileId }: IntelligenceSectionPr
           </AlertDescription>
         </Alert>
       )}
+
+      {/* ─── 5. DEEP DIVE (Clinical Data) ─── */}
+      {hasData && (
+        <DeepDiveSection userId={userId} profileId={profileId} />
+      )}
     </div>
   );
 }
