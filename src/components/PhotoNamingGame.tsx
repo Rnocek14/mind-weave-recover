@@ -198,8 +198,12 @@ export const PhotoNamingGame = ({
   
   // Refs to avoid stale closures in timers
   const isPlayingChoicesRef = useRef(false);
+  const isListeningRef = useRef(false);
   const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const trialRecordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenInitiatedRef = useRef<number | null>(null); // Track which trial initiated auto-listen
+  const attemptStartedTrialRef = useRef<number | null>(null);
+  const recordingStartedTrialRef = useRef<number | null>(null);
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
