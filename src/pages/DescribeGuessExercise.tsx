@@ -47,8 +47,11 @@ export default function DescribeGuessExercise() {
       const savedIndex = typeof parsed?.currentBlockIndex === 'number' ? parsed.currentBlockIndex : -1;
       const savedBlock = parsed?.lesson?.blocks?.[savedIndex];
       const savedExerciseId = savedBlock?.exerciseId;
+      const normalizedSavedExerciseId = typeof savedExerciseId === 'string'
+        ? savedExerciseId.replace(/_/g, '-')
+        : null;
 
-      if (!savedBlock || !['describe-guess', EXERCISE_SLUG].includes(savedExerciseId)) {
+      if (!savedBlock || normalizedSavedExerciseId !== 'describe-guess') {
         return null;
       }
 
