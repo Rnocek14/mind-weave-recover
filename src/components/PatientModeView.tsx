@@ -333,6 +333,30 @@ export function PatientModeView({
                 </p>
               </div>
 
+              {/* Primary CTA — always first after greeting so it's above the fold */}
+              <Button
+                onClick={handleStartSession}
+                size="lg"
+                aria-label="Start today's therapy session"
+                className="w-full min-h-[88px] sm:min-h-[100px] md:min-h-[120px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-4 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
+              >
+                <Play className="w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 shrink-0" />
+                <span className="text-center leading-tight">
+                  Start Today's Session
+                </span>
+              </Button>
+
+              {/* Secondary: pick a game */}
+              <Button
+                onClick={() => setActiveTab("practice")}
+                variant="outline"
+                size="lg"
+                className="w-full min-h-[56px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-3 rounded-xl border-2"
+              >
+                <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
+                <span>Choose a game I like</span>
+              </Button>
+
               {/* Milestone celebrations */}
               {mayaInsight && <MilestoneToast milestone={mayaInsight.milestone} />}
 
@@ -347,35 +371,11 @@ export function PatientModeView({
                 />
               )}
 
-              {/* Why Today explanation — ABOVE CTA for trust */}
+              {/* Why Today explanation */}
               {lesson && <WhyTodayCard lesson={lesson} />}
-
-              {/* Primary CTA */}
-              <Button
-                onClick={handleStartSession}
-                size="lg"
-                aria-label="Start today's therapy session"
-                className="w-full min-h-[88px] sm:min-h-[100px] md:min-h-[120px] text-xl sm:text-2xl md:text-3xl font-bold shadow-xl hover:shadow-2xl transition-all duration-150 active:scale-[0.96] active:shadow-lg px-4 sm:px-8 py-4 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 select-none"
-              >
-                <Play className="w-9 h-9 sm:w-11 sm:h-11 md:w-14 md:h-14 shrink-0" />
-                <span className="text-center leading-tight">
-                  Start Today's Session
-                </span>
-              </Button>
 
               {/* Progress card with trend arrows */}
               <PatientProgressCard userId={userId} profileId={profileId} />
-
-              {/* Secondary: pick a game */}
-              <Button
-                onClick={() => setActiveTab("practice")}
-                variant="outline"
-                size="lg"
-                className="w-full min-h-[56px] text-lg sm:text-xl font-semibold px-4 sm:px-6 py-3 rounded-xl border-2"
-              >
-                <Gamepad2 className="w-6 h-6 mr-3 shrink-0" />
-                <span>Choose a game I like</span>
-              </Button>
 
               {/* Achievements — compact teaser on Home, full list in My Progress */}
               <AchievementBadges achievements={achievements} newAchievements={newAchievements} />
