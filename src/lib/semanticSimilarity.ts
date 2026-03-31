@@ -11,6 +11,7 @@ interface EmbeddingCache {
 
 // Simple in-memory cache to avoid redundant API calls
 const embeddingCache: EmbeddingCache = {};
+let embeddingDisabled = false;
 
 /**
  * Get embedding vector for a text using Supabase edge function
@@ -31,6 +32,11 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 
     if (error) {
       console.error('Embedding API error:', error);
+      // Disable embeddings for rest of session on quota/billing errors
+      if (error?.message?.includes('503') || error?.message?.includes('429') || error?.message?.includes('quota')) {
+        embeddingDisabled = true;
+        console.warn('Embeddings disabled for this session due to quota limit');
+      }
       return null;
     }
 
@@ -145,20 +151,21 @@ export async function getSemanticSimilarity(
     return 1.0;
   }
 
-  // Try embeddings-based similarity
-  try {
-    const [spokenEmbed, targetEmbed] = await Promise.all([
-      getEmbedding(normalized_spoken),
-      getEmbedding(normalized_target),
-    ]);
+  // Try embeddings-based similarity (skip if previous calls failed)
+  if (!embeddingDisabled) {
+    try {
+      const [spokenEmbed, targetEmbed] = await Promise.all([
+        getEmbedding(normalized_spoken),
+        getEmbedding(normalized_target),
+      ]);
 
-    if (spokenEmbed && targetEmbed) {
-      const similarity = cosineSimilarity(spokenEmbed, targetEmbed);
-      // Embeddings return -1 to 1, normalize to 0-1
-      return Math.max(0, Math.min(1, (similarity + 1) / 2));
+      if (spokenEmbed && targetEmbed) {
+        const similarity = cosineSimilarity(spokenEmbed, targetEmbed);
+        return Math.max(0, Math.min(1, (similarity + 1) / 2));
+      }
+    } catch (error) {
+      console.warn('Embeddings failed, using rule-based fallback:', error);
     }
-  } catch (error) {
-    console.warn('Embeddings failed, using rule-based fallback:', error);
   }
 
   // Fallback to rule-based if embeddings unavailable
