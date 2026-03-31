@@ -2128,13 +2128,13 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Image or Audio-Only Indicator — large on mobile for visibility */}
-      <div className="relative flex-1 min-h-0">
+      {/* Image — grows to fill available space */}
+      <div className="relative flex-1 min-h-[120px]">
         {state.currentTrial.imageUrl ? (
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-48 sm:h-56 md:h-64 object-contain rounded-lg bg-muted"
+            className="w-full h-full object-contain rounded-lg bg-muted"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
