@@ -459,9 +459,9 @@ export function DescribeGuessGame({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-3 h-full flex flex-col">
       {/* Progress */}
-      <div className="space-y-2">
+      <div className="space-y-1 shrink-0">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Picture {game.currentIndex + 1} of {game.totalTrials}</span>
           <div className="flex gap-3">
@@ -474,25 +474,25 @@ export function DescribeGuessGame({
       </div>
 
       {/* Instruction */}
-      <div className="text-center">
+      <div className="text-center shrink-0">
         <Badge variant="outline" className="text-base px-4 py-1">
           🗣️ Describe this picture — don't worry if you can't say the exact word
         </Badge>
       </div>
 
       {/* Image Card */}
-      <Card className="border-2 overflow-hidden">
+      <Card className="border-2 overflow-hidden shrink min-h-0 flex-1">
         <CardContent className="p-0">
           {currentImage ? (
-            <div className="aspect-square max-h-[350px] mx-auto flex items-center justify-center bg-muted/30">
+            <div className="h-full max-h-[280px] mx-auto flex items-center justify-center bg-muted/30">
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-[350px] w-auto object-contain"
+                className="max-h-[280px] w-auto object-contain"
               />
             </div>
           ) : (
-            <div className="aspect-square max-h-[350px] flex items-center justify-center bg-muted/30 text-muted-foreground">
+            <div className="h-[280px] flex items-center justify-center bg-muted/30 text-muted-foreground">
               Loading image...
             </div>
           )}
@@ -585,7 +585,7 @@ export function DescribeGuessGame({
       )}
 
       {/* Controls */}
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-3 shrink-0">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Thinking...
