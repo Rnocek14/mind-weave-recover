@@ -86,11 +86,7 @@ export const SentenceConstructionGame = ({
   useEffect(() => {
     setTrialStartTime(Date.now());
     setHintUsed(false);
-    
-    // Stop any currently playing audio before starting new one
     stop();
-    
-    // Auto-play the sentence when trial starts (delay to avoid overlap with previous feedback audio)
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => {
         speak(trial.modelAudio!);
@@ -105,7 +101,6 @@ export const SentenceConstructionGame = ({
     }
   }, [completed]);
 
-  // Hint button: play target sentence before submission
   const handleHint = () => {
     setHintUsed(true);
     if (trial?.modelAudio) {
@@ -113,7 +108,6 @@ export const SentenceConstructionGame = ({
     }
   };
 
-  // Play audio after submission as feedback
   const handlePlayAudio = () => {
     if (trial?.modelAudio) {
       speak(trial.modelAudio);
@@ -123,14 +117,10 @@ export const SentenceConstructionGame = ({
   const handleSubmit = () => {
     const result = submitAnswer();
     if (!result) return;
-
     const reactionTime = Date.now() - trialStartTime;
-
-    // Play correct pronunciation after submission
     if (trial?.modelAudio) {
       speak(trial.modelAudio);
     }
-
     if (onTrialComplete) {
       onTrialComplete({
         correct: result.correct,
@@ -146,22 +136,18 @@ export const SentenceConstructionGame = ({
     nextTrial(difficultyLevel);
   };
 
-  // Returns available words with their original indices (handles duplicate words correctly)
   const getAvailableWords = (): Array<{ word: string; index: number }> => {
     if (!trial) return [];
-
-    // Show words whose INDEX hasn't been selected
     return trial.options
       .map((word, index) => ({ word, index }))
       .filter(item => !currentAnswer.includes(item.index));
   };
 
-  // Get words from indices for display
   const answerWords = getAnswerAsWords();
 
   if (!trial) {
     return (
-      <Card className="p-8 text-center">
+      <Card className="p-6 text-center">
         <p className="text-muted-foreground">Loading...</p>
       </Card>
     );
@@ -172,38 +158,33 @@ export const SentenceConstructionGame = ({
     const weakestArea = getWeakestGrammarArea();
 
     return (
-      <Card className="p-8">
-        <div className="text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-primary flex items-center justify-center">
-            <CheckCircle2 className="w-10 h-10 text-white" />
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-primary flex items-center justify-center">
+            <CheckCircle2 className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h2 className="text-3xl font-bold mb-2">Session Complete!</h2>
-            <p className="text-xl text-muted-foreground">
+            <h2 className="text-2xl font-bold mb-1">Session Complete!</h2>
+            <p className="text-lg text-muted-foreground">
               Score: {score} / {trials.length} ({accuracy}%)
             </p>
           </div>
-
           {weakestArea && (
-            <div className="p-4 bg-warning/10 border border-warning rounded-lg">
-              <div className="flex items-start gap-3">
-                <Lightbulb className="w-5 h-5 text-warning flex-shrink-0 mt-1" />
-                <div className="text-left">
-                  <p className="font-medium mb-1">Area to focus on:</p>
-                  <p className="text-sm text-muted-foreground">
-                    {weakestArea.replace(/_/g, " ")}
-                  </p>
+            <div className="p-3 bg-warning/10 border border-warning rounded-lg">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                <div className="text-left text-sm">
+                  <p className="font-medium">Focus area: {weakestArea.replace(/_/g, " ")}</p>
                 </div>
               </div>
             </div>
           )}
-
           <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => window.history.back()}>
-              Back to Dashboard
+            <Button variant="outline" onClick={() => window.history.back()} className="min-h-[48px]">
+              Back
             </Button>
-            <Button onClick={() => nextTrial(difficultyLevel)}>
-              Continue Training
+            <Button onClick={() => nextTrial(difficultyLevel)} className="min-h-[48px]">
+              Continue
             </Button>
           </div>
         </div>
@@ -215,130 +196,96 @@ export const SentenceConstructionGame = ({
   const canSubmit = currentAnswer.length > 0;
 
   return (
-    <div className="space-y-3">
-      {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
+    <div className="space-y-2 sm:space-y-3">
+      {/* Compact progress */}
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs sm:text-sm">
           <span className="text-muted-foreground">
-            Trial {currentTrial + 1} of {trials.length}
+            {currentTrial + 1} of {trials.length}
           </span>
           <span className="font-medium">Score: {score}</span>
         </div>
-        <Progress value={progress} className="h-2" />
-        {adaptations && (
-          <div className="pt-2">
-            <AdaptationBadges adaptations={adaptations} />
-          </div>
-        )}
+        <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Task Type Badge and Info */}
+      {/* Task info + audio — compact row */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-sm">
-            {trial.grammarFocus.replace(/_/g, " ")}
-          </Badge>
-          {trial.distractors.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {trial.distractors.length} extra word{trial.distractors.length > 1 ? 's' : ''}
-            </Badge>
-          )}
-        </div>
-        {showFeedback && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePlayAudio}
-            disabled={isLoading}
-          >
-            <Volume2 className="w-4 h-4 mr-2" />
-            Hear it
-          </Button>
-        )}
+        <Badge variant="outline" className="text-xs">
+          {trial.grammarFocus.replace(/_/g, " ")}
+        </Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={showFeedback ? handlePlayAudio : handleHint}
+          disabled={isLoading}
+          className="gap-1.5 min-h-[40px]"
+        >
+          <Volume2 className="w-4 h-4" />
+          {showFeedback ? "Hear it" : (hintUsed ? "Hear Again" : "Hear Sentence")}
+        </Button>
       </div>
 
       {/* Main Task Card */}
-      <Card className="p-4 md:p-6">
-        <div className="space-y-4">
-          {/* Instructions + Hint Button */}
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground text-center">
-              Tap the words below in order to build the sentence
-            </p>
-            {!showFeedback && (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleHint}
-                disabled={isLoading}
-                className="gap-2"
-              >
-                <Volume2 className="w-5 h-5" />
-                {hintUsed ? "Hear Again" : "Hear Sentence"}
-              </Button>
-            )}
-          </div>
-
+      <Card className="p-3 sm:p-4">
+        <div className="space-y-3">
           {/* Sentence Construction Area */}
-          <div className="flex flex-wrap gap-2 min-h-[48px] p-3 bg-muted border-2 border-dashed border-primary rounded-lg">
+          <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
             {answerWords.length === 0 ? (
-              <span className="text-muted-foreground">Tap words below to build your sentence</span>
+              <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
             ) : (
               answerWords.map((word, idx) => (
-                <Badge key={idx} variant="secondary" className="text-base px-3 py-1">
+                <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
                   {word}
                 </Badge>
               ))
             )}
           </div>
 
-          {/* Word Options */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">
-              Available words:
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {getAvailableWords().map((item) => (
-                <Button
-                  key={item.index}
-                  variant="outline"
-                  size="lg"
-                  onClick={() => selectWord(item.index)}
-                  disabled={showFeedback}
-                  className="text-base"
-                >
-                  {item.word}
-                </Button>
-              ))}
-            </div>
+          {/* Word Options — large touch targets */}
+          <div className="flex flex-wrap gap-2">
+            {getAvailableWords().map((item) => (
+              <Button
+                key={item.index}
+                variant="outline"
+                onClick={() => selectWord(item.index)}
+                disabled={showFeedback}
+                className="text-base min-h-[48px] px-4"
+              >
+                {item.word}
+              </Button>
+            ))}
           </div>
 
-          {/* Controls */}
-          <div className="flex gap-3 pt-4">
+          {/* Controls — compact row */}
+          <div className="flex gap-2 pt-1">
             <Button
               variant="outline"
+              size="sm"
               onClick={removeLastWord}
               disabled={currentAnswer.length === 0 || showFeedback}
+              className="min-h-[44px]"
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
+              <RotateCcw className="w-4 h-4 mr-1" />
               Undo
             </Button>
             <Button
               variant="outline"
+              size="sm"
               onClick={clearAnswer}
               disabled={currentAnswer.length === 0 || showFeedback}
+              className="min-h-[44px]"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
+              <Trash2 className="w-4 h-4 mr-1" />
               Clear
             </Button>
             <Button
-              className="ml-auto"
+              className="ml-auto min-h-[48px]"
               onClick={showFeedback ? handleNext : handleSubmit}
               disabled={!canSubmit && !showFeedback}
             >
               {showFeedback ? (
                 <>
-                  Next <ArrowRight className="w-4 h-4 ml-2" />
+                  Next <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               ) : (
                 "Submit"
@@ -350,25 +297,25 @@ export const SentenceConstructionGame = ({
           {showFeedback && (
             <div
               className={cn(
-                "p-4 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
+                "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
                 feedbackCorrect
                   ? "bg-success/10 border-success"
                   : "bg-destructive/10 border-destructive"
               )}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {feedbackCorrect ? (
-                  <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0" />
+                  <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-destructive flex-shrink-0" />
+                  <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
                 )}
                 <div className="flex-1">
-                  <p className="font-medium mb-1">
+                  <p className="font-medium text-sm">
                     {feedbackCorrect ? "Correct!" : "Not quite right"}
                   </p>
                   {!feedbackCorrect && (
-                    <p className="text-sm">
-                      Correct answer: <span className="font-medium">{trial.targetSentence}</span>
+                    <p className="text-xs mt-0.5">
+                      Answer: <span className="font-medium">{trial.targetSentence}</span>
                     </p>
                   )}
                 </div>
