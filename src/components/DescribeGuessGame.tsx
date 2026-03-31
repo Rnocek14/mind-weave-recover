@@ -326,46 +326,56 @@ export function DescribeGuessGame({
         setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
         setAwaitingWordAttempt(true);
 
-        // Speak FIRST with mic off, THEN re-enable mic after TTS finishes
-        // This prevents the mic from picking up Maya's own voice
+        // Clear transcript so only post-guess speech is evaluated for word match
+        rawTranscriptRef.current = '';
+        setDisplayTranscript('');
+
+        // Speak with mic off, then re-enable mic after TTS finishes
         speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
-          // Re-enable mic only after TTS is done speaking
+          // Reset transcript again in case speech recognition fired during TTS
+          rawTranscriptRef.current = '';
           startListening();
           setIsListening(true);
+          listeningStartRef.current = Date.now();
+
+          // Start the word-attempt timer AFTER mic is live (not before)
+          feedbackTimerRef.current = setTimeout(async () => {
+            stopListening();
+            setIsListening(false);
+            if (isRecording) {
+              const recResult = await stopRecording();
+              // We don't re-upload here — the description audio was already captured
+            }
+            await audioPromise;
+            const postGuessTranscript = rawTranscriptRef.current;
+            const saidWord = game.checkWordMatch(postGuessTranscript, trial);
+            if (saidWord) game.recordWordRetrieval();
+            const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
+            if (finalResult) {
+              logFinalAnalysis({
+                transcript: currentTranscript,
+                transcriptSource: 'browser',
+                isCorrect: finalResult.meaningWin || finalResult.wordWin,
+                errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
+                semanticSimilarity: guessResult.confidence,
+                audioStoragePath,
+                recordingDurationMs,
+                ...(pronunciationData ? {
+                  pronunciationScore: pronunciationData.pronunciationScore,
+                  gopData: pronunciationData,
+                } : {}),
+              });
+              recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+            }
+            setShowFeedback(true);
+            setAwaitingWordAttempt(false);
+
+            feedbackTimerRef.current = setTimeout(() => {
+              resetAttempt();
+              game.nextTrial();
+            }, 3500);
+          }, 6000); // 6s after mic goes live — plenty of time to say one word
         });
-
-        // Finalize after timeout
-        feedbackTimerRef.current = setTimeout(async () => {
-          await audioPromise; // Ensure audio is done
-          // Check if user said the word during the word-attempt window
-          const postGuessTranscript = rawTranscriptRef.current;
-          const saidWord = game.checkWordMatch(postGuessTranscript, trial);
-          if (saidWord) game.recordWordRetrieval();
-          const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
-          if (finalResult) {
-            logFinalAnalysis({
-              transcript: currentTranscript,
-              transcriptSource: 'browser',
-              isCorrect: finalResult.meaningWin || finalResult.wordWin,
-              errorType: finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess',
-              semanticSimilarity: guessResult.confidence,
-              audioStoragePath,
-              recordingDurationMs,
-              ...(pronunciationData ? {
-                pronunciationScore: pronunciationData.pronunciationScore,
-                gopData: pronunciationData,
-              } : {}),
-            });
-            recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
-          }
-          setShowFeedback(true);
-          setAwaitingWordAttempt(false);
-
-          feedbackTimerRef.current = setTimeout(() => {
-            resetAttempt();
-            game.nextTrial();
-          }, 3500);
-        }, 8000);
       } else {
         // Finalize immediately — show feedback first, THEN advance
         await audioPromise; // Ensure audio is done
