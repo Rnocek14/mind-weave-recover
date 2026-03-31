@@ -334,18 +334,24 @@ export function DescribeGuessGame({
         speak(`I think it's ${trial.target}. Can you try saying it?`).then(() => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
 
-          // Start the word-attempt timer AFTER mic is live (not before)
+          // Retry startListening with small delay in case state machine isn't IDLE yet
+          const tryStart = (retries = 3) => {
+            startListening();
+            setIsListening(true);
+            listeningStartRef.current = Date.now();
+            // If startListening was blocked, retry after a short delay
+            if (!speechIsListening && retries > 0) {
+              setTimeout(() => tryStart(retries - 1), 400);
+            }
+          };
+          setTimeout(() => tryStart(), 300);
+
+          // Start the word-attempt timer AFTER TTS finishes
+          const wordAttemptStart = Date.now();
           feedbackTimerRef.current = setTimeout(async () => {
             stopListening();
             setIsListening(false);
-            if (isRecording) {
-              const recResult = await stopRecording();
-              // We don't re-upload here — the description audio was already captured
-            }
             await audioPromise;
             const postGuessTranscript = rawTranscriptRef.current;
             const saidWord = game.checkWordMatch(postGuessTranscript, trial);
@@ -374,7 +380,7 @@ export function DescribeGuessGame({
               resetAttempt();
               game.nextTrial();
             }, 3500);
-          }, 6000); // 6s after mic goes live — plenty of time to say one word
+          }, 6000);
         });
       } else {
         // Finalize immediately — show feedback first, THEN advance
