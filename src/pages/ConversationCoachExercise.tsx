@@ -237,7 +237,7 @@ export default function ConversationCoachExercise() {
 
   // Active game
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
       {fromLesson && <SessionProgressBubble />}
       <header className="p-4 flex items-center gap-3 border-b">
         <Button variant="ghost" size="icon" onClick={handleExit}>

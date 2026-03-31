@@ -190,7 +190,7 @@ export default function ThoughtContinuationExercise() {
   // Game in progress
   if (gameStarted) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
         {fromLesson && <SessionProgressBubble />}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
           <div className="flex items-center justify-between max-w-xl mx-auto">
