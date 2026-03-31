@@ -196,17 +196,17 @@ export function DescribeGuessGame({
         targetWord: game.currentTrial.target,
         category: game.currentTrial.category,
       });
-
-      // Start listening
-      setTimeout(() => {
-        startListening();
-        setIsListening(true);
-        listeningStartRef.current = Date.now();
-        if (isRecordingSupported) startRecording();
-      }, 300);
-
-      startPromptTimers();
     }
+
+    // Start listening regardless of session/user readiness
+    setTimeout(() => {
+      startListening();
+      setIsListening(true);
+      listeningStartRef.current = Date.now();
+      if (isRecordingSupported) startRecording();
+    }, 300);
+
+    startPromptTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
