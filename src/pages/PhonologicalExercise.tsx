@@ -217,9 +217,9 @@ export default function PhonologicalExercise() {
           </div>
         )}
 
-        {/* Targeted practice banner */}
+        {/* Targeted practice banner — desktop only */}
         {targetedWords.length > 0 && (
-          <Card className="p-3 bg-primary/10 border-primary/20">
+          <Card className="hidden sm:block p-3 bg-primary/10 border-primary/20">
             <div className="flex items-center gap-2 text-sm">
               <Target className="h-4 w-4 text-primary" />
               <span className="font-medium">Targeted Practice:</span>
