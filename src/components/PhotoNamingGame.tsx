@@ -2155,8 +2155,8 @@ export const PhotoNamingGame = ({
             </Button>
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <Camera className="w-6 h-6 text-muted-foreground" />
+        <div className="absolute top-1 right-1">
+          <Camera className="w-5 h-5 text-muted-foreground/50" />
         </div>
         
         {/* Timer for hard mode */}
