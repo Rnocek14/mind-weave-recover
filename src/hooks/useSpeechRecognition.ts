@@ -184,14 +184,13 @@ export const useSpeechRecognition = (
             clearTimeout(restartTimeoutRef.current);
           }
           
-          // Schedule restart after brief pause
-          stateRef.current = 'IDLE';
+          // Keep isListening true during restart to prevent UI flicker
+          stateRef.current = 'RESTARTING';
           restartTimeoutRef.current = setTimeout(() => {
-            if (stateRef.current === 'IDLE' && !manuallyStoppedRef.current) {
+            if (!manuallyStoppedRef.current) {
               try {
                 stateRef.current = 'STARTING';
                 recognitionRef.current?.start();
-                console.log('🎤 Successfully restarted after no-speech');
               } catch (err) {
                 console.error('🎤 Failed to restart after no-speech:', err);
                 stateRef.current = 'IDLE';
