@@ -252,7 +252,8 @@ export default function PhonologicalExercise() {
             console.log('Trial complete:', data);
           }}
         />
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
