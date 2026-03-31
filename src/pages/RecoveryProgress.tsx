@@ -17,13 +17,16 @@ import { useLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
 import { useWordMastery } from '@/hooks/useWordMastery';
 import { useErrorQualityScore } from '@/hooks/useErrorQualityScore';
+import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { useProfile } from '@/hooks/useProfile';
 import { useUiMode } from '@/hooks/useUiMode';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, TrendingUp, TrendingDown, Minus, AlertTriangle, Target, Brain, BookOpen, Shield, ArrowRight, Info, Sparkles, HelpCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer, Area, AreaChart, Tooltip as RechartsTooltip,
 } from 'recharts';
@@ -128,13 +131,15 @@ export default function RecoveryProgress() {
   const copy = <T extends string>(patient: T, caregiver: T, clinician: T): T =>
     isClinician ? clinician : isCaregiver ? caregiver : patient;
   const userId = user?.id;
+  const profileId = activeProfile?.id;
 
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
   const { dataPoints: cueData, currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
   const { words, mastered, emerging, struggling, loading: wordLoading } = useWordMastery(userId);
   const { dataPoints: errorData, currentScore: errorScore, trend: errorTrend, loading: errorLoading } = useErrorQualityScore(userId);
+  const { score: recoveryScore, weeklyDelta, confidence: scoreConfidence, loading: scoreLoading } = useRecoveryScore(userId, profileId);
 
-  const loading = lrLoading || cueLoading || wordLoading || errorLoading;
+  const loading = lrLoading || cueLoading || wordLoading || errorLoading || scoreLoading;
   const strokeDate = activeProfile?.stroke_date;
   const daysInProgram = strokeDate ? differenceInDays(new Date(), new Date(strokeDate)) : null;
 
@@ -199,6 +204,38 @@ export default function RecoveryProgress() {
             <div>Updated {format(new Date(), 'MMM d')}</div>
           </div>
         </div>
+
+        {/* Recovery Score Hero */}
+        {recoveryScore != null && scoreConfidence !== 'insufficient' && (
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/2 to-transparent overflow-hidden">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div>
+                    <div className="text-4xl md:text-5xl font-bold text-foreground leading-none tracking-tight">
+                      {recoveryScore}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">Recovery Score</div>
+                  </div>
+                  {weeklyDelta != null && (
+                    <div className={cn(
+                      'flex items-center gap-1 text-sm font-semibold',
+                      weeklyDelta > 0 ? 'text-success' : weeklyDelta < 0 ? 'text-destructive' : 'text-muted-foreground'
+                    )}>
+                      {weeklyDelta > 0 ? <TrendingUp className="h-4 w-4" /> : weeklyDelta < 0 ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+                      {weeklyDelta > 0 ? '+' : ''}{weeklyDelta} this week
+                    </div>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary">
+                  <Link to="/recovery-score">
+                    View Breakdown <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* The headline card — instant conviction */}
         <div className={cn(
