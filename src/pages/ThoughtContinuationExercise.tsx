@@ -29,10 +29,11 @@ export default function ThoughtContinuationExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   
-  // Lesson flow integration
-  const fromLesson = location.state?.fromLesson ?? false;
-  const providedSessionId = location.state?.sessionId as string | undefined;
-  const lessonAdaptations = location.state?.adaptations as Record<string, any> | undefined;
+  // Lesson flow integration with sessionStorage fallback
+  const restored = useRestoredLessonContext(EXERCISE_SLUG);
+  const fromLesson = restored.fromLesson;
+  const providedSessionId = restored.sessionId;
+  const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
