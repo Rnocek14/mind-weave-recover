@@ -524,20 +524,20 @@ function generateHeadline(
   proof: ReturnType<typeof useOutcomeProof>['data'],
   adaptationCount: number,
   cueInsight: string | null,
-): string {
+): string[] {
   if (!proof || proof.totalTrials === 0) {
-    return 'The system is ready to adapt to you. Start practicing to see intelligence in action.';
+    return ['The system is ready to adapt to you. Start practicing to see intelligence in action.'];
   }
 
-  const parts: string[] = [];
+  const lines: string[] = [];
 
   // Accuracy assessment
   if (proof.overallAccuracy >= 0.85) {
-    parts.push('You\'re performing strongly');
+    lines.push('You are improving steadily.');
   } else if (proof.overallAccuracy >= 0.7) {
-    parts.push('The system is keeping you in the optimal challenge zone');
+    lines.push('The system is keeping you in the optimal challenge zone.');
   } else {
-    parts.push('The system is adjusting to find your sweet spot');
+    lines.push('The system is adjusting to find your sweet spot.');
   }
 
   // Latency trend
@@ -546,19 +546,53 @@ function generateHeadline(
     const last = proof.latencyTrend[proof.latencyTrend.length - 1].avgLatencyMs;
     const change = Math.round(((first - last) / first) * 100);
     if (change > 10) {
-      parts.push(`response time improved ${change}%`);
+      lines.push(`Response time is down ${change}% this week.`);
+    } else if (change < -10) {
+      lines.push(`Response time increased ${Math.abs(change)}% — the system is adjusting.`);
     }
   }
 
   // Adaptations
   if (adaptationCount > 0) {
-    parts.push(`${adaptationCount} real-time adjustments made`);
+    lines.push(`Difficulty is ${adaptationCount > 3 ? 'actively' : ''} adjusting as you practice.`);
   }
 
   // Cue learning
   if (cueInsight) {
-    parts.push(cueInsight.toLowerCase());
+    lines.push(cueInsight.charAt(0).toUpperCase() + cueInsight.slice(1) + '.');
   }
 
-  return parts.join('. ') + '.';
+  return lines;
+}
+
+function generateDoesItWorkTakeaway(
+  proof: ReturnType<typeof useOutcomeProof>['data'],
+): string | null {
+  if (!proof || proof.totalTrials === 0) return null;
+
+  // Latency improvement
+  if (proof.latencyTrend.length >= 2) {
+    const first = proof.latencyTrend[0].avgLatencyMs;
+    const last = proof.latencyTrend[proof.latencyTrend.length - 1].avgLatencyMs;
+    const change = Math.round(((first - last) / first) * 100);
+    if (change > 5) {
+      return `You are ${change}% faster than when you started.`;
+    }
+  }
+
+  // Accuracy trend
+  if (proof.accuracyTrends.length > 0) {
+    const improving = proof.accuracyTrends.filter(t => {
+      if (t.windows.length < 2) return false;
+      return t.windows[t.windows.length - 1].accuracy > t.windows[0].accuracy;
+    });
+    if (improving.length > 0) {
+      const best = improving[0];
+      const first = Math.round(best.windows[0].accuracy * 100);
+      const last = Math.round(best.windows[best.windows.length - 1].accuracy * 100);
+      return `Accuracy improved from ${first}% → ${last}% on ${best.exercise.replace(/-/g, ' ')}.`;
+    }
+  }
+
+  return `${proof.totalTrials} trials completed with ${Math.round(proof.overallAccuracy * 100)}% overall accuracy.`;
 }
