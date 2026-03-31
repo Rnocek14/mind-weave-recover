@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, AlertCircle, FileText,
-  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle, FlaskConical
+  LayoutGrid, Target, Lightbulb, AlertTriangle, Brain
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -31,9 +31,8 @@ import {
   OverviewSection,
   ChallengesSection, 
   StrategiesSection, 
-  AdaptationsSection,
   AlertsSection,
-  OutcomeProofSection 
+  IntelligenceSection 
 } from "@/components/insights";
 
 // Clinical tab components (removed - now only in Weekly Review)
@@ -47,8 +46,7 @@ const INSIGHT_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
-  { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
-  { id: 'proof', label: 'Proof', icon: FlaskConical },
+  { id: 'intelligence', label: 'Intelligence', icon: Brain },
   { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
 ] as const;
 
