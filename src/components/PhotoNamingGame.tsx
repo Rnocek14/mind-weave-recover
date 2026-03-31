@@ -2058,18 +2058,18 @@ export const PhotoNamingGame = ({
 
       {/* Difficulty indicator */}
       {difficultyChanged && (
-        <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+        <div className={`flex items-center gap-2 px-2 py-1.5 sm:p-3 rounded-lg border text-xs sm:text-sm ${
           difficultyChanged === 'up' ? 'bg-success/10 border-success' : 'bg-warning/10 border-warning'
         }`}>
           {difficultyChanged === 'up' ? (
             <>
-              <TrendingUp className="w-5 h-5" />
-              <span className="text-sm font-medium">Level increased!</span>
+              <TrendingUp className="w-4 h-4 shrink-0" />
+              <span className="font-medium">Level up!</span>
             </>
           ) : (
             <>
-              <TrendingDown className="w-5 h-5" />
-              <span className="text-sm font-medium">Adjusting to help</span>
+              <TrendingDown className="w-4 h-4 shrink-0" />
+              <span className="font-medium">Adjusting to help</span>
             </>
           )}
         </div>
