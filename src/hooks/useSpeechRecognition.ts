@@ -221,9 +221,12 @@ export const useSpeechRecognition = (
 
     recognition.onend = () => {
       console.log('🎤 Speech recognition ended, state was:', stateRef.current);
-      const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING';
+      const shouldHoldListeningUi = stateRef.current === 'RESTARTING' || (patientMode && !manuallyStoppedRef.current);
+      const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING' || stateRef.current === 'RESTARTING';
       stateRef.current = 'IDLE';
-      setIsListening(false);
+      if (!shouldHoldListeningUi) {
+        setIsListening(false);
+      }
       lastStopTimeRef.current = Date.now();
       
       // Process any pending interim transcript as final result if not already processed
@@ -269,6 +272,7 @@ export const useSpeechRecognition = (
             } catch (err) {
               console.error('🎤 Failed to auto-restart:', err);
               stateRef.current = 'IDLE';
+              setIsListening(false);
             }
           }
         }, COOLDOWN_MS);
