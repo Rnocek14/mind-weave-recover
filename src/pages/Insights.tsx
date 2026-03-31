@@ -48,6 +48,7 @@ const INSIGHT_TABS = [
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
   { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
+  { id: 'proof', label: 'Proof', icon: FlaskConical },
   { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
 ] as const;
 
