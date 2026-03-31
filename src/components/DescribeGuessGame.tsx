@@ -501,15 +501,15 @@ export function DescribeGuessGame({
       <Card className="border-2 overflow-hidden shrink min-h-0 flex-1">
         <CardContent className="p-0">
           {currentImage ? (
-            <div className="h-full max-h-[280px] mx-auto flex items-center justify-center bg-muted/30">
+            <div className="h-full max-h-[180px] sm:max-h-[240px] md:max-h-[280px] mx-auto flex items-center justify-center bg-muted/30">
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-[280px] w-auto object-contain"
+                className="max-h-[180px] sm:max-h-[240px] md:max-h-[280px] w-auto object-contain"
               />
             </div>
           ) : (
-            <div className="h-[280px] flex items-center justify-center bg-muted/30 text-muted-foreground">
+            <div className="h-[180px] sm:h-[240px] md:h-[280px] flex items-center justify-center bg-muted/30 text-muted-foreground">
               Loading image...
             </div>
           )}
