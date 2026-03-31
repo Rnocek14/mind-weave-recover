@@ -15,6 +15,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
+import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { ExerciseAdaptationBanner } from "@/components/ExerciseAdaptationBanner";
 import { supabase } from "@/integrations/supabase/client";
 import {
