@@ -2043,33 +2043,33 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Trial {state.trialNumber} of {state.totalTrials}</span>
+    <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-4">
+      {/* Progress bar - compact on mobile */}
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+          <span>{state.trialNumber}/{state.totalTrials}</span>
           <span>Score: {state.score}</span>
         </div>
         <Progress 
           value={(state.trialNumber / state.totalTrials) * 100} 
-          className="h-2"
+          className="h-1.5 sm:h-2"
         />
       </div>
 
       {/* Difficulty indicator */}
       {difficultyChanged && (
-        <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+        <div className={`flex items-center gap-2 px-2 py-1.5 sm:p-3 rounded-lg border text-xs sm:text-sm ${
           difficultyChanged === 'up' ? 'bg-success/10 border-success' : 'bg-warning/10 border-warning'
         }`}>
           {difficultyChanged === 'up' ? (
             <>
-              <TrendingUp className="w-5 h-5" />
-              <span className="text-sm font-medium">Level increased!</span>
+              <TrendingUp className="w-4 h-4 shrink-0" />
+              <span className="font-medium">Level up!</span>
             </>
           ) : (
             <>
-              <TrendingDown className="w-5 h-5" />
-              <span className="text-sm font-medium">Adjusting to help</span>
+              <TrendingDown className="w-4 h-4 shrink-0" />
+              <span className="font-medium">Adjusting to help</span>
             </>
           )}
         </div>
@@ -2077,51 +2077,43 @@ export const PhotoNamingGame = ({
 
       {/* Recording/Analyzing/Processing indicator - Enhanced */}
       {(isRecording || isAnalyzing || isCreatingSession || processingAnswer) && (
-        <div className="flex items-center gap-2 text-sm p-3 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2 text-xs sm:text-sm px-2 py-1.5 sm:p-3 rounded-lg bg-muted/50 border border-border">
           {isCreatingSession && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              <span className="text-muted-foreground">Setting up session...</span>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">Setting up...</span>
             </>
           )}
           {isRecording && !isAnalyzing && !processingAnswer && (
             <>
-              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
-              <span className="text-destructive font-medium">🎙️ Listening... say the word!</span>
+              <div className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse shrink-0" />
+              <span className="text-destructive font-medium">🎙️ Listening...</span>
             </>
           )}
           {processingAnswer && !isAnalyzing && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <div className="flex flex-col">
-                <span className="text-primary font-medium">Processing your answer...</span>
-                {lastHeardText && (
-                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
-                )}
-              </div>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-primary font-medium">Processing...</span>
+              {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
           {isAnalyzing && (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <div className="flex flex-col">
-                <span className="text-primary font-medium">🧠 Analyzing pronunciation...</span>
-                {lastHeardText && (
-                  <span className="text-muted-foreground text-xs">Heard: "{lastHeardText}"</span>
-                )}
-              </div>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-primary font-medium">Analyzing...</span>
+              {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
         </div>
       )}
 
-      {/* Image or Audio-Only Indicator */}
-      <div className="relative">
+      {/* Image or Audio-Only Indicator — large on mobile for visibility */}
+      <div className="relative flex-1 min-h-0">
         {state.currentTrial.imageUrl ? (
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-44 sm:h-52 md:h-64 object-contain rounded-lg bg-muted"
+            className="w-full h-48 sm:h-56 md:h-64 object-contain rounded-lg bg-muted"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
@@ -2158,126 +2150,118 @@ export const PhotoNamingGame = ({
         )}
       </div>
 
-      {/* Cue display */}
+      {/* Cue display - compact on mobile */}
       {showCue && currentCueText && (
-        <div className="bg-accent/10 border border-accent p-4 rounded-lg flex items-start gap-3">
-          <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+        <div className="bg-accent/10 border border-accent px-3 py-2 sm:p-4 rounded-lg flex items-start gap-2">
+          <Lightbulb className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium text-accent mb-1">Hint (Level {cueLevel}/3)</p>
-            <p className="text-sm">{currentCueText}</p>
+            <p className="font-medium text-accent text-xs sm:text-sm">Hint {cueLevel}/3</p>
+            <p className="text-xs sm:text-sm">{currentCueText}</p>
           </div>
         </div>
       )}
 
-      {/* Voice mode toggle */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+      {/* Voice & hint controls - single compact row */}
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-xs text-muted-foreground hidden sm:block">
           {useVoice ? "Say the word or tap an answer" : "Tap your answer"}
         </p>
         
-        <div className="relative">
-          {/* Listening pulse ring */}
-          {isListening && (
-            <div className="absolute inset-0 rounded-md animate-pulse">
+        <div className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            {isListening && (
               <div className="absolute inset-0 rounded-md bg-primary/20 animate-ping" />
-            </div>
-          )}
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setUseVoice(!useVoice);
+                if (!useVoice && isSupported) {
+                  setTimeout(() => startListening(), 500);
+                } else if (isListening) {
+                  stopListening();
+                }
+              }}
+              className={`gap-1 relative z-10 h-8 px-2 text-xs ${isListening ? 'ring-2 ring-primary/50 ring-offset-1' : ''}`}
+            >
+              <div className={isListening ? 'animate-pulse' : ''}>
+                {useVoice ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </div>
+              <span className="hidden sm:inline">{useVoice ? "Voice On" : "Voice Off"}</span>
+            </Button>
+          </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setUseVoice(!useVoice);
-              if (!useVoice && isSupported) {
-                setTimeout(() => startListening(), 500);
-              } else if (isListening) {
-                stopListening();
-              }
-            }}
-            className={`gap-2 relative z-10 ${isListening ? 'ring-2 ring-primary/50 ring-offset-2' : ''}`}
-          >
-            <div className={isListening ? 'animate-pulse' : ''}>
-              {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            </div>
-            {useVoice ? "Voice On" : "Voice Off"}
-          </Button>
-          
-          {/* Auto-hints toggle */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`gap-2 ${!autoHintsEnabled ? 'opacity-50' : ''}`}
+            className={`gap-1 h-8 px-2 text-xs ${!autoHintsEnabled ? 'opacity-50' : ''}`}
           >
-            <Lightbulb className={`w-4 h-4 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-            {autoHintsEnabled ? "Hints On" : "Hints Off"}
+            <Lightbulb className={`w-3.5 h-3.5 ${autoHintsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+            <span className="hidden sm:inline">{autoHintsEnabled ? "Hints" : "Hints"}</span>
           </Button>
         </div>
       </div>
 
       {/* Show transcript when listening */}
       {useVoice && isListening && transcript && (
-        <div className="text-sm text-center p-2 bg-muted rounded">
+        <div className="text-xs text-center px-2 py-1 bg-muted rounded">
           Heard: "{transcript}"
         </div>
       )}
       
-      {/* Phase 2: Gentle retry prompt when ASR doesn't match */}
+      {/* Retry prompt */}
       {retryPrompt && !showFeedback && !timedOut && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm animate-fade-in">
-          <Mic className="w-4 h-4 text-primary animate-pulse" />
+        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-primary/5 border border-primary/20 rounded-lg text-xs animate-fade-in">
+          <Mic className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
           <span className="text-primary">{retryPrompt}</span>
         </div>
       )}
       
-      {/* Phase 3: Visual indicator when voice is unexpectedly off - debounced to prevent flickering */}
+      {/* Mic paused indicator */}
       {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-warning/10 border border-warning rounded-lg text-sm animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-warning" />
-          <span className="text-warning">Voice paused - tap the mic to restart</span>
+        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
+          <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
+          <span className="text-warning">Voice paused — tap mic to restart</span>
         </div>
       )}
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* Hear All Choices Button with Speed Control */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               onClick={handlePlayAllChoices}
               disabled={isPlayingChoices || showFeedback || timedOut}
               variant="secondary"
               size="sm"
-              className="flex-1"
+              className="flex-1 h-8 text-xs"
             >
-              <Volume2 className="w-4 h-4 mr-2" />
-              {isPlayingChoices ? 'Playing choices...' : 'Hear all choices'}
+              <Volume2 className="w-3.5 h-3.5 mr-1.5" />
+              {isPlayingChoices ? 'Playing...' : 'Hear choices'}
             </Button>
             
-            <div className="flex items-center gap-1 text-sm">
-              <label htmlFor="speed-control" className="text-muted-foreground text-xs whitespace-nowrap">Speed:</label>
-              <select
-                id="speed-control"
-                value={playbackSpeed}
-                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                className="px-2 py-1 rounded border border-border bg-background text-foreground text-xs"
-                disabled={isPlayingChoices}
-              >
-                <option value={0.5}>0.5×</option>
-                <option value={0.75}>0.75×</option>
-                <option value={1.0}>1×</option>
-                <option value={1.25}>1.25×</option>
-              </select>
-            </div>
+            <select
+              value={playbackSpeed}
+              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+              className="px-1.5 py-1 rounded border border-border bg-background text-foreground text-xs h-8"
+              disabled={isPlayingChoices}
+            >
+              <option value={0.5}>0.5×</option>
+              <option value={0.75}>0.75×</option>
+              <option value={1.0}>1×</option>
+              <option value={1.25}>1.25×</option>
+            </select>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative">
                 <Button
                   variant={selectedAnswer === choice ? "default" : "outline"}
-                  size="lg"
-                  className="w-full h-16 text-lg pr-12"
+                  className="w-full h-12 sm:h-14 text-sm sm:text-lg pr-10"
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
@@ -2286,7 +2270,7 @@ export const PhotoNamingGame = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
+                  className="absolute right-0.5 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
@@ -2294,7 +2278,7 @@ export const PhotoNamingGame = ({
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   <Volume2 
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
+                    className={`w-3.5 h-3.5 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
                   />
                 </Button>
               </div>
@@ -2369,21 +2353,21 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Feedback */}
+      {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
-        <div className={`p-6 rounded-lg text-center transition-all ${
+        <div className={`px-4 py-3 sm:p-6 rounded-lg text-center transition-all ${
           feedbackData.correct 
             ? 'bg-success/10 border border-success/20' 
             : 'bg-accent/10 border border-accent/20'
         }`}>
           {feedbackData.correct ? (
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-success animate-bounce" />
+            <CheckCircle2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-success animate-bounce" />
           ) : (
-            <div className="w-12 h-12 mx-auto mb-3 text-accent flex items-center justify-center text-3xl">
+            <div className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-accent flex items-center justify-center text-2xl sm:text-3xl">
               💪
             </div>
           )}
-          <p className="text-lg font-semibold mb-3">
+          <p className="text-sm sm:text-lg font-semibold">
             {state.currentTrial && generateGentleFeedback(
               feedbackData.errorType as any,
               state.currentTrial.target,

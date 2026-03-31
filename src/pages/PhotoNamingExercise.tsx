@@ -678,13 +678,13 @@ function PhotoNamingExerciseInner() {
   }
 
   return (
-    <div className={fromLesson ? "h-screen bg-background flex flex-col overflow-hidden" : "min-h-screen bg-background flex flex-col"}>
+    <div className={fromLesson ? "h-dvh bg-background flex flex-col overflow-hidden" : "h-dvh bg-background flex flex-col overflow-hidden"}>
       {fromLesson && <SessionSidePanel />}
       <LiveAnalysisPanel />
-      <div className="container mx-auto px-2 sm:px-4 py-2 max-w-4xl flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 px-2 sm:px-4 py-1 sm:py-2 max-w-4xl mx-auto w-full">
         {fromLesson && <InlineSessionProgress />}
-        {/* Compact header on mobile */}
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4">
+        {/* Compact header */}
+        <div className="flex justify-between items-center gap-1 mb-1 sm:mb-2 shrink-0">
           <div className="flex items-center gap-1 sm:gap-2">
             <Button 
               variant="ghost"
@@ -856,7 +856,7 @@ function PhotoNamingExerciseInner() {
         )}
 
         {/* Game area - fills remaining space */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {trials.length > 0 ? (
           <PhotoNamingGame
             key={gameKey}
