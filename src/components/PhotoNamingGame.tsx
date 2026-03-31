@@ -727,7 +727,7 @@ export const PhotoNamingGame = ({
   const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
   const showMicPausedHint = useDebouncedMicStatus(
     isListening,
-    shouldExpectListening && !micAutoStartPending && !speechError,
+    shouldExpectListening && !micAutoStartPending && !speechError && state.trialNumber > 0,
     micStatusResetKey,
     2500
   );
