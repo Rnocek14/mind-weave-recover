@@ -47,6 +47,8 @@ const PATIENT_GAME_INFO: Record<string, GameInfo> = {
   'fix-sentence': { emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking' },
   'describe-guess': { emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech' },
   'thought-continuation': { emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences and ideas', difficulty: 'easy', category: 'speech' },
+  'category-fluency': { emoji: '🐾', name: 'Category Fluency', desc: 'Name as many animals, foods, etc. as you can', difficulty: 'medium', category: 'speech' },
+  'synonym-generator': { emoji: '🔄', name: 'Synonym Generator', desc: 'Think of words with similar meanings', difficulty: 'medium', category: 'thinking' },
 };
 
 const EXERCISE_ROUTES: Record<string, string> = {
@@ -71,6 +73,8 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
   'thought-continuation': '/exercise/thought-continuation',
+  'category-fluency': '/exercise/category-fluency',
+  'synonym-generator': '/exercise/synonym-generator',
 };
 
 interface PatientPracticeViewProps {
