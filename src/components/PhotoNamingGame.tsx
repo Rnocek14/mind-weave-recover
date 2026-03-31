@@ -1160,10 +1160,13 @@ export const PhotoNamingGame = ({
         });
       }
       
-      // Start audio recording if supported - USE activeSessionId for standalone mode
+      // Start audio recording after speech recognition has had a head start.
+      // On iOS Safari, grabbing MediaRecorder immediately can interfere with Web Speech startup.
       if (isRecordingSupported && user && activeSessionId) {
-        startRecording();
-        console.log('🎙️ Recording started for session:', activeSessionId);
+        setTimeout(() => {
+          startRecording();
+          console.log('🎙️ Recording started for session:', activeSessionId);
+        }, 900);
       }
       
       // Start stall detection timer (3 seconds of hesitation)
