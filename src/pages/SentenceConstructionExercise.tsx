@@ -244,8 +244,8 @@ const SentenceConstructionExercise = () => {
             Skip
           </Button>
         </div>
-        {/* Game fills remaining space */}
-        <div className="flex-1 min-h-0 overflow-auto px-4 py-3">
+        {/* Game fills remaining space — no scroll */}
+        <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
           <SentenceConstructionGame
             config={config}
             bounds={bounds}
