@@ -20,7 +20,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { startSession } from '@/lib/sessionTracking';
-import { ArrowLeft, Ear, Info } from 'lucide-react';
+import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
