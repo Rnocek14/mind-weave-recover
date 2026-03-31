@@ -1181,23 +1181,44 @@ export const PhotoNamingGame = ({
         }, STALL_TIMER_DELAY_MS);
       }
       
-      // Auto-listen: Only initiate once per trial
+      // Auto-listen: Only initiate once per trial, with retry for STOPPING state
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
         autoListenInitiatedRef.current = state.trialNumber;
         
-        const timeoutId = setTimeout(() => {
-          console.log('🎤 Auto-listen timeout executed for new trial', state.trialNumber);
-          if (!isPlayingChoicesRef.current && !showFeedback) {
+        // Retry mechanism: try up to 4 times with increasing delay
+        // This handles the case where recognition is still in STOPPING state on mount
+        let retryCount = 0;
+        const maxRetries = 4;
+        const tryStart = () => {
+          retryCount++;
+          console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
+          if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
             try {
               startListening();
             } catch (err) {
               console.error('🎤 Error auto-starting listening:', err);
             }
           }
-        }, 800);
+          // If not listening after attempt, retry with backoff
+          if (retryCount < maxRetries) {
+            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 800 : 1200;
+            listeningTimeoutRef.current = setTimeout(() => {
+              // Only retry if still not listening
+              if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+                tryStart();
+              }
+            }, delay);
+          }
+        };
+        
+        // Initial attempt after short delay for mount stabilization
+        const timeoutId = setTimeout(tryStart, 300);
         
         return () => {
           clearTimeout(timeoutId);
+          if (listeningTimeoutRef.current) {
+            clearTimeout(listeningTimeoutRef.current);
+          }
           if (stallTimerRef.current) {
             clearTimeout(stallTimerRef.current);
           }
@@ -2256,12 +2277,12 @@ export const PhotoNamingGame = ({
             </select>
           </div>
           
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative">
                 <Button
                   variant={selectedAnswer === choice ? "default" : "outline"}
-                  className="w-full h-12 sm:h-14 text-sm sm:text-lg pr-10"
+                  className="w-full h-14 sm:h-16 text-base sm:text-lg pr-10"
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
