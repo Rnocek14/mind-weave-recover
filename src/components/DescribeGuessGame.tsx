@@ -490,11 +490,13 @@ export function DescribeGuessGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction — short on mobile */}
-      <div className="text-center shrink-0">
-        <p className="text-sm text-muted-foreground">
-          🗣️ <span className="hidden sm:inline">Describe this picture — don't worry if you can't say the exact word</span>
-          <span className="sm:hidden">Describe what you see</span>
+      {/* Instruction — clear Taboo-style */}
+      <div className="text-center shrink-0 space-y-1">
+        <p className="text-sm font-medium text-foreground">
+          🚫 Describe this <strong>without</strong> saying the word!
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
       </div>
 
