@@ -165,7 +165,7 @@ export default function FixSentenceExercise() {
 
       {fromLesson && <SessionProgressBubble />}
 
-      <main className="container px-4 py-8">
+      <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
