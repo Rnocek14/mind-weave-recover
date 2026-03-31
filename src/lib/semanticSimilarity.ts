@@ -11,6 +11,7 @@ interface EmbeddingCache {
 
 // Simple in-memory cache to avoid redundant API calls
 const embeddingCache: EmbeddingCache = {};
+let embeddingDisabled = false;
 
 /**
  * Get embedding vector for a text using Supabase edge function
