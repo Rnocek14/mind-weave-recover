@@ -2,6 +2,8 @@
  * Category Fluency Game — Standalone exercise component
  * 
  * "Name as many [category] as you can before time runs out"
+ * PRIMARY INPUT: Speech (microphone) — words are added as you say them
+ * FALLBACK: Text input for accessibility
  * Adaptive: harder categories + shrinking timer as difficulty increases
  * Trial-by-trial adaptation via useAdaptiveDifficulty
  */
@@ -10,9 +12,10 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, ThumbsUp, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Timer, Plus, ThumbsUp, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Categories ordered by difficulty
@@ -98,7 +101,7 @@ export function CategoryFluencyGame({
   } = useAdaptiveDifficulty({
     initialDifficulty: difficulty,
     bounds,
-    windowSize: 3, // Small window since rounds are expensive (30s+ each)
+    windowSize: 3,
     targetSuccessRate: 0.80,
     adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
@@ -114,28 +117,76 @@ export function CategoryFluencyGame({
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
   const totalTime = getTimerForDifficulty(currentDifficulty);
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const wordsRef = useRef<string[]>([]);
+
+  // Keep wordsRef in sync
+  useEffect(() => { wordsRef.current = words; }, [words]);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
+  // === Speech Recognition ===
+  const processedRef = useRef(new Set<string>());
+
+  const handleSpeechResult = useCallback((transcript: string) => {
+    if (phase !== 'active') return;
+    
+    // Split transcript into individual words and add new ones
+    const spokenWords = transcript
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .map(w => w.trim().replace(/[^a-zA-Z'-]/g, ''))
+      .filter(w => w.length >= 2);
+
+    const newWords: string[] = [];
+    for (const word of spokenWords) {
+      if (!processedRef.current.has(word)) {
+        processedRef.current.add(word);
+        newWords.push(word);
+      }
+    }
+
+    if (newWords.length > 0) {
+      setWords(prev => [...prev, ...newWords]);
+      setLastAddedWord(newWords[newWords.length - 1]);
+      // Brief flash for feedback
+      setTimeout(() => setLastAddedWord(null), 800);
+    }
+  }, [phase]);
+
+  const {
+    isListening,
+    transcript: liveTranscript,
+    startListening,
+    stopListening,
+    isSupported: speechSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechResult,
+    patientMode: true,
+    continuousListening: true,
+    autoStart: false,
+  });
+
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    stopListening();
+    
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
-    const unique = [...new Set(words.map(w => w.toLowerCase().trim()))].filter(Boolean);
+    const unique = [...new Set(wordsRef.current.map(w => w.toLowerCase().trim()))].filter(Boolean);
 
-    // Feed result to adaptive controller
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = unique.length >= threshold;
     updateTrial(wasSuccessful);
 
-    // Check if difficulty should change for next round
     const prevDiff = currentDifficulty;
     const { newLevel } = checkAndAdjust();
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
@@ -162,7 +213,7 @@ export function CategoryFluencyGame({
     } else {
       setPhase('round-done');
     }
-  }, [words, config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust]);
+  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
   const startRound = useCallback(() => {
     const cat = pickCategory(currentDifficulty);
@@ -171,6 +222,8 @@ export function CategoryFluencyGame({
     setCurrentInput('');
     setPhase('active');
     setDifficultyShift(null);
+    processedRef.current.clear();
+    wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
@@ -185,14 +238,20 @@ export function CategoryFluencyGame({
       });
     }, 1000);
 
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [currentDifficulty, finishRound]);
+    // Auto-start mic
+    if (speechSupported) {
+      setTimeout(() => startListening(), 300);
+    } else {
+      setShowTextInput(true);
+    }
+  }, [currentDifficulty, finishRound, speechSupported, startListening]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
     setWords([]);
     setCurrentInput('');
     setPhase('ready');
+    setShowTextInput(false);
   }, []);
 
   const addWord = useCallback(() => {
@@ -222,10 +281,15 @@ export function CategoryFluencyGame({
         <div>
           <p className="text-xl font-bold mb-1">Name: {cat.label}</p>
           <p className="text-muted-foreground">
-            Type as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
+            <strong>Say</strong> as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
           </p>
           <p className="text-xs text-muted-foreground mt-1">e.g. {cat.examples}</p>
         </div>
+        {!speechSupported && (
+          <p className="text-xs text-amber-600">
+            Speech not available — you'll type instead
+          </p>
+        )}
         {currentRound > 0 && (
           <div className="flex flex-col items-center gap-1">
             <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
@@ -241,7 +305,7 @@ export function CategoryFluencyGame({
           </div>
         )}
         <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
-          <Timer className="w-4 h-4 mr-2" />
+          <Mic className="w-4 h-4 mr-2" />
           {currentRound === 0 ? 'Start' : 'Next Round'}
         </Button>
       </div>
@@ -303,14 +367,19 @@ export function CategoryFluencyGame({
     );
   }
 
-  // Active
+  // Active — speech-first with text fallback
   return (
     <div className="flex flex-col gap-4 max-w-sm mx-auto">
       {/* Timer + count */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Name {config.label.toLowerCase()}:</span>
-          <Badge variant="outline">{uniqueWords.length}</Badge>
+          <Badge variant="outline" className={cn(
+            "transition-all",
+            lastAddedWord && "ring-2 ring-primary scale-110"
+          )}>
+            {uniqueWords.length}
+          </Badge>
         </div>
         <div className={cn(
           "flex items-center gap-1 text-lg font-mono font-bold tabular-nums",
@@ -321,26 +390,83 @@ export function CategoryFluencyGame({
         </div>
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2">
-        <Input
-          ref={inputRef}
-          value={currentInput}
-          onChange={(e) => setCurrentInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a word + Enter"
-          className="min-h-[48px] text-base"
-          autoFocus
-        />
-        <Button size="icon" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
-          <Plus className="w-5 h-5" />
-        </Button>
-      </div>
+      {/* Mic status + live transcript */}
+      {speechSupported && !showTextInput && (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <button
+            onClick={isListening ? stopListening : startListening}
+            className={cn(
+              "w-20 h-20 rounded-full flex items-center justify-center transition-all",
+              "border-2 shadow-lg",
+              isListening
+                ? "bg-primary/10 border-primary animate-pulse shadow-primary/20"
+                : "bg-muted border-border hover:border-primary/50"
+            )}
+            aria-label={isListening ? "Microphone active" : "Start microphone"}
+          >
+            {isListening ? (
+              <Mic className="w-8 h-8 text-primary" />
+            ) : (
+              <MicOff className="w-8 h-8 text-muted-foreground" />
+            )}
+          </button>
+          
+          {isListening && (
+            <p className="text-sm text-muted-foreground animate-pulse">
+              {liveTranscript || "Listening — say words aloud…"}
+            </p>
+          )}
+
+          {lastAddedWord && (
+            <Badge className="animate-in fade-in zoom-in text-sm bg-primary text-primary-foreground">
+              ✓ {lastAddedWord}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* Text input fallback */}
+      {(showTextInput || !speechSupported) && (
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a word + Enter"
+            className="min-h-[48px] text-base"
+            autoFocus
+          />
+          <Button size="icon" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Toggle between speech and text */}
+      {speechSupported && (
+        <button
+          onClick={() => setShowTextInput(!showTextInput)}
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 self-center"
+        >
+          {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+          {showTextInput ? 'Switch to speech' : 'Switch to typing'}
+        </button>
+      )}
 
       {/* Words entered */}
       <div className="flex flex-wrap gap-1.5 min-h-[48px]">
         {words.map((w, i) => (
-          <Badge key={i} variant="outline" className="text-sm">{w}</Badge>
+          <Badge 
+            key={i} 
+            variant="outline" 
+            className={cn(
+              "text-sm transition-all",
+              w === lastAddedWord && "ring-1 ring-primary bg-primary/5"
+            )}
+          >
+            {w}
+          </Badge>
         ))}
       </div>
 
