@@ -109,26 +109,36 @@ export default function NarrativeRetellExercise() {
     });
   }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
 
+  const resumeLessonFlow = useCallback(() => {
+    if (hasAdvancedLessonRef.current) return;
+    hasAdvancedLessonRef.current = true;
+    if (!exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
+    }
+    navigate('/lesson', { state: { resuming: true }, replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
+  }, []);
+
   const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
     setCompleted(true);
     completeSession();
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: EXERCISE_SLUG, results },
-        }));
-      }, 2000);
+    if (fromLesson) {
+      completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, resumeLessonFlow]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? '/lesson' : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/dashboard');
-  }, [fromLesson, navigate]);
+    if (fromLesson) {
+      resumeLessonFlow();
+    } else {
+      navigate('/dashboard');
+    }
+  }, [fromLesson, navigate, resumeLessonFlow]);
 
   if (isCreatingSession || !activeSessionId) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
