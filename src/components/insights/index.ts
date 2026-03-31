@@ -6,3 +6,4 @@ export { ChallengesSection } from './ChallengesSection';
 export { StrategiesSection } from './StrategiesSection';
 export { AdaptationsSection } from './AdaptationsSection';
 export { AlertsSection } from './AlertsSection';
+export { OutcomeProofSection } from './OutcomeProofSection';

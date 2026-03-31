@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, AlertCircle, FileText,
-  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle
+  LayoutGrid, Target, Lightbulb, Settings2, AlertTriangle, FlaskConical
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -32,7 +32,8 @@ import {
   ChallengesSection, 
   StrategiesSection, 
   AdaptationsSection,
-  AlertsSection 
+  AlertsSection,
+  OutcomeProofSection 
 } from "@/components/insights";
 
 // Clinical tab components (removed - now only in Weekly Review)
@@ -47,6 +48,7 @@ const INSIGHT_TABS = [
   { id: 'challenges', label: "What's Hard", icon: Target },
   { id: 'strategies', label: 'What Helps', icon: Lightbulb },
   { id: 'adaptations', label: "How It's Adapting", icon: Settings2 },
+  { id: 'proof', label: 'Proof', icon: FlaskConical },
   { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
 ] as const;
 
@@ -240,6 +242,11 @@ export default function Insights() {
               <AdaptationsSection userId={user!.id} profileId={activeProfile?.id} />
             </TabsContent>
           )}
+
+          {/* Outcome Proof Tab */}
+          <TabsContent value="proof" className="mt-4">
+            <OutcomeProofSection userId={user!.id} profileId={activeProfile?.id} />
+          </TabsContent>
 
           {/* Alerts Tab */}
           <TabsContent value="alerts" className="mt-4">
