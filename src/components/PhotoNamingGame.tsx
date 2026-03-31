@@ -724,7 +724,13 @@ export const PhotoNamingGame = ({
   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
   
   const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
-  const showMicPausedHint = useDebouncedMicStatus(isListening, shouldExpectListening && !micAutoStartPending && !speechError, 2500);
+  const micStatusResetKey = `${state.trialNumber}-${Number(micAutoStartPending)}-${Number(useVoice)}-${Number(isPlayingChoices)}`;
+  const showMicPausedHint = useDebouncedMicStatus(
+    isListening,
+    shouldExpectListening && !micAutoStartPending && !speechError,
+    micStatusResetKey,
+    2500
+  );
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
