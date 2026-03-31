@@ -1244,6 +1244,7 @@ export const PhotoNamingGame = ({
           }
         };
       } else {
+        setMicAutoStartPending(false);
         // If not auto-listening, still need to cleanup stall timer
         return () => {
           if (stallTimerRef.current) {
