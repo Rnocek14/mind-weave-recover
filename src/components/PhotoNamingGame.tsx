@@ -1198,7 +1198,7 @@ export const PhotoNamingGame = ({
         }, STALL_TIMER_DELAY_MS);
       }
       
-      // Auto-listen: Only initiate once per trial, with retry for STOPPING/cooldown state
+      // Auto-listen only after voice has been explicitly enabled by the user.
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
         autoListenInitiatedRef.current = state.trialNumber;
         setMicAutoStartPending(true);
