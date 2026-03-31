@@ -319,10 +319,16 @@ export function DescribeGuessGame({
       setIsEvaluating(false);
 
       if (guessResult.guessed && !wordWin) {
-        // App guessed — ask user to say the word
+        // App guessed — ask user to say the word, restart mic for their attempt
         setGuessMessage(`I think it's "${trial.target}"! Can you try saying it?`);
         speak(`I think it's ${trial.target}. Can you try saying it?`);
         setAwaitingWordAttempt(true);
+
+        // Re-enable mic so user can attempt saying the word
+        setTimeout(() => {
+          startListening();
+          setIsListening(true);
+        }, 500);
 
         // Finalize after timeout
         feedbackTimerRef.current = setTimeout(async () => {
