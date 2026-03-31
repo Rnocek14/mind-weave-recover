@@ -68,12 +68,16 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
-// Debounced mic status - only show "mic paused" after 2s of being off
-const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
+// Debounced mic status - only show "mic paused" when voice should be active but isn't
+const useDebouncedMicStatus = (
+  isListening: boolean,
+  shouldExpectListening: boolean,
+  delayMs = 2000
+) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
   
   useEffect(() => {
-    if (isListening) {
+    if (isListening || !shouldExpectListening) {
       setShowMicPaused(false);
       return;
     }
@@ -83,7 +87,7 @@ const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
     }, delayMs);
     
     return () => clearTimeout(timer);
-  }, [isListening, delayMs]);
+  }, [isListening, shouldExpectListening, delayMs]);
   
   return showMicPaused;
 };
@@ -132,6 +136,7 @@ export const PhotoNamingGame = ({
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
   const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const [autoHintsEnabled, setAutoHintsEnabled] = useState(true); // Toggle for automatic hints
   
   // Phase 2: Utterance state for delayed scoring
@@ -715,8 +720,8 @@ export const PhotoNamingGame = ({
     error: speechError 
   } = useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening
   
-  // Debounce mic status to prevent flickering during auto-restart cycles
-  const showMicPausedHint = useDebouncedMicStatus(isListening, 2000);
+  const shouldExpectListening = useVoice && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isCreatingSession;
+  const showMicPausedHint = useDebouncedMicStatus(isListening, shouldExpectListening && !micAutoStartPending && !speechError, 2500);
   
   // Reset stall timer whenever speech activity is detected (prevents cue spam during active speech)
   useEffect(() => {
@@ -1181,17 +1186,17 @@ export const PhotoNamingGame = ({
         }, STALL_TIMER_DELAY_MS);
       }
       
-      // Auto-listen: Only initiate once per trial, with retry for STOPPING state
+      // Auto-listen: Only initiate once per trial, with retry for STOPPING/cooldown state
       if (useVoice && isSupported && autoListenInitiatedRef.current !== state.trialNumber) {
         autoListenInitiatedRef.current = state.trialNumber;
+        setMicAutoStartPending(true);
         
-        // Retry mechanism: try up to 4 times with increasing delay
-        // This handles the case where recognition is still in STOPPING state on mount
         let retryCount = 0;
-        const maxRetries = 4;
+        const maxRetries = 5;
         const tryStart = () => {
           retryCount++;
           console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
+
           if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
             try {
               startListening();
@@ -1199,23 +1204,26 @@ export const PhotoNamingGame = ({
               console.error('🎤 Error auto-starting listening:', err);
             }
           }
-          // If not listening after attempt, retry with backoff
+
           if (retryCount < maxRetries) {
-            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 800 : 1200;
+            const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
             listeningTimeoutRef.current = setTimeout(() => {
-              // Only retry if still not listening
-              if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+              if (!isListening && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
                 tryStart();
+              } else {
+                setMicAutoStartPending(false);
               }
             }, delay);
+          } else {
+            setMicAutoStartPending(false);
           }
         };
         
-        // Initial attempt after short delay for mount stabilization
-        const timeoutId = setTimeout(tryStart, 300);
+        const timeoutId = setTimeout(tryStart, 250);
         
         return () => {
           clearTimeout(timeoutId);
+          setMicAutoStartPending(false);
           if (listeningTimeoutRef.current) {
             clearTimeout(listeningTimeoutRef.current);
           }
@@ -1238,6 +1246,12 @@ export const PhotoNamingGame = ({
       stopListening();
     }
   }, [state.currentTrial, state.trialNumber, showFeedback, useVoice, isSupported, startListening, isListening, stopListening, isRecordingSupported, user, activeSessionId, startRecording, startAttempt, triggerAutoCue, isPlayingChoices, isCreatingSession]);
+
+  useEffect(() => {
+    if (isListening || speechError) {
+      setMicAutoStartPending(false);
+    }
+  }, [isListening, speechError]);
 
   // Handle game completion - end session properly
   useEffect(() => {
@@ -1518,6 +1532,7 @@ export const PhotoNamingGame = ({
       
       // Restart listening after audio finishes
       if (useVoice && !showFeedback && !timedOut && !selectedAnswer) {
+        setMicAutoStartPending(true);
         setTimeout(() => {
           try {
             startListening();
@@ -1562,8 +1577,8 @@ export const PhotoNamingGame = ({
       
       console.log('🎤 All choices audio finished, restarting listening');
       
-      // Restart listening after all audio finishes
       if (useVoice && !showFeedback && !timedOut && !selectedAnswer) {
+        setMicAutoStartPending(true);
         setTimeout(() => {
           try {
             startListening();
@@ -2193,10 +2208,13 @@ export const PhotoNamingGame = ({
               variant="outline"
               size="sm"
               onClick={() => {
-                setUseVoice(!useVoice);
-                if (!useVoice && isSupported) {
+                const nextUseVoice = !useVoice;
+                setUseVoice(nextUseVoice);
+                if (nextUseVoice && isSupported) {
+                  setMicAutoStartPending(true);
                   setTimeout(() => startListening(), 500);
                 } else if (isListening) {
+                  setMicAutoStartPending(false);
                   stopListening();
                 }
               }}
@@ -2240,7 +2258,7 @@ export const PhotoNamingGame = ({
       {useVoice && showMicPausedHint && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
         <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
           <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <span className="text-warning">Voice paused — tap mic to restart</span>
+          <span className="text-warning">Mic needs attention — tap once to restart</span>
         </div>
       )}
 
