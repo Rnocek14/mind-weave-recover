@@ -1839,34 +1839,11 @@ export function useCoachSession({
       successItems: result.targetWords ?? [],
     });
 
-    // Try to get AI follow-up, fall back to contextual return
-    let followupText: string;
-    try {
-      const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
-        body: {
-          userTranscript: `[Completed ${result.slug} exercise]`,
-          turnNumber: orchestratorStateRef.current.turnNumber,
-          conversationHistory: messages
-            .filter(m => m.type === 'ai' || m.type === 'user')
-            .slice(-4)
-            .map(m => ({ role: m.type as 'ai' | 'user', text: (m as any).text || '' })),
-          exerciseContext: {
-            slug: result.slug,
-            summary: result.summary,
-            accuracy: result.accuracy,
-            cueLevelUsed: result.cueLevelUsed,
-            successBand: result.successBand,
-            targetDomain: result.targetDomain,
-            errorTypes: result.errorTypes,
-            struggleSignal: result.struggleSignal,
-          },
-        }
-      });
-      // Use AI response if good, otherwise use our contextual return
-      followupText = data?.response || gameReturnText;
-    } catch {
-      followupText = gameReturnText;
-    }
+    // POST-GAME: Always use the deterministic game return text that anchors to the original topic.
+    // Previously we let the AI override this, but it often generated responses about the game content
+    // instead of returning to the conversation topic (e.g., asking about "nature photos" when we were
+    // talking about movies). The gameReturnText from generateGameReturn() already handles topic anchoring.
+    const followupText = gameReturnText;
 
     addMessage({ type: 'ai', text: followupText, id: generateId() });
     aiWordsRef.current += countWords(followupText);

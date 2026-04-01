@@ -130,14 +130,25 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       pausePattern === 'very_slow';
     
     // Detect circumlocution
-    const circumlocutionPhrases = [
+    // IMPORTANT: "kind of" / "sort of" are normal filler words in fluent speech.
+    // Only flag as circumlocution when they appear in SHORT responses (likely searching for a word)
+    // or when combined with other circumlocution signals.
+    const strongCircumlocutionPhrases = [
       'the thing', 'you know the', 'it has', 'you use it', 
-      'kind of', 'sort of', 'that thing', 'what do you call'
+      'that thing', 'what do you call', 'the place where', 'the one that'
     ];
+    const weakCircumlocutionPhrases = ['kind of', 'sort of'];
     const lowerTranscript = transcript.toLowerCase();
-    const circumlocutionDetected = circumlocutionPhrases.some(phrase => 
+    
+    // Strong phrases always count
+    const hasStrongCircumlocution = strongCircumlocutionPhrases.some(phrase => 
       lowerTranscript.includes(phrase)
     );
+    // Weak phrases only count in short responses (< 8 words) where they suggest word-finding difficulty
+    const hasWeakCircumlocution = wordCount < 8 && weakCircumlocutionPhrases.some(phrase =>
+      lowerTranscript.includes(phrase)
+    );
+    const circumlocutionDetected = hasStrongCircumlocution || hasWeakCircumlocution;
     
     // Determine completion confidence
     let completionConfidence: 'high' | 'medium' | 'low' = 'high';

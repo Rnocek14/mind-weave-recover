@@ -72,14 +72,37 @@ export function PhotoNamingCard({
   const cueTimerRef = useRef<NodeJS.Timeout | null>(null);
   const choiceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasCompletedRef = useRef(false);
+  const transcriptRef = useRef(transcript);
 
+  // Preload photo image immediately on mount
   useEffect(() => {
     const maxDifficulty = difficulty === 'easy' ? 2 : 3;
     const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
     const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
-    setTrial(randomPhoto);
-    setChoices(generateChoices(randomPhoto.target, photos));
-    startTimeRef.current = Date.now();
+    
+    // Preload the image before showing the card
+    const img = new Image();
+    img.onload = () => {
+      setTrial(randomPhoto);
+      setChoices(generateChoices(randomPhoto.target, photos));
+      startTimeRef.current = Date.now();
+    };
+    img.onerror = () => {
+      // Still show the card even if image fails to load
+      setTrial(randomPhoto);
+      setChoices(generateChoices(randomPhoto.target, photos));
+      startTimeRef.current = Date.now();
+    };
+    img.src = randomPhoto.imageUrl;
+    
+    // Safety: if image takes > 3s to load, show card anyway
+    const safetyTimer = setTimeout(() => {
+      if (!trial) {
+        setTrial(randomPhoto);
+        setChoices(generateChoices(randomPhoto.target, photos));
+        startTimeRef.current = Date.now();
+      }
+    }, 3000);
     
     cueTimerRef.current = setTimeout(() => {
       if (!hasCompletedRef.current && randomPhoto) {
@@ -98,8 +121,18 @@ export function PhotoNamingCard({
     choiceTimerRef.current = setTimeout(() => {
       if (!hasCompletedRef.current) setShowChoices(true);
     }, 10000);
+
+    // Global card timeout — auto-complete after 20s to prevent dead state
+    const globalTimeout = setTimeout(() => {
+      if (!hasCompletedRef.current && randomPhoto) {
+        const spoken = transcriptRef.current?.trim() || '';
+        handleComplete(spoken.length > 0 ? spoken : randomPhoto.target, true);
+      }
+    }, 20000);
     
     return () => {
+      clearTimeout(safetyTimer);
+      clearTimeout(globalTimeout);
       if (cueTimerRef.current) clearTimeout(cueTimerRef.current);
       if (choiceTimerRef.current) clearTimeout(choiceTimerRef.current);
     };
@@ -108,8 +141,25 @@ export function PhotoNamingCard({
   const checkMatch = useCallback((spoken: string, target: string) => {
     const s = spoken.toLowerCase().trim();
     const t = target.toLowerCase();
+    
+    // Exact match
     if (s === t || s.includes(t)) return { isMatch: true, quality: 'exact' as const };
-    if (t.startsWith(s.slice(0, 3)) || s.startsWith(t.slice(0, 3))) return { isMatch: true, quality: 'partial' as const };
+    
+    // Strip common speech prefixes like "it's a", "that's a", "a", "the", "its a"
+    const stripped = s
+      .replace(/^(it'?s\s+a\s+|that'?s\s+a\s+|i\s+see\s+a\s+|looks?\s+like\s+a?\s*|a\s+|the\s+|an\s+)/i, '')
+      .trim();
+    if (stripped === t || stripped.includes(t)) return { isMatch: true, quality: 'exact' as const };
+    
+    // Check if target appears as a word in the spoken text (not just substring)
+    const spokenWords = s.split(/\s+/);
+    if (spokenWords.includes(t)) return { isMatch: true, quality: 'exact' as const };
+    
+    // Partial prefix match (first 3+ chars)
+    if (stripped.length >= 3 && (t.startsWith(stripped.slice(0, 3)) || stripped.startsWith(t.slice(0, 3)))) {
+      return { isMatch: true, quality: 'partial' as const };
+    }
+    
     if (s.length >= 2) return { isMatch: false, quality: 'attempt' as const };
     return { isMatch: false, quality: 'attempt' as const };
   }, []);
@@ -177,6 +227,7 @@ export function PhotoNamingCard({
   };
 
   useEffect(() => {
+    transcriptRef.current = transcript;
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
     }
