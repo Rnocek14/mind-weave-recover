@@ -797,14 +797,23 @@ export function generateDailyLesson(
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
   // 1. WARMUP (1-2 min) - confidence-building exercise
-  // Prefer motor for physical warming, but allow language/cognitive if motor isn't available
-  // or if primaryDomains suggest a different warmup would be more therapeutic
-  const motorExercises = scoredExercises.filter(e => e!.domains.includes('motor_control'));
-  const warmup = motorExercises[0]
-    || scoredExercises.find(e => e && e.baseMinutes <= 3) // fallback: any short exercise
-    || scoredExercises[0];
+  // Profile-aware: prefer exercises that match the user's PRIMARY domain but are easy,
+  // so the warmup is therapeutically relevant, not just motor for everyone.
+  const warmupCandidates = scoredExercises
+    .filter(e => e && e.baseMinutes <= 3)
+    .sort((a, b) => {
+      if (!a || !b) return 0;
+      // Prefer exercises matching primary domains (therapeutic relevance)
+      const aMatchesPrimary = a.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
+      const bMatchesPrimary = b.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
+      if (bMatchesPrimary !== aMatchesPrimary) return bMatchesPrimary - aMatchesPrimary;
+      // Then prefer lower cognitive load (easy exercises first)
+      return a.baseMinutes - b.baseMinutes;
+    });
+
+  const warmup = warmupCandidates[0] || scoredExercises[0];
   if (warmup && remainingTime >= 1) {
-    const isMotorWarmup = warmup.domains.includes('motor_control');
+    const matchesPrimary = warmup.domains.some(d => mappedPrimaryDomains.includes(d));
     const duration = Math.min(2, remainingTime);
     blocks.push({
       exerciseId: warmup.id,
@@ -812,11 +821,13 @@ export function generateDailyLesson(
       priority: 'warmup',
       adaptations: {
         startDifficulty: 1,
-        cueLevel: 0,
-        timeout: 5000,
+        cueLevel: 2, // Higher cue level for warmup = easier success
+        timeout: 6000,
         visualSupport: true,
       },
-      reasoning: isMotorWarmup ? `Light motor warmup: ${warmup.id}` : `Warmup: ${warmup.id} (non-motor)`,
+      reasoning: matchesPrimary
+        ? `Therapeutic warmup: ${warmup.id} (matches primary domain)`
+        : `General warmup: ${warmup.id}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(warmup.id);
