@@ -43,7 +43,7 @@ import AdminOverrideAudit from "./pages/AdminOverrideAudit";
 import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
-
+import SmartCoachLab from "./pages/SmartCoachLab";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import TwoCluesExercise from "./pages/TwoCluesExercise";
@@ -161,6 +161,7 @@ const App = () => (
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
+                  <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
