@@ -492,6 +492,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         completedCount={currentBlockIndex}
         totalCount={runtimeBlocks.length}
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
+        nextPhase={nextBlock?.priority}
         sessionId={sessionId}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
