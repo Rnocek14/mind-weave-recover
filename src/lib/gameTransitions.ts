@@ -30,21 +30,21 @@ export interface GameReturnContext {
  * The intro should feel like part of the conversation, not a mode switch
  */
 export function generateGameIntro(ctx: GameTransitionContext): string {
-  const { currentTopic, triggerType, gameSlug, trlLevel } = ctx;
+  const { currentTopic, triggerType, trlLevel } = ctx;
 
-  // Level 4 / confidence rebuild — ultra gentle
+  // Level 4 / confidence rebuild — ultra gentle + purposeful
   if (triggerType === 'confidence_rebuild' || trlLevel >= 4) {
     return pickRandom(
       currentTopic
         ? [
-            `That's okay — let's do something quick and easy to get the words flowing. Still thinking about ${currentTopic}.`,
-            `No pressure — here's a quick one to warm up. We'll come back to ${currentTopic}.`,
-            `Let's try something simple to build momentum.`,
+            `That's okay — let's do something quick to get the words flowing. This helps your brain pull words faster when you're talking. Still thinking about ${currentTopic}.`,
+            `No pressure — here's a quick warm-up. It helps with finding words in real conversations. We'll come back to ${currentTopic}.`,
+            `Let's try something simple — this makes it easier to say what you mean when it matters.`,
           ]
         : [
-            `That's okay — let's do something quick and easy to get the words flowing.`,
-            `No pressure — here's a quick warm-up.`,
-            `Let's try something simple to build momentum.`,
+            `That's okay — let's do something quick to get the words flowing. This helps your brain pull words faster when you're talking.`,
+            `No pressure — here's a quick warm-up. It makes finding words easier in real conversations.`,
+            `Let's try something simple — this helps when you're talking to someone and need the right word.`,
           ]
     );
   }
@@ -53,14 +53,14 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
   if (triggerType === 'targeted_drill') {
     const drillIntros = currentTopic
       ? [
-          `Since we're talking about ${currentTopic} — let me give you a quick listening exercise.`,
-          `Here's a quick one that'll help with those sounds.`,
-          `Let's sharpen those ears real quick — this'll help.`,
+          `Since we're talking about ${currentTopic} — let me give you a quick listening exercise. This helps you catch words more clearly in conversations.`,
+          `Here's a quick one — it sharpens how you hear the difference between similar words. Useful in real conversations.`,
+          `Quick exercise — this helps your brain tell similar sounds apart, like when someone's talking to you.`,
         ]
       : [
-          `Let me give you a quick listening exercise — it'll help.`,
-          `Here's a quick one to sharpen those ears.`,
-          `Try this — it's quick and it'll help with those sounds.`,
+          `Let me give you a quick listening exercise — it helps you catch words more clearly when people talk to you.`,
+          `Here's a quick one — it sharpens how you hear differences between words in real conversations.`,
+          `Try this — it helps your brain process words faster, like when you're listening to someone.`,
         ];
     return pickRandom(drillIntros);
   }
@@ -69,22 +69,22 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
   if (triggerType === 'scaffolded_choice_game') {
     const matchIntros = currentTopic
       ? [
-          `You're doing great — let's do a quick round to build momentum. Still on ${currentTopic}.`,
-          `Quick one — this'll get the words flowing faster.`,
-          `Here's a fun one to keep that momentum going.`,
+          `You're doing great — let's do a quick round. This helps you match words to meanings faster, like in real conversations. Still on ${currentTopic}.`,
+          `Quick one — this gets the word connections flowing, so it's easier when you're talking to someone.`,
+          `Here's a fun one — it helps your brain link words faster. Useful when you're explaining something.`,
         ]
       : [
-          `You're doing great — let's do a quick round to build momentum.`,
-          `Quick one — this'll get the words flowing faster.`,
-          `Here's a fun one to keep the momentum.`,
+          `You're doing great — let's do a quick round. This helps you connect words faster in real conversations.`,
+          `Quick one — this gets your word connections flowing, like when you're talking to someone.`,
+          `Here's a fun one — it helps your brain link words to meanings faster.`,
         ];
     return pickRandom(matchIntros);
   }
 
   // Fallback
   return currentTopic
-    ? `Quick practice round — we'll get back to ${currentTopic} right after.`
-    : "Quick practice round — this'll help.";
+    ? `Quick practice round — this helps with real conversations. We'll get back to ${currentTopic} right after.`
+    : "Quick practice round — this helps you find words faster when you're talking to someone.";
 }
 
 /**
