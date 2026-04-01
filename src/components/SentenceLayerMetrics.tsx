@@ -44,7 +44,7 @@ export function SentenceLayerMetrics({ events }: SentenceLayerMetricsProps) {
   const { sourceBreakdown, phonemeMatch } = useMemo(() => {
     // Sentence Construction: trial_source breakdown
     const scEvents = events.filter(e => 
-      e.exercise_slug === 'sentence-construction' && 
+      (e.exercise_slug === 'sentence-construction' || e.exercise_slug === 'sentence_construction') && 
       e.task_parameters?.trial_source
     );
 
