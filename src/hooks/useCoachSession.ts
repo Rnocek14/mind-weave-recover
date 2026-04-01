@@ -73,6 +73,7 @@ import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib
 import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
 import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
 import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
+import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/hallucinationGuard';
 
 // Store card results for AI context
 interface CardResult {
@@ -1002,6 +1003,15 @@ export function useCoachSession({
           completionConfidence: analysis.completionConfidence,
         });
 
+        // Build hallucination guard allowlist from conversation context
+        const entityAllowlist = buildEntityAllowlist(
+          transcript,
+          conversationHistory,
+          rollingMemoryRef.current,
+          activeInlinePhotoRef.current ? { targets: [activeInlinePhotoRef.current.trial.target] } : null,
+        );
+        const hallucinationGuardBlock = getHallucinationGuardPromptBlock(entityAllowlist);
+
         // Determine therapeutic response level (TRL)
         const trlResult = determineResponseLevel({
           fluencyScore: analysis.fluencyScore,
@@ -1100,6 +1110,11 @@ export function useCoachSession({
               label: trlResult.label,
               promptBlock: trlResult.promptBlock,
               anchorUsageType: trlResult.anchorUsageType,
+            },
+            // Hallucination guard — entity allowlist
+            hallucinationGuard: {
+              promptBlock: hallucinationGuardBlock,
+              allowedEntities: [...entityAllowlist.all].slice(0, 20),
             },
           }
         });

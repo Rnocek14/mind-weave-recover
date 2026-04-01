@@ -191,11 +191,16 @@ Example: "At the park with your daughter — were you walking together or she ra
       return `[THERAPY MODE: Level 2 — Scaffolded Choice]
 The user is hesitating or producing limited speech.
 Rules:
-- Give exactly TWO simple options using the anchor word
+- Offer TWO simple options using the anchor word
 - Make both options easy to say (short words)
-- Format: "Was it [A] or [B]?"
+- VARY your phrasing — do NOT always use "Was it A or B?"
+- Use different structures each time:
+  "A or B?" / "More like A, or closer to B?" / "Did it feel like A or B?"
+  "Which fits better — A or B?" / "Was it A... or maybe B?"
+  You can also use: "I'm guessing A?" (single gentle guess instead of binary)
 - Do NOT ask open questions — reduce cognitive load
-Example: "Your daughter at the park — were you feeding ducks or just watching?"`;
+- ONLY use objects/entities the user has already mentioned
+Example: "Your daughter at the park — more like running around, or just chilling?"`;
 
     case 3:
       return `[THERAPY MODE: Level 3 — Targeted Cue]

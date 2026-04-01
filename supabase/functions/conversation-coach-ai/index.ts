@@ -329,6 +329,7 @@ serve(async (req) => {
       therapyStrategy,
       anchorContext,
       therapeuticLevel,
+      hallucinationGuard,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -367,6 +368,10 @@ serve(async (req) => {
         label: string;
         promptBlock: string;
         anchorUsageType: string;
+      };
+      hallucinationGuard?: {
+        promptBlock: string;
+        allowedEntities: string[];
       };
     };
 
@@ -526,6 +531,11 @@ serve(async (req) => {
     if (therapeuticLevel?.promptBlock) {
       messages.push({ role: 'system', content: therapeuticLevel.promptBlock });
       console.log(`TRL Level ${therapeuticLevel.level}: ${therapeuticLevel.label} (${therapeuticLevel.anchorUsageType})`);
+    }
+
+    // Hallucination Guard — prevent Maya from introducing entities user never mentioned
+    if (hallucinationGuard?.promptBlock) {
+      messages.push({ role: 'system', content: hallucinationGuard.promptBlock });
     }
 
     // Current user message
@@ -706,8 +716,118 @@ serve(async (req) => {
       }
     }
 
+    // ═══ HALLUCINATION GUARD — POST-RESPONSE VALIDATION ═══
+    let hallucinationPass = true;
+    let hallucinatedWords: string[] = [];
+
+    if (hallucinationGuard?.allowedEntities && hallucinationGuard.allowedEntities.length > 0) {
+      // Build a concrete noun regex (simplified server-side check)
+      const concreteNounPattern = /\b(dog|cat|bird|duck|ducks|elephant|fish|horse|cow|pig|rabbit|bear|lion|tiger|monkey|penguin|chicken|turtle|frog|snake|cake|pie|cookie|bread|toast|egg|eggs|bacon|cheese|butter|milk|juice|pizza|burger|sandwich|salad|soup|steak|rice|pasta|banana|apple|grape|strawberry|watermelon|peach|pear|lemon|mango|chocolate|vanilla|candy|donut|pancake|waffle|popcorn|car|truck|bus|train|plane|boat|bicycle|motorcycle|chair|table|desk|couch|bed|lamp|mirror|clock|door|window|pillow|blanket|cup|glass|plate|bowl|fork|knife|spoon|bottle|pen|pencil|book|camera|phone|computer|guitar|piano|ball|balloon|kite|puzzle|doll|swing|swings|slide|pool|beach|ocean|lake|river|pond|mountain|forest|garden|flower|flowers|tree|hat|glasses|scarf|shoe|shoes|shirt|jacket|coat|dress|pants|belt|purse|backpack|umbrella|watch|ring|necklace)\b/gi;
+      
+      const responseNouns = aiResponse.match(concreteNounPattern);
+      if (responseNouns) {
+        const allowedSet = new Set(hallucinationGuard.allowedEntities.map((e: string) => e.toLowerCase()));
+        // Safe generic nouns Maya can always use
+        const safeNouns = new Set(['time', 'day', 'way', 'thing', 'place', 'kind', 'type', 'fun', 'story', 'memory', 'break', 'rest', 'word', 'words', 'sound', 'sounds', 'question', 'answer', 'feeling', 'mood', 'energy']);
+        
+        const seen = new Set<string>();
+        for (const noun of responseNouns) {
+          const lower = noun.toLowerCase();
+          if (seen.has(lower) || safeNouns.has(lower)) continue;
+          seen.add(lower);
+          // Check with singular/plural
+          const singular = lower.endsWith('s') ? lower.slice(0, -1) : lower;
+          const plural = lower + 's';
+          if (!allowedSet.has(lower) && !allowedSet.has(singular) && !allowedSet.has(plural)) {
+            hallucinatedWords.push(lower);
+          }
+        }
+        
+        if (hallucinatedWords.length > 0) {
+          hallucinationPass = false;
+          console.log('HALLUCINATION DETECTED:', hallucinatedWords, '| Allowed:', [...allowedSet].slice(0, 10));
+          
+          // One retry without the hallucinated content
+          const retryMessages = [
+            ...messages.slice(0, -1),
+            {
+              role: 'system' as const,
+              content: `REVISION REQUIRED: Your response "${aiResponse}" introduced words the user never said: [${hallucinatedWords.join(', ')}]. Rewrite using ONLY entities the user mentioned: ${hallucinationGuard.allowedEntities.slice(0, 10).join(', ')}. Do NOT add any new objects, animals, or food. Keep under 18 words.`,
+            },
+            messages[messages.length - 1],
+          ];
+          
+          try {
+            const retryResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash',
+                messages: retryMessages,
+                tools: [RESPOND_TOOL],
+                tool_choice: { type: "function", function: { name: "respond_and_remember" } },
+              }),
+            });
+            
+            if (retryResp.ok) {
+              const retryData = await retryResp.json();
+              const retryToolCall = retryData.choices?.[0]?.message?.tool_calls?.[0];
+              let retryResponse = aiResponse;
+              
+              if (retryToolCall?.function?.arguments) {
+                try {
+                  const retryArgs = JSON.parse(retryToolCall.function.arguments);
+                  if (retryArgs.response) retryResponse = retryArgs.response;
+                  if (retryArgs.memory) memoryUpdate = retryArgs.memory;
+                } catch { /* keep original */ }
+              } else if (retryData.choices?.[0]?.message?.content) {
+                retryResponse = retryData.choices[0].message.content.trim();
+              }
+              
+              // Check if retry is clean
+              const retryNouns = retryResponse.match(concreteNounPattern);
+              let retryClean = true;
+              if (retryNouns) {
+                for (const noun of retryNouns) {
+                  const lower = noun.toLowerCase();
+                  if (safeNouns.has(lower)) continue;
+                  const singular = lower.endsWith('s') ? lower.slice(0, -1) : lower;
+                  const plural = lower + 's';
+                  if (!allowedSet.has(lower) && !allowedSet.has(singular) && !allowedSet.has(plural)) {
+                    retryClean = false;
+                    break;
+                  }
+                }
+              }
+              
+              if (retryClean) {
+                aiResponse = retryResponse;
+                hallucinationPass = true;
+                hallucinatedWords = [];
+                // Re-apply word limit
+                const retryWords = aiResponse.split(/\s+/);
+                if (retryWords.length > 20) {
+                  aiResponse = retryWords.slice(0, 18).join(' ');
+                  if (!aiResponse.match(/[.!?]$/)) aiResponse += '?';
+                }
+                console.log('Hallucination RECOVERED on retry');
+              } else {
+                console.log('Hallucination still present after retry — accepting best response');
+              }
+            }
+          } catch (retryErr) {
+            console.warn('Hallucination retry failed:', retryErr);
+          }
+        }
+      }
+    }
+
     console.log('Maya:', aiResponse, '| Memory:', memoryUpdate?.slice(0, 60),
-      '| Anchor:', matchedAnchor || 'none', anchoringPass ? '✅' : '❌');
+      '| Anchor:', matchedAnchor || 'none', anchoringPass ? '✅' : '❌',
+      '| Hallucination:', hallucinationPass ? '✅' : `❌ [${hallucinatedWords.join(',')}]`);
 
     return new Response(
       JSON.stringify({
@@ -727,6 +847,11 @@ serve(async (req) => {
           label: therapeuticLevel.label,
           anchorUsageType: therapeuticLevel.anchorUsageType,
         } : undefined,
+        hallucinationMetrics: {
+          passed: hallucinationPass,
+          violatingWords: hallucinatedWords,
+          allowlistSize: hallucinationGuard?.allowedEntities?.length || 0,
+        },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -739,4 +864,4 @@ serve(async (req) => {
     );
   }
 });
-// v2
+// v3
