@@ -313,10 +313,10 @@ export function generateContextBridge(
 
   // === Generic but warm ===
   const genericBridges = [
-    "Oh hey — let me show you something quick.",
+    "Oh hey — ready for a quick one?",
     "That reminds me — try this one.",
     "Want to try a quick one? Just for fun.",
-    "Here — have a look at this.",
+    "Here's one for you.",
   ];
   return pickUnique(genericBridges, _lastBridges);
 }

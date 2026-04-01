@@ -96,10 +96,10 @@ const POST_CARD_SUCCESS_NO_TOPIC = [
 ];
 
 const POST_CARD_STRUGGLE = [
-  "No worries at all. So — what were you telling me?",
-  "That's okay! Let's go back to chatting.",
+  "No worries at all. So — what else comes to mind?",
+  "That's okay! Let's keep chatting.",
   "Don't even sweat it. What else is going on?",
-  "Hey, that's a tough one. Anyway — you were saying?",
+  "Hey, that's a tough one. Anyway — you were telling me about...",
 ];
 
 // ═══════════════════════════════════════════════════════════════
