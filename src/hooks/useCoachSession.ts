@@ -1003,6 +1003,15 @@ export function useCoachSession({
           completionConfidence: analysis.completionConfidence,
         });
 
+        // Build hallucination guard allowlist from conversation context
+        const entityAllowlist = buildEntityAllowlist(
+          transcript,
+          conversationHistory,
+          rollingMemoryRef.current,
+          activeInlinePhotoRef.current ? { targets: [activeInlinePhotoRef.current.trial.target] } : null,
+        );
+        const hallucinationGuardBlock = getHallucinationGuardPromptBlock(entityAllowlist);
+
         // Determine therapeutic response level (TRL)
         const trlResult = determineResponseLevel({
           fluencyScore: analysis.fluencyScore,
