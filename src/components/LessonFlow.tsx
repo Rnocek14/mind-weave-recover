@@ -488,17 +488,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Loading state when navigating to exercise
   if (phase === "exercise") {
-    const adaptMsg = getAdaptivityMessage(
-      recentScoresRef.current,
-      currentBlock?.priority === 'warmup' ? 'warm-up' 
-        : currentBlock?.priority === 'primary' ? 'core' : 'stretch'
-    );
+    const phaseLabel = currentBlock?.priority === 'warmup' ? 'warm-up' 
+      : currentBlock?.priority === 'primary' ? 'core' 
+      : currentBlock?.priority === 'support' ? 'support'
+      : 'stretch';
+    const adaptMsg = getAdaptivityMessage(recentScoresRef.current, phaseLabel);
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 space-y-6 text-center">
           {/* Session arc progress */}
           <SessionArcBar 
-            blocks={lesson.blocks} 
+            blocks={runtimeBlocks} 
             currentIndex={currentBlockIndex} 
           />
           
