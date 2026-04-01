@@ -74,8 +74,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const recentRTRef = useRef<number[]>([]);
   const recentTimeoutsRef = useRef(0);
 
-  const currentBlock = lesson.blocks[currentBlockIndex];
-  const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
+  const currentBlock = runtimeBlocks[currentBlockIndex];
+  const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
   
   // Restore state if returning from exercise — with deduplication guard
   useEffect(() => {
