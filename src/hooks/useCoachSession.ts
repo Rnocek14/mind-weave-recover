@@ -964,6 +964,7 @@ export function useCoachSession({
         orchestratorStateRef.current, stuckType, true
       );
     } else if (action.type === 'insert_card') {
+      pendingVisualActionRef.current = true; // Gate: allow card transition language
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
       const conversationHistory = currentMessages
