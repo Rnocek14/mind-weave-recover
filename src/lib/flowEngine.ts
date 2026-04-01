@@ -338,9 +338,9 @@ export function generateTaskReturn(
           `See? That came easier. Anyway — ${topic}, what else happened?`,
         ]
       : [
-          "That came out nice! So, what were you saying?",
-          "See? Smoother that time. Anyway — where were we?",
-          "Ha, nice! Okay, let's keep going.",
+          "That came out nice! So, what else comes to mind?",
+          "See? Smoother that time. Anyway — what were we talking about?",
+          "Ha, nice! Okay, let's keep going with that.",
           "Got it! So, you were telling me about...",
           "That was quick! Okay — back to our chat.",
         ];
