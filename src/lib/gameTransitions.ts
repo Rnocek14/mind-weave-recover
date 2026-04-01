@@ -37,16 +37,16 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
     return pickRandom(
       currentTopic
         ? [
-            `That's okay — let's do something quick to loosen things up. It makes finding words easier when you need them. Still thinking about ${currentTopic}.`,
-            `No pressure — here's a quick warm-up. You'll feel the difference after. We'll come back to ${currentTopic}.`,
-            `Let's try something simple — it takes the pressure off and makes things flow better.`,
-            `This will help — just a quick one to get things moving again. Then back to ${currentTopic}.`,
+            `That's okay — let's do something quick to loosen things up. It makes finding words easier. Still thinking about ${currentTopic}.`,
+            `No pressure — quick warm-up. It takes the edge off and helps words come out smoother. We'll come back to ${currentTopic}.`,
+            `Let's try something simple — takes the pressure off a bit.`,
+            `Quick one to get things moving again — then back to ${currentTopic}.`,
           ]
         : [
-            `That's okay — let's do something quick to loosen things up. You'll feel the difference.`,
-            `No pressure — here's a quick warm-up. It takes the edge off and makes words come easier.`,
-            `Let's try something simple — it makes everything feel a little smoother after.`,
-            `Quick one — this helps get things unstuck. You'll feel it.`,
+            `That's okay — let's do something quick to loosen things up. It helps.`,
+            `No pressure — quick warm-up. Takes the edge off.`,
+            `Let's try something simple — makes everything flow a bit better after.`,
+            `Quick one to get things moving. No rush.`,
           ]
     );
   }
@@ -99,15 +99,15 @@ export function generateGameReturn(ctx: GameReturnContext): string {
   // Successful game + has topic → anchor back with real-life connection
   if (wasSuccessful && currentTopic) {
     const successReturns = [
-      `Nice — you can feel how much quicker that was. Back to ${currentTopic} — what else happened?`,
-      `See? Smoother already. That's the feeling we want. So, ${currentTopic} — where were we?`,
-      `That was solid — everything flows easier now. Okay, back to ${currentTopic}.`,
-      `You're warmed up — can you feel it? Words come easier after that. So, ${currentTopic}?`,
+      `Nice — that was quicker than before. Back to ${currentTopic} — what else happened?`,
+      `Smoother already. That's what we want. So, ${currentTopic} — where were we?`,
+      `That was solid — everything should flow easier now. Okay, back to ${currentTopic}.`,
+      `Good warm-up. Words should come a bit quicker now. So, ${currentTopic}?`,
     ];
     if (successItems.length > 0) {
       const item = successItems[0];
       successReturns.push(
-        `"${item}" — no hesitation. That's the feeling. Speaking of ${currentTopic}...`,
+        `"${item}" — no hesitation on that one. Nice. Speaking of ${currentTopic}...`,
       );
     }
     return pickRandom(successReturns);
@@ -116,29 +116,29 @@ export function generateGameReturn(ctx: GameReturnContext): string {
   // Successful game + no topic
   if (wasSuccessful) {
     return pickRandom([
-      "Nice — you can feel how that loosened things up. What's on your mind?",
-      "See how much easier that felt? That's the warm-up working. Keep going.",
-      "That was good — everything flows better now. What were you thinking about?",
-      "You're in a groove now. Can you feel it? Go ahead.",
+      "Nice — that loosened things up. What's on your mind?",
+      "That was good. Words should come a bit easier now. Keep going.",
+      "Good warm-up — everything flows better after that. What were you thinking about?",
+      "Smooth. Go ahead — what's on your mind?",
     ]);
   }
 
   // Struggled but completed + has topic
   if (!wasSuccessful && currentTopic) {
     return pickRandom([
-      `Good effort — it gets a little easier every time you try. Back to ${currentTopic}?`,
-      `That was tough, but each try makes a difference. You'll feel it. Back to ${currentTopic}?`,
-      `No worries — this kind of practice adds up. So, ${currentTopic}...`,
-      `That's okay — your brain is still working on it. It'll come easier. So, ${currentTopic}?`,
+      `Good effort — it gets a little easier each time. Back to ${currentTopic}?`,
+      `That was tough, but each try helps. Back to ${currentTopic}?`,
+      `No worries — this kind of practice adds up over time. So, ${currentTopic}...`,
+      `That's okay — it'll come easier next time. So, ${currentTopic}?`,
     ]);
   }
 
   // Struggled + no topic
   return pickRandom([
-    "Good effort — every try makes a difference. You'll feel it over time.",
-    "That's okay — your brain is still working on it even after we move on.",
+    "Good effort — every try makes a difference over time.",
+    "That's okay — it'll come easier with practice.",
     "No worries. Each time helps more than you think. What were you thinking about?",
-    "That'll get easier. Trust the process. What's on your mind?",
+    "That'll get easier. What's on your mind?",
   ]);
 }
 
