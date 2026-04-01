@@ -335,6 +335,7 @@ export function useCoachSession({
   const trlTrackerRef = useRef(new TRLTracker());
   const repairTrackerRef = useRef(new RepairSuccessTracker());
   const gameTriggerStateRef = useRef(createTriggerState());
+  const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
   // Rolling semantic memory — AI-maintained conversation summary
