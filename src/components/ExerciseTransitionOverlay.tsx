@@ -162,6 +162,23 @@ export const ExerciseTransitionOverlay = ({
     );
   }
 
+  // Phase-aware coaching message
+  const getPhaseCoachingMessage = (): string | null => {
+    if (isSupportPivot) {
+      return "That one was tough — let's make this a bit easier 💛";
+    }
+    switch (nextPhase) {
+      case 'warmup': return "Let's start with something gentle";
+      case 'primary': return "Time for the main work — you've got this";
+      case 'secondary': return "Let's stretch a little further 🚀";
+      case 'consolidation': return "Let's finish strong";
+      case 'support': return "Let's slow things down — no rush 💛";
+      default: return null;
+    }
+  };
+
+  const coachingMessage = getPhaseCoachingMessage();
+
   // Encouragement overlay — brief, auto-advancing
   return (
     <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -183,8 +200,13 @@ export const ExerciseTransitionOverlay = ({
 
         {/* Encouragement */}
         <div className="space-y-1">
-          <p className="text-4xl">{encouragement.emoji}</p>
-          <h2 className="text-2xl font-bold">{encouragement.text}</h2>
+          <p className="text-4xl">{isSupportPivot ? '💛' : encouragement.emoji}</p>
+          <h2 className="text-2xl font-bold">
+            {isSupportPivot ? "Let's take it easier" : encouragement.text}
+          </h2>
+          {coachingMessage && (
+            <p className="text-sm text-primary/80 font-medium">{coachingMessage}</p>
+          )}
           <p className="text-muted-foreground">
             Next up: <span className="font-medium">{nextExerciseName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
           </p>
