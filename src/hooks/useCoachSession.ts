@@ -1143,7 +1143,7 @@ export function useCoachSession({
           }
           
           // Track TRL level for session analytics
-          const wasStruggle = analysis.effortfulSpeech && analysis.fluencyScore < 50;
+          const wasStruggle = analysis.wordCount <= 2 || (analysis.effortfulSpeech && analysis.fluencyScore < 50) || trlResult.level >= 3;
           trlTrackerRef.current.recordTurn(trlResult.level, trlResult.anchorUsageType, wasStruggle);
           
           // Track repair attempts
