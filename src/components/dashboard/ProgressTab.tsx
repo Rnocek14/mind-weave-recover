@@ -137,6 +137,11 @@ export const ProgressTab = memo(function ProgressTab() {
         </div>
       </section>
 
+      {/* Therapy Effectiveness Dashboard */}
+      {isClinician && (
+        <RepairSuccessDashboard userId={userId} daysBack={14} />
+      )}
+
       {/* Recovery Progress CTA — link to the proof layer */}
       <Card className="p-4 border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <div className="flex items-center gap-3">
