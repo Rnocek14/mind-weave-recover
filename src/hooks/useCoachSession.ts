@@ -1172,7 +1172,8 @@ export function useCoachSession({
           gameTriggerStateRef.current = newTriggerState;
           
           let gameTriggerFired = false;
-          if (gameTrigger.trigger && gameTrigger.slug && phaseBiases.allowGameTrigger) {
+          const isEmergencyTrigger = gameTrigger.reason?.includes('emergency');
+          if (gameTrigger.trigger && gameTrigger.slug && (phaseBiases.allowGameTrigger || isEmergencyTrigger)) {
             const popup = triggerToPopupExercise(gameTrigger);
             if (popup) {
               gameTriggerFired = true;
