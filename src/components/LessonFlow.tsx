@@ -361,7 +361,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         const newBlocks = [...runtimeBlocks];
         newBlocks.splice(nextIndex, 0, supportBlock);
         setRuntimeBlocks(newBlocks);
-        setActiveSupportPivot(true); // Only pivot once per session
+        setActiveSupportPivot(true);
+        setLastPivotWasSupport(true);
       }
       
       setCurrentBlockIndex(nextIndex);
