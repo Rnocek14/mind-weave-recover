@@ -325,6 +325,7 @@ export function useCoachSession({
   const lastCardResultRef = useRef<CardResult | null>(null);
   const engagementMonitorRef = useRef(new EngagementMonitor(5));
   const analysisHistoryRef = useRef<ConversationUtteranceAnalysis[]>([]);
+  const anchorMetricsRef = useRef<AnchorMetrics[]>([]);
   
   // NEW: Cue engine and difficulty controller state
   const cueStateRef = useRef<CueState>(createInitialCueState());
