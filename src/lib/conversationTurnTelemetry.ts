@@ -215,6 +215,9 @@ export async function emitConversationTurnEvent(
         independent: event.cueLevel === 0 && event.wordCount >= 3,
         cue_independent: outcome.resolution === 'completed_independently',
         event_subtype: 'conversation_turn',
+        // Repair quality tracking
+        repair_quality: outcome.repairQuality || 'not_applicable',
+        cue_resolved_block: outcome.cueResolvedBlock ?? false,
       },
 
       // Task parameters for analytics context
