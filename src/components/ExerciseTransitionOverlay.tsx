@@ -11,6 +11,8 @@ interface ExerciseTransitionOverlayProps {
   completedCount: number;
   totalCount: number;
   nextExerciseName: string;
+  nextPhase?: 'warmup' | 'primary' | 'secondary' | 'consolidation' | 'support';
+  isSupportPivot?: boolean;
   sessionId?: string | null;
   onContinue: () => void;
   onEnd: () => void;
