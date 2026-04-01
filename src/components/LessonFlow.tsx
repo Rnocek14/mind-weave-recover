@@ -440,7 +440,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
-    const nextBlock = lesson.blocks[currentBlockIndex];
+    const nextBlock = runtimeBlocks[currentBlockIndex];
     // Prefetch next exercise chunk while overlay is visible
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
