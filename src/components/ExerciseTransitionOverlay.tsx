@@ -24,6 +24,8 @@ export const ExerciseTransitionOverlay = ({
   completedCount,
   totalCount,
   nextExerciseName,
+  nextPhase,
+  isSupportPivot,
   sessionId,
   onContinue,
   onEnd,
