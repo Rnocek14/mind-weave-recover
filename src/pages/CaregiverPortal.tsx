@@ -63,7 +63,7 @@ export default function CaregiverPortal() {
     }
   }, [user, authLoading, navigate]);
 
-  if (!authLoading && user && !isCaregiverPlus) return null;
+  
 
   if (authLoading || loading) {
     return (
