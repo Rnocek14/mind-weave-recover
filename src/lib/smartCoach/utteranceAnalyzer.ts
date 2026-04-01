@@ -43,8 +43,10 @@ export function analyzeUtterance(
 
   // Incomplete thought — ends mid-sentence with trailing "..." or no final punct
   const trailingOff = transcript.trimEnd().endsWith('...');
+  // Strip trailing dots for punct check (so "..." doesn't count as ending with ".")
+  const cleanedNoDots = cleaned.replace(/\.{2,}/g, '');
   const incompleteThought = wordCount >= 2 && wordCount <= 8 &&
-    !cleaned.endsWith('.') && !cleaned.endsWith('!') && !cleaned.endsWith('?') &&
+    !cleanedNoDots.endsWith('.') && !cleanedNoDots.endsWith('!') && !cleanedNoDots.endsWith('?') &&
     (trailingOff || hesitationDetected);
 
   // Phonological approximation — single real word (not a filler) that doesn't match topic
