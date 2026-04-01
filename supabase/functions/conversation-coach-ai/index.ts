@@ -275,6 +275,34 @@ function buildSystemPrompt(
     '- NEVER re-ask something they already told you.',
     '- Sound like a warm friend, not a therapist or AI.',
     '- Never mention being AI.',
+    '',
+    'CONVERSATION RELIABILITY RULES (CRITICAL — violating these breaks user trust):',
+    '',
+    '1. NEVER PROMISE SOMETHING YOU CANNOT DO:',
+    '   - NEVER say "let me show you", "I\'ll show you", "check this out", "look at this"',
+    '     unless a game/visual is ACTUALLY being triggered (you\'ll see [Exercise done] context).',
+    '   - You are a voice conversational partner. You cannot show images, links, or demos on your own.',
+    '   - Instead of "let me show you something", say: "Tell me more about that."',
+    '',
+    '2. NEVER USE VAGUE FILLER DIRECTIVES:',
+    '   - BANNED: bare "keep going", "go on", "continue" WITHOUT specifying the topic.',
+    '   - BAD: "That was good! Keep going." GOOD: "That was good! Tell me more about the app."',
+    '   - Every directive MUST include the topic or a specific detail from their speech.',
+    '',
+    '3. WHEN THE USER CORRECTS YOU — TOP PRIORITY:',
+    '   - If user says "no, I was talking about X" or "aren\'t you listening" or "I already said":',
+    '     a) Acknowledge: "Right, sorry!" or "My bad!"',
+    '     b) Restate THEIR topic',
+    '     c) Ask about THEIR topic',
+    '   - NEVER deflect or pivot. NEVER ask a generic new question.',
+    '',
+    '4. NEVER RESET TO A GENERIC TOPIC:',
+    '   - If the user has a clear topic, NEVER switch to "think about your morning" or "what did you do today".',
+    '   - If unsure what to ask, ask ANOTHER question about the SAME topic from your MEMORY.',
+    '',
+    '5. STAY ON THE USER\'S TOPIC:',
+    '   - Their topic is MORE important than your therapy intent.',
+    '   - Topic changes should ONLY come from the user, never from you.',
   ];
   return parts.filter(Boolean).join('\n');
 }
@@ -294,12 +322,12 @@ const RESPOND_TOOL = {
         response: {
           type: "string",
           description:
-            "Your spoken response. Start with a brief human reaction (e.g. 'Oh nice!', 'Ha really?', 'Hmm got it'), then your question or follow-up. Maximum 18 words total.",
+            "Your spoken response. Start with a brief human reaction (e.g. 'Oh nice!', 'Ha really?', 'Hmm got it'), then your question or follow-up. Maximum 18 words total. NEVER say 'let me show you' or bare 'keep going' without a topic.",
         },
         memory: {
           type: "string",
           description:
-            "Structured memory: TOPIC: [current topic]. DETAILS: [key people, places, things mentioned]. THREAD: [what they were just talking about]. Keep updating — never lose earlier details.",
+            "Structured memory: TOPIC: [current main topic — update when user corrects you]. DETAILS: [ALL key people, places, things, specifics mentioned so far — accumulate, never discard]. THREAD: [what they were JUST talking about]. When user corrects you ('no, I was talking about X'), immediately update TOPIC to X.",
         },
       },
       required: ["response", "memory"],
@@ -548,6 +576,25 @@ serve(async (req) => {
       messages.push({ role: 'system', content: hallucinationGuard.promptBlock });
     }
 
+    // ═══ USER CORRECTION DETECTION ═══
+    const correctionPatterns = [
+      /no,?\s*(i was|i('m| am)|we were) (talking|telling|saying)/i,
+      /aren('t| are not) you listening/i,
+      /don('t| do not) you listen/i,
+      /i (already|just) (said|told|mentioned)/i,
+      /that('s| is) not what i (said|meant)/i,
+      /i('m| am) talking about/i,
+    ];
+    const userIsCorrectingMaya = correctionPatterns.some(p => p.test(userTranscript || ''));
+    
+    if (userIsCorrectingMaya) {
+      messages.push({
+        role: 'system',
+        content: `[⚠️ USER CORRECTION DETECTED — The user is telling you that you misunderstood or weren't listening. This is your TOP PRIORITY:\n1. Acknowledge: "Right, sorry!" or "My bad!"\n2. Restate THEIR topic from what they just said\n3. Ask about THEIR topic specifically\nDo NOT deflect. Do NOT ask a generic question. Do NOT change the subject.]`,
+      });
+      console.log('USER CORRECTION DETECTED:', userTranscript?.slice(0, 50));
+    }
+
     // Current user message
     messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
@@ -636,6 +683,44 @@ serve(async (req) => {
       .replace(/I am an AI/gi, '')
       .replace(/as your assistant/gi, '')
       .trim();
+
+    // ═══ RELIABILITY GUARD — ban unfulfillable promises & vague fillers ═══
+    const lowerResponse = aiResponse.toLowerCase();
+    
+    // 1. Ban unfulfillable promises (Maya can't show things)
+    const unfulfillablePatterns = [
+      /let me show you/i,
+      /i('ll| will) show you/i,
+      /check this out/i,
+      /look at this/i,
+      /here('s|,? take a look)/i,
+      /watch this/i,
+    ];
+    
+    let hadUnfulfillable = false;
+    for (const pattern of unfulfillablePatterns) {
+      if (pattern.test(aiResponse)) {
+        hadUnfulfillable = true;
+        // Replace the promise with a safe alternative
+        aiResponse = aiResponse.replace(pattern, 'tell me more about that');
+        console.log('RELIABILITY: Stripped unfulfillable promise from response');
+      }
+    }
+    
+    // 2. Ban vague bare "keep going" / "go on" / "continue" without topic
+    const vagueFillerPattern = /^(.*?)(keep going|go on|continue)(\.|\!|\?)?$/i;
+    const vagueInternalPattern = /(alright,?\s*)?keep going(\.|\!)?/i;
+    if (vagueInternalPattern.test(aiResponse) && !aiResponse.includes('about') && !aiResponse.includes('with the') && !aiResponse.includes('with your')) {
+      // The response has bare "keep going" without topic context
+      const topicFromMemory = memoryUpdate?.match(/TOPIC:\s*([^.]+)/)?.[1]?.trim();
+      if (topicFromMemory) {
+        aiResponse = aiResponse.replace(vagueInternalPattern, `tell me more about ${topicFromMemory}`);
+        console.log('RELIABILITY: Replaced vague "keep going" with topic:', topicFromMemory);
+      } else {
+        aiResponse = aiResponse.replace(vagueInternalPattern, 'what were you saying about that');
+        console.log('RELIABILITY: Replaced vague "keep going" (no topic available)');
+      }
+    }
 
     // ═══ ANCHOR VALIDATION + RETRY ═══
     let anchoringPass = true;
