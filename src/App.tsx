@@ -44,6 +44,7 @@ import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
+import SmartCoach from "./pages/SmartCoach";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import TwoCluesExercise from "./pages/TwoCluesExercise";
