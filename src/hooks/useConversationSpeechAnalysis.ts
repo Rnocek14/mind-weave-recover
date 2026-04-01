@@ -332,6 +332,16 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       .map(a => a.transcript)
       .slice(0, 3);
     
+    // Calculate Recovery Lift Score
+    const turnSnapshots: TurnSnapshot[] = history.map(a => ({
+      wordCount: a.wordCount,
+      fluencyScore: a.fluencyScore,
+      latencyMs: a.latencyToFirstWordMs,
+      cueLevel: 0, // Will be enriched by coach session if available
+      wasIndependent: a.wordCount >= 3 && !a.effortfulSpeech,
+    }));
+    const recoveryLift = calculateRecoveryLift(turnSnapshots);
+
     return {
       avgFluency,
       effortfulCount,
@@ -345,6 +355,8 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       avgPronunciationScore,
       challengingSounds: allChallengingSounds,
       bestUtterances,
+      // Recovery Lift
+      recoveryLift,
     };
   }, []);
 
