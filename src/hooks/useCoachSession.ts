@@ -1181,11 +1181,13 @@ export function useCoachSession({
     // Fire-and-forget — never blocks the UI response
     // ═══════════════════════════════════════════════════════════════
     if (sessionId) {
+      const previousStuckType = orchestratorStateRef.current.lastStuckType;
       const turnOutcome = classifyTurnOutcome(
         wordCount,
         cueRec.cueLevel,
         stuckType,
         analysis.effortfulSpeech,
+        previousStuckType,
       );
       
       emitConversationTurnEvent({

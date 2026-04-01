@@ -32,6 +32,11 @@ export interface ConversationTurnOutcome {
     | 'recovered_after_cue'      // Initially struggled, cue helped
     | 'abandoned'                // Did not produce meaningful speech
     | 'minimal_response';        // Spoke but very little (1-2 words)
+  
+  /** Repair quality — was the cue the right type for the error? */
+  repairQuality?: 'correct_type' | 'wrong_type' | 'unnecessary' | 'not_applicable';
+  /** Did the user's output improve after the cue on THIS turn? */
+  cueResolvedBlock?: boolean;
 }
 
 export interface ConversationTurnEvent {
@@ -86,28 +91,56 @@ export function classifyTurnOutcome(
   cueLevel: number,
   stuckType: StuckType,
   effortfulSpeech: boolean,
+  previousStuckType?: StuckType | null,
 ): ConversationTurnOutcome {
   // No speech at all
   if (wordCount === 0 || stuckType === 'no_speech') {
-    return { resolution: 'abandoned' };
+    return { 
+      resolution: 'abandoned',
+      repairQuality: cueLevel > 0 ? 'wrong_type' : 'not_applicable',
+      cueResolvedBlock: false,
+    };
   }
 
   // Minimal speech (1-2 words)
   if (wordCount <= 2 && effortfulSpeech) {
-    return { resolution: 'minimal_response' };
+    return { 
+      resolution: 'minimal_response',
+      repairQuality: cueLevel > 0 ? 'wrong_type' : 'not_applicable',
+      cueResolvedBlock: false,
+    };
   }
 
   // Had a cue active
   if (cueLevel > 0) {
+    // Determine if the cue actually resolved the block
+    const wasStuck = previousStuckType === 'word_search_stall' || 
+                     previousStuckType === 'prompt_overload' || 
+                     previousStuckType === 'thought_abandonment' ||
+                     previousStuckType === 'no_speech';
+    const cueResolvedBlock = wasStuck && wordCount >= 3;
+    
     // User recovered after struggling
     if (stuckType === 'word_search_stall' || stuckType === 'prompt_overload') {
-      return { resolution: 'recovered_after_cue' };
+      return { 
+        resolution: 'recovered_after_cue',
+        repairQuality: cueResolvedBlock ? 'correct_type' : 'wrong_type',
+        cueResolvedBlock,
+      };
     }
-    return { resolution: 'completed_with_cue' };
+    return { 
+      resolution: 'completed_with_cue',
+      repairQuality: wasStuck ? 'correct_type' : 'unnecessary',
+      cueResolvedBlock,
+    };
   }
 
   // No cue, meaningful speech
-  return { resolution: 'completed_independently' };
+  return { 
+    resolution: 'completed_independently',
+    repairQuality: 'not_applicable',
+    cueResolvedBlock: false,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -182,6 +215,9 @@ export async function emitConversationTurnEvent(
         independent: event.cueLevel === 0 && event.wordCount >= 3,
         cue_independent: outcome.resolution === 'completed_independently',
         event_subtype: 'conversation_turn',
+        // Repair quality tracking
+        repair_quality: outcome.repairQuality || 'not_applicable',
+        cue_resolved_block: outcome.cueResolvedBlock ?? false,
       },
 
       // Task parameters for analytics context

@@ -770,10 +770,19 @@ function selectTherapyIntent(
   // Thought abandonment → repair
   if (stuckType === 'thought_abandonment') return 'gentle_repair';
 
-  // Strong flow → vary intent based on context
+  // Strong flow → PROGRESSIVE COMPLEXITY based on session trajectory
   if (stuckType === 'strong_flow') {
-    if (speechAnalysis && speechAnalysis.wordCount < 5) return 'probe_sentence';
+    // High success streak → push harder with sentence probes
+    if (state.successStreak >= 5 && speechAnalysis && speechAnalysis.wordCount >= 5) {
+      return 'probe_sentence'; // Encourage longer utterances
+    }
+    // Sustained success → reflect and acknowledge progress
     if (state.turnNumber > 8 && state.successStreak >= 3) return 'reflect_progress';
+    // Moderate flow → shift topic to test generalization
+    if (state.successStreak >= 4 && state.turnsOnCurrentTopic >= 3) return 'shift_topic';
+    // Short responses while flowing → probe for more
+    if (speechAnalysis && speechAnalysis.wordCount < 5) return 'probe_sentence';
+    // Periodic comprehension checks
     if (state.turnNumber % 4 === 0) return 'confirm_understanding';
     return 'expand_topic';
   }
