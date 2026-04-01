@@ -868,6 +868,7 @@ export function useCoachSession({
       // INLINE MINIMAL PAIRS — Two images in chat, user taps one
       // Maya says a word, user picks the matching picture
       // ═══════════════════════════════════════════════════════════
+      pendingVisualActionRef.current = true; // Gate: allow visual transition language
       // FIX: Use strategy's target phonemes to filter trials instead of random selection
       const targetPhonemes = activeStrategyRef.current?.id === 'phonological_training'
         ? (orchestratorStateRef.current.intelligenceBiases?.targetPhonemes ?? [])
