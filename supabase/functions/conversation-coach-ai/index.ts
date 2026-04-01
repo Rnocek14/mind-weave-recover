@@ -328,6 +328,7 @@ serve(async (req) => {
       crossSessionIntelligence,
       therapyStrategy,
       anchorContext,
+      therapeuticLevel,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
