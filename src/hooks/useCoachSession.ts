@@ -71,6 +71,8 @@ import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWor
 import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib/anchorExtractor';
 import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
+import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
+import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
 
 // Store card results for AI context
 interface CardResult {
