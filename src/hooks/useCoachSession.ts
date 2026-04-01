@@ -1536,6 +1536,7 @@ export function useCoachSession({
     aiWordsRef.current = 0;
     cardsCompletedRef.current = 0;
     anchorMetricsRef.current = [];
+    trlTrackerRef.current.reset();
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
     engagementMonitorRef.current.reset();
