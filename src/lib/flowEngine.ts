@@ -291,10 +291,10 @@ export function generateContextBridge(
   // === Bridge from struggle (warm, not clinical) ===
   if (stuckType === 'word_search_stall' || stuckType === 'thought_abandonment') {
     const struggleBridges = [
-      "I think I know what you mean — let me show you something.",
+      "I think I know what you mean — want to try it a different way?",
       "No rush. How about we try it this way?",
-      "That's okay — let me give you a hand with this.",
-      "Hmm, let me try something that might help.",
+      "That's okay — want to try a different angle?",
+      "Hmm, let me give you a hand with that.",
       "All good. Want to try a different angle on that?",
     ];
     return pickUnique(struggleBridges, _lastBridges);
