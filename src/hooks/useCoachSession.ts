@@ -1637,8 +1637,9 @@ export function useCoachSession({
           regeneration_rate: anchorData.length > 0 ? Math.round((regenerations.length / anchorData.length) * 100) : 0,
         };
         
-        // Add TRL metrics to session summary
+        // Add TRL metrics + repair metrics to session summary
         const trlMetrics = trlTrackerRef.current.getMetrics();
+        const repairMetrics = repairTrackerRef.current.getMetrics();
         const fullSummary = {
           ...anchorSummary,
           trl_total_turns: trlMetrics.totalTurns,
@@ -1646,6 +1647,15 @@ export function useCoachSession({
           trl_avg_level: trlMetrics.avgLevel,
           trl_level_distribution: trlMetrics.levelDistribution,
           trl_anchor_usage: trlMetrics.anchorUsageBreakdown,
+          // Repair metrics
+          repair_success_rate: repairMetrics.repairSuccessRate,
+          repair_total_attempts: repairMetrics.totalAttempts,
+          repair_successful: repairMetrics.successfulRepairs,
+          repair_by_level: repairMetrics.byLevel,
+          repair_by_cue_type: repairMetrics.byCueType,
+          repair_first_half_rate: repairMetrics.firstHalfRate,
+          repair_second_half_rate: repairMetrics.secondHalfRate,
+          repair_progression_delta: repairMetrics.progressionDelta,
         };
         
         // Persist to session summary alongside recovery lift
