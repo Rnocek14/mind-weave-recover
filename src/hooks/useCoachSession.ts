@@ -74,6 +74,9 @@ import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type Anch
 import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
 import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
 import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/hallucinationGuard';
+import { createSessionPhaseState, evaluatePhaseTransition, applyPhaseTransition, getPhaseBiases, getCloseSessionInsight, type SessionPhaseState as TherapyPhaseState } from '@/lib/sessionPhaseController';
+import { createFeedbackTracker, recordTurnForFeedback, type FeedbackTracker } from '@/lib/microFeedback';
+import { generateGameIntro, generateGameReturn, type GameTransitionContext, type GameReturnContext } from '@/lib/gameTransitions';
 
 // Store card results for AI context
 interface CardResult {
