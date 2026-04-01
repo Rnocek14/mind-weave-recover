@@ -21,6 +21,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useWordMastery } from "@/hooks/useWordMastery";
+import { RepairSuccessDashboard } from "./RepairSuccessDashboard";
 
 export const ProgressTab = memo(function ProgressTab() {
   const { userId } = useDashboardContext();
