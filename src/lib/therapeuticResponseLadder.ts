@@ -78,10 +78,12 @@ export function determineResponseLevel(inputs: TRLInputs): ResponseLevelResult {
 
   // ── Level 4: Recovery & Rebuild ──
   // Triggered by: breakdown, frustration, or sustained struggle
+  // NOTE: Only effortful+low fluency OR high frustration — NOT just consecutive struggles alone.
+  // consecutiveStruggles alone at 3 was too sticky; user recovers but system stays in crisis.
   if (
     (effortfulSpeech && fluencyScore < 30) ||
     frustrationLevel === 'high' ||
-    consecutiveStruggles >= 3
+    (consecutiveStruggles >= 3 && effortfulSpeech)
   ) {
     level = 4;
     reasoning = frustrationLevel === 'high'
