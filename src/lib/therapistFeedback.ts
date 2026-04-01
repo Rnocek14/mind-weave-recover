@@ -90,9 +90,9 @@ const POST_CARD_SUCCESS_IMPROVEMENT = [
 ];
 
 const POST_CARD_SUCCESS_NO_TOPIC = [
-  "Nice! Okay, what were you telling me?",
+  "Nice! Okay, what else comes to mind?",
   "Got it! So, where were we?",
-  "That was good! Alright, keep going.",
+  "That was good! Alright, keep going with that thought.",
 ];
 
 const POST_CARD_STRUGGLE = [
