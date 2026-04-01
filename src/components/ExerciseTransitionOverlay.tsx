@@ -3,28 +3,7 @@ import { Wind, Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
-
-interface ExerciseTransitionOverlayProps {
-  /** 'encouragement' = quick auto-advance, 'micro-pause' = breathing reset */
-  type: 'encouragement' | 'micro-pause';
-  /** Override default duration (seconds) — set by adaptive pause logic */
-  durationOverride?: number;
-  completedCount: number;
-  totalCount: number;
-  nextExerciseName: string;
-  sessionId?: string | null;
-  onContinue: () => void;
-  onEnd: () => void;
-}
-
-const encouragements = [
-  { text: "Nice work!", emoji: "💪" },
-  { text: "Great job!", emoji: "🌟" },
-  { text: "Keep going!", emoji: "🔥" },
-  { text: "You're doing great!", emoji: "✨" },
-  { text: "Wonderful!", emoji: "🎯" },
-  { text: "Well done!", emoji: "👏" },
-];
+import { getTransitionEncouragement } from '@/lib/performanceAwareFeedback';
 
 export const ExerciseTransitionOverlay = ({
   type,
