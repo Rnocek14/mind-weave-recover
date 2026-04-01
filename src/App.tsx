@@ -163,6 +163,7 @@ const App = () => (
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
                   <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
+                  <Route path="/smart-coach" element={<SmartCoach />} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
