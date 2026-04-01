@@ -3,6 +3,11 @@
  * 
  * Every coach line MUST pass through this before display/speech.
  * Rejects broken, off-topic, or trust-damaging lines.
+ * 
+ * Incorporates rules from the Speech Gate (mayaSpeechGate.ts):
+ * - Promise ban, vague filler, patronizing (original)
+ * - Off-topic yes/no detection (from Speech Gate)
+ * - Correction priority detection (from Speech Gate)
  */
 
 import type { ValidationResult } from './types';
@@ -21,6 +26,8 @@ const BANNED_PATTERNS = [
   /i'?m (just )?a(n)? (ai|program|bot|language model)/i,
   /i can'?t actually/i,
   /i don'?t have (access|feelings|a body)/i,
+  /have a look at this/i,
+  /here['—–-]\s*(have a|take a) look/i,
 ];
 
 // ── Vague filler (bare, with no topic anchor) ────────────────
@@ -45,10 +52,47 @@ const PATRONIZING = [
   /you'?re doing amazing,? sweetie/i,
 ];
 
+// ── Off-topic yes/no questions (from Speech Gate) ────────────
+// These should be blocked when an active topic exists
+
+const OFF_TOPIC_PATTERNS = [
+  /is it cold outside/i,
+  /did you sleep well/i,
+  /did you have coffee/i,
+  /did you eat breakfast/i,
+  /did you go outside/i,
+  /did you watch tv/i,
+  /is it morning right now/i,
+  /are you sitting down/i,
+  /is someone else in the room/i,
+  /is the tv on/i,
+  /do you have water nearby/i,
+  /do you like (coffee|music|sunny|dogs|ice cream|flowers)/i,
+  /how was your morning/i,
+  /what did you do today/i,
+];
+
+// ── Re-ask patterns (from Speech Gate) ───────────────────────
+
+const RE_ASK_PATTERNS = [
+  /what was that again/i,
+  /remind me what/i,
+  /what did you say it was/i,
+  /tell me again/i,
+  /what was it called/i,
+  /what were we talking about/i,
+];
+
+export interface ValidateOptions {
+  /** When true, user just corrected Maya — line must reference the topic */
+  userCorrectionActive?: boolean;
+}
+
 export function validateCoachLine(
   line: string,
   topic: string,
-  establishedFacts: string[] = []
+  establishedFacts: string[] = [],
+  options: ValidateOptions = {}
 ): ValidationResult {
   const reasons: string[] = [];
   const trimmed = line.trim();
@@ -85,12 +129,34 @@ export function validateCoachLine(
     }
   }
 
+  // Off-topic yes/no questions when we have an active topic
+  if (topic) {
+    for (const pattern of OFF_TOPIC_PATTERNS) {
+      if (pattern.test(trimmed)) {
+        reasons.push('off_topic_question');
+      }
+    }
+  }
+
+  // Correction priority: if user just corrected, line MUST mention the topic
+  if (options.userCorrectionActive && topic) {
+    if (!trimmed.toLowerCase().includes(topic.toLowerCase())) {
+      reasons.push('correction_ignored');
+    }
+  }
+
+  // Re-asking via generic patterns
+  for (const pattern of RE_ASK_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      reasons.push('re_ask_pattern');
+    }
+  }
+
   // Re-asking established facts — check if asking about something already known
   for (const fact of establishedFacts) {
     if (!fact) continue;
     const factWords = fact.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const lineWords = trimmed.toLowerCase().split(/\s+/);
-    // If >50% of fact keywords appear in a question, it's re-asking
     const overlap = factWords.filter(fw => lineWords.some(lw => lw.includes(fw) || fw.includes(lw)));
     if (overlap.length >= Math.max(2, factWords.length * 0.5) && trimmed.includes('?')) {
       reasons.push(`re_asking_fact: ${fact}`);
