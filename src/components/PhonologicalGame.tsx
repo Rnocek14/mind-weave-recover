@@ -65,7 +65,7 @@ export const PhonologicalGame = ({
     },
     userId,
     sessionId: sessionId || undefined,
-    exerciseSlug: 'phonological-awareness',
+    exerciseSlug: 'phonological_awareness',
   });
   
   const game = usePhonoGame(totalTrials, currentDifficulty, customTrials);

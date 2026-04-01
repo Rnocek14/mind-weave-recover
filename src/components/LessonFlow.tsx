@@ -270,6 +270,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       "dual-load-naming": "/exercise/dual-load-naming",
       "left-side-hunt": "/exercise/left-side-hunt",
       "thought-continuation": "/exercise/thought-continuation",
+      "category-fluency": "/exercise/category-fluency",
+      "synonym-generator": "/exercise/synonym-generator",
     };
 
     const route = routeMap[exerciseId];

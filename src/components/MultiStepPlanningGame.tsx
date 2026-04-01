@@ -113,7 +113,7 @@ export function MultiStepPlanningGame({
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
-        exerciseSlug: 'multi-step-planning',
+        exerciseSlug: 'multi_step_planning',
         trialIndex: currentIndex,
         attemptNumber: 1,
         targetWord: currentItem.goal,

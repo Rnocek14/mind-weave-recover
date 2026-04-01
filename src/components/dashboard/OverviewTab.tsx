@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Play, Brain, Gamepad2, Crosshair, Stethoscope, Battery,
 } from "lucide-react";
+import { trackSessionStartTap } from "@/lib/sessionFlowAnalytics";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { WeeklyDeltasCard } from "@/components/dashboard/WeeklyDeltasCard";
 import { DomainConfidenceSummary } from "@/components/dashboard/DomainConfidenceSummary";
@@ -156,7 +157,6 @@ export const OverviewTab = memo(function OverviewTab() {
                   className="flex-1 bg-gradient-healing hover:opacity-90 text-lg h-14"
                    onClick={() => {
                     if (lesson) {
-                      const { trackSessionStartTap } = require('@/lib/sessionFlowAnalytics');
                       trackSessionStartTap(null, (lesson as any).blocks?.length || 0);
                       navigate("/lesson", {
                         state: { lesson, clinicalProfile },

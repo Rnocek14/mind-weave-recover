@@ -134,7 +134,7 @@ export function ConversationPartnerGame({
     startAttempt({
       sessionId: sessionId || 'standalone',
       userId,
-      exerciseSlug: 'conversation-partner',
+      exerciseSlug: 'conversation_partner',
       trialIndex: turnCountRef.current - 1,
       attemptNumber: 1,
       targetWord: 'conversation',

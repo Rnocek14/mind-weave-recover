@@ -274,7 +274,7 @@ export function ThoughtContinuationGame({
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
-        exerciseSlug: 'thought-continuation',
+        exerciseSlug: 'thought_continuation',
         trialIndex: promptCount - 1,
         attemptNumber: 1,
         targetWord: currentPrompt.promptText.slice(0, 50),

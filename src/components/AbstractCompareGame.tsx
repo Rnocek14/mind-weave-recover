@@ -114,7 +114,7 @@ export function AbstractCompareGame({
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
-        exerciseSlug: 'abstract-compare',
+        exerciseSlug: 'abstract_compare',
         trialIndex: currentIndex,
         attemptNumber: 1,
         targetWord: `${currentItem.wordA} & ${currentItem.wordB}`,

@@ -64,7 +64,7 @@ export const SemanticFeatureGame = ({
     },
     userId,
     sessionId: sessionId || undefined,
-    exerciseSlug: 'semantic-features',
+    exerciseSlug: 'semantic_features',
   });
   
   const game = useSemanticFeatureGame(totalTrials, currentDifficulty, customTrials);
