@@ -70,6 +70,7 @@ import {
 import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWords } from '@/lib/topicWordBanks';
 import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib/anchorExtractor';
+import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
 
 // Store card results for AI context
 interface CardResult {
