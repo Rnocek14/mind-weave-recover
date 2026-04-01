@@ -366,6 +366,10 @@ export function useCoachSession({
     const rollingMemoryRef = useRef<string>('');
     // Session intelligence tracker — within-session memory for Maya
     const sessionIntelRef = useRef(new SessionIntelligenceTracker());
+  // Maya Speech Gate state
+  const userCorrectionActiveRef = useRef(false);
+  const establishedFactsRef = useRef<string[]>([]);
+  const pendingVisualActionRef = useRef(false);
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
     userId,
@@ -373,7 +377,21 @@ export function useCoachSession({
     sessionId,
   });
 
+  // Centralized addMessage with Maya Speech Gate for AI messages
   const addMessage = useCallback((message: FeedMessage) => {
+    if (message.type === 'ai' && message.text) {
+      const gateResult = sanitizeMayaLine({
+        text: message.text,
+        activeTopic: orchestratorStateRef.current.currentTopic,
+        establishedFacts: establishedFactsRef.current,
+        userCorrectionActive: userCorrectionActiveRef.current,
+        pendingVisualAction: pendingVisualActionRef.current,
+        source: 'addMessage',
+      });
+      if (gateResult.rewritten || gateResult.blocked) {
+        message = { ...message, text: gateResult.approvedText };
+      }
+    }
     setMessages(prev => [...prev, message]);
   }, []);
 
