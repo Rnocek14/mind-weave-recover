@@ -32,6 +32,11 @@ export interface ConversationTurnOutcome {
     | 'recovered_after_cue'      // Initially struggled, cue helped
     | 'abandoned'                // Did not produce meaningful speech
     | 'minimal_response';        // Spoke but very little (1-2 words)
+  
+  /** Repair quality — was the cue the right type for the error? */
+  repairQuality?: 'correct_type' | 'wrong_type' | 'unnecessary' | 'not_applicable';
+  /** Did the user's output improve after the cue on THIS turn? */
+  cueResolvedBlock?: boolean;
 }
 
 export interface ConversationTurnEvent {
