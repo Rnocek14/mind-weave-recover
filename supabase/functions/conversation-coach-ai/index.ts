@@ -150,6 +150,7 @@ function buildSystemPrompt(
   sessionIntelligence?: string,
   crossSessionIntelligence?: string,
   therapyStrategy?: string,
+  speechAnalysis?: SpeechAnalysis | null,
 ): string {
   let context = '';
 
