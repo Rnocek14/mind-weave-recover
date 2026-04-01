@@ -90,22 +90,32 @@ export function determineResponseLevel(inputs: TRLInputs): ResponseLevelResult {
         ? `${consecutiveStruggles} consecutive struggles — recovery mode`
         : 'Effortful speech + very low fluency — rebuild';
   }
+  // ── STRONG FLOW OVERRIDE (check FIRST before Level 3) ──
+  // If user produced 8+ words without effort, they're flowing — never escalate to Level 3
+  // This prevents false cascades from weak circumlocution signals in natural speech
+  else if (
+    wordCount >= 8 && !effortfulSpeech && fluencyScore >= 50
+  ) {
+    level = 0;
+    reasoning = 'Strong flow override (8+ words, not effortful) — user is flowing, no scaffolding';
+  }
   // ── Level 3: Targeted Cue ──
   // Triggered by: circumlocution or stuck with moderate effort
+  // BUT NOT if user produced a substantial response (6+ words, not effortful)
   else if (
-    circumlocutionDetected ||
+    (circumlocutionDetected && (wordCount < 6 || effortfulSpeech)) ||
     (effortfulSpeech && wordCount <= 3) ||
     completionConfidence === 'low'
   ) {
     level = 3;
     reasoning = circumlocutionDetected
-      ? 'Circumlocution detected — offer target word'
+      ? 'Circumlocution detected in short/effortful response — offer target word'
       : completionConfidence === 'low'
         ? 'Low ASR confidence — confirm and scaffold'
         : 'Effortful + minimal output — provide targeted support';
   }
-  // ── Level 0: Passive Expansion ──  (PROMOTED — check BEFORE Level 2/1)
-  // Strong flow: high word count + not effortful → let them talk freely
+  // ── Level 0: Passive Expansion ──
+  // Good flow: decent word count + not effortful → let them talk freely
   else if (
     wordCount >= 6 && !effortfulSpeech && fluencyScore >= 60
   ) {
