@@ -361,6 +361,12 @@ serve(async (req) => {
         preferredAnchor: string | null;
         anchorRequired: boolean;
       };
+      therapeuticLevel?: {
+        level: number;
+        label: string;
+        promptBlock: string;
+        anchorUsageType: string;
+      };
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
