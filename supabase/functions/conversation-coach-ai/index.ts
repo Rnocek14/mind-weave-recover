@@ -322,12 +322,12 @@ const RESPOND_TOOL = {
         response: {
           type: "string",
           description:
-            "Your spoken response. Start with a brief human reaction (e.g. 'Oh nice!', 'Ha really?', 'Hmm got it'), then your question or follow-up. Maximum 18 words total.",
+            "Your spoken response. Start with a brief human reaction (e.g. 'Oh nice!', 'Ha really?', 'Hmm got it'), then your question or follow-up. Maximum 18 words total. NEVER say 'let me show you' or bare 'keep going' without a topic.",
         },
         memory: {
           type: "string",
           description:
-            "Structured memory: TOPIC: [current topic]. DETAILS: [key people, places, things mentioned]. THREAD: [what they were just talking about]. Keep updating — never lose earlier details.",
+            "Structured memory: TOPIC: [current main topic — update when user corrects you]. DETAILS: [ALL key people, places, things, specifics mentioned so far — accumulate, never discard]. THREAD: [what they were JUST talking about]. When user corrects you ('no, I was talking about X'), immediately update TOPIC to X.",
         },
       },
       required: ["response", "memory"],
