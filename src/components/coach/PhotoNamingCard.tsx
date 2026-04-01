@@ -140,8 +140,25 @@ export function PhotoNamingCard({
   const checkMatch = useCallback((spoken: string, target: string) => {
     const s = spoken.toLowerCase().trim();
     const t = target.toLowerCase();
+    
+    // Exact match
     if (s === t || s.includes(t)) return { isMatch: true, quality: 'exact' as const };
-    if (t.startsWith(s.slice(0, 3)) || s.startsWith(t.slice(0, 3))) return { isMatch: true, quality: 'partial' as const };
+    
+    // Strip common speech prefixes like "it's a", "that's a", "a", "the", "its a"
+    const stripped = s
+      .replace(/^(it'?s\s+a\s+|that'?s\s+a\s+|i\s+see\s+a\s+|looks?\s+like\s+a?\s*|a\s+|the\s+|an\s+)/i, '')
+      .trim();
+    if (stripped === t || stripped.includes(t)) return { isMatch: true, quality: 'exact' as const };
+    
+    // Check if target appears as a word in the spoken text (not just substring)
+    const spokenWords = s.split(/\s+/);
+    if (spokenWords.includes(t)) return { isMatch: true, quality: 'exact' as const };
+    
+    // Partial prefix match (first 3+ chars)
+    if (stripped.length >= 3 && (t.startsWith(stripped.slice(0, 3)) || stripped.startsWith(t.slice(0, 3)))) {
+      return { isMatch: true, quality: 'partial' as const };
+    }
+    
     if (s.length >= 2) return { isMatch: false, quality: 'attempt' as const };
     return { isMatch: false, quality: 'attempt' as const };
   }, []);
