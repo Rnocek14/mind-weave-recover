@@ -95,7 +95,7 @@ export interface LearningRateData {
 export interface ExerciseBlock {
   exerciseId: string;
   duration: number; // minutes
-  priority: 'warmup' | 'primary' | 'secondary' | 'consolidation';
+  priority: 'warmup' | 'primary' | 'secondary' | 'consolidation' | 'support';
   adaptations: {
     startDifficulty: number;
     cueLevel: number;
@@ -106,9 +106,20 @@ export interface ExerciseBlock {
   trialLimit?: number; // Optional: override default round count (e.g. 5 for combined sessions)
 }
 
+/** Target accuracy bands per session phase (evidence-based optimal challenge zones) */
+export const PHASE_TARGET_BANDS: Record<ExerciseBlock['priority'], { min: number; max: number; label: string }> = {
+  warmup: { min: 0.80, max: 0.95, label: 'Confidence builder' },
+  primary: { min: 0.65, max: 0.80, label: 'Core challenge' },
+  secondary: { min: 0.55, max: 0.75, label: 'Cross-domain work' },
+  consolidation: { min: 0.75, max: 0.90, label: 'End on a high' },
+  support: { min: 0.80, max: 0.95, label: 'Recovery & support' },
+};
+
 export interface DailyLesson {
   totalDuration: number; // minutes
   blocks: ExerciseBlock[];
+  /** Pre-planned support/fallback blocks — not in the default queue, inserted on struggle */
+  supportBlocks?: ExerciseBlock[];
   targetDomains: string[];
   reasoning: string[];
   energyLevel: 'light' | 'moderate' | 'challenging';
@@ -786,14 +797,23 @@ export function generateDailyLesson(
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
   // 1. WARMUP (1-2 min) - confidence-building exercise
-  // Prefer motor for physical warming, but allow language/cognitive if motor isn't available
-  // or if primaryDomains suggest a different warmup would be more therapeutic
-  const motorExercises = scoredExercises.filter(e => e!.domains.includes('motor_control'));
-  const warmup = motorExercises[0]
-    || scoredExercises.find(e => e && e.baseMinutes <= 3) // fallback: any short exercise
-    || scoredExercises[0];
+  // Profile-aware: prefer exercises that match the user's PRIMARY domain but are easy,
+  // so the warmup is therapeutically relevant, not just motor for everyone.
+  const warmupCandidates = scoredExercises
+    .filter(e => e && e.baseMinutes <= 3)
+    .sort((a, b) => {
+      if (!a || !b) return 0;
+      // Prefer exercises matching primary domains (therapeutic relevance)
+      const aMatchesPrimary = a.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
+      const bMatchesPrimary = b.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
+      if (bMatchesPrimary !== aMatchesPrimary) return bMatchesPrimary - aMatchesPrimary;
+      // Then prefer lower cognitive load (easy exercises first)
+      return a.baseMinutes - b.baseMinutes;
+    });
+
+  const warmup = warmupCandidates[0] || scoredExercises[0];
   if (warmup && remainingTime >= 1) {
-    const isMotorWarmup = warmup.domains.includes('motor_control');
+    const matchesPrimary = warmup.domains.some(d => mappedPrimaryDomains.includes(d));
     const duration = Math.min(2, remainingTime);
     blocks.push({
       exerciseId: warmup.id,
@@ -801,11 +821,13 @@ export function generateDailyLesson(
       priority: 'warmup',
       adaptations: {
         startDifficulty: 1,
-        cueLevel: 0,
-        timeout: 5000,
+        cueLevel: 2, // Higher cue level for warmup = easier success
+        timeout: 6000,
         visualSupport: true,
       },
-      reasoning: isMotorWarmup ? `Light motor warmup: ${warmup.id}` : `Warmup: ${warmup.id} (non-motor)`,
+      reasoning: matchesPrimary
+        ? `Therapeutic warmup: ${warmup.id} (matches primary domain)`
+        : `General warmup: ${warmup.id}`,
     });
     remainingTime -= duration;
     usedExerciseIds.add(warmup.id);
@@ -1046,9 +1068,39 @@ export function generateDailyLesson(
     totalDuration <= 15 ? 'moderate' :
     'challenging';
 
+  // === PRE-PLAN SUPPORT FALLBACK BLOCKS ===
+  // These are NOT in the main queue — LessonFlow inserts them if the user is struggling
+  const supportBlocks: ExerciseBlock[] = [];
+  const supportCandidates = scoredExercises.filter(e => 
+    e && e.baseMinutes <= 3 &&
+    // Prefer easy, cueable exercises
+    CANONICAL_EXERCISES.find(ce => ce.slug === e.id)?.difficulty === 'Easy'
+  );
+  
+  for (const candidate of supportCandidates.slice(0, 2)) {
+    if (!candidate) continue;
+    supportBlocks.push({
+      exerciseId: candidate.id,
+      duration: 2,
+      priority: 'support',
+      adaptations: {
+        startDifficulty: 1,
+        cueLevel: 3, // Maximum support
+        timeout: 8000,
+        visualSupport: true,
+      },
+      reasoning: `Support fallback: easy ${candidate.id} with maximum cueing`,
+    });
+  }
+
+  if (supportBlocks.length > 0) {
+    reasoning.push(`Pre-planned ${supportBlocks.length} support fallback(s): ${supportBlocks.map(b => b.exerciseId).join(', ')}`);
+  }
+
   return {
     totalDuration,
     blocks,
+    supportBlocks: supportBlocks.length > 0 ? supportBlocks : undefined,
     targetDomains,
     reasoning,
     energyLevel,

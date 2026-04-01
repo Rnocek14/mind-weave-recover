@@ -4,7 +4,7 @@ import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
 import { SessionSummaryScreen } from "./SessionSummaryScreen";
 import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
-import { SessionArcBar, getAdaptivityMessage } from "./SessionArcBar";
+import { SessionArcBar, getAdaptivityMessage, shouldPivotToSupport } from "./SessionArcBar";
 import { Card } from "@/components/ui/card";
 import { Play } from "lucide-react";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
@@ -60,6 +60,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPause, setCurrentPause] = useState<PauseDecision | null>(null);
+  const [activeSupportPivot, setActiveSupportPivot] = useState(false); // Runtime support pivot flag
+  const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks); // Mutable block list for support injection
   
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
@@ -72,8 +74,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const recentRTRef = useRef<number[]>([]);
   const recentTimeoutsRef = useRef(0);
 
-  const currentBlock = lesson.blocks[currentBlockIndex];
-  const isLastBlock = currentBlockIndex === lesson.blocks.length - 1;
+  const currentBlock = runtimeBlocks[currentBlockIndex];
+  const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
   
   // Restore state if returning from exercise — with deduplication guard
   useEffect(() => {
@@ -334,10 +336,27 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
-      trackSessionComplete(sessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
+      trackSessionComplete(sessionId, runtimeBlocks.length, Date.now() - sessionStartTimeRef.current);
       setPhase("summary");
     } else {
       const nextIndex = currentBlockIndex + 1;
+      
+      // === RUNTIME SUPPORT PIVOT ===
+      // If user is struggling and we have support blocks, inject one
+      const currentPriority = runtimeBlocks[currentBlockIndex]?.priority || 'primary';
+      if (
+        !activeSupportPivot &&
+        lesson.supportBlocks?.length &&
+        shouldPivotToSupport(recentScoresRef.current, currentPriority)
+      ) {
+        console.log('[LessonFlow] 🔄 SUPPORT PIVOT: Injecting support exercise due to low performance');
+        const supportBlock = lesson.supportBlocks[0];
+        const newBlocks = [...runtimeBlocks];
+        newBlocks.splice(nextIndex, 0, supportBlock);
+        setRuntimeBlocks(newBlocks);
+        setActiveSupportPivot(true); // Only pivot once per session
+      }
+      
       setCurrentBlockIndex(nextIndex);
       
       // Adaptive pause decision
@@ -354,7 +373,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       setCurrentPause(pauseDecision);
       setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, lesson.blocks.length, todayFocus]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
@@ -421,7 +440,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
-    const nextBlock = lesson.blocks[currentBlockIndex];
+    const nextBlock = runtimeBlocks[currentBlockIndex];
     // Prefetch next exercise chunk while overlay is visible
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
@@ -429,7 +448,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         type="encouragement"
         durationOverride={currentPause?.duration}
         completedCount={currentBlockIndex}
-        totalCount={lesson.blocks.length}
+        totalCount={runtimeBlocks.length}
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
         sessionId={sessionId}
         onContinue={handleTransitionContinue}
@@ -440,7 +459,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Breathing micro-pause
   if (phase === "micro-pause") {
-    const nextBlock = lesson.blocks[currentBlockIndex];
+    const nextBlock = runtimeBlocks[currentBlockIndex];
     // Prefetch next exercise chunk while pause overlay is visible
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
@@ -448,7 +467,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         type="micro-pause"
         durationOverride={currentPause?.duration}
         completedCount={currentBlockIndex}
-        totalCount={lesson.blocks.length}
+        totalCount={runtimeBlocks.length}
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
         sessionId={sessionId}
         onContinue={handleTransitionContinue}
@@ -469,17 +488,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Loading state when navigating to exercise
   if (phase === "exercise") {
-    const adaptMsg = getAdaptivityMessage(
-      recentScoresRef.current,
-      currentBlock?.priority === 'warmup' ? 'warm-up' 
-        : currentBlock?.priority === 'primary' ? 'core' : 'stretch'
-    );
+    const phaseLabel = currentBlock?.priority === 'warmup' ? 'warm-up' 
+      : currentBlock?.priority === 'primary' ? 'core' 
+      : currentBlock?.priority === 'support' ? 'support'
+      : 'stretch';
+    const adaptMsg = getAdaptivityMessage(recentScoresRef.current, phaseLabel);
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 space-y-6 text-center">
           {/* Session arc progress */}
           <SessionArcBar 
-            blocks={lesson.blocks} 
+            blocks={runtimeBlocks} 
             currentIndex={currentBlockIndex} 
           />
           
