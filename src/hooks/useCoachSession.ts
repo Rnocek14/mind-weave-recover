@@ -1111,6 +1111,11 @@ export function useCoachSession({
               promptBlock: trlResult.promptBlock,
               anchorUsageType: trlResult.anchorUsageType,
             },
+            // Hallucination guard — entity allowlist
+            hallucinationGuard: {
+              promptBlock: hallucinationGuardBlock,
+              allowedEntities: [...entityAllowlist.all].slice(0, 20),
+            },
           }
         });
 
