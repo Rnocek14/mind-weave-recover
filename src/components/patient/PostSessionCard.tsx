@@ -6,55 +6,13 @@ import { cn } from "@/lib/utils";
 import { EXERCISE_DOMAIN_MAP } from "@/lib/exerciseDomainLookup";
 import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
 import { generateThreadReinforcement, type MayaNarrativeThread } from "@/lib/mayaNarrative";
-
-interface PostSessionCardProps {
-  feedback: LastSessionFeedback;
-  onDismiss: () => void;
-  onStartSession?: () => void;
-  anticipation?: string | null;
-  thread?: MayaNarrativeThread | null;
-}
-
-const DOMAIN_LABELS: Record<string, string> = {
-  lexical_retrieval: "word finding",
-  semantic_depth: "meaning & categories",
-  executive_function: "thinking & planning",
-  syntax: "sentence building",
-  phonology: "sounds & pronunciation",
-  discourse_organization: "conversation",
-  discourse: "conversation",
-  motor: "movement",
-  visual_spatial: "visual skills",
-};
+import { getPostSessionHeadline, getPostSessionNudge, DOMAIN_DISPLAY_LABELS } from "@/lib/performanceAwareFeedback";
 
 function getDomainLabel(exercises: string[]): string | null {
   if (!exercises.length) return null;
   const slug = exercises[0].replace(/_/g, "-");
   const domain = EXERCISE_DOMAIN_MAP[slug];
-  return domain ? DOMAIN_LABELS[domain] || null : null;
-}
-
-function getHeadline(feedback: LastSessionFeedback): { text: string; emoji: string } {
-  const { accuracy, correctDelta, streak, independentCorrect } = feedback;
-  if (accuracy >= 90) return { text: "Amazing work!", emoji: "🎉" };
-  if (independentCorrect >= 5) return { text: "So many on your own!", emoji: "⭐" };
-  if (accuracy >= 75) return { text: "Great session!", emoji: "💪" };
-  if (correctDelta > 0) return { text: "You're improving!", emoji: "📈" };
-  if (streak >= 3) return { text: "Consistency pays off!", emoji: "🔥" };
-  return { text: "You showed up — that matters!", emoji: "💛" };
-}
-
-function getMotivationalNudge(feedback: LastSessionFeedback, domainLabel: string | null): string {
-  const { streak, correctDelta, independentCorrect, accuracy } = feedback;
-
-  if (independentCorrect >= 3 && domainLabel) {
-    return `${independentCorrect} answers without any help in ${domainLabel} — that's real progress! 🌟`;
-  }
-  if (streak >= 5) return `${streak} days in a row — you're building a powerful habit! 🔥`;
-  if (streak >= 3) return `${streak} days in a row — keep the momentum going!`;
-  if (correctDelta > 0) return `${correctDelta} more correct than last time — you're getting stronger! 📈`;
-  if (accuracy >= 80 && domainLabel) return `Strong work on ${domainLabel} today!`;
-  return "Every session builds stronger connections 🧠";
+  return domain ? DOMAIN_DISPLAY_LABELS[domain] || null : null;
 }
 
 export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation, thread }: PostSessionCardProps) {
