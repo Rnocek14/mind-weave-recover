@@ -66,6 +66,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 6 — Generate coach line via edge function
   let rawLine: string;
   let usedFallback = false;
+  let debugRawOutput: string | undefined;
 
   try {
     const { data, error } = await supabase.functions.invoke('conversation-partner', {
@@ -84,6 +85,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       usedFallback = true;
     } else {
       rawLine = data.response;
+      debugRawOutput = data.response;
     }
   } catch (err) {
     console.warn('[SmartCoach] Failed to call edge function:', err);
@@ -97,6 +99,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   let finalLine: string;
   if (!validation.valid) {
     console.warn('[SmartCoach] Validation failed:', validation.reasons, '| Original:', rawLine);
+    debugRawOutput = rawLine;
     finalLine = getFallbackLine(nextState.mode, cueDecision.cueType);
     usedFallback = true;
   } else {
@@ -139,6 +142,8 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     cueDecision,
     validation,
     usedFallback,
+    debugPrompt: prompt,
+    debugRawOutput,
   };
 }
 
