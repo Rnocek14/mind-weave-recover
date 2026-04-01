@@ -113,37 +113,7 @@ export function NarrativeRetellGame({
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
   }, [phase, collectedTranscript, fullTranscript]);
 
-  // Auto-start mic after all scenes are read
-  const autoStartedRef = useRef(false);
   const allScenesRead = currentStory ? sceneIndex >= currentStory.scenes.length - 1 : false;
-  useEffect(() => {
-    if (phase === 'reading' && allScenesRead && isSupported && !autoStartedRef.current) {
-      autoStartedRef.current = true;
-      const t = setTimeout(() => {
-        setPhase('retelling');
-        startTimeRef.current = Date.now();
-        if (currentStory && userId) {
-          startAttempt({
-            sessionId: sessionId || 'standalone',
-            userId,
-            exerciseSlug: 'narrative_retell',
-            trialIndex: currentIndex,
-            attemptNumber: 1,
-            targetWord: currentStory.title,
-            category: 'discourse',
-          });
-        }
-        startRecording();
-        startListening();
-      }, 1500);
-      return () => clearTimeout(t);
-    }
-  }, [phase, allScenesRead, isSupported, currentStory, userId, sessionId, currentIndex]);
-
-  // Reset auto-start flag on story change
-  useEffect(() => {
-    autoStartedRef.current = false;
-  }, [currentIndex]);
 
   const handleNextScene = useCallback(() => {
     if (!currentStory) return;
