@@ -269,18 +269,18 @@ export function generateContextBridge(
     const topicBridges: Record<string, string[]> = {
       food: [
         "Since we're on food — want to try a quick one?",
-        "That reminds me — let me show you something food-related.",
+        "That reminds me of something food-related.",
         "Oh nice, speaking of eating — how about this?",
       ],
       family: [
         "Since we're talking about people — try this one.",
         "That reminds me — quick one about people.",
-        "Oh, speaking of family — how about this?",
+        "Oh, speaking of family — ready for one?",
       ],
       activities: [
         "Since we're talking about what you did — try this.",
-        "That reminds me of something — have a look.",
-        "Oh, related to that — how about this one?",
+        "That reminds me of something — ready?",
+        "Oh, related to that — want to try one?",
       ],
     };
     if (topicBridges[topic]) {
