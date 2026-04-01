@@ -35,19 +35,21 @@ export function analyzeUtterance(
   const filledPauses = (cleaned.match(FILLED_PAUSES) || []).length;
   const hesitationDetected = filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1);
 
-  // Pause detection — trailing "..." or very short
-  const pauseDetected = transcript.includes('...') || (wordCount === 0);
+  // Pause detection — true silence only (no words at all)
+  const pauseDetected = wordCount === 0;
 
   // Circumlocution
   const circumlocution = CIRCUMLOCUTION_MARKERS.test(cleaned);
 
-  // Incomplete thought — ends mid-sentence without punctuation, or trailing off
-  const incompleteThought = wordCount >= 2 && wordCount <= 5 &&
+  // Incomplete thought — ends mid-sentence with trailing "..." or no final punct
+  const trailingOff = transcript.trimEnd().endsWith('...');
+  const incompleteThought = wordCount >= 2 && wordCount <= 8 &&
     !cleaned.endsWith('.') && !cleaned.endsWith('!') && !cleaned.endsWith('?') &&
-    (hesitationDetected || cleaned.endsWith('...'));
+    (trailingOff || hesitationDetected);
 
-  // Phonological approximation — very rough (short, doesn't match expected words)
-  const phonologicalApprox = wordCount === 1 && !hasTopicOverlap && cleaned.length >= 3;
+  // Phonological approximation — single real word (not a filler) that doesn't match topic
+  const isFillerOnly = /^(um+|uh+|er+|ah+|hmm+)\.{0,3}$/i.test(cleaned);
+  const phonologicalApprox = wordCount === 1 && !hasTopicOverlap && cleaned.length >= 3 && !isFillerOnly;
 
   // Error type classification
   let likelyErrorType: CoachUtteranceAnalysis['likelyErrorType'] = 'none';
