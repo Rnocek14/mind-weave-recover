@@ -459,7 +459,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Breathing micro-pause
   if (phase === "micro-pause") {
-    const nextBlock = lesson.blocks[currentBlockIndex];
+    const nextBlock = runtimeBlocks[currentBlockIndex];
     // Prefetch next exercise chunk while pause overlay is visible
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (
