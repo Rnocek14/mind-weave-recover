@@ -88,8 +88,8 @@ export const usePatientProgressAnalytics = (userId: string | undefined, weeksBac
           };
         }
 
-        const isMotor = event.exercise_slug === 'reach-tap';
-        const isSpeech = event.exercise_slug === 'photo-naming';
+        const isMotor = event.exercise_slug === 'reach-tap' || event.exercise_slug === 'reach_tap';
+        const isSpeech = event.exercise_slug === 'photo-naming' || event.exercise_slug === 'photo_naming';
         
         if (isMotor) {
           weeklyStats[weekKey].motor.accuracy.push(event.score || 0);
