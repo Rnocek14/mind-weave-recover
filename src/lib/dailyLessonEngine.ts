@@ -1068,9 +1068,39 @@ export function generateDailyLesson(
     totalDuration <= 15 ? 'moderate' :
     'challenging';
 
+  // === PRE-PLAN SUPPORT FALLBACK BLOCKS ===
+  // These are NOT in the main queue — LessonFlow inserts them if the user is struggling
+  const supportBlocks: ExerciseBlock[] = [];
+  const supportCandidates = scoredExercises.filter(e => 
+    e && e.baseMinutes <= 3 &&
+    // Prefer easy, cueable exercises
+    CANONICAL_EXERCISES.find(ce => ce.slug === e.id)?.difficulty === 'Easy'
+  );
+  
+  for (const candidate of supportCandidates.slice(0, 2)) {
+    if (!candidate) continue;
+    supportBlocks.push({
+      exerciseId: candidate.id,
+      duration: 2,
+      priority: 'support',
+      adaptations: {
+        startDifficulty: 1,
+        cueLevel: 3, // Maximum support
+        timeout: 8000,
+        visualSupport: true,
+      },
+      reasoning: `Support fallback: easy ${candidate.id} with maximum cueing`,
+    });
+  }
+
+  if (supportBlocks.length > 0) {
+    reasoning.push(`Pre-planned ${supportBlocks.length} support fallback(s): ${supportBlocks.map(b => b.exerciseId).join(', ')}`);
+  }
+
   return {
     totalDuration,
     blocks,
+    supportBlocks: supportBlocks.length > 0 ? supportBlocks : undefined,
     targetDomains,
     reasoning,
     energyLevel,

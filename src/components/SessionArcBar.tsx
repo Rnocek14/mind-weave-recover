@@ -5,11 +5,13 @@
  * Warm-up → Core → Stretch → Summary
  * 
  * Maps exercise block priorities to arc phases.
+ * Includes phase-specific target accuracy bands and adaptive messaging.
  */
 
 import { cn } from "@/lib/utils";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
 import type { ExerciseBlock } from "@/lib/dailyLessonEngine";
+import { PHASE_TARGET_BANDS } from "@/lib/dailyLessonEngine";
 
 interface SessionArcBarProps {
   blocks: ExerciseBlock[];
@@ -17,12 +19,13 @@ interface SessionArcBarProps {
   className?: string;
 }
 
-type ArcPhase = 'warm-up' | 'core' | 'stretch' | 'summary';
+export type ArcPhase = 'warm-up' | 'core' | 'stretch' | 'support' | 'summary';
 
 const PHASE_CONFIG: Record<ArcPhase, { label: string; emoji: string }> = {
   'warm-up': { label: 'Warm-up', emoji: '🌱' },
   'core': { label: 'Core', emoji: '🧠' },
   'stretch': { label: 'Stretch', emoji: '🚀' },
+  'support': { label: 'Support', emoji: '💛' },
   'summary': { label: 'Summary', emoji: '✨' },
 };
 
@@ -32,6 +35,7 @@ function blockToPhase(priority: ExerciseBlock['priority']): ArcPhase {
     case 'primary': return 'core';
     case 'secondary': return 'stretch';
     case 'consolidation': return 'stretch';
+    case 'support': return 'support';
     default: return 'core';
   }
 }
@@ -108,7 +112,7 @@ export function SessionArcBar({ blocks, currentIndex, className }: SessionArcBar
   );
 }
 
-/** Visible adaptivity message based on recent performance */
+/** Visible adaptivity message based on recent performance and phase target band */
 export function getAdaptivityMessage(
   recentScores: number[],
   currentPhase: ArcPhase
@@ -119,25 +123,55 @@ export function getAdaptivityMessage(
   const lastTwo = recentScores.slice(-2);
   const lastAvg = lastTwo.reduce((a, b) => a + b, 0) / lastTwo.length;
 
-  // Streak of success
-  if (lastAvg >= 0.85 && recentScores.length >= 3) {
+  // Phase-aware messaging using target bands
+  const phasePriority = currentPhase === 'warm-up' ? 'warmup' 
+    : currentPhase === 'core' ? 'primary' 
+    : currentPhase === 'support' ? 'support'
+    : 'secondary';
+  const band = PHASE_TARGET_BANDS[phasePriority];
+
+  // Above target band → ready for more challenge
+  if (lastAvg > band.max && recentScores.length >= 3) {
     return "You're doing great — let's try something a little harder 🚀";
   }
 
-  // Improving
+  // Improving trend
   if (recentScores.length >= 3 && lastAvg > avg + 0.1) {
     return "Getting stronger with each one 📈";
   }
 
-  // Struggling
-  if (lastAvg < 0.4) {
+  // Below target band → need more support
+  if (lastAvg < band.min - 0.15) {
     return "Let's slow this down a bit — no rush 💛";
   }
 
-  // Moderate difficulty
+  // In the sweet spot
+  if (lastAvg >= band.min && lastAvg <= band.max) {
+    return "Right in the zone — this is where growth happens ✨";
+  }
+
+  // Moderate difficulty in stretch
   if (lastAvg < 0.6 && currentPhase === 'stretch') {
     return "This one's meant to stretch you — you're doing well";
   }
 
   return null;
+}
+
+/**
+ * Determine if the session should pivot to support based on recent performance.
+ * Returns true if the user's recent scores fall significantly below the phase target band.
+ */
+export function shouldPivotToSupport(
+  recentScores: number[],
+  currentPriority: ExerciseBlock['priority']
+): boolean {
+  if (recentScores.length < 2) return false;
+  
+  const lastTwo = recentScores.slice(-2);
+  const lastAvg = lastTwo.reduce((a, b) => a + b, 0) / lastTwo.length;
+  const band = PHASE_TARGET_BANDS[currentPriority];
+  
+  // Pivot if performance is >20% below the phase minimum
+  return lastAvg < band.min - 0.20;
 }

@@ -4,7 +4,7 @@ import { DailyCapabilityCheck } from "./DailyCapabilityCheck";
 import { CapabilityAssessment } from "./CapabilityAssessment";
 import { SessionSummaryScreen } from "./SessionSummaryScreen";
 import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
-import { SessionArcBar, getAdaptivityMessage } from "./SessionArcBar";
+import { SessionArcBar, getAdaptivityMessage, shouldPivotToSupport } from "./SessionArcBar";
 import { Card } from "@/components/ui/card";
 import { Play } from "lucide-react";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
