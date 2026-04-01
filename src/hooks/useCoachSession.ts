@@ -1090,6 +1090,13 @@ export function useCoachSession({
               : undefined,
             // Anchor context for mandatory context anchoring
             anchorContext: anchorCtx,
+            // Therapeutic Response Ladder
+            therapeuticLevel: {
+              level: trlResult.level,
+              label: trlResult.label,
+              promptBlock: trlResult.promptBlock,
+              anchorUsageType: trlResult.anchorUsageType,
+            },
           }
         });
 
