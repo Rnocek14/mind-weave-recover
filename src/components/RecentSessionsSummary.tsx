@@ -123,10 +123,7 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  const formatSlug = (slug: string) => {
-    const { humanizeSlug } = require('@/lib/performanceAwareFeedback');
-    return humanizeSlug(slug);
-  };
+  const formatSlug = (slug: string) => humanizeSlug(slug);
 
   return (
     <div className="space-y-3">
