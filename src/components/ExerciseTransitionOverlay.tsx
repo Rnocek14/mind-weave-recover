@@ -182,7 +182,7 @@ export const ExerciseTransitionOverlay = ({
           <p className="text-4xl">{encouragement.emoji}</p>
           <h2 className="text-2xl font-bold">{encouragement.text}</h2>
           <p className="text-muted-foreground">
-            Next up: <span className="font-medium capitalize">{nextExerciseName.replace(/-/g, ' ')}</span>
+            Next up: <span className="font-medium">{nextExerciseName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
           </p>
         </div>
 
