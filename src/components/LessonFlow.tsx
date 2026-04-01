@@ -469,9 +469,20 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Loading state when navigating to exercise
   if (phase === "exercise") {
+    const adaptMsg = getAdaptivityMessage(
+      recentScoresRef.current,
+      currentBlock?.priority === 'warmup' ? 'warm-up' 
+        : currentBlock?.priority === 'primary' ? 'core' : 'stretch'
+    );
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 space-y-6 text-center">
+          {/* Session arc progress */}
+          <SessionArcBar 
+            blocks={lesson.blocks} 
+            currentIndex={currentBlockIndex} 
+          />
+          
           <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto animate-pulse">
             <Play className="w-8 h-8 text-primary" />
           </div>
@@ -479,9 +490,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             <h2 className="text-2xl font-bold">
               {!sessionId ? "Preparing session..." : "Loading Exercise..."}
             </h2>
-            <p className="text-muted-foreground capitalize">
-              {currentBlock?.exerciseId.replace(/-/g, ' ')}
+            <p className="text-muted-foreground">
+              {humanizeSlug(currentBlock?.exerciseId || '')}
             </p>
+            {/* Visible adaptivity message */}
+            {adaptMsg && (
+              <p className="text-sm text-primary/80 font-medium mt-2">
+                {adaptMsg}
+              </p>
+            )}
           </div>
         </Card>
       </div>
