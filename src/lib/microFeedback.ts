@@ -188,33 +188,39 @@ export function recordTurnForFeedback(
 // === Feedback text pools ===
 
 const REPAIR_FEEDBACK = [
-  "You got it — nice recovery. That's exactly how it works in real conversations.",
-  "There it is! You found the word. That's the skill that helps when you're talking to someone.",
-  "See? It came to you. That's your brain getting faster at finding words.",
+  "You got it — nice recovery. That's exactly what happens in everyday conversations.",
+  "There it is! You found the word. That's the skill that makes talking easier.",
+  "See? It came to you. You can feel your brain getting quicker at that.",
+  "That's the moment — when it clicks and comes out. That's what we're building.",
+  "You found it yourself. That feeling? That's progress.",
 ];
 
 const FASTER_FEEDBACK = [
-  "You're answering faster now — that's what makes real conversations easier.",
-  "Quicker this time — that speed is what helps when you're talking to someone.",
-  "That came out fast — that's the kind of flow that matters in real life.",
+  "You're answering quicker now — you can feel it, right?",
+  "That came out faster — that's what makes everyday talking smoother.",
+  "Quicker this time. That speed makes a real difference when you're explaining something.",
+  "Feel how much faster that was? That's the kind of flow that sticks.",
 ];
 
 const FEWER_CUES_FEEDBACK = [
-  "You needed fewer hints — that means you're finding words more on your own.",
-  "Getting more independent — that's exactly what helps in real conversations.",
-  "Less help needed — that's real progress for everyday talking.",
+  "You needed less help that time — you're doing more on your own.",
+  "Getting more independent — that's what makes you feel confident when you talk.",
+  "Less help needed. That's real progress for everyday situations.",
+  "You're finding words without as much support. That's a big deal.",
 ];
 
 const LONGER_FEEDBACK = [
-  "You're saying more now — that's what makes conversations feel natural.",
+  "You're saying more now — that's what makes conversations feel like you.",
   "Longer answers — that's how it gets easier to explain things to people.",
-  "More words coming out — that's the kind of momentum that helps in real life.",
+  "More words coming out. You can feel the momentum building.",
+  "That was a full thought. That's what it feels like when it's working.",
 ];
 
 const GAME_BOOST_FEEDBACK = [
-  "That practice helped — you're finding words faster now.",
-  "See the difference? That exercise made it easier to talk. That's how it works.",
-  "That warm-up paid off — this is how your brain gets better at finding words.",
+  "That practice helped — you can feel the words coming easier now.",
+  "See the difference? That exercise loosened things up. That's how it works.",
+  "That warm-up paid off — everything flows a little better after that.",
+  "You're warmed up now. Can you feel it? Words come quicker after that.",
 ];
 
 function pickRandom(arr: string[]): string {
