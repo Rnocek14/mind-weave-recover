@@ -333,7 +333,8 @@ export function useCoachSession({
   // NEW: Cue engine and difficulty controller state
   const cueStateRef = useRef<CueState>(createInitialCueState());
   const trlTrackerRef = useRef(new TRLTracker());
-  const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
+  const repairTrackerRef = useRef(new RepairSuccessTracker());
+  const gameTriggerStateRef = useRef(createTriggerState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
   // Rolling semantic memory — AI-maintained conversation summary
