@@ -758,6 +758,8 @@ export function useCoachSession({
     });
 
     let aiResponseText: string | null = null;
+    // Reset pending visual flag before each action branch
+    pendingVisualActionRef.current = false;
 
     // Handle action
     if (action.type === 'wrap_up') {
