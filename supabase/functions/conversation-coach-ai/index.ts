@@ -722,6 +722,11 @@ serve(async (req) => {
           regenerationNeeded,
           anchoringPass,
         },
+        therapeuticLevel: therapeuticLevel ? {
+          level: therapeuticLevel.level,
+          label: therapeuticLevel.label,
+          anchorUsageType: therapeuticLevel.anchorUsageType,
+        } : undefined,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
