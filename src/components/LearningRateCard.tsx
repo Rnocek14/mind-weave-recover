@@ -75,13 +75,16 @@ export const LearningRateCard = memo(({
 
   const getDomainLabel = (domain: string) => {
     const labels: Record<string, string> = {
-      'phonological': 'Speech (Sounds)',
-      'semantic': 'Speech (Meaning)',
+      'phonological': 'Sounds',
+      'semantic': 'Meaning',
       'grammar': 'Grammar',
       'motor': 'Motor Skills',
-      'visuospatial': 'Visual Attention'
+      'visuospatial': 'Visual Attention',
+      'lexical_retrieval': 'Word Finding',
+      'syntax': 'Sentences',
+      'discourse': 'Conversation',
     };
-    return labels[domain] || domain;
+    return labels[domain] || domain.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
   return (

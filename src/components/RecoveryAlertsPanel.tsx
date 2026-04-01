@@ -119,8 +119,8 @@ export const RecoveryAlertsPanel = memo(function RecoveryAlertsPanel({
                         </Badge>
                       )}
                       {alert.domain_slug && (
-                        <Badge variant="outline" className="text-xs">
-                          {alert.domain_slug}
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {alert.domain_slug.replace(/[-_]/g, ' ')}
                         </Badge>
                       )}
                     </div>

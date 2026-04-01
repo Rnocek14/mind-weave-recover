@@ -3,11 +3,10 @@ import { Wind, Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
+import { getTransitionEncouragement } from '@/lib/performanceAwareFeedback';
 
 interface ExerciseTransitionOverlayProps {
-  /** 'encouragement' = quick auto-advance, 'micro-pause' = breathing reset */
   type: 'encouragement' | 'micro-pause';
-  /** Override default duration (seconds) — set by adaptive pause logic */
   durationOverride?: number;
   completedCount: number;
   totalCount: number;
@@ -16,15 +15,6 @@ interface ExerciseTransitionOverlayProps {
   onContinue: () => void;
   onEnd: () => void;
 }
-
-const encouragements = [
-  { text: "Nice work!", emoji: "💪" },
-  { text: "Great job!", emoji: "🌟" },
-  { text: "Keep going!", emoji: "🔥" },
-  { text: "You're doing great!", emoji: "✨" },
-  { text: "Wonderful!", emoji: "🎯" },
-  { text: "Well done!", emoji: "👏" },
-];
 
 export const ExerciseTransitionOverlay = ({
   type,
@@ -41,9 +31,7 @@ export const ExerciseTransitionOverlay = ({
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
-  const [encouragement] = useState(() => 
-    encouragements[Math.floor(Math.random() * encouragements.length)]
-  );
+  const [encouragement] = useState(() => getTransitionEncouragement());
 
   useEffect(() => {
     if (isPaused) return;
@@ -194,7 +182,7 @@ export const ExerciseTransitionOverlay = ({
           <p className="text-4xl">{encouragement.emoji}</p>
           <h2 className="text-2xl font-bold">{encouragement.text}</h2>
           <p className="text-muted-foreground">
-            Next up: <span className="font-medium capitalize">{nextExerciseName.replace(/-/g, ' ')}</span>
+            Next up: <span className="font-medium">{nextExerciseName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
           </p>
         </div>
 

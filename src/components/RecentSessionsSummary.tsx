@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProfile } from '@/hooks/useProfile';
+import { humanizeSlug } from '@/lib/performanceAwareFeedback';
 
 interface RecentSession {
   id: string;
@@ -122,8 +123,7 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  const formatSlug = (slug: string) =>
-    slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const formatSlug = (slug: string) => humanizeSlug(slug);
 
   return (
     <div className="space-y-3">

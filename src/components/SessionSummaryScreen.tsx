@@ -9,6 +9,7 @@ import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
@@ -22,25 +23,24 @@ interface ExerciseScore {
   trial_count: number;
 }
 
-/** Pick an encouraging headline based on average score */
-function getHeadline(avgScore: number | null): { text: string; emoji: string } {
-  if (avgScore === null) return { text: "Session complete!", emoji: "✅" };
-  if (avgScore >= 80) return { text: "Amazing work!", emoji: "🌟" };
-  if (avgScore >= 60) return { text: "Great effort!", emoji: "💪" };
-  if (avgScore >= 40) return { text: "Nice practice!", emoji: "👍" };
-  return { text: "You showed up — that matters!", emoji: "❤️" };
-}
-
 /** Convert exercise slug to plain name */
 function slugToName(slug: string): string {
-  return slug.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  return humanizeSlug(slug);
 }
 
-/** Plain-language performance label */
+/** Plain-language performance label — tone-aware */
 function scoreToLabel(score: number): { text: string; className: string } {
-  if (score >= 80) return { text: "Getting stronger", className: "text-green-600 dark:text-green-400" };
-  if (score >= 50) return { text: "Keeping steady", className: "text-primary" };
-  return { text: "Let's keep practicing", className: "text-muted-foreground" };
+  const tone = getFeedbackTone(score);
+  switch (tone) {
+    case 'celebrate':
+      return { text: "Getting stronger", className: "text-green-600 dark:text-green-400" };
+    case 'encourage':
+      return { text: "Keeping steady", className: "text-primary" };
+    case 'support':
+      return { text: "Building up", className: "text-muted-foreground" };
+    case 'protect':
+      return { text: "Let's keep practicing", className: "text-muted-foreground" };
+  }
 }
 
 export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSummaryScreenProps) {
@@ -111,7 +111,7 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
     [exerciseScores]
   );
 
-  const headline = getHeadline(overallAvg);
+  const headline = getSessionHeadline(overallAvg);
   const isPreset = lesson.reasoning?.[0]?.startsWith("Preset:");
   const durationMin = durationSec ? Math.max(1, Math.round(durationSec / 60)) : lesson.totalDuration;
 
