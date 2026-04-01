@@ -77,6 +77,22 @@ import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/ha
 import { createSessionPhaseState, evaluatePhaseTransition, applyPhaseTransition, getPhaseBiases, getCloseSessionInsight, type SessionPhaseState as TherapyPhaseState } from '@/lib/sessionPhaseController';
 import { createFeedbackTracker, recordTurnForFeedback, type FeedbackTracker } from '@/lib/microFeedback';
 import { generateGameIntro, generateGameReturn, type GameTransitionContext, type GameReturnContext } from '@/lib/gameTransitions';
+import { sanitizeMayaLine } from '@/lib/mayaSpeechGate';
+
+// Correction detection patterns
+const CORRECTION_PATTERNS = [
+  /no,?\s*(i was|we were|i'm) (talking|telling|saying)/i,
+  /that's not what i (said|meant)/i,
+  /you'?re not listening/i,
+  /i (said|meant|was talking about)/i,
+  /no,?\s*i mean/i,
+  /we'?re talking about/i,
+  /i already (told|said|mentioned)/i,
+];
+
+function detectUserCorrection(transcript: string): boolean {
+  return CORRECTION_PATTERNS.some(p => p.test(transcript));
+}
 
 // Store card results for AI context
 interface CardResult {
@@ -350,6 +366,10 @@ export function useCoachSession({
     const rollingMemoryRef = useRef<string>('');
     // Session intelligence tracker — within-session memory for Maya
     const sessionIntelRef = useRef(new SessionIntelligenceTracker());
+  // Maya Speech Gate state
+  const userCorrectionActiveRef = useRef(false);
+  const establishedFactsRef = useRef<string[]>([]);
+  const pendingVisualActionRef = useRef(false);
   // Speech analysis hook
   const speechAnalysis = useConversationSpeechAnalysis({
     userId,
@@ -357,7 +377,21 @@ export function useCoachSession({
     sessionId,
   });
 
+  // Centralized addMessage with Maya Speech Gate for AI messages
   const addMessage = useCallback((message: FeedMessage) => {
+    if (message.type === 'ai' && message.text) {
+      const gateResult = sanitizeMayaLine({
+        text: message.text,
+        activeTopic: orchestratorStateRef.current.currentTopic,
+        establishedFacts: establishedFactsRef.current,
+        userCorrectionActive: userCorrectionActiveRef.current,
+        pendingVisualAction: pendingVisualActionRef.current,
+        source: 'addMessage',
+      });
+      if (gateResult.rewritten || gateResult.blocked) {
+        message = { ...message, text: gateResult.approvedText };
+      }
+    }
     setMessages(prev => [...prev, message]);
   }, []);
 
@@ -395,6 +429,22 @@ export function useCoachSession({
   ): Promise<string | null> => {
     setIsProcessing(true);
     
+    // ═══════════════════════════════════════════════════════════════
+    // MAYA SPEECH GATE: Detect user corrections & track established facts
+    // ═══════════════════════════════════════════════════════════════
+    if (detectUserCorrection(transcript)) {
+      userCorrectionActiveRef.current = true;
+      console.log('[MayaSpeechGate] User correction detected:', transcript.slice(0, 80));
+    } else {
+      // Clear correction flag after one non-correction turn
+      userCorrectionActiveRef.current = false;
+    }
+    // Track established facts from user statements (simple extraction)
+    const factWords = transcript.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    if (factWords.length >= 2 && transcript.length > 15) {
+      establishedFactsRef.current.push(transcript.slice(0, 100));
+      if (establishedFactsRef.current.length > 10) establishedFactsRef.current.shift();
+    }
     // ═══════════════════════════════════════════════════════════════
     // INLINE PHOTO NAMING — Check answer before regular flow
     // ═══════════════════════════════════════════════════════════════
@@ -708,6 +758,8 @@ export function useCoachSession({
     });
 
     let aiResponseText: string | null = null;
+    // Reset pending visual flag before each action branch
+    pendingVisualActionRef.current = false;
 
     // Handle action
     if (action.type === 'wrap_up') {
@@ -718,6 +770,7 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
+      pendingVisualActionRef.current = true; // Gate: allow game transition language
       // GAME TRANSITIONS: Use contextual intro based on trigger type
       const intro = generateGameIntro({
         currentTopic: orchestratorStateRef.current.currentTopic,
@@ -746,6 +799,7 @@ export function useCoachSession({
       // INLINE PHOTO NAMING — No mode switch, image appears in chat
       // Maya introduces it naturally, user responds through normal speech
       // ═══════════════════════════════════════════════════════════
+      pendingVisualActionRef.current = true; // Gate: allow "show you" / "check this out"
       const maxDifficulty = action.difficulty === 'easy' ? 2 : 3;
       const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
       const trial = photos[Math.floor(Math.random() * photos.length)];
@@ -815,6 +869,7 @@ export function useCoachSession({
       // INLINE MINIMAL PAIRS — Two images in chat, user taps one
       // Maya says a word, user picks the matching picture
       // ═══════════════════════════════════════════════════════════
+      pendingVisualActionRef.current = true; // Gate: allow visual transition language
       // FIX: Use strategy's target phonemes to filter trials instead of random selection
       const targetPhonemes = activeStrategyRef.current?.id === 'phonological_training'
         ? (orchestratorStateRef.current.intelligenceBiases?.targetPhonemes ?? [])
@@ -909,6 +964,7 @@ export function useCoachSession({
         orchestratorStateRef.current, stuckType, true
       );
     } else if (action.type === 'insert_card') {
+      pendingVisualActionRef.current = true; // Gate: allow card transition language
       // Extract topic for topic-aware intro
       const currentMessages = [...messages, { type: 'user' as const, text: transcript, id: userMessageId }];
       const conversationHistory = currentMessages

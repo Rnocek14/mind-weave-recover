@@ -256,10 +256,10 @@ export function generateContextBridge(
   // === Bridge from topic + anchor ===
   if (topic && anchor) {
     const anchoredBridges = [
-      `You mentioned ${anchor} — let me show you a quick one.`,
-      `Since you brought up ${anchor} — how about this?`,
-      `Oh, ${anchor}! That reminds me — try this one.`,
-      `Hmm, ${anchor}. Let's do a quick one related to that.`,
+      `You mentioned ${anchor} — how about a quick one on that?`,
+      `Since you brought up ${anchor} — want to try something?`,
+      `Oh, ${anchor}! That gives me an idea.`,
+      `Hmm, ${anchor}. Let's try a quick one on that.`,
     ];
     return pickUnique(anchoredBridges, _lastBridges);
   }
@@ -269,18 +269,18 @@ export function generateContextBridge(
     const topicBridges: Record<string, string[]> = {
       food: [
         "Since we're on food — want to try a quick one?",
-        "That reminds me — let me show you something food-related.",
+        "That reminds me of something food-related.",
         "Oh nice, speaking of eating — how about this?",
       ],
       family: [
         "Since we're talking about people — try this one.",
         "That reminds me — quick one about people.",
-        "Oh, speaking of family — how about this?",
+        "Oh, speaking of family — ready for one?",
       ],
       activities: [
         "Since we're talking about what you did — try this.",
-        "That reminds me of something — have a look.",
-        "Oh, related to that — how about this one?",
+        "That reminds me of something — ready?",
+        "Oh, related to that — want to try one?",
       ],
     };
     if (topicBridges[topic]) {
@@ -291,10 +291,10 @@ export function generateContextBridge(
   // === Bridge from struggle (warm, not clinical) ===
   if (stuckType === 'word_search_stall' || stuckType === 'thought_abandonment') {
     const struggleBridges = [
-      "I think I know what you mean — let me show you something.",
+      "I think I know what you mean — want to try it a different way?",
       "No rush. How about we try it this way?",
-      "That's okay — let me give you a hand with this.",
-      "Hmm, let me try something that might help.",
+      "That's okay — want to try a different angle?",
+      "Hmm, let me give you a hand with that.",
       "All good. Want to try a different angle on that?",
     ];
     return pickUnique(struggleBridges, _lastBridges);
@@ -313,10 +313,10 @@ export function generateContextBridge(
 
   // === Generic but warm ===
   const genericBridges = [
-    "Oh hey — let me show you something quick.",
+    "Oh hey — ready for a quick one?",
     "That reminds me — try this one.",
     "Want to try a quick one? Just for fun.",
-    "Here — have a look at this.",
+    "Here's one for you.",
   ];
   return pickUnique(genericBridges, _lastBridges);
 }
@@ -338,9 +338,9 @@ export function generateTaskReturn(
           `See? That came easier. Anyway — ${topic}, what else happened?`,
         ]
       : [
-          "That came out nice! So, what were you saying?",
-          "See? Smoother that time. Anyway — where were we?",
-          "Ha, nice! Okay, let's keep going.",
+          "That came out nice! So, what else comes to mind?",
+          "See? Smoother that time. Anyway — what were we talking about?",
+          "Ha, nice! Okay, let's keep going with that.",
           "Got it! So, you were telling me about...",
           "That was quick! Okay — back to our chat.",
         ];
