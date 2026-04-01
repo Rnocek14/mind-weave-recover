@@ -604,10 +604,112 @@ serve(async (req) => {
       .replace(/as your assistant/gi, '')
       .trim();
 
-    console.log('Maya:', aiResponse, '| Memory:', memoryUpdate?.slice(0, 60));
+    // ═══ ANCHOR VALIDATION + RETRY ═══
+    let anchoringPass = true;
+    let regenerationNeeded = false;
+    let matchedAnchor: string | null = null;
+
+    if (anchorContext?.anchorRequired && anchorContext.candidateAnchors.length > 0) {
+      const lowerReply = aiResponse.toLowerCase();
+      for (const anchor of anchorContext.candidateAnchors) {
+        if (lowerReply.includes(anchor.toLowerCase())) {
+          matchedAnchor = anchor;
+          break;
+        }
+      }
+
+      if (!matchedAnchor) {
+        anchoringPass = false;
+        regenerationNeeded = true;
+        console.log('Anchor MISS — retrying once. Anchors:', anchorContext.candidateAnchors);
+
+        // One retry with stronger correction
+        const retryMessages = [
+          ...messages.slice(0, -1), // Remove last user message temporarily
+          {
+            role: 'system' as const,
+            content: `REVISION REQUIRED: Your previous response "${aiResponse}" did not reference the user's specific details. Rewrite it so it naturally includes one of: ${anchorContext.candidateAnchors.join(', ')}. Keep it under 18 words.`,
+          },
+          messages[messages.length - 1], // Re-add user message
+        ];
+
+        try {
+          const retryResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: retryMessages,
+              tools: [RESPOND_TOOL],
+              tool_choice: { type: "function", function: { name: "respond_and_remember" } },
+            }),
+          });
+
+          if (retryResp.ok) {
+            const retryData = await retryResp.json();
+            const retryToolCall = retryData.choices?.[0]?.message?.tool_calls?.[0];
+            let retryResponse = aiResponse; // Keep original as fallback
+
+            if (retryToolCall?.function?.arguments) {
+              try {
+                const retryArgs = JSON.parse(retryToolCall.function.arguments);
+                if (retryArgs.response) retryResponse = retryArgs.response;
+                if (retryArgs.memory) memoryUpdate = retryArgs.memory;
+              } catch { /* keep original */ }
+            } else if (retryData.choices?.[0]?.message?.content) {
+              retryResponse = retryData.choices[0].message.content.trim();
+            }
+
+            // Check if retry succeeded
+            const retryLower = retryResponse.toLowerCase();
+            for (const anchor of anchorContext.candidateAnchors) {
+              if (retryLower.includes(anchor.toLowerCase())) {
+                matchedAnchor = anchor;
+                anchoringPass = true;
+                break;
+              }
+            }
+
+            if (anchoringPass) {
+              aiResponse = retryResponse;
+              // Re-apply word limit
+              const retryWords = aiResponse.split(/\s+/);
+              if (retryWords.length > 20) {
+                const cutoff = 18;
+                aiResponse = retryWords.slice(0, cutoff).join(' ');
+                if (!aiResponse.match(/[.!?]$/)) aiResponse += '?';
+              }
+              console.log('Anchor RECOVERED on retry:', matchedAnchor);
+            } else {
+              console.log('Anchor still missed after retry — accepting best response');
+            }
+          }
+        } catch (retryErr) {
+          console.warn('Anchor retry failed:', retryErr);
+        }
+      }
+    }
+
+    console.log('Maya:', aiResponse, '| Memory:', memoryUpdate?.slice(0, 60),
+      '| Anchor:', matchedAnchor || 'none', anchoringPass ? '✅' : '❌');
 
     return new Response(
-      JSON.stringify({ response: aiResponse, memoryUpdate }),
+      JSON.stringify({
+        response: aiResponse,
+        memoryUpdate,
+        anchorMetrics: {
+          candidateAnchors: anchorContext?.candidateAnchors || [],
+          preferredAnchor: anchorContext?.preferredAnchor || null,
+          anchorRequired: anchorContext?.anchorRequired || false,
+          anchorUsed: anchoringPass,
+          matchedAnchor,
+          regenerationNeeded,
+          anchoringPass,
+        },
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
