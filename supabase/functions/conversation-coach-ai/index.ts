@@ -405,6 +405,7 @@ serve(async (req) => {
       sessionIntelligence,
       crossSessionIntelligence,
       therapyStrategy,
+      speechAnalysis || null,
     );
 
     // Construct messages
