@@ -227,11 +227,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     if (results.needsFullAssessment) {
       setPhase("full-assessment");
     } else {
-      setPhase("exercise");
+      setPhase("session-preview");
     }
   };
 
   const handleFullAssessmentComplete = () => {
+    setPhase("session-preview");
+  };
+  
+  const handlePreviewStart = () => {
     setPhase("exercise");
   };
 
