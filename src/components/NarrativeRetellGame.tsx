@@ -281,7 +281,7 @@ export function NarrativeRetellGame({
     );
   }
 
-  const allScenesRead = sceneIndex >= currentStory.scenes.length - 1;
+  // allScenesRead computed above hooks
 
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
