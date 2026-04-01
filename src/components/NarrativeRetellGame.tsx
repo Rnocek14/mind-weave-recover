@@ -161,7 +161,7 @@ export function NarrativeRetellGame({
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
-        exerciseSlug: 'narrative-retell',
+        exerciseSlug: 'narrative_retell',
         trialIndex: currentIndex,
         attemptNumber: 1,
         targetWord: currentStory.title,
