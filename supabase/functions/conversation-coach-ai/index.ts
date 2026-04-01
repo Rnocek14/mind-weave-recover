@@ -568,8 +568,8 @@ serve(async (req) => {
       if (qIdx > 5) cutoff = qIdx + 1;
       aiResponse = words.slice(0, cutoff).join(' ');
       if (!aiResponse.match(/[.!?]$/)) aiResponse += '?';
-  }
-});
+    }
+
     // Remove AI self-references
     aiResponse = aiResponse
       .replace(/as an ai/gi, '')
@@ -591,5 +591,5 @@ serve(async (req) => {
       JSON.stringify({ response: "What else?", memoryUpdate: null }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-    }
-
+  }
+});
