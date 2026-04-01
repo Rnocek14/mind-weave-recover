@@ -30,6 +30,7 @@ import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 type FlowPhase = 
   | "daily-check" 
   | "full-assessment" 
+  | "session-preview"
   | "exercise" 
   | "transition" 
   | "micro-pause"
