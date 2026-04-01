@@ -37,16 +37,16 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
     return pickRandom(
       currentTopic
         ? [
-            `That's okay — let's do something quick to loosen things up. It makes finding words easier when you need them. Still thinking about ${currentTopic}.`,
-            `No pressure — here's a quick warm-up. You'll feel the difference after. We'll come back to ${currentTopic}.`,
-            `Let's try something simple — it takes the pressure off and makes things flow better.`,
-            `This will help — just a quick one to get things moving again. Then back to ${currentTopic}.`,
+            `That's okay — let's do something quick to loosen things up. It makes finding words easier. Still thinking about ${currentTopic}.`,
+            `No pressure — quick warm-up. It takes the edge off and helps words come out smoother. We'll come back to ${currentTopic}.`,
+            `Let's try something simple — takes the pressure off a bit.`,
+            `Quick one to get things moving again — then back to ${currentTopic}.`,
           ]
         : [
-            `That's okay — let's do something quick to loosen things up. You'll feel the difference.`,
-            `No pressure — here's a quick warm-up. It takes the edge off and makes words come easier.`,
-            `Let's try something simple — it makes everything feel a little smoother after.`,
-            `Quick one — this helps get things unstuck. You'll feel it.`,
+            `That's okay — let's do something quick to loosen things up. It helps.`,
+            `No pressure — quick warm-up. Takes the edge off.`,
+            `Let's try something simple — makes everything flow a bit better after.`,
+            `Quick one to get things moving. No rush.`,
           ]
     );
   }
