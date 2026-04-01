@@ -44,6 +44,7 @@ import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
+import SmartCoach from "./pages/SmartCoach";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import TwoCluesExercise from "./pages/TwoCluesExercise";
@@ -162,6 +163,7 @@ const App = () => (
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
                   <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
+                  <Route path="/smart-coach" element={<SmartCoach />} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
