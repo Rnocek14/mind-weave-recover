@@ -111,7 +111,7 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
     [exerciseScores]
   );
 
-  const headline = getHeadline(overallAvg);
+  const headline = getSessionHeadline(overallAvg);
   const isPreset = lesson.reasoning?.[0]?.startsWith("Preset:");
   const durationMin = durationSec ? Math.max(1, Math.round(durationSec / 60)) : lesson.totalDuration;
 

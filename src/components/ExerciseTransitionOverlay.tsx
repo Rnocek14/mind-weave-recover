@@ -5,6 +5,17 @@ import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
 import { getTransitionEncouragement } from '@/lib/performanceAwareFeedback';
 
+interface ExerciseTransitionOverlayProps {
+  type: 'encouragement' | 'micro-pause';
+  durationOverride?: number;
+  completedCount: number;
+  totalCount: number;
+  nextExerciseName: string;
+  sessionId?: string | null;
+  onContinue: () => void;
+  onEnd: () => void;
+}
+
 export const ExerciseTransitionOverlay = ({
   type,
   durationOverride,
@@ -20,9 +31,7 @@ export const ExerciseTransitionOverlay = ({
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
-  const [encouragement] = useState(() => 
-    encouragements[Math.floor(Math.random() * encouragements.length)]
-  );
+  const [encouragement] = useState(() => getTransitionEncouragement());
 
   useEffect(() => {
     if (isPaused) return;

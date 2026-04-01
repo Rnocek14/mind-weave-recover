@@ -8,6 +8,14 @@ import type { LastSessionFeedback } from "@/hooks/useLastSessionFeedback";
 import { generateThreadReinforcement, type MayaNarrativeThread } from "@/lib/mayaNarrative";
 import { getPostSessionHeadline, getPostSessionNudge, DOMAIN_DISPLAY_LABELS } from "@/lib/performanceAwareFeedback";
 
+interface PostSessionCardProps {
+  feedback: LastSessionFeedback;
+  onDismiss: () => void;
+  onStartSession?: () => void;
+  anticipation?: string | null;
+  thread?: MayaNarrativeThread | null;
+}
+
 function getDomainLabel(exercises: string[]): string | null {
   if (!exercises.length) return null;
   const slug = exercises[0].replace(/_/g, "-");
