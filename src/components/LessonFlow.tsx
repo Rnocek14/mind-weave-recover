@@ -60,6 +60,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPause, setCurrentPause] = useState<PauseDecision | null>(null);
+  const [activeSupportPivot, setActiveSupportPivot] = useState(false); // Runtime support pivot flag
+  const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks); // Mutable block list for support injection
   
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
