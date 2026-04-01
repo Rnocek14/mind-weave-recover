@@ -71,6 +71,8 @@ import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWor
 import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib/anchorExtractor';
 import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
+import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
+import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
 
 // Store card results for AI context
 interface CardResult {
@@ -331,6 +333,8 @@ export function useCoachSession({
   // NEW: Cue engine and difficulty controller state
   const cueStateRef = useRef<CueState>(createInitialCueState());
   const trlTrackerRef = useRef(new TRLTracker());
+  const repairTrackerRef = useRef(new RepairSuccessTracker());
+  const gameTriggerStateRef = useRef(createTriggerState());
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
@@ -1128,6 +1132,39 @@ export function useCoachSession({
           const wasStruggle = analysis.effortfulSpeech || analysis.fluencyScore < 40;
           trlTrackerRef.current.recordTurn(trlResult.level, trlResult.anchorUsageType, wasStruggle);
           
+          // Track repair attempts
+          repairTrackerRef.current.recordAnchorUsage(trlResult.anchorUsageType);
+          if (RepairSuccessTracker.isRepairAttempt(cueRec.cueLevel, analysis.effortfulSpeech, wordCount)) {
+            repairTrackerRef.current.recordRepairAttempt({
+              turnNumber: orchestratorStateRef.current.turnNumber,
+              trlLevel: trlResult.level,
+              cueType: cueRec.cueLevel >= 3 ? 'phonemic' : cueRec.cueLevel >= 2 ? 'semantic' : null,
+              wasSuccessful: RepairSuccessTracker.wasRepairSuccessful(wordCount),
+              wordCountBefore: wordCount,
+              wordCountAfter: wordCount, // will be updated on next turn
+              latencyMs: latencyMs,
+            });
+          }
+          
+          // TRL Game Triggers — launch mini-games when levels persist
+          const { result: gameTrigger, newState: newTriggerState } = evaluateGameTrigger(
+            gameTriggerStateRef.current,
+            trlResult.level,
+            orchestratorStateRef.current.turnNumber,
+          );
+          gameTriggerStateRef.current = newTriggerState;
+          if (gameTrigger.trigger && gameTrigger.slug) {
+            const popup = triggerToPopupExercise(gameTrigger);
+            if (popup) {
+              console.log('[trl-game-trigger]', gameTrigger.trigger, '→', gameTrigger.slug, '|', gameTrigger.reason);
+              setPendingPopupExercise({
+                slug: popup.slug,
+                reason: popup.reason,
+                difficultyHint: popup.difficultyHint,
+              });
+            }
+          }
+          
           // Dead-end recovery — anchor to something the user said
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
           const lowerResponse = aiResponseText.toLowerCase().trim().replace(/[.!]+$/, '');
@@ -1537,6 +1574,8 @@ export function useCoachSession({
     cardsCompletedRef.current = 0;
     anchorMetricsRef.current = [];
     trlTrackerRef.current.reset();
+    repairTrackerRef.current.reset();
+    gameTriggerStateRef.current = createTriggerState();
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
     engagementMonitorRef.current.reset();
@@ -1600,8 +1639,9 @@ export function useCoachSession({
           regeneration_rate: anchorData.length > 0 ? Math.round((regenerations.length / anchorData.length) * 100) : 0,
         };
         
-        // Add TRL metrics to session summary
+        // Add TRL metrics + repair metrics to session summary
         const trlMetrics = trlTrackerRef.current.getMetrics();
+        const repairMetrics = repairTrackerRef.current.getMetrics();
         const fullSummary = {
           ...anchorSummary,
           trl_total_turns: trlMetrics.totalTurns,
@@ -1609,6 +1649,15 @@ export function useCoachSession({
           trl_avg_level: trlMetrics.avgLevel,
           trl_level_distribution: trlMetrics.levelDistribution,
           trl_anchor_usage: trlMetrics.anchorUsageBreakdown,
+          // Repair metrics
+          repair_success_rate: repairMetrics.repairSuccessRate,
+          repair_total_attempts: repairMetrics.totalAttempts,
+          repair_successful: repairMetrics.successfulRepairs,
+          repair_by_level: repairMetrics.byLevel,
+          repair_by_cue_type: repairMetrics.byCueType,
+          repair_first_half_rate: repairMetrics.firstHalfRate,
+          repair_second_half_rate: repairMetrics.secondHalfRate,
+          repair_progression_delta: repairMetrics.progressionDelta,
         };
         
         // Persist to session summary alongside recovery lift
