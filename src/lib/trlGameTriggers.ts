@@ -45,19 +45,40 @@ export function evaluateGameTrigger(
   state: TriggerState,
   currentLevel: ResponseLevel,
   turnNumber: number,
+  /** Emergency override: consecutive struggle count from TRL tracker */
+  consecutiveStruggles?: number,
 ): { result: GameTriggerResult; newState: TriggerState } {
   // Update recent levels (keep last 5)
   const recentLevels = [...state.recentLevels, currentLevel].slice(-5);
   const newState: TriggerState = { ...state, recentLevels };
 
-  // Cooldown check
-  if (turnNumber - state.lastGameTurn < MIN_TURNS_BETWEEN_GAMES) {
-    return { result: { trigger: null, slug: null, reason: 'cooldown', difficultyHint: 'same' }, newState };
-  }
-
   // Session cap
   if (state.gamesTriggeredThisSession >= MAX_GAMES_PER_SESSION) {
     return { result: { trigger: null, slug: null, reason: 'session_cap', difficultyHint: 'same' }, newState };
+  }
+
+  // Cooldown check — BUT skip cooldown for emergency (2+ consecutive struggles)
+  const isEmergency = (consecutiveStruggles ?? 0) >= 2;
+  if (!isEmergency && turnNumber - state.lastGameTurn < MIN_TURNS_BETWEEN_GAMES) {
+    return { result: { trigger: null, slug: null, reason: 'cooldown', difficultyHint: 'same' }, newState };
+  }
+
+  // ── EMERGENCY: 2+ consecutive struggles → immediate confidence rebuild ──
+  // This is the "never let user get stuck" rule
+  if (isEmergency) {
+    return {
+      result: {
+        trigger: 'confidence_rebuild',
+        slug: 'photo-naming',
+        reason: `${consecutiveStruggles} consecutive struggles — emergency rescue`,
+        difficultyHint: 'easier',
+      },
+      newState: {
+        ...newState,
+        lastGameTurn: turnNumber,
+        gamesTriggeredThisSession: state.gamesTriggeredThisSession + 1,
+      },
+    };
   }
 
   // ── Level 4: Immediate confidence rebuild ──
