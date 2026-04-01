@@ -123,7 +123,7 @@ export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipat
 
         {/* Motivational nudge */}
         <p className="text-sm text-center text-muted-foreground">
-          {getMotivationalNudge(feedback, domainLabel)}
+          {getPostSessionNudge(feedback, domainLabel)}
         </p>
 
         {/* Thread reinforcement — connects session to ongoing story */}
