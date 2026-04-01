@@ -256,10 +256,10 @@ export function generateContextBridge(
   // === Bridge from topic + anchor ===
   if (topic && anchor) {
     const anchoredBridges = [
-      `You mentioned ${anchor} — let me show you a quick one.`,
-      `Since you brought up ${anchor} — how about this?`,
-      `Oh, ${anchor}! That reminds me — try this one.`,
-      `Hmm, ${anchor}. Let's do a quick one related to that.`,
+      `You mentioned ${anchor} — how about a quick one on that?`,
+      `Since you brought up ${anchor} — want to try something?`,
+      `Oh, ${anchor}! That gives me an idea.`,
+      `Hmm, ${anchor}. Let's try a quick one on that.`,
     ];
     return pickUnique(anchoredBridges, _lastBridges);
   }
