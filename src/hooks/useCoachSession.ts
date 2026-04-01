@@ -1124,6 +1124,10 @@ export function useCoachSession({
             anchorMetricsRef.current.push(data.anchorMetrics as AnchorMetrics);
           }
           
+          // Track TRL level for session analytics
+          const wasStruggle = analysis.effortfulSpeech || analysis.fluencyScore < 40;
+          trlTrackerRef.current.recordTurn(trlResult.level, trlResult.anchorUsageType, wasStruggle);
+          
           // Dead-end recovery — anchor to something the user said
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
           const lowerResponse = aiResponseText.toLowerCase().trim().replace(/[.!]+$/, '');
