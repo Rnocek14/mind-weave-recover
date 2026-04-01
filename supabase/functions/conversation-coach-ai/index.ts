@@ -329,6 +329,7 @@ serve(async (req) => {
       therapyStrategy,
       anchorContext,
       therapeuticLevel,
+      hallucinationGuard,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -367,6 +368,10 @@ serve(async (req) => {
         label: string;
         promptBlock: string;
         anchorUsageType: string;
+      };
+      hallucinationGuard?: {
+        promptBlock: string;
+        allowedEntities: string[];
       };
     };
 
