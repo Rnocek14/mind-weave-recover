@@ -1600,12 +1600,24 @@ export function useCoachSession({
           regeneration_rate: anchorData.length > 0 ? Math.round((regenerations.length / anchorData.length) * 100) : 0,
         };
         
+        // Add TRL metrics to session summary
+        const trlMetrics = trlTrackerRef.current.getMetrics();
+        const fullSummary = {
+          ...anchorSummary,
+          trl_total_turns: trlMetrics.totalTurns,
+          trl_guided_rate: trlMetrics.guidedRate,
+          trl_avg_level: trlMetrics.avgLevel,
+          trl_level_distribution: trlMetrics.levelDistribution,
+          trl_anchor_usage: trlMetrics.anchorUsageBreakdown,
+        };
+        
         // Persist to session summary alongside recovery lift
         supabase.from('sessions').update({
-          engagement_summary: anchorSummary as any,
+          engagement_summary: fullSummary as any,
         }).eq('id', sessionId).then(() => {});
         
         console.log('[session-end] Anchor Analytics:', anchorSummary);
+        console.log('[session-end] TRL Metrics:', { guidedRate: trlMetrics.guidedRate, avgLevel: trlMetrics.avgLevel, dist: trlMetrics.levelDistribution });
       }
     }
     
