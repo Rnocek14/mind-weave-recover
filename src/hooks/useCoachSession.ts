@@ -1132,6 +1132,39 @@ export function useCoachSession({
           const wasStruggle = analysis.effortfulSpeech || analysis.fluencyScore < 40;
           trlTrackerRef.current.recordTurn(trlResult.level, trlResult.anchorUsageType, wasStruggle);
           
+          // Track repair attempts
+          repairTrackerRef.current.recordAnchorUsage(trlResult.anchorUsageType);
+          if (RepairSuccessTracker.isRepairAttempt(cueRec.cueLevel, analysis.effortfulSpeech, wordCount)) {
+            repairTrackerRef.current.recordRepairAttempt({
+              turnNumber: orchestratorStateRef.current.turnNumber,
+              trlLevel: trlResult.level,
+              cueType: cueRec.cueLevel >= 3 ? 'phonemic' : cueRec.cueLevel >= 2 ? 'semantic' : null,
+              wasSuccessful: RepairSuccessTracker.wasRepairSuccessful(wordCount),
+              wordCountBefore: wordCount,
+              wordCountAfter: wordCount, // will be updated on next turn
+              latencyMs: latencyMs,
+            });
+          }
+          
+          // TRL Game Triggers — launch mini-games when levels persist
+          const { result: gameTrigger, newState: newTriggerState } = evaluateGameTrigger(
+            gameTriggerStateRef.current,
+            trlResult.level,
+            orchestratorStateRef.current.turnNumber,
+          );
+          gameTriggerStateRef.current = newTriggerState;
+          if (gameTrigger.trigger && gameTrigger.slug) {
+            const popup = triggerToPopupExercise(gameTrigger);
+            if (popup) {
+              console.log('[trl-game-trigger]', gameTrigger.trigger, '→', gameTrigger.slug, '|', gameTrigger.reason);
+              setPendingPopupExercise({
+                slug: popup.slug,
+                reason: popup.reason,
+                difficultyHint: popup.difficultyHint,
+              });
+            }
+          }
+          
           // Dead-end recovery — anchor to something the user said
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
           const lowerResponse = aiResponseText.toLowerCase().trim().replace(/[.!]+$/, '');
