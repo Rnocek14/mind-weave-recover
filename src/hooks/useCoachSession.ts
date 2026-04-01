@@ -1167,6 +1167,7 @@ export function useCoachSession({
             gameTriggerStateRef.current,
             trlResult.level,
             orchestratorStateRef.current.turnNumber,
+            trlTrackerRef.current.consecutiveStruggles,
           );
           gameTriggerStateRef.current = newTriggerState;
           
