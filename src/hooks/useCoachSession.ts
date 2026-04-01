@@ -74,6 +74,9 @@ import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type Anch
 import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
 import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
 import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/hallucinationGuard';
+import { createSessionPhaseState, evaluatePhaseTransition, applyPhaseTransition, getPhaseBiases, getCloseSessionInsight, type SessionPhaseState as TherapyPhaseState } from '@/lib/sessionPhaseController';
+import { createFeedbackTracker, recordTurnForFeedback, type FeedbackTracker } from '@/lib/microFeedback';
+import { generateGameIntro, generateGameReturn, type GameTransitionContext, type GameReturnContext } from '@/lib/gameTransitions';
 
 // Store card results for AI context
 interface CardResult {
@@ -339,6 +342,10 @@ export function useCoachSession({
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
+  // Session phase controller — manages ideal 5-minute flow
+  const sessionPhaseStateRef = useRef<TherapyPhaseState>(createSessionPhaseState());
+  // Micro-feedback tracker — surfaces progress moments
+  const feedbackTrackerRef = useRef<FeedbackTracker>(createFeedbackTracker());
   // Rolling semantic memory — AI-maintained conversation summary
     const rollingMemoryRef = useRef<string>('');
     // Session intelligence tracker — within-session memory for Maya
@@ -711,22 +718,14 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
-      // FLOW ENGINE: Context-aware popup transition (warm, not clinical)
-      const currentTopic = orchestratorStateRef.current.currentTopic;
-      const popupIntros = currentTopic
-        ? [
-            `Since we're on ${currentTopic} — want to try a quick one?`,
-            `Oh, that reminds me — let me show you something fun.`,
-            `Hmm, related to ${currentTopic} — how about this?`,
-            `Hey, I've got a quick one you might like.`,
-          ]
-        : [
-            "Oh hey — want to try something quick?",
-            "I've got a fun one — take a look.",
-            "Let me show you something real quick.",
-            "Here's a quick one — just for fun.",
-          ];
-      const intro = popupIntros[Math.floor(Math.random() * popupIntros.length)];
+      // GAME TRANSITIONS: Use contextual intro based on trigger type
+      const intro = generateGameIntro({
+        currentTopic: orchestratorStateRef.current.currentTopic,
+        triggerType: action.reason === 'repeated_struggle' ? 'confidence_rebuild' : 'targeted_drill',
+        gameSlug: action.slug,
+        userLastWords: transcript.slice(0, 50),
+        trlLevel: 2,
+      });
       addMessage({ type: 'ai', text: intro, id: generateId() });
       aiWordsRef.current += countWords(intro);
       aiResponseText = intro;
@@ -1162,22 +1161,85 @@ export function useCoachSession({
           }
           
           // TRL Game Triggers — launch mini-games when levels persist
+          // SESSION PHASE: Only allow game triggers when phase permits
+          const phaseBiases = getPhaseBiases(sessionPhaseStateRef.current);
           const { result: gameTrigger, newState: newTriggerState } = evaluateGameTrigger(
             gameTriggerStateRef.current,
             trlResult.level,
             orchestratorStateRef.current.turnNumber,
           );
           gameTriggerStateRef.current = newTriggerState;
-          if (gameTrigger.trigger && gameTrigger.slug) {
+          
+          let gameTriggerFired = false;
+          if (gameTrigger.trigger && gameTrigger.slug && phaseBiases.allowGameTrigger) {
             const popup = triggerToPopupExercise(gameTrigger);
             if (popup) {
+              gameTriggerFired = true;
               console.log('[trl-game-trigger]', gameTrigger.trigger, '→', gameTrigger.slug, '|', gameTrigger.reason);
+              
+              // Use contextual game intro instead of generic popup intro
+              const gameIntro = generateGameIntro({
+                currentTopic: orchestratorStateRef.current.currentTopic,
+                triggerType: gameTrigger.trigger,
+                gameSlug: gameTrigger.slug,
+                userLastWords: transcript.slice(0, 50),
+                trlLevel: trlResult.level,
+              });
+              
+              // Replace AI response with the game intro
+              aiResponseText = gameIntro;
+              
               setPendingPopupExercise({
                 slug: popup.slug,
                 reason: popup.reason,
                 difficultyHint: popup.difficultyHint,
               });
             }
+          }
+          
+          // SESSION PHASE: Evaluate phase transition
+          const phaseTransition = evaluatePhaseTransition(
+            sessionPhaseStateRef.current,
+            {
+              fluencyScore: analysis.fluencyScore,
+              effortfulSpeech: analysis.effortfulSpeech,
+              wordCount,
+              consecutiveSuccesses: trlTrackerRef.current.consecutiveSuccesses,
+              consecutiveStruggles: trlTrackerRef.current.consecutiveStruggles,
+              gameTriggerFired,
+              gameJustCompleted: false,
+            }
+          );
+          sessionPhaseStateRef.current = applyPhaseTransition(
+            sessionPhaseStateRef.current,
+            phaseTransition,
+            analysis.fluencyScore,
+          );
+          if (phaseTransition.transitioned) {
+            console.log('[session-phase]', phaseTransition.newPhase, '|', phaseTransition.reason);
+          }
+          
+          // MICRO-FEEDBACK: Check if we should surface a progress moment
+          const wasRepairSuccessful = RepairSuccessTracker.isRepairAttempt(cueRec.cueLevel, analysis.effortfulSpeech, wordCount) 
+            && RepairSuccessTracker.wasRepairSuccessful(wordCount);
+          const { tracker: updatedFeedbackTracker, feedback: microFeedback } = recordTurnForFeedback(
+            feedbackTrackerRef.current,
+            {
+              turnNumber: orchestratorStateRef.current.turnNumber,
+              latencyMs: latencyMs,
+              wordCount,
+              cueLevel: cueRec.cueLevel,
+              fluencyScore: analysis.fluencyScore,
+              wasRepairSuccessful,
+              gameJustCompleted: false,
+            }
+          );
+          feedbackTrackerRef.current = updatedFeedbackTracker;
+          
+          // Prepend micro-feedback to AI response if earned
+          if (microFeedback.text && microFeedback.delivery === 'prepend' && aiResponseText && !gameTriggerFired) {
+            aiResponseText = `${microFeedback.text} ${aiResponseText}`;
+            console.log('[micro-feedback]', microFeedback.type, '|', microFeedback.text);
           }
           
           // Dead-end recovery — anchor to something the user said
@@ -1590,6 +1652,8 @@ export function useCoachSession({
     anchorMetricsRef.current = [];
     trlTrackerRef.current.reset();
     repairTrackerRef.current.reset();
+    sessionPhaseStateRef.current = createSessionPhaseState();
+    feedbackTrackerRef.current = createFeedbackTracker();
     gameTriggerStateRef.current = createTriggerState();
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
@@ -1745,7 +1809,35 @@ export function useCoachSession({
       result.targetWords
     );
 
-    // Generate AI follow-up that references the exercise
+    // SESSION PHASE: Transition to reintegration after game completes
+    const phaseTransition = evaluatePhaseTransition(
+      sessionPhaseStateRef.current,
+      {
+        fluencyScore: 50,
+        effortfulSpeech: false,
+        wordCount: 0,
+        consecutiveSuccesses: 0,
+        consecutiveStruggles: 0,
+        gameTriggerFired: false,
+        gameJustCompleted: true,
+      }
+    );
+    sessionPhaseStateRef.current = applyPhaseTransition(sessionPhaseStateRef.current, phaseTransition);
+    if (phaseTransition.transitioned) {
+      console.log('[session-phase] Post-game:', phaseTransition.newPhase, '|', phaseTransition.reason);
+    }
+
+    // GAME TRANSITIONS: Generate contextual return message
+    const gameReturnText = generateGameReturn({
+      gameSlug: result.slug,
+      currentTopic: orchestratorStateRef.current.currentTopic,
+      wasSuccessful: result.score >= 0.5,
+      score: result.score,
+      accuracy: result.accuracy ?? 0,
+      successItems: result.targetWords ?? [],
+    });
+
+    // Try to get AI follow-up, fall back to contextual return
     let followupText: string;
     try {
       const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
@@ -1768,13 +1860,10 @@ export function useCoachSession({
           },
         }
       });
-      followupText = data?.response || (result.score >= 0.7
-        ? "Nice work on that! Let's keep going with our conversation."
-        : "Good effort — that gives me a better sense of what to focus on. Let's continue.");
+      // Use AI response if good, otherwise use our contextual return
+      followupText = data?.response || gameReturnText;
     } catch {
-      followupText = result.score >= 0.7
-        ? "Great job on that practice! Now, where were we?"
-        : "Thanks for working through that. Let's keep chatting.";
+      followupText = gameReturnText;
     }
 
     addMessage({ type: 'ai', text: followupText, id: generateId() });
