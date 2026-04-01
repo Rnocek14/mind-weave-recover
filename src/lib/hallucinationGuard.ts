@@ -151,7 +151,7 @@ export function checkForHallucinations(
 // ═══════════════════════════════════════════════════════════════
 
 export function getHallucinationGuardPromptBlock(allowlist: EntityAllowlist): string {
-  const known = [...allowlist.all].slice(0, 15).join(', ');
+  const known = Array.from(allowlist.all).slice(0, 15).join(', ');
   return `[HALLUCINATION GUARD — MANDATORY]
 You may ONLY reference objects, animals, food, and places that the user has already mentioned.
 Known entities from this conversation: ${known || 'none yet'}
