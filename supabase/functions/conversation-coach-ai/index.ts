@@ -267,6 +267,8 @@ function buildSystemPrompt(
     '- Never mention being AI.',
   ];
   return parts.filter(Boolean).join('\n');
+}
+
 // =========================================================================
 // Tool definition for structured response + memory
 // =========================================================================

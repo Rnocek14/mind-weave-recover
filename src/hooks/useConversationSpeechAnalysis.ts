@@ -12,6 +12,7 @@ import { useCallback, useRef } from 'react';
 import { classifySpeechError, ErrorClassificationResult } from '@/lib/errorClassifier';
 import { deriveMicroFluency, MicroFluencyAnalysis } from '@/lib/microFluencyAnalyzer';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateRecoveryLift, type TurnSnapshot, type RecoveryLiftResult } from '@/lib/recoveryLiftScore';
 
 export interface ConversationUtteranceAnalysis {
   transcript: string;
@@ -331,6 +332,16 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       .map(a => a.transcript)
       .slice(0, 3);
     
+    // Calculate Recovery Lift Score
+    const turnSnapshots: TurnSnapshot[] = history.map(a => ({
+      wordCount: a.wordCount,
+      fluencyScore: a.fluencyScore,
+      latencyMs: a.latencyToFirstWordMs,
+      cueLevel: 0, // Will be enriched by coach session if available
+      wasIndependent: a.wordCount >= 3 && !a.effortfulSpeech,
+    }));
+    const recoveryLift = calculateRecoveryLift(turnSnapshots);
+
     return {
       avgFluency,
       effortfulCount,
@@ -344,6 +355,8 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
       avgPronunciationScore,
       challengingSounds: allChallengingSounds,
       bestUtterances,
+      // Recovery Lift
+      recoveryLift,
     };
   }, []);
 

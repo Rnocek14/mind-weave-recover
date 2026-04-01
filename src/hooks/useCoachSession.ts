@@ -1524,6 +1524,15 @@ export function useCoachSession({
       primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
       sessionIntelligence: serializedIntelligence as unknown as Record<string, unknown>,
     });
+
+    // Persist Recovery Lift Score
+    if (sessionMetrics?.recoveryLift && sessionId) {
+      import('@/lib/recoveryLiftScore').then(({ persistRecoveryLift }) => {
+        persistRecoveryLift(sessionId, sessionMetrics.recoveryLift!);
+      });
+      console.log('[session-end] Recovery Lift:', sessionMetrics.recoveryLift.liftScore,
+        '(confidence:', sessionMetrics.recoveryLift.confidence + ')');
+    }
     
     console.log('[session-end] Persisted intelligence:', {
       totalAttempts: intelligenceSnapshot.totalAttempts,
