@@ -112,4 +112,8 @@ export interface CoachTurnResult {
   cueDecision: CueDecision;
   validation: ValidationResult;
   usedFallback: boolean;
+  /** Debug: the prompt sent to the model */
+  debugPrompt?: string;
+  /** Debug: raw model output before validation/post-processing */
+  debugRawOutput?: string;
 }
