@@ -576,6 +576,25 @@ serve(async (req) => {
       messages.push({ role: 'system', content: hallucinationGuard.promptBlock });
     }
 
+    // ═══ USER CORRECTION DETECTION ═══
+    const correctionPatterns = [
+      /no,?\s*(i was|i('m| am)|we were) (talking|telling|saying)/i,
+      /aren('t| are not) you listening/i,
+      /don('t| do not) you listen/i,
+      /i (already|just) (said|told|mentioned)/i,
+      /that('s| is) not what i (said|meant)/i,
+      /i('m| am) talking about/i,
+    ];
+    const userIsCorrectingMaya = correctionPatterns.some(p => p.test(userTranscript || ''));
+    
+    if (userIsCorrectingMaya) {
+      messages.push({
+        role: 'system',
+        content: `[⚠️ USER CORRECTION DETECTED — The user is telling you that you misunderstood or weren't listening. This is your TOP PRIORITY:\n1. Acknowledge: "Right, sorry!" or "My bad!"\n2. Restate THEIR topic from what they just said\n3. Ask about THEIR topic specifically\nDo NOT deflect. Do NOT ask a generic question. Do NOT change the subject.]`,
+      });
+      console.log('USER CORRECTION DETECTED:', userTranscript?.slice(0, 50));
+    }
+
     // Current user message
     messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
