@@ -107,7 +107,7 @@ export function determineResponseLevel(inputs: TRLInputs): ResponseLevelResult {
   // ── Level 0: Passive Expansion ──  (PROMOTED — check BEFORE Level 2/1)
   // Strong flow: high word count + not effortful → let them talk freely
   else if (
-    wordCount >= 6 && !effortfulSpeech && fluencyScore >= 60 && completionConfidence !== 'low'
+    wordCount >= 6 && !effortfulSpeech && fluencyScore >= 60
   ) {
     level = 0;
     reasoning = 'User flowing well (6+ words, no effort) — open conversation, no scaffolding';
