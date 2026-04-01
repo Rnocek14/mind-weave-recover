@@ -23,9 +23,9 @@ const QUICK_SUCCESS = [
   "Ha, no pause at all!",
   "That was effortless.",
   "See? Rolled right off.",
-  "You can feel that one was easier, right?",
-  "That's the flow — feels different when it just comes out.",
-  "No effort at all. That's what it should feel like.",
+  "That one came out quicker than before.",
+  "No hesitation — that's what it looks like when it's clicking.",
+  "That came out smooth — keep going.",
 ];
 
 const RECOVERED_SUCCESS = [
@@ -34,9 +34,9 @@ const RECOVERED_SUCCESS = [
   "See? You knew it. Just needed a moment.",
   "It came to you — that's what matters.",
   "A little work, but you got it.",
-  "You can feel it click when it lands, right?",
-  "That moment when it comes to you — that's the good part.",
+  "That moment when it clicks — that's the good part.",
   "There it is. You knew it was in there.",
+  "Took a beat, but it came out right. That's what counts.",
 ];
 
 const IMPROVED_FROM_BEFORE = [
@@ -45,9 +45,9 @@ const IMPROVED_FROM_BEFORE = [
   "That's getting easier for you, I can tell.",
   "Way smoother than last time.",
   "You're getting faster with those.",
-  "You can feel the difference from before, right?",
   "That used to take way more effort. Not anymore.",
-  "Easier every time — you can tell.",
+  "Easier every time — that's what progress looks like.",
+  "Compared to before? Night and day.",
 ];
 
 const STRUGGLE_ENCOURAGEMENT = [
@@ -58,7 +58,7 @@ const STRUGGLE_ENCOURAGEMENT = [
   "That word is tricky. You'll get it.",
   "It's right there — sometimes it just takes a second longer.",
   "You're closer than you think. It'll come.",
-  "That one's stubborn — but so are you.",
+  "That one's stubborn. We'll get it next time.",
 ];
 
 // ═══════════════════════════════════════════════════════════════
