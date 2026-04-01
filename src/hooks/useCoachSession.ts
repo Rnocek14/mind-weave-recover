@@ -1574,6 +1574,8 @@ export function useCoachSession({
     cardsCompletedRef.current = 0;
     anchorMetricsRef.current = [];
     trlTrackerRef.current.reset();
+    repairTrackerRef.current.reset();
+    gameTriggerStateRef.current = createTriggerState();
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
     engagementMonitorRef.current.reset();
