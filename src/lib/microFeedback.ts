@@ -27,7 +27,7 @@ export interface MicroFeedbackResult {
   delivery: 'prepend' | 'standalone' | 'none';
 }
 
-interface FeedbackTracker {
+export interface FeedbackTracker {
   lastFeedbackTurn: number;
   recentLatencies: number[];
   recentWordCounts: number[];
