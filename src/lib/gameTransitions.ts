@@ -32,19 +32,21 @@ export interface GameReturnContext {
 export function generateGameIntro(ctx: GameTransitionContext): string {
   const { currentTopic, triggerType, trlLevel } = ctx;
 
-  // Level 4 / confidence rebuild — ultra gentle + purposeful
+  // Level 4 / confidence rebuild — ultra gentle + purposeful + emotional
   if (triggerType === 'confidence_rebuild' || trlLevel >= 4) {
     return pickRandom(
       currentTopic
         ? [
-            `That's okay — let's do something quick to get the words flowing. This helps your brain pull words faster when you're talking. Still thinking about ${currentTopic}.`,
-            `No pressure — here's a quick warm-up. It helps with finding words in real conversations. We'll come back to ${currentTopic}.`,
-            `Let's try something simple — this makes it easier to say what you mean when it matters.`,
+            `That's okay — let's do something quick to loosen things up. It makes finding words easier when you need them. Still thinking about ${currentTopic}.`,
+            `No pressure — here's a quick warm-up. You'll feel the difference after. We'll come back to ${currentTopic}.`,
+            `Let's try something simple — it takes the pressure off and makes things flow better.`,
+            `This will help — just a quick one to get things moving again. Then back to ${currentTopic}.`,
           ]
         : [
-            `That's okay — let's do something quick to get the words flowing. This helps your brain pull words faster when you're talking.`,
-            `No pressure — here's a quick warm-up. It makes finding words easier in real conversations.`,
-            `Let's try something simple — this helps when you're talking to someone and need the right word.`,
+            `That's okay — let's do something quick to loosen things up. You'll feel the difference.`,
+            `No pressure — here's a quick warm-up. It takes the edge off and makes words come easier.`,
+            `Let's try something simple — it makes everything feel a little smoother after.`,
+            `Quick one — this helps get things unstuck. You'll feel it.`,
           ]
     );
   }
@@ -53,14 +55,14 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
   if (triggerType === 'targeted_drill') {
     const drillIntros = currentTopic
       ? [
-          `Since we're talking about ${currentTopic} — let me give you a quick listening exercise. This helps you catch words more clearly in conversations.`,
-          `Here's a quick one — it sharpens how you hear the difference between similar words. Useful in real conversations.`,
-          `Quick exercise — this helps your brain tell similar sounds apart, like when someone's talking to you.`,
+          `Since we're talking about ${currentTopic} — quick listening exercise. It helps you catch words more clearly when someone's talking.`,
+          `Here's a quick one — sharpens how you hear similar words. Makes a real difference in everyday situations.`,
+          `Quick exercise — helps your brain tell similar sounds apart. You'll notice the difference when you're listening to someone.`,
         ]
       : [
-          `Let me give you a quick listening exercise — it helps you catch words more clearly when people talk to you.`,
-          `Here's a quick one — it sharpens how you hear differences between words in real conversations.`,
-          `Try this — it helps your brain process words faster, like when you're listening to someone.`,
+          `Quick listening exercise — it helps you catch words more clearly when people talk to you.`,
+          `Here's a quick one — makes it easier to tell similar words apart in everyday situations.`,
+          `Try this — it helps your brain process what you hear. You'll feel sharper after.`,
         ];
     return pickRandom(drillIntros);
   }
@@ -69,22 +71,22 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
   if (triggerType === 'scaffolded_choice_game') {
     const matchIntros = currentTopic
       ? [
-          `You're doing great — let's do a quick round. This helps you match words to meanings faster, like in real conversations. Still on ${currentTopic}.`,
-          `Quick one — this gets the word connections flowing, so it's easier when you're talking to someone.`,
-          `Here's a fun one — it helps your brain link words faster. Useful when you're explaining something.`,
+          `You're doing great — quick round. This gets the word connections flowing. Still on ${currentTopic}.`,
+          `Quick one — makes it easier to grab the right word when you're explaining something.`,
+          `Here's a fun one — it loosens up the connections so words come faster. Then back to ${currentTopic}.`,
         ]
       : [
-          `You're doing great — let's do a quick round. This helps you connect words faster in real conversations.`,
-          `Quick one — this gets your word connections flowing, like when you're talking to someone.`,
-          `Here's a fun one — it helps your brain link words to meanings faster.`,
+          `You're doing great — quick round to get the connections flowing.`,
+          `Quick one — makes it easier to grab the right word when you need it.`,
+          `Here's a fun one — it loosens things up so words come to you faster.`,
         ];
     return pickRandom(matchIntros);
   }
 
   // Fallback
   return currentTopic
-    ? `Quick practice round — this helps with real conversations. We'll get back to ${currentTopic} right after.`
-    : "Quick practice round — this helps you find words faster when you're talking to someone.";
+    ? `Quick practice — makes everything flow better. Back to ${currentTopic} right after.`
+    : "Quick practice — makes it easier to find words when you need them.";
 }
 
 /**
@@ -97,14 +99,15 @@ export function generateGameReturn(ctx: GameReturnContext): string {
   // Successful game + has topic → anchor back with real-life connection
   if (wasSuccessful && currentTopic) {
     const successReturns = [
-      `Nice — you got those fast. That speed is what helps in real conversations. Back to ${currentTopic} — what else happened?`,
-      `See? You're quicker now. That's exactly how it gets easier when you're talking to someone. So, ${currentTopic} — where were we?`,
-      `That was solid — your brain just got warmed up. Okay, back to ${currentTopic}.`,
+      `Nice — you can feel how much quicker that was. Back to ${currentTopic} — what else happened?`,
+      `See? Smoother already. That's the feeling we want. So, ${currentTopic} — where were we?`,
+      `That was solid — everything flows easier now. Okay, back to ${currentTopic}.`,
+      `You're warmed up — can you feel it? Words come easier after that. So, ${currentTopic}?`,
     ];
     if (successItems.length > 0) {
       const item = successItems[0];
       successReturns.push(
-        `"${item}" — no hesitation. That's the kind of speed that helps when you're explaining something. Speaking of ${currentTopic}...`,
+        `"${item}" — no hesitation. That's the feeling. Speaking of ${currentTopic}...`,
       );
     }
     return pickRandom(successReturns);
@@ -113,26 +116,29 @@ export function generateGameReturn(ctx: GameReturnContext): string {
   // Successful game + no topic
   if (wasSuccessful) {
     return pickRandom([
-      "Nice work — your word finding is getting faster. What's on your mind?",
-      "See? Getting quicker. That's what makes real conversations easier. Keep going.",
-      "That was good — your brain is warmed up now. What were you thinking about?",
+      "Nice — you can feel how that loosened things up. What's on your mind?",
+      "See how much easier that felt? That's the warm-up working. Keep going.",
+      "That was good — everything flows better now. What were you thinking about?",
+      "You're in a groove now. Can you feel it? Go ahead.",
     ]);
   }
 
   // Struggled but completed + has topic
   if (!wasSuccessful && currentTopic) {
     return pickRandom([
-      `Good effort — those get easier with practice, and it all helps when you're talking to someone. Back to ${currentTopic}?`,
-      `That was tough, but every time you try it gets a little easier in real conversations. Back to ${currentTopic}?`,
+      `Good effort — it gets a little easier every time you try. Back to ${currentTopic}?`,
+      `That was tough, but each try makes a difference. You'll feel it. Back to ${currentTopic}?`,
       `No worries — this kind of practice adds up. So, ${currentTopic}...`,
+      `That's okay — your brain is still working on it. It'll come easier. So, ${currentTopic}?`,
     ]);
   }
 
   // Struggled + no topic
   return pickRandom([
-    "Good effort — every try makes it a little easier when you're talking to someone.",
-    "That's okay — this kind of practice helps your brain find words faster over time.",
-    "No worries. Each time helps. What were you thinking about before?",
+    "Good effort — every try makes a difference. You'll feel it over time.",
+    "That's okay — your brain is still working on it even after we move on.",
+    "No worries. Each time helps more than you think. What were you thinking about?",
+    "That'll get easier. Trust the process. What's on your mind?",
   ]);
 }
 
