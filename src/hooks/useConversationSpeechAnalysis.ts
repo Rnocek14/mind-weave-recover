@@ -12,6 +12,7 @@ import { useCallback, useRef } from 'react';
 import { classifySpeechError, ErrorClassificationResult } from '@/lib/errorClassifier';
 import { deriveMicroFluency, MicroFluencyAnalysis } from '@/lib/microFluencyAnalyzer';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateRecoveryLift, type TurnSnapshot, type RecoveryLiftResult } from '@/lib/recoveryLiftScore';
 
 export interface ConversationUtteranceAnalysis {
   transcript: string;
