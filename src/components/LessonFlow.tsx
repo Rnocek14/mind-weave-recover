@@ -336,10 +336,27 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
-      trackSessionComplete(sessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
+      trackSessionComplete(sessionId, runtimeBlocks.length, Date.now() - sessionStartTimeRef.current);
       setPhase("summary");
     } else {
       const nextIndex = currentBlockIndex + 1;
+      
+      // === RUNTIME SUPPORT PIVOT ===
+      // If user is struggling and we have support blocks, inject one
+      const currentPriority = runtimeBlocks[currentBlockIndex]?.priority || 'primary';
+      if (
+        !activeSupportPivot &&
+        lesson.supportBlocks?.length &&
+        shouldPivotToSupport(recentScoresRef.current, currentPriority)
+      ) {
+        console.log('[LessonFlow] 🔄 SUPPORT PIVOT: Injecting support exercise due to low performance');
+        const supportBlock = lesson.supportBlocks[0];
+        const newBlocks = [...runtimeBlocks];
+        newBlocks.splice(nextIndex, 0, supportBlock);
+        setRuntimeBlocks(newBlocks);
+        setActiveSupportPivot(true); // Only pivot once per session
+      }
+      
       setCurrentBlockIndex(nextIndex);
       
       // Adaptive pause decision
@@ -356,7 +373,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       setCurrentPause(pauseDecision);
       setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, lesson.blocks.length, todayFocus]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
