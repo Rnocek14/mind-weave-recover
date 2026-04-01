@@ -95,7 +95,7 @@ export interface LearningRateData {
 export interface ExerciseBlock {
   exerciseId: string;
   duration: number; // minutes
-  priority: 'warmup' | 'primary' | 'secondary' | 'consolidation';
+  priority: 'warmup' | 'primary' | 'secondary' | 'consolidation' | 'support';
   adaptations: {
     startDifficulty: number;
     cueLevel: number;
@@ -106,9 +106,20 @@ export interface ExerciseBlock {
   trialLimit?: number; // Optional: override default round count (e.g. 5 for combined sessions)
 }
 
+/** Target accuracy bands per session phase (evidence-based optimal challenge zones) */
+export const PHASE_TARGET_BANDS: Record<ExerciseBlock['priority'], { min: number; max: number; label: string }> = {
+  warmup: { min: 0.80, max: 0.95, label: 'Confidence builder' },
+  primary: { min: 0.65, max: 0.80, label: 'Core challenge' },
+  secondary: { min: 0.55, max: 0.75, label: 'Cross-domain work' },
+  consolidation: { min: 0.75, max: 0.90, label: 'End on a high' },
+  support: { min: 0.80, max: 0.95, label: 'Recovery & support' },
+};
+
 export interface DailyLesson {
   totalDuration: number; // minutes
   blocks: ExerciseBlock[];
+  /** Pre-planned support/fallback blocks — not in the default queue, inserted on struggle */
+  supportBlocks?: ExerciseBlock[];
   targetDomains: string[];
   reasoning: string[];
   energyLevel: 'light' | 'moderate' | 'challenging';
