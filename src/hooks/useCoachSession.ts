@@ -1169,22 +1169,85 @@ export function useCoachSession({
           }
           
           // TRL Game Triggers — launch mini-games when levels persist
+          // SESSION PHASE: Only allow game triggers when phase permits
+          const phaseBiases = getPhaseBiases(sessionPhaseStateRef.current);
           const { result: gameTrigger, newState: newTriggerState } = evaluateGameTrigger(
             gameTriggerStateRef.current,
             trlResult.level,
             orchestratorStateRef.current.turnNumber,
           );
           gameTriggerStateRef.current = newTriggerState;
-          if (gameTrigger.trigger && gameTrigger.slug) {
+          
+          let gameTriggerFired = false;
+          if (gameTrigger.trigger && gameTrigger.slug && phaseBiases.allowGameTrigger) {
             const popup = triggerToPopupExercise(gameTrigger);
             if (popup) {
+              gameTriggerFired = true;
               console.log('[trl-game-trigger]', gameTrigger.trigger, '→', gameTrigger.slug, '|', gameTrigger.reason);
+              
+              // Use contextual game intro instead of generic popup intro
+              const gameIntro = generateGameIntro({
+                currentTopic: orchestratorStateRef.current.currentTopic,
+                triggerType: gameTrigger.trigger,
+                gameSlug: gameTrigger.slug,
+                userLastWords: transcript.slice(0, 50),
+                trlLevel: trlResult.level,
+              });
+              
+              // Replace AI response with the game intro
+              aiResponseText = gameIntro;
+              
               setPendingPopupExercise({
                 slug: popup.slug,
                 reason: popup.reason,
                 difficultyHint: popup.difficultyHint,
               });
             }
+          }
+          
+          // SESSION PHASE: Evaluate phase transition
+          const phaseTransition = evaluatePhaseTransition(
+            sessionPhaseStateRef.current,
+            {
+              fluencyScore: analysis.fluencyScore,
+              effortfulSpeech: analysis.effortfulSpeech,
+              wordCount,
+              consecutiveSuccesses: trlTrackerRef.current.consecutiveSuccesses,
+              consecutiveStruggles: trlTrackerRef.current.consecutiveStruggles,
+              gameTriggerFired,
+              gameJustCompleted: false,
+            }
+          );
+          sessionPhaseStateRef.current = applyPhaseTransition(
+            sessionPhaseStateRef.current,
+            phaseTransition,
+            analysis.fluencyScore,
+          );
+          if (phaseTransition.transitioned) {
+            console.log('[session-phase]', phaseTransition.newPhase, '|', phaseTransition.reason);
+          }
+          
+          // MICRO-FEEDBACK: Check if we should surface a progress moment
+          const wasRepairSuccessful = RepairSuccessTracker.isRepairAttempt(cueRec.cueLevel, analysis.effortfulSpeech, wordCount) 
+            && RepairSuccessTracker.wasRepairSuccessful(wordCount);
+          const { tracker: updatedFeedbackTracker, feedback: microFeedback } = recordTurnForFeedback(
+            feedbackTrackerRef.current,
+            {
+              turnNumber: orchestratorStateRef.current.turnNumber,
+              latencyMs: latencyMs,
+              wordCount,
+              cueLevel: cueRec.cueLevel,
+              fluencyScore: analysis.fluencyScore,
+              wasRepairSuccessful,
+              gameJustCompleted: false,
+            }
+          );
+          feedbackTrackerRef.current = updatedFeedbackTracker;
+          
+          // Prepend micro-feedback to AI response if earned
+          if (microFeedback.text && microFeedback.delivery === 'prepend' && aiResponseText && !gameTriggerFired) {
+            aiResponseText = `${microFeedback.text} ${aiResponseText}`;
+            console.log('[micro-feedback]', microFeedback.type, '|', microFeedback.text);
           }
           
           // Dead-end recovery — anchor to something the user said
