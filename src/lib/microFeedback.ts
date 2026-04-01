@@ -188,33 +188,33 @@ export function recordTurnForFeedback(
 // === Feedback text pools ===
 
 const REPAIR_FEEDBACK = [
-  "You got it — nice recovery.",
-  "There it is! You found the word.",
-  "See? It came to you.",
+  "You got it — nice recovery. That's exactly how it works in real conversations.",
+  "There it is! You found the word. That's the skill that helps when you're talking to someone.",
+  "See? It came to you. That's your brain getting faster at finding words.",
 ];
 
 const FASTER_FEEDBACK = [
-  "You're answering faster now — notice that?",
-  "Quicker this time — you're warming up.",
-  "That came out fast — nice flow.",
+  "You're answering faster now — that's what makes real conversations easier.",
+  "Quicker this time — that speed is what helps when you're talking to someone.",
+  "That came out fast — that's the kind of flow that matters in real life.",
 ];
 
 const FEWER_CUES_FEEDBACK = [
-  "You needed fewer hints that time.",
-  "Getting more independent — I barely had to help.",
-  "Less help needed — that's real progress.",
+  "You needed fewer hints — that means you're finding words more on your own.",
+  "Getting more independent — that's exactly what helps in real conversations.",
+  "Less help needed — that's real progress for everyday talking.",
 ];
 
 const LONGER_FEEDBACK = [
-  "You're saying more now — keep that going.",
-  "Longer answers — that's a great sign.",
-  "More words coming out now — you're building momentum.",
+  "You're saying more now — that's what makes conversations feel natural.",
+  "Longer answers — that's how it gets easier to explain things to people.",
+  "More words coming out — that's the kind of momentum that helps in real life.",
 ];
 
 const GAME_BOOST_FEEDBACK = [
-  "That practice helped — you're flowing better now.",
-  "See the difference? You're smoother after that.",
-  "That little exercise gave you a boost.",
+  "That practice helped — you're finding words faster now.",
+  "See the difference? That exercise made it easier to talk. That's how it works.",
+  "That warm-up paid off — this is how your brain gets better at finding words.",
 ];
 
 function pickRandom(arr: string[]): string {

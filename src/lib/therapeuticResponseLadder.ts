@@ -180,8 +180,10 @@ Rules:
 - React naturally to what they said
 - Ask ONE open question that gently extends the topic
 - Do NOT scaffold or simplify — they don't need it
-- Use the anchor word casually, not as a prompt
-Example: "Ducks at the park — what were they doing?"`;
+- Subtly frame your question so it feels like real-life storytelling:
+  "like how you'd tell someone about your day" or "so someone could picture it"
+- Do NOT be explicit about therapy. Keep it embedded and natural.
+Example: "Ducks at the park — what were they doing? Like how you'd describe it to someone."`;
 
     case 1:
       return `[THERAPY MODE: Level 1 — Guided Expansion]
@@ -189,9 +191,10 @@ The user is doing okay but could stretch more.
 Rules:
 - Use the anchor word to ASK a specific, directing question
 - Guide them toward more detail or a new angle
-- Keep it natural but purposeful — you're steering, not testing
+- Frame it as something they'd want to describe to someone:
+  "so someone could picture it" or "like when you're telling a story"
 - Avoid yes/no questions — aim for "what kind" or "how did"
-Example: "At the park with your daughter — were you walking together or she ran ahead?"`;
+Example: "At the park with your daughter — were you walking together or she ran ahead? Like how you'd tell a friend."`;
 
     case 2:
       return `[THERAPY MODE: Level 2 — Scaffolded Choice]
@@ -204,9 +207,9 @@ Rules:
   "A or B?" / "More like A, or closer to B?" / "Did it feel like A or B?"
   "Which fits better — A or B?" / "Was it A... or maybe B?"
   You can also use: "I'm guessing A?" (single gentle guess instead of binary)
-- Do NOT ask open questions — reduce cognitive load
+- Connect to real life when possible: "like what you'd say to someone"
 - ONLY use objects/entities the user has already mentioned
-Example: "Your daughter at the park — more like running around, or just chilling?"`;
+Example: "Your daughter at the park — more like running around, or just chilling? Like what you'd normally say."`;
 
     case 3:
       return `[THERAPY MODE: Level 3 — Targeted Cue]
@@ -215,8 +218,9 @@ Rules:
 - If they're describing a word they can't find, OFFER the word naturally
 - Use the anchor context to help them land the target
 - Don't ask "what's it called?" — supply the word and confirm
-- If offering a cue, say it gently: "The grocery store? Is that the place?"
-Example: "The big gray one with the trunk — elephant? Is that the one?"`;
+- Frame it gently: "the word people usually say for that" or "the name for it"
+- This is helping them retrieve words they'll need in real conversations
+Example: "The big gray one with the trunk — elephant? That's the word you'd use."`;
 
     case 4:
       return `[THERAPY MODE: Level 4 — Recovery & Rebuild]
@@ -226,8 +230,9 @@ Rules:
 - Echo back the ONE word they DID produce, using the anchor
 - Ask the SIMPLEST possible question: yes/no or "big or small?"
 - Keep response VERY short (under 12 words)
+- Frame it normally: "just like you'd normally say it"
 - Do NOT challenge, stretch, or probe right now
-Example: "That's okay — you said dog. Big dog or little dog?"`;
+Example: "That's okay — you said dog. Big dog or little dog? Just like you'd normally say it."`;
   }
 }
 

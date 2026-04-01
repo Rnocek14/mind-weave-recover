@@ -92,20 +92,19 @@ export function generateGameIntro(ctx: GameTransitionContext): string {
  * Must anchor to the conversation topic AND reference game performance
  */
 export function generateGameReturn(ctx: GameReturnContext): string {
-  const { currentTopic, wasSuccessful, score, successItems } = ctx;
+  const { currentTopic, wasSuccessful, successItems } = ctx;
 
-  // Successful game + has topic → anchor back
+  // Successful game + has topic → anchor back with real-life connection
   if (wasSuccessful && currentTopic) {
     const successReturns = [
-      `Nice — you got those fast. Back to ${currentTopic} — what else happened?`,
-      `See? You're quicker now. So, ${currentTopic} — where were we?`,
-      `That was solid! Okay, back to ${currentTopic}.`,
+      `Nice — you got those fast. That speed is what helps in real conversations. Back to ${currentTopic} — what else happened?`,
+      `See? You're quicker now. That's exactly how it gets easier when you're talking to someone. So, ${currentTopic} — where were we?`,
+      `That was solid — your brain just got warmed up. Okay, back to ${currentTopic}.`,
     ];
-    // If we have specific success items, reference them
     if (successItems.length > 0) {
       const item = successItems[0];
       successReturns.push(
-        `"${item}" — no hesitation. Speaking of ${currentTopic}...`,
+        `"${item}" — no hesitation. That's the kind of speed that helps when you're explaining something. Speaking of ${currentTopic}...`,
       );
     }
     return pickRandom(successReturns);
@@ -114,26 +113,26 @@ export function generateGameReturn(ctx: GameReturnContext): string {
   // Successful game + no topic
   if (wasSuccessful) {
     return pickRandom([
-      "Nice work! You're warmed up — what's on your mind?",
-      "See? Getting faster. Okay — keep going.",
-      "That was good. What were you thinking about?",
+      "Nice work — your word finding is getting faster. What's on your mind?",
+      "See? Getting quicker. That's what makes real conversations easier. Keep going.",
+      "That was good — your brain is warmed up now. What were you thinking about?",
     ]);
   }
 
   // Struggled but completed + has topic
   if (!wasSuccessful && currentTopic) {
     return pickRandom([
-      `Good effort — those are tricky. Let's get back to ${currentTopic} — that was more fun.`,
-      `That was tough, but you stuck with it. Back to ${currentTopic}?`,
-      `No worries — we'll practice more. So, ${currentTopic}...`,
+      `Good effort — those get easier with practice, and it all helps when you're talking to someone. Back to ${currentTopic}?`,
+      `That was tough, but every time you try it gets a little easier in real conversations. Back to ${currentTopic}?`,
+      `No worries — this kind of practice adds up. So, ${currentTopic}...`,
     ]);
   }
 
   // Struggled + no topic
   return pickRandom([
-    "Good effort — those are tricky. What else is on your mind?",
-    "That's okay — those take practice. Keep talking to me.",
-    "No worries. What were you thinking about before?",
+    "Good effort — every try makes it a little easier when you're talking to someone.",
+    "That's okay — this kind of practice helps your brain find words faster over time.",
+    "No worries. Each time helps. What were you thinking about before?",
   ]);
 }
 
