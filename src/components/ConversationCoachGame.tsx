@@ -429,7 +429,7 @@ export function ConversationCoachGame({
     startAttempt({
       sessionId: sessionId || 'standalone',
       userId,
-      exerciseSlug: 'conversation-coach',
+      exerciseSlug: 'conversation_coach',
       trialIndex: turnCountRef.current - 1,
       attemptNumber: 1,
       targetWord: currentTopic || 'conversation',

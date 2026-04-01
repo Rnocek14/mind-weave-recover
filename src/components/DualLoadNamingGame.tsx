@@ -169,7 +169,7 @@ export function DualLoadNamingGame({
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
-        exerciseSlug: 'dual-load-naming',
+        exerciseSlug: 'dual_load_naming',
         trialIndex: namingTrialIndexRef.current,
         attemptNumber: 1,
         targetWord: currentNamingTarget.word,
