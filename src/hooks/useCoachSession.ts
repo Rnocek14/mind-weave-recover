@@ -989,6 +989,12 @@ export function useCoachSession({
           };
         }
 
+        // Build anchor context for mandatory context anchoring
+        const anchorCtx = buildAnchorContext(transcript, {
+          circumlocutionDetected: analysis.circumlocutionDetected,
+          completionConfidence: analysis.completionConfidence,
+        });
+
         // Call the new speech-aware AI function
         const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
           body: {
@@ -1063,6 +1069,8 @@ export function useCoachSession({
             therapyIntent: action.type === 'chat_followup' && 'therapyIntent' in action
               ? (action as any).therapyIntent
               : undefined,
+            // Anchor context for mandatory context anchoring
+            anchorContext: anchorCtx,
           }
         });
 
