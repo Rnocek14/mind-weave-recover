@@ -521,6 +521,12 @@ serve(async (req) => {
       messages.push({ role: 'system', content: anchorBlock });
     }
 
+    // Therapeutic Response Ladder — inject level-specific behavior
+    if (therapeuticLevel?.promptBlock) {
+      messages.push({ role: 'system', content: therapeuticLevel.promptBlock });
+      console.log(`TRL Level ${therapeuticLevel.level}: ${therapeuticLevel.label} (${therapeuticLevel.anchorUsageType})`);
+    }
+
     // Current user message
     messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
