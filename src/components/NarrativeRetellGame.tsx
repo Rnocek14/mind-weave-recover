@@ -98,6 +98,53 @@ export function NarrativeRetellGame({
     if (fullTranscript) latestTranscriptRef.current = fullTranscript;
   }, [fullTranscript]);
 
+  // Auto-submit after 3s silence once user has spoken 2+ words
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (phase !== 'retelling') return;
+    const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (wordCount >= 2) {
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasProcessedRef.current) handleDoneRetelling();
+      }, 3000);
+    }
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [phase, collectedTranscript, fullTranscript]);
+
+  // Auto-start mic after all scenes are read
+  const autoStartedRef = useRef(false);
+  const allScenesRead = currentStory ? sceneIndex >= currentStory.scenes.length - 1 : false;
+  useEffect(() => {
+    if (phase === 'reading' && allScenesRead && isSupported && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      const t = setTimeout(() => {
+        setPhase('retelling');
+        startTimeRef.current = Date.now();
+        if (currentStory && userId) {
+          startAttempt({
+            sessionId: sessionId || 'standalone',
+            userId,
+            exerciseSlug: 'narrative-retell',
+            trialIndex: currentIndex,
+            attemptNumber: 1,
+            targetWord: currentStory.title,
+            category: 'discourse',
+          });
+        }
+        startRecording();
+        startListening();
+      }, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, allScenesRead, isSupported, currentStory, userId, sessionId, currentIndex]);
+
+  // Reset auto-start flag on story change
+  useEffect(() => {
+    autoStartedRef.current = false;
+  }, [currentIndex]);
+
   const handleNextScene = useCallback(() => {
     if (!currentStory) return;
     if (sceneIndex < currentStory.scenes.length - 1) {
@@ -234,7 +281,7 @@ export function NarrativeRetellGame({
     );
   }
 
-  const allScenesRead = sceneIndex >= currentStory.scenes.length - 1;
+  // allScenesRead computed above hooks
 
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
@@ -321,6 +368,7 @@ export function NarrativeRetellGame({
               <span className="font-semibold text-sm">
                 Tell the story in your own words...
               </span>
+              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
             </div>
 
             {(fullTranscript || collectedTranscript) && (

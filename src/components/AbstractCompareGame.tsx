@@ -90,6 +90,21 @@ export function AbstractCompareGame({
     if (fullTranscript) latestTranscriptRef.current = fullTranscript;
   }, [fullTranscript]);
 
+  // Auto-submit after 3s silence once user has spoken 2+ words
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (phase !== 'speaking') return;
+    const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (wordCount >= 2) {
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasProcessedRef.current) handleDone();
+      }, 3000);
+    }
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [phase, collectedTranscript, fullTranscript]);
+
   const handleStart = useCallback(() => {
     setPhase('speaking');
     startTimeRef.current = Date.now();
@@ -247,6 +262,7 @@ export function AbstractCompareGame({
                 )}
               </div>
               <span className="font-semibold text-sm">Listening...</span>
+              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
             </div>
             {(fullTranscript || collectedTranscript) && (
               <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
