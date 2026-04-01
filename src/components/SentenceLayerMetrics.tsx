@@ -72,7 +72,7 @@ export function SentenceLayerMetrics({ events }: SentenceLayerMetricsProps) {
 
     // Fix Sentence: phoneme_matched breakdown
     const fsEvents = events.filter(e =>
-      e.exercise_slug === 'fix-sentence' && 
+      (e.exercise_slug === 'fix-sentence' || e.exercise_slug === 'fix_sentence') && 
       e.task_parameters?.trial_source === 'fix_sentence_bank'
     );
 
