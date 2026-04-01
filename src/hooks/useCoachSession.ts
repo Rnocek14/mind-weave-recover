@@ -998,6 +998,22 @@ export function useCoachSession({
           completionConfidence: analysis.completionConfidence,
         });
 
+        // Determine therapeutic response level (TRL)
+        const trlResult = determineResponseLevel({
+          fluencyScore: analysis.fluencyScore,
+          effortfulSpeech: analysis.effortfulSpeech,
+          circumlocutionDetected: analysis.circumlocutionDetected,
+          completionConfidence: analysis.completionConfidence,
+          wordCount: analysis.wordCount,
+          consecutiveStruggles: trlTrackerRef.current.consecutiveStruggles,
+          consecutiveSuccesses: trlTrackerRef.current.consecutiveSuccesses,
+          frustrationLevel: currentEngagement?.frustration === 'high' ? 'high'
+            : currentEngagement?.frustration === 'medium' ? 'medium' : 'none',
+          fatigueLevel: currentEngagement?.fatigue === 'high' ? 'high'
+            : currentEngagement?.fatigue === 'medium' ? 'medium' : 'none',
+          turnNumber: orchestratorStateRef.current.turnNumber,
+        });
+
         // Call the new speech-aware AI function
         const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
           body: {
