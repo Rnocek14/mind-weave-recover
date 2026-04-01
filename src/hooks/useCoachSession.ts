@@ -77,6 +77,22 @@ import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/ha
 import { createSessionPhaseState, evaluatePhaseTransition, applyPhaseTransition, getPhaseBiases, getCloseSessionInsight, type SessionPhaseState as TherapyPhaseState } from '@/lib/sessionPhaseController';
 import { createFeedbackTracker, recordTurnForFeedback, type FeedbackTracker } from '@/lib/microFeedback';
 import { generateGameIntro, generateGameReturn, type GameTransitionContext, type GameReturnContext } from '@/lib/gameTransitions';
+import { sanitizeMayaLine } from '@/lib/mayaSpeechGate';
+
+// Correction detection patterns
+const CORRECTION_PATTERNS = [
+  /no,?\s*(i was|we were|i'm) (talking|telling|saying)/i,
+  /that's not what i (said|meant)/i,
+  /you'?re not listening/i,
+  /i (said|meant|was talking about)/i,
+  /no,?\s*i mean/i,
+  /we'?re talking about/i,
+  /i already (told|said|mentioned)/i,
+];
+
+function detectUserCorrection(transcript: string): boolean {
+  return CORRECTION_PATTERNS.some(p => p.test(transcript));
+}
 
 // Store card results for AI context
 interface CardResult {
