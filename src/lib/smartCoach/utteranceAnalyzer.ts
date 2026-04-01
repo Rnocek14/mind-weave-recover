@@ -8,7 +8,7 @@
 import type { CoachUtteranceAnalysis } from './types';
 
 // Filled pause / hesitation markers
-const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|like|you know)\b/gi;
+const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|you know)\b/gi;
 const CIRCUMLOCUTION_MARKERS = /\b(the thing|the place|where you|the one that|you use it to|it's like)\b/i;
 
 export function analyzeUtterance(
