@@ -121,14 +121,14 @@ export function evaluateGameTrigger(
  */
 export function triggerToPopupExercise(result: GameTriggerResult): {
   slug: string;
-  reason: 'struggle' | 'reinforcement' | 'user_request';
+  reason: 'repeated_struggle' | 'targeted_probe' | 'domain_boost' | 'fatigue_safe_switch';
   difficultyHint: 'easier' | 'same' | 'harder';
 } | null {
   if (!result.trigger || !result.slug) return null;
   
   return {
     slug: result.slug,
-    reason: result.trigger === 'confidence_rebuild' ? 'struggle' : 'reinforcement',
+    reason: result.trigger === 'confidence_rebuild' ? 'repeated_struggle' : 'targeted_probe',
     difficultyHint: result.difficultyHint,
   };
 }
