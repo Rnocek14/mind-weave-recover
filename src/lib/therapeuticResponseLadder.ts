@@ -78,8 +78,6 @@ export function determineResponseLevel(inputs: TRLInputs): ResponseLevelResult {
 
   // ── Level 4: Recovery & Rebuild ──
   // Triggered by: breakdown, frustration, or sustained struggle
-  // NOTE: Only effortful+low fluency OR high frustration — NOT just consecutive struggles alone.
-  // consecutiveStruggles alone at 3 was too sticky; user recovers but system stays in crisis.
   if (
     (effortfulSpeech && fluencyScore < 30) ||
     frustrationLevel === 'high' ||
@@ -106,31 +104,39 @@ export function determineResponseLevel(inputs: TRLInputs): ResponseLevelResult {
         ? 'Low ASR confidence — confirm and scaffold'
         : 'Effortful + minimal output — provide targeted support';
   }
+  // ── Level 0: Passive Expansion ──  (PROMOTED — check BEFORE Level 2/1)
+  // Strong flow: high word count + not effortful → let them talk freely
+  else if (
+    wordCount >= 6 && !effortfulSpeech && fluencyScore >= 60
+  ) {
+    level = 0;
+    reasoning = 'User flowing well (6+ words, no effort) — open conversation, no scaffolding';
+  }
   // ── Level 2: Scaffolded Choice ──
   // Triggered by: hesitation, moderate fluency, or mild fatigue
   else if (
-    fluencyScore < 60 ||
+    fluencyScore < 50 ||
     (fatigueLevel === 'medium' || fatigueLevel === 'high') ||
-    (wordCount <= 5 && completionConfidence === 'medium')
+    (wordCount <= 3 && completionConfidence === 'medium')
   ) {
     level = 2;
-    reasoning = fluencyScore < 60
-      ? 'Moderate fluency — offer structured choices'
+    reasoning = fluencyScore < 50
+      ? 'Low fluency — offer structured choices'
       : fatigueLevel !== 'none'
         ? 'Fatigue detected — reduce cognitive load with choices'
-        : 'Short response with medium confidence — scaffold';
+        : 'Very short response with medium confidence — scaffold';
   }
   // ── Level 1: Guided Expansion ──
   // Triggered by: okay but shallow output
   else if (
-    fluencyScore < 80 ||
-    (wordCount < 8 && consecutiveSuccesses < 3)
+    fluencyScore < 75 ||
+    (wordCount < 6 && consecutiveSuccesses < 3)
   ) {
     level = 1;
     reasoning = 'Adequate fluency but room to stretch — guide expansion';
   }
   // ── Level 0: Passive Expansion ──
-  // Triggered by: fluent, confident, flowing
+  // Fallback for everything else (fluent, confident, flowing)
   else {
     level = 0;
     reasoning = 'User flowing well — light expansion, no scaffolding needed';
