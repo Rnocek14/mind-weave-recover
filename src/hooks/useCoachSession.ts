@@ -1540,13 +1540,42 @@ export function useCoachSession({
       sessionIntelligence: serializedIntelligence as unknown as Record<string, unknown>,
     });
 
-    // Persist Recovery Lift Score
-    if (sessionMetrics?.recoveryLift && sessionId) {
-      import('@/lib/recoveryLiftScore').then(({ persistRecoveryLift }) => {
-        persistRecoveryLift(sessionId, sessionMetrics.recoveryLift!);
-      });
-      console.log('[session-end] Recovery Lift:', sessionMetrics.recoveryLift.liftScore,
-        '(confidence:', sessionMetrics.recoveryLift.confidence + ')');
+    // Persist Recovery Lift Score + Anchor Analytics
+    if (sessionId) {
+      if (sessionMetrics?.recoveryLift) {
+        import('@/lib/recoveryLiftScore').then(({ persistRecoveryLift }) => {
+          persistRecoveryLift(sessionId, sessionMetrics.recoveryLift!);
+        });
+        console.log('[session-end] Recovery Lift:', sessionMetrics.recoveryLift.liftScore,
+          '(confidence:', sessionMetrics.recoveryLift.confidence + ')');
+      }
+      
+      // Persist anchor analytics summary
+      const anchorData = anchorMetricsRef.current;
+      if (anchorData.length > 0) {
+        const anchorRequired = anchorData.filter(m => m.anchorRequired);
+        const anchorPassed = anchorRequired.filter(m => m.anchoringPass);
+        const preferredHits = anchorRequired.filter(m => m.matchedAnchor === m.preferredAnchor && m.preferredAnchor !== null);
+        const regenerations = anchorData.filter(m => m.regenerationNeeded);
+        
+        const anchorSummary = {
+          total_turns: anchorData.length,
+          anchor_required_turns: anchorRequired.length,
+          anchor_pass_count: anchorPassed.length,
+          anchor_pass_rate: anchorRequired.length > 0 ? Math.round((anchorPassed.length / anchorRequired.length) * 100) : 0,
+          preferred_anchor_hits: preferredHits.length,
+          preferred_anchor_rate: anchorRequired.length > 0 ? Math.round((preferredHits.length / anchorRequired.length) * 100) : 0,
+          regeneration_count: regenerations.length,
+          regeneration_rate: anchorData.length > 0 ? Math.round((regenerations.length / anchorData.length) * 100) : 0,
+        };
+        
+        // Persist to session summary alongside recovery lift
+        supabase.from('sessions').update({
+          engagement_summary: anchorSummary as any,
+        }).eq('id', sessionId).then(() => {});
+        
+        console.log('[session-end] Anchor Analytics:', anchorSummary);
+      }
     }
     
     console.log('[session-end] Persisted intelligence:', {
