@@ -665,6 +665,44 @@ serve(async (req) => {
       .replace(/as your assistant/gi, '')
       .trim();
 
+    // ═══ RELIABILITY GUARD — ban unfulfillable promises & vague fillers ═══
+    const lowerResponse = aiResponse.toLowerCase();
+    
+    // 1. Ban unfulfillable promises (Maya can't show things)
+    const unfulfillablePatterns = [
+      /let me show you/i,
+      /i('ll| will) show you/i,
+      /check this out/i,
+      /look at this/i,
+      /here('s|,? take a look)/i,
+      /watch this/i,
+    ];
+    
+    let hadUnfulfillable = false;
+    for (const pattern of unfulfillablePatterns) {
+      if (pattern.test(aiResponse)) {
+        hadUnfulfillable = true;
+        // Replace the promise with a safe alternative
+        aiResponse = aiResponse.replace(pattern, 'tell me more about that');
+        console.log('RELIABILITY: Stripped unfulfillable promise from response');
+      }
+    }
+    
+    // 2. Ban vague bare "keep going" / "go on" / "continue" without topic
+    const vagueFillerPattern = /^(.*?)(keep going|go on|continue)(\.|\!|\?)?$/i;
+    const vagueInternalPattern = /(alright,?\s*)?keep going(\.|\!)?/i;
+    if (vagueInternalPattern.test(aiResponse) && !aiResponse.includes('about') && !aiResponse.includes('with the') && !aiResponse.includes('with your')) {
+      // The response has bare "keep going" without topic context
+      const topicFromMemory = memoryUpdate?.match(/TOPIC:\s*([^.]+)/)?.[1]?.trim();
+      if (topicFromMemory) {
+        aiResponse = aiResponse.replace(vagueInternalPattern, `tell me more about ${topicFromMemory}`);
+        console.log('RELIABILITY: Replaced vague "keep going" with topic:', topicFromMemory);
+      } else {
+        aiResponse = aiResponse.replace(vagueInternalPattern, 'what were you saying about that');
+        console.log('RELIABILITY: Replaced vague "keep going" (no topic available)');
+      }
+    }
+
     // ═══ ANCHOR VALIDATION + RETRY ═══
     let anchoringPass = true;
     let regenerationNeeded = false;
