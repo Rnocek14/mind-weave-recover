@@ -533,6 +533,11 @@ serve(async (req) => {
       console.log(`TRL Level ${therapeuticLevel.level}: ${therapeuticLevel.label} (${therapeuticLevel.anchorUsageType})`);
     }
 
+    // Hallucination Guard — prevent Maya from introducing entities user never mentioned
+    if (hallucinationGuard?.promptBlock) {
+      messages.push({ role: 'system', content: hallucinationGuard.promptBlock });
+    }
+
     // Current user message
     messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
