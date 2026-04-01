@@ -72,6 +72,7 @@ export function PhotoNamingCard({
   const cueTimerRef = useRef<NodeJS.Timeout | null>(null);
   const choiceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasCompletedRef = useRef(false);
+  const transcriptRef = useRef(transcript);
 
   // Preload photo image immediately on mount
   useEffect(() => {
