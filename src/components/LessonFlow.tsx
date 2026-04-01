@@ -5,6 +5,7 @@ import { CapabilityAssessment } from "./CapabilityAssessment";
 import { SessionSummaryScreen } from "./SessionSummaryScreen";
 import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
 import { SessionArcBar, getAdaptivityMessage, shouldPivotToSupport } from "./SessionArcBar";
+import { SessionPreviewCard } from "./SessionPreviewCard";
 import { Card } from "@/components/ui/card";
 import { Play } from "lucide-react";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
@@ -29,6 +30,7 @@ import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 type FlowPhase = 
   | "daily-check" 
   | "full-assessment" 
+  | "session-preview"
   | "exercise" 
   | "transition" 
   | "micro-pause"
@@ -51,8 +53,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const autoStart = location.state?.autoStart ?? false;
 
   const getInitialPhase = (): FlowPhase => {
-    if (autoStart) return "exercise";
-    if (skipDailyCheck) return "exercise";
+    if (autoStart) return "session-preview";
+    if (skipDailyCheck) return "session-preview";
     return "daily-check";
   };
 
@@ -60,8 +62,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPause, setCurrentPause] = useState<PauseDecision | null>(null);
-  const [activeSupportPivot, setActiveSupportPivot] = useState(false); // Runtime support pivot flag
-  const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks); // Mutable block list for support injection
+  const [activeSupportPivot, setActiveSupportPivot] = useState(false);
+  const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
+  const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
   
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
@@ -225,11 +228,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     if (results.needsFullAssessment) {
       setPhase("full-assessment");
     } else {
-      setPhase("exercise");
+      setPhase("session-preview");
     }
   };
 
   const handleFullAssessmentComplete = () => {
+    setPhase("session-preview");
+  };
+  
+  const handlePreviewStart = () => {
     setPhase("exercise");
   };
 
@@ -354,7 +361,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         const newBlocks = [...runtimeBlocks];
         newBlocks.splice(nextIndex, 0, supportBlock);
         setRuntimeBlocks(newBlocks);
-        setActiveSupportPivot(true); // Only pivot once per session
+        setActiveSupportPivot(true);
+        setLastPivotWasSupport(true);
       }
       
       setCurrentBlockIndex(nextIndex);
@@ -438,18 +446,33 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
+  // Pre-session preview
+  if (phase === "session-preview") {
+    return (
+      <SessionPreviewCard
+        lesson={lesson}
+        displayName={activeProfile?.display_name || activeProfile?.profile_name}
+        onStart={handlePreviewStart}
+      />
+    );
+  }
+
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
     const nextBlock = runtimeBlocks[currentBlockIndex];
-    // Prefetch next exercise chunk while overlay is visible
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
+    const wasSupportPivot = lastPivotWasSupport;
+    // Clear pivot flag after displaying
+    if (wasSupportPivot) setLastPivotWasSupport(false);
     return (
       <ExerciseTransitionOverlay
         type="encouragement"
-        durationOverride={currentPause?.duration}
+        durationOverride={wasSupportPivot ? 5 : currentPause?.duration}
         completedCount={currentBlockIndex}
         totalCount={runtimeBlocks.length}
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
+        nextPhase={nextBlock?.priority}
+        isSupportPivot={wasSupportPivot}
         sessionId={sessionId}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
@@ -469,6 +492,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         completedCount={currentBlockIndex}
         totalCount={runtimeBlocks.length}
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
+        nextPhase={nextBlock?.priority}
         sessionId={sessionId}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
