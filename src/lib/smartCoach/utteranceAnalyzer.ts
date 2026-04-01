@@ -8,7 +8,7 @@
 import type { CoachUtteranceAnalysis } from './types';
 
 // Filled pause / hesitation markers
-const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|like|you know)\b/gi;
+const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|you know)\b/gi;
 const CIRCUMLOCUTION_MARKERS = /\b(the thing|the place|where you|the one that|you use it to|it's like)\b/i;
 
 export function analyzeUtterance(
@@ -35,19 +35,23 @@ export function analyzeUtterance(
   const filledPauses = (cleaned.match(FILLED_PAUSES) || []).length;
   const hesitationDetected = filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1);
 
-  // Pause detection — trailing "..." or very short
-  const pauseDetected = transcript.includes('...') || (wordCount === 0);
+  // Pause detection — true silence only (no words at all)
+  const pauseDetected = wordCount === 0;
 
   // Circumlocution
   const circumlocution = CIRCUMLOCUTION_MARKERS.test(cleaned);
 
-  // Incomplete thought — ends mid-sentence without punctuation, or trailing off
-  const incompleteThought = wordCount >= 2 && wordCount <= 5 &&
-    !cleaned.endsWith('.') && !cleaned.endsWith('!') && !cleaned.endsWith('?') &&
-    (hesitationDetected || cleaned.endsWith('...'));
+  // Incomplete thought — ends mid-sentence with trailing "..." or no final punct
+  const trailingOff = transcript.trimEnd().endsWith('...');
+  // Strip trailing dots for punct check (so "..." doesn't count as ending with ".")
+  const cleanedNoDots = cleaned.replace(/\.{2,}/g, '');
+  const incompleteThought = wordCount >= 2 && wordCount <= 8 &&
+    !cleanedNoDots.endsWith('.') && !cleanedNoDots.endsWith('!') && !cleanedNoDots.endsWith('?') &&
+    (trailingOff || hesitationDetected);
 
-  // Phonological approximation — very rough (short, doesn't match expected words)
-  const phonologicalApprox = wordCount === 1 && !hasTopicOverlap && cleaned.length >= 3;
+  // Phonological approximation — single real word (not a filler) that doesn't match topic
+  const isFillerOnly = /^(um+|uh+|er+|ah+|hmm+)\.{0,3}$/i.test(cleaned);
+  const phonologicalApprox = wordCount === 1 && !hasTopicOverlap && cleaned.length >= 3 && !isFillerOnly;
 
   // Error type classification
   let likelyErrorType: CoachUtteranceAnalysis['likelyErrorType'] = 'none';

@@ -15,7 +15,7 @@ export function transitionCoachState(
   const next = { ...state };
 
   // ── No response / silence → support
-  if (analysis.wordCount === 0 || analysis.pauseDetected) {
+  if (analysis.wordCount === 0 && analysis.pauseDetected) {
     next.mode = 'support';
     next.isStuck = true;
     next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
@@ -23,16 +23,7 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Hesitation or incomplete → scaffold
-  if (analysis.hesitationDetected || analysis.incompleteThought) {
-    next.mode = 'scaffold';
-    next.isStuck = true;
-    next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
-    next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
-    return next;
-  }
-
-  // ── Circumlocution → scaffold with semantic focus
+  // ── Circumlocution → scaffold with semantic focus (check before hesitation)
   if (analysis.circumlocution) {
     next.mode = 'scaffold';
     next.isStuck = true;
@@ -41,8 +32,26 @@ export function transitionCoachState(
     return next;
   }
 
+  // ── Incomplete thought → scaffold (check before generic hesitation)
+  if (analysis.incompleteThought) {
+    next.mode = 'scaffold';
+    next.isStuck = true;
+    next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+    next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    return next;
+  }
+
+  // ── Hesitation (without incomplete thought) → scaffold
+  if (analysis.hesitationDetected) {
+    next.mode = 'scaffold';
+    next.isStuck = true;
+    next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+    next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    return next;
+  }
+
   // ── Strong on-topic response → expand
-  if (analysis.semanticMatch > 0.5 && analysis.onTopic && analysis.wordCount >= 3) {
+  if (analysis.onTopic && analysis.wordCount >= 2 && analysis.confidence >= 0.5) {
     next.mode = 'expand';
     next.isStuck = false;
     next.supportLevel = Math.max(0, state.supportLevel - 1) as 0 | 1 | 2 | 3;

@@ -85,13 +85,15 @@ export function validateCoachLine(
     }
   }
 
-  // Re-asking established facts
+  // Re-asking established facts — check if asking about something already known
   for (const fact of establishedFacts) {
-    if (fact && trimmed.toLowerCase().includes(fact.toLowerCase())) {
-      // Check if it's a question about the fact
-      if (trimmed.includes('?')) {
-        reasons.push(`re_asking_fact: ${fact}`);
-      }
+    if (!fact) continue;
+    const factWords = fact.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const lineWords = trimmed.toLowerCase().split(/\s+/);
+    // If >50% of fact keywords appear in a question, it's re-asking
+    const overlap = factWords.filter(fw => lineWords.some(lw => lw.includes(fw) || fw.includes(lw)));
+    if (overlap.length >= Math.max(2, factWords.length * 0.5) && trimmed.includes('?')) {
+      reasons.push(`re_asking_fact: ${fact}`);
     }
   }
 
