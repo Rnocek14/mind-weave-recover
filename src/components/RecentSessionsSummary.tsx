@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProfile } from '@/hooks/useProfile';
+import { humanizeSlug } from '@/lib/performanceAwareFeedback';
 
 interface RecentSession {
   id: string;
