@@ -70,6 +70,7 @@ import {
 import { getWordsForTopic, getFramesForTopic, detectTopicFromWords, getWarmupWords } from '@/lib/topicWordBanks';
 import { emitConversationTurnEvent, classifyTurnOutcome } from '@/lib/conversationTurnTelemetry';
 import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib/anchorExtractor';
+import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
 
 // Store card results for AI context
 interface CardResult {
@@ -329,6 +330,7 @@ export function useCoachSession({
   
   // NEW: Cue engine and difficulty controller state
   const cueStateRef = useRef<CueState>(createInitialCueState());
+  const trlTrackerRef = useRef(new TRLTracker());
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
@@ -996,6 +998,22 @@ export function useCoachSession({
           completionConfidence: analysis.completionConfidence,
         });
 
+        // Determine therapeutic response level (TRL)
+        const trlResult = determineResponseLevel({
+          fluencyScore: analysis.fluencyScore,
+          effortfulSpeech: analysis.effortfulSpeech,
+          circumlocutionDetected: analysis.circumlocutionDetected,
+          completionConfidence: analysis.completionConfidence,
+          wordCount: analysis.wordCount,
+          consecutiveStruggles: trlTrackerRef.current.consecutiveStruggles,
+          consecutiveSuccesses: trlTrackerRef.current.consecutiveSuccesses,
+          frustrationLevel: currentEngagement?.frustration === 'high' ? 'high'
+            : currentEngagement?.frustration === 'medium' ? 'medium' : 'none',
+          fatigueLevel: currentEngagement?.fatigue === 'high' ? 'high'
+            : currentEngagement?.fatigue === 'medium' ? 'medium' : 'none',
+          turnNumber: orchestratorStateRef.current.turnNumber,
+        });
+
         // Call the new speech-aware AI function
         const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
           body: {
@@ -1072,6 +1090,13 @@ export function useCoachSession({
               : undefined,
             // Anchor context for mandatory context anchoring
             anchorContext: anchorCtx,
+            // Therapeutic Response Ladder
+            therapeuticLevel: {
+              level: trlResult.level,
+              label: trlResult.label,
+              promptBlock: trlResult.promptBlock,
+              anchorUsageType: trlResult.anchorUsageType,
+            },
           }
         });
 
@@ -1098,6 +1123,10 @@ export function useCoachSession({
           if (data.anchorMetrics) {
             anchorMetricsRef.current.push(data.anchorMetrics as AnchorMetrics);
           }
+          
+          // Track TRL level for session analytics
+          const wasStruggle = analysis.effortfulSpeech || analysis.fluencyScore < 40;
+          trlTrackerRef.current.recordTurn(trlResult.level, trlResult.anchorUsageType, wasStruggle);
           
           // Dead-end recovery — anchor to something the user said
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
@@ -1507,6 +1536,7 @@ export function useCoachSession({
     aiWordsRef.current = 0;
     cardsCompletedRef.current = 0;
     anchorMetricsRef.current = [];
+    trlTrackerRef.current.reset();
     pendingCardIdRef.current = null;
     pendingCardTypeRef.current = null;
     engagementMonitorRef.current.reset();
@@ -1570,12 +1600,24 @@ export function useCoachSession({
           regeneration_rate: anchorData.length > 0 ? Math.round((regenerations.length / anchorData.length) * 100) : 0,
         };
         
+        // Add TRL metrics to session summary
+        const trlMetrics = trlTrackerRef.current.getMetrics();
+        const fullSummary = {
+          ...anchorSummary,
+          trl_total_turns: trlMetrics.totalTurns,
+          trl_guided_rate: trlMetrics.guidedRate,
+          trl_avg_level: trlMetrics.avgLevel,
+          trl_level_distribution: trlMetrics.levelDistribution,
+          trl_anchor_usage: trlMetrics.anchorUsageBreakdown,
+        };
+        
         // Persist to session summary alongside recovery lift
         supabase.from('sessions').update({
-          engagement_summary: anchorSummary as any,
+          engagement_summary: fullSummary as any,
         }).eq('id', sessionId).then(() => {});
         
         console.log('[session-end] Anchor Analytics:', anchorSummary);
+        console.log('[session-end] TRL Metrics:', { guidedRate: trlMetrics.guidedRate, avgLevel: trlMetrics.avgLevel, dist: trlMetrics.levelDistribution });
       }
     }
     

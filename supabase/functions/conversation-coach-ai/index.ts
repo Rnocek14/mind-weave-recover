@@ -328,6 +328,7 @@ serve(async (req) => {
       crossSessionIntelligence,
       therapyStrategy,
       anchorContext,
+      therapeuticLevel,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -360,6 +361,12 @@ serve(async (req) => {
         candidateAnchors: string[];
         preferredAnchor: string | null;
         anchorRequired: boolean;
+      };
+      therapeuticLevel?: {
+        level: number;
+        label: string;
+        promptBlock: string;
+        anchorUsageType: string;
       };
     };
 
@@ -513,6 +520,12 @@ serve(async (req) => {
       anchorBlock += `GOOD: "Your ${preferred} — tell me more about that!"\n`;
       anchorBlock += `If you cannot use the anchor naturally, at least reference ONE specific detail they said.`;
       messages.push({ role: 'system', content: anchorBlock });
+    }
+
+    // Therapeutic Response Ladder — inject level-specific behavior
+    if (therapeuticLevel?.promptBlock) {
+      messages.push({ role: 'system', content: therapeuticLevel.promptBlock });
+      console.log(`TRL Level ${therapeuticLevel.level}: ${therapeuticLevel.label} (${therapeuticLevel.anchorUsageType})`);
     }
 
     // Current user message
@@ -709,6 +722,11 @@ serve(async (req) => {
           regenerationNeeded,
           anchoringPass,
         },
+        therapeuticLevel: therapeuticLevel ? {
+          level: therapeuticLevel.level,
+          label: therapeuticLevel.label,
+          anchorUsageType: therapeuticLevel.anchorUsageType,
+        } : undefined,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
