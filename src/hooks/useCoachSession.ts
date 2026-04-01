@@ -1815,7 +1815,35 @@ export function useCoachSession({
       result.targetWords
     );
 
-    // Generate AI follow-up that references the exercise
+    // SESSION PHASE: Transition to reintegration after game completes
+    const phaseTransition = evaluatePhaseTransition(
+      sessionPhaseStateRef.current,
+      {
+        fluencyScore: 50,
+        effortfulSpeech: false,
+        wordCount: 0,
+        consecutiveSuccesses: 0,
+        consecutiveStruggles: 0,
+        gameTriggerFired: false,
+        gameJustCompleted: true,
+      }
+    );
+    sessionPhaseStateRef.current = applyPhaseTransition(sessionPhaseStateRef.current, phaseTransition);
+    if (phaseTransition.transitioned) {
+      console.log('[session-phase] Post-game:', phaseTransition.newPhase, '|', phaseTransition.reason);
+    }
+
+    // GAME TRANSITIONS: Generate contextual return message
+    const gameReturnText = generateGameReturn({
+      gameSlug: result.slug,
+      currentTopic: orchestratorStateRef.current.currentTopic,
+      wasSuccessful: result.score >= 0.5,
+      score: result.score,
+      accuracy: result.accuracy ?? 0,
+      successItems: result.targetWords ?? [],
+    });
+
+    // Try to get AI follow-up, fall back to contextual return
     let followupText: string;
     try {
       const { data, error } = await supabase.functions.invoke('conversation-coach-ai', {
@@ -1838,13 +1866,10 @@ export function useCoachSession({
           },
         }
       });
-      followupText = data?.response || (result.score >= 0.7
-        ? "Nice work on that! Let's keep going with our conversation."
-        : "Good effort — that gives me a better sense of what to focus on. Let's continue.");
+      // Use AI response if good, otherwise use our contextual return
+      followupText = data?.response || gameReturnText;
     } catch {
-      followupText = result.score >= 0.7
-        ? "Great job on that practice! Now, where were we?"
-        : "Thanks for working through that. Let's keep chatting.";
+      followupText = gameReturnText;
     }
 
     addMessage({ type: 'ai', text: followupText, id: generateId() });
