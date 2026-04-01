@@ -78,6 +78,8 @@ const OBJECT_WORDS = new Set([
   'cane', 'walker', 'wheelchair', 'glasses', 'shoes', 'hat',
   'popsicle', 'strawberry', 'strawberries', 'orange', 'oranges',
   'broccoli', 'spinach', 'salad', 'rice', 'pasta', 'water',
+  'chocolate', 'vanilla', 'ice', 'cream', 'swing', 'swings',
+  'slide', 'duck', 'ducks', 'pond', 'ball', 'flowers', 'tree',
 ]);
 
 const EMOTION_WORDS = new Set([
