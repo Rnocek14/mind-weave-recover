@@ -170,7 +170,7 @@ export function getHallucinationRetryInstruction(
   violatingWords: string[],
   allowlist: EntityAllowlist,
 ): string {
-  const known = [...allowlist.all].slice(0, 10).join(', ');
+  const known = Array.from(allowlist.all).slice(0, 10).join(', ');
   return `REVISION REQUIRED: Your response "${originalResponse}" introduced words the user never said: [${violatingWords.join(', ')}]. ` +
     `Rewrite it using ONLY entities the user has mentioned: ${known || 'none — use abstract questions only'}. ` +
     `Keep it under 18 words. Do NOT add any new objects, animals, or food items.`;
