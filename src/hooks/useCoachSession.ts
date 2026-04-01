@@ -1094,6 +1094,11 @@ export function useCoachSession({
             rollingMemoryRef.current = data.memoryUpdate;
           }
           
+          // Track anchor metrics for session-level analytics
+          if (data.anchorMetrics) {
+            anchorMetricsRef.current.push(data.anchorMetrics as AnchorMetrics);
+          }
+          
           // Dead-end recovery — anchor to something the user said
           const deadEnds = ['i see', 'nice.', 'okay.', 'got it.', 'makes sense.', 'tell me more.', 'interesting.'];
           const lowerResponse = aiResponseText.toLowerCase().trim().replace(/[.!]+$/, '');
