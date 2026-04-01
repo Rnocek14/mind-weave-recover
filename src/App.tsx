@@ -161,6 +161,7 @@ const App = () => (
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
+                  <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
