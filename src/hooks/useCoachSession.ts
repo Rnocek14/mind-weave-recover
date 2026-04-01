@@ -798,6 +798,7 @@ export function useCoachSession({
       // INLINE PHOTO NAMING — No mode switch, image appears in chat
       // Maya introduces it naturally, user responds through normal speech
       // ═══════════════════════════════════════════════════════════
+      pendingVisualActionRef.current = true; // Gate: allow "show you" / "check this out"
       const maxDifficulty = action.difficulty === 'easy' ? 2 : 3;
       const photos = PHOTO_BANK.filter(p => p.computed_difficulty <= maxDifficulty);
       const trial = photos[Math.floor(Math.random() * photos.length)];
