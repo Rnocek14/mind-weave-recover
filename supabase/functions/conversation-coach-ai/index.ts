@@ -327,6 +327,7 @@ serve(async (req) => {
       sessionIntelligence,
       crossSessionIntelligence,
       therapyStrategy,
+      anchorContext,
     } = await req.json() as {
       userTranscript: string;
       turnNumber: number;
@@ -355,6 +356,11 @@ serve(async (req) => {
       sessionIntelligence?: string;
       crossSessionIntelligence?: string;
       therapyStrategy?: string;
+      anchorContext?: {
+        candidateAnchors: string[];
+        preferredAnchor: string | null;
+        anchorRequired: boolean;
+      };
     };
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
