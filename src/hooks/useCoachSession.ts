@@ -73,6 +73,7 @@ import { buildAnchorContext, validateAnchoring, type AnchorMetrics } from '@/lib
 import { determineResponseLevel, TRLTracker, type ResponseLevelResult, type AnchorUsageType } from '@/lib/therapeuticResponseLadder';
 import { RepairSuccessTracker } from '@/lib/repairSuccessTracker';
 import { evaluateGameTrigger, createTriggerState, triggerToPopupExercise, type GameTriggerResult } from '@/lib/trlGameTriggers';
+import { buildEntityAllowlist, getHallucinationGuardPromptBlock } from '@/lib/hallucinationGuard';
 
 // Store card results for AI context
 interface CardResult {
