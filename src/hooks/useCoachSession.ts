@@ -342,6 +342,10 @@ export function useCoachSession({
   const difficultyStateRef = useRef<DifficultyState>(createInitialDifficultyState());
   // FIX #4: Use ref for primed vocabulary to avoid stale closures
   const primedVocabularyRef = useRef<string[]>([]);
+  // Session phase controller — manages ideal 5-minute flow
+  const sessionPhaseStateRef = useRef<TherapyPhaseState>(createSessionPhaseState());
+  // Micro-feedback tracker — surfaces progress moments
+  const feedbackTrackerRef = useRef<FeedbackTracker>(createFeedbackTracker());
   // Rolling semantic memory — AI-maintained conversation summary
     const rollingMemoryRef = useRef<string>('');
     // Session intelligence tracker — within-session memory for Maya
