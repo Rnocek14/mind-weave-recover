@@ -43,14 +43,14 @@ export default function CaregiverPortal() {
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const isCaregiverPlus = isAtLeast("caregiver");
+  const { setUiMode } = useUiMode();
 
-  // Gate: redirect patients away
+  // Auto-switch to caregiver mode when visiting this route
   useEffect(() => {
-    if (!authLoading && user && !isCaregiverPlus) {
-      navigate("/dashboard", { replace: true });
+    if (!authLoading && user) {
+      setUiMode("caregiver");
     }
-  }, [authLoading, user, isCaregiverPlus, navigate]);
+  }, [authLoading, user, setUiMode]);
 
   // Auth gate + load streak
   useEffect(() => {
