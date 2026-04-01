@@ -5,6 +5,7 @@ import { CapabilityAssessment } from "./CapabilityAssessment";
 import { SessionSummaryScreen } from "./SessionSummaryScreen";
 import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
 import { SessionArcBar, getAdaptivityMessage, shouldPivotToSupport } from "./SessionArcBar";
+import { SessionPreviewCard } from "./SessionPreviewCard";
 import { Card } from "@/components/ui/card";
 import { Play } from "lucide-react";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
