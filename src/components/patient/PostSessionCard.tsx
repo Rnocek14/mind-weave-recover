@@ -17,7 +17,7 @@ function getDomainLabel(exercises: string[]): string | null {
 
 export function PostSessionCard({ feedback, onDismiss, onStartSession, anticipation, thread }: PostSessionCardProps) {
   const [minimized, setMinimized] = useState(false);
-  const { text, emoji } = getHeadline(feedback);
+  const { text, emoji } = getPostSessionHeadline(feedback);
   const domainLabel = getDomainLabel(feedback.exerciseNames);
 
   const handleDismiss = () => {
