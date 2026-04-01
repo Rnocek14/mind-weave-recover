@@ -770,6 +770,7 @@ export function useCoachSession({
       setIsComplete(true);
       setCurrentPhase('complete');
     } else if (action.type === 'popup_exercise') {
+      pendingVisualActionRef.current = true; // Gate: allow game transition language
       // GAME TRANSITIONS: Use contextual intro based on trigger type
       const intro = generateGameIntro({
         currentTopic: orchestratorStateRef.current.currentTopic,
