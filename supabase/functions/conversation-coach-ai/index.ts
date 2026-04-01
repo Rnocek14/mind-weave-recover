@@ -500,6 +500,21 @@ serve(async (req) => {
       });
     }
 
+    // Anchor contract — inject mandatory anchoring into prompt
+    if (anchorContext?.anchorRequired && anchorContext.candidateAnchors.length > 0) {
+      const preferred = anchorContext.preferredAnchor || anchorContext.candidateAnchors[0];
+      const others = anchorContext.candidateAnchors.filter(a => a !== preferred);
+      let anchorBlock = `\n[ANCHOR CONTRACT — MANDATORY]\n`;
+      anchorBlock += `You MUST naturally reference "${preferred}" in your reply.\n`;
+      if (others.length > 0) {
+        anchorBlock += `Other valid anchors: ${others.join(', ')}\n`;
+      }
+      anchorBlock += `BAD: "That sounds nice. What did you do?" (ignores their words)\n`;
+      anchorBlock += `GOOD: "Your ${preferred} — tell me more about that!"\n`;
+      anchorBlock += `If you cannot use the anchor naturally, at least reference ONE specific detail they said.`;
+      messages.push({ role: 'system', content: anchorBlock });
+    }
+
     // Current user message
     messages.push({ role: 'user', content: userTranscript?.trim() || '(silence)' });
 
@@ -508,6 +523,7 @@ serve(async (req) => {
       intent: therapyIntent,
       hasMemory: !!rollingMemory,
       effortful: speechAnalysis?.effortfulSpeech,
+      anchors: anchorContext?.candidateAnchors?.slice(0, 3),
     });
 
     // Call AI with tool calling for structured response + memory
