@@ -591,5 +591,5 @@ serve(async (req) => {
       JSON.stringify({ response: "What else?", memoryUpdate: null }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  }
-});
+    }
+
