@@ -227,6 +227,7 @@ export function PhotoNamingCard({
   };
 
   useEffect(() => {
+    transcriptRef.current = transcript;
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
     }
