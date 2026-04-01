@@ -9,6 +9,7 @@ import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
