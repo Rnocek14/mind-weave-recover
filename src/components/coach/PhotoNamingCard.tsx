@@ -125,7 +125,7 @@ export function PhotoNamingCard({
     // Global card timeout — auto-complete after 20s to prevent dead state
     const globalTimeout = setTimeout(() => {
       if (!hasCompletedRef.current && randomPhoto) {
-        const spoken = transcript?.trim() || '';
+        const spoken = transcriptRef.current?.trim() || '';
         handleComplete(spoken.length > 0 ? spoken : randomPhoto.target, true);
       }
     }, 20000);
