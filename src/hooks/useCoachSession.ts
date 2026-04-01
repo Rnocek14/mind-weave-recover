@@ -430,6 +430,22 @@ export function useCoachSession({
     setIsProcessing(true);
     
     // ═══════════════════════════════════════════════════════════════
+    // MAYA SPEECH GATE: Detect user corrections & track established facts
+    // ═══════════════════════════════════════════════════════════════
+    if (detectUserCorrection(transcript)) {
+      userCorrectionActiveRef.current = true;
+      console.log('[MayaSpeechGate] User correction detected:', transcript.slice(0, 80));
+    } else {
+      // Clear correction flag after one non-correction turn
+      userCorrectionActiveRef.current = false;
+    }
+    // Track established facts from user statements (simple extraction)
+    const factWords = transcript.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    if (factWords.length >= 2 && transcript.length > 15) {
+      establishedFactsRef.current.push(transcript.slice(0, 100));
+      if (establishedFactsRef.current.length > 10) establishedFactsRef.current.shift();
+    }
+    // ═══════════════════════════════════════════════════════════════
     // INLINE PHOTO NAMING — Check answer before regular flow
     // ═══════════════════════════════════════════════════════════════
     if (activeInlinePhotoRef.current && transcript.trim().length > 0) {
