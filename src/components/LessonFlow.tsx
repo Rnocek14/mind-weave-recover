@@ -53,8 +53,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const autoStart = location.state?.autoStart ?? false;
 
   const getInitialPhase = (): FlowPhase => {
-    if (autoStart) return "exercise";
-    if (skipDailyCheck) return "exercise";
+    if (autoStart) return "session-preview";
+    if (skipDailyCheck) return "session-preview";
     return "daily-check";
   };
 
