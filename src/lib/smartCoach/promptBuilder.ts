@@ -35,6 +35,16 @@ export interface PromptContext {
   returningFromIntervention?: boolean;
   /** Transfer skill to reconnect after intervention */
   interventionSkill?: string;
+  /** Whether this turn needs a purpose re-anchor */
+  purposeReanchor?: boolean;
+  /** Interruption context for strict return bridge */
+  interruptionContext?: {
+    lastSubtopic: string;
+    lastUserStruggle: string;
+    lastPhraseAttempt: string;
+  };
+  /** Post-intervention dampening active */
+  postInterventionDampening?: boolean;
 }
 
 const EXPAND_DIMENSIONS = [

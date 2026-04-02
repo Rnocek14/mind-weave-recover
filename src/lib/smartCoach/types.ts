@@ -119,6 +119,19 @@ export interface ProgressNarrative {
 
 // ─── Coach State ─────────────────────────────────────────────
 
+// ─── Interruption Context (for return bridge) ───────────────
+
+export interface InterruptionContext {
+  /** The subtopic/thread active when interrupted */
+  lastSubtopic: string;
+  /** What the user was struggling with */
+  lastUserStruggle: string;
+  /** The exact phrase/word attempt before interruption */
+  lastPhraseAttempt: string;
+  /** Turn number when interrupted */
+  interruptedAtTurn: number;
+}
+
 export interface CoachState {
   topic: string;
   subtopic?: string;
@@ -152,6 +165,14 @@ export interface CoachState {
   readinessLevel: number;
   /** Hesitation clusters tracking (last N turns) */
   recentHesitations: boolean[];
+  /** Turn when purpose was last re-anchored */
+  lastPurposeAnchorTurn: number;
+  /** Saved context before an intervention for strict return */
+  interruptionContext?: InterruptionContext;
+  /** Whether we just returned from an intervention (for dampening) */
+  postInterventionDampening: boolean;
+  /** Number of interventions this session */
+  interventionCount: number;
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────

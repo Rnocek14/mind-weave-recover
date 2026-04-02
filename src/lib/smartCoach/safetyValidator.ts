@@ -67,6 +67,20 @@ const EMPTY_PRAISE = [
   /^that'?s (great|wonderful|amazing|excellent)\.?!?$/i,
 ];
 
+// ── Praise-without-specificity (catches "Great!" at start of longer lines) ──
+const PRAISE_STARTERS = /^(great|excellent|perfect|amazing|wonderful|good job|nice|well done|fantastic|brilliant)[.!,]?\s/i;
+const TASK_REFERENCE_PATTERNS = [
+  /you (said|found|used|named|retrieved|described|built|completed|got|picked)/i,
+  /that word/i,
+  /the (first sound|category|sentence|phrase)/i,
+  /without (a cue|help|hints)/i,
+  /on your own/i,
+  /faster/i,
+  /clearly/i,
+  /that retrieval/i,
+  /word.?finding/i,
+];
+
 // ── Off-topic yes/no questions ───────────────────────────────
 
 const OFF_TOPIC_PATTERNS = [
