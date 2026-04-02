@@ -11,6 +11,7 @@
 
 import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import type { GameDefinition } from './gameTrigger';
+import type { InterruptionContext } from './types';
 import { buildGameReturnText } from './gameTrigger';
 
 export interface InterventionResult {
@@ -35,11 +36,13 @@ export function adaptExerciseResult(
   normalized: NormalizedExerciseResult,
   game: GameDefinition,
   topicId: string,
+  interruptionContext?: InterruptionContext,
 ): InterventionResult {
   const returnText = buildGameReturnText(
     game,
     { score: normalized.score, summary: normalized.summary },
     topicId,
+    interruptionContext,
   );
 
   return {

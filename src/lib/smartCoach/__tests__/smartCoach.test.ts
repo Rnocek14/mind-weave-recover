@@ -56,6 +56,9 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     primaryDeficit: 'expressive',
     readinessLevel: 7,
     recentHesitations: [],
+    lastPurposeAnchorTurn: 0,
+    postInterventionDampening: false,
+    interventionCount: 0,
     ...overrides,
   };
 }

@@ -67,6 +67,20 @@ const EMPTY_PRAISE = [
   /^that'?s (great|wonderful|amazing|excellent)\.?!?$/i,
 ];
 
+// ── Praise-without-specificity (catches "Great!" at start of longer lines) ──
+const PRAISE_STARTERS = /^(great|excellent|perfect|amazing|wonderful|good job|nice|well done|fantastic|brilliant)[.!,]?\s/i;
+const TASK_REFERENCE_PATTERNS = [
+  /you (said|found|used|named|retrieved|described|built|completed|got|picked)/i,
+  /that word/i,
+  /the (first sound|category|sentence|phrase)/i,
+  /without (a cue|help|hints)/i,
+  /on your own/i,
+  /faster/i,
+  /clearly/i,
+  /that retrieval/i,
+  /word.?finding/i,
+];
+
 // ── Off-topic yes/no questions ───────────────────────────────
 
 const OFF_TOPIC_PATTERNS = [
@@ -146,6 +160,14 @@ export function validateCoachLine(
   for (const pattern of EMPTY_PRAISE) {
     if (pattern.test(trimmed)) {
       reasons.push('empty_praise');
+    }
+  }
+
+  // Praise-without-specificity: starts with praise word but has no task reference
+  if (PRAISE_STARTERS.test(trimmed)) {
+    const hasTaskRef = TASK_REFERENCE_PATTERNS.some(p => p.test(trimmed));
+    if (!hasTaskRef) {
+      reasons.push('praise_without_specificity');
     }
   }
 

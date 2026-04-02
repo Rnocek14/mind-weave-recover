@@ -57,6 +57,13 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 3 — Transition state (now also tracks metrics)
   let nextState = transitionCoachState(state, analysis);
 
+  // Step 3.5 — Post-intervention dampening: slightly elevate support after returning from drill
+  if (state.postInterventionDampening) {
+    nextState.supportLevel = Math.min(3, nextState.supportLevel + 1) as 0 | 1 | 2 | 3;
+    // Clear dampening after one turn of use
+    nextState.postInterventionDampening = false;
+  }
+
   // Step 4 — Select cue (now severity-aware)
   const cueDecision = selectCue(nextState, analysis);
 
@@ -81,7 +88,24 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
         gameId: game.id,
         timestamp: Date.now(),
       };
+
+      // Save interruption context BEFORE launching exercise
+      nextState.interruptionContext = {
+        lastSubtopic: nextState.subtopic || nextState.topic,
+        lastUserStruggle: analysis.likelyErrorType !== 'none' ? analysis.likelyErrorType : 'word retrieval',
+        lastPhraseAttempt: userUtterance.trim().slice(0, 100),
+        interruptedAtTurn: state.turnCount,
+      };
+      nextState.interventionCount = (state.interventionCount || 0) + 1;
     }
+  }
+
+  // Step 4.6 — Purpose re-anchor check (every 8-12 turns)
+  const PURPOSE_REANCHOR_INTERVAL = 10;
+  const turnsSinceAnchor = (state.turnCount + 1) - (state.lastPurposeAnchorTurn || 0);
+  const needsPurposeReanchor = turnsSinceAnchor >= PURPOSE_REANCHOR_INTERVAL && nextState.mode !== 'wrapup';
+  if (needsPurposeReanchor) {
+    nextState.lastPurposeAnchorTurn = state.turnCount + 1;
   }
 
   // Step 5 — Build prompt (with purpose context + cross-session + deficit)
@@ -105,6 +129,9 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     lastSessionContext,
     returningFromIntervention,
     interventionSkill,
+    purposeReanchor: needsPurposeReanchor,
+    interruptionContext: returningFromIntervention ? state.interruptionContext : undefined,
+    postInterventionDampening: state.postInterventionDampening,
   });
 
   // Step 6 — Generate coach line via edge function
