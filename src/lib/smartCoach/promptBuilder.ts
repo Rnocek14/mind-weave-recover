@@ -69,15 +69,29 @@ const CUE_INSTRUCTIONS: Record<CueType, string> = {
 };
 
 // Severity-specific instruction additions
-function getSeverityInstructions(severity: SeverityProfile): string {
+function getSeverityInstructions(severity: SeverityProfile, deficit?: PrimaryDeficit): string {
+  let base = '';
   switch (severity) {
     case 'severe':
-      return `\nSEVERITY ADAPTATION: This person has severe difficulty. Use very short sentences. Default to yes/no or choice questions. Verify understanding after key exchanges ("So you mean [X] — right?"). Maximum 15 words.`;
+      base = `\nSEVERITY ADAPTATION: This person has severe difficulty. Use very short sentences. Default to yes/no or choice questions. Verify understanding after key exchanges ("So you mean [X] — right?"). Maximum 15 words.`;
+      break;
     case 'mild':
-      return `\nSEVERITY ADAPTATION: This person has mild difficulty. Use more open-ended questions. Focus on speed and fluency. Less visible scaffolding. You can use slightly longer, more natural sentences.`;
+      base = `\nSEVERITY ADAPTATION: This person has mild difficulty. Use more open-ended questions. Focus on speed and fluency. Less visible scaffolding. You can use slightly longer, more natural sentences.`;
+      break;
     default:
-      return '';
+      break;
   }
+
+  // Add deficit-specific instructions
+  if (deficit === 'receptive') {
+    base += `\nDEFICIT FOCUS: This person has receptive difficulty. Use shorter instructions. Highlight key words. Add verification steps ("Does that make sense?"). Avoid complex sentence structures.`;
+  } else if (deficit === 'expressive') {
+    base += `\nDEFICIT FOCUS: This person has expressive difficulty. Be patient with pauses. Provide word-finding support. Use phonemic cues when they're close. Don't rush — retrieval takes time.`;
+  } else if (deficit === 'mixed') {
+    base += `\nDEFICIT FOCUS: This person has mixed receptive-expressive difficulty. Keep instructions short AND provide retrieval support. Verify understanding frequently. Use forced choices when open-ended fails.`;
+  }
+
+  return base;
 }
 
 export function buildPrompt(ctx: PromptContext): string {
