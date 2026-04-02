@@ -50,7 +50,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 4 — Select cue
   const cueDecision = selectCue(nextState, analysis);
 
-  // Step 5 — Build prompt
+  // Step 5 — Build prompt (with full conversation history)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -61,6 +61,8 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     targetSkill: nextState.targetSkill,
     establishedFacts: nextState.establishedFacts,
     topicKeywords: nextState.topicKeywords,
+    conversationHistory: nextState.conversationHistory,
+    expandDimension: nextState.expandDimension,
   });
 
   // Step 6 — Generate coach line via edge function
