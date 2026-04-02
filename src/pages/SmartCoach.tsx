@@ -426,8 +426,8 @@ export default function SmartCoach() {
     setSessionStats(null);
     setReadinessLevel(7);
     setActiveGame(null);
-    setGameResult(null);
     setPendingIntervention(null);
+    exerciseModal.closeExerciseModal();
   };
 
   // ─── Derived values ────────────────────────────────────────
