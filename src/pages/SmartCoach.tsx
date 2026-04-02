@@ -21,11 +21,15 @@ import { createInitialCoachState } from '@/lib/smartCoach/coachState';
 import { runCoachTurn } from '@/lib/smartCoach/runCoachTurn';
 import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
-import { buildGameReturnText, GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
+import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
+import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
+import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
+import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
+import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
 
 // ─── Chat message type ───────────────────────────────────────
@@ -146,8 +150,8 @@ export default function SmartCoach() {
   const [readinessLevel, setReadinessLevel] = useState(7);
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
-  const [gameResult, setGameResult] = useState<{ success: boolean; count: number } | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const exerciseModal = useExerciseModal();
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -341,10 +345,16 @@ export default function SmartCoach() {
     const game = GAME_CATALOG[pendingIntervention.gameId];
     if (game) {
       setActiveGame(game);
-      setGameResult(null);
+      // Launch real exercise in modal
+      exerciseModal.launchExerciseModal(game.exerciseSlug, {
+        totalTrials: game.defaultConfig.totalTrials,
+        difficultyTier: game.defaultConfig.difficultyTier,
+        cueLevel: game.defaultConfig.cueLevel,
+        source: 'maya_chat',
+      });
     }
     setPendingIntervention(null);
-  }, [pendingIntervention]);
+  }, [pendingIntervention, exerciseModal]);
 
   const handleDeclineIntervention = useCallback(() => {
     setPendingIntervention(null);
@@ -356,22 +366,49 @@ export default function SmartCoach() {
     }]);
   }, []);
 
-  const handleGameComplete = useCallback((success: boolean, count: number) => {
-    setGameResult({ success, count });
-  }, []);
+  /** Called when a real exercise completes inside ExerciseModalHost */
+  const handleExerciseComplete = useCallback((normalized: NormalizedExerciseResult) => {
+    if (!activeGame || !selectedTopic) {
+      setActiveGame(null);
+      return;
+    }
 
-  const handleGameReturn = useCallback(() => {
-    if (!activeGame || !selectedTopic) return;
-    const returnText = buildGameReturnText(activeGame, gameResult?.success ?? true, selectedTopic.id);
+    const result = adaptExerciseResult(normalized, activeGame, selectedTopic.id);
+
+    // Add return-to-conversation message
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
       role: 'maya',
-      text: returnText,
+      text: result.returnText,
       timestamp: Date.now(),
     }]);
+
+    // Update session metrics with exercise result
+    setSessionStats(prev => prev ? {
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        // Count the exercise towards overall session quality
+        independentResponses: prev.metrics.independentResponses + (result.success ? 1 : 0),
+      },
+    } : null);
+
     setActiveGame(null);
-    setGameResult(null);
-  }, [activeGame, gameResult, selectedTopic]);
+  }, [activeGame, selectedTopic]);
+
+  const handleExerciseModalClose = useCallback(() => {
+    exerciseModal.closeExerciseModal();
+    if (activeGame) {
+      // If closed without completing, add a soft return message
+      setMessages(prev => [...prev, {
+        id: `maya-return-${Date.now()}`,
+        role: 'maya',
+        text: "No worries — let's keep talking. Where were we?",
+        timestamp: Date.now(),
+      }]);
+      setActiveGame(null);
+    }
+  }, [exerciseModal, activeGame]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -389,8 +426,8 @@ export default function SmartCoach() {
     setSessionStats(null);
     setReadinessLevel(7);
     setActiveGame(null);
-    setGameResult(null);
     setPendingIntervention(null);
+    exerciseModal.closeExerciseModal();
   };
 
   // ─── Derived values ────────────────────────────────────────
@@ -752,81 +789,9 @@ export default function SmartCoach() {
     );
   }
 
-  // ─── Game Overlay ──────────────────────────────────────────
+  // ─── Exercise Modal (replaces placeholder game overlay) ────
 
-  if (activeGame) {
-    return (
-      <div className="h-dvh bg-background flex flex-col">
-        <header className="p-3 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{activeGame.icon}</span>
-              <div>
-                <h1 className="text-sm font-semibold">{activeGame.label}</h1>
-                <p className="text-[10px] text-muted-foreground">{activeGame.skillTarget.replace(/_/g, ' ')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{activeGame.durationSec}s</span>
-              <Button variant="ghost" size="icon" onClick={() => { setActiveGame(null); setGameResult(null); }}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm space-y-6 text-center">
-            {!gameResult ? (
-              <>
-                <div className="space-y-3">
-                  <span className="text-5xl block">{activeGame.icon}</span>
-                  <h2 className="text-xl font-bold">{activeGame.label}</h2>
-                  <p className="text-sm text-muted-foreground">{activeGame.description}</p>
-                  <p className="text-xs text-primary">{activeGame.rationale}</p>
-                </div>
-
-                {/* Simplified game interaction */}
-                <div className="bg-muted/50 rounded-xl p-6 space-y-4">
-                  <p className="text-sm font-medium">
-                    {activeGame.id === 'rapid_naming' && `Name as many ${selectedTopic?.id || 'items'}-related words as you can!`}
-                    {activeGame.id === 'sentence_completion' && 'Complete the sentence with the right word.'}
-                    {activeGame.id === 'yes_no_check' && 'Quick yes or no — is this correct?'}
-                    {activeGame.id === 'semantic_match' && 'Which words go together?'}
-                  </p>
-
-                  <div className="flex gap-3 justify-center">
-                    <Button variant="outline" onClick={() => handleGameComplete(false, 2)}>
-                      That was hard
-                    </Button>
-                    <Button onClick={() => handleGameComplete(true, 5)}>
-                      I got several!
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <span className="text-4xl block">{gameResult.success ? '🎉' : '💪'}</span>
-                <h2 className="text-lg font-bold">
-                  {gameResult.success ? 'Nice work!' : 'Good effort!'}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {gameResult.success
-                    ? `You found those quickly. That speed helps in real conversation too.`
-                    : `That practice loosens up the retrieval pathways — it helps even when it's tough.`}
-                </p>
-                <Button onClick={handleGameReturn} className="gap-2">
-                  <ArrowRight className="w-4 h-4" />
-                  Back to conversation
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ExerciseModalHost renders as a modal/sheet, no full-page overlay needed
 
   // ─── Active Chat ────────────────────────────────────────────
 
@@ -977,6 +942,16 @@ export default function SmartCoach() {
           </Button>
         </div>
       </div>
+
+      {/* Real exercise modal — launched by intervention acceptance */}
+      <ExerciseModalHost
+        activeExercise={exerciseModal.activeExercise}
+        isOpen={exerciseModal.isOpen}
+        onClose={handleExerciseModalClose}
+        onComplete={handleExerciseComplete}
+        userId={user.id}
+        sessionId={null}
+      />
     </div>
   );
 }

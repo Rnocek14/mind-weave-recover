@@ -1,10 +1,10 @@
 /**
  * Smart Coach — Game Trigger Engine
  * 
- * Maps detected patterns to specific micro-game interventions.
+ * Maps detected patterns to REAL adaptive exercise components.
  * Games only appear when clinically triggered, never randomly.
  * 
- * Lifecycle: Detect → Explain → Offer → Execute → Return
+ * Lifecycle: Detect → Explain → Offer → Launch Real Exercise → Summarize → Return
  */
 
 import type { CoachState, GameTriggerEvent } from './types';
@@ -13,6 +13,8 @@ import type { CoachState, GameTriggerEvent } from './types';
 
 export interface GameDefinition {
   id: string;
+  /** Canonical exercise slug (hyphenated, matches ExerciseModalHost) */
+  exerciseSlug: string;
   label: string;
   description: string;
   /** What the user sees as the reason */
@@ -23,44 +25,80 @@ export interface GameDefinition {
   skillTarget: string;
   /** Icon identifier */
   icon: string;
+  /** Default config for ExerciseModalHost */
+  defaultConfig: {
+    totalTrials?: number;
+    difficultyTier?: number;
+    cueLevel?: number;
+  };
 }
 
 const GAME_CATALOG: Record<string, GameDefinition> = {
-  rapid_naming: {
-    id: 'rapid_naming',
+  category_fluency: {
+    id: 'category_fluency',
+    exerciseSlug: 'category-fluency',
     label: 'Quick Naming',
     description: 'Name as many items as you can in the category',
     rationale: 'This strengthens fast word retrieval — the same skill you need in conversation.',
     durationSec: 30,
     skillTarget: 'word_retrieval_speed',
     icon: '⚡',
+    defaultConfig: { totalTrials: 1 },
   },
-  sentence_completion: {
-    id: 'sentence_completion',
-    label: 'Finish the Sentence',
-    description: 'Complete sentences with the missing word',
-    rationale: 'This practices finding words in context — how you actually use them.',
-    durationSec: 45,
-    skillTarget: 'contextual_retrieval',
-    icon: '✏️',
+  photo_naming: {
+    id: 'photo_naming',
+    exerciseSlug: 'photo-naming',
+    label: 'Name That Photo',
+    description: 'Name the object in each picture',
+    rationale: 'This practices direct word retrieval — finding the exact word you mean.',
+    durationSec: 60,
+    skillTarget: 'lexical_retrieval',
+    icon: '📸',
+    defaultConfig: { totalTrials: 5, difficultyTier: 1, cueLevel: 2 },
   },
-  yes_no_check: {
-    id: 'yes_no_check',
+  yes_no_comprehension: {
+    id: 'yes_no_comprehension',
+    exerciseSlug: 'yes-no-comprehension',
     label: 'Quick Check',
     description: 'Answer yes or no to simple questions',
     rationale: 'This checks understanding quickly and builds confidence.',
-    durationSec: 20,
+    durationSec: 30,
     skillTarget: 'comprehension_verification',
     icon: '✅',
+    defaultConfig: { totalTrials: 5 },
   },
-  semantic_match: {
-    id: 'semantic_match',
-    label: 'Word Match',
-    description: 'Match words that go together',
+  meaning_match: {
+    id: 'meaning_match',
+    exerciseSlug: 'meaning-match',
+    label: 'Meaning Match',
+    description: 'Match words with their meanings',
     rationale: 'This strengthens the connections between related words in your memory.',
-    durationSec: 30,
+    durationSec: 45,
     skillTarget: 'semantic_network',
     icon: '🔗',
+    defaultConfig: { totalTrials: 5, difficultyTier: 1 },
+  },
+  sentence_construction: {
+    id: 'sentence_construction',
+    exerciseSlug: 'sentence-construction',
+    label: 'Build a Sentence',
+    description: 'Arrange words into a correct sentence',
+    rationale: 'This challenges sentence building — a step up from single words.',
+    durationSec: 60,
+    skillTarget: 'sentence_production',
+    icon: '✏️',
+    defaultConfig: { totalTrials: 3, difficultyTier: 2 },
+  },
+  semantic_features: {
+    id: 'semantic_features',
+    exerciseSlug: 'semantic-features',
+    label: 'Word Features',
+    description: 'Identify features of a target word',
+    rationale: 'This builds the semantic network that makes retrieval easier.',
+    durationSec: 60,
+    skillTarget: 'semantic_depth',
+    icon: '🧠',
+    defaultConfig: { totalTrials: 3, difficultyTier: 1, cueLevel: 2 },
   },
 };
 
@@ -131,10 +169,10 @@ export function detectGameTrigger(state: CoachState): TriggerResult {
 // ─── Game Selection ─────────────────────────────────────────
 
 const PATTERN_TO_GAME: Record<TriggerPattern, string> = {
-  hesitation_cluster: 'rapid_naming',
-  semantic_error_cluster: 'semantic_match',
-  comprehension_breakdown: 'yes_no_check',
-  success_plateau: 'sentence_completion',
+  hesitation_cluster: 'category_fluency',
+  semantic_error_cluster: 'photo_naming',
+  comprehension_breakdown: 'yes_no_comprehension',
+  success_plateau: 'sentence_construction',
 };
 
 /** Select the right game for a trigger pattern */
@@ -160,21 +198,23 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
   };
 }
 
-/** Build the return-to-conversation text after a game */
-export function buildGameReturnText(game: GameDefinition, success: boolean, topic: string): string {
-  if (success) {
+/** Build the return-to-conversation text after a game using normalized results */
+export function buildGameReturnText(game: GameDefinition, result: { score: number; summary: string }, topic: string): string {
+  const skillLabel = game.skillTarget.replace(/_/g, ' ');
+
+  if (result.score >= 0.7) {
     const returns = [
-      `That came easier! The same ${game.skillTarget.replace(/_/g, ' ')} helps when we talk about ${topic}.`,
-      `Nice — you found those quickly. Let's use that momentum back in our conversation about ${topic}.`,
-      `See? That retrieval speed is there. Back to ${topic} — where were we?`,
+      `Nice — ${result.summary} That ${skillLabel} carries right into our conversation about ${topic}.`,
+      `Great work! ${result.summary} Let's use that momentum back in our chat about ${topic}.`,
+      `See? That retrieval is there. ${result.summary} Back to ${topic} — where were we?`,
     ];
     return returns[Math.floor(Math.random() * returns.length)];
   }
   
   const returns = [
-    `That's good practice either way. Let's go back to ${topic} — no pressure.`,
-    `Totally fine. That drill loosens up the pathways. Back to ${topic}?`,
-    `All good — that exercise helps even when it's tough. Let's continue with ${topic}.`,
+    `Good practice! ${result.summary} That drill helps even when it's tough. Back to ${topic}?`,
+    `All good — ${result.summary} That exercise loosens up the pathways. Let's continue with ${topic}.`,
+    `That's useful practice either way. ${result.summary} Back to ${topic} — no pressure.`,
   ];
   return returns[Math.floor(Math.random() * returns.length)];
 }
@@ -190,7 +230,7 @@ export function createGameTriggerEvent(
     triggerType: trigger.pattern as GameTriggerEvent['triggerType'],
     confidence: trigger.confidence,
     observedPattern: trigger.observation,
-    recommendedGame: game.id,
+    recommendedGame: game.exerciseSlug,
     accepted,
     resultSummary,
   };
