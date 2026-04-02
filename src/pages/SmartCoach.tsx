@@ -1,31 +1,25 @@
 /**
  * Smart Coach — Production Page
  * 
- * Clean, user-facing conversation practice using the new modular engine.
- * Text-first. No legacy dependencies.
+ * Purpose-driven clinical session engine.
+ * Flow: Topic Select → Orientation → Readiness → Conversation → Complete
+ * 
+ * Every screen answers: what, why, how we measure, where it transfers.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Sparkles, Loader2, RotateCcw, Heart, MessageCircle, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/hooks/useAuth';
 import { createInitialCoachState } from '@/lib/smartCoach/coachState';
 import { runCoachTurn } from '@/lib/smartCoach/runCoachTurn';
-import type { CoachState, CoachMode, CoachTurnResult } from '@/lib/smartCoach/types';
+import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
+import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, SeverityProfile } from '@/lib/smartCoach/types';
+import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import { cn } from '@/lib/utils';
-
-// ─── Topics ──────────────────────────────────────────────────
-
-const TOPICS = [
-  { id: 'food', label: '🍳 Food & Cooking', description: 'meals, recipes, favorites', keywords: ['food', 'cook', 'eat', 'meal', 'recipe', 'kitchen'] },
-  { id: 'family', label: '👨‍👩‍👧 Family', description: 'people you care about', keywords: ['family', 'mom', 'dad', 'sister', 'brother', 'kids'] },
-  { id: 'hobbies', label: '🎨 Hobbies', description: 'things you enjoy doing', keywords: ['hobby', 'fun', 'play', 'game', 'read', 'music'] },
-  { id: 'daily_routine', label: '☀️ Daily Routine', description: 'your day, morning to night', keywords: ['morning', 'day', 'routine', 'wake', 'sleep', 'night'] },
-  { id: 'travel', label: '✈️ Travel & Places', description: 'places you\'ve been', keywords: ['travel', 'trip', 'visit', 'place', 'city', 'beach'] },
-  { id: 'pets', label: '🐕 Pets & Animals', description: 'furry friends', keywords: ['pet', 'dog', 'cat', 'animal', 'walk', 'feed'] },
-];
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -39,28 +33,20 @@ interface ChatMessage {
 // ─── User-friendly mode labels ──────────────────────────────
 
 const MODE_LABELS: Record<CoachMode, string> = {
-  warmup: 'Starting easy',
-  expand: 'Say a little more',
-  scaffold: "I'm helping you build it",
-  support: 'Slowing it down',
-  wrapup: 'Finishing up',
-};
-
-const MODE_COLORS: Record<string, string> = {
-  warmup: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  expand: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  scaffold: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  support: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  wrapup: 'bg-muted text-muted-foreground',
+  warmup: 'Warming up',
+  expand: 'Building on your words',
+  scaffold: 'Helping you find it',
+  support: 'Making it easier',
+  wrapup: 'Wrapping up',
 };
 
 // ─── Phase steps for visual indicator ───────────────────────
 
 const PHASE_STEPS = [
-  { key: 'warmup', label: 'Start', icon: MessageCircle },
-  { key: 'expand', label: 'Build', icon: Sparkles },
+  { key: 'warmup', label: 'Warm up', icon: MessageCircle },
+  { key: 'expand', label: 'Practice', icon: Brain },
   { key: 'support', label: 'Support', icon: Heart },
-  { key: 'wrapup', label: 'Finish', icon: CheckCircle2 },
+  { key: 'wrapup', label: 'Review', icon: CheckCircle2 },
 ];
 
 function getPhaseIndex(mode: CoachMode): number {
@@ -70,46 +56,47 @@ function getPhaseIndex(mode: CoachMode): number {
   return 3;
 }
 
-// ─── Better openers ─────────────────────────────────────────
+// ─── Openers with purpose framing ──────────────────────────
 
-const OPENERS: Record<string, string[]> = {
-  food: [
-    "Hey! I'd love to hear about food you enjoy. What's something you really like to eat?",
-    "Let's chat about food. What did you have for your last meal?",
-    "I love talking about food! What's your favorite thing to cook or eat?",
-  ],
-  family: [
-    "I'd love to hear about the people in your life. Who's someone special to you?",
-    "Let's talk about family. Who would you like to tell me about?",
-    "Tell me about someone in your family — whoever comes to mind first.",
-  ],
-  hobbies: [
-    "What's something you really enjoy doing? Anything at all.",
-    "Let's talk about fun stuff. What do you like to do when you have free time?",
-    "I'd love to hear what you enjoy. What's a hobby or activity you like?",
-  ],
-  daily_routine: [
-    "Tell me about your day so far. What have you been up to?",
-    "What does a typical morning look like for you?",
-    "Let's talk about your day. What did you do when you woke up today?",
-  ],
-  travel: [
-    "I'd love to hear about a place you've been. Where's somewhere you've visited?",
-    "Let's talk about places. Where's your favorite place you've been?",
-    "Think of a place you really liked visiting. Where was it?",
-  ],
-  pets: [
-    "Do you have any pets? I'd love to hear about them.",
-    "Let's talk about animals. Do you have a favorite pet or animal?",
-    "Tell me about a pet — yours, or one you've known. What were they like?",
-  ],
-};
+function buildPurposeOpener(topic: TopicDefinition): string {
+  const openers: Record<string, string[]> = {
+    food: [
+      "We're practicing familiar food words — the same ones you'd use ordering a meal. What's something you really like to eat?",
+      "Let's work on food vocabulary. These are words you use every day. What did you have for your last meal?",
+      "We're building word retrieval with food — something familiar. What's your favorite thing to cook or eat?",
+    ],
+    family: [
+      "We're practicing describing people — a skill you use when telling stories. Who's someone special to you?",
+      "Let's work on talking about the people in your life. Tell me about one family member.",
+      "We're building sentence skills with a familiar topic. Who would you like to tell me about?",
+    ],
+    hobbies: [
+      "We're practicing expressing preferences — something you do in everyday conversation. What's something you enjoy doing?",
+      "Let's work on describing activities you like. What do you enjoy in your free time?",
+      "We're building vocabulary around things you care about. What's a hobby you enjoy?",
+    ],
+    daily_routine: [
+      "We're practicing putting events in order — a key skill for describing your day. What have you been up to today?",
+      "Let's work on sequencing — describing things step by step. What does a typical morning look like?",
+      "We're building narrative skills with your routine. What did you do when you woke up today?",
+    ],
+    travel: [
+      "We're practicing descriptive language — the same skill you'd use telling someone about a trip. Where's somewhere you've visited?",
+      "Let's work on describing places and experiences. What's your favorite place you've been?",
+      "We're building detail and description skills. Think of a place you liked visiting — where was it?",
+    ],
+    pets: [
+      "We're practicing naming and describing routines — skills you use every day. Do you have any pets?",
+      "Let's work on naming and action words with a fun topic. Tell me about a pet you know.",
+      "We're building retrieval confidence with familiar words. What animals do you like?",
+    ],
+  };
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  const topicOpeners = openers[topic.id] || [`We're practicing ${topic.purpose.skillTarget.toLowerCase()}. ${topic.purpose.rationale} Tell me what comes to mind.`];
+  return topicOpeners[Math.floor(Math.random() * topicOpeners.length)];
 }
 
-// ─── Session tracking for summary ───────────────────────────
+// ─── Session tracking ───────────────────────────────────────
 
 interface SessionStats {
   topicLabel: string;
@@ -120,7 +107,18 @@ interface SessionStats {
   forcedChoiceUsed: boolean;
   sentenceStarterUsed: boolean;
   maxSupportLevel: number;
+  metrics: SessionMetrics;
+  strategiesUsed: string[];
 }
+
+// ─── Strategy name mapping ──────────────────────────────────
+
+const STRATEGY_NAMES: Record<string, string> = {
+  semantic_hint: 'Category hints',
+  phonemic_hint: 'First-sound cues',
+  forced_choice: 'Choice narrowing',
+  sentence_starter: 'Sentence starters',
+};
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -128,18 +126,21 @@ export default function SmartCoach() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  const [phase, setPhase] = useState<'topic_select' | 'intro' | 'chatting' | 'complete'>('topic_select');
-  const [selectedTopic, setSelectedTopic] = useState<typeof TOPICS[0] | null>(null);
+  const [phase, setPhase] = useState<'topic_select' | 'orientation' | 'readiness' | 'chatting' | 'complete'>('topic_select');
+  const [selectedTopic, setSelectedTopic] = useState<TopicDefinition | null>(null);
   const [coachState, setCoachState] = useState<CoachState | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [turnCount, setTurnCount] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
+  const [readinessLevel, setReadinessLevel] = useState(7);
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const topics = useMemo(() => getAllTopics(), []);
 
   // Auth guard
   useEffect(() => {
@@ -151,47 +152,58 @@ export default function SmartCoach() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focus input after Maya responds
+  // Focus input
   useEffect(() => {
     if (!isProcessing && phase === 'chatting') {
       inputRef.current?.focus();
     }
   }, [isProcessing, phase]);
 
-  // ─── Topic select → intro ─────────────────────────────────
+  // ─── Topic select → orientation ────────────────────────────
 
-  const handleTopicSelect = useCallback((topic: typeof TOPICS[0]) => {
+  const handleTopicSelect = useCallback((topic: TopicDefinition) => {
     setSelectedTopic(topic);
-    setPhase('intro');
+    setPhase('orientation');
+  }, []);
+
+  // ─── Orientation → readiness ───────────────────────────────
+
+  const handleStartReadiness = useCallback(() => {
+    setPhase('readiness');
+  }, []);
+
+  // ─── Readiness → chatting ─────────────────────────────────
+
+  const handleStartConversation = useCallback(() => {
+    if (!selectedTopic) return;
+
+    const opener = buildPurposeOpener(selectedTopic);
+
+    // Adjust maxTurns based on readiness
+    const adjustedReadiness = readinessLevel;
+
+    const state = createInitialCoachState({
+      topic: selectedTopic.id,
+      topicKeywords: selectedTopic.keywords,
+      readinessLevel: adjustedReadiness,
+    });
+    state.conversationHistory = [{ role: 'maya', text: opener }];
+
+    setCoachState(state);
+    setPhase('chatting');
+    setTurnCount(0);
     setSessionStats({
-      topicLabel: topic.label,
-      topicId: topic.id,
+      topicLabel: `${selectedTopic.emoji} ${selectedTopic.label}`,
+      topicId: selectedTopic.id,
       turnCount: 0,
       scaffoldUsed: false,
       supportUsed: false,
       forcedChoiceUsed: false,
       sentenceStarterUsed: false,
       maxSupportLevel: 0,
+      metrics: state.sessionMetrics,
+      strategiesUsed: [],
     });
-  }, []);
-
-  // ─── Intro → chatting ─────────────────────────────────────
-
-  const handleStartConversation = useCallback(() => {
-    if (!selectedTopic) return;
-
-    const opener = pickRandom(OPENERS[selectedTopic.id] || [`Hi! Let's talk about ${selectedTopic.label}. What comes to mind?`]);
-
-    const state = createInitialCoachState({
-      topic: selectedTopic.id,
-      topicKeywords: selectedTopic.keywords,
-    });
-    // Seed conversation history with the opener
-    state.conversationHistory = [{ role: 'maya', text: opener }];
-    
-    setCoachState(state);
-    setPhase('chatting');
-    setTurnCount(0);
 
     setMessages([{
       id: 'opener',
@@ -199,7 +211,7 @@ export default function SmartCoach() {
       text: opener,
       timestamp: Date.now(),
     }]);
-  }, [selectedTopic]);
+  }, [selectedTopic, readinessLevel]);
 
   // ─── Send a turn ────────────────────────────────────────────
 
@@ -228,7 +240,6 @@ export default function SmartCoach() {
       setCoachState(result.nextState);
       setTurnCount(result.nextState.turnCount);
 
-      // Track stats for summary
       setSessionStats(prev => prev ? {
         ...prev,
         turnCount: result.nextState.turnCount,
@@ -237,6 +248,8 @@ export default function SmartCoach() {
         forcedChoiceUsed: prev.forcedChoiceUsed || result.cueDecision.cueType === 'forced_choice',
         sentenceStarterUsed: prev.sentenceStarterUsed || result.cueDecision.cueType === 'sentence_starter',
         maxSupportLevel: Math.max(prev.maxSupportLevel, result.nextState.supportLevel),
+        metrics: result.nextState.sessionMetrics,
+        strategiesUsed: result.nextState.sessionMetrics.strategiesThatHelped,
       } : null);
 
       const mayaMsg: ChatMessage = {
@@ -277,30 +290,58 @@ export default function SmartCoach() {
     setSelectedTopic(null);
     setTurnCount(0);
     setSessionStats(null);
+    setReadinessLevel(7);
   };
 
   // ─── Derived values ────────────────────────────────────────
 
   const currentPhaseIndex = coachState ? getPhaseIndex(coachState.mode) : 0;
-  const progressPercent = Math.round((turnCount / maxTurns) * 100);
   const showSupportBadge = coachState && coachState.supportLevel >= 2;
-
-  // ─── Summary helpers ──────────────────────────────────────
-
-  const summaryHelpDescription = useMemo(() => {
-    if (!sessionStats) return null;
-    const parts: string[] = [];
-    if (sessionStats.sentenceStarterUsed) parts.push('sentence starters');
-    if (sessionStats.forcedChoiceUsed) parts.push('simple choices');
-    if (sessionStats.supportUsed) parts.push('extra support');
-    if (parts.length === 0) return 'You did great on your own!';
-    return `I helped with ${parts.join(' and ')} when needed.`;
-  }, [sessionStats]);
 
   const topicDisplayName = useMemo(() => {
     if (!selectedTopic) return coachState?.topic || '';
-    return selectedTopic.label.replace(/^[^\s]+\s/, ''); // remove emoji
+    return selectedTopic.label;
   }, [selectedTopic, coachState]);
+
+  // ─── 3-part wrapup summary ────────────────────────────────
+
+  const wrapupSummary = useMemo(() => {
+    if (!sessionStats) return null;
+    const m = sessionStats.metrics;
+
+    // Part 1: What improved
+    const improvements: string[] = [];
+    if (m.independentResponses > 0) {
+      improvements.push(`You gave ${m.independentResponses} response${m.independentResponses > 1 ? 's' : ''} independently`);
+    }
+    if (m.longestResponse > 0) {
+      improvements.push(`Your longest response was ${m.longestResponse} word${m.longestResponse > 1 ? 's' : ''}`);
+    }
+    if (m.wordsProduced > 0) {
+      improvements.push(`You produced ${m.wordsProduced} words total`);
+    }
+    const whatImproved = improvements.length > 0 
+      ? improvements[0] + (improvements.length > 1 ? `. ${improvements[1]}.` : '.')
+      : 'You practiced retrieving words in conversation.';
+
+    // Part 2: What strategy helped
+    const strategies = sessionStats.strategiesUsed
+      .map(s => STRATEGY_NAMES[s])
+      .filter(Boolean);
+    const whatHelped = strategies.length > 0
+      ? `${strategies.join(' and ')} helped you find words.`
+      : sessionStats.maxSupportLevel === 0
+        ? 'You did this without needing extra support.'
+        : 'The guided support helped keep you going.';
+
+    // Part 3: What's next
+    const purposeDef = selectedTopic?.purpose;
+    const whatsNext = purposeDef
+      ? `Next time, try using these same words when ${purposeDef.transferTarget.split(',')[0]}.`
+      : 'Try using these words in a real conversation today.';
+
+    return { whatImproved, whatHelped, whatsNext };
+  }, [sessionStats, selectedTopic]);
 
   // ─── Render ────────────────────────────────────────────────
 
@@ -330,23 +371,26 @@ export default function SmartCoach() {
           <div className="w-full max-w-md space-y-6 text-center">
             <div className="space-y-3">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Sparkles className="w-8 h-8 text-primary" />
+                <Target className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold">What shall we talk about?</h2>
+              <h2 className="text-2xl font-bold">Choose your practice focus</h2>
               <p className="text-muted-foreground text-sm">
-                Pick a topic and we'll have a guided conversation together.
+                Each topic targets specific skills you use in real life.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {TOPICS.map(topic => (
+              {topics.map(topic => (
                 <button
                   key={topic.id}
                   onClick={() => handleTopicSelect(topic)}
-                  className="p-4 rounded-xl border bg-card hover:bg-accent transition-colors text-left space-y-1"
+                  className="p-4 rounded-xl border bg-card hover:bg-accent transition-colors text-left space-y-1.5"
                 >
-                  <span className="text-base font-medium block">{topic.label}</span>
-                  <span className="text-xs text-muted-foreground">{topic.description}</span>
+                  <span className="text-base font-medium block">{topic.emoji} {topic.label}</span>
+                  <span className="text-xs text-muted-foreground block">{topic.description}</span>
+                  <span className="text-[10px] text-primary/70 font-medium block mt-1">
+                    {topic.purpose.skillTarget.split(' ').slice(0, 4).join(' ')}
+                  </span>
                 </button>
               ))}
             </div>
@@ -356,50 +400,83 @@ export default function SmartCoach() {
     );
   }
 
-  // ─── Session Intro ──────────────────────────────────────────
+  // ─── Orientation (Purpose Card) ─────────────────────────────
 
-  if (phase === 'intro' && selectedTopic) {
+  if (phase === 'orientation' && selectedTopic) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" onClick={() => setPhase('topic_select')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Smart Coach</h1>
+          <h1 className="text-lg font-semibold">Today's Practice</h1>
         </header>
 
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm space-y-6">
-            {/* Topic card */}
-            <div className="bg-card border rounded-2xl p-6 space-y-4 text-center">
-              <span className="text-4xl">{selectedTopic.label.split(' ')[0]}</span>
-              <h2 className="text-xl font-semibold">{topicDisplayName}</h2>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>We'll have a short guided conversation about <strong>{topicDisplayName.toLowerCase()}</strong>.</p>
-                <p>If you get stuck, I'll help with hints and starters.</p>
-                <p>You only need to say a little at a time.</p>
+          <div className="w-full max-w-sm space-y-5">
+            {/* Purpose card */}
+            <div className="bg-card border rounded-2xl p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{selectedTopic.emoji}</span>
+                <div>
+                  <h2 className="text-lg font-semibold">{selectedTopic.label}</h2>
+                  <p className="text-xs text-muted-foreground">{selectedTopic.purpose.skillTarget}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* Why */}
+                <div className="flex items-start gap-2.5">
+                  <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Why this matters</p>
+                    <p className="text-xs text-muted-foreground">{selectedTopic.purpose.rationale}</p>
+                  </div>
+                </div>
+                
+                {/* Transfer */}
+                <div className="flex items-start gap-2.5">
+                  <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Real-world use</p>
+                    <p className="text-xs text-muted-foreground capitalize">{selectedTopic.purpose.transferTarget}</p>
+                  </div>
+                </div>
+
+                {/* Measure */}
+                <div className="flex items-start gap-2.5">
+                  <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">How we measure</p>
+                    <p className="text-xs text-muted-foreground">{selectedTopic.purpose.measure}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Session structure preview */}
-            <div className="flex items-center justify-center gap-1">
-              {PHASE_STEPS.map((step, i) => (
-                <React.Fragment key={step.key}>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <step.icon className="w-4 h-4 text-muted-foreground" />
+            {/* Session arc preview */}
+            <div className="bg-muted/30 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                <span>~5 minutes</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {PHASE_STEPS.map((step, i) => (
+                  <React.Fragment key={step.key}>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <step.icon className="w-3 h-3" />
+                      <span>{step.label}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{step.label}</span>
-                  </div>
-                  {i < PHASE_STEPS.length - 1 && (
-                    <div className="w-6 h-px bg-border mt-[-12px]" />
-                  )}
-                </React.Fragment>
-              ))}
+                    {i < PHASE_STEPS.length - 1 && (
+                      <span className="text-muted-foreground/30">→</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
 
-            <Button size="lg" className="w-full" onClick={handleStartConversation}>
-              Start conversation
+            <Button size="lg" className="w-full" onClick={handleStartReadiness}>
+              Continue
             </Button>
           </div>
         </div>
@@ -407,7 +484,60 @@ export default function SmartCoach() {
     );
   }
 
-  // ─── Session Complete ───────────────────────────────────────
+  // ─── Readiness Check ────────────────────────────────────────
+
+  if (phase === 'readiness') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="p-4 flex items-center gap-3 border-b">
+          <Button variant="ghost" size="icon" onClick={() => setPhase('orientation')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Quick Check</h1>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm space-y-8">
+            <div className="text-center space-y-2">
+              <h2 className="text-xl font-semibold">How are you feeling?</h2>
+              <p className="text-sm text-muted-foreground">
+                This helps me adjust the pace and support level.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tired</span>
+                <span className="font-medium text-lg">{readinessLevel}/10</span>
+                <span className="text-muted-foreground">Energized</span>
+              </div>
+              <Slider
+                value={[readinessLevel]}
+                onValueChange={([v]) => setReadinessLevel(v)}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                {readinessLevel <= 3
+                  ? "We'll keep it short and well-supported today."
+                  : readinessLevel <= 6
+                  ? "We'll pace things comfortably."
+                  : "Great — we can push a little further today."}
+              </p>
+            </div>
+
+            <Button size="lg" className="w-full" onClick={handleStartConversation}>
+              Start practice
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Session Complete (3-Part Summary) ──────────────────────
 
   if (phase === 'complete') {
     return (
@@ -416,35 +546,57 @@ export default function SmartCoach() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Session Complete</h1>
+          <h1 className="text-lg font-semibold">Practice Complete</h1>
         </header>
 
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm space-y-6">
-            {/* Summary card */}
-            <div className="bg-card border rounded-2xl p-6 space-y-5 text-center">
-              <div className="text-4xl">✨</div>
-              <h2 className="text-xl font-bold">Nice work today</h2>
-
-              <div className="space-y-3 text-sm text-left">
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <span>You practiced talking about <strong>{topicDisplayName.toLowerCase()}</strong>.</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <span>You stayed with the conversation for <strong>{sessionStats?.turnCount || turnCount} turns</strong>.</span>
-                </div>
-                {summaryHelpDescription && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                    <HelpCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <span>{summaryHelpDescription}</span>
-                  </div>
-                )}
+          <div className="w-full max-w-sm space-y-5">
+            <div className="bg-card border rounded-2xl p-6 space-y-5">
+              <div className="text-center space-y-1">
+                <span className="text-3xl">✨</span>
+                <h2 className="text-xl font-bold">Session Review</h2>
+                <p className="text-xs text-muted-foreground">
+                  {selectedTopic?.purpose.skillTarget}
+                </p>
               </div>
 
-              <p className="text-muted-foreground text-sm pt-1">
-                Every conversation is practice. You should feel proud. 💛
+              {wrapupSummary && (
+                <div className="space-y-3">
+                  {/* What improved */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">What improved</p>
+                      <p className="text-sm text-muted-foreground">{wrapupSummary.whatImproved}</p>
+                    </div>
+                  </div>
+
+                  {/* What strategy helped */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <Brain className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">What helped</p>
+                      <p className="text-sm text-muted-foreground">{wrapupSummary.whatHelped}</p>
+                    </div>
+                  </div>
+
+                  {/* What's next */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Try this next</p>
+                      <p className="text-sm text-muted-foreground">{wrapupSummary.whatsNext}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Home practice card */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
+              <p className="text-xs font-medium text-primary">💡 Home practice idea</p>
+              <p className="text-sm text-foreground">
+                After your next meal, name 5 items you see on the table. Quick retrieval practice — no pressure.
               </p>
             </div>
 
@@ -474,8 +626,9 @@ export default function SmartCoach() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold truncate">Smart Coach · {topicDisplayName}</h1>
-            {/* Mode helper text */}
+            <h1 className="text-sm font-semibold truncate">
+              {topicDisplayName}
+            </h1>
             {coachState && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {MODE_LABELS[coachState.mode]}
@@ -483,9 +636,8 @@ export default function SmartCoach() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Support badge */}
             {showSupportBadge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-medium whitespace-nowrap">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium whitespace-nowrap">
                 Extra support on
               </span>
             )}
@@ -495,27 +647,36 @@ export default function SmartCoach() {
           </div>
         </div>
 
-        {/* Phase progress steps */}
-        <div className="flex items-center gap-1 px-1">
-          {PHASE_STEPS.map((step, i) => (
-            <React.Fragment key={step.key}>
-              <div className={cn(
-                'flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
-                i <= currentPhaseIndex
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground/50'
-              )}>
-                <step.icon className="w-3 h-3" />
-                <span className="hidden sm:inline">{step.label}</span>
-              </div>
-              {i < PHASE_STEPS.length - 1 && (
+        {/* "Now working on" purpose chip + phase steps */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Purpose chip */}
+          {coachState && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium truncate max-w-[180px]">
+              {coachState.purposeContext.skillTarget.split(' ').slice(0, 5).join(' ')}
+            </span>
+          )}
+
+          {/* Phase steps */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {PHASE_STEPS.map((step, i) => (
+              <React.Fragment key={step.key}>
                 <div className={cn(
-                  'flex-1 h-px max-w-[24px]',
-                  i < currentPhaseIndex ? 'bg-primary/30' : 'bg-border'
-                )} />
-              )}
-            </React.Fragment>
-          ))}
+                  'flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                  i <= currentPhaseIndex
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground/40'
+                )}>
+                  <step.icon className="w-3 h-3" />
+                </div>
+                {i < PHASE_STEPS.length - 1 && (
+                  <div className={cn(
+                    'w-3 h-px',
+                    i < currentPhaseIndex ? 'bg-primary/30' : 'bg-border'
+                  )} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
       </header>
 

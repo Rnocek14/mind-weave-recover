@@ -63,7 +63,7 @@ serve(async (req) => {
   }
 
   try {
-    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext } = await req.json();
+    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext, smartCoachPrompt } = await req.json();
 
     // Use Lovable AI gateway
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -78,11 +78,12 @@ serve(async (req) => {
       );
     }
 
-    // No forced wrap-up - user ends when ready
+    // Use Smart Coach prompt if provided, otherwise default system prompt
+    const systemPrompt = smartCoachPrompt || SYSTEM_PROMPT;
 
     // Build conversation context
     const messages: { role: string; content: string }[] = [
-      { role: 'system', content: SYSTEM_PROMPT }
+      { role: 'system', content: systemPrompt }
     ];
 
     // Add conversation history

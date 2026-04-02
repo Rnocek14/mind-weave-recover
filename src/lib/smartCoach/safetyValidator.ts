@@ -2,12 +2,11 @@
  * Smart Coach — Safety Validator
  * 
  * Every coach line MUST pass through this before display/speech.
- * Rejects broken, off-topic, or trust-damaging lines.
- * 
- * Incorporates rules from the Speech Gate (mayaSpeechGate.ts):
- * - Promise ban, vague filler, patronizing (original)
- * - Off-topic yes/no detection (from Speech Gate)
- * - Correction priority detection (from Speech Gate)
+ * Incorporates:
+ * - Speech Gate rules (promise ban, vague filler, patronizing)
+ * - Purpose validator (blocks purposeless generic chat)
+ * - Empty praise ban (requires task-specific detail)
+ * - SCA compliance checks
  */
 
 import type { ValidationResult } from './types';
@@ -52,8 +51,23 @@ const PATRONIZING = [
   /you'?re doing amazing,? sweetie/i,
 ];
 
-// ── Off-topic yes/no questions (from Speech Gate) ────────────
-// These should be blocked when an active topic exists
+// ── Empty praise (identity-focused without task detail) ──────
+
+const EMPTY_PRAISE = [
+  /^good job\.?!?$/i,
+  /^great job\.?!?$/i,
+  /^nice work\.?!?$/i,
+  /^wonderful\.?!?$/i,
+  /^excellent\.?!?$/i,
+  /^amazing\.?!?$/i,
+  /^perfect\.?!?$/i,
+  /^you should feel proud\.?!?$/i,
+  /^well done\.?!?$/i,
+  /^you'?re (so )?(great|amazing|wonderful)\.?!?$/i,
+  /^that'?s (great|wonderful|amazing|excellent)\.?!?$/i,
+];
+
+// ── Off-topic yes/no questions ───────────────────────────────
 
 const OFF_TOPIC_PATTERNS = [
   /is it cold outside/i,
@@ -72,7 +86,7 @@ const OFF_TOPIC_PATTERNS = [
   /what did you do today/i,
 ];
 
-// ── Re-ask patterns (from Speech Gate) ───────────────────────
+// ── Re-ask patterns ─────────────────────────────────────────
 
 const RE_ASK_PATTERNS = [
   /what was that again/i,
@@ -84,7 +98,6 @@ const RE_ASK_PATTERNS = [
 ];
 
 export interface ValidateOptions {
-  /** When true, user just corrected Maya — line must reference the topic */
   userCorrectionActive?: boolean;
 }
 
@@ -129,6 +142,13 @@ export function validateCoachLine(
     }
   }
 
+  // Empty praise (identity-focused without specifics)
+  for (const pattern of EMPTY_PRAISE) {
+    if (pattern.test(trimmed)) {
+      reasons.push('empty_praise');
+    }
+  }
+
   // Off-topic yes/no questions when we have an active topic
   if (topic) {
     for (const pattern of OFF_TOPIC_PATTERNS) {
@@ -138,7 +158,7 @@ export function validateCoachLine(
     }
   }
 
-  // Correction priority: if user just corrected, line MUST mention the topic
+  // Correction priority
   if (options.userCorrectionActive && topic) {
     if (!trimmed.toLowerCase().includes(topic.toLowerCase())) {
       reasons.push('correction_ignored');
@@ -152,7 +172,7 @@ export function validateCoachLine(
     }
   }
 
-  // Re-asking established facts — check if asking about something already known
+  // Re-asking established facts
   for (const fact of establishedFacts) {
     if (!fact) continue;
     const factWords = fact.toLowerCase().split(/\s+/).filter(w => w.length > 2);
