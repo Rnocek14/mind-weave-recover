@@ -155,7 +155,7 @@ export function buildPrompt(ctx: PromptContext): string {
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}
+Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}
 
 MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
@@ -171,6 +171,7 @@ ABSOLUTE RULES:
 - Do NOT repeat a question you already asked — check the conversation history
 - Do NOT re-ask something the user already answered
 - Do NOT use empty praise like "Good job!" or "Great!" alone — always add what specifically was good
+- If praise, ALWAYS reference the specific task or word (e.g., "You found 'spaghetti' without a cue")
 - If the user corrected you, acknowledge it naturally and continue from their correction
 - Start with a brief natural reaction ("Oh nice!", "Got it", "Mm, interesting") before asking
 - When giving feedback, focus on the TASK (what they said, how they said it) not on IDENTITY ("you're so good")
