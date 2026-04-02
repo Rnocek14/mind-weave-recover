@@ -21,12 +21,13 @@ export type {
   PrimaryDeficit,
   GameTriggerEvent,
   ProgressNarrative,
+  InterventionEvent,
 } from './types';
 
 export { createInitialCoachState, addEstablishedFact, recordStrategy } from './coachState';
 export { runCoachTurn } from './runCoachTurn';
 export { analyzeUtterance } from './utteranceAnalyzer';
-export { transitionCoachState, shouldWrapUp, isEmergencySupport, hasHesitationCluster } from './coachStateMachine';
+export { transitionCoachState, shouldWrapUp, isEmergencySupport, hasHesitationCluster, shouldTriggerIntervention } from './coachStateMachine';
 export { selectCue } from './cueSelector';
 export { validateCoachLine } from './safetyValidator';
 export { postProcessCoachLine } from './responsePostProcessor';
@@ -34,3 +35,6 @@ export { getFallbackLine } from './fallbackLibrary';
 export { getSessionLogs, clearSessionLogs, exportLogsAsJson } from './coachLogger';
 export { getTopicPurpose, getAllTopics, getTopicDefinition } from './topicPurposeMap';
 export type { TopicDefinition } from './topicPurposeMap';
+export { detectGameTrigger, selectGame, buildInterventionFrame, buildGameReturnText, GAME_CATALOG } from './gameTrigger';
+export type { GameDefinition } from './gameTrigger';
+export { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from './progressNarrative';

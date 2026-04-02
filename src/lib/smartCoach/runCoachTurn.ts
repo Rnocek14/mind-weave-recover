@@ -2,12 +2,12 @@
  * Smart Coach — Turn Orchestrator
  * 
  * The single entry point for processing one conversation turn.
- * Now tracks session metrics and injects purpose context into prompts.
+ * Now tracks session metrics, injects purpose context, and detects interventions.
  */
 
-import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
+import type { CoachState, CoachTurnResult, CoachTurnLog, InterventionEvent } from './types';
 import { analyzeUtterance } from './utteranceAnalyzer';
-import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
+import { transitionCoachState, shouldWrapUp, shouldTriggerIntervention } from './coachStateMachine';
 import { selectCue } from './cueSelector';
 import { buildPrompt } from './promptBuilder';
 import { validateCoachLine } from './safetyValidator';
@@ -15,16 +15,22 @@ import { postProcessCoachLine } from './responsePostProcessor';
 import { getFallbackLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
+import { detectGameTrigger, selectGame, buildInterventionFrame } from './gameTrigger';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
   state: CoachState;
   userUtterance: string;
   maxTurns?: number;
+  /** Injected cross-session context for prompts */
+  lastSessionContext?: string;
+  /** If returning from an intervention game */
+  returningFromIntervention?: boolean;
+  interventionSkill?: string;
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
-  const { state, userUtterance, maxTurns = 8 } = args;
+  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill } = args;
 
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
@@ -59,7 +65,26 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState = recordStrategy(nextState, cueDecision.cueType);
   }
 
-  // Step 5 — Build prompt (with purpose context)
+  // Step 4.5 — Check for intervention trigger
+  let intervention: InterventionEvent | undefined;
+  const triggerCheck = shouldTriggerIntervention(nextState);
+  if (triggerCheck.shouldTrigger && triggerCheck.pattern) {
+    const triggerResult = detectGameTrigger(nextState);
+    if (triggerResult.triggered && triggerResult.pattern) {
+      const game = selectGame(triggerResult.pattern);
+      const frame = buildInterventionFrame(triggerResult, game);
+      intervention = {
+        observation: frame.observation,
+        rationale: frame.rationale,
+        action: `${frame.action} ${frame.offerText}`,
+        type: 'game_offer',
+        gameId: game.id,
+        timestamp: Date.now(),
+      };
+    }
+  }
+
+  // Step 5 — Build prompt (with purpose context + cross-session + deficit)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -76,6 +101,10 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     purposeTransferTarget: nextState.purposeContext.transferTarget,
     purposeSkillTarget: nextState.purposeContext.skillTarget,
     severityProfile: nextState.severityProfile,
+    primaryDeficit: nextState.primaryDeficit,
+    lastSessionContext,
+    returningFromIntervention,
+    interventionSkill,
   });
 
   // Step 6 — Generate coach line via edge function
@@ -166,6 +195,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback,
     debugPrompt: prompt,
     debugRawOutput,
+    intervention,
   };
 }
 

@@ -80,7 +80,7 @@ export interface SessionMetrics {
   avgLatencyEstimate: number;
 }
 
-// ─── Game Trigger Event (Design Only) ────────────────────────
+// ─── Game Trigger Event ──────────────────────────────────────
 
 export interface GameTriggerEvent {
   triggerType: 'hesitation_cluster' | 'semantic_error_cluster' | 'phonemic_error_cluster' | 'success_plateau' | 'comprehension_breakdown';
@@ -89,6 +89,23 @@ export interface GameTriggerEvent {
   recommendedGame: string;
   accepted: boolean;
   resultSummary?: string;
+}
+
+// ─── Intervention Event ──────────────────────────────────────
+
+export interface InterventionEvent {
+  /** What was observed */
+  observation: string;
+  /** Why we're intervening */
+  rationale: string;
+  /** What we're doing about it */
+  action: string;
+  /** Type of intervention */
+  type: 'game_offer' | 'support_shift' | 'difficulty_adjust' | 'transfer_bridge';
+  /** Associated game if applicable */
+  gameId?: string;
+  /** Timestamp */
+  timestamp: number;
 }
 
 // ─── Progress Narrative ──────────────────────────────────────
@@ -202,4 +219,6 @@ export interface CoachTurnResult {
   debugPrompt?: string;
   /** Debug: raw model output before validation/post-processing */
   debugRawOutput?: string;
+  /** Intervention triggered this turn */
+  intervention?: InterventionEvent;
 }

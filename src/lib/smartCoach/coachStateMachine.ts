@@ -121,3 +121,42 @@ export function hasHesitationCluster(state: CoachState): boolean {
   const count = recent.filter(Boolean).length;
   return count >= 3;
 }
+
+/** Check for semantic error cluster */
+export function hasSemanticErrorCluster(state: CoachState): boolean {
+  return state.sessionMetrics.semanticErrorCount >= 2 && state.turnCount >= 3;
+}
+
+/** Check for comprehension breakdown */
+export function hasComprehensionBreakdown(state: CoachState): boolean {
+  return state.sessionMetrics.comprehensionBreaks >= 2;
+}
+
+/** Check for success plateau (doing great, could challenge) */
+export function hasSuccessPlateau(state: CoachState): boolean {
+  const recent = state.recentHesitations || [];
+  const hesCount = recent.filter(Boolean).length;
+  return state.sessionMetrics.independentResponses >= 4 && hesCount === 0 && state.turnCount >= 4;
+}
+
+/** Detect if an intervention should be triggered */
+export function shouldTriggerIntervention(state: CoachState): {
+  shouldTrigger: boolean;
+  pattern: string | null;
+} {
+  // Don't trigger during warmup or wrapup
+  if (state.mode === 'warmup' || state.mode === 'wrapup') {
+    return { shouldTrigger: false, pattern: null };
+  }
+  // Don't trigger too early
+  if (state.turnCount < 3) {
+    return { shouldTrigger: false, pattern: null };
+  }
+  
+  if (hasHesitationCluster(state)) return { shouldTrigger: true, pattern: 'hesitation_cluster' };
+  if (hasSemanticErrorCluster(state)) return { shouldTrigger: true, pattern: 'semantic_error_cluster' };
+  if (hasComprehensionBreakdown(state)) return { shouldTrigger: true, pattern: 'comprehension_breakdown' };
+  if (hasSuccessPlateau(state)) return { shouldTrigger: true, pattern: 'success_plateau' };
+  
+  return { shouldTrigger: false, pattern: null };
+}

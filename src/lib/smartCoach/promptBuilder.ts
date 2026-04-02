@@ -7,7 +7,7 @@
  * The model produces one short coaching line within strict behavioral boundaries.
  */
 
-import type { CoachMode, CueType, SeverityProfile } from './types';
+import type { CoachMode, CueType, SeverityProfile, PrimaryDeficit } from './types';
 
 export interface PromptContext {
   topic: string;
@@ -27,6 +27,14 @@ export interface PromptContext {
   purposeSkillTarget?: string;
   /** Severity for interaction format */
   severityProfile?: SeverityProfile;
+  /** Primary deficit type */
+  primaryDeficit?: PrimaryDeficit;
+  /** Cross-session context */
+  lastSessionContext?: string;
+  /** Whether returning from an intervention/game */
+  returningFromIntervention?: boolean;
+  /** Transfer skill to reconnect after intervention */
+  interventionSkill?: string;
 }
 
 const EXPAND_DIMENSIONS = [
@@ -61,15 +69,29 @@ const CUE_INSTRUCTIONS: Record<CueType, string> = {
 };
 
 // Severity-specific instruction additions
-function getSeverityInstructions(severity: SeverityProfile): string {
+function getSeverityInstructions(severity: SeverityProfile, deficit?: PrimaryDeficit): string {
+  let base = '';
   switch (severity) {
     case 'severe':
-      return `\nSEVERITY ADAPTATION: This person has severe difficulty. Use very short sentences. Default to yes/no or choice questions. Verify understanding after key exchanges ("So you mean [X] — right?"). Maximum 15 words.`;
+      base = `\nSEVERITY ADAPTATION: This person has severe difficulty. Use very short sentences. Default to yes/no or choice questions. Verify understanding after key exchanges ("So you mean [X] — right?"). Maximum 15 words.`;
+      break;
     case 'mild':
-      return `\nSEVERITY ADAPTATION: This person has mild difficulty. Use more open-ended questions. Focus on speed and fluency. Less visible scaffolding. You can use slightly longer, more natural sentences.`;
+      base = `\nSEVERITY ADAPTATION: This person has mild difficulty. Use more open-ended questions. Focus on speed and fluency. Less visible scaffolding. You can use slightly longer, more natural sentences.`;
+      break;
     default:
-      return '';
+      break;
   }
+
+  // Add deficit-specific instructions
+  if (deficit === 'receptive') {
+    base += `\nDEFICIT FOCUS: This person has receptive difficulty. Use shorter instructions. Highlight key words. Add verification steps ("Does that make sense?"). Avoid complex sentence structures.`;
+  } else if (deficit === 'expressive') {
+    base += `\nDEFICIT FOCUS: This person has expressive difficulty. Be patient with pauses. Provide word-finding support. Use phonemic cues when they're close. Don't rush — retrieval takes time.`;
+  } else if (deficit === 'mixed') {
+    base += `\nDEFICIT FOCUS: This person has mixed receptive-expressive difficulty. Keep instructions short AND provide retrieval support. Verify understanding frequently. Use forced choices when open-ended fails.`;
+  }
+
+  return base;
 }
 
 export function buildPrompt(ctx: PromptContext): string {
@@ -93,14 +115,24 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nPURPOSE: ${ctx.purposeRationale}${ctx.purposeTransferTarget ? ` This transfers to: ${ctx.purposeTransferTarget}.` : ''}${ctx.purposeSkillTarget ? ` Skill focus: ${ctx.purposeSkillTarget}.` : ''}`
     : '';
 
-  const severityBlock = getSeverityInstructions(ctx.severityProfile ?? 'moderate');
+  const severityBlock = getSeverityInstructions(ctx.severityProfile ?? 'moderate', ctx.primaryDeficit);
+
+  // Cross-session context
+  const sessionBlock = ctx.lastSessionContext
+    ? `\nPRIOR SESSION CONTEXT: ${ctx.lastSessionContext}. Reference this naturally when relevant — show continuity.`
+    : '';
+
+  // Transfer bridge (returning from intervention)
+  const transferBlock = ctx.returningFromIntervention
+    ? `\nTRANSFER BRIDGE: You just completed a focused drill. Connect the skill practiced back to the conversation topic. Example: "That's the same retrieval speed you need for ${ctx.topic}. Let's use it."`
+    : '';
 
   return `You are Maya, a thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind, intelligent friend — not a therapist reading from a script.
 
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}
+Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}
 
 MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}

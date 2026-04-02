@@ -1,15 +1,18 @@
 /**
  * Smart Coach — Production Page
  * 
- * Purpose-driven clinical session engine.
- * Flow: Topic Select → Orientation → Readiness → Conversation → Complete
+ * Purpose-driven clinical session engine with:
+ * - Cross-session progress narrative
+ * - Visible intervention loop (observation → rationale → action)
+ * - Game trigger overlay
+ * - Deficit-aware behavior
  * 
- * Every screen answers: what, why, how we measure, where it transfers.
+ * Flow: Topic Select → Orientation → Readiness → Conversation → Complete
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Sparkles, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -17,17 +20,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { createInitialCoachState } from '@/lib/smartCoach/coachState';
 import { runCoachTurn } from '@/lib/smartCoach/runCoachTurn';
 import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
-import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, SeverityProfile } from '@/lib/smartCoach/types';
+import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
+import { buildGameReturnText, GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
+import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
+import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
+import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
 import { cn } from '@/lib/utils';
 
 // ─── Chat message type ───────────────────────────────────────
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'maya';
+  role: 'user' | 'maya' | 'intervention';
   text: string;
   timestamp: number;
+  /** Intervention metadata */
+  interventionData?: InterventionEvent;
 }
 
 // ─── User-friendly mode labels ──────────────────────────────
@@ -135,10 +144,15 @@ export default function SmartCoach() {
   const [turnCount, setTurnCount] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
   const [readinessLevel, setReadinessLevel] = useState(7);
+  const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
+  const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
+  const [gameResult, setGameResult] = useState<{ success: boolean; count: number } | null>(null);
+  const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sessionSaved = useRef(false);
 
   const topics = useMemo(() => getAllTopics(), []);
 
@@ -147,6 +161,18 @@ export default function SmartCoach() {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
 
+  // Load cross-session progress on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadLastSessionSummary(user.id).then(lastSession => {
+        if (lastSession) {
+          // Store for later use when topic is selected
+          setProgressData(buildProgressComparison(lastSession, '', undefined));
+        }
+      });
+    }
+  }, [user?.id]);
+
   // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -154,17 +180,36 @@ export default function SmartCoach() {
 
   // Focus input
   useEffect(() => {
-    if (!isProcessing && phase === 'chatting') {
+    if (!isProcessing && phase === 'chatting' && !activeGame && !pendingIntervention) {
       inputRef.current?.focus();
     }
-  }, [isProcessing, phase]);
+  }, [isProcessing, phase, activeGame, pendingIntervention]);
+
+  // Save session on complete
+  useEffect(() => {
+    if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
+      sessionSaved.current = true;
+      saveSessionSummary(
+        user.id,
+        null,
+        sessionStats.topicId,
+        sessionStats.metrics,
+        sessionStats.strategiesUsed,
+      );
+    }
+  }, [phase, user?.id, sessionStats]);
 
   // ─── Topic select → orientation ────────────────────────────
 
-  const handleTopicSelect = useCallback((topic: TopicDefinition) => {
+  const handleTopicSelect = useCallback(async (topic: TopicDefinition) => {
     setSelectedTopic(topic);
+    // Rebuild progress comparison with selected topic
+    if (user?.id) {
+      const lastSession = await loadLastSessionSummary(user.id);
+      setProgressData(buildProgressComparison(lastSession, topic.id, undefined));
+    }
     setPhase('orientation');
-  }, []);
+  }, [user?.id]);
 
   // ─── Orientation → readiness ───────────────────────────────
 
@@ -179,19 +224,17 @@ export default function SmartCoach() {
 
     const opener = buildPurposeOpener(selectedTopic);
 
-    // Adjust maxTurns based on readiness
-    const adjustedReadiness = readinessLevel;
-
     const state = createInitialCoachState({
       topic: selectedTopic.id,
       topicKeywords: selectedTopic.keywords,
-      readinessLevel: adjustedReadiness,
+      readinessLevel,
     });
     state.conversationHistory = [{ role: 'maya', text: opener }];
 
     setCoachState(state);
     setPhase('chatting');
     setTurnCount(0);
+    sessionSaved.current = false;
     setSessionStats({
       topicLabel: `${selectedTopic.emoji} ${selectedTopic.label}`,
       topicId: selectedTopic.id,
@@ -235,6 +278,7 @@ export default function SmartCoach() {
         state: coachState,
         userUtterance: userText,
         maxTurns,
+        lastSessionContext: progressData?.lastSessionContext ?? undefined,
       });
 
       setCoachState(result.nextState);
@@ -252,6 +296,7 @@ export default function SmartCoach() {
         strategiesUsed: result.nextState.sessionMetrics.strategiesThatHelped,
       } : null);
 
+      // Add Maya's response
       const mayaMsg: ChatMessage = {
         id: `maya-${Date.now()}`,
         role: 'maya',
@@ -259,6 +304,19 @@ export default function SmartCoach() {
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, mayaMsg]);
+
+      // Check for intervention trigger
+      if (result.intervention) {
+        setPendingIntervention(result.intervention);
+        // Add intervention card to chat
+        setMessages(prev => [...prev, {
+          id: `intervention-${Date.now()}`,
+          role: 'intervention',
+          text: result.intervention!.observation,
+          timestamp: Date.now(),
+          interventionData: result.intervention,
+        }]);
+      }
 
       if (result.nextState.mode === 'wrapup') {
         setPhase('complete');
@@ -274,7 +332,46 @@ export default function SmartCoach() {
     } finally {
       setIsProcessing(false);
     }
-  }, [inputText, coachState, isProcessing, maxTurns]);
+  }, [inputText, coachState, isProcessing, maxTurns, progressData]);
+
+  // ─── Intervention handlers ─────────────────────────────────
+
+  const handleAcceptIntervention = useCallback(() => {
+    if (!pendingIntervention?.gameId) return;
+    const game = GAME_CATALOG[pendingIntervention.gameId];
+    if (game) {
+      setActiveGame(game);
+      setGameResult(null);
+    }
+    setPendingIntervention(null);
+  }, [pendingIntervention]);
+
+  const handleDeclineIntervention = useCallback(() => {
+    setPendingIntervention(null);
+    setMessages(prev => [...prev, {
+      id: `maya-decline-${Date.now()}`,
+      role: 'maya',
+      text: "No problem — let's keep talking.",
+      timestamp: Date.now(),
+    }]);
+  }, []);
+
+  const handleGameComplete = useCallback((success: boolean, count: number) => {
+    setGameResult({ success, count });
+  }, []);
+
+  const handleGameReturn = useCallback(() => {
+    if (!activeGame || !selectedTopic) return;
+    const returnText = buildGameReturnText(activeGame, gameResult?.success ?? true, selectedTopic.id);
+    setMessages(prev => [...prev, {
+      id: `maya-return-${Date.now()}`,
+      role: 'maya',
+      text: returnText,
+      timestamp: Date.now(),
+    }]);
+    setActiveGame(null);
+    setGameResult(null);
+  }, [activeGame, gameResult, selectedTopic]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -291,6 +388,9 @@ export default function SmartCoach() {
     setTurnCount(0);
     setSessionStats(null);
     setReadinessLevel(7);
+    setActiveGame(null);
+    setGameResult(null);
+    setPendingIntervention(null);
   };
 
   // ─── Derived values ────────────────────────────────────────
@@ -309,7 +409,6 @@ export default function SmartCoach() {
     if (!sessionStats) return null;
     const m = sessionStats.metrics;
 
-    // Part 1: What improved
     const improvements: string[] = [];
     if (m.independentResponses > 0) {
       improvements.push(`You gave ${m.independentResponses} response${m.independentResponses > 1 ? 's' : ''} independently`);
@@ -324,7 +423,6 @@ export default function SmartCoach() {
       ? improvements[0] + (improvements.length > 1 ? `. ${improvements[1]}.` : '.')
       : 'You practiced retrieving words in conversation.';
 
-    // Part 2: What strategy helped
     const strategies = sessionStats.strategiesUsed
       .map(s => STRATEGY_NAMES[s])
       .filter(Boolean);
@@ -334,14 +432,18 @@ export default function SmartCoach() {
         ? 'You did this without needing extra support.'
         : 'The guided support helped keep you going.';
 
-    // Part 3: What's next
     const purposeDef = selectedTopic?.purpose;
     const whatsNext = purposeDef
       ? `Next time, try using these same words when ${purposeDef.transferTarget.split(',')[0]}.`
       : 'Try using these words in a real conversation today.';
 
-    return { whatImproved, whatHelped, whatsNext };
-  }, [sessionStats, selectedTopic]);
+    // Cross-session comparison
+    const crossSession = progressData?.wrapupComparison 
+      ? buildProgressComparison(null, selectedTopic?.id || '', m).wrapupComparison
+      : null;
+
+    return { whatImproved, whatHelped, whatsNext, crossSession: progressData?.wrapupComparison };
+  }, [sessionStats, selectedTopic, progressData]);
 
   // ─── Render ────────────────────────────────────────────────
 
@@ -379,6 +481,19 @@ export default function SmartCoach() {
               </p>
             </div>
 
+            {/* Cross-session progress banner */}
+            {progressData?.hasPriorSession && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-left">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Welcome back
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {progressData.orientationText}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               {topics.map(topic => (
                 <button
@@ -414,6 +529,17 @@ export default function SmartCoach() {
 
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-5">
+            {/* Cross-session context */}
+            {progressData?.hasPriorSession && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Building on progress
+                </p>
+                <p className="text-xs text-muted-foreground">{progressData.orientationText}</p>
+              </div>
+            )}
+
             {/* Purpose card */}
             <div className="bg-card border rounded-2xl p-6 space-y-4">
               <div className="flex items-center gap-3">
@@ -425,7 +551,6 @@ export default function SmartCoach() {
               </div>
 
               <div className="space-y-3">
-                {/* Why */}
                 <div className="flex items-start gap-2.5">
                   <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                   <div>
@@ -434,7 +559,6 @@ export default function SmartCoach() {
                   </div>
                 </div>
                 
-                {/* Transfer */}
                 <div className="flex items-start gap-2.5">
                   <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                   <div>
@@ -443,7 +567,6 @@ export default function SmartCoach() {
                   </div>
                 </div>
 
-                {/* Measure */}
                 <div className="flex items-start gap-2.5">
                   <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                   <div>
@@ -562,7 +685,6 @@ export default function SmartCoach() {
 
               {wrapupSummary && (
                 <div className="space-y-3">
-                  {/* What improved */}
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                     <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div>
@@ -571,7 +693,6 @@ export default function SmartCoach() {
                     </div>
                   </div>
 
-                  {/* What strategy helped */}
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                     <Brain className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div>
@@ -580,7 +701,6 @@ export default function SmartCoach() {
                     </div>
                   </div>
 
-                  {/* What's next */}
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                     <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div>
@@ -588,6 +708,17 @@ export default function SmartCoach() {
                       <p className="text-sm text-muted-foreground">{wrapupSummary.whatsNext}</p>
                     </div>
                   </div>
+
+                  {/* Cross-session comparison */}
+                  {wrapupSummary.crossSession && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                      <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-primary">Compared to last time</p>
+                        <p className="text-sm text-muted-foreground">{wrapupSummary.crossSession}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -596,7 +727,13 @@ export default function SmartCoach() {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
               <p className="text-xs font-medium text-primary">💡 Home practice idea</p>
               <p className="text-sm text-foreground">
-                After your next meal, name 5 items you see on the table. Quick retrieval practice — no pressure.
+                {selectedTopic?.id === 'food'
+                  ? 'After your next meal, name 5 items you see on the table. Quick retrieval practice — no pressure.'
+                  : selectedTopic?.id === 'family'
+                  ? 'Next time you see a family member, describe one thing about your day in 2-3 sentences.'
+                  : selectedTopic?.id === 'pets'
+                  ? 'When you see your pet next, describe out loud what they\'re doing. Practice naming actions.'
+                  : 'Pick one moment today and describe it out loud in 2-3 sentences. Quick, no pressure.'}
               </p>
             </div>
 
@@ -609,6 +746,82 @@ export default function SmartCoach() {
                 Back to Dashboard
               </Button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Game Overlay ──────────────────────────────────────────
+
+  if (activeGame) {
+    return (
+      <div className="h-dvh bg-background flex flex-col">
+        <header className="p-3 border-b shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{activeGame.icon}</span>
+              <div>
+                <h1 className="text-sm font-semibold">{activeGame.label}</h1>
+                <p className="text-[10px] text-muted-foreground">{activeGame.skillTarget.replace(/_/g, ' ')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{activeGame.durationSec}s</span>
+              <Button variant="ghost" size="icon" onClick={() => { setActiveGame(null); setGameResult(null); }}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm space-y-6 text-center">
+            {!gameResult ? (
+              <>
+                <div className="space-y-3">
+                  <span className="text-5xl block">{activeGame.icon}</span>
+                  <h2 className="text-xl font-bold">{activeGame.label}</h2>
+                  <p className="text-sm text-muted-foreground">{activeGame.description}</p>
+                  <p className="text-xs text-primary">{activeGame.rationale}</p>
+                </div>
+
+                {/* Simplified game interaction */}
+                <div className="bg-muted/50 rounded-xl p-6 space-y-4">
+                  <p className="text-sm font-medium">
+                    {activeGame.id === 'rapid_naming' && `Name as many ${selectedTopic?.id || 'items'}-related words as you can!`}
+                    {activeGame.id === 'sentence_completion' && 'Complete the sentence with the right word.'}
+                    {activeGame.id === 'yes_no_check' && 'Quick yes or no — is this correct?'}
+                    {activeGame.id === 'semantic_match' && 'Which words go together?'}
+                  </p>
+
+                  <div className="flex gap-3 justify-center">
+                    <Button variant="outline" onClick={() => handleGameComplete(false, 2)}>
+                      That was hard
+                    </Button>
+                    <Button onClick={() => handleGameComplete(true, 5)}>
+                      I got several!
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <span className="text-4xl block">{gameResult.success ? '🎉' : '💪'}</span>
+                <h2 className="text-lg font-bold">
+                  {gameResult.success ? 'Nice work!' : 'Good effort!'}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {gameResult.success
+                    ? `You found those quickly. That speed helps in real conversation too.`
+                    : `That practice loosens up the retrieval pathways — it helps even when it's tough.`}
+                </p>
+                <Button onClick={handleGameReturn} className="gap-2">
+                  <ArrowRight className="w-4 h-4" />
+                  Back to conversation
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -649,14 +862,12 @@ export default function SmartCoach() {
 
         {/* "Now working on" purpose chip + phase steps */}
         <div className="flex items-center justify-between gap-2">
-          {/* Purpose chip */}
           {coachState && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium truncate max-w-[180px]">
               {coachState.purposeContext.skillTarget.split(' ').slice(0, 5).join(' ')}
             </span>
           )}
 
-          {/* Phase steps */}
           <div className="flex items-center gap-0.5 shrink-0">
             {PHASE_STEPS.map((step, i) => (
               <React.Fragment key={step.key}>
@@ -682,22 +893,53 @@ export default function SmartCoach() {
 
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={cn(
-              'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-              msg.role === 'maya'
-                ? 'bg-muted text-foreground self-start mr-auto'
-                : 'bg-primary text-primary-foreground self-end ml-auto'
-            )}
-          >
-            {msg.role === 'maya' && (
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
-            )}
-            {msg.text}
-          </div>
-        ))}
+        {messages.map(msg => {
+          // Intervention card
+          if (msg.role === 'intervention' && msg.interventionData) {
+            return (
+              <div key={msg.id} className="max-w-[90%] mx-auto my-2">
+                <div className="bg-accent/50 border border-accent rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-foreground">{msg.interventionData.observation}</p>
+                      <p className="text-xs text-muted-foreground">{msg.interventionData.rationale}</p>
+                    </div>
+                  </div>
+                  {pendingIntervention && msg.interventionData.timestamp === pendingIntervention.timestamp && (
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs">
+                        <Gamepad2 className="w-3.5 h-3.5" />
+                        Try it
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleDeclineIntervention} className="text-xs">
+                        Keep talking
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          // Normal chat bubble
+          return (
+            <div
+              key={msg.id}
+              className={cn(
+                'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+                msg.role === 'maya'
+                  ? 'bg-muted text-foreground self-start mr-auto'
+                  : 'bg-primary text-primary-foreground self-end ml-auto'
+              )}
+            >
+              {msg.role === 'maya' && (
+                <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
+              )}
+              {msg.text}
+            </div>
+          );
+        })}
 
         {isProcessing && (
           <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-muted mr-auto">
@@ -721,15 +963,15 @@ export default function SmartCoach() {
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your response..."
-            disabled={isProcessing}
+            placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type your response..."}
+            disabled={isProcessing || !!pendingIntervention}
             className="flex-1"
             autoComplete="off"
           />
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!inputText.trim() || isProcessing}
+            disabled={!inputText.trim() || isProcessing || !!pendingIntervention}
           >
             <Send className="w-4 h-4" />
           </Button>
