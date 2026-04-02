@@ -38,3 +38,5 @@ export type { TopicDefinition } from './topicPurposeMap';
 export { detectGameTrigger, selectGame, buildInterventionFrame, buildGameReturnText, GAME_CATALOG } from './gameTrigger';
 export type { GameDefinition } from './gameTrigger';
 export { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from './progressNarrative';
+export { adaptExerciseResult } from './interventionAdapter';
+export type { InterventionResult } from './interventionAdapter';
