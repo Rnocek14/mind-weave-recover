@@ -180,15 +180,19 @@ export default function SmartCoach() {
   const handleStartConversation = useCallback(() => {
     if (!selectedTopic) return;
 
+    const opener = pickRandom(OPENERS[selectedTopic.id] || [`Hi! Let's talk about ${selectedTopic.label}. What comes to mind?`]);
+
     const state = createInitialCoachState({
       topic: selectedTopic.id,
       topicKeywords: selectedTopic.keywords,
     });
+    // Seed conversation history with the opener
+    state.conversationHistory = [{ role: 'maya', text: opener }];
+    
     setCoachState(state);
     setPhase('chatting');
     setTurnCount(0);
 
-    const opener = pickRandom(OPENERS[selectedTopic.id] || [`Hi! Let's talk about ${selectedTopic.label}. What comes to mind?`]);
     setMessages([{
       id: 'opener',
       role: 'maya',

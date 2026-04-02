@@ -41,28 +41,45 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Hesitation (without incomplete thought) → scaffold
+  // ── Hesitation (without incomplete thought) → scaffold or support
   if (analysis.hesitationDetected) {
-    next.mode = 'scaffold';
-    next.isStuck = true;
-    next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
-    next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    // Check consecutive hesitations from state for escalation
+    const consecutiveHesitations = (state.consecutiveHesitations || 0) + 1;
+    next.consecutiveHesitations = consecutiveHesitations;
+    
+    if (consecutiveHesitations >= 2) {
+      // 2+ consecutive hesitations → support mode (real help)
+      next.mode = 'support';
+      next.isStuck = true;
+      next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+      next.frustrationRisk = 'medium';
+    } else {
+      // First hesitation → scaffold
+      next.mode = 'scaffold';
+      next.isStuck = true;
+      next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+      next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    }
     return next;
   }
 
-  // ── Strong on-topic response → expand
+  // ── Strong on-topic response → expand (reset hesitation counter)
   if (analysis.onTopic && analysis.wordCount >= 2 && analysis.confidence >= 0.5) {
     next.mode = 'expand';
     next.isStuck = false;
+    next.consecutiveHesitations = 0;
     next.supportLevel = Math.max(0, state.supportLevel - 1) as 0 | 1 | 2 | 3;
     next.frustrationRisk = 'low';
+    // Advance expand dimension to vary question types
+    next.expandDimension = (state.expandDimension || 0) + 1;
     return next;
   }
 
-  // ── Short but on-topic → gentle expand
+  // ── Short but on-topic → gentle expand (reset hesitation counter)
   if (analysis.onTopic && analysis.wordCount >= 1) {
     next.mode = state.mode === 'warmup' ? 'warmup' : 'expand';
     next.isStuck = false;
+    next.consecutiveHesitations = 0;
     return next;
   }
 
@@ -79,7 +96,8 @@ export function transitionCoachState(
 
 /** Check if session should transition to wrapup */
 export function shouldWrapUp(state: CoachState, maxTurns: number): boolean {
-  return state.turnCount >= maxTurns;
+  // Trigger wrapup one turn before max so we close gracefully
+  return state.turnCount >= maxTurns - 1;
 }
 
 /** Check if frustration requires immediate mode change */

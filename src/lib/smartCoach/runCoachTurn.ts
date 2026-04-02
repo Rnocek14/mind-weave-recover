@@ -34,8 +34,13 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   if (shouldWrapUp(state, maxTurns)) {
     const wrapState: CoachState = { ...state, mode: 'wrapup' };
     const fallback = getFallbackLine('wrapup');
+    const wrapHistory = [
+      ...state.conversationHistory,
+      { role: 'user' as const, text: userUtterance },
+      { role: 'maya' as const, text: fallback },
+    ].slice(-10);
     return {
-      nextState: { ...wrapState, turnCount: state.turnCount + 1, lastUserUtterance: userUtterance, lastCoachUtterance: fallback },
+      nextState: { ...wrapState, turnCount: state.turnCount + 1, lastUserUtterance: userUtterance, lastCoachUtterance: fallback, conversationHistory: wrapHistory },
       output: fallback,
       analysis,
       cueDecision: { cueType: 'reassurance', rationale: 'Session complete' },
@@ -50,7 +55,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 4 — Select cue
   const cueDecision = selectCue(nextState, analysis);
 
-  // Step 5 — Build prompt
+  // Step 5 — Build prompt (with full conversation history)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -61,6 +66,8 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     targetSkill: nextState.targetSkill,
     establishedFacts: nextState.establishedFacts,
     topicKeywords: nextState.topicKeywords,
+    conversationHistory: nextState.conversationHistory,
+    expandDimension: nextState.expandDimension,
   });
 
   // Step 6 — Generate coach line via edge function
@@ -106,12 +113,19 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     finalLine = postProcessCoachLine(rawLine);
   }
 
-  // Step 8 — Update state
+  // Step 8 — Update state (including conversation history)
+  const newHistory = [
+    ...nextState.conversationHistory,
+    { role: 'user' as const, text: userUtterance },
+    { role: 'maya' as const, text: finalLine },
+  ].slice(-10); // Keep last 10 entries (5 exchanges)
+
   const updatedState: CoachState = {
     ...nextState,
     turnCount: state.turnCount + 1,
     lastUserUtterance: userUtterance,
     lastCoachUtterance: finalLine,
+    conversationHistory: newHistory,
   };
 
   // Track established facts from user utterances (simple: >3 words and on-topic)
@@ -147,14 +161,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   };
 }
 
-/** Build minimal conversation history for the edge function */
+/** Build conversation history for the edge function */
 function buildHistory(state: CoachState, currentUtterance: string) {
-  const history: { role: string; text: string }[] = [];
-  if (state.lastCoachUtterance) {
-    history.push({ role: 'ai', text: state.lastCoachUtterance });
-  }
-  if (state.lastUserUtterance) {
-    history.push({ role: 'user', text: state.lastUserUtterance });
-  }
+  // Use the full conversation history from state
+  const history = (state.conversationHistory || []).map(t => ({
+    role: t.role === 'maya' ? 'ai' : 'user',
+    text: t.text,
+  }));
   return history;
 }

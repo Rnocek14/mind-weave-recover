@@ -49,6 +49,12 @@ export interface CoachState {
   topicKeywords: string[];
   /** Facts already established — don't re-ask */
   establishedFacts: string[];
+  /** Rolling conversation history for context */
+  conversationHistory: { role: 'user' | 'maya'; text: string }[];
+  /** Consecutive hesitation count for escalation */
+  consecutiveHesitations: number;
+  /** Track which expand dimension we're on to avoid loops */
+  expandDimension: number;
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────

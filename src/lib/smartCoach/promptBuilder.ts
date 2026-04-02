@@ -18,14 +18,26 @@ export interface PromptContext {
   targetSkill?: string;
   establishedFacts?: string[];
   topicKeywords?: string[];
+  /** Recent conversation turns for context */
+  conversationHistory?: { role: 'user' | 'maya'; text: string }[];
+  /** Current expand dimension index for variety */
+  expandDimension?: number;
 }
+
+const EXPAND_DIMENSIONS = [
+  'Ask about a specific detail they mentioned (what kind, what color, what name).',
+  'Ask about their preference or feeling about it (do they like it, what\'s their favorite part).',
+  'Ask about a personal experience or memory connected to it (when did they last do it, who were they with).',
+  'Ask about context or setting (where does this happen, when do they usually do this).',
+  'Ask about comparison or change (has it always been that way, is it different now).',
+];
 
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
   warmup: 'Ask a simple, warm question about the topic. One short sentence. Aim for an easy answer. Sound like a curious friend, not a quiz.',
   expand: 'React naturally to what they said, then ask ONE specific follow-up. Reference a detail they mentioned. Keep it short and conversational.',
   scaffold: 'Provide a specific sentence frame or starter based on what they were trying to say. Be concrete, not generic. Example: "You could say: My favorite is___"',
   support: 'Be warm and calm. Lower pressure. Either give a simple binary choice or gently reassure. Speak like a patient friend, not a teacher.',
-  wrapup: 'Acknowledge one specific thing they said well. Keep it brief and genuine. No generic praise.',
+  wrapup: 'Acknowledge one specific thing they said well. Summarize the conversation briefly. End warmly. No new questions.',
 };
 
 const CUE_INSTRUCTIONS: Record<CueType, string> = {
@@ -42,14 +54,26 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nAlready established (DO NOT re-ask these — build on them instead): ${ctx.establishedFacts.join('; ')}`
     : '';
 
+  // Build conversation history block for context
+  const historyBlock = ctx.conversationHistory && ctx.conversationHistory.length > 0
+    ? `\nConversation so far:\n${ctx.conversationHistory.slice(-10).map(t => `${t.role === 'maya' ? 'Maya' : 'User'}: ${t.text}`).join('\n')}`
+    : '';
+
+  // Get expand dimension instruction
+  let modeInstruction = MODE_INSTRUCTIONS[ctx.mode];
+  if (ctx.mode === 'expand' && ctx.expandDimension !== undefined) {
+    const dimIdx = ctx.expandDimension % EXPAND_DIMENSIONS.length;
+    modeInstruction += ` DIRECTION: ${EXPAND_DIMENSIONS[dimIdx]}`;
+  }
+
   return `You are Maya, a warm and thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind friend having a real conversation — not a therapist reading from a script.
 
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${factsBlock}
+Target skill: ${ctx.targetSkill || 'general'}${factsBlock}${historyBlock}
 
-MODE INSTRUCTION: ${MODE_INSTRUCTIONS[ctx.mode]}
+MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
 
 ABSOLUTE RULES:
@@ -60,7 +84,8 @@ ABSOLUTE RULES:
 - Do NOT mention being an AI, program, or chatbot
 - Do NOT use baby talk — speak like talking to an intelligent adult
 - Do NOT say "keep going" or "tell me more" without specifying what
-- Do NOT repeat a question you already asked
+- Do NOT repeat a question you already asked — check the conversation history
+- Do NOT re-ask something the user already answered
 - If the user corrected you, acknowledge it naturally and continue from their correction
 - Start with a brief natural reaction ("Oh nice!", "Got it", "Mm, interesting") before asking
 - Maximum 20 words

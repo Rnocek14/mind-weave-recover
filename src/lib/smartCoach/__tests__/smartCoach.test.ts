@@ -28,6 +28,9 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     frustrationRisk: 'low',
     topicKeywords: FOOD_KEYWORDS,
     establishedFacts: [],
+    conversationHistory: [],
+    consecutiveHesitations: 0,
+    expandDimension: 0,
     ...overrides,
   };
 }
@@ -388,8 +391,9 @@ describe('State Factory', () => {
     expect(s2.establishedFacts).toContain('likes pizza');
   });
 
-  it('shouldWrapUp triggers at maxTurns', () => {
+  it('shouldWrapUp triggers one turn before maxTurns', () => {
     expect(shouldWrapUp(makeState({ turnCount: 8 }), 8)).toBe(true);
-    expect(shouldWrapUp(makeState({ turnCount: 7 }), 8)).toBe(false);
+    expect(shouldWrapUp(makeState({ turnCount: 7 }), 8)).toBe(true);  // triggers at maxTurns-1
+    expect(shouldWrapUp(makeState({ turnCount: 6 }), 8)).toBe(false);
   });
 });
