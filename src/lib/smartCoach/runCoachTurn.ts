@@ -156,14 +156,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   };
 }
 
-/** Build minimal conversation history for the edge function */
+/** Build conversation history for the edge function */
 function buildHistory(state: CoachState, currentUtterance: string) {
-  const history: { role: string; text: string }[] = [];
-  if (state.lastCoachUtterance) {
-    history.push({ role: 'ai', text: state.lastCoachUtterance });
-  }
-  if (state.lastUserUtterance) {
-    history.push({ role: 'user', text: state.lastUserUtterance });
-  }
+  // Use the full conversation history from state
+  const history = (state.conversationHistory || []).map(t => ({
+    role: t.role === 'maya' ? 'ai' : 'user',
+    text: t.text,
+  }));
   return history;
 }
