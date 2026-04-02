@@ -7,7 +7,7 @@
  * The model produces one short coaching line within strict behavioral boundaries.
  */
 
-import type { CoachMode, CueType, SeverityProfile } from './types';
+import type { CoachMode, CueType, SeverityProfile, PrimaryDeficit } from './types';
 
 export interface PromptContext {
   topic: string;
