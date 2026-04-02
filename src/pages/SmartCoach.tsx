@@ -789,81 +789,9 @@ export default function SmartCoach() {
     );
   }
 
-  // ─── Game Overlay ──────────────────────────────────────────
+  // ─── Exercise Modal (replaces placeholder game overlay) ────
 
-  if (activeGame) {
-    return (
-      <div className="h-dvh bg-background flex flex-col">
-        <header className="p-3 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{activeGame.icon}</span>
-              <div>
-                <h1 className="text-sm font-semibold">{activeGame.label}</h1>
-                <p className="text-[10px] text-muted-foreground">{activeGame.skillTarget.replace(/_/g, ' ')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{activeGame.durationSec}s</span>
-              <Button variant="ghost" size="icon" onClick={() => { setActiveGame(null); setGameResult(null); }}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm space-y-6 text-center">
-            {!gameResult ? (
-              <>
-                <div className="space-y-3">
-                  <span className="text-5xl block">{activeGame.icon}</span>
-                  <h2 className="text-xl font-bold">{activeGame.label}</h2>
-                  <p className="text-sm text-muted-foreground">{activeGame.description}</p>
-                  <p className="text-xs text-primary">{activeGame.rationale}</p>
-                </div>
-
-                {/* Simplified game interaction */}
-                <div className="bg-muted/50 rounded-xl p-6 space-y-4">
-                  <p className="text-sm font-medium">
-                    {activeGame.id === 'rapid_naming' && `Name as many ${selectedTopic?.id || 'items'}-related words as you can!`}
-                    {activeGame.id === 'sentence_completion' && 'Complete the sentence with the right word.'}
-                    {activeGame.id === 'yes_no_check' && 'Quick yes or no — is this correct?'}
-                    {activeGame.id === 'semantic_match' && 'Which words go together?'}
-                  </p>
-
-                  <div className="flex gap-3 justify-center">
-                    <Button variant="outline" onClick={() => handleGameComplete(false, 2)}>
-                      That was hard
-                    </Button>
-                    <Button onClick={() => handleGameComplete(true, 5)}>
-                      I got several!
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <span className="text-4xl block">{gameResult.success ? '🎉' : '💪'}</span>
-                <h2 className="text-lg font-bold">
-                  {gameResult.success ? 'Nice work!' : 'Good effort!'}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {gameResult.success
-                    ? `You found those quickly. That speed helps in real conversation too.`
-                    : `That practice loosens up the retrieval pathways — it helps even when it's tough.`}
-                </p>
-                <Button onClick={handleGameReturn} className="gap-2">
-                  <ArrowRight className="w-4 h-4" />
-                  Back to conversation
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ExerciseModalHost renders as a modal/sheet, no full-page overlay needed
 
   // ─── Active Chat ────────────────────────────────────────────
 
