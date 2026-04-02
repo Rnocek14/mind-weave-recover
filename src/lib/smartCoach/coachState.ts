@@ -2,20 +2,48 @@
  * Smart Coach — State Factory
  * 
  * Creates and manages CoachState instances.
+ * Initializes with purpose context from the topic map.
  */
 
-import type { CoachState, TargetSkill } from './types';
+import type { CoachState, TargetSkill, SeverityProfile, PrimaryDeficit, SessionMetrics } from './types';
+import { getTopicPurpose } from './topicPurposeMap';
+
+/** Create empty session metrics */
+function createEmptyMetrics(): SessionMetrics {
+  return {
+    wordsProduced: 0,
+    independentResponses: 0,
+    cueAssistedCount: 0,
+    longestResponse: 0,
+    hesitationCount: 0,
+    semanticErrorCount: 0,
+    phonemicErrorCount: 0,
+    comprehensionBreaks: 0,
+    strategiesThatHelped: [],
+    avgLatencyEstimate: 0,
+  };
+}
 
 /** Build initial state for a new Smart Coach conversation */
 export function createInitialCoachState(options: {
   topic: string;
   topicKeywords?: string[];
   targetSkill?: TargetSkill;
+  severityProfile?: SeverityProfile;
+  primaryDeficit?: PrimaryDeficit;
+  readinessLevel?: number;
 }): CoachState {
+  const purposeContext = getTopicPurpose(options.topic);
+  
+  // Adjust support level based on severity
+  const initialSupport: 0 | 1 | 2 | 3 = 
+    options.severityProfile === 'severe' ? 2 :
+    options.severityProfile === 'mild' ? 0 : 0;
+
   return {
     topic: options.topic,
     mode: 'warmup',
-    supportLevel: 0,
+    supportLevel: initialSupport,
     turnCount: 0,
     isStuck: false,
     frustrationRisk: 'low',
@@ -25,6 +53,12 @@ export function createInitialCoachState(options: {
     conversationHistory: [],
     consecutiveHesitations: 0,
     expandDimension: 0,
+    purposeContext,
+    sessionMetrics: createEmptyMetrics(),
+    severityProfile: options.severityProfile ?? 'moderate',
+    primaryDeficit: options.primaryDeficit ?? 'expressive',
+    readinessLevel: options.readinessLevel ?? 7,
+    recentHesitations: [],
   };
 }
 
@@ -42,5 +76,18 @@ export function addEstablishedFact(state: CoachState, fact: string): CoachState 
   return {
     ...state,
     establishedFacts: [...state.establishedFacts, fact.toLowerCase()],
+  };
+}
+
+/** Record a strategy that helped */
+export function recordStrategy(state: CoachState, strategy: string): CoachState {
+  const existing = state.sessionMetrics.strategiesThatHelped;
+  if (existing.includes(strategy)) return state;
+  return {
+    ...state,
+    sessionMetrics: {
+      ...state.sessionMetrics,
+      strategiesThatHelped: [...existing, strategy],
+    },
   };
 }

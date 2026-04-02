@@ -1,8 +1,9 @@
 /**
  * Smart Coach — Core Types
  * 
- * Isolated conversation therapy system.
- * Separate from the daily session engine.
+ * Purpose-driven clinical therapy engine.
+ * Every type supports the north star: visible purpose, structured sessions,
+ * adaptive intervention, and measurable progress.
  */
 
 // ─── Coach Modes ─────────────────────────────────────────────
@@ -13,6 +14,18 @@ export type CoachMode =
   | 'scaffold'
   | 'support'
   | 'wrapup';
+
+// ─── Session Phases ──────────────────────────────────────────
+
+export type SessionPhase =
+  | 'orientation'
+  | 'readiness'
+  | 'warmup'
+  | 'conversation'
+  | 'drill'
+  | 'transfer'
+  | 'wrapup'
+  | 'home_practice';
 
 // ─── Target Skills ───────────────────────────────────────────
 
@@ -31,6 +44,61 @@ export type CueType =
   | 'sentence_starter'
   | 'reassurance'
   | 'expansion_prompt';
+
+// ─── Severity & Deficit ─────────────────────────────────────
+
+export type SeverityProfile = 'mild' | 'moderate' | 'severe';
+export type PrimaryDeficit = 'expressive' | 'receptive' | 'mixed';
+
+// ─── Purpose Context ─────────────────────────────────────────
+
+export interface PurposeContext {
+  goalId: string;
+  skillTarget: string;
+  transferTarget: string;
+  rationale: string;
+  measure: string;
+  /** What kind of support this topic benefits from */
+  supportMode: 'open_conversation' | 'structured_practice' | 'guided_retrieval';
+  /** Expected difficulty for this person */
+  expectedDifficulty: 'easy' | 'moderate' | 'challenging';
+}
+
+// ─── Session Metrics ─────────────────────────────────────────
+
+export interface SessionMetrics {
+  wordsProduced: number;
+  independentResponses: number;
+  cueAssistedCount: number;
+  longestResponse: number;
+  hesitationCount: number;
+  semanticErrorCount: number;
+  phonemicErrorCount: number;
+  comprehensionBreaks: number;
+  strategiesThatHelped: string[];
+  /** Rough estimate from turn timing */
+  avgLatencyEstimate: number;
+}
+
+// ─── Game Trigger Event (Design Only) ────────────────────────
+
+export interface GameTriggerEvent {
+  triggerType: 'hesitation_cluster' | 'semantic_error_cluster' | 'phonemic_error_cluster' | 'success_plateau' | 'comprehension_breakdown';
+  confidence: number;
+  observedPattern: string;
+  recommendedGame: string;
+  accepted: boolean;
+  resultSummary?: string;
+}
+
+// ─── Progress Narrative ──────────────────────────────────────
+
+export interface ProgressNarrative {
+  lastSessionFocus?: string;
+  lastSessionWin?: string;
+  todayTarget: string;
+  nextStep: string;
+}
 
 // ─── Coach State ─────────────────────────────────────────────
 
@@ -55,6 +123,18 @@ export interface CoachState {
   consecutiveHesitations: number;
   /** Track which expand dimension we're on to avoid loops */
   expandDimension: number;
+  /** Purpose context — WHY we're doing this */
+  purposeContext: PurposeContext;
+  /** Session metrics accumulated during conversation */
+  sessionMetrics: SessionMetrics;
+  /** Severity profile for interaction format */
+  severityProfile: SeverityProfile;
+  /** Primary deficit type */
+  primaryDeficit: PrimaryDeficit;
+  /** Readiness/fatigue level 0-10 (10 = fully energized) */
+  readinessLevel: number;
+  /** Hesitation clusters tracking (last N turns) */
+  recentHesitations: boolean[];
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────
