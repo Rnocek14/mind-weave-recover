@@ -2,12 +2,12 @@
  * Smart Coach — Turn Orchestrator
  * 
  * The single entry point for processing one conversation turn.
- * Now tracks session metrics and injects purpose context into prompts.
+ * Now tracks session metrics, injects purpose context, and detects interventions.
  */
 
-import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
+import type { CoachState, CoachTurnResult, CoachTurnLog, InterventionEvent } from './types';
 import { analyzeUtterance } from './utteranceAnalyzer';
-import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
+import { transitionCoachState, shouldWrapUp, shouldTriggerIntervention } from './coachStateMachine';
 import { selectCue } from './cueSelector';
 import { buildPrompt } from './promptBuilder';
 import { validateCoachLine } from './safetyValidator';
@@ -15,6 +15,7 @@ import { postProcessCoachLine } from './responsePostProcessor';
 import { getFallbackLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
+import { detectGameTrigger, selectGame, buildInterventionFrame } from './gameTrigger';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
