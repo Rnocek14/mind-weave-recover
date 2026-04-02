@@ -10,6 +10,8 @@ import type { CoachUtteranceAnalysis } from './types';
 // Filled pause / hesitation markers
 const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|you know)\b/gi;
 const CIRCUMLOCUTION_MARKERS = /\b(the thing|the place|where you|the one that|you use it to|it's like)\b/i;
+// Explicit "I don't know" / giving up markers
+const SURRENDER_MARKERS = /^(i don'?t know|idk|no idea|i can'?t|nothing|i forget|i forgot|don'?t remember|not sure|i'?m not sure|pass|skip)\.{0,3}$/i;
 
 export function analyzeUtterance(
   transcript: string,
