@@ -24,12 +24,20 @@ export interface PromptContext {
   expandDimension?: number;
 }
 
+const EXPAND_DIMENSIONS = [
+  'Ask about a specific detail they mentioned (what kind, what color, what name).',
+  'Ask about their preference or feeling about it (do they like it, what\'s their favorite part).',
+  'Ask about a personal experience or memory connected to it (when did they last do it, who were they with).',
+  'Ask about context or setting (where does this happen, when do they usually do this).',
+  'Ask about comparison or change (has it always been that way, is it different now).',
+];
+
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
   warmup: 'Ask a simple, warm question about the topic. One short sentence. Aim for an easy answer. Sound like a curious friend, not a quiz.',
   expand: 'React naturally to what they said, then ask ONE specific follow-up. Reference a detail they mentioned. Keep it short and conversational.',
   scaffold: 'Provide a specific sentence frame or starter based on what they were trying to say. Be concrete, not generic. Example: "You could say: My favorite is___"',
   support: 'Be warm and calm. Lower pressure. Either give a simple binary choice or gently reassure. Speak like a patient friend, not a teacher.',
-  wrapup: 'Acknowledge one specific thing they said well. Keep it brief and genuine. No generic praise.',
+  wrapup: 'Acknowledge one specific thing they said well. Summarize the conversation briefly. End warmly. No new questions.',
 };
 
 const CUE_INSTRUCTIONS: Record<CueType, string> = {
