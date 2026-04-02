@@ -637,7 +637,7 @@ export default function SmartCoach() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {showSupportBadge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-medium whitespace-nowrap">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium whitespace-nowrap">
                 Extra support on
               </span>
             )}
