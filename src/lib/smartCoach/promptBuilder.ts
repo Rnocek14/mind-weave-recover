@@ -133,8 +133,21 @@ export function buildPrompt(ctx: PromptContext): string {
     : '';
 
   // Transfer bridge (returning from intervention)
-  const transferBlock = ctx.returningFromIntervention
-    ? `\nTRANSFER BRIDGE: You just completed a focused drill. Connect the skill practiced back to the conversation topic. Example: "That's the same retrieval speed you need for ${ctx.topic}. Let's use it."`
+  let transferBlock = '';
+  if (ctx.returningFromIntervention && ctx.interruptionContext) {
+    transferBlock = `\nRETURN BRIDGE (MANDATORY): You just completed a focused drill. The user was talking about "${ctx.interruptionContext.lastSubtopic}" and struggling with "${ctx.interruptionContext.lastUserStruggle}". Their last attempt was: "${ctx.interruptionContext.lastPhraseAttempt}". You MUST return to EXACTLY this point. Example: "You were trying to say '${ctx.interruptionContext.lastPhraseAttempt}' earlier — let's go back to that."`;
+  } else if (ctx.returningFromIntervention) {
+    transferBlock = `\nTRANSFER BRIDGE: You just completed a focused drill. Connect the skill practiced back to the conversation topic. Example: "That's the same retrieval speed you need for ${ctx.topic}. Let's use it."`;
+  }
+
+  // Purpose re-anchor injection
+  const purposeAnchorBlock = ctx.purposeReanchor
+    ? `\nPURPOSE RE-ANCHOR (MANDATORY): Weave the goal into your response naturally. Remind the user WHY they're practicing this. Example: "We're still working on finding food words quickly — the same ones you'd use ordering at a restaurant." Do NOT just ask a random question — connect it to: ${ctx.purposeRationale || 'building retrieval skills'}.`
+    : '';
+
+  // Post-intervention dampening
+  const dampeningBlock = ctx.postInterventionDampening
+    ? `\nPOST-DRILL ADJUSTMENT: The user just returned from an exercise. Ask a slightly easier question than before the drill. Don't expect perfect fluency immediately. Use a gentle re-entry question that connects to what they were discussing before.`
     : '';
 
   return `You are Maya, a thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind, intelligent friend — not a therapist reading from a script.
