@@ -41,12 +41,25 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Hesitation (without incomplete thought) → scaffold
+  // ── Hesitation (without incomplete thought) → scaffold or support
   if (analysis.hesitationDetected) {
-    next.mode = 'scaffold';
-    next.isStuck = true;
-    next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
-    next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    // Check consecutive hesitations from state for escalation
+    const consecutiveHesitations = (state.consecutiveHesitations || 0) + 1;
+    next.consecutiveHesitations = consecutiveHesitations;
+    
+    if (consecutiveHesitations >= 2) {
+      // 2+ consecutive hesitations → support mode (real help)
+      next.mode = 'support';
+      next.isStuck = true;
+      next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+      next.frustrationRisk = 'medium';
+    } else {
+      // First hesitation → scaffold
+      next.mode = 'scaffold';
+      next.isStuck = true;
+      next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
+      next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    }
     return next;
   }
 
