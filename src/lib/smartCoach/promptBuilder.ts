@@ -27,6 +27,14 @@ export interface PromptContext {
   purposeSkillTarget?: string;
   /** Severity for interaction format */
   severityProfile?: SeverityProfile;
+  /** Primary deficit type */
+  primaryDeficit?: PrimaryDeficit;
+  /** Cross-session context */
+  lastSessionContext?: string;
+  /** Whether returning from an intervention/game */
+  returningFromIntervention?: boolean;
+  /** Transfer skill to reconnect after intervention */
+  interventionSkill?: string;
 }
 
 const EXPAND_DIMENSIONS = [
