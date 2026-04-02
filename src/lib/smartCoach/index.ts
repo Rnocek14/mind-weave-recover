@@ -21,6 +21,7 @@ export type {
   PrimaryDeficit,
   GameTriggerEvent,
   ProgressNarrative,
+  InterventionEvent,
 } from './types';
 
 export { createInitialCoachState, addEstablishedFact, recordStrategy } from './coachState';
