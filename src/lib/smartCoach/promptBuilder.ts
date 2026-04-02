@@ -54,14 +54,26 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nAlready established (DO NOT re-ask these — build on them instead): ${ctx.establishedFacts.join('; ')}`
     : '';
 
+  // Build conversation history block for context
+  const historyBlock = ctx.conversationHistory && ctx.conversationHistory.length > 0
+    ? `\nConversation so far:\n${ctx.conversationHistory.slice(-10).map(t => `${t.role === 'maya' ? 'Maya' : 'User'}: ${t.text}`).join('\n')}`
+    : '';
+
+  // Get expand dimension instruction
+  let modeInstruction = MODE_INSTRUCTIONS[ctx.mode];
+  if (ctx.mode === 'expand' && ctx.expandDimension !== undefined) {
+    const dimIdx = ctx.expandDimension % EXPAND_DIMENSIONS.length;
+    modeInstruction += ` DIRECTION: ${EXPAND_DIMENSIONS[dimIdx]}`;
+  }
+
   return `You are Maya, a warm and thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind friend having a real conversation — not a therapist reading from a script.
 
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${factsBlock}
+Target skill: ${ctx.targetSkill || 'general'}${factsBlock}${historyBlock}
 
-MODE INSTRUCTION: ${MODE_INSTRUCTIONS[ctx.mode]}
+MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
 
 ABSOLUTE RULES:
@@ -72,7 +84,8 @@ ABSOLUTE RULES:
 - Do NOT mention being an AI, program, or chatbot
 - Do NOT use baby talk — speak like talking to an intelligent adult
 - Do NOT say "keep going" or "tell me more" without specifying what
-- Do NOT repeat a question you already asked
+- Do NOT repeat a question you already asked — check the conversation history
+- Do NOT re-ask something the user already answered
 - If the user corrected you, acknowledge it naturally and continue from their correction
 - Start with a brief natural reaction ("Oh nice!", "Got it", "Mm, interesting") before asking
 - Maximum 20 words

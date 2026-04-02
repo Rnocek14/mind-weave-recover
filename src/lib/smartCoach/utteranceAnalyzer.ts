@@ -35,7 +35,8 @@ export function analyzeUtterance(
 
   // Hesitation / pauses
   const filledPauses = (cleaned.match(FILLED_PAUSES) || []).length;
-  const hesitationDetected = filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1);
+  const isSurrenderPhrase = SURRENDER_MARKERS.test(cleaned);
+  const hesitationDetected = isSurrenderPhrase || filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1);
 
   // Pause detection — true silence only (no words at all)
   const pauseDetected = wordCount === 0;

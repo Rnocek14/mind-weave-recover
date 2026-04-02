@@ -96,7 +96,8 @@ export function transitionCoachState(
 
 /** Check if session should transition to wrapup */
 export function shouldWrapUp(state: CoachState, maxTurns: number): boolean {
-  return state.turnCount >= maxTurns;
+  // Trigger wrapup one turn before max so we close gracefully
+  return state.turnCount >= maxTurns - 1;
 }
 
 /** Check if frustration requires immediate mode change */
