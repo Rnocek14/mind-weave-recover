@@ -30,7 +30,7 @@ interface RunCoachTurnArgs {
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
-  const { state, userUtterance, maxTurns = 8 } = args;
+  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill } = args;
 
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
