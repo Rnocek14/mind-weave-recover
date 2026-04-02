@@ -53,12 +53,16 @@ export function createInitialCoachState(options: {
     conversationHistory: [],
     consecutiveHesitations: 0,
     expandDimension: 0,
-    purposeContext,
+    purposeContext: purposeContext,
     sessionMetrics: createEmptyMetrics(),
     severityProfile: options.severityProfile ?? 'moderate',
     primaryDeficit: options.primaryDeficit ?? 'expressive',
     readinessLevel: options.readinessLevel ?? 7,
     recentHesitations: [],
+    lastPurposeAnchorTurn: 0,
+    interruptionContext: undefined,
+    postInterventionDampening: false,
+    interventionCount: 0,
   };
 }
 
