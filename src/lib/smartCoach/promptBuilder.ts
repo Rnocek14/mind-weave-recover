@@ -115,14 +115,24 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nPURPOSE: ${ctx.purposeRationale}${ctx.purposeTransferTarget ? ` This transfers to: ${ctx.purposeTransferTarget}.` : ''}${ctx.purposeSkillTarget ? ` Skill focus: ${ctx.purposeSkillTarget}.` : ''}`
     : '';
 
-  const severityBlock = getSeverityInstructions(ctx.severityProfile ?? 'moderate');
+  const severityBlock = getSeverityInstructions(ctx.severityProfile ?? 'moderate', ctx.primaryDeficit);
+
+  // Cross-session context
+  const sessionBlock = ctx.lastSessionContext
+    ? `\nPRIOR SESSION CONTEXT: ${ctx.lastSessionContext}. Reference this naturally when relevant — show continuity.`
+    : '';
+
+  // Transfer bridge (returning from intervention)
+  const transferBlock = ctx.returningFromIntervention
+    ? `\nTRANSFER BRIDGE: You just completed a focused drill. Connect the skill practiced back to the conversation topic. Example: "That's the same retrieval speed you need for ${ctx.topic}. Let's use it."`
+    : '';
 
   return `You are Maya, a thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind, intelligent friend — not a therapist reading from a script.
 
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}
+Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}
 
 MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
