@@ -18,6 +18,10 @@ export interface PromptContext {
   targetSkill?: string;
   establishedFacts?: string[];
   topicKeywords?: string[];
+  /** Recent conversation turns for context */
+  conversationHistory?: { role: 'user' | 'maya'; text: string }[];
+  /** Current expand dimension index for variety */
+  expandDimension?: number;
 }
 
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
