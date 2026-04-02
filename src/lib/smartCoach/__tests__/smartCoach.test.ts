@@ -28,6 +28,9 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     frustrationRisk: 'low',
     topicKeywords: FOOD_KEYWORDS,
     establishedFacts: [],
+    conversationHistory: [],
+    consecutiveHesitations: 0,
+    expandDimension: 0,
     ...overrides,
   };
 }
