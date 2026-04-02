@@ -108,12 +108,19 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     finalLine = postProcessCoachLine(rawLine);
   }
 
-  // Step 8 — Update state
+  // Step 8 — Update state (including conversation history)
+  const newHistory = [
+    ...nextState.conversationHistory,
+    { role: 'user' as const, text: userUtterance },
+    { role: 'maya' as const, text: finalLine },
+  ].slice(-10); // Keep last 10 entries (5 exchanges)
+
   const updatedState: CoachState = {
     ...nextState,
     turnCount: state.turnCount + 1,
     lastUserUtterance: userUtterance,
     lastCoachUtterance: finalLine,
+    conversationHistory: newHistory,
   };
 
   // Track established facts from user utterances (simple: >3 words and on-topic)
