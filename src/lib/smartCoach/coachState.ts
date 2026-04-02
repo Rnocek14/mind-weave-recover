@@ -22,6 +22,9 @@ export function createInitialCoachState(options: {
     targetSkill: options.targetSkill,
     topicKeywords: options.topicKeywords ?? extractKeywords(options.topic),
     establishedFacts: [],
+    conversationHistory: [],
+    consecutiveHesitations: 0,
+    expandDimension: 0,
   };
 }
 
