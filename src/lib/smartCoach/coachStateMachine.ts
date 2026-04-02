@@ -63,12 +63,15 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Strong on-topic response → expand
+  // ── Strong on-topic response → expand (reset hesitation counter)
   if (analysis.onTopic && analysis.wordCount >= 2 && analysis.confidence >= 0.5) {
     next.mode = 'expand';
     next.isStuck = false;
+    next.consecutiveHesitations = 0;
     next.supportLevel = Math.max(0, state.supportLevel - 1) as 0 | 1 | 2 | 3;
     next.frustrationRisk = 'low';
+    // Advance expand dimension to vary question types
+    next.expandDimension = (state.expandDimension || 0) + 1;
     return next;
   }
 
