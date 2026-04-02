@@ -345,10 +345,16 @@ export default function SmartCoach() {
     const game = GAME_CATALOG[pendingIntervention.gameId];
     if (game) {
       setActiveGame(game);
-      setGameResult(null);
+      // Launch real exercise in modal
+      exerciseModal.launchExerciseModal(game.exerciseSlug, {
+        totalTrials: game.defaultConfig.totalTrials,
+        difficultyTier: game.defaultConfig.difficultyTier,
+        cueLevel: game.defaultConfig.cueLevel,
+        source: 'maya_chat',
+      });
     }
     setPendingIntervention(null);
-  }, [pendingIntervention]);
+  }, [pendingIntervention, exerciseModal]);
 
   const handleDeclineIntervention = useCallback(() => {
     setPendingIntervention(null);
@@ -360,22 +366,49 @@ export default function SmartCoach() {
     }]);
   }, []);
 
-  const handleGameComplete = useCallback((success: boolean, count: number) => {
-    setGameResult({ success, count });
-  }, []);
+  /** Called when a real exercise completes inside ExerciseModalHost */
+  const handleExerciseComplete = useCallback((normalized: NormalizedExerciseResult) => {
+    if (!activeGame || !selectedTopic) {
+      setActiveGame(null);
+      return;
+    }
 
-  const handleGameReturn = useCallback(() => {
-    if (!activeGame || !selectedTopic) return;
-    const returnText = buildGameReturnText(activeGame, gameResult?.success ?? true, selectedTopic.id);
+    const result = adaptExerciseResult(normalized, activeGame, selectedTopic.id);
+
+    // Add return-to-conversation message
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
       role: 'maya',
-      text: returnText,
+      text: result.returnText,
       timestamp: Date.now(),
     }]);
+
+    // Update session metrics with exercise result
+    setSessionStats(prev => prev ? {
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        // Count the exercise towards overall session quality
+        independentResponses: prev.metrics.independentResponses + (result.success ? 1 : 0),
+      },
+    } : null);
+
     setActiveGame(null);
-    setGameResult(null);
-  }, [activeGame, gameResult, selectedTopic]);
+  }, [activeGame, selectedTopic]);
+
+  const handleExerciseModalClose = useCallback(() => {
+    exerciseModal.closeExerciseModal();
+    if (activeGame) {
+      // If closed without completing, add a soft return message
+      setMessages(prev => [...prev, {
+        id: `maya-return-${Date.now()}`,
+        role: 'maya',
+        text: "No worries — let's keep talking. Where were we?",
+        timestamp: Date.now(),
+      }]);
+      setActiveGame(null);
+    }
+  }, [exerciseModal, activeGame]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
