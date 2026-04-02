@@ -34,8 +34,13 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   if (shouldWrapUp(state, maxTurns)) {
     const wrapState: CoachState = { ...state, mode: 'wrapup' };
     const fallback = getFallbackLine('wrapup');
+    const wrapHistory = [
+      ...state.conversationHistory,
+      { role: 'user' as const, text: userUtterance },
+      { role: 'maya' as const, text: fallback },
+    ].slice(-10);
     return {
-      nextState: { ...wrapState, turnCount: state.turnCount + 1, lastUserUtterance: userUtterance, lastCoachUtterance: fallback },
+      nextState: { ...wrapState, turnCount: state.turnCount + 1, lastUserUtterance: userUtterance, lastCoachUtterance: fallback, conversationHistory: wrapHistory },
       output: fallback,
       analysis,
       cueDecision: { cueType: 'reassurance', rationale: 'Session complete' },
