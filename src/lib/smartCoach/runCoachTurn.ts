@@ -22,6 +22,11 @@ interface RunCoachTurnArgs {
   state: CoachState;
   userUtterance: string;
   maxTurns?: number;
+  /** Injected cross-session context for prompts */
+  lastSessionContext?: string;
+  /** If returning from an intervention game */
+  returningFromIntervention?: boolean;
+  interventionSkill?: string;
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
