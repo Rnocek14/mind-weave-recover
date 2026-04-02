@@ -199,22 +199,32 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
 }
 
 /** Build the return-to-conversation text after a game using normalized results */
-export function buildGameReturnText(game: GameDefinition, result: { score: number; summary: string }, topic: string): string {
+export function buildGameReturnText(
+  game: GameDefinition,
+  result: { score: number; summary: string },
+  topic: string,
+  interruptionContext?: { lastSubtopic: string; lastUserStruggle: string; lastPhraseAttempt: string },
+): string {
   const skillLabel = game.skillTarget.replace(/_/g, ' ');
+
+  // If we have interruption context, always reference the exact moment
+  const contextRef = interruptionContext
+    ? `You were working on "${interruptionContext.lastSubtopic}" — let's pick up right there.`
+    : `Back to ${topic} — where were we?`;
 
   if (result.score >= 0.7) {
     const returns = [
-      `Nice — ${result.summary} That ${skillLabel} carries right into our conversation about ${topic}.`,
-      `Great work! ${result.summary} Let's use that momentum back in our chat about ${topic}.`,
-      `See? That retrieval is there. ${result.summary} Back to ${topic} — where were we?`,
+      `Nice — ${result.summary} That ${skillLabel} carries right into our conversation. ${contextRef}`,
+      `Great work! ${result.summary} Let's use that momentum. ${contextRef}`,
+      `See? That retrieval is there. ${result.summary} ${contextRef}`,
     ];
     return returns[Math.floor(Math.random() * returns.length)];
   }
   
   const returns = [
-    `Good practice! ${result.summary} That drill helps even when it's tough. Back to ${topic}?`,
-    `All good — ${result.summary} That exercise loosens up the pathways. Let's continue with ${topic}.`,
-    `That's useful practice either way. ${result.summary} Back to ${topic} — no pressure.`,
+    `Good practice! ${result.summary} That drill helps even when it's tough. ${contextRef}`,
+    `All good — ${result.summary} That exercise loosens up the pathways. ${contextRef}`,
+    `That's useful practice either way. ${result.summary} ${contextRef}`,
   ];
   return returns[Math.floor(Math.random() * returns.length)];
 }
