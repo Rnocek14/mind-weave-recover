@@ -69,6 +69,25 @@ export function selectCue(
     };
   }
 
+  // ── Deficit-aware defaults
+  if (state.primaryDeficit === 'receptive') {
+    // Receptive: prioritize comprehension checks and simpler structures
+    if (analysis.wordCount <= 1) {
+      return {
+        cueType: 'forced_choice',
+        rationale: 'Receptive deficit — simplify to verify understanding',
+      };
+    }
+  }
+
+  if (state.primaryDeficit === 'expressive' && state.mode === 'scaffold') {
+    // Expressive: prioritize word-finding support
+    return {
+      cueType: 'phonemic_hint',
+      rationale: 'Expressive deficit — phonemic cue to aid retrieval',
+    };
+  }
+
   // ── Default: severity-aware
   if (state.severityProfile === 'severe') {
     return {

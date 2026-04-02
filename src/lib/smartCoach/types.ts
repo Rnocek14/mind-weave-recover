@@ -219,4 +219,6 @@ export interface CoachTurnResult {
   debugPrompt?: string;
   /** Debug: raw model output before validation/post-processing */
   debugRawOutput?: string;
+  /** Intervention triggered this turn */
+  intervention?: InterventionEvent;
 }
