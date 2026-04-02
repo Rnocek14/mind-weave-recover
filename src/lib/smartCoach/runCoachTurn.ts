@@ -65,7 +65,26 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState = recordStrategy(nextState, cueDecision.cueType);
   }
 
-  // Step 5 — Build prompt (with purpose context)
+  // Step 4.5 — Check for intervention trigger
+  let intervention: InterventionEvent | undefined;
+  const triggerCheck = shouldTriggerIntervention(nextState);
+  if (triggerCheck.shouldTrigger && triggerCheck.pattern) {
+    const triggerResult = detectGameTrigger(nextState);
+    if (triggerResult.triggered && triggerResult.pattern) {
+      const game = selectGame(triggerResult.pattern);
+      const frame = buildInterventionFrame(triggerResult, game);
+      intervention = {
+        observation: frame.observation,
+        rationale: frame.rationale,
+        action: `${frame.action} ${frame.offerText}`,
+        type: 'game_offer',
+        gameId: game.id,
+        timestamp: Date.now(),
+      };
+    }
+  }
+
+  // Step 5 — Build prompt (with purpose context + cross-session + deficit)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -82,6 +101,10 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     purposeTransferTarget: nextState.purposeContext.transferTarget,
     purposeSkillTarget: nextState.purposeContext.skillTarget,
     severityProfile: nextState.severityProfile,
+    primaryDeficit: nextState.primaryDeficit,
+    lastSessionContext,
+    returningFromIntervention,
+    interventionSkill,
   });
 
   // Step 6 — Generate coach line via edge function
