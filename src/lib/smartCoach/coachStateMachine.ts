@@ -75,10 +75,11 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Short but on-topic → gentle expand
+  // ── Short but on-topic → gentle expand (reset hesitation counter)
   if (analysis.onTopic && analysis.wordCount >= 1) {
     next.mode = state.mode === 'warmup' ? 'warmup' : 'expand';
     next.isStuck = false;
+    next.consecutiveHesitations = 0;
     return next;
   }
 
