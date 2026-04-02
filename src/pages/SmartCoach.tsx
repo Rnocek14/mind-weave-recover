@@ -942,6 +942,16 @@ export default function SmartCoach() {
           </Button>
         </div>
       </div>
+
+      {/* Real exercise modal — launched by intervention acceptance */}
+      <ExerciseModalHost
+        activeExercise={exerciseModal.activeExercise}
+        isOpen={exerciseModal.isOpen}
+        onClose={handleExerciseModalClose}
+        onComplete={handleExerciseComplete}
+        userId={user.id}
+        sessionId={null}
+      />
     </div>
   );
 }
