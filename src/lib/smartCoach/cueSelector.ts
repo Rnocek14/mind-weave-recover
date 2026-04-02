@@ -2,7 +2,7 @@
  * Smart Coach — Cue Selector
  * 
  * Chooses the right therapeutic cue based on state + utterance analysis.
- * Maps error types to clinically appropriate support.
+ * Severity-aware: adjusts defaults by profile.
  */
 
 import type { CoachState, CoachUtteranceAnalysis, CueDecision, CueType } from './types';
@@ -36,16 +36,25 @@ export function selectCue(
     };
   }
 
-  // ── Hesitation / silence at high support → forced choice
-  if ((analysis.hesitationDetected || analysis.pauseDetected) && state.supportLevel >= 2) {
-    return {
-      cueType: 'forced_choice',
-      rationale: 'Extended hesitation at high support — narrow to binary choice',
-    };
-  }
-
-  // ── Hesitation at lower support → reassurance first
+  // ── Severity-aware hesitation handling
   if (analysis.hesitationDetected || analysis.pauseDetected) {
+    // Severe: always forced choice for minimum friction
+    if (state.severityProfile === 'severe') {
+      return {
+        cueType: 'forced_choice',
+        rationale: 'Severe profile — default to binary choice for accessibility',
+      };
+    }
+    
+    // High support → forced choice
+    if (state.supportLevel >= 2) {
+      return {
+        cueType: 'forced_choice',
+        rationale: 'Extended hesitation at high support — narrow to binary choice',
+      };
+    }
+    
+    // Lower support → reassurance first
     return {
       cueType: 'reassurance',
       rationale: 'Reduce pressure before prompting',
@@ -60,7 +69,14 @@ export function selectCue(
     };
   }
 
-  // ── Default: expansion for warmup/expand, scaffold otherwise
+  // ── Default: severity-aware
+  if (state.severityProfile === 'severe') {
+    return {
+      cueType: 'forced_choice',
+      rationale: 'Severe profile — default to structured choice',
+    };
+  }
+
   const defaultCue: CueType = state.mode === 'warmup' || state.mode === 'expand'
     ? 'expansion_prompt'
     : 'sentence_starter';

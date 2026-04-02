@@ -14,14 +14,23 @@ export type {
   ValidationResult,
   CoachTurnLog,
   CoachTurnResult,
+  SessionPhase,
+  PurposeContext,
+  SessionMetrics,
+  SeverityProfile,
+  PrimaryDeficit,
+  GameTriggerEvent,
+  ProgressNarrative,
 } from './types';
 
-export { createInitialCoachState, addEstablishedFact } from './coachState';
+export { createInitialCoachState, addEstablishedFact, recordStrategy } from './coachState';
 export { runCoachTurn } from './runCoachTurn';
 export { analyzeUtterance } from './utteranceAnalyzer';
-export { transitionCoachState, shouldWrapUp, isEmergencySupport } from './coachStateMachine';
+export { transitionCoachState, shouldWrapUp, isEmergencySupport, hasHesitationCluster } from './coachStateMachine';
 export { selectCue } from './cueSelector';
 export { validateCoachLine } from './safetyValidator';
 export { postProcessCoachLine } from './responsePostProcessor';
 export { getFallbackLine } from './fallbackLibrary';
 export { getSessionLogs, clearSessionLogs, exportLogsAsJson } from './coachLogger';
+export { getTopicPurpose, getAllTopics, getTopicDefinition } from './topicPurposeMap';
+export type { TopicDefinition } from './topicPurposeMap';

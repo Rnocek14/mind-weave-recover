@@ -1,62 +1,54 @@
 /**
  * Smart Coach — Deterministic Fallback Library
  * 
- * Safe lines used when the LLM output is rejected by the validator.
- * Organized by mode and cue type to stay contextually appropriate.
- * Expanded for variety — still bounded and clinically safe.
+ * Task-focused, purpose-aware fallbacks.
+ * No identity-focused praise ("Good job!").
+ * Every line is specific, actionable, and clinically grounded.
  */
 
 import type { CoachMode, CueType } from './types';
 
 const WARMUP_LINES = [
-  "Let's start simple.",
-  "Tell me one thing you like.",
-  "What's one thing you did today?",
-  "What's your favorite food?",
-  "What's something that made you smile recently?",
-  "Tell me one thing about your morning.",
-  "What's the first thing that comes to mind?",
+  "Let's start with something familiar — tell me one thing you like.",
+  "We're warming up your word-finding. What's one food you enjoy?",
+  "Easy one to start — what did you have for your last meal?",
+  "Let's get the words flowing. What's something that made you smile recently?",
+  "Starting simple — tell me one thing about your morning.",
 ];
 
 const EXPAND_LINES = [
-  "Can you say a little more about that?",
-  "What kind do you mean?",
-  "Tell me one more detail.",
-  "And what happened next?",
-  "What did you like about it?",
-  "What was the best part?",
-  "Who were you with?",
-  "How did that feel?",
+  "You got that word out clearly. Can you add one more detail?",
+  "That was specific — what kind exactly?",
+  "You described that well. What happened next?",
+  "Clear answer. What was the best part about it?",
+  "You found that word quickly. Who were you with?",
+  "That came out smoothly. Where did this happen?",
 ];
 
 const SCAFFOLD_LINES = [
-  'You can start with: "I like…"',
-  'Try this: "I want…"',
+  'Here\'s a way to start: "I like…"',
+  'Try this frame: "I want…"',
   'You could say: "It was…"',
-  "Try putting it in a sentence.",
-  'How about: "My favorite is…"',
-  'Start with: "I went to…"',
-  'You could say: "I remember…"',
+  "Let me narrow it down. Try putting it in a short sentence.",
+  'How about starting with: "My favorite is…"',
+  'This might help — start with: "I went to…"',
 ];
 
 const SUPPORT_LINES = [
-  "Take your time — no rush at all.",
-  "That's okay — let's make it easier.",
-  "No rush. One word is enough.",
-  "You can choose: yes or no?",
-  "It's okay to pause. I'm right here.",
-  "We can slow down. That's perfectly fine.",
-  "Just one word is a great start.",
-  "Take a breath. There's no hurry.",
+  "No rush — let me make this easier. Just pick: yes or no?",
+  "That's a tough one. Let me give you two choices.",
+  "Take your time. One word is plenty right now.",
+  "Let me simplify. Which sounds closer — this or that?",
+  "We can slow down. That's completely fine.",
+  "Pausing is normal. I'll give you a starting point.",
 ];
 
 const WRAPUP_LINES = [
-  "Nice work today — you stuck with it.",
-  "That was a good conversation.",
-  "You got your idea across — well done.",
-  "Good session. You should feel proud.",
-  "That took real effort — nice job.",
-  "You practiced well today. That matters.",
+  "You stayed with the conversation and found your words — that retrieval practice matters.",
+  "You described things clearly today. That's the same skill you use in real conversations.",
+  "You got through several exchanges independently. That builds real confidence.",
+  "You practiced finding words under no pressure — that's how retrieval gets faster.",
+  "You kept going even when it was hard. That persistence strengthens the pathways.",
 ];
 
 const MODE_FALLBACKS: Record<CoachMode, string[]> = {
@@ -67,44 +59,40 @@ const MODE_FALLBACKS: Record<CoachMode, string[]> = {
   wrapup: WRAPUP_LINES,
 };
 
-// Cue-specific overrides when applicable
+// Cue-specific overrides — task-focused, not identity-focused
 const CUE_SPECIFIC: Partial<Record<CueType, string[]>> = {
   reassurance: [
-    "Take your time — no rush.",
-    "That's perfectly okay.",
-    "I'm right here with you.",
-    "It's okay — we can try again.",
-    "No pressure. You're doing fine.",
+    "Take your time — the word is in there. No rush finding it.",
+    "Pausing is normal. Your brain is searching — that's the practice.",
+    "It's okay to pause. Let me help narrow it down.",
+    "No pressure. Sometimes the word needs an extra second.",
   ],
   forced_choice: [
-    "Is it this one or that one?",
-    "You can pick: yes or no?",
-    "Which one sounds right?",
-    "Just pick one — either is fine.",
+    "Let me make it simpler — is it this one or that one?",
+    "Two choices to narrow it down. Which sounds closer?",
+    "Pick whichever feels right — either works.",
   ],
   sentence_starter: [
-    'Start with: "I…"',
-    'Try: "It is…"',
-    'You can say: "I like…"',
-    'How about: "I went…"',
-    'Try starting with: "My favorite…"',
+    'Here\'s a frame to try: "I…"',
+    'Start with this: "It is…"',
+    'Try: "I like…" and add one word.',
+    'How about: "My favorite…" and then the thing.',
   ],
   expansion_prompt: [
-    "Tell me a little more about that.",
-    "What was that like?",
-    "And what happened after?",
-    "What did you think about it?",
-    "How did that go?",
+    "You got that out clearly. Tell me one more detail about it.",
+    "That was specific. What was that like?",
+    "Good retrieval. What happened after?",
+    "You found those words. How did that go?",
   ],
   semantic_hint: [
-    "Think about what it's used for.",
-    "What category does it belong to?",
-    "Where would you usually find it?",
+    "Think about what category it belongs to — that often helps.",
+    "What's it used for? Sometimes describing it brings the word.",
+    "Where would you usually find it? The context can help.",
   ],
   phonemic_hint: [
-    "The word starts with...",
-    "Think about the first sound.",
-    "It rhymes with...",
+    "Think about the first sound — it might unlock the word.",
+    "The beginning of the word might help. What letter does it start with?",
+    "Sound it out slowly. The first syllable often comes first.",
   ],
 };
 

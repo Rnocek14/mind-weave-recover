@@ -2,8 +2,7 @@
  * Smart Coach — Turn Orchestrator
  * 
  * The single entry point for processing one conversation turn.
- * Calls all submodules in order:
- *   analyze → transition → cue → prompt → generate → validate → post-process → log
+ * Now tracks session metrics and injects purpose context into prompts.
  */
 
 import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
@@ -15,7 +14,7 @@ import { validateCoachLine } from './safetyValidator';
 import { postProcessCoachLine } from './responsePostProcessor';
 import { getFallbackLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
-import { addEstablishedFact } from './coachState';
+import { addEstablishedFact, recordStrategy } from './coachState';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
@@ -49,13 +48,18 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     };
   }
 
-  // Step 3 — Transition state
+  // Step 3 — Transition state (now also tracks metrics)
   let nextState = transitionCoachState(state, analysis);
 
-  // Step 4 — Select cue
+  // Step 4 — Select cue (now severity-aware)
   const cueDecision = selectCue(nextState, analysis);
 
-  // Step 5 — Build prompt (with full conversation history)
+  // Track strategy usage
+  if (cueDecision.cueType !== 'expansion_prompt' && cueDecision.cueType !== 'reassurance') {
+    nextState = recordStrategy(nextState, cueDecision.cueType);
+  }
+
+  // Step 5 — Build prompt (with purpose context)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -68,6 +72,10 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     topicKeywords: nextState.topicKeywords,
     conversationHistory: nextState.conversationHistory,
     expandDimension: nextState.expandDimension,
+    purposeRationale: nextState.purposeContext.rationale,
+    purposeTransferTarget: nextState.purposeContext.transferTarget,
+    purposeSkillTarget: nextState.purposeContext.skillTarget,
+    severityProfile: nextState.severityProfile,
   });
 
   // Step 6 — Generate coach line via edge function
@@ -113,12 +121,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     finalLine = postProcessCoachLine(rawLine);
   }
 
-  // Step 8 — Update state (including conversation history)
+  // Step 8 — Update state
   const newHistory = [
     ...nextState.conversationHistory,
     { role: 'user' as const, text: userUtterance },
     { role: 'maya' as const, text: finalLine },
-  ].slice(-10); // Keep last 10 entries (5 exchanges)
+  ].slice(-10);
 
   const updatedState: CoachState = {
     ...nextState,
@@ -128,7 +136,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     conversationHistory: newHistory,
   };
 
-  // Track established facts from user utterances (simple: >3 words and on-topic)
+  // Track established facts
   if (analysis.onTopic && analysis.wordCount >= 3) {
     const fact = userUtterance.trim().toLowerCase().slice(0, 80);
     addEstablishedFact(updatedState, fact);
@@ -163,7 +171,6 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
 
 /** Build conversation history for the edge function */
 function buildHistory(state: CoachState, currentUtterance: string) {
-  // Use the full conversation history from state
   const history = (state.conversationHistory || []).map(t => ({
     role: t.role === 'maya' ? 'ai' : 'user',
     text: t.text,
