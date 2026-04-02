@@ -195,6 +195,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback,
     debugPrompt: prompt,
     debugRawOutput,
+    intervention,
   };
 }
 
