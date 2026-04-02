@@ -163,6 +163,14 @@ export function validateCoachLine(
     }
   }
 
+  // Praise-without-specificity: starts with praise word but has no task reference
+  if (PRAISE_STARTERS.test(trimmed)) {
+    const hasTaskRef = TASK_REFERENCE_PATTERNS.some(p => p.test(trimmed));
+    if (!hasTaskRef) {
+      reasons.push('praise_without_specificity');
+    }
+  }
+
   // Off-topic yes/no questions when we have an active topic
   if (topic) {
     for (const pattern of OFF_TOPIC_PATTERNS) {
