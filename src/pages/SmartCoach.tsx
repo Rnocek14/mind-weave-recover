@@ -21,11 +21,15 @@ import { createInitialCoachState } from '@/lib/smartCoach/coachState';
 import { runCoachTurn } from '@/lib/smartCoach/runCoachTurn';
 import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
-import { buildGameReturnText, GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
+import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
+import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
+import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
+import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
+import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
 
 // ─── Chat message type ───────────────────────────────────────
