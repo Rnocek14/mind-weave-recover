@@ -150,8 +150,8 @@ export default function SmartCoach() {
   const [readinessLevel, setReadinessLevel] = useState(7);
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
-  const [gameResult, setGameResult] = useState<{ success: boolean; count: number } | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const exerciseModal = useExerciseModal();
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
