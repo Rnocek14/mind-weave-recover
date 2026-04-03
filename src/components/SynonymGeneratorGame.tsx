@@ -70,12 +70,37 @@ function pickPrompt(difficulty: number, usedWords: Set<string>): SynonymPrompt {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/**
+ * Levenshtein distance for fuzzy matching speech transcripts
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
 function checkSynonym(input: string, prompt: SynonymPrompt): boolean {
   const normalized = input.toLowerCase().trim().replace(/[-_]/g, ' ');
-  if (normalized === prompt.word.toLowerCase()) return false;
-  return prompt.acceptedSynonyms.some(s =>
-    s.toLowerCase().replace(/[-_]/g, ' ') === normalized
-  );
+  if (normalized.length < 2) return false;
+  if (normalized === prompt.word.toLowerCase()) return false; // Don't match the target word itself
+
+  return prompt.acceptedSynonyms.some(s => {
+    const syn = s.toLowerCase().replace(/[-_]/g, ' ');
+    // Exact match
+    if (syn === normalized) return true;
+    // Fuzzy match: allow edit distance ≤1 for short words, ≤2 for longer
+    const maxDist = Math.max(syn.length, normalized.length) >= 6 ? 2 : 1;
+    return levenshtein(syn, normalized) <= maxDist;
+  });
 }
 
 /** Success threshold scales with difficulty */
