@@ -1,63 +1,76 @@
 
-# Smart Coach Phase 2 — Post-Acceptance Punch List
 
-## Priority 1: Explicit Intervention Loop (Highest Impact)
-**Goal**: Make conversation → detect → explain → intervene → return visible in UX, not just state logic.
+# Plan: Simplify to Core Patient Journey + Add Adherence Loop
 
-### Changes:
-- **`runCoachTurn.ts`**: When state machine detects intervention trigger (hesitation cluster, semantic error cluster), emit an `InterventionEvent` with `observation`, `rationale`, and `action`
-- **`SmartCoach.tsx`**: Render intervention explanation as a distinct UI message type (not just another chat bubble) — e.g., a card that says: "You had the idea but the word didn't come out. I'm narrowing the choices."
-- **`coachStateMachine.ts`**: Add explicit `intervention_active` state with entry/exit tracking
-- **`promptBuilder.ts`**: When returning FROM intervention, inject transfer prompt: "Let's use that same strategy back in the conversation"
+## What exists today
+- `/welcome` — 2-step first-time onboarding → launches `/smart-coach`
+- `/today` — daily launcher with last-session context → launches `/smart-coach`
+- `/smart-coach` — full 8-turn session engine with voice, exercises, wrapup
+- `/recovery-progress` — 553-line longitudinal progress page (linked from `/today`)
+- Post-session complete screen with 3-part summary + home practice idea
+- 65+ routes, most irrelevant to patients
 
-## Priority 2: Embedded Game Triggers (First 2–3 Games)
-**Goal**: Games appear inside conversation when clinically triggered, with entry/exit scripts.
+## What's missing for real-user readiness
+1. **Route gating** — patients can stumble into admin/clinician/legacy pages
+2. **Adherence loop** — no "come back tomorrow" mechanism whatsoever (no notifications, no streak on `/today`, no session count)
+3. **Post-session → `/today` flow** — session complete sends users to "Back to Dashboard" (old route), not `/today`
+4. **Progress page too complex** — 553 lines of clinician-grade metrics, not patient-friendly
+5. **No first-visit detection** — returning users see `/` (marketing page) instead of `/today`
 
-### Changes:
-- **New: `src/lib/smartCoach/gameTrigger.ts`**: Maps trigger patterns → game type (e.g., hesitation cluster → rapid naming sprint, semantic errors → semantic matching)
-- **`SmartCoach.tsx`**: Add focused game overlay state (chat dims, center panel shows game with goal label + timer)
-- **Game lifecycle**: Entry (observation + rationale + choice to accept), Active (focused UI), Exit (result + strategy label + return bridge)
-- **Initial games**: Rapid naming sprint, yes/no comprehension check, sentence completion
-- **`runCoachTurn.ts`**: After game completes, inject transfer prompt connecting drill result back to conversation
+## Changes (5 items)
 
-## Priority 3: Cross-Session Progress Narrative
-**Goal**: Users feel ongoing recovery across sessions.
+### 1. Lock patient journey to 4 screens
+Hide all non-core routes behind auth + role checks. For the patient path, the only navigable screens are:
+- `/` or `/today` — daily launcher (auto-redirect authenticated users from `/` to `/today`)
+- `/welcome` — first-time only
+- `/smart-coach` — session
+- `/progress` — simplified progress
 
-### Changes:
-- **`coachState.ts`**: On session init, load last `coach_conversation_summaries` entry for this user/profile
-- **Orientation card update**: Show "Last time: [focus]. You improved at [skill]. Today we build on that."
-- **`promptBuilder.ts`**: Inject last-session context into system prompt so AI can reference prior progress
-- **Wrap-up enhancement**: Compare today's metrics to last session ("You named 4 items without cues vs 2 last time")
-- **New: `src/lib/smartCoach/progressNarrative.ts`**: Generates cross-session comparison text from summaries
+**In `Index.tsx`**: Add auth check — if logged in, redirect to `/today` immediately.
 
-## Priority 4: Deeper Severity/Deficit Adaptation
-**Goal**: Receptive vs expressive differences drive meaningfully different experiences.
+**In `SmartCoach.tsx` session complete screen**: Change "Back to Dashboard" button to go to `/today` instead of `/dashboard`.
 
-### Changes:
-- **`types.ts`**: Add `primaryDeficit: 'expressive' | 'receptive' | 'mixed'` and `cognitiveLoadTolerance`
-- **`promptBuilder.ts`**: 
-  - Receptive: shorter instructions, keywords, more verify steps
-  - Expressive: word retrieval focus, phonemic cueing, sentence starters
-  - Severe: yes/no scaffolds, forced choices, explicit purpose display
-- **`cueSelector.ts`**: Deficit-aware cue paths (phonemic-first for expressive, comprehension-check-first for receptive)
-- **`coachStateMachine.ts`**: Adjust turn length expectations and struggle thresholds by severity
+### 2. Add streak + session count to `/today`
+Query `coach_conversation_summaries` for this user to show:
+- **Session count** ("Session #12")
+- **Current streak** (consecutive days with a session)
+- **Last session date** (already partially exists)
 
-## Files Changed
+This is lightweight — no new tables, just a query + 3 lines of UI on the existing `/today` page.
 
-| File | Action |
-|------|--------|
-| `src/lib/smartCoach/runCoachTurn.ts` | Intervention event emission, game result handling |
-| `src/lib/smartCoach/coachStateMachine.ts` | intervention_active state, deficit-aware thresholds |
-| `src/lib/smartCoach/gameTrigger.ts` | **NEW** — trigger pattern → game mapping |
-| `src/lib/smartCoach/progressNarrative.ts` | **NEW** — cross-session comparison |
-| `src/lib/smartCoach/promptBuilder.ts` | Transfer prompts, last-session context, deficit-aware language |
-| `src/lib/smartCoach/coachState.ts` | Load last session summary on init |
-| `src/lib/smartCoach/types.ts` | InterventionEvent, primaryDeficit, GameTriggerEvent |
-| `src/lib/smartCoach/cueSelector.ts` | Deficit-aware cue paths |
-| `src/pages/SmartCoach.tsx` | Intervention cards, game overlay, cross-session orientation |
+### 3. Add simple "come back tomorrow" to session complete
+On the SmartCoach complete screen, replace the generic home practice card with a stronger return hook:
+- "See you tomorrow" message with tomorrow's suggested topic
+- Change "Practice Again" to "Done for today" (navigates to `/today`)
+- Keep "Practice Again" as secondary option
 
-## Implementation Order
-1. Intervention loop (unlocks everything else)
-2. Cross-session progress (quick win, uses existing data)
-3. Game triggers (builds on intervention loop)
-4. Deeper severity adaptation (polish pass)
+### 4. Create simplified `/progress` page
+Create a new lightweight progress page at `/progress` that shows patient-friendly data only:
+- Total sessions completed
+- Current streak (days)
+- Words practiced (cumulative)
+- Simple week-view calendar (reuse `SessionAdherenceTracker` component, already built)
+- One-line trend ("Getting stronger" / "Keep going")
+
+Link this from `/today` instead of `/recovery-progress`.
+
+### 5. Auto-route returning users
+In `Index.tsx`, check if user is authenticated:
+- Yes → redirect to `/today`
+- No → show landing page
+
+This ensures returning users never see the marketing page again.
+
+## What we are NOT doing
+- No push notifications (requires service worker + platform permissions — premature)
+- No new exercises
+- No new admin tools
+- No new AI features
+- No monetization work
+
+## Technical details
+- **Files modified**: `Index.tsx`, `Today.tsx`, `SmartCoach.tsx`, `App.tsx`
+- **Files created**: `src/pages/Progress.tsx` (simplified progress view)
+- **Database**: No new tables. Queries existing `coach_conversation_summaries` for streak/count.
+- **Components reused**: `SessionAdherenceTracker` for the week calendar on progress page
+
