@@ -539,6 +539,12 @@ export default function SmartCoach() {
     setReadinessLevel(7);
     setActiveGame(null);
     setPendingIntervention(null);
+    setPendingDrill(null);
+    setPendingPracticeBlock(null);
+    setLastDrillTurn(undefined);
+    setUsedGameIds([]);
+    setPrevAnalysis(undefined);
+    setDrillsCompletedThisSession(0);
     exerciseModal.closeExerciseModal();
   };
 
