@@ -62,7 +62,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
 const PHASE_STEPS = [
   { key: 'warmup', label: 'Warm up', icon: MessageCircle },
   { key: 'expand', label: 'Practice', icon: Brain },
-  { key: 'support', label: 'Support', icon: Heart },
+  { key: 'support', label: 'Drills', icon: Zap },
   { key: 'wrapup', label: 'Review', icon: CheckCircle2 },
 ];
 
