@@ -22,10 +22,12 @@ import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeM
 import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
-import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent } from '@/lib/smartCoach/types';
+import { selectDrill, selectPracticeBlock } from '@/lib/smartCoach/drillSelector';
+import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent, CoachUtteranceAnalysis } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
+import type { DrillSelection } from '@/lib/smartCoach/drillSelector';
 import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
@@ -60,7 +62,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
 const PHASE_STEPS = [
   { key: 'warmup', label: 'Warm up', icon: MessageCircle },
   { key: 'expand', label: 'Practice', icon: Brain },
-  { key: 'support', label: 'Support', icon: Heart },
+  { key: 'support', label: 'Drills', icon: Zap },
   { key: 'wrapup', label: 'Review', icon: CheckCircle2 },
 ];
 
@@ -155,9 +157,15 @@ export default function SmartCoach() {
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
   const [autoPlayVoice, setAutoPlayVoice] = useState(false);
+  const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
+  const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
+  const [lastDrillTurn, setLastDrillTurn] = useState<number | undefined>(undefined);
+  const [usedGameIds, setUsedGameIds] = useState<string[]>([]);
+  const [prevAnalysis, setPrevAnalysis] = useState<CoachUtteranceAnalysis | undefined>(undefined);
+  const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
-  const maxTurns = 8;
+  const maxTurns = 10; // Extended from 8 for hybrid session
 
   // Stable session UUID — generated once when conversation starts
   const sessionIdRef = useRef<string | null>(null);
@@ -288,7 +296,12 @@ export default function SmartCoach() {
         userUtterance: userText,
         maxTurns,
         lastSessionContext: progressData?.lastSessionContext ?? undefined,
+        lastDrillCompletedAtTurn: lastDrillTurn,
+        prevAnalysis,
       });
+
+      // Save analysis for next turn's consecutive detection
+      setPrevAnalysis(result.analysis);
 
       setCoachState(result.nextState);
       setTurnCount(result.nextState.turnCount);
@@ -319,7 +332,7 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for intervention trigger
+      // Check for legacy intervention trigger
       if (result.intervention) {
         setPendingIntervention(result.intervention);
         setMessages(prev => [...prev, {
@@ -330,8 +343,42 @@ export default function SmartCoach() {
           interventionData: result.intervention,
         }]);
       }
+      // Check for hybrid drill recommendation (takes priority over legacy)
+      else if (result.drillRecommendation && !result.intervention) {
+        const rec = result.drillRecommendation;
+        if (rec.kind === 'micro_drill') {
+          const selection = selectDrill({
+            state: result.nextState,
+            reason: rec.reason as any,
+            signals: rec.signals,
+            usedGameIds,
+            kind: 'micro_drill',
+          });
+          setPendingDrill(selection);
+          setMessages(prev => [...prev, {
+            id: `drill-offer-${Date.now()}`,
+            role: 'maya',
+            text: rec.observation,
+            timestamp: Date.now(),
+          }]);
+        } else if (rec.kind === 'targeted_practice') {
+          const block = selectPracticeBlock({
+            state: result.nextState,
+            reason: rec.reason as any,
+            signals: rec.signals,
+            usedGameIds,
+          });
+          setPendingPracticeBlock(block);
+          setMessages(prev => [...prev, {
+            id: `practice-offer-${Date.now()}`,
+            role: 'maya',
+            text: "Let's do one more quick practice to lock that in.",
+            timestamp: Date.now(),
+          }]);
+        }
+      }
 
-      if (result.nextState.mode === 'wrapup') {
+      if (result.nextState.mode === 'wrapup' && !result.drillRecommendation) {
         setPhase('complete');
       }
     } catch (err) {
@@ -345,7 +392,44 @@ export default function SmartCoach() {
     } finally {
       setIsProcessing(false);
     }
-  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts]);
+  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts, lastDrillTurn, prevAnalysis, usedGameIds]);
+
+  // ─── Drill handlers (hybrid session) ──────────────────────
+
+  const handleAcceptDrill = useCallback(() => {
+    const drill = pendingDrill || (pendingPracticeBlock && pendingPracticeBlock[0]);
+    if (!drill) return;
+    setActiveGame(drill.drill);
+    exerciseModal.launchExerciseModal(drill.drill.exerciseSlug, {
+      totalTrials: drill.configOverrides.totalTrials,
+      difficultyTier: drill.configOverrides.difficultyTier,
+      cueLevel: drill.configOverrides.cueLevel,
+      source: 'maya_chat',
+    });
+    setUsedGameIds(prev => [...prev, drill.drill.id]);
+    setPendingDrill(null);
+    // If practice block, keep remaining drills
+    if (pendingPracticeBlock && pendingPracticeBlock.length > 1) {
+      setPendingPracticeBlock(pendingPracticeBlock.slice(1));
+    } else {
+      setPendingPracticeBlock(null);
+    }
+  }, [pendingDrill, pendingPracticeBlock, exerciseModal]);
+
+  const handleDeclineDrill = useCallback(() => {
+    setPendingDrill(null);
+    if (pendingPracticeBlock) {
+      // Declining targeted practice → go to wrapup
+      setPendingPracticeBlock(null);
+      setPhase('complete');
+    }
+    setMessages(prev => [...prev, {
+      id: `maya-skip-${Date.now()}`,
+      role: 'maya',
+      text: "No problem — let's keep going.",
+      timestamp: Date.now(),
+    }]);
+  }, [pendingPracticeBlock]);
 
   // ─── Intervention handlers ─────────────────────────────────
 
@@ -384,6 +468,10 @@ export default function SmartCoach() {
 
     const result = adaptExerciseResult(normalized, activeGame, selectedTopic.id);
 
+    // Track drill completion
+    setLastDrillTurn(turnCount);
+    setDrillsCompletedThisSession(prev => prev + 1);
+
     // Add return-to-conversation message
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
@@ -397,13 +485,27 @@ export default function SmartCoach() {
       ...prev,
       metrics: {
         ...prev.metrics,
-        // Count the exercise towards overall session quality
         independentResponses: prev.metrics.independentResponses + (result.success ? 1 : 0),
       },
     } : null);
 
     setActiveGame(null);
-  }, [activeGame, selectedTopic]);
+
+    // If there are more drills in the practice block, prompt next
+    if (pendingPracticeBlock && pendingPracticeBlock.length > 0) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, {
+          id: `maya-next-drill-${Date.now()}`,
+          role: 'maya',
+          text: "One more quick round — ready?",
+          timestamp: Date.now(),
+        }]);
+      }, 1000);
+    } else if (coachState?.mode === 'wrapup' || turnCount >= maxTurns - 1) {
+      // Practice block done → complete
+      setTimeout(() => setPhase('complete'), 1500);
+    }
+  }, [activeGame, selectedTopic, turnCount, pendingPracticeBlock, coachState, maxTurns]);
 
   const handleExerciseModalClose = useCallback(() => {
     exerciseModal.closeExerciseModal();
@@ -437,6 +539,12 @@ export default function SmartCoach() {
     setReadinessLevel(7);
     setActiveGame(null);
     setPendingIntervention(null);
+    setPendingDrill(null);
+    setPendingPracticeBlock(null);
+    setLastDrillTurn(undefined);
+    setUsedGameIds([]);
+    setPrevAnalysis(undefined);
+    setDrillsCompletedThisSession(0);
     exerciseModal.closeExerciseModal();
   };
 
@@ -465,6 +573,9 @@ export default function SmartCoach() {
     }
     if (m.wordsProduced > 0) {
       improvements.push(`You produced ${m.wordsProduced} words total`);
+    }
+    if (drillsCompletedThisSession > 0) {
+      improvements.push(`You completed ${drillsCompletedThisSession} quick practice${drillsCompletedThisSession > 1 ? 's' : ''}`);
     }
     const whatImproved = improvements.length > 0 
       ? improvements[0] + (improvements.length > 1 ? `. ${improvements[1]}.` : '.')
@@ -628,7 +739,7 @@ export default function SmartCoach() {
             <div className="bg-muted/30 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                <span>~5 minutes</span>
+                <span>~10 minutes</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {PHASE_STEPS.map((step, i) => (
@@ -883,7 +994,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">~5 minutes</p>
+            <p className="text-[11px] text-muted-foreground mt-1">~10 minutes</p>
           </div>
         )}
 
@@ -947,6 +1058,38 @@ export default function SmartCoach() {
           );
         })}
 
+        {/* Inline drill card */}
+        {(pendingDrill || pendingPracticeBlock) && (
+          <div className="max-w-[90%] mx-auto my-2">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg shrink-0">
+                  {(pendingDrill || pendingPracticeBlock?.[0])?.drill.icon}
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {pendingPracticeBlock ? 'Quick practice round' : 'Quick practice'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(pendingDrill || pendingPracticeBlock?.[0])?.drill.label} — {
+                      (pendingDrill || pendingPracticeBlock?.[0])?.configOverrides.totalTrials || 5
+                    } items, ~{Math.ceil(((pendingDrill || pendingPracticeBlock?.[0])?.drill.durationSec || 60) / 60)} min
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs">
+                  <Zap className="w-3.5 h-3.5" />
+                  Start
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDeclineDrill} className="text-xs">
+                  Skip
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isProcessing && (
           <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-muted mr-auto">
             <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
@@ -964,8 +1107,12 @@ export default function SmartCoach() {
       {/* Voice-enabled input bar */}
       <VoiceInputBar
         onSend={handleSend}
-        disabled={isProcessing || !!pendingIntervention}
-        placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type or speak your response..."}
+        disabled={isProcessing || !!pendingIntervention || !!pendingDrill || !!pendingPracticeBlock}
+        placeholder={
+          pendingIntervention ? "Accept or decline the suggestion above..." 
+          : (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
+          : "Type or speak your response..."
+        }
         topicKeywords={selectedTopic?.keywords ?? []}
         autoPlayVoice={autoPlayVoice}
         onToggleAutoPlay={() => setAutoPlayVoice(prev => !prev)}

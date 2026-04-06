@@ -44,3 +44,7 @@ export { getPlaybook, getPlaybookTopicIds, CLINICAL_PLAYBOOKS } from './clinical
 export type { ClinicalPlaybook, TurnObjective, ObjectiveDefinition } from './clinicalPlaybooks';
 export { evaluateObjectiveProgress, advanceObjective, getCurrentObjective, shouldForceTransfer } from './objectiveAdvancer';
 export type { ObjectiveProgress } from './objectiveAdvancer';
+export { evaluateDrillTrigger } from './drillTriggerEvaluator';
+export type { DrillTriggerDecision, DrillTriggerReason } from './drillTriggerEvaluator';
+export { selectDrill, selectPracticeBlock } from './drillSelector';
+export type { DrillSelection } from './drillSelector';

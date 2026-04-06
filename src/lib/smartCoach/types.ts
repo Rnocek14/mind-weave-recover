@@ -251,6 +251,13 @@ export interface CoachTurnResult {
   debugPrompt?: string;
   /** Debug: raw model output before validation/post-processing */
   debugRawOutput?: string;
-  /** Intervention triggered this turn */
+  /** Intervention triggered this turn (legacy game trigger) */
   intervention?: InterventionEvent;
+  /** Micro-drill recommendation from hybrid session evaluator */
+  drillRecommendation?: {
+    kind: 'micro_drill' | 'targeted_practice';
+    reason: string;
+    observation: string;
+    signals: string[];
+  };
 }
