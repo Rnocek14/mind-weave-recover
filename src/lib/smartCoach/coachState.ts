@@ -63,6 +63,10 @@ export function createInitialCoachState(options: {
     interruptionContext: undefined,
     postInterventionDampening: false,
     interventionCount: 0,
+    currentObjectiveIndex: 0,
+    objectiveProgress: { turnsOnObjective: 0 },
+    subtopicDepth: 0,
+    currentSubtopic: undefined,
   };
 }
 

@@ -173,6 +173,17 @@ export interface CoachState {
   postInterventionDampening: boolean;
   /** Number of interventions this session */
   interventionCount: number;
+  /** Current objective index in the clinical playbook */
+  currentObjectiveIndex: number;
+  /** Objective progress tracking */
+  objectiveProgress: {
+    turnsOnObjective: number;
+    lastObjectiveId?: string;
+  };
+  /** Current subtopic depth for tangent tracking */
+  subtopicDepth: number;
+  /** Current subtopic name for tangent detection */
+  currentSubtopic?: string;
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────
