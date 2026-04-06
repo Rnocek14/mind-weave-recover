@@ -574,6 +574,9 @@ export default function SmartCoach() {
     if (m.wordsProduced > 0) {
       improvements.push(`You produced ${m.wordsProduced} words total`);
     }
+    if (drillsCompletedThisSession > 0) {
+      improvements.push(`You completed ${drillsCompletedThisSession} quick practice${drillsCompletedThisSession > 1 ? 's' : ''}`);
+    }
     const whatImproved = improvements.length > 0 
       ? improvements[0] + (improvements.length > 1 ? `. ${improvements[1]}.` : '.')
       : 'You practiced retrieving words in conversation.';
@@ -736,7 +739,7 @@ export default function SmartCoach() {
             <div className="bg-muted/30 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                <span>~5 minutes</span>
+                <span>~10 minutes</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {PHASE_STEPS.map((step, i) => (
