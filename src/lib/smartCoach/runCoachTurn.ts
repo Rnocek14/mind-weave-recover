@@ -7,6 +7,7 @@
  */
 
 import type { CoachState, CoachTurnResult, CoachTurnLog, InterventionEvent } from './types';
+import { evaluateDrillTrigger, type DrillTriggerContext } from './drillTriggerEvaluator';
 import { analyzeUtterance } from './utteranceAnalyzer';
 import { transitionCoachState, shouldWrapUp, shouldTriggerIntervention } from './coachStateMachine';
 import { selectCue } from './cueSelector';
@@ -30,6 +31,10 @@ interface RunCoachTurnArgs {
   /** If returning from an intervention game */
   returningFromIntervention?: boolean;
   interventionSkill?: string;
+  /** Turn when last drill completed (for cooldown) */
+  lastDrillCompletedAtTurn?: number;
+  /** Previous turn analysis (for consecutive signal detection) */
+  prevAnalysis?: import('./types').CoachUtteranceAnalysis;
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
