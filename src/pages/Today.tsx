@@ -162,35 +162,14 @@ export default function Today() {
           </Button>
 
           {/* Secondary options */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate('/practice')}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border
-                hover:border-primary hover:bg-accent/50 active:scale-[0.97]
-                transition-all duration-150 ease-out touch-manipulation text-left"
+          <div className="flex justify-center gap-4 pt-2">
+            <button 
+              onClick={() => navigate('/practice')} 
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
             >
-              <Gamepad2 className="w-5 h-5 text-muted-foreground shrink-0" />
-              <div>
-                <span className="text-sm font-medium text-foreground block">Practice Games</span>
-                <span className="text-[11px] text-muted-foreground">Pick an exercise</span>
-              </div>
+              <Gamepad2 className="w-3 h-3" />
+              Practice games
             </button>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border
-                hover:border-primary hover:bg-accent/50 active:scale-[0.97]
-                transition-all duration-150 ease-out touch-manipulation text-left"
-            >
-              <LayoutDashboard className="w-5 h-5 text-muted-foreground shrink-0" />
-              <div>
-                <span className="text-sm font-medium text-foreground block">Daily Session</span>
-                <span className="text-[11px] text-muted-foreground">Adaptive lesson plan</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Progress link */}
-          <div className="flex justify-center pt-1">
             <button 
               onClick={() => navigate('/progress')} 
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"

@@ -7,7 +7,7 @@
 
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -205,6 +205,21 @@ export default function Practice() {
             </div>
           )}
         </div>
+
+        {/* Adaptive Session */}
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="w-full rounded-xl border-2 border-border p-4 flex items-center gap-4 text-left
+            hover:border-primary hover:bg-accent/50
+            active:scale-[0.97] transition-all duration-150 ease-out
+            touch-manipulation select-none"
+        >
+          <LayoutDashboard className="w-8 h-8 text-muted-foreground shrink-0" />
+          <div>
+            <span className="font-semibold text-foreground text-base block">Adaptive Session</span>
+            <span className="text-sm text-muted-foreground">Structured lesson with multiple exercises</span>
+          </div>
+        </button>
 
         {/* All games by domain */}
         {Object.entries(groupedGames).map(([domain, games]) => (
