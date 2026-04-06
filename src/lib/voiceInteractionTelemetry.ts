@@ -137,3 +137,59 @@ export function clearVoiceEvents(): void {
 export function getVoiceEvents(): VoiceEvent[] {
   return [...events];
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Persistence — write summary to Supabase
+// ═══════════════════════════════════════════════════════════════
+
+export async function persistVoiceSessionSummary(
+  userId: string,
+  sessionId: string | null,
+  topicId: string | null,
+): Promise<boolean> {
+  const summary = getVoiceSessionSummary();
+  
+  // Don't persist empty sessions
+  if (summary.totalTurns === 0 && summary.micStarts === 0) return false;
+
+  try {
+    const { error } = await supabase.from('voice_session_summaries' as any).insert({
+      user_id: userId,
+      session_id: sessionId,
+      topic_id: topicId,
+      total_turns: summary.totalTurns,
+      voice_turns: summary.voiceTurns,
+      text_turns: summary.textTurns,
+      voice_adoption_rate: summary.voiceAdoptionRate,
+      mic_starts: summary.micStarts,
+      mic_successes: summary.micSuccesses,
+      recognition_success_rate: summary.recognitionSuccessRate,
+      avg_confidence: summary.avgConfidence,
+      preview_accepted: summary.previewAccepted,
+      preview_edited: summary.previewEdited,
+      preview_retried: summary.previewRetried,
+      first_attempt_accept_rate: summary.firstAttemptAcceptRate,
+      fallback_chips_used: summary.fallbackChipsUsed,
+      fallback_type_used: summary.fallbackTypeUsed,
+      tts_plays: summary.ttsPlays,
+    });
+
+    if (error) {
+      console.warn('[VoiceTelemetry] Persist failed:', error.message);
+      return false;
+    }
+
+    if (import.meta.env.DEV) {
+      console.debug('[VoiceTelemetry] Session persisted:', {
+        voiceAdoption: `${(summary.voiceAdoptionRate * 100).toFixed(0)}%`,
+        recognitionSuccess: `${(summary.recognitionSuccessRate * 100).toFixed(0)}%`,
+        firstAccept: `${(summary.firstAttemptAcceptRate * 100).toFixed(0)}%`,
+      });
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('[VoiceTelemetry] Unexpected error:', err);
+    return false;
+  }
+}
