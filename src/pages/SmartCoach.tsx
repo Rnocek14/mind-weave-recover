@@ -991,7 +991,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">~5 minutes</p>
+            <p className="text-[11px] text-muted-foreground mt-1">~10 minutes</p>
           </div>
         )}
 
@@ -1072,8 +1072,12 @@ export default function SmartCoach() {
       {/* Voice-enabled input bar */}
       <VoiceInputBar
         onSend={handleSend}
-        disabled={isProcessing || !!pendingIntervention}
-        placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type or speak your response..."}
+        disabled={isProcessing || !!pendingIntervention || !!pendingDrill || !!pendingPracticeBlock}
+        placeholder={
+          pendingIntervention ? "Accept or decline the suggestion above..." 
+          : (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
+          : "Type or speak your response..."
+        }
         topicKeywords={selectedTopic?.keywords ?? []}
         autoPlayVoice={autoPlayVoice}
         onToggleAutoPlay={() => setAutoPlayVoice(prev => !prev)}
