@@ -157,9 +157,15 @@ export default function SmartCoach() {
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
   const [autoPlayVoice, setAutoPlayVoice] = useState(false);
+  const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
+  const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
+  const [lastDrillTurn, setLastDrillTurn] = useState<number | undefined>(undefined);
+  const [usedGameIds, setUsedGameIds] = useState<string[]>([]);
+  const [prevAnalysis, setPrevAnalysis] = useState<CoachUtteranceAnalysis | undefined>(undefined);
+  const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
-  const maxTurns = 8;
+  const maxTurns = 10; // Extended from 8 for hybrid session
 
   // Stable session UUID — generated once when conversation starts
   const sessionIdRef = useRef<string | null>(null);
