@@ -38,7 +38,7 @@ interface RunCoachTurnArgs {
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
-  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill } = args;
+  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill, lastDrillCompletedAtTurn, prevAnalysis } = args;
 
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
@@ -150,6 +150,18 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     const updatedProgress = evaluateObjectiveProgress(userUtterance, nextState, playbook);
     objectivePrompt = updatedProgress.objectivePrompt;
   }
+
+  // Step 4.8 — Hybrid drill trigger evaluation
+  const drillTriggerCtx: DrillTriggerContext = {
+    state: nextState,
+    analysis,
+    prevAnalysis,
+    currentObjectiveId: playbook ? playbook.objectives[nextState.currentObjectiveIndex ?? 0]?.id : undefined,
+    objectiveAdvanced: playbook ? evaluateObjectiveProgress(userUtterance, nextState, playbook).shouldAdvance : false,
+    lastDrillCompletedAtTurn,
+    maxTurns,
+  };
+  const drillTrigger = evaluateDrillTrigger(drillTriggerCtx);
 
   // Step 5 — Build prompt (with purpose context + cross-session + deficit + objective)
   const prompt = buildPrompt({
@@ -268,6 +280,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     debugPrompt: prompt,
     debugRawOutput,
     intervention,
+    drillRecommendation: drillTrigger.kind ? {
+      kind: drillTrigger.kind,
+      reason: drillTrigger.reason || 'support',
+      observation: drillTrigger.observation,
+      signals: drillTrigger.signals,
+    } : undefined,
   };
 }
 
