@@ -190,11 +190,12 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
   action: string;
   offerText: string;
 } {
+  // Gold-standard framing: name the moment specifically, explain the reason, get consent
   return {
     observation: trigger.observation,
-    rationale: game.rationale,
-    action: `Let's try a quick ${game.label.toLowerCase()} — about ${game.durationSec} seconds.`,
-    offerText: `Want to try it, or keep talking?`,
+    rationale: `A quick ${game.label.toLowerCase()} can help — we'll do ${game.defaultConfig.totalTrials || 5} items, then come right back.`,
+    action: `${game.rationale}`,
+    offerText: `Want to try it?`,
   };
 }
 
@@ -205,28 +206,20 @@ export function buildGameReturnText(
   topic: string,
   interruptionContext?: { lastSubtopic: string; lastUserStruggle: string; lastPhraseAttempt: string },
 ): string {
-  const skillLabel = game.skillTarget.replace(/_/g, ' ');
-
-  // If we have interruption context, always reference the exact moment
-  const contextRef = interruptionContext
-    ? `You were working on "${interruptionContext.lastSubtopic}" — let's pick up right there.`
-    : `Back to ${topic} — where were we?`;
-
-  if (result.score >= 0.7) {
-    const returns = [
-      `Nice — ${result.summary} That ${skillLabel} carries right into our conversation. ${contextRef}`,
-      `Great work! ${result.summary} Let's use that momentum. ${contextRef}`,
-      `See? That retrieval is there. ${result.summary} ${contextRef}`,
-    ];
-    return returns[Math.floor(Math.random() * returns.length)];
+  // Gold-standard return bridge: reference exact struggle word, restore continuity
+  if (interruptionContext) {
+    const struggled = interruptionContext.lastPhraseAttempt;
+    if (result.score >= 0.7) {
+      return `You were trying to say "${struggled}" earlier — let's go back to your ${interruptionContext.lastSubtopic}. What do you put in it?`;
+    }
+    return `Good practice. You were talking about ${interruptionContext.lastSubtopic} — let's pick up there. What else goes in it?`;
   }
-  
-  const returns = [
-    `Good practice! ${result.summary} That drill helps even when it's tough. ${contextRef}`,
-    `All good — ${result.summary} That exercise loosens up the pathways. ${contextRef}`,
-    `That's useful practice either way. ${result.summary} ${contextRef}`,
-  ];
-  return returns[Math.floor(Math.random() * returns.length)];
+
+  // Fallback without interruption context
+  if (result.score >= 0.7) {
+    return `Nice work — ${result.summary} Let's use that momentum. Back to ${topic} — where were we?`;
+  }
+  return `Good practice either way. ${result.summary} Back to ${topic} — what were you telling me about?`;
 }
 
 /** Build a GameTriggerEvent from trigger + game */
