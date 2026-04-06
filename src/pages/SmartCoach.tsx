@@ -12,9 +12,9 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/hooks/useAuth';
 import { createInitialCoachState } from '@/lib/smartCoach/coachState';
@@ -31,6 +31,8 @@ import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
+import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 // ─── Chat message type ───────────────────────────────────────
 
