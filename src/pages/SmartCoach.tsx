@@ -15,7 +15,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/hooks/useAuth';
 import { createInitialCoachState } from '@/lib/smartCoach/coachState';
 import { runCoachTurn } from '@/lib/smartCoach/runCoachTurn';
