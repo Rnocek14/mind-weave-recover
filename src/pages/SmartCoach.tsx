@@ -12,9 +12,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, RotateCcw, Heart, MessageCircle, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, AlertTriangle, Gamepad2, ArrowRight, X, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/hooks/useAuth';
 import { createInitialCoachState } from '@/lib/smartCoach/coachState';
@@ -31,6 +30,8 @@ import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
+import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -152,11 +153,12 @@ export default function SmartCoach() {
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const [autoPlayVoice, setAutoPlayVoice] = useState(false);
   const exerciseModal = useExerciseModal();
+  const tts = useTextToSpeech();
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const sessionSaved = useRef(false);
 
   const topics = useMemo(() => getAllTopics(), []);
@@ -183,12 +185,7 @@ export default function SmartCoach() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focus input
-  useEffect(() => {
-    if (!isProcessing && phase === 'chatting' && !activeGame && !pendingIntervention) {
-      inputRef.current?.focus();
-    }
-  }, [isProcessing, phase, activeGame, pendingIntervention]);
+  // (Voice input bar manages its own focus)
 
   // Save session on complete
   useEffect(() => {
@@ -263,11 +260,10 @@ export default function SmartCoach() {
 
   // ─── Send a turn ────────────────────────────────────────────
 
-  const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !coachState || isProcessing) return;
+  const handleSend = useCallback(async (text: string) => {
+    if (!text.trim() || !coachState || isProcessing) return;
 
-    const userText = inputText.trim();
-    setInputText('');
+    const userText = text.trim();
     setIsProcessing(true);
 
     const userMsg: ChatMessage = {
@@ -310,10 +306,14 @@ export default function SmartCoach() {
       };
       setMessages(prev => [...prev, mayaMsg]);
 
+      // Auto-play Maya's voice if enabled
+      if (autoPlayVoice && result.output) {
+        tts.speak(result.output).catch(() => {});
+      }
+
       // Check for intervention trigger
       if (result.intervention) {
         setPendingIntervention(result.intervention);
-        // Add intervention card to chat
         setMessages(prev => [...prev, {
           id: `intervention-${Date.now()}`,
           role: 'intervention',
@@ -337,7 +337,7 @@ export default function SmartCoach() {
     } finally {
       setIsProcessing(false);
     }
-  }, [inputText, coachState, isProcessing, maxTurns, progressData]);
+  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts]);
 
   // ─── Intervention handlers ─────────────────────────────────
 
@@ -411,12 +411,7 @@ export default function SmartCoach() {
     }
   }, [exerciseModal, activeGame]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // (handleKeyDown moved into VoiceInputBar)
 
   const handleNewSession = () => {
     setPhase('topic_select');
@@ -919,7 +914,16 @@ export default function SmartCoach() {
               )}
             >
               {msg.role === 'maya' && (
-                <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-muted-foreground">Maya</span>
+                  <button
+                    onClick={() => tts.speak(msg.text)}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    title="Listen to Maya"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
               {msg.text}
             </div>
@@ -940,28 +944,15 @@ export default function SmartCoach() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-3 border-t shrink-0">
-        <div className="flex gap-2 max-w-2xl mx-auto">
-          <Input
-            ref={inputRef}
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type your response..."}
-            disabled={isProcessing || !!pendingIntervention}
-            className="flex-1"
-            autoComplete="off"
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!inputText.trim() || isProcessing || !!pendingIntervention}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      {/* Voice-enabled input bar */}
+      <VoiceInputBar
+        onSend={handleSend}
+        disabled={isProcessing || !!pendingIntervention}
+        placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type or speak your response..."}
+        topicKeywords={selectedTopic?.keywords ?? []}
+        autoPlayVoice={autoPlayVoice}
+        onToggleAutoPlay={() => setAutoPlayVoice(prev => !prev)}
+      />
 
       {/* Real exercise modal — launched by intervention acceptance */}
       <ExerciseModalHost
