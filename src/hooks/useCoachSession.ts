@@ -202,6 +202,7 @@ export function useCoachSession({
   userSpeechProfile,
 }: UseCoachSessionProps): UseCoachSessionReturn {
   const [messages, setMessages] = useState<FeedMessage[]>([]);
+  const messagesRef = useRef<FeedMessage[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'ai_speaking' | 'user_turn' | 'card_active' | 'complete'>('ready');
