@@ -194,15 +194,15 @@ export default function SmartCoach() {
   useEffect(() => {
     if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
       sessionSaved.current = true;
+      const sid = sessionIdRef.current;
       saveSessionSummary(
         user.id,
-        null,
+        sid,
         sessionStats.topicId,
         sessionStats.metrics,
         sessionStats.strategiesUsed,
       );
-      // Persist voice telemetry alongside session summary
-      persistVoiceSessionSummary(user.id, null, sessionStats.topicId);
+      persistVoiceSessionSummary(user.id, sid, sessionStats.topicId);
     }
   }, [phase, user?.id, sessionStats]);
 
