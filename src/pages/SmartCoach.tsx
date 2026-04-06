@@ -292,6 +292,11 @@ export default function SmartCoach() {
     setMessages(prev => [...prev, userMsg]);
 
     try {
+      const isReturningFromDrill = justCompletedDrill;
+      if (isReturningFromDrill) {
+        setJustCompletedDrill(false);
+      }
+
       const result: CoachTurnResult = await runCoachTurn({
         state: coachState,
         userUtterance: userText,
@@ -299,6 +304,7 @@ export default function SmartCoach() {
         lastSessionContext: progressData?.lastSessionContext ?? undefined,
         lastDrillCompletedAtTurn: lastDrillTurn,
         prevAnalysis,
+        returningFromIntervention: isReturningFromDrill,
       });
 
       // Save analysis for next turn's consecutive detection
