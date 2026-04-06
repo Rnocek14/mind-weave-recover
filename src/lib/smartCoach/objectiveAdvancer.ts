@@ -160,32 +160,32 @@ function checkSatisfaction(
 ): boolean {
   const lower = utterance.toLowerCase();
 
+  // Global gate: disengagement fillers never satisfy any objective
+  const DISENGAGE = /^(okay|ok|yep|yup|ya|yeah|sure|thank you|thanks|alright|right|cool|fine|got it|mhm|uh huh|sounds good|i guess|whatever)\.{0,3}$/i;
+  if (DISENGAGE.test(lower)) return false;
+
   switch (objective.id) {
     case 'warmup_anchor':
       // Any content word = satisfied
       return wordCount >= 1 && lower !== '(silence)';
 
     case 'elicit_core_content':
-      // At least 2 content words or multiple items mentioned
-      return wordCount >= 2;
+      // Need 2+ content words AND some semantic relevance
+      return wordCount >= 2 && !DISENGAGE.test(lower);
 
     case 'organize_or_expand': {
-      // Check for ordering language OR multi-word phrase
       const hasSequenceWords = /\b(first|then|after|before|next|later|and then)\b/i.test(lower);
       const hasPhrase = wordCount >= 3;
       return hasSequenceWords || hasPhrase;
     }
 
     case 'sentence_level_production':
-      // Need a near-sentence (4+ words)
       return wordCount >= 4;
 
     case 'transfer_check':
-      // Any meaningful answer to a transfer question
       return wordCount >= 2;
 
     case 'wrapup_reflection':
-      // Always satisfied (system generates this)
       return true;
 
     default:

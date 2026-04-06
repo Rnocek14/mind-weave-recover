@@ -25,6 +25,13 @@ export function transitionCoachState(
     next.sessionMetrics.longestResponse = analysis.wordCount;
   }
 
+  // ── Track disengagement ──
+  if (analysis.disengagementDetected) {
+    next.consecutiveDisengagements = (state.consecutiveDisengagements || 0) + 1;
+  } else {
+    next.consecutiveDisengagements = 0;
+  }
+
   // ── No response / silence → support
   if (analysis.wordCount === 0 && analysis.pauseDetected) {
     next.mode = 'support';
@@ -32,6 +39,24 @@ export function transitionCoachState(
     next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
     next.frustrationRisk = state.supportLevel >= 2 ? 'high' : 'medium';
     next.sessionMetrics.hesitationCount++;
+    return next;
+  }
+
+  // ── Disengagement detected (2+ consecutive) → force scaffold to take control ──
+  // This fires BEFORE the "short but on-topic" branch so fillers can't keep us in expand
+  if (next.consecutiveDisengagements >= 2) {
+    next.mode = 'scaffold';
+    next.isStuck = true;
+    next.frustrationRisk = 'medium';
+    // Don't escalate support — this is disengagement, not inability
+    return next;
+  }
+
+  // ── Single disengagement filler → stay but note it ──
+  if (analysis.disengagementDetected) {
+    next.mode = state.mode === 'warmup' ? 'warmup' : 'expand';
+    next.isStuck = false;
+    // Don't reset consecutiveHesitations — disengagement is a separate signal
     return next;
   }
 
@@ -60,20 +85,17 @@ export function transitionCoachState(
     next.sessionMetrics.hesitationCount++;
     
     if (consecutiveHesitations >= 3) {
-      // 3+ consecutive → full support
       next.mode = 'support';
       next.isStuck = true;
       next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
       next.frustrationRisk = 'medium';
       next.sessionMetrics.cueAssistedCount++;
     } else if (consecutiveHesitations >= 2) {
-      // 2 consecutive → scaffold (hysteresis: don't scaffold on first hesitation alone)
       next.mode = 'scaffold';
       next.isStuck = true;
       next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
       next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
     } else {
-      // Single hesitation → stay in expand, just note it
       next.mode = state.mode === 'warmup' ? 'warmup' : 'expand';
       next.isStuck = false;
     }
