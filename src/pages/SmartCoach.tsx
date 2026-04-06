@@ -411,12 +411,7 @@ export default function SmartCoach() {
     }
   }, [exerciseModal, activeGame]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // (handleKeyDown moved into VoiceInputBar)
 
   const handleNewSession = () => {
     setPhase('topic_select');
@@ -940,28 +935,15 @@ export default function SmartCoach() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-3 border-t shrink-0">
-        <div className="flex gap-2 max-w-2xl mx-auto">
-          <Input
-            ref={inputRef}
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type your response..."}
-            disabled={isProcessing || !!pendingIntervention}
-            className="flex-1"
-            autoComplete="off"
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!inputText.trim() || isProcessing || !!pendingIntervention}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      {/* Voice-enabled input bar */}
+      <VoiceInputBar
+        onSend={handleSend}
+        disabled={isProcessing || !!pendingIntervention}
+        placeholder={pendingIntervention ? "Accept or decline the suggestion above..." : "Type or speak your response..."}
+        topicKeywords={selectedTopic?.keywords ?? []}
+        autoPlayVoice={autoPlayVoice}
+        onToggleAutoPlay={() => setAutoPlayVoice(prev => !prev)}
+      />
 
       {/* Real exercise modal — launched by intervention acceptance */}
       <ExerciseModalHost
