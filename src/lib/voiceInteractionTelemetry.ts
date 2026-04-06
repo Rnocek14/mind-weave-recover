@@ -6,7 +6,11 @@
  * - fallback dependency (how often users bail to typing)
  * - recognition quality (confidence distribution)
  * - engagement patterns (voice vs text preference)
+ * 
+ * Persists session summaries to voice_session_summaries table.
  */
+
+import { supabase } from '@/integrations/supabase/client';
 
 // ═══════════════════════════════════════════════════════════════
 // Event types
