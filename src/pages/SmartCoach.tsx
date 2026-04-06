@@ -718,6 +718,11 @@ export default function SmartCoach() {
                 <p className="text-xs text-muted-foreground">
                   {selectedTopic?.purpose.skillTarget}
                 </p>
+                {selectedTopic && (
+                  <p className="text-[11px] text-primary/70 mt-1">
+                    Real-world use: {selectedTopic.purpose.transferTarget}
+                  </p>
+                )}
               </div>
 
               {wrapupSummary && (
@@ -868,6 +873,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
+            <p className="text-[11px] text-muted-foreground mt-1">~5 minutes</p>
           </div>
         )}
 
