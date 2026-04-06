@@ -260,11 +260,10 @@ export default function SmartCoach() {
 
   // ─── Send a turn ────────────────────────────────────────────
 
-  const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !coachState || isProcessing) return;
+  const handleSend = useCallback(async (text: string) => {
+    if (!text.trim() || !coachState || isProcessing) return;
 
-    const userText = inputText.trim();
-    setInputText('');
+    const userText = text.trim();
     setIsProcessing(true);
 
     const userMsg: ChatMessage = {
@@ -307,10 +306,14 @@ export default function SmartCoach() {
       };
       setMessages(prev => [...prev, mayaMsg]);
 
+      // Auto-play Maya's voice if enabled
+      if (autoPlayVoice && result.output) {
+        tts.speak(result.output).catch(() => {});
+      }
+
       // Check for intervention trigger
       if (result.intervention) {
         setPendingIntervention(result.intervention);
-        // Add intervention card to chat
         setMessages(prev => [...prev, {
           id: `intervention-${Date.now()}`,
           role: 'intervention',
@@ -334,7 +337,7 @@ export default function SmartCoach() {
     } finally {
       setIsProcessing(false);
     }
-  }, [inputText, coachState, isProcessing, maxTurns, progressData]);
+  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts]);
 
   // ─── Intervention handlers ─────────────────────────────────
 
