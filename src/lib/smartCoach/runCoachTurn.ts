@@ -2,7 +2,8 @@
  * Smart Coach — Turn Orchestrator
  * 
  * The single entry point for processing one conversation turn.
- * Now tracks session metrics, injects purpose context, and detects interventions.
+ * Now tracks session metrics, injects purpose context, detects interventions,
+ * and advances clinical objectives through playbooks.
  */
 
 import type { CoachState, CoachTurnResult, CoachTurnLog, InterventionEvent } from './types';
@@ -16,6 +17,8 @@ import { getFallbackLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { detectGameTrigger, selectGame, buildInterventionFrame } from './gameTrigger';
+import { getPlaybook } from './clinicalPlaybooks';
+import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic } from './objectiveAdvancer';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
@@ -108,7 +111,42 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState.lastPurposeAnchorTurn = state.turnCount + 1;
   }
 
-  // Step 5 — Build prompt (with purpose context + cross-session + deficit)
+  // Step 4.7 — Clinical objective tracking via playbook
+  const playbook = getPlaybook(nextState.topic);
+  let objectivePrompt = '';
+  if (playbook && nextState.mode !== 'wrapup') {
+    // Evaluate progress on current objective
+    const progress = evaluateObjectiveProgress(userUtterance, nextState, playbook);
+
+    // Track subtopic depth
+    const mainWord = userUtterance.trim().split(/\s+/)[0]?.toLowerCase() || '';
+    const subtopicUpdate = trackSubtopic(nextState, mainWord);
+    Object.assign(nextState, subtopicUpdate);
+
+    // Advance if objective met or force transfer near end
+    if (progress.shouldAdvance) {
+      const advancement = advanceObjective(nextState, playbook);
+      Object.assign(nextState, advancement);
+    } else {
+      // Tick turns on objective
+      Object.assign(nextState, tickObjective(nextState));
+    }
+
+    // Force transfer if running out of turns
+    if (shouldForceTransfer(nextState, playbook, maxTurns)) {
+      const transferIdx = playbook.objectives.findIndex(o => o.id === 'transfer_check');
+      if (transferIdx >= 0) {
+        nextState.currentObjectiveIndex = transferIdx;
+        nextState.objectiveProgress = { turnsOnObjective: 0, lastObjectiveId: 'transfer_check' };
+      }
+    }
+
+    // Get the objective-specific prompt injection
+    const updatedProgress = evaluateObjectiveProgress(userUtterance, nextState, playbook);
+    objectivePrompt = updatedProgress.objectivePrompt;
+  }
+
+  // Step 5 — Build prompt (with purpose context + cross-session + deficit + objective)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -132,6 +170,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     purposeReanchor: needsPurposeReanchor,
     interruptionContext: returningFromIntervention ? state.interruptionContext : undefined,
     postInterventionDampening: state.postInterventionDampening,
+    objectivePrompt,
   });
 
   // Step 6 — Generate coach line via edge function

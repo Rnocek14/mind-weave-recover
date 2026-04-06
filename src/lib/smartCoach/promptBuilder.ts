@@ -45,6 +45,8 @@ export interface PromptContext {
   };
   /** Post-intervention dampening active */
   postInterventionDampening?: boolean;
+  /** Clinical objective prompt injection from playbook */
+  objectivePrompt?: string;
 }
 
 const EXPAND_DIMENSIONS = [
@@ -154,11 +156,19 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nPOST-DRILL ADJUSTMENT: The user just returned from an exercise. Ask a slightly easier question than before the drill. Don't expect perfect fluency immediately. Use a gentle re-entry question that connects to what they were discussing before.`
     : '';
 
+  // Clinical objective injection (from playbook)
+  const objectiveBlock = ctx.objectivePrompt
+    ? `\n\nCLINICAL OBJECTIVE (FOLLOW THIS):\n${ctx.objectivePrompt}`
+    : '';
+
   return `You are Maya, a thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind, intelligent friend — not a therapist reading from a script.
 
 CRITICAL SPEECH RULE: NEVER write stuttered, hyphenated, or repeated letters/syllables in your response. Examples of what is FORBIDDEN: "f-f-fishing", "b-basil", "l-l-lake", "s-s-son", "r-restaurant", "m-morning", "w-walk", "ph- (phone)", "k- (kids)", "tea- (teacher)", "spi-getti", "fff...", "sh- (south)". Write every word normally and completely. You are modeling clear speech for someone recovering from a stroke — stuttering patterns are clinically harmful.
 
 Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
+Current mode: ${ctx.mode}
+Support level: ${ctx.supportLevel}/3
+Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}${objectiveBlock}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
 Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}

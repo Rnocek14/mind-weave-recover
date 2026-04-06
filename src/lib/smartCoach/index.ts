@@ -40,3 +40,7 @@ export type { GameDefinition } from './gameTrigger';
 export { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from './progressNarrative';
 export { adaptExerciseResult } from './interventionAdapter';
 export type { InterventionResult } from './interventionAdapter';
+export { getPlaybook, getPlaybookTopicIds, CLINICAL_PLAYBOOKS } from './clinicalPlaybooks';
+export type { ClinicalPlaybook, TurnObjective, ObjectiveDefinition } from './clinicalPlaybooks';
+export { evaluateObjectiveProgress, advanceObjective, getCurrentObjective, shouldForceTransfer } from './objectiveAdvancer';
+export type { ObjectiveProgress } from './objectiveAdvancer';
