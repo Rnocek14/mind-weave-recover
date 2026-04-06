@@ -415,6 +415,13 @@ export default function SmartCoach() {
   // (handleKeyDown moved into VoiceInputBar)
 
   const handleNewSession = () => {
+    // Log voice telemetry summary before clearing
+    const voiceSummary = getVoiceSessionSummary();
+    if (voiceSummary.totalTurns > 0) {
+      console.log('[SmartCoach] Voice session summary:', voiceSummary);
+    }
+    clearVoiceEvents();
+
     setPhase('topic_select');
     setMessages([]);
     setCoachState(null);
