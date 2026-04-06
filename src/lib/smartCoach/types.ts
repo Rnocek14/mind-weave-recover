@@ -184,6 +184,10 @@ export interface CoachState {
   subtopicDepth: number;
   /** Current subtopic name for tangent detection */
   currentSubtopic?: string;
+  /** Consecutive turns with disengagement fillers */
+  consecutiveDisengagements: number;
+  /** Nouns/phrases Maya has used recently (for anti-repetition) */
+  recentMayaNouns: string[];
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────
@@ -198,6 +202,8 @@ export interface CoachUtteranceAnalysis {
   incompleteThought: boolean;
   pauseDetected: boolean;
   hesitationDetected: boolean;
+  /** User is giving polite fillers without real content ("yep", "okay", "thank you") */
+  disengagementDetected: boolean;
   confidence: number; // 0–1
   likelyErrorType:
     | 'none'
@@ -206,7 +212,8 @@ export interface CoachUtteranceAnalysis {
     | 'circumlocution'
     | 'off_topic'
     | 'hesitation'
-    | 'incomplete';
+    | 'incomplete'
+    | 'disengagement';
 }
 
 // ─── Cue Decision ────────────────────────────────────────────
