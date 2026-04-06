@@ -59,6 +59,9 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     lastPurposeAnchorTurn: 0,
     postInterventionDampening: false,
     interventionCount: 0,
+    currentObjectiveIndex: 0,
+    objectiveProgress: { turnsOnObjective: 0 },
+    subtopicDepth: 0,
     ...overrides,
   };
 }
