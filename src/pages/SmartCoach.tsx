@@ -153,11 +153,12 @@ export default function SmartCoach() {
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
   const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const [autoPlayVoice, setAutoPlayVoice] = useState(false);
   const exerciseModal = useExerciseModal();
+  const tts = useTextToSpeech();
   const maxTurns = 8;
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const sessionSaved = useRef(false);
 
   const topics = useMemo(() => getAllTopics(), []);
