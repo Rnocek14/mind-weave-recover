@@ -185,12 +185,7 @@ export default function SmartCoach() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focus input
-  useEffect(() => {
-    if (!isProcessing && phase === 'chatting' && !activeGame && !pendingIntervention) {
-      inputRef.current?.focus();
-    }
-  }, [isProcessing, phase, activeGame, pendingIntervention]);
+  // (Voice input bar manages its own focus)
 
   // Save session on complete
   useEffect(() => {
