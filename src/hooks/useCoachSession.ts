@@ -1739,6 +1739,15 @@ export function useCoachSession({
       ? serializeSnapshotForStorage(intelligenceSnapshot)
       : undefined;
     
+    // Build conversation transcript from messages for persistence
+    const conversationTranscript = messagesRef.current
+      .filter(m => m.type === 'ai' || m.type === 'user')
+      .map(m => ({
+        role: m.type as string,
+        text: m.text,
+        timestamp: new Date().toISOString(),
+      }));
+
     saveCoachSessionSummary({
       userId,
       sessionId,
@@ -1748,6 +1757,7 @@ export function useCoachSession({
       fluencyTrend: sessionMetrics?.fluencyTrend,
       primaryDomain: orchestratorStateRef.current.currentTopic || undefined,
       sessionIntelligence: serializedIntelligence as unknown as Record<string, unknown>,
+      conversationTranscript,
     });
 
     // Persist Recovery Lift Score + Anchor Analytics
