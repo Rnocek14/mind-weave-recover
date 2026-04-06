@@ -868,6 +868,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
+            <p className="text-[11px] text-muted-foreground mt-1">~5 minutes</p>
           </div>
         )}
 
