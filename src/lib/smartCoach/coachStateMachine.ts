@@ -53,23 +53,29 @@ export function transitionCoachState(
     return next;
   }
 
-  // ── Hesitation → scaffold or support
+  // ── Hesitation → require compound signal before scaffold
   if (analysis.hesitationDetected) {
     const consecutiveHesitations = (state.consecutiveHesitations || 0) + 1;
     next.consecutiveHesitations = consecutiveHesitations;
     next.sessionMetrics.hesitationCount++;
     
-    if (consecutiveHesitations >= 2) {
+    if (consecutiveHesitations >= 3) {
+      // 3+ consecutive → full support
       next.mode = 'support';
       next.isStuck = true;
       next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
       next.frustrationRisk = 'medium';
       next.sessionMetrics.cueAssistedCount++;
-    } else {
+    } else if (consecutiveHesitations >= 2) {
+      // 2 consecutive → scaffold (hysteresis: don't scaffold on first hesitation alone)
       next.mode = 'scaffold';
       next.isStuck = true;
       next.supportLevel = Math.min(3, state.supportLevel + 1) as 0 | 1 | 2 | 3;
       next.frustrationRisk = state.frustrationRisk === 'high' ? 'high' : 'medium';
+    } else {
+      // Single hesitation → stay in expand, just note it
+      next.mode = state.mode === 'warmup' ? 'warmup' : 'expand';
+      next.isStuck = false;
     }
     return next;
   }

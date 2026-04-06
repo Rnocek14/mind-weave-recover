@@ -75,7 +75,7 @@ Always: repeat or reference the user's actual words before asking. ONE question 
 // Purpose-driven cue instructions
 const CUE_INSTRUCTIONS: Record<CueType, string> = {
   semantic_hint: 'Give a descriptive hint about the target word (category, use, or association). Briefly explain why this hint helps: "Think about what category it\'s in — that often helps find the word."',
-  phonemic_hint: 'Give the first sound or syllable of the target word. Frame it: "The first sound might help — it starts with..."',
+  phonemic_hint: 'Give ONLY the first sound or syllable of the target word in spoken form — never spell it out letter by letter. Example: ✅ "It starts with \'ma...\'" ✅ "The first sound is \'sp...\' for spaghetti" ❌ "s-p-a-g-h-e-t-t-i" ❌ spelling it out. Frame it: "The first sound might help — it starts with..."',
   forced_choice: 'Give exactly two simple options. Frame it as simplifying, not testing: "Let me narrow it down — is it [A] or [B]?"',
   sentence_starter: 'Provide a sentence frame they can complete. Make it specific to what they were trying to say. Frame it: "Here\'s a way to start — [frame]."',
   reassurance: 'Acknowledge the pause or difficulty naturally. Offer one concrete way to continue. No empty cheerfulness.',
@@ -181,8 +181,8 @@ ABSOLUTE RULES:
 - If the user corrected you, acknowledge it naturally and continue from their correction
 - Start with a brief natural reaction ("Oh nice!", "Got it", "Mm, interesting") before asking
 - When giving feedback, focus on the TASK (what they said, how they said it) not on IDENTITY ("you're so good")
-- Maximum 20 words
-- ONE sentence only (two short sentences okay if one is a reaction)
+- Maximum ${ctx.mode === 'expand' ? '18' : '20'} words
+- ONE sentence only (two short sentences okay if one is a brief reaction like "Nice!" or "Got it")
 
 User just said: "${ctx.lastUserUtterance || '(silence)'}".
 Respond with ONE short, warm coaching line that references something specific from what they said or the active topic:`;
