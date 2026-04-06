@@ -1055,6 +1055,38 @@ export default function SmartCoach() {
           );
         })}
 
+        {/* Inline drill card */}
+        {(pendingDrill || pendingPracticeBlock) && (
+          <div className="max-w-[90%] mx-auto my-2">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg shrink-0">
+                  {(pendingDrill || pendingPracticeBlock?.[0])?.drill.icon}
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {pendingPracticeBlock ? 'Quick practice round' : 'Quick practice'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(pendingDrill || pendingPracticeBlock?.[0])?.drill.label} — {
+                      (pendingDrill || pendingPracticeBlock?.[0])?.configOverrides.totalTrials || 5
+                    } items, ~{Math.ceil(((pendingDrill || pendingPracticeBlock?.[0])?.drill.durationSec || 60) / 60)} min
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs">
+                  <Zap className="w-3.5 h-3.5" />
+                  Start
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDeclineDrill} className="text-xs">
+                  Skip
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isProcessing && (
           <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-muted mr-auto">
             <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
