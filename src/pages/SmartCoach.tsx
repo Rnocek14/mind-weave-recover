@@ -510,7 +510,7 @@ export default function SmartCoach() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Smart Coach</h1>
@@ -713,7 +713,7 @@ export default function SmartCoach() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Practice Complete</h1>
@@ -775,12 +775,12 @@ export default function SmartCoach() {
               )}
             </div>
 
-            {/* Home practice card */}
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
-              <p className="text-xs font-medium text-primary">💡 Home practice idea</p>
+            {/* See you tomorrow + home practice */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-primary">See you tomorrow 👋</p>
               <p className="text-sm text-foreground">
                 {selectedTopic?.id === 'food'
-                  ? 'After your next meal, name 5 items you see on the table. Quick retrieval practice — no pressure.'
+                  ? 'Before your next meal, name 5 items you see on the table. Quick practice — no pressure.'
                   : selectedTopic?.id === 'family'
                   ? 'Next time you see a family member, describe one thing about your day in 2-3 sentences.'
                   : selectedTopic?.id === 'pets'
@@ -790,12 +790,12 @@ export default function SmartCoach() {
             </div>
 
             <div className="flex flex-col gap-3">
-              <Button size="lg" onClick={handleNewSession} className="w-full gap-2">
-                <RotateCcw className="w-4 h-4" />
-                Practice Again
+              <Button size="lg" onClick={() => navigate('/today')} className="w-full gap-2">
+                Done for today
               </Button>
-              <Button variant="outline" size="lg" onClick={() => navigate('/dashboard')} className="w-full">
-                Back to Dashboard
+              <Button variant="outline" size="lg" onClick={handleNewSession} className="w-full gap-2">
+                <RotateCcw className="w-4 h-4" />
+                Practice again
               </Button>
             </div>
           </div>
@@ -815,7 +815,7 @@ export default function SmartCoach() {
       {/* Header */}
       <header className="p-3 border-b shrink-0 space-y-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1 min-w-0">
