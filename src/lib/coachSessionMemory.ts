@@ -34,6 +34,8 @@ export interface SessionSummaryInput {
   primaryDomain?: string;
   /** Serialized session intelligence snapshot for cross-session persistence */
   sessionIntelligence?: Record<string, unknown>;
+  /** Full conversation transcript for session review */
+  conversationTranscript?: { role: string; text: string; timestamp?: string }[];
 }
 
 // ─── Build Summary ───
@@ -105,8 +107,11 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
       user_id: input.userId,
       session_id: input.sessionId,
       ...summary,
-      // Persist session intelligence in metadata column
-      metadata: input.sessionIntelligence ? input.sessionIntelligence : null,
+      // Persist session intelligence + conversation transcript in metadata column
+      metadata: {
+        ...(input.sessionIntelligence || {}),
+        conversation_transcript: input.conversationTranscript || [],
+      },
     } as any);
 
   if (error) {
