@@ -101,6 +101,8 @@ const App = () => (
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
+                  <Route path="/welcome" element={<Welcome />} />
+                  <Route path="/today" element={<Today />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
