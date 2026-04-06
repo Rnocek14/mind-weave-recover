@@ -2,20 +2,60 @@
  * Today — Daily Session Launcher
  * 
  * Single-purpose screen: one button to start today's practice.
- * Shows last session context with forward momentum.
+ * Shows streak, session count, and last session context.
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Calendar, Zap } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
+import { supabase } from '@/integrations/supabase/client';
+
+interface AdherenceStats {
+  totalSessions: number;
+  currentStreak: number;
+}
+
+async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
+  const { data, error } = await supabase
+    .from('coach_conversation_summaries')
+    .select('created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data || data.length === 0) {
+    return { totalSessions: 0, currentStreak: 0 };
+  }
+
+  const totalSessions = data.length;
+
+  // Calculate streak from unique days
+  const toDay = (ts: string) => Math.floor(Date.parse(ts) / 86400000);
+  const uniqueDays = [...new Set(data.map(r => toDay(r.created_at)))].sort((a, b) => b - a);
+  const today = toDay(new Date().toISOString());
+
+  let currentStreak = 0;
+  if (uniqueDays[0] === today || uniqueDays[0] === today - 1) {
+    currentStreak = 1;
+    for (let i = 1; i < uniqueDays.length; i++) {
+      if (uniqueDays[i - 1] - uniqueDays[i] === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return { totalSessions, currentStreak };
+}
 
 export default function Today() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
+  const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -24,16 +64,18 @@ export default function Today() {
 
   useEffect(() => {
     if (user?.id) {
-      loadLastSessionSummary(user.id).then(summary => {
-        if (summary) {
-          setLastSession({
-            topic: summary.metadata?.topic || summary.primaryDomain || 'practice',
-            wordsProduced: summary.metadata?.metrics?.wordsProduced || 0,
-            date: summary.createdAt || '',
-          });
-        }
-        setLoaded(true);
-      }).catch(() => setLoaded(true));
+      Promise.all([
+        loadLastSessionSummary(user.id).then(summary => {
+          if (summary) {
+            setLastSession({
+              topic: summary.metadata?.topic || summary.primaryDomain || 'practice',
+              wordsProduced: summary.metadata?.metrics?.wordsProduced || 0,
+              date: summary.createdAt || '',
+            });
+          }
+        }),
+        loadAdherenceStats(user.id).then(setStats),
+      ]).finally(() => setLoaded(true));
     }
   }, [user?.id]);
 
@@ -50,11 +92,12 @@ export default function Today() {
   const displayName = user.user_metadata?.display_name || 'there';
   const greeting = getGreeting();
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
+  const sessionNumber = (stats?.totalSessions ?? 0) + 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-8 text-center">
+        <div className="w-full max-w-sm space-y-6 text-center">
           {/* Greeting */}
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">{greeting}, {displayName}</h1>
@@ -65,7 +108,27 @@ export default function Today() {
             </p>
           </div>
 
-          {/* Last session context — specific + forward-looking */}
+          {/* Streak + Session count */}
+          {stats && stats.totalSessions > 0 && (
+            <div className="flex items-center justify-center gap-4">
+              {stats.currentStreak > 0 && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10">
+                  <Flame className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary">
+                    {stats.currentStreak} day{stats.currentStreak !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
+                <Award className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  {stats.totalSessions} session{stats.totalSessions !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Last session context */}
           {lastSession && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-2">
               <p className="text-xs font-medium text-primary flex items-center gap-1.5">
@@ -92,14 +155,16 @@ export default function Today() {
             onClick={() => navigate('/smart-coach')}
           >
             <Zap className="w-5 h-5" />
-            Start today's practice
+            {stats && stats.totalSessions > 0
+              ? `Start session #${sessionNumber}`
+              : "Start today's practice"}
             <ArrowRight className="w-4 h-4" />
           </Button>
 
           {/* Secondary nav */}
           <div className="flex justify-center gap-4 pt-2">
             <button 
-              onClick={() => navigate('/recovery-progress')} 
+              onClick={() => navigate('/progress')} 
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
             >
               <Calendar className="w-3 h-3" />

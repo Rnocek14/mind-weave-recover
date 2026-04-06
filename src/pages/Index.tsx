@@ -1,13 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Brain, Camera, Activity, Award, Heart, Sparkles } from "lucide-react";
+import { Brain, Camera, Activity, Award, Heart, Sparkles, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
+  // Auto-redirect authenticated users to /today
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/today', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Only show landing page for unauthenticated users
   return (
     <div className="min-h-screen bg-gradient-calm">
       {/* Theme Toggle */}
@@ -48,10 +66,10 @@ const Index = () => {
               size="lg" 
               variant="outline" 
               className="text-lg px-8 py-6 border-2 border-primary hover:bg-primary-glow"
-              onClick={() => navigate("/caregiver")}
+              onClick={() => navigate("/auth")}
             >
               <Heart className="w-5 h-5 mr-2" />
-              Caregiver Access
+              Sign In
             </Button>
           </div>
         </div>
