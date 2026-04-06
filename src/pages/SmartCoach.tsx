@@ -32,6 +32,7 @@ import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
 import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -414,6 +415,13 @@ export default function SmartCoach() {
   // (handleKeyDown moved into VoiceInputBar)
 
   const handleNewSession = () => {
+    // Log voice telemetry summary before clearing
+    const voiceSummary = getVoiceSessionSummary();
+    if (voiceSummary.totalTurns > 0) {
+      console.log('[SmartCoach] Voice session summary:', voiceSummary);
+    }
+    clearVoiceEvents();
+
     setPhase('topic_select');
     setMessages([]);
     setCoachState(null);
@@ -916,8 +924,11 @@ export default function SmartCoach() {
               {msg.role === 'maya' && (
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium text-muted-foreground">Maya</span>
-                  <button
-                    onClick={() => tts.speak(msg.text)}
+                   <button
+                    onClick={() => {
+                      trackVoiceEvent('tts_played', { turnNumber: turnCount });
+                      tts.speak(msg.text);
+                    }}
                     className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
                     title="Listen to Maya"
                   >
@@ -952,6 +963,7 @@ export default function SmartCoach() {
         topicKeywords={selectedTopic?.keywords ?? []}
         autoPlayVoice={autoPlayVoice}
         onToggleAutoPlay={() => setAutoPlayVoice(prev => !prev)}
+        turnNumber={turnCount}
       />
 
       {/* Real exercise modal — launched by intervention acceptance */}
