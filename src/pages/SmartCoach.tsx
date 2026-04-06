@@ -32,7 +32,7 @@ import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
 import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
+import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
 
 // ─── Chat message type ───────────────────────────────────────
 
