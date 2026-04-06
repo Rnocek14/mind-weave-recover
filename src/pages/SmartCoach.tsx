@@ -199,6 +199,23 @@ export default function SmartCoach() {
 
   // (Voice input bar manages its own focus)
 
+  // Session cleanup on navigation/unload — persist summary if session is active
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (phase === 'chatting' && user?.id && sessionStats && !sessionSaved.current) {
+        sessionSaved.current = true;
+        const sid = sessionIdRef.current;
+        saveSessionSummary(user.id, sid, sessionStats.topicId, sessionStats.metrics, sessionStats.strategiesUsed);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also save on unmount (route change)
+      handleBeforeUnload();
+    };
+  }, [phase, user?.id, sessionStats]);
+
   // Save session on complete
   useEffect(() => {
     if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
