@@ -160,6 +160,7 @@ export default function SmartCoach() {
   const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
   const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
   const [lastDrillTurn, setLastDrillTurn] = useState<number | undefined>(undefined);
+  const [justCompletedDrill, setJustCompletedDrill] = useState(false);
   const [usedGameIds, setUsedGameIds] = useState<string[]>([]);
   const [prevAnalysis, setPrevAnalysis] = useState<CoachUtteranceAnalysis | undefined>(undefined);
   const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
