@@ -25,10 +25,13 @@ export function analyzeUtterance(
   const words = cleaned.split(/\s+/).filter(Boolean);
   const wordCount = words.length;
 
+  // User correction detection — if user is correcting Maya, this is NOT a struggle
+  const isCorrection = CORRECTION_MARKERS.test(cleaned);
+
   // Topic relevance — keyword overlap
   const topicLower = topic.toLowerCase();
   const hasTopicOverlap = topicKeywords.some(kw => cleaned.includes(kw)) || cleaned.includes(topicLower);
-  const onTopic = hasTopicOverlap || wordCount <= 2; // Very short answers are assumed on-topic
+  const onTopic = hasTopicOverlap || wordCount <= 2 || isCorrection; // Corrections are always on-topic
 
   // Semantic match — rough heuristic (keyword density)
   const matchingKeywords = topicKeywords.filter(kw => cleaned.includes(kw));
@@ -39,7 +42,8 @@ export function analyzeUtterance(
   // Hesitation / pauses
   const filledPauses = (cleaned.match(FILLED_PAUSES) || []).length;
   const isSurrenderPhrase = SURRENDER_MARKERS.test(cleaned);
-  const hesitationDetected = isSurrenderPhrase || filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1);
+  // Don't flag hesitation if user is correcting Maya
+  const hesitationDetected = !isCorrection && (isSurrenderPhrase || filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1));
 
   // Pause detection — true silence only (no words at all)
   const pauseDetected = wordCount === 0;
