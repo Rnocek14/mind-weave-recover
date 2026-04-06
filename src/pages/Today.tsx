@@ -29,9 +29,9 @@ export default function Today() {
       loadLastSessionSummary(user.id).then(summary => {
         if (summary) {
           setLastSession({
-            topic: summary.topicId || 'practice',
-            wordsProduced: summary.metrics?.wordsProduced || 0,
-            date: summary.date || '',
+            topic: summary.metadata?.topic || summary.primaryDomain || 'practice',
+            wordsProduced: summary.metadata?.metrics?.wordsProduced || 0,
+            date: summary.createdAt || '',
           });
         }
         setLoaded(true);
