@@ -72,40 +72,41 @@ function getPhaseIndex(mode: CoachMode): number {
 // ─── Openers with purpose framing ──────────────────────────
 
 function buildPurposeOpener(topic: TopicDefinition): string {
+  // Gold-standard openers: low pressure, concrete, topic obvious, easy retrieval
   const openers: Record<string, string[]> = {
     food: [
-      "We're practicing familiar food words — the same ones you'd use ordering a meal. What's something you really like to eat?",
-      "Let's work on food vocabulary. These are words you use every day. What did you have for your last meal?",
-      "We're building word retrieval with food — something familiar. What's your favorite thing to cook or eat?",
+      "Let's start easy — what's something you like to eat?",
+      "What did you have for your last meal?",
+      "What's your favorite thing to cook or eat?",
     ],
     family: [
-      "We're practicing describing people — a skill you use when telling stories. Who's someone special to you?",
-      "Let's work on talking about the people in your life. Tell me about one family member.",
-      "We're building sentence skills with a familiar topic. Who would you like to tell me about?",
+      "Let's start simple — who's someone special to you?",
+      "Tell me about one person in your family.",
+      "Who would you like to tell me about?",
     ],
     hobbies: [
-      "We're practicing expressing preferences — something you do in everyday conversation. What's something you enjoy doing?",
-      "Let's work on describing activities you like. What do you enjoy in your free time?",
-      "We're building vocabulary around things you care about. What's a hobby you enjoy?",
+      "Let's start easy — what's something you enjoy doing?",
+      "What do you like to do in your free time?",
+      "What's a hobby you enjoy?",
     ],
     daily_routine: [
-      "We're practicing putting events in order — a key skill for describing your day. What have you been up to today?",
-      "Let's work on sequencing — describing things step by step. What does a typical morning look like?",
-      "We're building narrative skills with your routine. What did you do when you woke up today?",
+      "Let's start simple — what have you been up to today?",
+      "What does a typical morning look like for you?",
+      "What did you do when you woke up today?",
     ],
     travel: [
-      "We're practicing descriptive language — the same skill you'd use telling someone about a trip. Where's somewhere you've visited?",
-      "Let's work on describing places and experiences. What's your favorite place you've been?",
-      "We're building detail and description skills. Think of a place you liked visiting — where was it?",
+      "Let's start easy — where's somewhere you've visited?",
+      "What's your favorite place you've been?",
+      "Think of a place you liked visiting — where was it?",
     ],
     pets: [
-      "We're practicing naming and describing routines — skills you use every day. Do you have any pets?",
-      "Let's work on naming and action words with a fun topic. Tell me about a pet you know.",
-      "We're building retrieval confidence with familiar words. What animals do you like?",
+      "Let's start simple — do you have any pets?",
+      "Tell me about a pet you know.",
+      "What animals do you like?",
     ],
   };
 
-  const topicOpeners = openers[topic.id] || [`We're practicing ${topic.purpose.skillTarget.toLowerCase()}. ${topic.purpose.rationale} Tell me what comes to mind.`];
+  const topicOpeners = openers[topic.id] || [`Let's start easy — tell me the first thing that comes to mind about ${topic.label.toLowerCase()}.`];
   return topicOpeners[Math.floor(Math.random() * topicOpeners.length)];
 }
 

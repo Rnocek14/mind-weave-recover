@@ -55,17 +55,21 @@ const EXPAND_DIMENSIONS = [
   'Ask about comparison or change (has it always been that way, is it different now).',
 ];
 
-// Purpose-driven mode instructions with SCA patterns
+// Purpose-driven mode instructions with gold-standard session arc
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
-  warmup: `Ask a simple, warm question about the topic. Frame it with a brief reason why you're asking. Example: "Let's start with something easy — what's your favorite [topic item]?" ONE short sentence. Aim for an easy answer.`,
+  warmup: `Ask ONE simple, low-pressure question about the topic. No framing, no explanation — just a natural easy question. Example: "What's something you like to eat?" Aim for a concrete noun answer. ONE short sentence.`,
   
-  expand: `React naturally to what they said (brief acknowledgment). Then ask ONE specific follow-up that references a detail they mentioned. If they're doing well after 2+ turns, offer a choice of direction: "Want to tell me more about [X], or try [Y]?" Keep it short and conversational.`,
+  expand: `Follow the gold-standard expansion arc based on conversation depth:
+- EARLY (turns 2-3): Repeat user's word, then ask a natural follow-up that slightly expands context. Example: "Pasta, nice. Do you make it at home or order it somewhere?" Keep binary-friendly without sounding childish.
+- MID (turns 4-5): Narrow retrieval target with a specific follow-up. Example: "Spaghetti with what — red sauce, meat, or something else?" Offer natural choices that create multiple retrieval pathways.
+- LATE (turns 6-7): Connect to real-world transfer. Example: "If you ordered that at a restaurant, what would you call it?" Test phrase-level production in a realistic situation.
+Always: repeat or reference the user's actual words before asking. ONE question per turn. Never ask unanchored follow-ups.`,
   
-  scaffold: `Acknowledge the difficulty without being dramatic. Provide a specific sentence frame based on what they were trying to say. Offer an alternative format if the first doesn't work. Example: "That's a tricky one. You could say: 'My favorite is___' Or just pick: this one or that one?"`,
+  scaffold: `The user is struggling. Name the difficulty specifically without drama. Offer a concrete scaffold tied to what they were trying to say. Example: "That's a tricky one — is it spaghetti, macaroni, or something else?" Use forced-choice or sentence starters based on what they were attempting. Do NOT say "take your time" without also offering a specific way forward.`,
   
-  support: `Be calm and lower pressure. Acknowledge the struggle gently and explain what you're doing to help. Offer a simple binary choice OR suggest a different approach. Example: "No rush — let me make this easier. Is it [A] or [B]?"`,
+  support: `Lower the pressure immediately. Acknowledge the pause, then simplify to a yes/no or binary choice using words from the active topic. Example: "No rush — is it something with tomato sauce?" Keep to 10 words if possible. ONE idea per turn.`,
   
-  wrapup: `Acknowledge ONE specific thing they said well — be concrete, not generic. State what skill they practiced and why it matters. End warmly with no new questions. Example: "You described [specific thing] clearly. That's the same word-finding skill you'd use at [transfer context]. Nice practice today."`,
+  wrapup: `Name ONE or TWO specific words/phrases the user produced well — use their EXACT words. Then connect to the real-world transfer target. Example: "You found 'basil' and 'spaghetti' clearly today. That's the same word-finding you'd use ordering a meal." No new questions. No generic praise. No "good job." End with purpose, not cheerfulness.`,
 };
 
 // Purpose-driven cue instructions
