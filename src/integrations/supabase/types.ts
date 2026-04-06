@@ -2561,6 +2561,83 @@ export type Database = {
           },
         ]
       }
+      voice_session_summaries: {
+        Row: {
+          avg_confidence: number | null
+          created_at: string
+          fallback_chips_used: number
+          fallback_type_used: number
+          first_attempt_accept_rate: number | null
+          id: string
+          mic_starts: number
+          mic_successes: number
+          preview_accepted: number
+          preview_edited: number
+          preview_retried: number
+          recognition_success_rate: number | null
+          session_id: string | null
+          text_turns: number
+          topic_id: string | null
+          total_turns: number
+          tts_plays: number
+          user_id: string
+          voice_adoption_rate: number | null
+          voice_turns: number
+        }
+        Insert: {
+          avg_confidence?: number | null
+          created_at?: string
+          fallback_chips_used?: number
+          fallback_type_used?: number
+          first_attempt_accept_rate?: number | null
+          id?: string
+          mic_starts?: number
+          mic_successes?: number
+          preview_accepted?: number
+          preview_edited?: number
+          preview_retried?: number
+          recognition_success_rate?: number | null
+          session_id?: string | null
+          text_turns?: number
+          topic_id?: string | null
+          total_turns?: number
+          tts_plays?: number
+          user_id: string
+          voice_adoption_rate?: number | null
+          voice_turns?: number
+        }
+        Update: {
+          avg_confidence?: number | null
+          created_at?: string
+          fallback_chips_used?: number
+          fallback_type_used?: number
+          first_attempt_accept_rate?: number | null
+          id?: string
+          mic_starts?: number
+          mic_successes?: number
+          preview_accepted?: number
+          preview_edited?: number
+          preview_retried?: number
+          recognition_success_rate?: number | null
+          session_id?: string | null
+          text_turns?: number
+          topic_id?: string | null
+          total_turns?: number
+          tts_plays?: number
+          user_id?: string
+          voice_adoption_rate?: number | null
+          voice_turns?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_session_summaries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_heartbeats: {
         Row: {
           last_seen: string
