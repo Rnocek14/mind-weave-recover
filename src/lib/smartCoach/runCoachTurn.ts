@@ -140,18 +140,16 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   let debugRawOutput: string | undefined;
 
   try {
-    const { data, error } = await supabase.functions.invoke('conversation-partner', {
+    const messages = buildMessagesForRelay(state, userUtterance);
+    const { data, error } = await supabase.functions.invoke('smart-coach-turn', {
       body: {
-        userTranscript: userUtterance,
-        turnNumber: state.turnCount + 1,
-        maxTurns,
-        conversationHistory: buildHistory(state, userUtterance),
-        smartCoachPrompt: prompt,
+        systemPrompt: prompt,
+        messages,
       },
     });
 
     if (error || !data?.response) {
-      console.warn('[SmartCoach] Edge function error, using fallback:', error);
+      console.warn('[SmartCoach] Relay error, using fallback:', error);
       rawLine = getFallbackLine(nextState.mode, cueDecision.cueType);
       usedFallback = true;
     } else {
@@ -159,7 +157,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       debugRawOutput = data.response;
     }
   } catch (err) {
-    console.warn('[SmartCoach] Failed to call edge function:', err);
+    console.warn('[SmartCoach] Failed to call relay:', err);
     rawLine = getFallbackLine(nextState.mode, cueDecision.cueType);
     usedFallback = true;
   }
@@ -226,11 +224,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   };
 }
 
-/** Build conversation history for the edge function */
-function buildHistory(state: CoachState, currentUtterance: string) {
-  const history = (state.conversationHistory || []).map(t => ({
-    role: t.role === 'maya' ? 'ai' : 'user',
-    text: t.text,
+/** Build messages array for the smart-coach-turn relay (OpenAI-compatible format) */
+function buildMessagesForRelay(state: CoachState, currentUtterance: string): { role: 'user' | 'assistant'; content: string }[] {
+  const messages: { role: 'user' | 'assistant'; content: string }[] = (state.conversationHistory || []).map(t => ({
+    role: (t.role === 'maya' ? 'assistant' : 'user') as 'user' | 'assistant',
+    content: t.text,
   }));
-  return history;
+  messages.push({ role: 'user', content: currentUtterance || '(silence)' });
+  return messages;
 }
