@@ -160,6 +160,7 @@ export default function SmartCoach() {
   const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
   const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
   const [lastDrillTurn, setLastDrillTurn] = useState<number | undefined>(undefined);
+  const [justCompletedDrill, setJustCompletedDrill] = useState(false);
   const [usedGameIds, setUsedGameIds] = useState<string[]>([]);
   const [prevAnalysis, setPrevAnalysis] = useState<CoachUtteranceAnalysis | undefined>(undefined);
   const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
@@ -197,6 +198,23 @@ export default function SmartCoach() {
   }, [messages]);
 
   // (Voice input bar manages its own focus)
+
+  // Session cleanup on navigation/unload — persist summary if session is active
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (phase === 'chatting' && user?.id && sessionStats && !sessionSaved.current) {
+        sessionSaved.current = true;
+        const sid = sessionIdRef.current;
+        saveSessionSummary(user.id, sid, sessionStats.topicId, sessionStats.metrics, sessionStats.strategiesUsed);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also save on unmount (route change)
+      handleBeforeUnload();
+    };
+  }, [phase, user?.id, sessionStats]);
 
   // Save session on complete
   useEffect(() => {
@@ -291,6 +309,11 @@ export default function SmartCoach() {
     setMessages(prev => [...prev, userMsg]);
 
     try {
+      const isReturningFromDrill = justCompletedDrill;
+      if (isReturningFromDrill) {
+        setJustCompletedDrill(false);
+      }
+
       const result: CoachTurnResult = await runCoachTurn({
         state: coachState,
         userUtterance: userText,
@@ -298,6 +321,7 @@ export default function SmartCoach() {
         lastSessionContext: progressData?.lastSessionContext ?? undefined,
         lastDrillCompletedAtTurn: lastDrillTurn,
         prevAnalysis,
+        returningFromIntervention: isReturningFromDrill,
       });
 
       // Save analysis for next turn's consecutive detection
@@ -471,6 +495,10 @@ export default function SmartCoach() {
     // Track drill completion
     setLastDrillTurn(turnCount);
     setDrillsCompletedThisSession(prev => prev + 1);
+    setJustCompletedDrill(true);
+
+    // Set post-intervention dampening on coach state so next turn is gentler
+    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
 
     // Add return-to-conversation message
     setMessages(prev => [...prev, {
