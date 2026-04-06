@@ -296,7 +296,12 @@ export default function SmartCoach() {
         userUtterance: userText,
         maxTurns,
         lastSessionContext: progressData?.lastSessionContext ?? undefined,
+        lastDrillCompletedAtTurn: lastDrillTurn,
+        prevAnalysis,
       });
+
+      // Save analysis for next turn's consecutive detection
+      setPrevAnalysis(result.analysis);
 
       setCoachState(result.nextState);
       setTurnCount(result.nextState.turnCount);
@@ -327,7 +332,7 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for intervention trigger
+      // Check for legacy intervention trigger
       if (result.intervention) {
         setPendingIntervention(result.intervention);
         setMessages(prev => [...prev, {
@@ -338,8 +343,42 @@ export default function SmartCoach() {
           interventionData: result.intervention,
         }]);
       }
+      // Check for hybrid drill recommendation (takes priority over legacy)
+      else if (result.drillRecommendation && !result.intervention) {
+        const rec = result.drillRecommendation;
+        if (rec.kind === 'micro_drill') {
+          const selection = selectDrill({
+            state: result.nextState,
+            reason: rec.reason as any,
+            signals: rec.signals,
+            usedGameIds,
+            kind: 'micro_drill',
+          });
+          setPendingDrill(selection);
+          setMessages(prev => [...prev, {
+            id: `drill-offer-${Date.now()}`,
+            role: 'maya',
+            text: rec.observation,
+            timestamp: Date.now(),
+          }]);
+        } else if (rec.kind === 'targeted_practice') {
+          const block = selectPracticeBlock({
+            state: result.nextState,
+            reason: rec.reason as any,
+            signals: rec.signals,
+            usedGameIds,
+          });
+          setPendingPracticeBlock(block);
+          setMessages(prev => [...prev, {
+            id: `practice-offer-${Date.now()}`,
+            role: 'maya',
+            text: "Let's do one more quick practice to lock that in.",
+            timestamp: Date.now(),
+          }]);
+        }
+      }
 
-      if (result.nextState.mode === 'wrapup') {
+      if (result.nextState.mode === 'wrapup' && !result.drillRecommendation) {
         setPhase('complete');
       }
     } catch (err) {
