@@ -914,7 +914,16 @@ export default function SmartCoach() {
               )}
             >
               {msg.role === 'maya' && (
-                <span className="text-xs font-medium text-muted-foreground block mb-1">Maya</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-muted-foreground">Maya</span>
+                  <button
+                    onClick={() => tts.speak(msg.text)}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    title="Listen to Maya"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
               {msg.text}
             </div>
