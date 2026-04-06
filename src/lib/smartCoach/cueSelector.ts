@@ -61,6 +61,20 @@ export function selectCue(
     };
   }
 
+  // ── Disengagement → redirect, not expand
+  if (analysis.disengagementDetected) {
+    if (state.supportLevel >= 2 || state.severityProfile === 'severe') {
+      return {
+        cueType: 'forced_choice',
+        rationale: 'Disengagement detected — redirect with concrete choice to re-engage',
+      };
+    }
+    return {
+      cueType: 'sentence_starter',
+      rationale: 'Disengagement detected — provide structure to re-engage',
+    };
+  }
+
   // ── Good response → expansion prompt
   if (analysis.semanticMatch > 0.5 && analysis.wordCount >= 2) {
     return {

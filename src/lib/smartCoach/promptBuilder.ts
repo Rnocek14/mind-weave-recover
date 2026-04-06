@@ -169,9 +169,6 @@ Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
 Current mode: ${ctx.mode}
 Support level: ${ctx.supportLevel}/3
 Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}${objectiveBlock}
-Current mode: ${ctx.mode}
-Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}
 
 MODE INSTRUCTION: ${modeInstruction}
 CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
