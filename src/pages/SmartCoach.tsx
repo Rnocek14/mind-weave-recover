@@ -32,7 +32,7 @@ import { useExerciseModal } from '@/hooks/useExerciseModal';
 import { cn } from '@/lib/utils';
 import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
+import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -199,6 +199,8 @@ export default function SmartCoach() {
         sessionStats.metrics,
         sessionStats.strategiesUsed,
       );
+      // Persist voice telemetry alongside session summary
+      persistVoiceSessionSummary(user.id, null, sessionStats.topicId);
     }
   }, [phase, user?.id, sessionStats]);
 
