@@ -57,7 +57,7 @@ const EXPAND_DIMENSIONS = [
 
 // Purpose-driven mode instructions with gold-standard session arc
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
-  warmup: `Ask ONE simple, low-pressure question about the topic. No framing, no explanation — just a natural easy question. Example: "What's something you like to eat?" Aim for a concrete noun answer. ONE short sentence.`,
+  warmup: `Ask ONE simple, low-pressure question about the topic. No framing, no introduction, no explanation — just jump straight to a natural easy question. Do NOT introduce yourself or explain the session. Example: "What's something you like to eat?" Maximum 14 words. ONE short sentence.`,
   
   expand: `Follow the gold-standard expansion arc based on conversation depth:
 - EARLY (turns 2-3): Repeat user's word, then ask a natural follow-up that slightly expands context. Example: "Pasta, nice. Do you make it at home or order it somewhere?" Keep binary-friendly without sounding childish.
