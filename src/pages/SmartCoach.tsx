@@ -468,6 +468,10 @@ export default function SmartCoach() {
 
     const result = adaptExerciseResult(normalized, activeGame, selectedTopic.id);
 
+    // Track drill completion
+    setLastDrillTurn(turnCount);
+    setDrillsCompletedThisSession(prev => prev + 1);
+
     // Add return-to-conversation message
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
@@ -481,13 +485,27 @@ export default function SmartCoach() {
       ...prev,
       metrics: {
         ...prev.metrics,
-        // Count the exercise towards overall session quality
         independentResponses: prev.metrics.independentResponses + (result.success ? 1 : 0),
       },
     } : null);
 
     setActiveGame(null);
-  }, [activeGame, selectedTopic]);
+
+    // If there are more drills in the practice block, prompt next
+    if (pendingPracticeBlock && pendingPracticeBlock.length > 0) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, {
+          id: `maya-next-drill-${Date.now()}`,
+          role: 'maya',
+          text: "One more quick round — ready?",
+          timestamp: Date.now(),
+        }]);
+      }, 1000);
+    } else if (coachState?.mode === 'wrapup' || turnCount >= maxTurns - 1) {
+      // Practice block done → complete
+      setTimeout(() => setPhase('complete'), 1500);
+    }
+  }, [activeGame, selectedTopic, turnCount, pendingPracticeBlock, coachState, maxTurns]);
 
   const handleExerciseModalClose = useCallback(() => {
     exerciseModal.closeExerciseModal();
