@@ -60,6 +60,10 @@ const UNANCHORED_FOLLOWUPS = [
   /^and then what\??$/i,
   /^tell me more about that\.?$/i,
   /^what was that like\??$/i,
+  /what happened (after|next)\??/i,
+  /what happens next\??/i,
+  /what did you do (after|next|then)\??/i,
+  /after you .{3,30}, what/i,
 ];
 
 // ── Generic questions (questions with no topic anchor) ────────
