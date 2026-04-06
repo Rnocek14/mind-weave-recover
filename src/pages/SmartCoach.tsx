@@ -199,6 +199,8 @@ export default function SmartCoach() {
         sessionStats.metrics,
         sessionStats.strategiesUsed,
       );
+      // Persist voice telemetry alongside session summary
+      persistVoiceSessionSummary(user.id, null, sessionStats.topicId);
     }
   }, [phase, user?.id, sessionStats]);
 
