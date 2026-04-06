@@ -62,6 +62,8 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     currentObjectiveIndex: 0,
     objectiveProgress: { turnsOnObjective: 0 },
     subtopicDepth: 0,
+    consecutiveDisengagements: 0,
+    recentMayaNouns: [],
     ...overrides,
   };
 }
