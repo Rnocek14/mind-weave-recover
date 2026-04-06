@@ -306,7 +306,7 @@ describe('Safety Validator', () => {
   });
 
   it('accepts valid coaching lines', () => {
-    const r = validateCoachLine('What kind of pizza do you like?', 'food');
+    const r = validateCoachLine('What kind of pizza do you like?', 'food', [], { topicKeywords: ['pizza', 'pasta', 'cooking'] });
     expect(r.valid).toBe(true);
   });
 
