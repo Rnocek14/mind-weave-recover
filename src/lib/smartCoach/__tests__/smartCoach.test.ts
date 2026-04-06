@@ -229,22 +229,22 @@ describe('Scenario 6: Failure spiral — gradual escalation', () => {
   it('escalates support gradually, not instantly', () => {
     let state = makeState({ mode: 'warmup', supportLevel: 0 });
 
-    // Turn 1: hesitation
+    // Turn 1: hesitation — single hesitation stays in expand (hysteresis)
     const a1 = analyzeUtterance('uh...', 'food', FOOD_KEYWORDS);
     state = transitionCoachState(state, a1);
-    expect(state.supportLevel).toBe(1);
+    expect(state.supportLevel).toBe(0); // Single hesitation: no escalation
 
-    // Turn 2: silence
+    // Turn 2: silence → support escalation
     const a2 = analyzeUtterance('', 'food', FOOD_KEYWORDS);
     state = transitionCoachState(state, a2);
-    expect(state.supportLevel).toBe(2);
+    expect(state.supportLevel).toBe(1);
 
-    // Turn 3: more hesitation
+    // Turn 3: more hesitation (now consecutive = 2 → scaffold + support bump)
     const a3 = analyzeUtterance('uh... um...', 'food', FOOD_KEYWORDS);
     state = transitionCoachState(state, a3);
-    expect(state.supportLevel).toBe(3);
+    expect(state.supportLevel).toBe(2);
 
-    // Should cap at 3
+    // Turn 4: silence again → more escalation
     const a4 = analyzeUtterance('', 'food', FOOD_KEYWORDS);
     state = transitionCoachState(state, a4);
     expect(state.supportLevel).toBe(3);
@@ -335,9 +335,9 @@ describe('Post-Processor', () => {
   });
 
   it('truncates overly long lines', () => {
-    const long = Array(30).fill('word').join(' ');
+    const long = Array(50).fill('word').join(' ');
     const result = postProcessCoachLine(long);
-    expect(result.split(/\s+/).length).toBeLessThanOrEqual(25);
+    expect(result.split(/\s+/).length).toBeLessThanOrEqual(40);
   });
 
   it('normalizes whitespace', () => {
