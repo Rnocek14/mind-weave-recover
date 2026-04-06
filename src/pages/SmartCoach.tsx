@@ -229,6 +229,9 @@ export default function SmartCoach() {
   const handleStartConversation = useCallback(() => {
     if (!selectedTopic) return;
 
+    // Generate a stable session UUID for this conversation
+    sessionIdRef.current = crypto.randomUUID();
+
     const opener = buildPurposeOpener(selectedTopic);
 
     const state = createInitialCoachState({
