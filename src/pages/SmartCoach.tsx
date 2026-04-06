@@ -159,6 +159,8 @@ export default function SmartCoach() {
   const tts = useTextToSpeech();
   const maxTurns = 8;
 
+  // Stable session UUID — generated once when conversation starts
+  const sessionIdRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const sessionSaved = useRef(false);
 
