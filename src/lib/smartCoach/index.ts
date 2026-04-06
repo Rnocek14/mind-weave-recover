@@ -30,7 +30,7 @@ export { analyzeUtterance } from './utteranceAnalyzer';
 export { transitionCoachState, shouldWrapUp, isEmergencySupport, hasHesitationCluster, shouldTriggerIntervention } from './coachStateMachine';
 export { selectCue } from './cueSelector';
 export { validateCoachLine } from './safetyValidator';
-export { postProcessCoachLine } from './responsePostProcessor';
+export { postProcessCoachLine, findRepeatedNoun, updateMayaNouns } from './responsePostProcessor';
 export { getFallbackLine } from './fallbackLibrary';
 export { getSessionLogs, clearSessionLogs, exportLogsAsJson } from './coachLogger';
 export { getTopicPurpose, getAllTopics, getTopicDefinition } from './topicPurposeMap';
