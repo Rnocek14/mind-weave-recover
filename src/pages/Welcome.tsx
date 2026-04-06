@@ -1,26 +1,18 @@
 /**
  * Welcome — Guided First-Time Experience
  * 
- * Zero-decision onboarding that explains purpose, sets expectations,
- * and launches the user into their first Smart Coach session.
- * 
- * Flow: Greeting → Purpose → Ready → Auto-launch session
- * 
- * Design constraints:
- * - No navigation decisions
- * - No "what do I click?"
- * - Everything guided, linear, purposeful
- * - Feels like entering a therapy session, not an app
+ * Minimal 2-step onboarding: greeting + ready.
+ * Teaches by doing, not explaining.
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, MessageCircle, Brain, Target, Heart, Loader2 } from 'lucide-react';
+import { ArrowRight, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
-type WelcomeStep = 'greeting' | 'purpose' | 'how_it_works' | 'ready';
+type WelcomeStep = 'greeting' | 'ready';
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -41,7 +33,6 @@ export default function Welcome() {
   };
 
   const launchSession = () => {
-    // Go directly to SmartCoach — topic selection is the first guided step there
     navigate('/smart-coach');
   };
 
@@ -61,13 +52,13 @@ export default function Welcome() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Progress dots */}
       <div className="p-6 flex justify-center gap-2">
-        {(['greeting', 'purpose', 'how_it_works', 'ready'] as WelcomeStep[]).map((s, i) => (
+        {(['greeting', 'ready'] as WelcomeStep[]).map((s, i) => (
           <div
             key={s}
             className={cn(
               'w-2 h-2 rounded-full transition-all duration-300',
-              step === s ? 'bg-primary w-6' : 
-              (['greeting', 'purpose', 'how_it_works', 'ready'].indexOf(step) > i) ? 'bg-primary/50' : 'bg-border'
+              step === s ? 'bg-primary w-6' :
+              (['greeting', 'ready'].indexOf(step) > i) ? 'bg-primary/50' : 'bg-border'
             )}
           />
         ))}
@@ -79,8 +70,8 @@ export default function Welcome() {
         isTransitioning ? 'opacity-0' : 'opacity-100'
       )}>
         <div className="w-full max-w-sm">
-          
-          {/* Step 1: Greeting */}
+
+          {/* Step 1: Greeting + Purpose (combined) */}
           {step === 'greeting' && (
             <div className="space-y-8 text-center">
               <div className="space-y-4">
@@ -89,82 +80,20 @@ export default function Welcome() {
                 </div>
                 <h1 className="text-2xl font-bold">Hi {displayName} 👋</h1>
                 <p className="text-muted-foreground leading-relaxed">
-                  I'm Maya, your speech practice coach. We're going to work on your word-finding together — at your pace, with real purpose.
+                  I'm Maya. We'll practice talking together — with a clear purpose every time.
+                </p>
+                <p className="text-muted-foreground leading-relaxed font-medium">
+                  Nothing here is random. Every question helps you find words in real situations.
                 </p>
               </div>
-              <Button size="lg" className="w-full gap-2" onClick={() => advance('purpose')}>
-                Nice to meet you, Maya
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Step 2: Purpose */}
-          {step === 'purpose' && (
-            <div className="space-y-8 text-center">
-              <div className="space-y-4">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <Target className="w-10 h-10 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold">This isn't random</h1>
-                <p className="text-muted-foreground leading-relaxed">
-                  Every question I ask targets a real skill — like finding the right word when ordering food or describing your day to family.
-                </p>
-                <p className="text-muted-foreground leading-relaxed">
-                  I'll tell you what we're working on and why. You'll always know the purpose.
-                </p>
-              </div>
-              <Button size="lg" className="w-full gap-2" onClick={() => advance('how_it_works')}>
-                That makes sense
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Step 3: How it works */}
-          {step === 'how_it_works' && (
-            <div className="space-y-8">
-              <div className="space-y-4 text-center">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <Brain className="w-10 h-10 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold">Here's how it works</h1>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
-                  <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-bold text-primary">1</span>
-                  <div>
-                    <p className="text-sm font-medium">We pick a topic together</p>
-                    <p className="text-xs text-muted-foreground">Something familiar — like food, family, or hobbies</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
-                  <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-bold text-primary">2</span>
-                  <div>
-                    <p className="text-sm font-medium">We have a real conversation</p>
-                    <p className="text-xs text-muted-foreground">I'll ask specific questions that practice word-finding</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
-                  <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-bold text-primary">3</span>
-                  <div>
-                    <p className="text-sm font-medium">I adapt to you</p>
-                    <p className="text-xs text-muted-foreground">If it's hard, I'll help. If it's easy, I'll push a little. ~5 minutes.</p>
-                  </div>
-                </div>
-              </div>
-
               <Button size="lg" className="w-full gap-2" onClick={() => advance('ready')}>
-                Got it
+                Let's start
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           )}
 
-          {/* Step 4: Ready */}
+          {/* Step 2: Ready */}
           {step === 'ready' && (
             <div className="space-y-8 text-center">
               <div className="space-y-4">
@@ -173,7 +102,7 @@ export default function Welcome() {
                 </div>
                 <h1 className="text-2xl font-bold">Ready when you are</h1>
                 <p className="text-muted-foreground leading-relaxed">
-                  There's no wrong answer. Take your time. Pausing is part of the practice.
+                  There's no wrong answer. Take your time. If it's hard, I'll help. If it's easy, I'll push a little.
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Your first session takes about 5 minutes.

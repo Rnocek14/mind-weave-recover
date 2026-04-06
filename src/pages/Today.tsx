@@ -2,9 +2,7 @@
  * Today — Daily Session Launcher
  * 
  * Single-purpose screen: one button to start today's practice.
- * Shows streak, last session context, and readiness — nothing else.
- * 
- * This is the "home screen" for returning users.
+ * Shows last session context with forward momentum.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -51,6 +49,7 @@ export default function Today() {
 
   const displayName = user.user_metadata?.display_name || 'there';
   const greeting = getGreeting();
+  const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -61,12 +60,12 @@ export default function Today() {
             <h1 className="text-2xl font-bold">{greeting}, {displayName}</h1>
             <p className="text-muted-foreground">
               {lastSession
-                ? "Ready for today's practice?"
+                ? "Ready to build on last time?"
                 : "Let's get started with your first session."}
             </p>
           </div>
 
-          {/* Last session context */}
+          {/* Last session context — specific + forward-looking */}
           {lastSession && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-2">
               <p className="text-xs font-medium text-primary flex items-center gap-1.5">
@@ -74,8 +73,14 @@ export default function Today() {
                 Last session
               </p>
               <p className="text-sm text-foreground">
-                You produced {lastSession.wordsProduced} words practicing{' '}
-                <span className="font-medium capitalize">{lastSession.topic.replace(/_/g, ' ')}</span>.
+                You practiced{' '}
+                <span className="font-medium capitalize">{topicLabel}</span>
+                {lastSession.wordsProduced > 0 && (
+                  <> and produced {lastSession.wordsProduced} words</>
+                )}.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Today we'll build on that.
               </p>
             </div>
           )}
