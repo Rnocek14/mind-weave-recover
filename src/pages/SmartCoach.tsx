@@ -159,6 +159,8 @@ export default function SmartCoach() {
   const tts = useTextToSpeech();
   const maxTurns = 8;
 
+  // Stable session UUID — generated once when conversation starts
+  const sessionIdRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const sessionSaved = useRef(false);
 
@@ -192,15 +194,15 @@ export default function SmartCoach() {
   useEffect(() => {
     if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
       sessionSaved.current = true;
+      const sid = sessionIdRef.current;
       saveSessionSummary(
         user.id,
-        null,
+        sid,
         sessionStats.topicId,
         sessionStats.metrics,
         sessionStats.strategiesUsed,
       );
-      // Persist voice telemetry alongside session summary
-      persistVoiceSessionSummary(user.id, null, sessionStats.topicId);
+      persistVoiceSessionSummary(user.id, sid, sessionStats.topicId);
     }
   }, [phase, user?.id, sessionStats]);
 
@@ -226,6 +228,9 @@ export default function SmartCoach() {
 
   const handleStartConversation = useCallback(() => {
     if (!selectedTopic) return;
+
+    // Generate a stable session UUID for this conversation
+    sessionIdRef.current = crypto.randomUUID();
 
     const opener = buildPurposeOpener(selectedTopic);
 
@@ -423,8 +428,7 @@ export default function SmartCoach() {
       console.log('[SmartCoach] Voice session summary:', voiceSummary);
     }
     clearVoiceEvents();
-
-    setPhase('topic_select');
+    sessionIdRef.current = null;
     setMessages([]);
     setCoachState(null);
     setSelectedTopic(null);
