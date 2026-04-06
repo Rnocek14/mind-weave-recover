@@ -478,6 +478,10 @@ export default function SmartCoach() {
     // Track drill completion
     setLastDrillTurn(turnCount);
     setDrillsCompletedThisSession(prev => prev + 1);
+    setJustCompletedDrill(true);
+
+    // Set post-intervention dampening on coach state so next turn is gentler
+    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
 
     // Add return-to-conversation message
     setMessages(prev => [...prev, {
