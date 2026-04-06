@@ -858,6 +858,19 @@ export default function SmartCoach() {
 
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Inline goal card — visible at session start */}
+        {selectedTopic && messages.length <= 2 && (
+          <div className="bg-primary/5 border border-primary/15 rounded-xl px-4 py-3 mb-2">
+            <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5" />
+              Today's goal
+            </p>
+            <p className="text-sm text-foreground mt-1">
+              {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
+            </p>
+          </div>
+        )}
+
         {messages.map(msg => {
           // Intervention card
           if (msg.role === 'intervention' && msg.interventionData) {
