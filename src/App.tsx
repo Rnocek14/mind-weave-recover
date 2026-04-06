@@ -39,6 +39,7 @@ import ClinicianPanel from "./pages/ClinicianPanel";
 import WeeklyPatientReview from "./pages/WeeklyPatientReview";
 import OutcomesValidation from "./pages/OutcomesValidation";
 import RecoveryProgress from "./pages/RecoveryProgress";
+import Progress from "./pages/Progress";
 import AdminEngineSimulation from "./pages/AdminEngineSimulation";
 import AdminAlertRollup from "./pages/AdminAlertRollup";
 import AdminOverrideAudit from "./pages/AdminOverrideAudit";
