@@ -392,7 +392,44 @@ export default function SmartCoach() {
     } finally {
       setIsProcessing(false);
     }
-  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts]);
+  }, [coachState, isProcessing, maxTurns, progressData, autoPlayVoice, tts, lastDrillTurn, prevAnalysis, usedGameIds]);
+
+  // ─── Drill handlers (hybrid session) ──────────────────────
+
+  const handleAcceptDrill = useCallback(() => {
+    const drill = pendingDrill || (pendingPracticeBlock && pendingPracticeBlock[0]);
+    if (!drill) return;
+    setActiveGame(drill.drill);
+    exerciseModal.launchExerciseModal(drill.drill.exerciseSlug, {
+      totalTrials: drill.configOverrides.totalTrials,
+      difficultyTier: drill.configOverrides.difficultyTier,
+      cueLevel: drill.configOverrides.cueLevel,
+      source: 'maya_chat',
+    });
+    setUsedGameIds(prev => [...prev, drill.drill.id]);
+    setPendingDrill(null);
+    // If practice block, keep remaining drills
+    if (pendingPracticeBlock && pendingPracticeBlock.length > 1) {
+      setPendingPracticeBlock(pendingPracticeBlock.slice(1));
+    } else {
+      setPendingPracticeBlock(null);
+    }
+  }, [pendingDrill, pendingPracticeBlock, exerciseModal]);
+
+  const handleDeclineDrill = useCallback(() => {
+    setPendingDrill(null);
+    if (pendingPracticeBlock) {
+      // Declining targeted practice → go to wrapup
+      setPendingPracticeBlock(null);
+      setPhase('complete');
+    }
+    setMessages(prev => [...prev, {
+      id: `maya-skip-${Date.now()}`,
+      role: 'maya',
+      text: "No problem — let's keep going.",
+      timestamp: Date.now(),
+    }]);
+  }, [pendingPracticeBlock]);
 
   // ─── Intervention handlers ─────────────────────────────────
 
