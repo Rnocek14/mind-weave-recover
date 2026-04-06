@@ -67,14 +67,14 @@ export function analyzeUtterance(
   let likelyErrorType: CoachUtteranceAnalysis['likelyErrorType'] = 'none';
   if (wordCount === 0) {
     likelyErrorType = 'hesitation';
+  } else if (isSurrenderPhrase || hesitationDetected) {
+    likelyErrorType = 'hesitation';
   } else if (circumlocution) {
     likelyErrorType = 'circumlocution';
   } else if (phonologicalApprox) {
     likelyErrorType = 'phonological';
   } else if (incompleteThought) {
     likelyErrorType = 'incomplete';
-  } else if (hesitationDetected) {
-    likelyErrorType = 'hesitation';
   } else if (!onTopic && wordCount >= 3) {
     likelyErrorType = 'off_topic';
   }
