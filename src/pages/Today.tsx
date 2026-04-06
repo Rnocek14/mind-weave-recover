@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
@@ -161,8 +161,36 @@ export default function Today() {
             <ArrowRight className="w-4 h-4" />
           </Button>
 
-          {/* Secondary nav */}
-          <div className="flex justify-center gap-4 pt-2">
+          {/* Secondary options */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={() => navigate('/practice')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border
+                hover:border-primary hover:bg-accent/50 active:scale-[0.97]
+                transition-all duration-150 ease-out touch-manipulation text-left"
+            >
+              <Gamepad2 className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div>
+                <span className="text-sm font-medium text-foreground block">Practice Games</span>
+                <span className="text-[11px] text-muted-foreground">Pick an exercise</span>
+              </div>
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-border
+                hover:border-primary hover:bg-accent/50 active:scale-[0.97]
+                transition-all duration-150 ease-out touch-manipulation text-left"
+            >
+              <LayoutDashboard className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div>
+                <span className="text-sm font-medium text-foreground block">Daily Session</span>
+                <span className="text-[11px] text-muted-foreground">Adaptive lesson plan</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Progress link */}
+          <div className="flex justify-center pt-1">
             <button 
               onClick={() => navigate('/progress')} 
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"

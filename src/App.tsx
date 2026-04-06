@@ -49,6 +49,7 @@ import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
 import SmartCoach from "./pages/SmartCoach";
+import Practice from "./pages/Practice";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
 import ConversationCoachExercise from "./pages/ConversationCoachExercise";
 import TwoCluesExercise from "./pages/TwoCluesExercise";
@@ -105,6 +106,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/welcome" element={<Welcome />} />
                   <Route path="/today" element={<Today />} />
+                  <Route path="/practice" element={<Practice />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
