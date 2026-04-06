@@ -162,8 +162,11 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback = true;
   }
 
-  // Step 7 — Validate
-  const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts);
+  // Step 7 — Validate (with anchor context)
+  const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts, {
+    lastUserUtterance: userUtterance,
+    topicKeywords: nextState.topicKeywords,
+  });
 
   let finalLine: string;
   if (!validation.valid) {
