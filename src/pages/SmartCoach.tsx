@@ -22,10 +22,12 @@ import { getAllTopics, getTopicDefinition } from '@/lib/smartCoach/topicPurposeM
 import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
-import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent } from '@/lib/smartCoach/types';
+import { selectDrill, selectPracticeBlock } from '@/lib/smartCoach/drillSelector';
+import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent, CoachUtteranceAnalysis } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
+import type { DrillSelection } from '@/lib/smartCoach/drillSelector';
 import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import { ExerciseModalHost } from '@/components/coach/ExerciseModalHost';
 import { useExerciseModal } from '@/hooks/useExerciseModal';
