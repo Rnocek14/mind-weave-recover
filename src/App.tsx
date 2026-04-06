@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
+import Welcome from "./pages/Welcome";
+import Today from "./pages/Today";
 import About from "./pages/About";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
@@ -99,6 +101,8 @@ const App = () => (
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
+                  <Route path="/welcome" element={<Welcome />} />
+                  <Route path="/today" element={<Today />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
