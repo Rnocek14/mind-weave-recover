@@ -44,6 +44,7 @@ import AdminAlertRollup from "./pages/AdminAlertRollup";
 import AdminOverrideAudit from "./pages/AdminOverrideAudit";
 import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
+import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
 import SmartCoach from "./pages/SmartCoach";
@@ -164,6 +165,7 @@ const App = () => (
                   <Route path="/admin/overrides" element={<AppLayout><AdminProtectedRoute><AdminOverrideAudit /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
                   <Route path="/smart-coach-lab" element={<SmartCoachLab />} />

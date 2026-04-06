@@ -428,8 +428,7 @@ export default function SmartCoach() {
       console.log('[SmartCoach] Voice session summary:', voiceSummary);
     }
     clearVoiceEvents();
-
-    setPhase('topic_select');
+    sessionIdRef.current = null;
     setMessages([]);
     setCoachState(null);
     setSelectedTopic(null);

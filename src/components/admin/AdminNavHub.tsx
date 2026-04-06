@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import {
   BarChart3, AlertTriangle, Shield, Activity, Target,
-  Database, FlaskConical, Cpu, ClipboardCheck, ImageIcon, Brain,
+  Database, FlaskConical, Cpu, ClipboardCheck, ImageIcon, Brain, Mic,
 } from "lucide-react";
 
 interface NavItem {
@@ -47,6 +47,13 @@ const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
   {
     heading: "Analytics & Research",
     items: [
+      {
+        title: "Voice Analytics",
+        description: "Voice interaction adoption, recognition, and fallback metrics",
+        href: "/admin/voice-analytics",
+        icon: Mic,
+        badge: "New",
+      },
       {
         title: "Parser Analytics",
         description: "Clinical note parsing accuracy and throughput",
