@@ -67,6 +67,8 @@ export function createInitialCoachState(options: {
     objectiveProgress: { turnsOnObjective: 0 },
     subtopicDepth: 0,
     currentSubtopic: undefined,
+    consecutiveDisengagements: 0,
+    recentMayaNouns: [],
   };
 }
 

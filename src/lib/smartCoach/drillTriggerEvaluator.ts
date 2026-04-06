@@ -124,9 +124,19 @@ function evaluateSupportTrigger(ctx: DrillTriggerContext): DrillTriggerDecision 
   // Circumlocution detected
   if (analysis.circumlocution) signals.push('circumlocution');
 
-  // Very short non-progress response (not a valid yes/no answer)
+  // Low-content response — decouple from onTopic so disengagement triggers this
   if (analysis.wordCount <= 1 && !analysis.onTopic) {
     signals.push('low_content_response');
+  }
+
+  // Disengagement cluster — consecutive polite fillers with no content
+  if ((state.consecutiveDisengagements || 0) >= 2) {
+    signals.push('disengagement_cluster');
+  }
+
+  // Single disengagement + low semantic match = weak participation
+  if (analysis.disengagementDetected && analysis.semanticMatch < 0.3) {
+    signals.push('low_engagement');
   }
 
   // Previous turn also had issues
@@ -206,6 +216,11 @@ function evaluateRepairTrigger(ctx: DrillTriggerContext): DrillTriggerDecision |
   // Off-topic for multiple turns (conversation lost focus)
   if (ctx.analysis.onTopic === false && ctx.prevAnalysis?.onTopic === false) {
     signals.push('consecutive_off_topic');
+  }
+
+  // Disengagement cluster — session needs a reset
+  if ((state.consecutiveDisengagements || 0) >= 3) {
+    signals.push('severe_disengagement');
   }
 
   if (signals.length >= 1) {

@@ -16,6 +16,12 @@ const SURRENDER_MARKERS = /^(i don'?t know|idk|no idea|i can'?t|nothing|i forget
 // User correction markers — these should NOT be treated as hesitation or struggle
 const CORRECTION_MARKERS = /\b(i didn'?t|you (just )?asked|i (just )?(said|told you|meant)|that'?s not what|no[,.]?\s+(i|you|it|what)|you'?re (not|wrong)|i don'?t put|it comes with|i was saying|you got it wrong|i never said|that'?s wrong)\b/i;
 
+// Disengagement markers — polite withdrawal, NOT hesitation
+const DISENGAGEMENT_MARKERS = /^(okay|ok|yep|yup|ya|yeah|yes|sure|thank you|thanks|thank|alright|right|cool|fine|got it|mhm|uh huh|sounds good|i guess|whatever)\.{0,3}$/i;
+
+// Whitelisted valid short answers — these are NOT disengagement when on-topic
+const VALID_SHORT_ANSWERS = /^(yes|no|yeah|nah|nope)\.{0,3}$/i;
+
 export function analyzeUtterance(
   transcript: string,
   topic: string,
@@ -28,10 +34,17 @@ export function analyzeUtterance(
   // User correction detection — if user is correcting Maya, this is NOT a struggle
   const isCorrection = CORRECTION_MARKERS.test(cleaned);
 
+  // Disengagement detection — polite fillers with no content
+  const isDisengagementPhrase = DISENGAGEMENT_MARKERS.test(cleaned);
+  const isValidShortAnswer = VALID_SHORT_ANSWERS.test(cleaned);
+
   // Topic relevance — keyword overlap
   const topicLower = topic.toLowerCase();
   const hasTopicOverlap = topicKeywords.some(kw => cleaned.includes(kw)) || cleaned.includes(topicLower);
-  const onTopic = hasTopicOverlap || wordCount <= 2 || isCorrection; // Corrections are always on-topic
+  
+  // FIX: Don't blindly mark short responses as on-topic.
+  // Only corrections and actual topic-matching words count.
+  const onTopic = hasTopicOverlap || isCorrection || (isValidShortAnswer && !isDisengagementPhrase);
 
   // Semantic match — rough heuristic (keyword density)
   const matchingKeywords = topicKeywords.filter(kw => cleaned.includes(kw));
@@ -42,8 +55,9 @@ export function analyzeUtterance(
   // Hesitation / pauses
   const filledPauses = (cleaned.match(FILLED_PAUSES) || []).length;
   const isSurrenderPhrase = SURRENDER_MARKERS.test(cleaned);
-  // Don't flag hesitation if user is correcting Maya
-  const hesitationDetected = !isCorrection && (isSurrenderPhrase || filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1));
+  // Don't flag hesitation if user is correcting Maya or just disengaging
+  const hesitationDetected = !isCorrection && !isDisengagementPhrase && 
+    (isSurrenderPhrase || filledPauses >= 2 || (wordCount <= 3 && filledPauses >= 1));
 
   // Pause detection — true silence only (no words at all)
   const pauseDetected = wordCount === 0;
@@ -53,7 +67,6 @@ export function analyzeUtterance(
 
   // Incomplete thought — ends mid-sentence with trailing "..." or no final punct
   const trailingOff = transcript.trimEnd().endsWith('...');
-  // Strip trailing dots for punct check (so "..." doesn't count as ending with ".")
   const cleanedNoDots = cleaned.replace(/\.{2,}/g, '');
   const incompleteThought = wordCount >= 2 && wordCount <= 8 &&
     !cleanedNoDots.endsWith('.') && !cleanedNoDots.endsWith('!') && !cleanedNoDots.endsWith('?') &&
@@ -63,10 +76,15 @@ export function analyzeUtterance(
   const isFillerOnly = /^(um+|uh+|er+|ah+|hmm+)\.{0,3}$/i.test(cleaned);
   const phonologicalApprox = wordCount === 1 && !hasTopicOverlap && cleaned.length >= 3 && !isFillerOnly;
 
+  // Disengagement: polite filler with no semantic content
+  const disengagementDetected = isDisengagementPhrase && !isCorrection && !hasTopicOverlap;
+
   // Error type classification
   let likelyErrorType: CoachUtteranceAnalysis['likelyErrorType'] = 'none';
   if (wordCount === 0) {
     likelyErrorType = 'hesitation';
+  } else if (disengagementDetected) {
+    likelyErrorType = 'disengagement';
   } else if (isSurrenderPhrase || hesitationDetected) {
     likelyErrorType = 'hesitation';
   } else if (circumlocution) {
@@ -81,6 +99,7 @@ export function analyzeUtterance(
 
   // Confidence
   const confidence = wordCount === 0 ? 0
+    : disengagementDetected ? 0.2
     : hesitationDetected ? 0.3
     : incompleteThought ? 0.4
     : circumlocution ? 0.5
@@ -97,6 +116,7 @@ export function analyzeUtterance(
     incompleteThought,
     pauseDetected,
     hesitationDetected,
+    disengagementDetected,
     confidence,
     likelyErrorType,
   };
