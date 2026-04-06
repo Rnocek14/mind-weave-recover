@@ -136,7 +136,7 @@ const App = () => (
                   <Route path="/lesson" element={<Lesson />} />
                   
                   {/* Main app routes - with persistent header */}
-                  <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+                  <Route path="/dashboard" element={<Navigate to="/today" replace />} />
                   <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
                   <Route path="/history" element={<AppLayout><History /></AppLayout>} />
                   <Route path="/caregiver" element={<AppLayout><CaregiverPortal /></AppLayout>} />
