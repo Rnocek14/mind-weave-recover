@@ -166,7 +166,7 @@ export async function saveSessionSummary(
         top_struggles: struggles,
         maya_summary: `Practiced ${topic}. ${wins[0] || 'Completed session'}.`,
         avg_score: metrics.independentResponses > 0 
-          ? Math.round((metrics.independentResponses / (metrics.independentResponses + metrics.cueAssistedCount)) * 100)
+          ? Math.min(1, parseFloat((metrics.independentResponses / (metrics.independentResponses + metrics.cueAssistedCount)).toFixed(3)))
           : null,
         metadata: { metrics, strategies, topic } as any,
       });

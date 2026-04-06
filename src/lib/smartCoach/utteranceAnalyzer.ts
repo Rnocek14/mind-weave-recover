@@ -13,6 +13,9 @@ const CIRCUMLOCUTION_MARKERS = /\b(the thing|the place|where you|the one that|yo
 // Explicit "I don't know" / giving up markers
 const SURRENDER_MARKERS = /^(i don'?t know|idk|no idea|i can'?t|nothing|i forget|i forgot|don'?t remember|not sure|i'?m not sure|pass|skip)\.{0,3}$/i;
 
+// User correction markers — these should NOT be treated as hesitation or struggle
+const CORRECTION_MARKERS = /\b(i didn'?t|you (just )?asked|i (just )?(said|told you|meant)|that'?s not what|no[,.]?\s+(i|you|it|what)|you'?re (not|wrong)|i don'?t put|it comes with|i was saying|you got it wrong|i never said|that'?s wrong)\b/i;
+
 export function analyzeUtterance(
   transcript: string,
   topic: string,
