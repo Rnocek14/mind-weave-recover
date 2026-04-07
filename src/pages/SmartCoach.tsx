@@ -554,8 +554,7 @@ export default function SmartCoach() {
               kind: 'micro_drill',
               retentionHint,
             });
-            setPendingDrill(selection);
-            // Use deterministic narration from arc
+            // Show narration first, then reveal drill card after a pause
             const narration = slotNumber 
               ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
               : rec.observation;
@@ -565,6 +564,8 @@ export default function SmartCoach() {
               text: narration,
               timestamp: Date.now(),
             }]);
+            // Delay the drill card so the narration lands first
+            setTimeout(() => setPendingDrill(selection), 1500);
           } else if (rec.kind === 'targeted_practice') {
             const block = selectPracticeBlock({
               state: result.nextState,
@@ -573,7 +574,6 @@ export default function SmartCoach() {
               usedGameIds,
               retentionHint,
             });
-            setPendingPracticeBlock(block);
             const narration = slotNumber
               ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
               : "Let's lock in what you practiced with a focused round.";
@@ -583,6 +583,8 @@ export default function SmartCoach() {
               text: narration,
               timestamp: Date.now(),
             }]);
+            // Delay the practice card so the narration lands first
+            setTimeout(() => setPendingPracticeBlock(block), 1500);
           }
         }
       } else if (result.drillRecommendation && drillOnCooldown) {
