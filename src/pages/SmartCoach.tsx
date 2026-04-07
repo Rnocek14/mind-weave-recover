@@ -291,12 +291,23 @@ export default function SmartCoach() {
       }
     });
 
-    const opener = buildPurposeOpener(selectedTopic);
+    // Build opener — include cross-session goals if available
+    const baseOpener = buildPurposeOpener(selectedTopic);
+    const goalContext = coachProfile.lastSessionGoals?.continuityOpener;
+    const opener = goalContext
+      ? `${goalContext}\n\n${baseOpener}`
+      : baseOpener;
 
     const state = createInitialCoachState({
       topic: selectedTopic.id,
       topicKeywords: selectedTopic.keywords,
       readinessLevel,
+      severityProfile: coachProfile.severityProfile,
+      primaryDeficit: coachProfile.primaryDeficit,
+      strugglingPhonemes: coachProfile.strugglingPhonemes,
+      domainScores: coachProfile.domainScores,
+      exerciseHistory: coachProfile.exerciseHistory,
+      crossSessionContext: goalContext || undefined,
     });
     state.conversationHistory = [{ role: 'maya', text: opener }];
 
