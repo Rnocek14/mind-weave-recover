@@ -29,6 +29,7 @@ import type { SessionMetrics } from '@/lib/smartCoach/types';
 import { MayaNarrationCard } from '@/components/coach/MayaNarrationCard';
 import { MayaAssistantBubble, type MayaHelpAction } from '@/components/coach/MayaAssistantBubble';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
@@ -114,6 +115,11 @@ export default function SmartCoach() {
   const sessionIdRef = useRef<string | null>(null);
   const sessionSaved = useRef(false);
   const hasRestoredRef = useRef(false);
+
+  // TTS + Micro-feedback + Hint state
+  const tts = useTextToSpeech();
+  const microEncouragement = useMicroEncouragement();
+  const [hintLevel, setHintLevel] = useState(0);
 
   // Auth guard
   useEffect(() => {
@@ -312,6 +318,12 @@ export default function SmartCoach() {
   const handleGame1Complete = useCallback((result: NormalizedExerciseResult) => {
     if (!plan) return;
     setGame1Result(result);
+    setHintLevel(0); // Reset hint ladder for next phase
+    
+    // Feed micro-encouragement with aggregate result
+    if (result.score >= 0.7) {
+      microEncouragement.trackTrial(true, null, 0);
+    }
     
     // Build transfer targets
     const drilledWords = (result.targetWords || []).slice(0, 3);
@@ -330,7 +342,7 @@ export default function SmartCoach() {
     setTransferTargets(targets);
     
     setPhase('game1_review');
-  }, [plan]);
+  }, [plan, microEncouragement]);
 
   const handleTransferSubmit = useCallback((text: string) => {
     if (!plan) return;
@@ -411,8 +423,15 @@ export default function SmartCoach() {
 
   const handleGame2Complete = useCallback((result: NormalizedExerciseResult) => {
     setGame2Result(result);
+    setHintLevel(0);
+    
+    // Feed micro-encouragement
+    if (result.score >= 0.7) {
+      microEncouragement.trackTrial(true, null, 0);
+    }
+    
     setPhase('game2_review');
-  }, []);
+  }, [microEncouragement]);
 
   const handleChangeFocus = useCallback(() => {
     const newPlan = generateSessionPlan({
@@ -441,9 +460,6 @@ export default function SmartCoach() {
     hasRestoredRef.current = false;
   }, []);
 
-  // ─── TTS for Maya help ──────────────────────────────────────
-  const tts = useTextToSpeech();
-
 
 
 
@@ -452,7 +468,14 @@ export default function SmartCoach() {
   const game1ReviewText = useMemo(() => {
     if (!game1Result || !plan) return '';
     const drilledWords = (game1Result.targetWords || []).slice(0, 3);
-    return getPostDrillReview(game1Result.score, drilledWords, 1);
+    const base = getPostDrillReview(game1Result.score, drilledWords, 1);
+    
+    // Emotional reinforcement — add felt-experience lines
+    const score = game1Result.score;
+    if (score >= 0.85) return `${base}\n\nThat was smooth — the words came out quickly. That's exactly the kind of retrieval that helps in conversation.`;
+    if (score >= 0.6) return `${base}\n\nYou're building momentum. Each round makes the next one easier.`;
+    if (score >= 0.4) return `${base}\n\nSome of those were harder, and that's expected. The fact that you kept going is what builds the pathway.`;
+    return `${base}\n\nThat was a tough round. We're going to approach it differently next — the goal is to make it feel easier, not harder.`;
   }, [game1Result, plan]);
 
   const game2ReviewText = useMemo(() => {
@@ -511,14 +534,28 @@ export default function SmartCoach() {
         return "We're working through today's session together.";
       }
       case 'give_hint': {
+        // Progressive hint ladder: encouragement → semantic → phonemic → model
+        const nextLevel = hintLevel + 1;
+        setHintLevel(nextLevel);
+        
         if (phase === 'warmup') return "Just say the first thing that comes to mind — there's no wrong answer.";
         if (phase === 'transfer_check') {
           const word = (game1Result?.targetWords || [])[0];
-          return word
-            ? `Try starting your sentence with "${word}" — like "I want ${word}" or "The ${word} is..."`
-            : "Try building a short sentence using one of the words you just practiced.";
+          if (!word) return "Try building a short sentence using one of the words you just practiced.";
+          
+          if (nextLevel <= 1) return `Take your time — think about when you'd use "${word}".`;
+          if (nextLevel <= 2) return `Try starting with "${word}" — like "I want ${word}" or "The ${word} is..."`;
+          if (nextLevel <= 3) return `Here's an example: "I'd like the ${word}, please." Now try your own version.`;
+          return `You could say: "Can I have the ${word}?" — any sentence with "${word}" in it works.`;
         }
-        return "Take your time. There's no rush.";
+        if (nextLevel <= 1) return "Take your time. There's no rush — just try your best.";
+        if (nextLevel <= 2) return "Think about what category it belongs to. What group does it fit in?";
+        if (nextLevel <= 3) {
+          const phonemes = coachProfile.strugglingPhonemes || [];
+          if (phonemes.length > 0) return `Focus on the first sound. Start with the beginning of the word.`;
+          return "Try saying the first sound that comes to mind.";
+        }
+        return "It's okay to move on. We'll come back to this.";
       }
       case 'explain_this': {
         if (phase === 'game1_setup' || phase === 'game1_playing')
@@ -538,9 +575,14 @@ export default function SmartCoach() {
     }
   }, [phase, plan, game1Result, game2SetupText, transferPromptText, game1ReviewText, game2ReviewText]);
 
+  const lastSpokenRef = useRef<string | null>(null);
+
   const handleMayaHelp = useCallback((action: MayaHelpAction) => {
     const text = getMayaHelpText(action);
-    if (text) tts.speak(text);
+    if (text) {
+      lastSpokenRef.current = text;
+      tts.speak(text);
+    }
   }, [getMayaHelpText, tts]);
 
   // ─── Render ───────────────────────────────────────────────
@@ -921,6 +963,8 @@ export default function SmartCoach() {
         <MayaAssistantBubble
           isSpeaking={tts.isSpeaking}
           onAction={handleMayaHelp}
+          hintLevel={hintLevel}
+          lastSpokenText={lastSpokenRef.current || undefined}
         />
       )}
     </>
