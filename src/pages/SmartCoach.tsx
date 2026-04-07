@@ -1098,25 +1098,41 @@ export default function SmartCoach() {
                 )}
               </div>
 
-              {/* Quick stats bar */}
+              {/* Big Win highlight */}
+              {(() => {
+                const independent = transferResults.find(r => r.score >= 4);
+                const retained = wordHistory.find(w => w.sessionCount >= 2 && w.bestScore >= 4);
+                const bigWin = independent
+                  ? `You used "${independent.target}" on your own today.`
+                  : retained
+                  ? `"${retained.word}" came back from a previous session.`
+                  : null;
+                return bigWin ? (
+                  <p className="text-sm font-medium text-primary text-center bg-primary/5 rounded-lg py-2 px-3">
+                    🏆 {bigWin}
+                  </p>
+                ) : null;
+              })()}
+
+              {/* Quick stats bar — visual hierarchy: retained > transferred > practiced */}
               {totalAchievements > 0 && (
                 <div className="flex justify-around py-2 border-y border-border/50">
                   {completionStats.practiced > 0 && (
                     <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{completionStats.practiced}</p>
+                      <p className="text-lg font-bold text-muted-foreground">{completionStats.practiced}</p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Practiced</p>
                     </div>
                   )}
                   {completionStats.transferred > 0 && (
                     <div className="text-center">
                       <p className="text-lg font-bold text-primary">{completionStats.transferred}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Transferred</p>
+                      <p className="text-[10px] text-primary/70 uppercase tracking-wide font-medium">Transferred</p>
                     </div>
                   )}
                   {completionStats.retained > 0 && (
                     <div className="text-center">
-                      <p className="text-lg font-bold text-primary">{completionStats.retained}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Retained</p>
+                      <p className="text-xl font-bold text-primary">{completionStats.retained}</p>
+                      <p className="text-[10px] text-primary uppercase tracking-wide font-semibold">Retained</p>
                     </div>
                   )}
                 </div>
@@ -1297,6 +1313,11 @@ export default function SmartCoach() {
                   : selectedTopic?.id === 'pets'
                   ? 'When you see your pet next, describe out loud what they\'re doing. Practice naming actions.'
                   : 'Pick one moment today and describe it out loud in 2-3 sentences. Quick, no pressure.'}
+              </p>
+              <p className="text-xs text-primary/70 italic">
+                {transferResults.length > 0
+                  ? `Next time: we'll build longer sentences using today's words.`
+                  : `Next time: we'll keep practicing and measure what sticks.`}
               </p>
             </div>
 
