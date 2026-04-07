@@ -371,7 +371,7 @@ describe('Path 4: Daily Routine', () => {
     expect(['sentence_construction', 'category_fluency', 'photo_naming']).toContain(sel.drill.id);
   });
 
-  it('targeted practice at turn 8+ fires for daily routine', () => {
+  it('no unconditional drill at turn 8 — arc is sole authority', () => {
     const ctx = makeTriggerCtx({
       state: makeState({
         topic: 'daily_routine',
@@ -380,8 +380,11 @@ describe('Path 4: Daily Routine', () => {
       analysis: makeAnalysis(),
     });
 
+    // Without arc state firing a slot, no drill should trigger unconditionally
     const result = evaluateDrillTrigger(ctx);
-    expect(result.kind).toBe('targeted_practice');
+    // Result depends on signal-based fallbacks, not turn number alone
+    // With no struggle signals and no arc slot, this should be null
+    expect(result.kind).toBeNull();
   });
 });
 
@@ -390,9 +393,9 @@ describe('Path 4: Daily Routine', () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe('Guard Rails', () => {
-  it('never triggers during warmup', () => {
+  it('never triggers during wrapup', () => {
     const ctx = makeTriggerCtx({
-      state: makeState({ mode: 'warmup', turnCount: 4 }),
+      state: makeState({ mode: 'wrapup', turnCount: 4 }),
       analysis: makeAnalysis({ hesitationDetected: true, circumlocution: true }),
     });
 
@@ -484,15 +487,16 @@ describe('Guard Rails', () => {
     expect(evaluateDrillTrigger(ctx).kind).toBeNull();
   });
 
-  it('targeted practice fires at transfer_check objective', () => {
+  it('no unconditional drill at transfer_check objective — arc is authority', () => {
     const ctx = makeTriggerCtx({
-      state: makeState({ turnCount: 5 }), // before turn 8 normally
+      state: makeState({ turnCount: 5 }),
       currentObjectiveId: 'transfer_check',
       analysis: makeAnalysis(),
     });
 
+    // Without struggle signals, no drill fires just because objective is transfer_check
     const result = evaluateDrillTrigger(ctx);
-    expect(result.kind).toBe('targeted_practice');
+    expect(result.kind).toBeNull();
   });
 });
 
