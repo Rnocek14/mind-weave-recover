@@ -125,6 +125,10 @@ export default {
           "0%": { transform: "translateY(20px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
         },
+        "breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.05)", opacity: "0.85" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -134,6 +138,7 @@ export default {
         "streak-glow": "streak-glow 1.5s ease-in-out",
         "badge-pop": "badge-pop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
         "slide-up": "slide-up 0.4s ease-out",
+        "breathe": "breathe 3s ease-in-out infinite",
       },
     },
   },
