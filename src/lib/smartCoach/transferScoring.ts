@@ -94,22 +94,20 @@ function findTargetInResponse(target: string, response: string): TargetTransferR
     return { target, found: true, approximation: 'exact' };
   }
   
-  // Phonemic approximation: first 3+ chars match
+  // Phonemic approximation: first 3+ chars match AND similar length (within ±2 chars)
   const prefix = targetLower.slice(0, Math.min(3, targetLower.length));
   const words = lower.split(/\s+/);
   for (const word of words) {
-    if (word.startsWith(prefix) && word.length >= targetLower.length - 2) {
+    if (word.startsWith(prefix) && word.length >= targetLower.length - 2 && word.length <= targetLower.length + 2) {
       return { target, found: true, approximation: 'phonemic' };
     }
   }
   
-  // Semantic approximation: check for common synonyms/descriptions
-  // (simplified — in production this would use embeddings)
-  // For now, partial match of 60%+ characters
+  // Semantic approximation: character overlap AND similar length (within ±2)
   for (const word of words) {
-    if (word.length >= 3 && targetLower.length >= 3) {
+    if (word.length >= 3 && targetLower.length >= 3 && Math.abs(word.length - targetLower.length) <= 2) {
       const commonChars = [...word].filter(c => targetLower.includes(c)).length;
-      if (commonChars / targetLower.length >= 0.6 && word.length >= targetLower.length - 2) {
+      if (commonChars / targetLower.length >= 0.6) {
         return { target, found: true, approximation: 'semantic' };
       }
     }
