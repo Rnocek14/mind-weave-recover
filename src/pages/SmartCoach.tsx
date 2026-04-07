@@ -750,7 +750,7 @@ export default function SmartCoach() {
     setSessionStats(null);
     setReadinessLevel(7);
     setActiveGame(null);
-    setPendingIntervention(null);
+    _setPendingIntervention(null);
     setPendingDrill(null);
     setPendingPracticeBlock(null);
     setLastDrillTurn(undefined);
@@ -1483,11 +1483,11 @@ export default function SmartCoach() {
         )}
 
         {messages.map(msg => {
-          // Intervention card
+          // Legacy intervention cards — no longer generated but render old ones read-only
           if (msg.role === 'intervention' && msg.interventionData) {
             return (
               <div key={msg.id} className="max-w-[90%] mx-auto my-2">
-                <div className="bg-accent/50 border border-accent rounded-xl p-4 space-y-3">
+                <div className="bg-accent/50 border border-accent rounded-xl p-4">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div className="space-y-1">
@@ -1495,17 +1495,6 @@ export default function SmartCoach() {
                       <p className="text-xs text-muted-foreground">{msg.interventionData.rationale}</p>
                     </div>
                   </div>
-                  {pendingIntervention && msg.interventionData.timestamp === pendingIntervention.timestamp && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs flex-1">
-                        <Zap className="w-3.5 h-3.5" />
-                        Start practice
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={handleDeclineIntervention} className="text-xs text-muted-foreground">
-                        Skip
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -1594,10 +1583,9 @@ export default function SmartCoach() {
       {/* Voice-enabled input bar */}
       <VoiceInputBar
         onSend={handleSend}
-        disabled={isProcessing || !!pendingIntervention || !!pendingDrill || !!pendingPracticeBlock}
+        disabled={isProcessing || !!pendingDrill || !!pendingPracticeBlock}
         placeholder={
-          pendingIntervention ? "Accept or decline the suggestion above..." 
-          : (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
+          (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
           : "Type or speak your response..."
         }
         topicKeywords={selectedTopic?.keywords ?? []}
