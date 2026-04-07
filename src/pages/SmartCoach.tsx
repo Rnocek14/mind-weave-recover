@@ -424,6 +424,9 @@ export default function SmartCoach() {
       }
 
       // ── Cross-session retention: check if user uses words from previous sessions ──
+      // Instead of injecting a separate message, we store the feedback prefix
+      // so it can be blended into the next Maya response.
+      let retentionPrefix = '';
       if (wordHistory.length > 0 && !pendingTransferCheck) {
         const retentionChecks = checkRetention(userText, wordHistory);
         const newRetentionWords = retentionChecks.filter(c => !retentionFeedbackGiven.has(c.word.toLowerCase()));
@@ -431,13 +434,7 @@ export default function SmartCoach() {
         if (newRetentionWords.length > 0) {
           const feedback = getRetentionFeedback(newRetentionWords);
           if (feedback) {
-            // Inject retention feedback as a Maya aside (non-blocking)
-            setMessages(prev => [...prev, {
-              id: `maya-retention-${Date.now()}`,
-              role: 'maya',
-              text: feedback,
-              timestamp: Date.now(),
-            }]);
+            retentionPrefix = feedback;
             // Mark these words as already acknowledged
             setRetentionFeedbackGiven(prev => {
               const next = new Set(prev);
@@ -495,11 +492,14 @@ export default function SmartCoach() {
         strategiesUsed: result.nextState.sessionMetrics.strategiesThatHelped,
       } : null);
 
-      // Add Maya's response
+      // Add Maya's response — blend retention feedback if detected
+      const mayaText = retentionPrefix
+        ? `${retentionPrefix} ${result.output}`
+        : result.output;
       const mayaMsg: ChatMessage = {
         id: `maya-${Date.now()}`,
         role: 'maya',
-        text: result.output,
+        text: mayaText,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, mayaMsg]);
