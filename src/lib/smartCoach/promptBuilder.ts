@@ -115,9 +115,9 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nAlready established (DO NOT re-ask these — build on them instead): ${ctx.establishedFacts.join('; ')}`
     : '';
 
-  const historyBlock = ctx.conversationHistory && ctx.conversationHistory.length > 0
-    ? `\nConversation so far:\n${ctx.conversationHistory.slice(-10).map(t => `${t.role === 'maya' ? 'Maya' : 'User'}: ${t.text}`).join('\n')}`
-    : '';
+  // NOTE: Conversation history is carried via the messages array in the relay call,
+  // NOT duplicated in the system prompt. This prevents the LLM from seeing history twice.
+  const historyBlock = '';
 
   // Get expand dimension instruction
   let modeInstruction = MODE_INSTRUCTIONS[ctx.mode];
