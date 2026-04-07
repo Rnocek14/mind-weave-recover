@@ -23,6 +23,8 @@ import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } f
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { selectDrill, selectPracticeBlock } from '@/lib/smartCoach/drillSelector';
+import { createArcState, extractGapWords, recordGap, markDrillFired, getPreDrillNarration, getPostDrillBridge, markTransferBridgeAttempted } from '@/lib/smartCoach/sessionArc';
+import type { ArcState } from '@/lib/smartCoach/sessionArc';
 import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent, CoachUtteranceAnalysis } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
