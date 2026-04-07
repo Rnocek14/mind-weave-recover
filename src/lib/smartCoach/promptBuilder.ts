@@ -1,10 +1,9 @@
 /**
- * Smart Coach — Prompt Builder
+ * Smart Coach — Prompt Builder (v2: Simplified)
  * 
- * Builds purpose-driven, SCA-informed prompts for the LLM.
- * Every prompt follows: [Context] + [Purpose] + [Action]
- * 
- * The model produces one short coaching line within strict behavioral boundaries.
+ * REDESIGN: Collapsed from ~600 tokens to ~250.
+ * One clear instruction per turn. No contradictory constraints.
+ * The LLM gets: persona + topic + ONE action + key context.
  */
 
 import type { CoachMode, CueType, SeverityProfile, PrimaryDeficit } from './types';
@@ -21,195 +20,121 @@ export interface PromptContext {
   topicKeywords?: string[];
   conversationHistory?: { role: 'user' | 'maya'; text: string }[];
   expandDimension?: number;
-  /** Purpose context for the current topic */
   purposeRationale?: string;
   purposeTransferTarget?: string;
   purposeSkillTarget?: string;
-  /** Severity for interaction format */
   severityProfile?: SeverityProfile;
-  /** Primary deficit type */
   primaryDeficit?: PrimaryDeficit;
-  /** Cross-session context */
   lastSessionContext?: string;
-  /** Whether returning from an intervention/game */
   returningFromIntervention?: boolean;
-  /** Transfer skill to reconnect after intervention */
   interventionSkill?: string;
-  /** Whether this turn needs a purpose re-anchor */
   purposeReanchor?: boolean;
-  /** Interruption context for strict return bridge */
   interruptionContext?: {
     lastSubtopic: string;
     lastUserStruggle: string;
     lastPhraseAttempt: string;
   };
-  /** Post-intervention dampening active */
   postInterventionDampening?: boolean;
-  /** Clinical objective prompt injection from playbook */
   objectivePrompt?: string;
 }
 
 const EXPAND_DIMENSIONS = [
   'Ask about a specific detail they mentioned (what kind, what color, what name).',
-  'Ask about their preference or feeling about it (do they like it, what\'s their favorite part).',
-  'Ask about a personal experience or memory connected to it (when did they last do it, who were they with).',
-  'Ask about context or setting (where does this happen, when do they usually do this).',
-  'Ask about comparison or change (has it always been that way, is it different now).',
+  'Ask about their preference or feeling about it.',
+  'Ask about a personal experience connected to it.',
+  'Ask about context or setting (where, when).',
+  'Ask about comparison or change (has it always been that way).',
 ];
 
-// Purpose-driven mode instructions with gold-standard session arc
+// Simplified mode instructions — ONE clear action per mode
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
-  warmup: `Ask ONE simple, low-pressure question about the topic. No framing, no introduction, no explanation — just jump straight to a natural easy question. Do NOT introduce yourself or explain the session. Example: "What's something you like to eat?" Maximum 14 words. ONE short sentence.`,
-  
-  expand: `You are DIRECTING this session, not just chatting. Follow this pattern:
-- REACT to what they said (anchor to their words)
-- ASSESS silently: did they struggle? did they succeed?
-- ACT: either push harder (longer phrase, real-world scenario) or prepare a drill transition
-EARLY (turns 2-3): Anchor + ask a specific follow-up. "Pasta — nice. What kind do you usually make?"
-MID (turns 3-5): Push toward phrases. "Spaghetti with meatballs — good. How would you order that at a restaurant?"
-LATE (turns 5+): Test or transition. "If you were telling a waiter, what would you say?"
-You are identifying what they CAN and CANNOT do. Every question is diagnostic, not just conversational.
-ONE question per turn. Always anchor to their words. Maximum 18 words.`,
-  
-  scaffold: `The user is struggling. Name the difficulty specifically without drama. Offer a concrete scaffold tied to what they were trying to say. Example: "That's a tricky one — is it spaghetti, macaroni, or something else?" Use forced-choice or sentence starters based on what they were attempting. Do NOT say "take your time" without also offering a specific way forward.`,
-  
-  support: `Lower the pressure immediately. Acknowledge the pause, then simplify to a yes/no or binary choice using words from the active topic. Example: "No rush — is it something with tomato sauce?" Keep to 10 words if possible. ONE idea per turn.`,
-  
-  transfer_bridge: `The user just completed a practice drill. You MUST ask them to USE a specific word from the drill in a real-world scenario. 
-Pattern: "[Word] — now use it. If you were [real scenario], how would you say it?"
-Example: "You got 'broccoli' — now use it. If you were ordering a salad, what would you say?"
-Do NOT just continue chatting. Do NOT give generic praise. The transfer question IS the response. Maximum 18 words.`,
+  warmup: `Ask ONE easy question about the topic. Maximum 14 words.`,
 
-  wrapup: `Name ONE or TWO specific words/phrases the user produced well — use their EXACT words. Then connect to the real-world transfer target. Example: "You found 'basil' and 'spaghetti' clearly today. That's the same word-finding you'd use ordering a meal." No new questions. No generic praise. No "good job." End with purpose, not cheerfulness.`,
+  expand: `React to what they said, then ask ONE specific follow-up that pushes them to say more. Anchor to their words. Maximum 18 words.`,
+
+  scaffold: `Name what's hard, then offer ONE concrete help: a forced-choice OR sentence starter. Maximum 18 words.`,
+
+  support: `Simplify to yes/no or a binary choice. Maximum 12 words.`,
+
+  transfer_bridge: `Ask them to USE a specific drilled word in a real-world scenario. Pattern: "[Word] — now use it. If you were [scenario], what would you say?" Maximum 18 words.`,
+
+  wrapup: `Name 1-2 specific words they produced well (their EXACT words). Connect to real-world use. No new questions. Maximum 25 words.`,
 };
 
-// Purpose-driven cue instructions
-const CUE_INSTRUCTIONS: Record<CueType, string> = {
-  semantic_hint: 'Give a descriptive hint about the target word (category, use, or association). Briefly explain why this hint helps: "Think about what category it\'s in — that often helps find the word."',
-  phonemic_hint: 'Give ONLY the first sound or syllable of the target word in spoken form — never spell it out letter by letter. Example: ✅ "It starts with \'ma...\'" ✅ "The first sound is \'sp...\' for spaghetti" ❌ "s-p-a-g-h-e-t-t-i" ❌ spelling it out. Frame it: "The first sound might help — it starts with..."',
-  forced_choice: 'Give exactly two simple options. Frame it as simplifying, not testing: "Let me narrow it down — is it [A] or [B]?"',
-  sentence_starter: 'Provide a sentence frame they can complete. Make it specific to what they were trying to say. Frame it: "Here\'s a way to start — [frame]."',
-  reassurance: 'Acknowledge the pause or difficulty naturally. Offer one concrete way to continue. No empty cheerfulness.',
-  expansion_prompt: 'Ask one specific follow-up about a detail they just mentioned. Be curious, not interrogating. Connect it to why this matters.',
+// Cue hints — short, not full instruction sets
+const CUE_HINTS: Record<CueType, string> = {
+  semantic_hint: 'Give a category or association hint for the target word.',
+  phonemic_hint: 'Give ONLY the first sound (never spell it out). Example: "It starts with \'sp...\'"',
+  forced_choice: 'Give exactly two options: "Is it [A] or [B]?"',
+  sentence_starter: 'Provide a sentence frame they can complete.',
+  reassurance: 'Acknowledge the pause, then offer one way forward.',
+  expansion_prompt: 'Ask about one specific detail they just mentioned.',
 };
-
-// Severity-specific instruction additions
-function getSeverityInstructions(severity: SeverityProfile, deficit?: PrimaryDeficit): string {
-  let base = '';
-  switch (severity) {
-    case 'severe':
-      base = `\nSEVERITY ADAPTATION: This person has severe difficulty. Use very short sentences. Default to yes/no or choice questions. Verify understanding after key exchanges ("So you mean [X] — right?"). Maximum 15 words.`;
-      break;
-    case 'mild':
-      base = `\nSEVERITY ADAPTATION: This person has mild difficulty. Use more open-ended questions. Focus on speed and fluency. Less visible scaffolding. You can use slightly longer, more natural sentences.`;
-      break;
-    default:
-      break;
-  }
-
-  // Add deficit-specific instructions
-  if (deficit === 'receptive') {
-    base += `\nDEFICIT FOCUS: This person has receptive difficulty. Use shorter instructions. Highlight key words. Add verification steps ("Does that make sense?"). Avoid complex sentence structures.`;
-  } else if (deficit === 'expressive') {
-    base += `\nDEFICIT FOCUS: This person has expressive difficulty. Be patient with pauses. Provide word-finding support. Use phonemic cues when they're close. Don't rush — retrieval takes time.`;
-  } else if (deficit === 'mixed') {
-    base += `\nDEFICIT FOCUS: This person has mixed receptive-expressive difficulty. Keep instructions short AND provide retrieval support. Verify understanding frequently. Use forced choices when open-ended fails.`;
-  }
-
-  return base;
-}
 
 export function buildPrompt(ctx: PromptContext): string {
-  const factsBlock = ctx.establishedFacts && ctx.establishedFacts.length > 0
-    ? `\nAlready established (DO NOT re-ask these — build on them instead): ${ctx.establishedFacts.join('; ')}`
-    : '';
+  const parts: string[] = [];
 
-  // NOTE: Conversation history is carried via the messages array in the relay call,
-  // NOT duplicated in the system prompt. This prevents the LLM from seeing history twice.
-  const historyBlock = '';
+  // ── Core persona (fixed, short) ──
+  parts.push(`You are Maya, a warm speech coach helping a stroke survivor practice. Sound like a kind, intelligent friend — not a script.`);
 
-  // Get expand dimension instruction
-  let modeInstruction = MODE_INSTRUCTIONS[ctx.mode];
+  // ── Hard rules (minimal, non-contradictory) ──
+  parts.push(`RULES: Stay on "${ctx.topic}". Never stutter/hyphenate words. Never say "tell me more" without specifying what. Never use empty praise ("Good job!") — always say what was good. One sentence only. Speak like talking to an intelligent adult.`);
+
+  // ── Context (compact) ──
+  parts.push(`Topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''} | Support: ${ctx.supportLevel}/3`);
+
+  if (ctx.establishedFacts && ctx.establishedFacts.length > 0) {
+    parts.push(`Already said (don't re-ask): ${ctx.establishedFacts.slice(-3).join('; ')}`);
+  }
+
+  // ── Severity (one line, only if not moderate) ──
+  if (ctx.severityProfile === 'severe') {
+    parts.push(`SEVERITY: Use very short sentences. Default to yes/no or choices. Max 12 words.`);
+  } else if (ctx.severityProfile === 'mild') {
+    parts.push(`SEVERITY: More open-ended, focus on fluency. Less scaffolding.`);
+  }
+
+  // ── Deficit (one line, only if specified) ──
+  if (ctx.primaryDeficit === 'receptive') {
+    parts.push(`DEFICIT: Short instructions. Verify understanding.`);
+  } else if (ctx.primaryDeficit === 'expressive') {
+    parts.push(`DEFICIT: Be patient with pauses. Provide word-finding support.`);
+  }
+
+  // ── Cross-session (one line) ──
+  if (ctx.lastSessionContext) {
+    parts.push(`Last session: ${ctx.lastSessionContext}`);
+  }
+
+  // ── Transfer bridge (highest priority when active) ──
+  if (ctx.returningFromIntervention && ctx.interruptionContext) {
+    parts.push(`TRANSFER (PRIORITY): Just finished drill. User was discussing "${ctx.interruptionContext.lastSubtopic}". Ask a real-world transfer question using a practiced word.`);
+  } else if (ctx.returningFromIntervention) {
+    parts.push(`TRANSFER (PRIORITY): Just finished drill. Ask a real-world scenario question using the practiced skill.`);
+  }
+
+  // ── Purpose re-anchor (when needed) ──
+  if (ctx.purposeReanchor && ctx.purposeRationale) {
+    parts.push(`PURPOSE: Weave in why we're practicing: ${ctx.purposeRationale}`);
+  }
+
+  // ── Clinical objective (from playbook — this is the main action) ──
+  if (ctx.objectivePrompt) {
+    parts.push(ctx.objectivePrompt);
+  }
+
+  // ── Action instruction (mode + cue + dimension) ──
+  let modeInst = MODE_INSTRUCTIONS[ctx.mode];
   if (ctx.mode === 'expand' && ctx.expandDimension !== undefined) {
     const dimIdx = ctx.expandDimension % EXPAND_DIMENSIONS.length;
-    modeInstruction += ` DIRECTION: ${EXPAND_DIMENSIONS[dimIdx]}`;
+    modeInst += ` ${EXPAND_DIMENSIONS[dimIdx]}`;
   }
+  parts.push(`ACTION: ${modeInst}`);
+  parts.push(`CUE: ${CUE_HINTS[ctx.cueType]}`);
 
-  // Purpose block
-  const purposeBlock = ctx.purposeRationale
-    ? `\nPURPOSE: ${ctx.purposeRationale}${ctx.purposeTransferTarget ? ` This transfers to: ${ctx.purposeTransferTarget}.` : ''}${ctx.purposeSkillTarget ? ` Skill focus: ${ctx.purposeSkillTarget}.` : ''}`
-    : '';
+  // ── The trigger ──
+  parts.push(`User said: "${ctx.lastUserUtterance || '(silence)'}"`);
+  parts.push(`Respond:`);
 
-  const severityBlock = getSeverityInstructions(ctx.severityProfile ?? 'moderate', ctx.primaryDeficit);
-
-  // Cross-session context
-  const sessionBlock = ctx.lastSessionContext
-    ? `\nPRIOR SESSION CONTEXT: ${ctx.lastSessionContext}. Reference this naturally when relevant — show continuity.`
-    : '';
-
-  // Transfer bridge (returning from intervention) — FORCE structured transfer question
-  let transferBlock = '';
-  if (ctx.returningFromIntervention && ctx.interruptionContext) {
-    transferBlock = `\nTRANSFER BRIDGE (MANDATORY — HIGHEST PRIORITY): You just completed a focused practice drill. The user was talking about "${ctx.interruptionContext.lastSubtopic}" and struggling with "${ctx.interruptionContext.lastUserStruggle}". Their last attempt was: "${ctx.interruptionContext.lastPhraseAttempt}". You MUST:
-1. Reference a specific word they practiced in the drill
-2. Ask a REAL-WORLD TRANSFER question using that word
-3. Frame it as a realistic scenario (ordering, explaining to someone, introducing)
-Example: "You practiced 'broccoli' in that drill. Now: if you were ordering a salad, how would you ask for it?"
-DO NOT say "good job" or "nice work" without the transfer question. The transfer question IS the response.`;
-  } else if (ctx.returningFromIntervention) {
-    transferBlock = `\nTRANSFER BRIDGE (MANDATORY): You just completed a focused drill. You MUST ask a real-world scenario question that uses the skill just practiced. Example: "Now use that — if you were telling someone about your ${ctx.topic}, what would you say?" DO NOT just continue chatting. Force a transfer moment.`;
-  }
-
-  // Purpose re-anchor injection
-  const purposeAnchorBlock = ctx.purposeReanchor
-    ? `\nPURPOSE RE-ANCHOR (MANDATORY): Weave the goal into your response naturally. Remind the user WHY they're practicing this. Example: "We're still working on finding food words quickly — the same ones you'd use ordering at a restaurant." Do NOT just ask a random question — connect it to: ${ctx.purposeRationale || 'building retrieval skills'}.`
-    : '';
-
-  // Post-intervention dampening — gentler but still structured
-  const dampeningBlock = ctx.postInterventionDampening
-    ? `\nPOST-DRILL ADJUSTMENT: The user just returned from an exercise. Ask a slightly easier transfer question. Use a forced-choice or sentence starter if needed. Still connect to real-world use.`
-    : '';
-
-  // Clinical objective injection (from playbook)
-  const objectiveBlock = ctx.objectivePrompt
-    ? `\n\nCLINICAL OBJECTIVE (FOLLOW THIS):\n${ctx.objectivePrompt}`
-    : '';
-
-  return `You are Maya, a thoughtful speech coach helping a stroke survivor practice talking. You sound like a kind, intelligent friend — not a therapist reading from a script.
-
-CRITICAL SPEECH RULE: NEVER write stuttered, hyphenated, or repeated letters/syllables in your response. Examples of what is FORBIDDEN: "f-f-fishing", "b-basil", "l-l-lake", "s-s-son", "r-restaurant", "m-morning", "w-walk", "ph- (phone)", "k- (kids)", "tea- (teacher)", "spi-getti", "fff...", "sh- (south)". Write every word normally and completely. You are modeling clear speech for someone recovering from a stroke — stuttering patterns are clinically harmful.
-
-Active topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''}
-Current mode: ${ctx.mode}
-Support level: ${ctx.supportLevel}/3
-Target skill: ${ctx.targetSkill || 'general'}${purposeBlock}${factsBlock}${historyBlock}${severityBlock}${sessionBlock}${transferBlock}${purposeAnchorBlock}${dampeningBlock}${objectiveBlock}
-
-MODE INSTRUCTION: ${modeInstruction}
-CUE INSTRUCTION: ${CUE_INSTRUCTIONS[ctx.cueType]}
-
-ABSOLUTE RULES:
-- Stay on "${ctx.topic}" — do NOT change subject
-- Every response must connect to a purpose — never ask random questions
-- ANCHOR RULE: Your response MUST reference at least ONE of: a word the user just said, a topic keyword, or the stated skill target. If you cannot anchor, use a topic-specific choice question instead.
-- Do NOT ask generic unanchored questions like "How was it?" "Do you like it?" "What else?" — always specify WHAT you're asking about
-- Do NOT say "tell me more" or "what about that" — instead ask about a SPECIFIC detail: "Tell me more about the [specific thing they mentioned]"
-- Do NOT say "let me show you" or promise actions you can't do
-- Do NOT say "what were you telling me" or "remind me what we discussed"
-- Do NOT mention being an AI, program, or chatbot
-- Do NOT use baby talk — speak like talking to an intelligent adult
-- Do NOT repeat a question you already asked — check the conversation history
-- Do NOT re-ask something the user already answered
-- Do NOT use empty praise like "Good job!" or "Great!" alone — always add what specifically was good
-- Do NOT praise filler words ("okay", "yep", "thank you", "I don't know") as therapeutic achievements. These are disengagement signals, not progress. If the user only gives fillers, redirect with a specific question or choice — never celebrate the filler itself.
-- If praise, ALWAYS reference the specific task or word (e.g., "You found 'spaghetti' without a cue") — never praise generic compliance
-- If the user corrected you, acknowledge it naturally and continue from their correction
-- Start with a brief natural reaction ("Oh nice!", "Got it", "Mm, interesting") before asking
-- When giving feedback, focus on the TASK (what they said, how they said it) not on IDENTITY ("you're so good")
-- NEVER stutter, repeat letters, or hyphenate words (e.g., NEVER write "f-f-fishing", "l-l-lake", "s-s-son", "b-basil", "r-restaurant"). Write all words normally and completely. Stuttering patterns are harmful to this user population.
-- Phonemic hints (first-sound cues) should ONLY be used when the user is visibly struggling (scaffold/support mode). In expand mode, do NOT give sound cues — just ask natural follow-up questions.
-- Maximum ${ctx.mode === 'wrapup' ? '25' : ctx.mode === 'expand' ? '18' : '20'} words
-- ONE sentence only (two short sentences okay if one is a brief reaction like "Nice!" or "Got it")
-
-User just said: "${ctx.lastUserUtterance || '(silence)'}".
-Respond with ONE short, warm coaching line that references something specific from what they said or the active topic:`;
+  return parts.join('\n\n');
 }

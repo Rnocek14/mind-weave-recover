@@ -32,7 +32,7 @@ export { selectCue } from './cueSelector';
 export { validateCoachLine } from './safetyValidator';
 export { postProcessCoachLine, findRepeatedNoun, updateMayaNouns } from './responsePostProcessor';
 export { getFallbackLine } from './fallbackLibrary';
-export { getSessionLogs, clearSessionLogs, exportLogsAsJson } from './coachLogger';
+export { getSessionLogs, clearSessionLogs, exportLogsAsJson, getSessionFallbackRate } from './coachLogger';
 export { getTopicPurpose, getAllTopics, getTopicDefinition } from './topicPurposeMap';
 export type { TopicDefinition } from './topicPurposeMap';
 export { detectGameTrigger, selectGame, buildInterventionFrame, buildGameReturnText, GAME_CATALOG } from './gameTrigger';

@@ -272,8 +272,8 @@ describe('Scenario A: Mild Expressive — Strong Progress', () => {
     expect(typeof result.valid).toBe('boolean');
   });
 
-  it('A13: safety rejects completely unanchored line', () => {
-    const result = validateCoachLine("Tell me more about that.", 'food', [], {
+  it('A13: safety rejects banned AI identity phrases', () => {
+    const result = validateCoachLine("As an AI, I can help you practice.", 'food', [], {
       lastUserUtterance: 'chicken', topicKeywords: ['food', 'chicken'],
     });
     expect(result.valid).toBe(false);
@@ -1112,9 +1112,9 @@ describe('Scenario F: Full Session Simulations', () => {
 
   it('F17: validation rejects lazy follow-ups', () => {
     const lazyLines = [
-      "Tell me more about that.",
-      "What else?",
-      "How do you feel about that?",
+      "Tell me more.",  // bare vague filler
+      "Go on.",         // bare vague filler
+      "Continue.",      // bare vague filler
     ];
     for (const line of lazyLines) {
       const result = validateCoachLine(line, 'food', [], {

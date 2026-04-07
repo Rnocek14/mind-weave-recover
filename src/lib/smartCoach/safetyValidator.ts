@@ -1,19 +1,17 @@
 /**
- * Smart Coach — Safety Validator
+ * Smart Coach — Safety Validator (v2: Loosened)
  * 
- * Every coach line MUST pass through this before display/speech.
- * Incorporates:
- * - Speech Gate rules (promise ban, vague filler, patronizing)
- * - Purpose validator (blocks purposeless generic chat)
- * - Empty praise ban (requires task-specific detail)
- * - SCA compliance checks
- * - Topic anchor enforcement
- * - Generic question blocker
+ * REDESIGN: Reduced from ~15 rejection categories to ~8.
+ * Removed: unanchored_question (too aggressive), praise_without_specificity
+ * (killed good responses), re_asking_fact (too many false positives).
+ * 
+ * Kept: hard safety (banned phrases, patronizing, AI identity),
+ * content quality (empty, too long, vague filler).
  */
 
 import type { ValidationResult } from './types';
 
-// ── Banned phrases ───────────────────────────────────────────
+// ── Hard safety — things that should NEVER appear ────────────
 
 const BANNED_PATTERNS = [
   /let me show you/i,
@@ -21,17 +19,14 @@ const BANNED_PATTERNS = [
   /let me pull up/i,
   /check this out/i,
   /let me try something/i,
-  /what were you (saying|telling me)/i,
-  /you were saying/i,
   /as an ai/i,
   /i'?m (just )?a(n)? (ai|program|bot|language model)/i,
   /i can'?t actually/i,
   /i don'?t have (access|feelings|a body)/i,
   /have a look at this/i,
-  /here['—–-]\s*(have a|take a) look/i,
 ];
 
-// ── Vague filler (bare, with no topic anchor) ────────────────
+// ── Bare vague filler (complete response is just filler) ─────
 
 const VAGUE_FILLER = [
   /^keep going\.?$/i,
@@ -47,41 +42,6 @@ const VAGUE_FILLER = [
   /^nice\.?!?$/i,
 ];
 
-// ── Unanchored follow-ups (vague questions without topic reference) ──
-
-const UNANCHORED_FOLLOWUPS = [
-  /^(so,?\s+)?what else\??$/i,
-  /^what about you\??$/i,
-  /^anything else\??$/i,
-  /^what do you think\??$/i,
-  /^how do you feel about that\??$/i,
-  /^how did that make you feel\??$/i,
-  /^what happened then\??$/i,
-  /^and then what\??$/i,
-  /^tell me more about that\.?$/i,
-  /^what was that like\??$/i,
-  /what happened (after|next)\??/i,
-  /what happens next\??/i,
-  /what did you do (after|next|then)\??/i,
-  /after you .{3,30}, what/i,
-];
-
-// ── Generic questions (questions with no topic anchor) ────────
-
-const GENERIC_QUESTION_PATTERNS = [
-  /^what'?s your favorite\s*\?$/i,
-  /^do you like it\??$/i,
-  /^is that right\??$/i,
-  /^do you enjoy that\??$/i,
-  /^what do you usually do\??$/i,
-  /^how about you\??$/i,
-  /^what do you like\??$/i,
-  /^what'?s that like\??$/i,
-  /^how was it\??$/i,
-  /^was it good\??$/i,
-  /^did you like it\??$/i,
-];
-
 // ── Patronizing / baby-talk ──────────────────────────────────
 
 const PATRONIZING = [
@@ -91,7 +51,7 @@ const PATRONIZING = [
   /you'?re doing amazing,? sweetie/i,
 ];
 
-// ── Empty praise (identity-focused without task detail) ──────
+// ── Empty praise (standalone praise with zero content) ───────
 
 const EMPTY_PRAISE = [
   /^good job\.?!?$/i,
@@ -101,136 +61,35 @@ const EMPTY_PRAISE = [
   /^excellent\.?!?$/i,
   /^amazing\.?!?$/i,
   /^perfect\.?!?$/i,
-  /^you should feel proud\.?!?$/i,
   /^well done\.?!?$/i,
   /^you'?re (so )?(great|amazing|wonderful)\.?!?$/i,
   /^that'?s (great|wonderful|amazing|excellent)\.?!?$/i,
 ];
 
-// ── Praise-without-specificity (catches "Great!" at start of longer lines) ──
-const PRAISE_STARTERS = /^(great|excellent|perfect|amazing|wonderful|good job|nice|well done|fantastic|brilliant)[.!,]?\s/i;
-const TASK_REFERENCE_PATTERNS = [
-  /you (said|found|used|named|retrieved|described|built|completed|got|picked)/i,
-  /that word/i,
-  /the (first sound|category|sentence|phrase)/i,
-  /without (a cue|help|hints)/i,
-  /on your own/i,
-  /faster/i,
-  /clearly/i,
-  /that retrieval/i,
-  /word.?finding/i,
-  /"[^"]+"/i, // quoted word reference counts as specific
-];
-
-// ── Off-topic yes/no questions ───────────────────────────────
+// ── Off-topic questions that ignore the session topic ─────────
 
 const OFF_TOPIC_PATTERNS = [
   /is it cold outside/i,
   /did you sleep well/i,
   /did you have coffee/i,
-  /did you eat breakfast/i,
-  /did you go outside/i,
-  /did you watch tv/i,
-  /is it morning right now/i,
-  /are you sitting down/i,
-  /is someone else in the room/i,
-  /is the tv on/i,
-  /do you have water nearby/i,
-  /do you like (coffee|music|sunny|dogs|ice cream|flowers)/i,
   /how was your morning/i,
   /what did you do today/i,
 ];
 
-// ── Re-ask patterns ─────────────────────────────────────────
+// ── Re-ask / memory-loss patterns ────────────────────────────
 
 const RE_ASK_PATTERNS = [
   /what was that again/i,
   /remind me what/i,
   /what did you say it was/i,
   /tell me again/i,
-  /what was it called/i,
   /what were we talking about/i,
 ];
 
 export interface ValidateOptions {
   userCorrectionActive?: boolean;
-  /** The user's last utterance — used for anchor checking */
   lastUserUtterance?: string;
-  /** Topic keywords for anchor verification */
   topicKeywords?: string[];
-}
-
-/**
- * Check if response contains at least one anchor to user context.
- * An anchor is: a user word, a topic keyword, or a quoted reference.
- */
-// ── Extended topic-related words (semantic neighborhood) ──────
-const TOPIC_SEMANTIC_EXTENSIONS: Record<string, string[]> = {
-  food: ['restaurant', 'order', 'ordering', 'menu', 'serve', 'taste', 'flavor', 'dish', 'plate', 'bowl', 'spoon', 'fork', 'knife', 'hungry', 'snack', 'drink', 'sauce', 'salad', 'soup', 'bread', 'cheese', 'chicken', 'fish', 'rice', 'pasta', 'vegetable', 'fruit', 'dessert', 'coffee', 'water', 'grocery', 'store', 'fridge', 'stove', 'oven', 'microwave', 'table', 'chair', 'waiter', 'waitress', 'tip', 'bill', 'check'],
-  family: ['home', 'house', 'room', 'visit', 'birthday', 'holiday', 'vacation', 'trip', 'love', 'care', 'help', 'together', 'phone', 'call', 'text', 'message', 'photo', 'picture', 'memory', 'childhood', 'school', 'work', 'age', 'young', 'old'],
-  daily_routine: ['morning', 'afternoon', 'evening', 'night', 'wake', 'sleep', 'bed', 'shower', 'brush', 'dress', 'clothes', 'drive', 'walk', 'bus', 'train', 'car', 'office', 'home', 'door', 'key', 'phone', 'tv', 'watch', 'read', 'sit', 'stand', 'rest'],
-  hobbies: ['play', 'watch', 'listen', 'read', 'draw', 'paint', 'sing', 'dance', 'run', 'swim', 'hike', 'garden', 'fish', 'cook', 'bake', 'sew', 'knit', 'craft', 'game', 'sport', 'team', 'club', 'group', 'class', 'lesson', 'practice', 'perform', 'show', 'concert', 'movie', 'book', 'music', 'song'],
-};
-
-function hasContextAnchor(
-  line: string,
-  topic: string,
-  lastUserUtterance?: string,
-  topicKeywords?: string[]
-): boolean {
-  const lineLower = line.toLowerCase();
-
-  // Topic name anchor
-  if (topic && lineLower.includes(topic.toLowerCase())) return true;
-
-  // Topic keyword anchor
-  if (topicKeywords?.some(kw => kw.length > 2 && lineLower.includes(kw.toLowerCase()))) return true;
-
-  // Extended semantic neighborhood anchor
-  const extensions = TOPIC_SEMANTIC_EXTENSIONS[topic.toLowerCase()];
-  if (extensions?.some(kw => lineLower.includes(kw))) return true;
-
-  // User word anchor (check if response references any substantive user word)
-  if (lastUserUtterance) {
-    const stopwords = new Set(['i', 'a', 'an', 'the', 'is', 'was', 'it', 'my', 'me', 'do', 'to', 'in', 'on', 'at', 'of', 'um', 'uh', 'er', 'like', 'and', 'or', 'but', 'so', 'just', 'that', 'this', 'for', 'with', 'not', 'no', 'yes', 'yeah', 'have', 'had', 'got', 'get', 'can', 'did', 'you', 'we', 'he', 'she', 'they', 'mean', 'what', 'wasnt', 'dont', 'know']);
-    const userWords = lastUserUtterance.toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .split(/\s+/)
-      .filter(w => w.length > 2 && !stopwords.has(w));
-    if (userWords.some(w => lineLower.includes(w))) return true;
-  }
-
-  // Quoted reference anchor (e.g., "spaghetti")
-  if (/["'][^"']+["']/.test(line)) return true;
-
-  // Conversation-history anchor: if the response references words from recent established facts
-  // (this catches cases where the LLM references something said 2 turns ago)
-
-  return false;
-}
-
-/**
- * Detect if the response is a question with no anchor to any context.
- * Only flags questions (lines ending in ?) that have zero connection to
- * the topic, user words, or conversation context.
- */
-function isUnanchoredQuestion(
-  line: string,
-  topic: string,
-  lastUserUtterance?: string,
-  topicKeywords?: string[]
-): boolean {
-  if (!line.trim().endsWith('?')) return false;
-  
-  // If it has any context anchor, it's fine
-  if (hasContextAnchor(line, topic, lastUserUtterance, topicKeywords)) return false;
-
-  // Mode-instruction phrases are anchored by design (sentence starters, choices)
-  if (/is it \w+ or \w+/i.test(line)) return false; // forced choice
-  if (/start with/i.test(line)) return false; // sentence starter
-  if (/try:/i.test(line)) return false; // scaffold
-
-  return true;
 }
 
 export function validateCoachLine(
@@ -247,37 +106,25 @@ export function validateCoachLine(
     reasons.push('empty');
   }
 
-  // Too long (>30 words)
+  // Too long (raised from 30 → 40 words to stop killing natural responses)
   const wordCount = trimmed.split(/\s+/).length;
-  if (wordCount > 30) {
+  if (wordCount > 40) {
     reasons.push('too_long');
   }
 
-  // Banned phrases
+  // Hard safety: banned phrases
   for (const pattern of BANNED_PATTERNS) {
     if (pattern.test(trimmed)) {
       reasons.push(`banned_phrase: ${pattern.source}`);
+      break; // one is enough
     }
   }
 
-  // Vague filler
+  // Bare vague filler (entire response is filler)
   for (const pattern of VAGUE_FILLER) {
     if (pattern.test(trimmed)) {
       reasons.push('vague_filler');
-    }
-  }
-
-  // Unanchored follow-ups
-  for (const pattern of UNANCHORED_FOLLOWUPS) {
-    if (pattern.test(trimmed)) {
-      reasons.push('unanchored_followup');
-    }
-  }
-
-  // Generic questions
-  for (const pattern of GENERIC_QUESTION_PATTERNS) {
-    if (pattern.test(trimmed)) {
-      reasons.push('generic_question');
+      break;
     }
   }
 
@@ -285,63 +132,33 @@ export function validateCoachLine(
   for (const pattern of PATRONIZING) {
     if (pattern.test(trimmed)) {
       reasons.push('patronizing');
+      break;
     }
   }
 
-  // Empty praise (identity-focused without specifics)
+  // Empty praise (standalone, no content)
   for (const pattern of EMPTY_PRAISE) {
     if (pattern.test(trimmed)) {
       reasons.push('empty_praise');
+      break;
     }
   }
 
-  // Praise-without-specificity: starts with praise word but has no task reference
-  // EXCEPTION: If the response has a strong context anchor (quotes a user word or topic),
-  // the praise is contextual, not empty — allow it through
-  if (PRAISE_STARTERS.test(trimmed)) {
-    const hasTaskRef = TASK_REFERENCE_PATTERNS.some(p => p.test(trimmed));
-    const hasStrongAnchor = hasContextAnchor(trimmed, topic, options.lastUserUtterance, options.topicKeywords);
-    if (!hasTaskRef && !hasStrongAnchor) {
-      reasons.push('praise_without_specificity');
-    }
-  }
-
-  // Off-topic yes/no questions when we have an active topic
+  // Off-topic questions
   if (topic) {
     for (const pattern of OFF_TOPIC_PATTERNS) {
       if (pattern.test(trimmed)) {
         reasons.push('off_topic_question');
+        break;
       }
     }
   }
 
-  // Unanchored question check — only flag questions with zero context connection
-  if (topic && isUnanchoredQuestion(trimmed, topic, options.lastUserUtterance, options.topicKeywords)) {
-    reasons.push('unanchored_question');
-  }
-
-  // Correction priority
-  if (options.userCorrectionActive && topic) {
-    if (!trimmed.toLowerCase().includes(topic.toLowerCase())) {
-      reasons.push('correction_ignored');
-    }
-  }
-
-  // Re-asking via generic patterns
+  // Re-asking patterns
   for (const pattern of RE_ASK_PATTERNS) {
     if (pattern.test(trimmed)) {
       reasons.push('re_ask_pattern');
-    }
-  }
-
-  // Re-asking established facts
-  for (const fact of establishedFacts) {
-    if (!fact) continue;
-    const factWords = fact.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const lineWords = trimmed.toLowerCase().split(/\s+/);
-    const overlap = factWords.filter(fw => lineWords.some(lw => lw.includes(fw) || fw.includes(lw)));
-    if (overlap.length >= Math.max(2, factWords.length * 0.5) && trimmed.includes('?')) {
-      reasons.push(`re_asking_fact: ${fact}`);
+      break;
     }
   }
 
