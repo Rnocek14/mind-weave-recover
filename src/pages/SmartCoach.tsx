@@ -474,7 +474,16 @@ export default function SmartCoach() {
         lastDrillCompletedAtTurn: lastDrillTurn,
         prevAnalysis,
         returningFromIntervention: isReturningFromDrill,
+        arcState,
       });
+
+      // ── Arc: extract gaps during assessment phase ──
+      if (arcState.phase === 'orient_assess' && selectedTopic) {
+        const gaps = extractGapWords(userText, selectedTopic.keywords, result.analysis);
+        if (gaps.length > 0) {
+          setArcState(prev => recordGap(prev, gaps, turnCount));
+        }
+      }
 
       // Save analysis for next turn's consecutive detection
       setPrevAnalysis(result.analysis);
