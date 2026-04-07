@@ -40,7 +40,7 @@ export default function TwoCluesExercise() {
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
@@ -155,7 +155,7 @@ export default function TwoCluesExercise() {
             totalScore: results.reduce((sum, r) => sum + r.score, 0),
           }
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, completeSession]);
@@ -163,7 +163,7 @@ export default function TwoCluesExercise() {
   // Navigation
   const handleBack = useCallback(() => {
     if (fromLesson) {
-      navigate('/lesson');
+      navigate(returnTo);
     } else {
       navigate('/dashboard');
     }

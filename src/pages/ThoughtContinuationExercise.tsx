@@ -31,7 +31,7 @@ export default function ThoughtContinuationExercise() {
   
   // Lesson flow integration with sessionStorage fallback
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
@@ -76,17 +76,17 @@ export default function ThoughtContinuationExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'thought-continuation', results: summary },
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   };
 
   const handleExit = () => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   };
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
   const handleContinue = useCallback(() => {
@@ -95,7 +95,7 @@ export default function ThoughtContinuationExercise() {
       window.dispatchEvent(new CustomEvent('exercise-complete', {
         detail: { exerciseSlug: 'thought-continuation' },
       }));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else if (!fromLesson) {
       navigate('/dashboard');
     }

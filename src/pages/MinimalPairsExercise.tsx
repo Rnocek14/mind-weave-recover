@@ -31,7 +31,7 @@ export default function MinimalPairsExercise() {
   const { activeProfile } = useProfile();
   
   const restored = useRestoredLessonContext('minimal-pairs');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
@@ -85,7 +85,7 @@ export default function MinimalPairsExercise() {
   }, [user?.id, isStarted, fromLesson, lessonSessionId]);
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
   
   const handleComplete = useCallback((results: {
@@ -103,7 +103,7 @@ export default function MinimalPairsExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'minimal-pairs', results },
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, navigate]);

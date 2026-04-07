@@ -30,7 +30,7 @@ export default function PhonologicalExercise() {
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('phonological-awareness');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const lessonFocusPhonemes = location.state?.focusPhonemes as string[] | undefined;
@@ -128,7 +128,7 @@ export default function PhonologicalExercise() {
     
     // Dispatch event and navigate back to lesson
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   const handleGameStart = async () => {
@@ -166,7 +166,7 @@ export default function PhonologicalExercise() {
     if (fromLesson) {
       // Return to lesson flow
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       // Standalone mode - go to dashboard
       setTimeout(() => navigate('/dashboard'), 2000);

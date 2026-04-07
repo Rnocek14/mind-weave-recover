@@ -38,7 +38,7 @@ export default function FixSentenceExercise() {
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
 
   // Shared adaptation contract
@@ -120,13 +120,13 @@ export default function FixSentenceExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: EXERCISE_SLUG, results },
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, completeSession]);
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
   const handleContinue = useCallback(() => {

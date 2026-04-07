@@ -30,7 +30,7 @@ export default function SemanticFeatureExercise() {
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('semantic-features');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   
@@ -123,7 +123,7 @@ export default function SemanticFeatureExercise() {
     });
     
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   const handleGameStart = async () => {
@@ -158,7 +158,7 @@ export default function SemanticFeatureExercise() {
     
     if (fromLesson) {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       setTimeout(() => navigate('/dashboard'), 2000);
     }

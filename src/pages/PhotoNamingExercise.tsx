@@ -93,7 +93,7 @@ function PhotoNamingExerciseInner() {
   
   // Extract lesson flow state (with sessionStorage fallback)
   const restored = useRestoredLessonContext('photo-naming');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
@@ -599,7 +599,7 @@ function PhotoNamingExerciseInner() {
     
     // Dispatch event and navigate back to lesson
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   const handleGameComplete = async () => {
@@ -659,7 +659,7 @@ function PhotoNamingExerciseInner() {
     if (fromLesson) {
       // Return to lesson flow
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       // Standalone mode - go to dashboard
       navigate('/dashboard');
@@ -841,7 +841,7 @@ function PhotoNamingExerciseInner() {
                       // Switch to strength domain — navigate back to lesson to pick next exercise
                       if (fromLesson) {
                         window.dispatchEvent(new CustomEvent('exercise-complete'));
-                        navigate('/lesson', { state: { resuming: true } });
+                        navigate(returnTo, { state: { resuming: true } });
                       }
                     }
                   }}

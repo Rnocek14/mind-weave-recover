@@ -1,28 +1,28 @@
 /**
- * Smart Coach — Continuous Therapy Canvas
+ * Smart Coach — Continuous Therapy Canvas (Simplified)
  * 
  * Architecture: Adaptive Session (body) + Smart Coach Intelligence (brain) + Maya (presence)
  * 
- * NO chat UI. NO modals. Full-screen card flow with LessonFlow-style exercise navigation.
- * Maya narrates between games. Games are full-page, identical to adaptive sessions.
+ * Flow: Plan → Game 1 → Transfer → Game 2 → Complete
+ * Maya narrates inline via bubble/toasts, NOT full-screen cards between every step.
+ * Games are full-page, identical to adaptive sessions.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, ArrowRight, RefreshCw, RotateCcw, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle2, Target, Zap, TrendingUp, Brain, Clock, ArrowRight, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { generateSessionPlan, selectReactiveGame2, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
-import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { getPostDrillReview } from '@/lib/smartCoach/sessionArc';
 import { saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
-import { loadWordHistory, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
+import { loadWordHistory, type WordHistory } from '@/lib/smartCoach/crossSessionRetention';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
 import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import type { SessionMetrics } from '@/lib/smartCoach/types';
@@ -33,38 +33,30 @@ import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
-import { getFeedbackTone } from '@/lib/performanceAwareFeedback';
+import { toast } from 'sonner';
 
-// ─── Session Phase State Machine ────────────────────────────
+// ─── Session Phase State Machine (Simplified) ──────────────
 
 type SessionPhase =
   | 'loading'
   | 'plan'
-  | 'opener'
-  | 'warmup'
-  | 'game1_setup'
+  | 'game1_intro'     // merged opener + game1 setup
   | 'game1_playing'
-  | 'game1_review'
-  | 'transfer_check'
-  | 'game2_setup'
+  | 'transfer_check'  // only input card in the flow
   | 'game2_playing'
-  | 'game2_review'
   | 'complete';
 
 // Phase progress mapping
-const PHASE_LABELS = ['Welcome', 'Warm up', 'Practice 1', 'Review', 'Transfer', 'Practice 2', 'Review', 'Complete'];
+const PHASE_LABELS = ['Get ready', 'Practice 1', 'Transfer', 'Practice 2', 'Complete'];
 const TOTAL_PHASES = PHASE_LABELS.length;
 
 function getPhaseIndex(phase: SessionPhase): number {
   switch (phase) {
-    case 'opener': return 0;
-    case 'warmup': return 1;
-    case 'game1_setup': case 'game1_playing': return 2;
-    case 'game1_review': return 3;
-    case 'transfer_check': return 4;
-    case 'game2_setup': case 'game2_playing': return 5;
-    case 'game2_review': return 6;
-    case 'complete': return 7;
+    case 'game1_intro': return 0;
+    case 'game1_playing': return 1;
+    case 'transfer_check': return 2;
+    case 'game2_playing': return 3;
+    case 'complete': return 4;
     default: return 0;
   }
 }
@@ -96,7 +88,6 @@ export default function SmartCoach() {
   // Session state
   const [phase, setPhase] = useState<SessionPhase>('loading');
   const [plan, setPlan] = useState<SessionPlan | null>(null);
-  const [warmupResponse, setWarmupResponse] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Game results
@@ -106,7 +97,6 @@ export default function SmartCoach() {
   // Transfer tracking
   const [transferTargets, setTransferTargets] = useState<TransferTarget[]>([]);
   const [transferResults, setTransferResults] = useState<TransferSummaryItem[]>([]);
-  const [transferFeedbackText, setTransferFeedbackText] = useState<string | null>(null);
   
   // Cross-session
   const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
@@ -145,12 +135,10 @@ export default function SmartCoach() {
       setGame1Result(state.game1Result);
       setTransferTargets(state.transferTargets || []);
       setTransferResults(state.transferResults || []);
-      setWarmupResponse(state.warmupResponse);
       setWordHistory(state.wordHistory || []);
       
-      // Determine which phase to resume at based on which game just completed
+      // Determine which phase to resume at
       if (state.returningFromGame === 2) {
-        // Game 2 just finished — we need the result from the exercise-complete event
         setPhase('game2_playing');
       } else if (state.returningFromGame === 1) {
         setPhase('game1_playing');
@@ -216,8 +204,8 @@ export default function SmartCoach() {
     if (phase === 'complete' && user?.id && plan && !sessionSaved.current) {
       sessionSaved.current = true;
       const metrics: SessionMetrics = {
-        wordsProduced: warmupResponse ? warmupResponse.split(/\s+/).length : 0,
-        longestResponse: warmupResponse ? warmupResponse.split(/\s+/).length : 0,
+        wordsProduced: 0,
+        longestResponse: 0,
         hesitationCount: 0,
         independentResponses: 1,
         cueAssistedCount: 0,
@@ -229,18 +217,16 @@ export default function SmartCoach() {
       };
       saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, []);
     }
-  }, [phase, user?.id, plan, warmupResponse]);
+  }, [phase, user?.id, plan]);
 
   // ─── Create Supabase session ──────────────────────────────
   
   const createSession = useCallback(async () => {
-    if (!user || sessionIdRef.current?.includes('-')) {
-      // Already have a real session or no user
-    }
+    if (!user) return;
     const { data, error } = await supabase
       .from('sessions')
       .insert({
-        user_id: user!.id,
+        user_id: user.id,
         profile_id: activeProfile?.id,
         started_at: new Date().toISOString(),
         plan: plan as any,
@@ -260,9 +246,8 @@ export default function SmartCoach() {
     const route = EXERCISE_ROUTE_MAP[game.exerciseSlug];
     if (!route) {
       console.error('[SmartCoach] No route for:', game.exerciseSlug);
-      // Skip to next phase
-      if (slot === 1) setPhase('game1_review');
-      else setPhase('game2_review');
+      if (slot === 1) setPhase('transfer_check');
+      else setPhase('complete');
       return;
     }
     
@@ -273,7 +258,6 @@ export default function SmartCoach() {
       game1Result,
       transferTargets,
       transferResults,
-      warmupResponse,
       wordHistory,
       returningFromGame: slot,
     }));
@@ -286,6 +270,7 @@ export default function SmartCoach() {
       state: {
         sessionId: sessionIdRef.current,
         fromLesson: true,
+        returnTo: '/smart-coach',
         trialLimit: trials,
         adaptations: {
           startDifficulty: difficulty,
@@ -293,7 +278,7 @@ export default function SmartCoach() {
         },
       },
     });
-  }, [plan, game1Result, transferTargets, transferResults, warmupResponse, wordHistory, navigate]);
+  }, [plan, game1Result, transferTargets, transferResults, wordHistory, navigate]);
 
   // ─── Phase Handlers ───────────────────────────────────────
 
@@ -301,13 +286,8 @@ export default function SmartCoach() {
     if (!plan) return;
     sessionSaved.current = false;
     await createSession();
-    setPhase('opener');
+    setPhase('game1_intro');
   }, [plan, createSession]);
-
-  const handleWarmupSubmit = useCallback((text: string) => {
-    setWarmupResponse(text);
-    setPhase('game1_setup');
-  }, []);
 
   const handleLaunchGame1 = useCallback(() => {
     if (!plan) return;
@@ -320,7 +300,19 @@ export default function SmartCoach() {
     setGame1Result(result);
     setHintLevel(0);
     
-    // Context-aware post-game feedback
+    // Show review as a toast instead of a full-screen card
+    const score = result.score;
+    const pct = Math.round(score * 100);
+    if (score >= 0.85) {
+      toast.success(`${pct}% — words came out quickly. Now let's use them.`);
+    } else if (score >= 0.6) {
+      toast(`${pct}% — building momentum. Let's reinforce.`);
+    } else if (score >= 0.4) {
+      toast(`${pct}% — some were tough. We'll approach it differently.`);
+    } else {
+      toast(`${pct}% — hard round. Let's adjust and try another angle.`);
+    }
+    
     microEncouragement.trackGameComplete({
       score: result.score,
       targetWords: result.targetWords,
@@ -343,7 +335,7 @@ export default function SmartCoach() {
     }
     setTransferTargets(targets);
     
-    setPhase('game1_review');
+    setPhase('transfer_check');
   }, [plan, microEncouragement]);
 
   const handleTransferSubmit = useCallback((text: string) => {
@@ -368,7 +360,13 @@ export default function SmartCoach() {
       });
       
       const feedback = getTransferFeedback(transferResult, transferTargets);
-      setTransferFeedbackText(feedback.combined);
+      
+      // Show transfer feedback as brief toast
+      if (transferResult.transferScore >= 4) {
+        toast.success(feedback.combined.split('.')[0] + '.');
+      } else {
+        toast(feedback.combined.split('.')[0] + '.');
+      }
       
       transferTargets.forEach(t => {
         setTransferResults(prev => {
@@ -414,28 +412,53 @@ export default function SmartCoach() {
     }
     
     setIsProcessing(false);
-    setPhase('game2_setup');
+    
+    // Auto-launch game 2 after brief delay (no setup card)
+    setTimeout(() => {
+      setPhase('game2_playing');
+      // navigateToExercise will be called via effect
+    }, 800);
   }, [plan, transferTargets, game1Result, coachProfile, transferResults]);
 
-  const handleLaunchGame2 = useCallback(() => {
-    if (!plan) return;
-    setPhase('game2_playing');
-    navigateToExercise(plan.game2, 2);
-  }, [plan, navigateToExercise]);
+  // Auto-launch game 2 when phase transitions
+  useEffect(() => {
+    if (phase === 'game2_playing' && plan && !game2Result) {
+      const saved = sessionStorage.getItem('smartCoachState');
+      // Only navigate if we haven't saved state yet (i.e., not returning from exercise)
+      if (!saved) {
+        const gameName = plan.game2.label;
+        toast(`Next up: ${gameName} — reinforcing from a different angle.`, { duration: 3000 });
+        navigateToExercise(plan.game2, 2);
+      }
+    }
+  }, [phase, plan, game2Result, navigateToExercise]);
 
   const handleGame2Complete = useCallback((result: NormalizedExerciseResult) => {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Context-aware post-game feedback with cross-game comparison
+    // Show cross-game comparison as toast
+    if (game1Result) {
+      const s1 = Math.round(game1Result.score * 100);
+      const s2 = Math.round(result.score * 100);
+      const delta = s2 - s1;
+      if (delta >= 10) {
+        toast.success(`${s1}% → ${s2}% — real improvement. The practice is working.`);
+      } else if (delta >= 0) {
+        toast(`Steady at ${s2}% — building consistent retrieval.`);
+      } else {
+        toast(`${s2}% on a tougher exercise — that's still progress.`);
+      }
+    }
+    
     microEncouragement.trackGameComplete({
       score: result.score,
       targetWords: result.targetWords,
       gameSlot: 2,
     });
     
-    setPhase('game2_review');
-  }, [microEncouragement]);
+    setPhase('complete');
+  }, [game1Result, microEncouragement]);
 
   const handleChangeFocus = useCallback(() => {
     const newPlan = generateSessionPlan({
@@ -452,53 +475,17 @@ export default function SmartCoach() {
   const handleNewSession = useCallback(() => {
     setPlan(null);
     setPhase('loading');
-    setWarmupResponse(null);
     setGame1Result(null);
     setGame2Result(null);
     setTransferTargets([]);
     setTransferResults([]);
-    setTransferFeedbackText(null);
     setWordHistory([]);
     sessionSaved.current = false;
     sessionIdRef.current = null;
     hasRestoredRef.current = false;
   }, []);
 
-
-
-
-  // ─── Derived narration text ───────────────────────────────
-
-  const game1ReviewText = useMemo(() => {
-    if (!game1Result || !plan) return '';
-    const drilledWords = (game1Result.targetWords || []).slice(0, 3);
-    const base = getPostDrillReview(game1Result.score, drilledWords, 1);
-    
-    // Emotional reinforcement — add felt-experience lines
-    const score = game1Result.score;
-    if (score >= 0.85) return `${base}\n\nThat was smooth — the words came out quickly. That's exactly the kind of retrieval that helps in conversation.`;
-    if (score >= 0.6) return `${base}\n\nYou're building momentum. Each round makes the next one easier.`;
-    if (score >= 0.4) return `${base}\n\nSome of those were harder, and that's expected. The fact that you kept going is what builds the pathway.`;
-    return `${base}\n\nThat was a tough round. We're going to approach it differently next — the goal is to make it feel easier, not harder.`;
-  }, [game1Result, plan]);
-
-  const game2ReviewText = useMemo(() => {
-    if (!game2Result || !plan) return '';
-    const drilledWords = (game2Result.targetWords || []).slice(0, 3);
-    const review = getPostDrillReview(game2Result.score, drilledWords, 2);
-    
-    // Emotional session arc — cross-game comparison with felt-experience language
-    if (game1Result) {
-      const s1 = Math.round(game1Result.score * 100);
-      const s2 = Math.round(game2Result.score * 100);
-      const delta = s2 - s1;
-      if (delta >= 15) return `${review}\n\nThat's a real shift — ${s1}% to ${s2}%. The words are coming to you faster and more naturally now.`;
-      if (delta >= 5) return `${review}\n\nSmooth improvement — ${s1}% to ${s2}%. Did that round feel easier? That's the practice working.`;
-      if (delta >= -5) return `${review}\n\nSteady at ${s2}% — you're building consistent retrieval. That's what makes it stick.`;
-      return `${review}\n\nThat was a harder exercise, and ${s2}% on a tougher challenge is still progress. The difficulty is intentional.`;
-    }
-    return review;
-  }, [game2Result, game1Result, plan]);
+  // ─── Transfer prompt text ────────────────────────────────
 
   const transferPromptText = useMemo(() => {
     if (!plan) return '';
@@ -506,22 +493,9 @@ export default function SmartCoach() {
     if (drilledWords.length > 0) {
       const word = drilledWords[0];
       const context = plan.topic.purpose.transferTarget.split(',')[0].trim();
-      return `This is the important part — using it in real life.\n\nTry using "${word}" in a sentence, like you would when ${context}.`;
+      return `Now the important part — use "${word}" in a sentence, like you would when ${context}.`;
     }
-    return `This is the important part — how would you use what you just practiced in real life?`;
-  }, [plan, game1Result]);
-
-  const game2SetupText = useMemo(() => {
-    if (!plan) return '';
-    const gameName = plan.game2.label;
-    if (game1Result && game1Result.score < 0.5) {
-      const hardWords = (game1Result.targetWords || []).slice(0, 2).map(w => `"${w}"`).join(' and ');
-      return `${hardWords ? `${hardWords} were tough` : 'That was challenging'} — so we're going to approach it differently.\n\n${gameName} works on the same skills from a different angle. This should feel a bit easier.`;
-    }
-    if (game1Result && game1Result.score >= 0.8) {
-      return `You were strong there — let's push further.\n\n${gameName} will build on that speed and add a new layer.`;
-    }
-    return `Now let's reinforce what you just practiced.\n\n${gameName} targets the same area from a different angle — the repetition is what builds real retrieval.`;
+    return `How would you use what you just practiced in real life?`;
   }, [plan, game1Result]);
 
   // ─── Maya help text by phase ──────────────────────────────
@@ -530,86 +504,66 @@ export default function SmartCoach() {
 
     switch (action) {
       case 'repeat_instructions': {
-        if (phase === 'warmup') return buildWarmupQuestion(plan);
-        if (phase === 'game1_setup') return plan.game1Setup;
-        if (phase === 'game2_setup') return game2SetupText;
+        if (phase === 'game1_intro') return `${plan.game1Setup}\n\n${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`;
         if (phase === 'transfer_check') return transferPromptText;
-        if (phase === 'game1_review') return game1ReviewText;
-        if (phase === 'game2_review') return game2ReviewText;
-        if (phase === 'opener') return plan.opener;
-        return "We're working through today's session together.";
+        return `Today's focus: ${plan.topic.label} — ${plan.topic.purpose.skillTarget}.`;
       }
       case 'give_hint': {
-        // Progressive hint ladder — game-aware
         const nextLevel = hintLevel + 1;
         setHintLevel(nextLevel);
         
-        if (phase === 'warmup') return "Just say the first thing that comes to mind — there's no wrong answer.";
         if (phase === 'transfer_check') {
           const word = (game1Result?.targetWords || [])[0];
           if (!word) return "Try building a short sentence using one of the words you just practiced.";
-          
           if (nextLevel <= 1) return `Take your time — think about when you'd use "${word}".`;
           if (nextLevel <= 2) return `Try starting with "${word}" — like "I want ${word}" or "The ${word} is..."`;
           if (nextLevel <= 3) return `Here's an example: "I'd like the ${word}, please." Now try your own version.`;
           return `You could say: "Can I have the ${word}?" — any sentence with "${word}" in it works.`;
         }
         
-        // Game-aware hint strategies based on active exercise type
-        const activeGame = (phase === 'game1_setup' || phase === 'game1_playing') ? plan.game1 : plan.game2;
+        const activeGame = phase === 'game1_intro' || phase === 'game1_playing' ? plan.game1 : plan.game2;
         const slug = activeGame?.exerciseSlug || '';
         
-        // Naming exercises: category → phoneme → model
         if (slug.includes('naming') || slug.includes('photo')) {
           if (nextLevel <= 1) return "Take your time — picture it in your mind first.";
-          if (nextLevel <= 2) return "Think about what category it belongs to. Where would you find it?";
+          if (nextLevel <= 2) return "Think about what category it belongs to.";
           if (nextLevel <= 3) return "Focus on the first sound. What does the word start with?";
-          return "It's okay — we'll come back to this one. The practice itself is what matters.";
+          return "It's okay — we'll come back to this one.";
         }
-        // Semantic exercises: association → definition → example
         if (slug.includes('semantic') || slug.includes('meaning') || slug.includes('synonym') || slug.includes('category')) {
           if (nextLevel <= 1) return "Think about words that go together with this one.";
           if (nextLevel <= 2) return "What would you use it for? Where would you see it?";
           if (nextLevel <= 3) return "Try describing what it means in your own words.";
           return "That's a hard one. Let's move on — you'll see it again.";
         }
-        // Sentence/narrative exercises: structure → starter → model
         if (slug.includes('sentence') || slug.includes('narrative') || slug.includes('retell') || slug.includes('describe')) {
           if (nextLevel <= 1) return "Start simple — just get the main idea out first.";
           if (nextLevel <= 2) return "Try: who or what... did what... where or when.";
           if (nextLevel <= 3) return "Just say the most important word first, then build around it.";
-          return "That's okay — even one word is a good start. Let's keep going.";
+          return "That's okay — even one word is a good start.";
         }
-        // Comprehension exercises
-        if (slug.includes('comprehension') || slug.includes('yes-no') || slug.includes('minimal')) {
-          if (nextLevel <= 1) return "Listen again carefully. Focus on the key word.";
-          if (nextLevel <= 2) return "Think about what sounds different between the two options.";
-          if (nextLevel <= 3) return "Try eliminating — which one doesn't fit?";
-          return "Let's try the next one. Each one is independent.";
-        }
-        // Fallback
         if (nextLevel <= 1) return "Take your time. There's no rush.";
         if (nextLevel <= 2) return "Think about what category it belongs to.";
-        if (nextLevel <= 3) return "Focus on the first sound — start with the beginning of the word.";
+        if (nextLevel <= 3) return "Focus on the first sound.";
         return "It's okay to move on. We'll come back to this.";
       }
       case 'explain_this': {
-        if (phase === 'game1_setup' || phase === 'game1_playing')
-          return `${plan.game1.label} helps strengthen ${plan.topic.purpose.skillTarget}. The more you practice, the faster the words come.`;
-        if (phase === 'game2_setup' || phase === 'game2_playing')
-          return `${plan.game2.label} reinforces the same skills from a different angle. This builds stronger retrieval pathways.`;
+        if (phase === 'game1_intro' || phase === 'game1_playing')
+          return `${plan.game1.label} helps strengthen ${plan.topic.purpose.skillTarget}.`;
+        if (phase === 'game2_playing')
+          return `${plan.game2.label} reinforces the same skills from a different angle.`;
         if (phase === 'transfer_check')
-          return "This is the most important part — using the words in a real sentence proves your brain can find them when it matters.";
-        return `Today we're working on ${plan.topic.purpose.skillTarget} because it helps with ${plan.topic.purpose.transferTarget}.`;
+          return "Using the words in a real sentence proves your brain can find them when it matters.";
+        return `Today: ${plan.topic.purpose.skillTarget} — helps with ${plan.topic.purpose.transferTarget}.`;
       }
       case 'what_are_we_doing':
-        return `Today's focus: ${plan.topic.label}. We're working on ${plan.topic.purpose.skillTarget} so you can ${plan.topic.purpose.transferTarget}.`;
+        return `Focus: ${plan.topic.label}. Working on ${plan.topic.purpose.skillTarget} so you can ${plan.topic.purpose.transferTarget}.`;
       case 'help_me':
-        return "You're doing well. Take a breath, and try again when you're ready. There's no time limit.";
+        return "Take a breath. Try again when you're ready — no time limit.";
       default:
         return null;
     }
-  }, [phase, plan, game1Result, game2SetupText, transferPromptText, game1ReviewText, game2ReviewText]);
+  }, [phase, plan, game1Result, transferPromptText, hintLevel]);
 
   const lastSpokenRef = useRef<string | null>(null);
 
@@ -641,7 +595,7 @@ export default function SmartCoach() {
   const phaseIndex = getPhaseIndex(phase);
   const drillsCompleted = (game1Result ? 1 : 0) + (game2Result ? 1 : 0);
 
-  // ─── Plan Screen ──────────────────────────────────────────
+  // ─── Plan Screen (Simplified) ────────────────────────────
 
   if (phase === 'plan') {
     return (
@@ -674,31 +628,10 @@ export default function SmartCoach() {
                 </div>
               </div>
 
-              <div className="space-y-3 pt-2">
-                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  Session plan (~10 min)
-                </p>
-                <div className="space-y-2.5">
-                  {[
-                    { step: 1, label: 'Warm up', desc: 'Quick check-in', icon: MessageCircle },
-                    { step: 2, label: plan.game1.label, desc: `${plan.game1Trials} items`, icon: Zap },
-                    { step: 3, label: 'Use it', desc: 'Try in a real sentence', icon: ArrowRight },
-                    { step: 4, label: plan.game2.label, desc: `${plan.game2Trials} items — adaptive`, icon: Brain },
-                    { step: 5, label: 'Review', desc: 'See what improved', icon: CheckCircle2 },
-                  ].map((s) => (
-                    <div key={s.step} className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-primary">{s.step}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{s.label}</p>
-                        <p className="text-xs text-muted-foreground">{s.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                ~10 min · {plan.game1.label} + {plan.game2.label}
+              </p>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -725,6 +658,19 @@ export default function SmartCoach() {
       transferred: transferResults.filter(r => r.score >= 3).length,
     };
 
+    // Cross-game comparison for summary
+    const summaryNarrative = (() => {
+      if (game1Result && game2Result) {
+        const s1 = Math.round(game1Result.score * 100);
+        const s2 = Math.round(game2Result.score * 100);
+        const delta = s2 - s1;
+        if (delta >= 10) return `You went from ${s1}% to ${s2}% — real improvement today.`;
+        if (delta >= 0) return `Consistent performance at ${s2}% — building reliable retrieval.`;
+        return `${s2}% on a harder exercise shows you're stretching your skills.`;
+      }
+      return null;
+    })();
+
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
@@ -742,7 +688,9 @@ export default function SmartCoach() {
                   <CheckCircle2 className="w-7 h-7 text-primary" />
                 </div>
                 <h2 className="text-xl font-bold">Session Review</h2>
-                <p className="text-xs text-muted-foreground">{plan.topic.purpose.skillTarget}</p>
+                {summaryNarrative && (
+                  <p className="text-sm text-muted-foreground">{summaryNarrative}</p>
+                )}
               </div>
 
               <div className="flex justify-around py-2 border-y border-border/50">
@@ -856,49 +804,18 @@ export default function SmartCoach() {
     );
   }
 
-  // ─── Active Session Phases (Narration Cards) ──────────────
-  // Wrap all active phases with the Maya bubble for persistent presence
+  // ─── Active Session Phases ────────────────────────────────
 
   const showBubble = !['loading', 'plan', 'complete'].includes(phase);
 
   const renderPhaseContent = () => {
-    // Opener
-    if (phase === 'opener') {
+    // Merged opener + game1 setup (single card)
+    if (phase === 'game1_intro') {
+      const topicIntro = `Today: ${plan.topic.label} — ${plan.topic.purpose.skillTarget}.`;
+      const gameIntro = plan.game1Setup;
       return (
         <MayaNarrationCard
-          narration={plan.opener}
-          actionLabel="Let's warm up"
-          onContinue={() => setPhase('warmup')}
-          phaseIndex={phaseIndex}
-          totalPhases={TOTAL_PHASES}
-          phaseLabels={PHASE_LABELS}
-          icon={plan.topic.emoji}
-        />
-      );
-    }
-
-    // Warmup (with input)
-    if (phase === 'warmup') {
-      const warmupQ = buildWarmupQuestion(plan);
-      return (
-        <MayaNarrationCard
-          narration={warmupQ}
-          onContinue={() => setPhase('game1_setup')}
-          showInput
-          inputPlaceholder="Type or speak your response..."
-          onSubmit={handleWarmupSubmit}
-          phaseIndex={phaseIndex}
-          totalPhases={TOTAL_PHASES}
-          phaseLabels={PHASE_LABELS}
-        />
-      );
-    }
-
-    // Game 1 Setup
-    if (phase === 'game1_setup') {
-      return (
-        <MayaNarrationCard
-          narration={plan.game1Setup}
+          narration={`${topicIntro}\n\n${gameIntro}`}
           subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
           actionLabel="Start practice"
           onContinue={handleLaunchGame1}
@@ -919,49 +836,23 @@ export default function SmartCoach() {
       );
     }
 
-    // Game 1 Review
-    if (phase === 'game1_review') {
-      return (
-        <MayaNarrationCard
-          narration={game1ReviewText}
-          actionLabel="Continue"
-          onContinue={() => setPhase('transfer_check')}
-          phaseIndex={phaseIndex}
-          totalPhases={TOTAL_PHASES}
-          phaseLabels={PHASE_LABELS}
-        />
-      );
-    }
-
-    // Transfer Check (with input)
+    // Transfer Check (the ONE input moment)
     if (phase === 'transfer_check') {
       return (
         <MayaNarrationCard
           narration={transferPromptText}
-          onContinue={() => setPhase('game2_setup')}
+          onContinue={() => {
+            // Skip transfer — go straight to game 2
+            setPhase('game2_playing');
+          }}
           showInput
           inputPlaceholder="Use those words in a sentence..."
           onSubmit={handleTransferSubmit}
+          actionLabel="Skip"
           isProcessing={isProcessing}
           phaseIndex={phaseIndex}
           totalPhases={TOTAL_PHASES}
           phaseLabels={PHASE_LABELS}
-        />
-      );
-    }
-
-    // Game 2 Setup
-    if (phase === 'game2_setup') {
-      return (
-        <MayaNarrationCard
-          narration={game2SetupText}
-          subtitle={`${plan.game2Trials} items · ~${Math.ceil(plan.game2.durationSec / 60)} min`}
-          actionLabel="Start practice"
-          onContinue={handleLaunchGame2}
-          phaseIndex={phaseIndex}
-          totalPhases={TOTAL_PHASES}
-          phaseLabels={PHASE_LABELS}
-          icon={plan.game2.icon}
         />
       );
     }
@@ -972,20 +863,6 @@ export default function SmartCoach() {
         <div className="min-h-screen bg-background flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-      );
-    }
-
-    // Game 2 Review
-    if (phase === 'game2_review') {
-      return (
-        <MayaNarrationCard
-          narration={game2ReviewText}
-          actionLabel="See summary"
-          onContinue={() => setPhase('complete')}
-          phaseIndex={phaseIndex}
-          totalPhases={TOTAL_PHASES}
-          phaseLabels={PHASE_LABELS}
-        />
       );
     }
 
@@ -1005,38 +882,4 @@ export default function SmartCoach() {
       )}
     </>
   );
-}
-
-// ─── Helper Functions ───────────────────────────────────────
-
-function buildWarmupQuestion(plan: SessionPlan): string {
-  const topicQuestions: Record<string, string[]> = {
-    food: [
-      "Before we practice — tell me something you ate recently. I want to hear how easily the words come out.",
-      "Quick warm-up — describe your favorite meal. Don't worry about being perfect, just talk.",
-    ],
-    family: [
-      "Before we start — tell me about someone in your family. I want to hear how the words flow.",
-      "Quick warm-up — who did you spend time with recently? Just a sentence or two.",
-    ],
-    hobbies: [
-      "Before we start — what's something you enjoy doing? I want to hear how easily you describe it.",
-      "Quick warm-up — tell me what you did for fun recently. Just talk naturally.",
-    ],
-    daily_routine: [
-      "Before we start — walk me through this morning. I want to hear how the sequence comes out.",
-      "Quick warm-up — describe what you did when you woke up today.",
-    ],
-    travel: [
-      "Before we start — tell me about a place you've visited. I want to hear how the details come out.",
-      "Quick warm-up — where would you go if you could travel anywhere? Describe it briefly.",
-    ],
-    pets: [
-      "Before we start — tell me about a pet or animal you like. I want to hear how you describe them.",
-      "Quick warm-up — what's your favorite animal? Tell me why.",
-    ],
-  };
-
-  const questions = topicQuestions[plan.topic.id] || ["Tell me about your day so far — I want to hear how the words come out."];
-  return questions[Math.floor(Math.random() * questions.length)];
 }

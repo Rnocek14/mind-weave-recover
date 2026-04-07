@@ -46,7 +46,7 @@ export default function MeaningMatchExercise() {
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const trialLimit = Number(location.state?.trialLimit) || 10;
   const lessonSource = location.state?.lessonSource ?? null;
@@ -151,13 +151,13 @@ export default function MeaningMatchExercise() {
             totalScore: results.reduce((sum, r) => sum + r.points, 0),
           }
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, completeSession]);
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
   const handleContinue = useCallback(() => {

@@ -44,7 +44,7 @@ const Exercise = () => {
   
   // Check if we're coming from lesson flow (with sessionStorage fallback)
   const restored = useRestoredLessonContext(exerciseId || 'unknown');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId ?? (location.state?.sessionId as string | undefined);
   const lessonAdaptations = location.state?.adaptations as {
     timeoutMultiplier?: number;
@@ -323,7 +323,7 @@ const Exercise = () => {
       hasDispatchedCompleteRef.current = true;
       console.log('[Exercise] Dispatching exercise-complete event');
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true }, replace: true });
+      navigate(returnTo, { state: { resuming: true }, replace: true });
     }
   }, [showResult, fromLesson, navigate]);
 
@@ -572,7 +572,7 @@ const Exercise = () => {
     
     // Dispatch event and navigate back to lesson
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   // Show mood check-in first

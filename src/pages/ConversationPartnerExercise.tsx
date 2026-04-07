@@ -30,7 +30,7 @@ export default function ConversationPartnerExercise() {
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const restored = useRestoredLessonContext('conversation-partner');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
@@ -80,13 +80,13 @@ export default function ConversationPartnerExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-partner', results: summary },
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   };
 
   const handleExit = () => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   };
 
   const handleContinue = () => {
@@ -95,7 +95,7 @@ export default function ConversationPartnerExercise() {
       window.dispatchEvent(new CustomEvent('exercise-complete', {
         detail: { exerciseSlug: 'conversation-partner' },
       }));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       navigate('/dashboard');
     }

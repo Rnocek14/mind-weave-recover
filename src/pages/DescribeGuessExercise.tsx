@@ -71,6 +71,7 @@ export default function DescribeGuessExercise() {
     ? Boolean(location.state?.fromLesson || location.state?.sessionId)
     : (restoredLessonContext?.fromLesson ?? false);
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
+  const returnTo = location.state?.returnTo || '/lesson';
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -129,7 +130,7 @@ export default function DescribeGuessExercise() {
       },
     }));
 
-    navigate('/lesson', { state: { resuming: true }, replace: true });
+    navigate(returnTo, { state: { resuming: true }, replace: true });
   }, [fromLesson, navigate]);
 
   useEffect(() => {
@@ -176,7 +177,7 @@ export default function DescribeGuessExercise() {
   }, [fromLesson, completeSession, resumeLessonFlow]);
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
   const handleContinue = useCallback(() => {

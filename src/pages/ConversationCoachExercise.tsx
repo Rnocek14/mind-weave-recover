@@ -29,7 +29,7 @@ export default function ConversationCoachExercise() {
   const { activeProfile } = useProfile();
   
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
@@ -82,13 +82,13 @@ export default function ConversationCoachExercise() {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-coach', results: metrics },
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   };
 
   const handleExit = () => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   };
 
   const handleContinue = () => {
@@ -97,7 +97,7 @@ export default function ConversationCoachExercise() {
       window.dispatchEvent(new CustomEvent('exercise-complete', {
         detail: { exerciseSlug: 'conversation-coach' },
       }));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       navigate('/dashboard');
     }
