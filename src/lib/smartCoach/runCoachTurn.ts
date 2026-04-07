@@ -151,6 +151,15 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     } else {
       // Tick turns on objective
       Object.assign(nextState, tickObjective(nextState));
+      
+      // Check for regression — user may have worsened mid-session
+      const regressionCheck = shouldRegressObjective(nextState, playbook);
+      if (regressionCheck?.shouldRegress) {
+        const rollback = regressObjective(nextState, playbook, regressionCheck.reason);
+        if (rollback) {
+          Object.assign(nextState, rollback);
+        }
+      }
     }
 
     // Force transfer if running out of turns
