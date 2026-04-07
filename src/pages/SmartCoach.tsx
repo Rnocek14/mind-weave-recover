@@ -565,41 +565,43 @@ export default function SmartCoach() {
     setJustCompletedDrill(true);
     setLastDrillSlug(activeGame.exerciseSlug);
 
-    // Set up transfer targets from the drill context
-    const drillTargets: TransferTarget[] = [];
-    // Extract targets from the normalized result's summary or the topic
-    const summaryWords = normalized.summary?.split(/\s+/) || [];
+    // Set up transfer targets from actual drill items
     const topicTransfer = selectedTopic.purpose.transferTarget;
+    const drillTargets: TransferTarget[] = [];
     
-    // Use topic keywords as transfer targets
-    if (selectedTopic.keywords && selectedTopic.keywords.length > 0) {
-      // Pick up to 3 keywords as transfer targets
-      const keywords = selectedTopic.keywords.slice(0, 3);
-      keywords.forEach(kw => {
-        drillTargets.push({
-          value: kw,
-          type: 'word',
-          functionalContext: topicTransfer,
-        });
+    // PRIORITY 1: Use actual targetWords from the drill result (most precise)
+    if (normalized.targetWords && normalized.targetWords.length > 0) {
+      normalized.targetWords.slice(0, 3).forEach(word => {
+        drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
       });
     }
     
-    // If we have specific words from the drill result, add those
-    if (normalized.slug === 'photo-naming' || normalized.slug === 'category-fluency') {
-      // Extract any quoted words from summary
+    // PRIORITY 2: Extract quoted words from drill summary (e.g. "broccoli")
+    if (drillTargets.length === 0) {
       const quoted = normalized.summary?.match(/"([^"]+)"/g)?.map(w => w.replace(/"/g, ''));
-      if (quoted) {
+      if (quoted && quoted.length > 0) {
         quoted.slice(0, 3).forEach(word => {
-          if (!drillTargets.some(t => t.value.toLowerCase() === word.toLowerCase())) {
-            drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
-          }
+          drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
         });
       }
+    }
+    
+    // PRIORITY 3: Fallback to topic keywords (least precise)
+    if (drillTargets.length === 0 && selectedTopic.keywords?.length) {
+      selectedTopic.keywords.slice(0, 2).forEach(kw => {
+        drillTargets.push({ value: kw, type: 'word', functionalContext: topicTransfer });
+      });
     }
     
     if (drillTargets.length > 0) {
       setTransferTargets(drillTargets);
       setPendingTransferCheck(true);
+      // Track all drill targets for same-session carryover detection
+      setSessionDrillWords(prev => {
+        const newWords = new Set(prev);
+        drillTargets.forEach(t => newWords.add(t.value.toLowerCase()));
+        return newWords;
+      });
     }
 
     // Set post-intervention dampening on coach state so next turn is gentler
