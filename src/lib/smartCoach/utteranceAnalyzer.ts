@@ -37,6 +37,9 @@ export function analyzeUtterance(
   // User correction detection — if user is correcting Maya, this is NOT a struggle
   const isCorrection = CORRECTION_MARKERS.test(cleaned);
 
+  // User confusion detection — they don't understand Maya's response
+  const isConfusion = CONFUSION_MARKERS.test(cleaned);
+
   // Disengagement detection — polite fillers with no content
   const isDisengagementPhrase = DISENGAGEMENT_MARKERS.test(cleaned);
   const isValidShortAnswer = VALID_SHORT_ANSWERS.test(cleaned);
@@ -82,9 +85,13 @@ export function analyzeUtterance(
   // Disengagement: polite filler with no semantic content
   const disengagementDetected = isDisengagementPhrase && !isCorrection && !hasTopicOverlap;
 
-  // Error type classification
+  // Error type classification — confusion/correction take priority
   let likelyErrorType: CoachUtteranceAnalysis['likelyErrorType'] = 'none';
-  if (wordCount === 0) {
+  if (isConfusion) {
+    likelyErrorType = 'confusion';
+  } else if (isCorrection) {
+    likelyErrorType = 'correction';
+  } else if (wordCount === 0) {
     likelyErrorType = 'hesitation';
   } else if (disengagementDetected) {
     likelyErrorType = 'disengagement';
@@ -120,6 +127,8 @@ export function analyzeUtterance(
     pauseDetected,
     hesitationDetected,
     disengagementDetected,
+    confusionDetected: isConfusion,
+    correctionDetected: isCorrection,
     confidence,
     likelyErrorType,
   };
