@@ -191,9 +191,17 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback = true;
   }
 
-  // Step 7 — Validate (with anchor context)
+  // Step 7 — Validate (with anchor context including conversation history words)
+  // Build broader context from recent conversation for anchor checking
+  const recentUserWords = state.conversationHistory
+    .filter(m => m.role === 'user')
+    .slice(-3)
+    .map(m => m.text)
+    .join(' ');
+  const broadUserContext = recentUserWords ? `${recentUserWords} ${userUtterance}` : userUtterance;
+  
   const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts, {
-    lastUserUtterance: userUtterance,
+    lastUserUtterance: broadUserContext,
     topicKeywords: nextState.topicKeywords,
   });
 
@@ -201,7 +209,11 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   if (!validation.valid) {
     console.warn('[SmartCoach] Validation failed:', validation.reasons, '| Original:', rawLine);
     debugRawOutput = rawLine;
-    finalLine = getFallbackLine(nextState.mode, cueDecision.cueType);
+    // CRITICAL FIX: When validation fails, use mode-only fallback (NOT cue type).
+    // Using phonemic_hint fallback when user isn't stuck creates nonsensical responses.
+    // Only use cue-specific fallbacks when the user is actually struggling.
+    const userIsStuck = analysis.hesitationDetected || analysis.pauseDetected || analysis.likelyErrorType === 'hesitation';
+    finalLine = getFallbackLine(nextState.mode, userIsStuck ? cueDecision.cueType : undefined);
     usedFallback = true;
   } else {
     finalLine = postProcessCoachLine(rawLine);
