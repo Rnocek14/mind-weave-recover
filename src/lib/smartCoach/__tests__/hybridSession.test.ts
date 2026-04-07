@@ -80,6 +80,8 @@ function makeAnalysis(overrides: Partial<CoachUtteranceAnalysis> = {}): CoachUtt
     pauseDetected: false,
     hesitationDetected: false,
     disengagementDetected: false,
+    confusionDetected: false,
+    correctionDetected: false,
     confidence: 0.7,
     likelyErrorType: 'none',
     ...overrides,
