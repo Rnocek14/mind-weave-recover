@@ -710,7 +710,7 @@ export default function SmartCoach() {
           <Button variant="ghost" size="icon" onClick={() => setPhase('topic_select')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Today's Practice</h1>
+          <h1 className="text-lg font-semibold">Today's Session</h1>
         </header>
 
         <div className="flex-1 flex items-center justify-center p-6">
@@ -752,34 +752,31 @@ export default function SmartCoach() {
                     <p className="text-xs text-muted-foreground capitalize">{selectedTopic.purpose.transferTarget}</p>
                   </div>
                 </div>
-
-                <div className="flex items-start gap-2.5">
-                  <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-foreground">How we measure</p>
-                    <p className="text-xs text-muted-foreground">{selectedTopic.purpose.measure}</p>
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Session arc preview */}
-            <div className="bg-muted/30 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Clock className="w-3.5 h-3.5" />
-                <span>~10 minutes</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {PHASE_STEPS.map((step, i) => (
-                  <React.Fragment key={step.key}>
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <step.icon className="w-3 h-3" />
-                      <span>{step.label}</span>
+            {/* Session plan — visible structured arc */}
+            <div className="bg-card border rounded-2xl p-5 space-y-3">
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                Your session plan (~12 min)
+              </p>
+              <div className="space-y-2.5">
+                {[
+                  { step: 1, label: 'Talk', desc: 'We\'ll chat about the topic to warm up', icon: MessageCircle, color: 'text-primary' },
+                  { step: 2, label: 'Practice', desc: 'Targeted exercises based on what you need', icon: Zap, color: 'text-primary' },
+                  { step: 3, label: 'Use it', desc: 'Try using those skills in a real scenario', icon: ArrowRight, color: 'text-primary' },
+                  { step: 4, label: 'Review', desc: 'See what you achieved today', icon: CheckCircle2, color: 'text-primary' },
+                ].map((s) => (
+                  <div key={s.step} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">{s.step}</span>
                     </div>
-                    {i < PHASE_STEPS.length - 1 && (
-                      <span className="text-muted-foreground/30">→</span>
-                    )}
-                  </React.Fragment>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{s.label}</p>
+                      <p className="text-xs text-muted-foreground">{s.desc}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
