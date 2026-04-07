@@ -1181,6 +1181,16 @@ export default function SmartCoach() {
                           Still strong: {progressDelta.retained.map(r => `"${r.word}"`).join(', ')}
                         </p>
                       )}
+                      {progressDelta.cueFades.length > 0 && (
+                        <div className="space-y-1 pl-6 pt-1 border-t border-border/50">
+                          <p className="text-xs font-medium text-foreground">Less support needed</p>
+                          {progressDelta.cueFades.map((cf, i) => (
+                            <p key={i} className="text-xs text-muted-foreground">
+                              "{cf.word}": {cf.fromCue} → <span className="font-medium text-primary">{cf.toCue}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
