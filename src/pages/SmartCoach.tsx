@@ -508,10 +508,9 @@ export default function SmartCoach() {
     const drilledWords = (game1Result?.targetWords || []).slice(0, 3);
     if (drilledWords.length > 0) {
       const word = drilledWords[0];
-      const context = plan.topic.purpose.transferTarget.split(',')[0].trim();
-      return `Now the important part — use "${word}" in a sentence, like you would when ${context}.`;
+      return `Quick check — use "${word}" in a sentence.`;
     }
-    return `How would you use what you just practiced in real life?`;
+    return `Quick check — use one of those words in a sentence.`;
   }, [plan, game1Result]);
 
   // ─── Maya help text by phase ──────────────────────────────
