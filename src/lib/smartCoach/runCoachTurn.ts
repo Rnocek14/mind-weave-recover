@@ -11,7 +11,7 @@
 import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
 import { evaluateDrillTrigger, type DrillTriggerContext } from './drillTriggerEvaluator';
 import type { ArcState } from './sessionArc';
-import { advanceArc, getArcModeOverride, exitTransferMode } from './sessionArc';
+import { advanceArc, getArcModeOverride, checkTransferExit, extractGapWords, recordGap } from './sessionArc';
 import { analyzeUtterance } from './utteranceAnalyzer';
 import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
 import { selectCue } from './cueSelector';
@@ -116,9 +116,17 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // The arc can override the reactive mode to enforce session structure
   nextState.mode = getArcModeOverride(arcState, state.turnCount, nextState.mode);
 
-  // If user responded to transfer bridge, exit transfer mode
-  if (arcState.inTransferMode && state.turnCount > 0) {
-    arcState = exitTransferMode(arcState);
+  // If in transfer mode, check if user used drilled words (verified exit)
+  if (arcState.inTransferMode) {
+    arcState = checkTransferExit(arcState, userUtterance);
+  }
+
+  // Collect gap words during orient_assess phase
+  if (arcState.phase === 'orient_assess') {
+    const gaps = extractGapWords(userUtterance, state.topicKeywords, analysis);
+    if (gaps.length > 0) {
+      arcState = recordGap(arcState, gaps, state.turnCount);
+    }
   }
 
   // Post-intervention dampening
