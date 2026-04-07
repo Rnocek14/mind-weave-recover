@@ -188,6 +188,9 @@ export function extractGapWords(
 
 /**
  * Pre-drill narration: Observation → Rationale → Action
+ * 
+ * Sounds like a therapist explaining why practice is needed.
+ * Short, warm, specific. Never robotic.
  */
 export function getPreDrillNarration(
   slotNumber: 1 | 2,
@@ -195,19 +198,48 @@ export function getPreDrillNarration(
   reason: string,
 ): string {
   if (slotNumber === 1) {
-    if (gaps.length > 0) {
-      const gapList = gaps.slice(0, 2).join(' and ');
-      return `I noticed ${gapList} was hard to grab — let's practice that directly so it's easier next time.`;
+    if (gaps.length === 1) {
+      return `I want to strengthen how quickly "${gaps[0]}" comes out. Let's do a short practice round.`;
     }
-    return "I can see some words are sticking — let's do a quick focused round to loosen them up.";
+    if (gaps.length > 1) {
+      const gapList = gaps.slice(0, 2).map(g => `"${g}"`).join(' and ');
+      return `I noticed ${gapList} took extra effort. Let's practice those directly for a minute.`;
+    }
+    // No specific gaps identified but breakdown detected
+    return "Some of those words took a bit longer to find. Let's do a focused round to speed that up.";
   }
 
-  // Slot 2: reinforcement
-  return "You've been using those words well — let's strengthen that with one more focused round.";
+  // Slot 2: reinforcement — reference progress
+  if (gaps.length > 0) {
+    return `You're doing better with those words now. One more focused round to lock it in.`;
+  }
+  return "Good progress. Let's strengthen that with one more quick round.";
 }
 
 /**
- * Post-drill bridge: Results → Transfer prompt
+ * Post-drill review: Plain therapy language about what happened.
+ * This is the REVIEW message — separate from the transfer bridge.
+ */
+export function getPostDrillReview(
+  score: number,
+  drilledWords: string[],
+  slotNumber: 1 | 2,
+): string {
+  const wordRef = drilledWords.length > 0
+    ? ` with "${drilledWords[0]}"`
+    : '';
+
+  if (score >= 0.8) {
+    return `That was good${wordRef}. The words came out faster there.`;
+  }
+  if (score >= 0.5) {
+    return `Better${wordRef}. Recall is still a little hard, but you're getting there.`;
+  }
+  return `That was tough${wordRef}, but that's exactly why we practiced. It'll get easier.`;
+}
+
+/**
+ * Post-drill bridge: Transfer prompt that continues the lesson.
  * Forces the user to USE the drilled words in a real scenario.
  */
 export function getPostDrillBridge(
@@ -215,20 +247,20 @@ export function getPostDrillBridge(
   drilledWords: string[],
   transferTarget: string,
 ): string {
-  const wordList = drilledWords.slice(0, 3).join(', ');
+  const firstWord = drilledWords[0];
 
   if (slotNumber === 1) {
-    if (wordList) {
-      return `Good — you got ${wordList}. Now use ${drilledWords[0] || 'that'} in a sentence, like you would ${transferTarget}.`;
+    if (firstWord) {
+      return `Now tell me — ${transferTarget}, how would you use "${firstWord}"?`;
     }
-    return `Nice work on that. Now let's put those words to use — ${transferTarget}.`;
+    return `Now let's put that to use. ${transferTarget} — what would you say?`;
   }
 
-  // Slot 2: generalization bridge
-  if (wordList) {
-    return `You're getting faster with ${wordList}. Let's see — if you were ${transferTarget}, how would you say it?`;
+  // Slot 2: generalization
+  if (firstWord) {
+    return `Let's see if it sticks. If you were ${transferTarget}, how would you say it?`;
   }
-  return `That's solid. Now — if you were ${transferTarget}, what would you say?`;
+  return `Good. Now — if you were ${transferTarget}, what would you say?`;
 }
 
 // ─── Arc State Updates ──────────────────────────────────────

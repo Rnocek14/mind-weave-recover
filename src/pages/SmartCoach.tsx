@@ -23,7 +23,7 @@ import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } f
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { selectDrill, selectPracticeBlock } from '@/lib/smartCoach/drillSelector';
-import { createArcState, extractGapWords, recordGap, markDrillFired, getPreDrillNarration, getPostDrillBridge, markTransferBridgeAttempted } from '@/lib/smartCoach/sessionArc';
+import { createArcState, extractGapWords, recordGap, markDrillFired, getPreDrillNarration, getPostDrillReview, getPostDrillBridge, markTransferBridgeAttempted } from '@/lib/smartCoach/sessionArc';
 import type { ArcState } from '@/lib/smartCoach/sessionArc';
 import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent, CoachUtteranceAnalysis } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
@@ -554,8 +554,7 @@ export default function SmartCoach() {
               kind: 'micro_drill',
               retentionHint,
             });
-            setPendingDrill(selection);
-            // Use deterministic narration from arc
+            // Show narration first, then reveal drill card after a pause
             const narration = slotNumber 
               ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
               : rec.observation;
@@ -565,6 +564,8 @@ export default function SmartCoach() {
               text: narration,
               timestamp: Date.now(),
             }]);
+            // Delay the drill card so the narration lands first
+            setTimeout(() => setPendingDrill(selection), 1500);
           } else if (rec.kind === 'targeted_practice') {
             const block = selectPracticeBlock({
               state: result.nextState,
@@ -573,7 +574,6 @@ export default function SmartCoach() {
               usedGameIds,
               retentionHint,
             });
-            setPendingPracticeBlock(block);
             const narration = slotNumber
               ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
               : "Let's lock in what you practiced with a focused round.";
@@ -583,6 +583,8 @@ export default function SmartCoach() {
               text: narration,
               timestamp: Date.now(),
             }]);
+            // Delay the practice card so the narration lands first
+            setTimeout(() => setPendingPracticeBlock(block), 1500);
           }
         }
       } else if (result.drillRecommendation && drillOnCooldown) {
@@ -710,16 +712,29 @@ export default function SmartCoach() {
     const currentSlot: 1 | 2 = arcState.drill1Fired ? 2 : 1;
     setArcState(prev => markDrillFired(prev, currentSlot, drilledWordsList));
 
-    // Use deterministic post-drill bridge from arc
+    // Post-drill: TWO messages — review first, then transfer bridge
+    // This makes it feel like a therapist reviewing what happened, then continuing the lesson
+    const reviewText = getPostDrillReview(normalized.score, drilledWordsList, currentSlot);
     const transferTarget = selectedTopic.purpose.transferTarget;
     const bridgeText = getPostDrillBridge(currentSlot, drilledWordsList, transferTarget);
     
+    // Message 1: Plain-language review of the drill result
     setMessages(prev => [...prev, {
-      id: `maya-return-${Date.now()}`,
+      id: `maya-review-${Date.now()}`,
       role: 'maya',
-      text: bridgeText,
+      text: reviewText,
       timestamp: Date.now(),
     }]);
+
+    // Message 2: Transfer bridge (after a short pause so review lands first)
+    setTimeout(() => {
+      setMessages(prev => [...prev, {
+        id: `maya-bridge-${Date.now()}`,
+        role: 'maya',
+        text: bridgeText,
+        timestamp: Date.now(),
+      }]);
+    }, 1200);
 
     // Update session metrics with exercise result
     setSessionStats(prev => prev ? {
