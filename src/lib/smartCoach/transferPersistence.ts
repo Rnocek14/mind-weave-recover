@@ -31,14 +31,14 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
       score: event.result.transferScore / 4, // Normalize to 0–1
       browser_transcript: event.userResponse,
       
-      inputs: {
+      inputs: JSON.parse(JSON.stringify({
         transfer_targets: event.targets.map(t => ({
           value: t.value,
           type: t.type,
           functional_context: t.functionalContext,
         })),
         maya_transfer_prompt: event.mayaTransferPrompt,
-      },
+      })),
       
       outputs: JSON.parse(JSON.stringify({
         transfer_score: event.result.transferScore,
