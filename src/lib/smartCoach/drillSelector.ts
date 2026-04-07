@@ -118,6 +118,15 @@ export function selectPracticeBlock(ctx: Omit<DrillSelectionContext, 'kind'>): D
 
 // ─── Scoring ────────────────────────────────────────────────
 
+/** Domain slug → relevant game IDs */
+const DOMAIN_TO_GAMES: Record<string, string[]> = {
+  lexical_retrieval: ['photo_naming', 'category_fluency'],
+  semantic_depth: ['semantic_features', 'meaning_match'],
+  syntax: ['sentence_construction'],
+  phonology: ['photo_naming'], // Photo naming with phonemic cues
+  discourse: ['sentence_construction', 'category_fluency'],
+};
+
 function scoreGame(game: GameDefinition, ctx: DrillSelectionContext): number {
   let score = 0;
 
@@ -128,6 +137,45 @@ function scoreGame(game: GameDefinition, ctx: DrillSelectionContext): number {
       if (game.id === mapping.primary) score += 4;
       else if (game.id === mapping.backup) score += 2;
     }
+  }
+
+  // ── DATA-DRIVEN: Domain scores (weakest domains get priority) ──
+  const domainScores = ctx.state.domainScores;
+  if (domainScores && domainScores.length > 0) {
+    // Find domains this game targets
+    for (const [domain, gameIds] of Object.entries(DOMAIN_TO_GAMES)) {
+      if (gameIds.includes(game.id)) {
+        const domainScore = domainScores.find(d => d.domainSlug === domain);
+        if (domainScore && domainScore.trialCount >= 5) {
+          // Weaker domains get higher priority: score 0.3 → +3, score 0.8 → +0.6
+          const domainBoost = Math.max(0, (1 - domainScore.score) * 4);
+          score += domainBoost;
+        }
+      }
+    }
+  }
+
+  // ── DATA-DRIVEN: Exercise history (prefer games where user needs practice) ──
+  const exerciseHistory = ctx.state.exerciseHistory;
+  if (exerciseHistory && exerciseHistory.length > 0) {
+    const perf = exerciseHistory.find(e => e.exerciseSlug === game.exerciseSlug);
+    if (perf) {
+      if (perf.avgAccuracy < 0.5 && perf.trialCount >= 5) {
+        // User struggles with this game — boost it for support drills
+        if (ctx.reason === 'support') score += 2;
+      } else if (perf.avgAccuracy > 0.8 && perf.trialCount >= 10) {
+        // User is strong — boost for challenge drills only
+        if (ctx.reason === 'challenge') score += 1;
+        else score -= 1; // Don't repeat mastered games for support
+      }
+    }
+  }
+
+  // ── Phoneme-driven selection ──
+  const phonemes = ctx.state.strugglingPhonemes;
+  if (phonemes && phonemes.length > 0) {
+    // Photo naming is the best game for phoneme practice
+    if (game.id === 'photo_naming') score += 2;
   }
 
   // Topic match
