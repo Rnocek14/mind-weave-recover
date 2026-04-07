@@ -177,6 +177,7 @@ export default function SmartCoach() {
   const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
   const [progressDelta, setProgressDelta] = useState<ProgressDelta | null>(null);
   const [retentionFeedbackGiven, setRetentionFeedbackGiven] = useState<Set<string>>(new Set());
+  const [arcState, setArcState] = useState<ArcState>(createArcState());
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
