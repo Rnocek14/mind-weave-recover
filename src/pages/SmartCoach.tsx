@@ -579,10 +579,9 @@ export default function SmartCoach() {
             }]);
           }
         }
-      } else if (result.drillRecommendation && (drillOnCooldown || tooEarlyForDrill)) {
-        console.log('[SmartCoach] Drill recommendation suppressed:', {
+      } else if (result.drillRecommendation && drillOnCooldown) {
+        console.log('[SmartCoach] Drill recommendation suppressed: cooldown active', {
           drillOnCooldown,
-          tooEarlyForDrill,
           turnCount,
           lastDrillTurn,
         });
