@@ -516,7 +516,7 @@ export default function SmartCoach() {
       // Check for drill recommendation (sole trigger path)
       // THERAPY HEARTBEAT: enforce cooldown + minimum turn gates
       const DRILL_COOLDOWN_TURNS = 2; // Must have 2+ conversation turns between drills
-      const DRILL_MIN_TURN = 6; // No drills before turn 6 (enough conversation for assessment)
+      const DRILL_MIN_TURN = 3; // First drill after 3 turns (enough to identify a target)
       const drillOnCooldown = lastDrillTurn !== undefined && (turnCount - lastDrillTurn) < DRILL_COOLDOWN_TURNS;
       const tooEarlyForDrill = turnCount < DRILL_MIN_TURN;
       

@@ -49,13 +49,13 @@ export interface DrillTriggerContext {
 // ─── Constants ───────────────────────────────────────────────
 
 /** Earliest turn for a micro-drill */
-const MICRO_DRILL_EARLIEST = 3;
-/** Latest turn for a micro-drill */
-const MICRO_DRILL_LATEST = 6;
+const MICRO_DRILL_EARLIEST = 2;
+/** Latest turn for a micro-drill (expanded window) */
+const MICRO_DRILL_LATEST = 9;
 /** Cooldown turns after a drill before another can trigger */
 const DRILL_COOLDOWN_TURNS = 2;
 /** Minimum turn for targeted practice */
-const TARGETED_PRACTICE_MIN_TURN = 8;
+const TARGETED_PRACTICE_MIN_TURN = 6;
 
 // ─── Main Evaluator ─────────────────────────────────────────
 
@@ -90,8 +90,8 @@ export function evaluateDrillTrigger(ctx: DrillTriggerContext): DrillTriggerDeci
     return NO_TRIGGER;
   }
 
-  // Already had a micro-drill this session? One max.
-  if ((state.interventionCount || 0) >= 1) {
+  // Allow up to 2 micro-drills per session for tighter therapy loops
+  if ((state.interventionCount || 0) >= 2) {
     return NO_TRIGGER;
   }
 
