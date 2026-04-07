@@ -190,12 +190,11 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
   action: string;
   offerText: string;
 } {
-  // Gold-standard framing: name the moment specifically, explain the reason, get consent
   return {
     observation: trigger.observation,
-    rationale: `A quick ${game.label.toLowerCase()} can help — we'll do ${game.defaultConfig.totalTrials || 5} items, then come right back.`,
+    rationale: `A quick ${game.label.toLowerCase()} will help — ${game.defaultConfig.totalTrials || 5} items, then we'll use those words in conversation.`,
     action: `${game.rationale}`,
-    offerText: `Want to try it?`,
+    offerText: `Let's do it.`,
   };
 }
 
@@ -206,20 +205,20 @@ export function buildGameReturnText(
   topic: string,
   interruptionContext?: { lastSubtopic: string; lastUserStruggle: string; lastPhraseAttempt: string },
 ): string {
-  // Gold-standard return bridge: reference exact struggle word, restore continuity
+  // Transfer-forcing return: always connect drill vocabulary to a real-world scenario
   if (interruptionContext) {
     const struggled = interruptionContext.lastPhraseAttempt;
     if (result.score >= 0.7) {
-      return `You were trying to say "${struggled}" earlier — let's go back to your ${interruptionContext.lastSubtopic}. What do you put in it?`;
+      return `Good — you practiced that well. You were trying to say "${struggled}" earlier. Now use it: how would you say that to someone in real life?`;
     }
-    return `Good practice. You were talking about ${interruptionContext.lastSubtopic} — let's pick up there. What else goes in it?`;
+    return `Good practice. You were working on ${interruptionContext.lastSubtopic}. Let's try again — how would you describe that to someone?`;
   }
 
-  // Fallback without interruption context
+  // Fallback without interruption context — still force transfer
   if (result.score >= 0.7) {
-    return `Nice work — ${result.summary} Let's use that momentum. Back to ${topic} — where were we?`;
+    return `Nice work — ${result.summary} Now let's use those words. If you were talking about ${topic} with someone, what would you say?`;
   }
-  return `Good practice either way. ${result.summary} Back to ${topic} — what were you telling me about?`;
+  return `Good practice. ${result.summary} Let's connect it back — how would you describe your ${topic} to a friend?`;
 }
 
 /** Build a GameTriggerEvent from trigger + game */
