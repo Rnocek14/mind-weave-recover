@@ -1318,12 +1318,32 @@ export default function SmartCoach() {
                       {recoveryScore.weeklyDelta != null && recoveryScore.weeklyDelta !== 0 && (
                         <span className={cn(
                           'text-xs font-medium',
-                          recoveryScore.weeklyDelta > 0 ? 'text-primary' : 'text-destructive'
+                          recoveryScore.weeklyDelta > 0 ? 'text-primary' : 'text-muted-foreground'
                         )}>
-                          {recoveryScore.weeklyDelta > 0 ? '+' : ''}{recoveryScore.weeklyDelta} this week
+                          {recoveryScore.weeklyDelta > 0
+                            ? `+${recoveryScore.weeklyDelta} this week`
+                            : 'a little more support needed this week — that\'s normal'}
                         </span>
                       )}
                     </div>
+                    {/* Contextual interpretation */}
+                    {recoveryScore.breakdown && (() => {
+                      const bd = recoveryScore.breakdown!;
+                      const components = [
+                        { label: 'Independence', value: bd.cueIndependence },
+                        { label: 'Word mastery', value: bd.wordMastery },
+                        { label: 'Accuracy', value: bd.accuracy },
+                      ];
+                      const best = components.reduce((a, b) => a.value > b.value ? a : b);
+                      const interp = recoveryScore.trend === 'improving'
+                        ? `${best.label} improved most — you're using more words without help.`
+                        : recoveryScore.trend === 'stable'
+                        ? `Holding steady while you reinforce what you've practiced.`
+                        : recoveryScore.trend === 'declining'
+                        ? `Still building — today added more practice than carryover. That's part of the process.`
+                        : `Still gathering data — keep practicing and it'll become clearer.`;
+                      return <p className="text-xs text-muted-foreground mt-1">{interp}</p>;
+                    })()}
                   </div>
                   <div className={cn(
                     'w-12 h-12 rounded-full flex items-center justify-center',
