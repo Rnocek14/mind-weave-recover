@@ -50,3 +50,5 @@ export { selectDrill, selectPracticeBlock } from './drillSelector';
 export type { DrillSelection } from './drillSelector';
 export { createArcState, computeArcPhase, advanceArc, evaluateDrillSlot, hasClearBreakdown, extractGapWords, getPreDrillNarration, getPostDrillReview, getPostDrillBridge, markDrillFired, recordGap, markTransferBridgeAttempted, exitTransferMode, checkTransferExit, getArcModeOverride } from './sessionArc';
 export type { ArcPhase, ArcState, DrillSlotDecision, GapSignals } from './sessionArc';
+export { generateSessionPlan } from './sessionPlanGenerator';
+export type { SessionPlan, SessionPlanInput } from './sessionPlanGenerator';
