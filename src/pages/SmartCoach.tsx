@@ -400,11 +400,9 @@ export default function SmartCoach() {
         const lowerText = userText.toLowerCase();
         sessionDrillWords.forEach(word => {
           if (lowerText.includes(word)) {
-            // Upgrade transfer result for this word to carryover level
             setTransferResults(prev => {
               const existing = prev.find(r => r.target.toLowerCase() === word);
               if (existing && existing.score < 4) {
-                // Spontaneous reuse = upgrade to score 4
                 return prev.map(r => r.target.toLowerCase() === word 
                   ? { ...r, score: 4, label: TRANSFER_LABELS['used_independently'] + ' (carryover)' }
                   : r
@@ -414,6 +412,45 @@ export default function SmartCoach() {
             });
           }
         });
+      }
+
+      // ── Cross-session retention: check if user uses words from previous sessions ──
+      if (wordHistory.length > 0 && !pendingTransferCheck) {
+        const retentionChecks = checkRetention(userText, wordHistory);
+        const newRetentionWords = retentionChecks.filter(c => !retentionFeedbackGiven.has(c.word.toLowerCase()));
+        
+        if (newRetentionWords.length > 0) {
+          const feedback = getRetentionFeedback(newRetentionWords);
+          if (feedback) {
+            // Inject retention feedback as a Maya aside (non-blocking)
+            setMessages(prev => [...prev, {
+              id: `maya-retention-${Date.now()}`,
+              role: 'maya',
+              text: feedback,
+              timestamp: Date.now(),
+            }]);
+            // Mark these words as already acknowledged
+            setRetentionFeedbackGiven(prev => {
+              const next = new Set(prev);
+              newRetentionWords.forEach(c => next.add(c.word.toLowerCase()));
+              return next;
+            });
+            // Update transfer results with cross-session retention
+            newRetentionWords.forEach(c => {
+              setTransferResults(prev => {
+                const key = c.word.toLowerCase();
+                const existing = prev.find(r => r.target.toLowerCase() === key);
+                if (existing && existing.score >= 4) return prev;
+                const filtered = prev.filter(r => r.target.toLowerCase() !== key);
+                return [...filtered, {
+                  target: c.word,
+                  label: 'Remembered from last session',
+                  score: 4,
+                }];
+              });
+            });
+          }
+        }
       }
 
       const isReturningFromDrill = justCompletedDrill;
