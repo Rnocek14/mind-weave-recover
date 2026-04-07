@@ -71,6 +71,7 @@ export default function DescribeGuessExercise() {
     ? Boolean(location.state?.fromLesson || location.state?.sessionId)
     : (restoredLessonContext?.fromLesson ?? false);
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
+  const returnTo = location.state?.returnTo || '/lesson';
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
