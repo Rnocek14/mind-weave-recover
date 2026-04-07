@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
-import { generateSessionPlan, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
+import { generateSessionPlan, selectReactiveGame2, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { getPostDrillReview, getPostDrillBridge } from '@/lib/smartCoach/sessionArc';
