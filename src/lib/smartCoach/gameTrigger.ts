@@ -198,6 +198,11 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
   };
 }
 
+/** Games that produce speech output (vs receptive-only) */
+const SPEECH_PRODUCING_GAMES = new Set([
+  'photo_naming', 'category_fluency', 'sentence_construction', 'semantic_features',
+]);
+
 /** Build the return-to-conversation text after a game using normalized results */
 export function buildGameReturnText(
   game: GameDefinition,
@@ -205,7 +210,20 @@ export function buildGameReturnText(
   topic: string,
   interruptionContext?: { lastSubtopic: string; lastUserStruggle: string; lastPhraseAttempt: string },
 ): string {
-  // Transfer-forcing return: always connect drill vocabulary to a real-world scenario
+  const producesSpeech = SPEECH_PRODUCING_GAMES.has(game.id);
+
+  // Receptive games (yes/no, meaning match) — don't reference "words you practiced"
+  if (!producesSpeech) {
+    if (interruptionContext) {
+      return `Good — you understood that well. You were talking about ${interruptionContext.lastSubtopic} earlier. Let's keep going — what were you saying?`;
+    }
+    if (result.score >= 0.7) {
+      return `Nice — you got those right. Now let's use that confidence: tell me something about your ${topic}.`;
+    }
+    return `Good practice with that. Let's get back to talking — what comes to mind about your ${topic}?`;
+  }
+
+  // Speech-producing games — use word-level transfer bridges
   if (interruptionContext) {
     const struggled = interruptionContext.lastPhraseAttempt;
     if (result.score >= 0.7) {
@@ -214,7 +232,6 @@ export function buildGameReturnText(
     return `Good practice. You were working on ${interruptionContext.lastSubtopic}. Let's try again — how would you describe that to someone?`;
   }
 
-  // Fallback without interruption context — still force transfer
   if (result.score >= 0.7) {
     return `Nice work — ${result.summary} Now let's use those words. If you were talking about ${topic} with someone, what would you say?`;
   }

@@ -163,7 +163,7 @@ export default function SmartCoach() {
   const [readinessLevel, setReadinessLevel] = useState(7);
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
-  const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const [_pendingIntervention, _setPendingIntervention] = useState<InterventionEvent | null>(null); // legacy — kept for type compat only
   const [autoPlayVoice, setAutoPlayVoice] = useState(false);
   const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
   const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
@@ -513,21 +513,20 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for legacy intervention trigger
-      if (result.intervention) {
-        setPendingIntervention(result.intervention);
-        setMessages(prev => [...prev, {
-          id: `intervention-${Date.now()}`,
-          role: 'intervention',
-          text: result.intervention!.observation,
-          timestamp: Date.now(),
-          interventionData: result.intervention,
-        }]);
-      }
-      // Check for hybrid drill recommendation (takes priority over legacy)
-      else if (result.drillRecommendation && !result.intervention) {
+      // Check for drill recommendation (sole trigger path)
+      if (result.drillRecommendation) {
         const rec = result.drillRecommendation;
-        if (rec.kind === 'micro_drill') {
+        
+        // Fatigue gate: skip targeted practice if micro-drill already fired and user is fatigued
+        const userFatigued = result.nextState.readinessLevel <= 4 || 
+          result.nextState.sessionMetrics.hesitationCount >= 4 ||
+          result.nextState.frustrationRisk === 'high';
+        const alreadyHadDrill = drillsCompletedThisSession > 0;
+        
+        if (rec.kind === 'targeted_practice' && alreadyHadDrill && userFatigued) {
+          // Skip targeted practice — go straight to wrapup
+          console.log('[SmartCoach] Skipping targeted practice: fatigue gate triggered');
+        } else if (rec.kind === 'micro_drill') {
           const retentionHint = getRetentionDifficultyHint(wordHistory);
           const selection = selectDrill({
             state: result.nextState,
@@ -537,7 +536,6 @@ export default function SmartCoach() {
             kind: 'micro_drill',
             retentionHint,
           });
-          // Make difficulty shifts visible to the user
           const difficultyNote = retentionHint.difficultyDelta > 0
             ? " Let's try this in a longer sentence — you're ready."
             : retentionHint.difficultyDelta < 0
@@ -627,33 +625,7 @@ export default function SmartCoach() {
     }]);
   }, [pendingPracticeBlock]);
 
-  // ─── Intervention handlers ─────────────────────────────────
-
-  const handleAcceptIntervention = useCallback(() => {
-    if (!pendingIntervention?.gameId) return;
-    const game = GAME_CATALOG[pendingIntervention.gameId];
-    if (game) {
-      setActiveGame(game);
-      // Launch real exercise in modal
-      exerciseModal.launchExerciseModal(game.exerciseSlug, {
-        totalTrials: game.defaultConfig.totalTrials,
-        difficultyTier: game.defaultConfig.difficultyTier,
-        cueLevel: game.defaultConfig.cueLevel,
-        source: 'maya_chat',
-      });
-    }
-    setPendingIntervention(null);
-  }, [pendingIntervention, exerciseModal]);
-
-  const handleDeclineIntervention = useCallback(() => {
-    setPendingIntervention(null);
-    setMessages(prev => [...prev, {
-      id: `maya-decline-${Date.now()}`,
-      role: 'maya',
-      text: "No problem — let's keep talking.",
-      timestamp: Date.now(),
-    }]);
-  }, []);
+  // ─── Legacy intervention handlers removed — drills are sole path now ──
 
   /** Called when a real exercise completes inside ExerciseModalHost */
   const handleExerciseComplete = useCallback((normalized: NormalizedExerciseResult) => {
@@ -778,7 +750,7 @@ export default function SmartCoach() {
     setSessionStats(null);
     setReadinessLevel(7);
     setActiveGame(null);
-    setPendingIntervention(null);
+    _setPendingIntervention(null);
     setPendingDrill(null);
     setPendingPracticeBlock(null);
     setLastDrillTurn(undefined);
@@ -1511,11 +1483,11 @@ export default function SmartCoach() {
         )}
 
         {messages.map(msg => {
-          // Intervention card
+          // Legacy intervention cards — no longer generated but render old ones read-only
           if (msg.role === 'intervention' && msg.interventionData) {
             return (
               <div key={msg.id} className="max-w-[90%] mx-auto my-2">
-                <div className="bg-accent/50 border border-accent rounded-xl p-4 space-y-3">
+                <div className="bg-accent/50 border border-accent rounded-xl p-4">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                     <div className="space-y-1">
@@ -1523,17 +1495,6 @@ export default function SmartCoach() {
                       <p className="text-xs text-muted-foreground">{msg.interventionData.rationale}</p>
                     </div>
                   </div>
-                  {pendingIntervention && msg.interventionData.timestamp === pendingIntervention.timestamp && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs flex-1">
-                        <Zap className="w-3.5 h-3.5" />
-                        Start practice
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={handleDeclineIntervention} className="text-xs text-muted-foreground">
-                        Skip
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -1622,10 +1583,9 @@ export default function SmartCoach() {
       {/* Voice-enabled input bar */}
       <VoiceInputBar
         onSend={handleSend}
-        disabled={isProcessing || !!pendingIntervention || !!pendingDrill || !!pendingPracticeBlock}
+        disabled={isProcessing || !!pendingDrill || !!pendingPracticeBlock}
         placeholder={
-          pendingIntervention ? "Accept or decline the suggestion above..." 
-          : (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
+          (pendingDrill || pendingPracticeBlock) ? "Start the quick practice above..."
           : "Type or speak your response..."
         }
         topicKeywords={selectedTopic?.keywords ?? []}

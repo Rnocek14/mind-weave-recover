@@ -47,12 +47,14 @@ export interface DrillSelectionContext {
 
 /** Primary game for each detected issue pattern */
 const ISSUE_TO_GAME: Record<string, { primary: string; backup: string }> = {
-  hesitation_cluster:     { primary: 'photo_naming',          backup: 'category_fluency' },
+  hesitation_cluster:     { primary: 'photo_naming',          backup: 'semantic_features' },
   circumlocution:         { primary: 'semantic_features',     backup: 'photo_naming' },
-  consecutive_hesitation: { primary: 'category_fluency',      backup: 'photo_naming' },
-  low_content_response:   { primary: 'yes_no_comprehension',  backup: 'meaning_match' },
+  consecutive_hesitation: { primary: 'photo_naming',          backup: 'semantic_features' },
+  low_content_response:   { primary: 'yes_no_comprehension',  backup: 'photo_naming' },
   phonological_error:     { primary: 'photo_naming',          backup: 'meaning_match' },
   weak_sentence:          { primary: 'sentence_construction', backup: 'photo_naming' },
+  disengagement_cluster:  { primary: 'photo_naming',          backup: 'yes_no_comprehension' },
+  low_engagement:         { primary: 'photo_naming',          backup: 'yes_no_comprehension' },
 };
 
 /** Topic → recommended games */
