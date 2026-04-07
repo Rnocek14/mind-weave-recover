@@ -206,36 +206,52 @@ const SPEECH_PRODUCING_GAMES = new Set([
 /** Build the return-to-conversation text after a game using normalized results */
 export function buildGameReturnText(
   game: GameDefinition,
-  result: { score: number; summary: string },
+  result: { score: number; summary: string; targetWords?: string[] },
   topic: string,
   interruptionContext?: { lastSubtopic: string; lastUserStruggle: string; lastPhraseAttempt: string },
 ): string {
   const producesSpeech = SPEECH_PRODUCING_GAMES.has(game.id);
 
-  // Receptive games (yes/no, meaning match) — don't reference "words you practiced"
+  // Extract a concrete target word from result (no raw metrics)
+  const targetWord = result.targetWords?.[0]
+    || result.summary?.match(/"([^"]+)"/)?.[1]
+    || null;
+
+  // ── Receptive games (yes/no, meaning match) ──
+  // Don't reference "words you practiced" — acknowledge understanding, restore confidence
   if (!producesSpeech) {
     if (interruptionContext) {
-      return `Good — you understood that well. You were talking about ${interruptionContext.lastSubtopic} earlier. Let's keep going — what were you saying?`;
+      return `Good — you understood that well. You were talking about ${interruptionContext.lastSubtopic}. What were you saying about it?`;
     }
     if (result.score >= 0.7) {
-      return `Nice — you got those right. Now let's use that confidence: tell me something about your ${topic}.`;
+      return `You followed that well. Let's use that confidence — tell me something about your ${topic}.`;
     }
-    return `Good practice with that. Let's get back to talking — what comes to mind about your ${topic}?`;
+    return `Good practice. Now back to talking — what comes to mind about your ${topic}?`;
   }
 
-  // Speech-producing games — use word-level transfer bridges
+  // ── Speech-producing games ──
+  // Formula: acknowledge target → connect to real life → ask transfer question
+
   if (interruptionContext) {
     const struggled = interruptionContext.lastPhraseAttempt;
     if (result.score >= 0.7) {
-      return `Good — you practiced that well. You were trying to say "${struggled}" earlier. Now use it: how would you say that to someone in real life?`;
+      return `You got "${struggled}." Now use it — how would you say that to someone?`;
     }
-    return `Good practice. You were working on ${interruptionContext.lastSubtopic}. Let's try again — how would you describe that to someone?`;
+    return `Good practice with that. Let's try "${struggled}" again — how would you describe it?`;
   }
 
-  if (result.score >= 0.7) {
-    return `Nice work — ${result.summary} Now let's use those words. If you were talking about ${topic} with someone, what would you say?`;
+  if (targetWord) {
+    if (result.score >= 0.7) {
+      return `Nice — you got "${targetWord}." Now use it: how would you tell someone about your ${topic}?`;
+    }
+    return `Good practice with "${targetWord}." Let's bring it back — what would you say about your ${topic}?`;
   }
-  return `Good practice. ${result.summary} Let's connect it back — how would you describe your ${topic} to a friend?`;
+
+  // Fallback — no specific target available
+  if (result.score >= 0.7) {
+    return `Good work on that. Now let's use those words — tell me about your ${topic}.`;
+  }
+  return `Good practice. Let's bring it back — what would you say about your ${topic}?`;
 }
 
 /** Build a GameTriggerEvent from trigger + game */
