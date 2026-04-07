@@ -28,8 +28,11 @@ import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import type { SessionMetrics } from '@/lib/smartCoach/types';
 import { MayaNarrationCard } from '@/components/coach/MayaNarrationCard';
 import { MayaAssistantBubble, type MayaHelpAction } from '@/components/coach/MayaAssistantBubble';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { humanizeSlug } from '@/lib/performanceAwareFeedback';
+import { getFeedbackTone } from '@/lib/performanceAwareFeedback';
 
 // ─── Session Phase State Machine ────────────────────────────
 
