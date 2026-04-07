@@ -520,69 +520,64 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for drill recommendation (sole trigger path)
-      // THERAPY HEARTBEAT: enforce cooldown + minimum turn gates
-      const DRILL_COOLDOWN_TURNS = 2; // Must have 2+ conversation turns between drills
-      const DRILL_MIN_TURN = 3; // First drill after 3 turns (enough to identify a target)
+      // Check for drill recommendation — position-based via arc + signal fallback
+      const DRILL_COOLDOWN_TURNS = 2;
       const drillOnCooldown = lastDrillTurn !== undefined && (turnCount - lastDrillTurn) < DRILL_COOLDOWN_TURNS;
-      const tooEarlyForDrill = turnCount < DRILL_MIN_TURN;
       
-      if (result.drillRecommendation && !drillOnCooldown && !tooEarlyForDrill) {
+      if (result.drillRecommendation && !drillOnCooldown) {
         const rec = result.drillRecommendation;
+        const slotNumber = (rec as any).slotNumber as (1 | 2 | undefined);
         
-        // Fatigue gate: skip targeted practice if micro-drill already fired and user is fatigued
+        // Fatigue gate: skip slot 2 if user is fatigued
         const userFatigued = result.nextState.readinessLevel <= 4 || 
           result.nextState.sessionMetrics.hesitationCount >= 4 ||
           result.nextState.frustrationRisk === 'high';
         const alreadyHadDrill = drillsCompletedThisSession > 0;
         
-        if (rec.kind === 'targeted_practice' && alreadyHadDrill && userFatigued) {
-          // Skip targeted practice — go straight to wrapup
-          console.log('[SmartCoach] Skipping targeted practice: fatigue gate triggered');
-        } else if (rec.kind === 'micro_drill') {
+        if (slotNumber === 2 && alreadyHadDrill && userFatigued) {
+          console.log('[SmartCoach] Skipping drill slot 2: fatigue gate');
+        } else {
           const retentionHint = getRetentionDifficultyHint(wordHistory);
-          const selection = selectDrill({
-            state: result.nextState,
-            reason: rec.reason as any,
-            signals: rec.signals,
-            usedGameIds,
-            kind: 'micro_drill',
-            retentionHint,
-          });
-          const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " Let's try this in a longer sentence — you're ready."
-            : retentionHint.difficultyDelta < 0
-            ? " Let's simplify this and build it step by step."
-            : '';
-          setPendingDrill(selection);
-          // Therapy-style framing: name the breakdown, explain why
-          setMessages(prev => [...prev, {
-            id: `drill-offer-${Date.now()}`,
-            role: 'maya',
-            text: rec.observation + difficultyNote,
-            timestamp: Date.now(),
-          }]);
-        } else if (rec.kind === 'targeted_practice') {
-          const retentionHint = getRetentionDifficultyHint(wordHistory);
-          const block = selectPracticeBlock({
-            state: result.nextState,
-            reason: rec.reason as any,
-            signals: rec.signals,
-            usedGameIds,
-            retentionHint,
-          });
-          const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " Let's make this more detailed — you can handle it."
-            : retentionHint.difficultyDelta < 0
-            ? " We'll keep it simple and build from there."
-            : '';
-          setPendingPracticeBlock(block);
-          setMessages(prev => [...prev, {
-            id: `practice-offer-${Date.now()}`,
-            role: 'maya',
-            text: "Let's lock in what you practiced with a focused round." + difficultyNote,
-            timestamp: Date.now(),
-          }]);
+          
+          if (rec.kind === 'micro_drill') {
+            const selection = selectDrill({
+              state: result.nextState,
+              reason: rec.reason as any,
+              signals: rec.signals,
+              usedGameIds,
+              kind: 'micro_drill',
+              retentionHint,
+            });
+            setPendingDrill(selection);
+            // Use deterministic narration from arc
+            const narration = slotNumber 
+              ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
+              : rec.observation;
+            setMessages(prev => [...prev, {
+              id: `drill-offer-${Date.now()}`,
+              role: 'maya',
+              text: narration,
+              timestamp: Date.now(),
+            }]);
+          } else if (rec.kind === 'targeted_practice') {
+            const block = selectPracticeBlock({
+              state: result.nextState,
+              reason: rec.reason as any,
+              signals: rec.signals,
+              usedGameIds,
+              retentionHint,
+            });
+            setPendingPracticeBlock(block);
+            const narration = slotNumber
+              ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
+              : "Let's lock in what you practiced with a focused round.";
+            setMessages(prev => [...prev, {
+              id: `practice-offer-${Date.now()}`,
+              role: 'maya',
+              text: narration,
+              timestamp: Date.now(),
+            }]);
+          }
         }
       } else if (result.drillRecommendation && (drillOnCooldown || tooEarlyForDrill)) {
         console.log('[SmartCoach] Drill recommendation suppressed:', {
