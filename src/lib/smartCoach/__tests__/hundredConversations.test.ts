@@ -378,7 +378,7 @@ describe('Scenario B: Moderate Aphasia — Needs Support', () => {
     const selection = selectDrill({
       state, reason: 'support', signals: ['hesitation_cluster'],
       usedGameIds: [], kind: 'micro_drill',
-      retentionHint: { difficultyDelta: -1, reason: 'weak retention', retainedWords: [], weakWords: ['chicken'] },
+      retentionHint: { difficultyDelta: -1, retainedWords: [], weakWords: ['chicken'] },
     });
     expect(selection.configOverrides.difficultyTier).toBeLessThanOrEqual(1);
     expect(selection.configOverrides.cueLevel).toBeGreaterThanOrEqual(1);
@@ -664,7 +664,7 @@ describe('Scenario D: Recovery & Cue Fade', () => {
     const selection = selectDrill({
       state, reason: 'challenge', signals: ['objective_advanced'],
       usedGameIds: [], kind: 'micro_drill',
-      retentionHint: { difficultyDelta: 1, reason: 'strong retention', retainedWords: ['chicken', 'rice'], weakWords: [] },
+      retentionHint: { difficultyDelta: 1, retainedWords: ['chicken', 'rice'], weakWords: [] },
     });
     expect(selection.configOverrides.difficultyTier).toBeGreaterThanOrEqual(2);
   });
@@ -674,7 +674,7 @@ describe('Scenario D: Recovery & Cue Fade', () => {
     const selection = selectDrill({
       state, reason: 'support', signals: ['hesitation_cluster'],
       usedGameIds: [], kind: 'micro_drill',
-      retentionHint: { difficultyDelta: -1, reason: 'weak retention', retainedWords: [], weakWords: ['chicken'] },
+      retentionHint: { difficultyDelta: -1, retainedWords: [], weakWords: ['chicken'] },
     });
     expect(selection.configOverrides.difficultyTier).toBeLessThanOrEqual(1);
   });
