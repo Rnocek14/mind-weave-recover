@@ -138,12 +138,17 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nPRIOR SESSION CONTEXT: ${ctx.lastSessionContext}. Reference this naturally when relevant — show continuity.`
     : '';
 
-  // Transfer bridge (returning from intervention)
+  // Transfer bridge (returning from intervention) — FORCE structured transfer question
   let transferBlock = '';
   if (ctx.returningFromIntervention && ctx.interruptionContext) {
-    transferBlock = `\nRETURN BRIDGE (MANDATORY): You just completed a focused drill. The user was talking about "${ctx.interruptionContext.lastSubtopic}" and struggling with "${ctx.interruptionContext.lastUserStruggle}". Their last attempt was: "${ctx.interruptionContext.lastPhraseAttempt}". You MUST return to EXACTLY this point. Example: "You were trying to say '${ctx.interruptionContext.lastPhraseAttempt}' earlier — let's go back to that."`;
+    transferBlock = `\nTRANSFER BRIDGE (MANDATORY — HIGHEST PRIORITY): You just completed a focused practice drill. The user was talking about "${ctx.interruptionContext.lastSubtopic}" and struggling with "${ctx.interruptionContext.lastUserStruggle}". Their last attempt was: "${ctx.interruptionContext.lastPhraseAttempt}". You MUST:
+1. Reference a specific word they practiced in the drill
+2. Ask a REAL-WORLD TRANSFER question using that word
+3. Frame it as a realistic scenario (ordering, explaining to someone, introducing)
+Example: "You practiced 'broccoli' in that drill. Now: if you were ordering a salad, how would you ask for it?"
+DO NOT say "good job" or "nice work" without the transfer question. The transfer question IS the response.`;
   } else if (ctx.returningFromIntervention) {
-    transferBlock = `\nTRANSFER BRIDGE: You just completed a focused drill. Connect the skill practiced back to the conversation topic. Example: "That's the same retrieval speed you need for ${ctx.topic}. Let's use it."`;
+    transferBlock = `\nTRANSFER BRIDGE (MANDATORY): You just completed a focused drill. You MUST ask a real-world scenario question that uses the skill just practiced. Example: "Now use that — if you were telling someone about your ${ctx.topic}, what would you say?" DO NOT just continue chatting. Force a transfer moment.`;
   }
 
   // Purpose re-anchor injection
@@ -151,9 +156,9 @@ export function buildPrompt(ctx: PromptContext): string {
     ? `\nPURPOSE RE-ANCHOR (MANDATORY): Weave the goal into your response naturally. Remind the user WHY they're practicing this. Example: "We're still working on finding food words quickly — the same ones you'd use ordering at a restaurant." Do NOT just ask a random question — connect it to: ${ctx.purposeRationale || 'building retrieval skills'}.`
     : '';
 
-  // Post-intervention dampening
+  // Post-intervention dampening — gentler but still structured
   const dampeningBlock = ctx.postInterventionDampening
-    ? `\nPOST-DRILL ADJUSTMENT: The user just returned from an exercise. Ask a slightly easier question than before the drill. Don't expect perfect fluency immediately. Use a gentle re-entry question that connects to what they were discussing before.`
+    ? `\nPOST-DRILL ADJUSTMENT: The user just returned from an exercise. Ask a slightly easier transfer question. Use a forced-choice or sentence starter if needed. Still connect to real-world use.`
     : '';
 
   // Clinical objective injection (from playbook)
