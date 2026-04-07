@@ -94,11 +94,11 @@ function findTargetInResponse(target: string, response: string): TargetTransferR
     return { target, found: true, approximation: 'exact' };
   }
   
-  // Phonemic approximation: first 3+ chars match
+  // Phonemic approximation: first 3+ chars match AND similar length (within ±2 chars)
   const prefix = targetLower.slice(0, Math.min(3, targetLower.length));
   const words = lower.split(/\s+/);
   for (const word of words) {
-    if (word.startsWith(prefix) && word.length >= targetLower.length - 2) {
+    if (word.startsWith(prefix) && word.length >= targetLower.length - 2 && word.length <= targetLower.length + 2) {
       return { target, found: true, approximation: 'phonemic' };
     }
   }
