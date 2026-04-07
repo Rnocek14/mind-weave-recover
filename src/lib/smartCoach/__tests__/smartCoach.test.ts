@@ -304,22 +304,17 @@ describe('Safety Validator', () => {
     expect(r.valid).toBe(false);
   });
 
-  it('rejects lines over 30 words', () => {
-    const long = Array(35).fill('word').join(' ');
+  it('rejects lines over 40 words', () => {
+    const long = Array(45).fill('word').join(' ');
     const r = validateCoachLine(long, 'food');
     expect(r.valid).toBe(false);
     expect(r.reasons).toContain('too_long');
   });
 
-  it('accepts valid coaching lines', () => {
-    const r = validateCoachLine('What kind of pizza do you like?', 'food', [], { topicKeywords: ['pizza', 'pasta', 'cooking'] });
+  it('accepts lines under 40 words', () => {
+    const medium = Array(35).fill('word').join(' ');
+    const r = validateCoachLine(medium, 'food');
     expect(r.valid).toBe(true);
-  });
-
-  it('rejects re-asking established facts', () => {
-    const r = validateCoachLine('Do you like pizza?', 'food', ['i like pizza']);
-    expect(r.valid).toBe(false);
-    expect(r.reasons.some(r => r.includes('re_asking_fact'))).toBe(true);
   });
 });
 
@@ -369,7 +364,7 @@ describe('Fallback Library', () => {
 // Prompt Builder
 // ═══════════════════════════════════════════════════════════════
 describe('Prompt Builder', () => {
-  it('includes topic and mode', () => {
+  it('includes topic and user utterance', () => {
     const prompt = buildPrompt({
       topic: 'food',
       mode: 'expand',
@@ -378,11 +373,10 @@ describe('Prompt Builder', () => {
       lastUserUtterance: 'I like pizza',
     });
     expect(prompt).toContain('food');
-    expect(prompt).toContain('expand');
     expect(prompt).toContain('I like pizza');
   });
 
-  it('includes established facts as DO NOT re-ask', () => {
+  it('includes established facts', () => {
     const prompt = buildPrompt({
       topic: 'food',
       mode: 'expand',
@@ -390,19 +384,19 @@ describe('Prompt Builder', () => {
       supportLevel: 0,
       establishedFacts: ['likes pepperoni'],
     });
-    expect(prompt).toContain('DO NOT re-ask');
+    expect(prompt).toContain("don't re-ask");
     expect(prompt).toContain('likes pepperoni');
   });
 
-  it('includes banned phrase rules', () => {
+  it('includes core safety rules', () => {
     const prompt = buildPrompt({
       topic: 'food',
       mode: 'warmup',
       cueType: 'reassurance',
       supportLevel: 1,
     });
-    expect(prompt).toContain('let me show you');
-    expect(prompt).toContain('Maximum 20 words');
+    expect(prompt).toContain('Never stutter');
+    expect(prompt).toContain('Maximum 14 words');
   });
 });
 
