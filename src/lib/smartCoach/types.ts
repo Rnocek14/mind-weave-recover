@@ -13,6 +13,7 @@ export type CoachMode =
   | 'expand'
   | 'scaffold'
   | 'support'
+  | 'transfer_bridge'
   | 'wrapup';
 
 // ─── Session Phases ──────────────────────────────────────────

@@ -60,6 +60,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
   expand: 'Building on your words',
   scaffold: 'Helping you find it',
   support: 'Making it easier',
+  transfer_bridge: 'Using it in real life',
   wrapup: 'Wrapping up',
 };
 
