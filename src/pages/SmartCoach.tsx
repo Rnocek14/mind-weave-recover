@@ -524,12 +524,14 @@ export default function SmartCoach() {
       else if (result.drillRecommendation && !result.intervention) {
         const rec = result.drillRecommendation;
         if (rec.kind === 'micro_drill') {
+          const retentionHint = getRetentionDifficultyHint(wordHistory);
           const selection = selectDrill({
             state: result.nextState,
             reason: rec.reason as any,
             signals: rec.signals,
             usedGameIds,
             kind: 'micro_drill',
+            retentionHint,
           });
           setPendingDrill(selection);
           setMessages(prev => [...prev, {
@@ -539,11 +541,13 @@ export default function SmartCoach() {
             timestamp: Date.now(),
           }]);
         } else if (rec.kind === 'targeted_practice') {
+          const retentionHint = getRetentionDifficultyHint(wordHistory);
           const block = selectPracticeBlock({
             state: result.nextState,
             reason: rec.reason as any,
             signals: rec.signals,
             usedGameIds,
+            retentionHint,
           });
           setPendingPracticeBlock(block);
           setMessages(prev => [...prev, {
