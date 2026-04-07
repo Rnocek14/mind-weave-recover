@@ -533,11 +533,17 @@ export default function SmartCoach() {
             kind: 'micro_drill',
             retentionHint,
           });
+          // Make difficulty shifts visible to the user
+          const difficultyNote = retentionHint.difficultyDelta > 0
+            ? " You've been strong — let's push a little harder."
+            : retentionHint.difficultyDelta < 0
+            ? " We'll take it easier and reinforce the basics."
+            : '';
           setPendingDrill(selection);
           setMessages(prev => [...prev, {
             id: `drill-offer-${Date.now()}`,
             role: 'maya',
-            text: rec.observation,
+            text: rec.observation + difficultyNote,
             timestamp: Date.now(),
           }]);
         } else if (rec.kind === 'targeted_practice') {
@@ -549,11 +555,16 @@ export default function SmartCoach() {
             usedGameIds,
             retentionHint,
           });
+          const difficultyNote = retentionHint.difficultyDelta > 0
+            ? " You're ready for a more complex version."
+            : retentionHint.difficultyDelta < 0
+            ? " We'll keep it accessible and build from there."
+            : '';
           setPendingPracticeBlock(block);
           setMessages(prev => [...prev, {
             id: `practice-offer-${Date.now()}`,
             role: 'maya',
-            text: "Let's lock in what you practiced with a focused round.",
+            text: "Let's lock in what you practiced with a focused round." + difficultyNote,
             timestamp: Date.now(),
           }]);
         }
