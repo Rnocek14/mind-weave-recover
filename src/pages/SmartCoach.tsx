@@ -334,7 +334,7 @@ export default function SmartCoach() {
         });
 
         // Get feedback and inject into conversation
-        const feedback = getTransferFeedback(transferResult, transferTargets, coachState.cueContext?.cueType);
+        const feedback = getTransferFeedback(transferResult, transferTargets);
         
         // Track for session summary
         transferTargets.forEach(t => {
