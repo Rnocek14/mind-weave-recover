@@ -201,8 +201,8 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
     
     const loadExtraData = async () => {
       try {
-        // Load domain scores, exercise history, and last session in parallel
-        const [domainRes, exerciseRes, sessionRes] = await Promise.all([
+        // Load domain scores and last session in parallel
+        const [domainRes, sessionRes] = await Promise.all([
           // Domain scores (most recent per domain)
           supabase
             .from('cognitive_domain_scores')
@@ -210,14 +210,6 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
             .eq('user_id', userId)
             .order('computed_at', { ascending: false })
             .limit(20),
-          
-          // Exercise performance — get recent sessions first, then events
-          supabase
-            .from('sessions')
-            .select('id')
-            .eq('user_id', userId)
-            .gte('started_at', new Date(Date.now() - 14 * 86400000).toISOString())
-            .limit(50),
           
           // Last coach session
           supabase
@@ -247,26 +239,42 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
           setDomainScores(scores);
         }
         
-        // Process exercise performance — aggregate by slug
-        if (exerciseRes.data && exerciseRes.data.length > 0) {
-          const bySlug = new Map<string, { scores: number[]; lastAt: string }>();
-          for (const row of exerciseRes.data) {
-            if (!row.exercise_slug) continue;
-            const existing = bySlug.get(row.exercise_slug) || { scores: [], lastAt: row.created_at || '' };
-            existing.scores.push(row.score ?? 0);
-            if ((row.created_at || '') > existing.lastAt) existing.lastAt = row.created_at || '';
-            bySlug.set(row.exercise_slug, existing);
-          }
-          const history: ExercisePerformance[] = [];
-          bySlug.forEach((val, slug) => {
-            history.push({
-              exerciseSlug: slug,
-              avgAccuracy: val.scores.reduce((a, b) => a + b, 0) / val.scores.length,
-              trialCount: val.scores.length,
-              lastPlayedAt: val.lastAt,
+        // Load exercise history: get recent sessions then their events
+        const sessionsRes = await supabase
+          .from('sessions')
+          .select('id')
+          .eq('user_id', userId)
+          .gte('started_at', new Date(Date.now() - 14 * 86400000).toISOString())
+          .limit(50);
+        
+        if (sessionsRes.data && sessionsRes.data.length > 0) {
+          const sessionIds = sessionsRes.data.map(s => s.id);
+          const eventsRes = await supabase
+            .from('exercise_events')
+            .select('exercise_slug, score, created_at')
+            .in('session_id', sessionIds)
+            .limit(500);
+          
+          if (eventsRes.data && eventsRes.data.length > 0) {
+            const bySlug = new Map<string, { scores: number[]; lastAt: string }>();
+            for (const row of eventsRes.data) {
+              if (!row.exercise_slug) continue;
+              const existing = bySlug.get(row.exercise_slug) || { scores: [], lastAt: row.created_at || '' };
+              existing.scores.push(row.score ?? 0);
+              if ((row.created_at || '') > existing.lastAt) existing.lastAt = row.created_at || '';
+              bySlug.set(row.exercise_slug, existing);
+            }
+            const history: ExercisePerformance[] = [];
+            bySlug.forEach((val, slug) => {
+              history.push({
+                exerciseSlug: slug,
+                avgAccuracy: val.scores.reduce((a, b) => a + b, 0) / val.scores.length,
+                trialCount: val.scores.length,
+                lastPlayedAt: val.lastAt,
+              });
             });
-          });
-          setExerciseHistory(history);
+            setExerciseHistory(history);
+          }
         }
         
         if (sessionRes.data) {
