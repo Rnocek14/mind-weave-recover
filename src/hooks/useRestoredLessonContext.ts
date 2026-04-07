@@ -13,6 +13,8 @@ interface RestoredLessonContext {
   fromLesson: boolean;
   sessionId: string | null;
   adaptations: Record<string, any> | undefined;
+  /** Where to navigate back on completion (defaults to '/lesson') */
+  returnTo: string;
 }
 
 /**
