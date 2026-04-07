@@ -81,8 +81,8 @@ const CUE_HINTS: Record<CueType, string> = {
 
 // Arc phase context — tells the LLM where we are in the therapy session
 const ARC_PHASE_CONTEXT: Record<ArcPhase, string> = {
-  orient_assess: 'SESSION PHASE: Assessment — You are identifying what words are hard for the user. Ask diagnostic questions that test specific vocabulary. Note what they struggle with.',
-  practice_bridge: 'SESSION PHASE: Practice — User has done a drill. Now get them to USE those practiced words in real conversation. Be directive: ask them to put specific words into sentences.',
+  orient_assess: 'SESSION PHASE: Diagnostic Assessment — You are OBSERVING, not helping yet. Ask questions that test specific vocabulary. Do NOT offer hints, cues, or corrections. Let the user struggle — you need to see what words are hard. If they circumlocute or hesitate, note it but do NOT fix it. Ask a follow-up that tests a different word.',
+  practice_bridge: 'SESSION PHASE: Practice Bridge — User has done a drill. Now get them to USE those practiced words in real conversation. Be directive: ask them to put specific words into sentences.',
   generalize_close: 'SESSION PHASE: Generalization — Test if practiced words come out naturally. Ask real-world scenario questions. If they use drilled words spontaneously, acknowledge it specifically.',
 };
 
@@ -153,14 +153,19 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(ctx.objectivePrompt);
   }
 
-  // ── Action instruction (mode + cue + dimension) ──
+  // ── Action instruction (mode + cue merged when appropriate) ──
   let modeInst = MODE_INSTRUCTIONS[ctx.mode];
   if (ctx.mode === 'expand' && ctx.expandDimension !== undefined) {
     const dimIdx = ctx.expandDimension % EXPAND_DIMENSIONS.length;
     modeInst += ` ${EXPAND_DIMENSIONS[dimIdx]}`;
   }
   parts.push(`ACTION: ${modeInst}`);
-  parts.push(`CUE: ${CUE_HINTS[ctx.cueType]}`);
+
+  // Only include CUE instruction when in scaffold/support modes
+  // In expand/warmup, the ACTION is sufficient — adding CUE creates contradiction
+  if (ctx.mode === 'scaffold' || ctx.mode === 'support') {
+    parts.push(`CUE STRATEGY: ${CUE_HINTS[ctx.cueType]}`);
+  }
 
   // ── The trigger ──
   parts.push(`User said: "${ctx.lastUserUtterance || '(silence)'}"`);
