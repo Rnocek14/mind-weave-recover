@@ -211,17 +211,13 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
             .order('computed_at', { ascending: false })
             .limit(20),
           
-          // Exercise performance (last 14 days)
+          // Exercise performance — get recent sessions first, then events
           supabase
-            .from('exercise_events')
-            .select('exercise_slug, score, created_at, session_id')
-            .eq('session_id', supabase
-              .from('sessions')
-              .select('id')
-              .eq('user_id', userId)
-              .gte('started_at', new Date(Date.now() - 14 * 86400000).toISOString())
-            )
-            .limit(500),
+            .from('sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .gte('started_at', new Date(Date.now() - 14 * 86400000).toISOString())
+            .limit(50),
           
           // Last coach session
           supabase
