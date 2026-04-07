@@ -8,6 +8,7 @@
 
 import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
 import { evaluateDrillTrigger, type DrillTriggerContext } from './drillTriggerEvaluator';
+import type { ArcState } from './sessionArc';
 import { analyzeUtterance } from './utteranceAnalyzer';
 import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
 import { selectCue } from './cueSelector';
@@ -34,10 +35,12 @@ interface RunCoachTurnArgs {
   lastDrillCompletedAtTurn?: number;
   /** Previous turn analysis (for consecutive signal detection) */
   prevAnalysis?: import('./types').CoachUtteranceAnalysis;
+  /** Session arc state for position-based drill triggers */
+  arcState?: ArcState;
 }
 
 export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
-  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill, lastDrillCompletedAtTurn, prevAnalysis } = args;
+  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill, lastDrillCompletedAtTurn, prevAnalysis, arcState } = args;
 
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
@@ -185,6 +188,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     objectiveAdvanced: playbook ? evaluateObjectiveProgress(userUtterance, nextState, playbook).shouldAdvance : false,
     lastDrillCompletedAtTurn,
     maxTurns,
+    arcState,
   };
   const drillTrigger = evaluateDrillTrigger(drillTriggerCtx);
 
