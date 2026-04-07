@@ -60,7 +60,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
 // ─── Phase steps for visual indicator ───────────────────────
 
 const PHASE_STEPS = [
-  { key: 'warmup', label: 'Warm up', icon: MessageCircle },
+  { key: 'warmup', label: 'Talk', icon: MessageCircle },
   { key: 'expand', label: 'Practice', icon: Brain },
   { key: 'support', label: 'Drills', icon: Zap },
   { key: 'wrapup', label: 'Review', icon: CheckCircle2 },
@@ -166,7 +166,7 @@ export default function SmartCoach() {
   const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
-  const maxTurns = 10; // Extended from 8 for hybrid session
+  const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
 
   // Stable session UUID — generated once when conversation starts
   const sessionIdRef = useRef<string | null>(null);
