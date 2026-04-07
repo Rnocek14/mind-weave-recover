@@ -1,9 +1,10 @@
 /**
- * Smart Coach — Turn Orchestrator
+ * Smart Coach — Turn Orchestrator (v2: Simplified)
  * 
- * The single entry point for processing one conversation turn.
- * Now tracks session metrics, injects purpose context, detects interventions,
- * and advances clinical objectives through playbooks.
+ * REDESIGN: Removed dual-progression conflict.
+ * - Session arc (sessionArc.ts) is the SOLE authority for phase/drill timing
+ * - Playbook objectives provide prompt injection ONLY (no separate advancement logic)
+ * - Validation reasons are tracked for fallback rate diagnosis
  */
 
 import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
@@ -19,23 +20,17 @@ import { getFallbackLine, getConfusionRepairLine, getCorrectionRepairLine } from
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { getPlaybook } from './clinicalPlaybooks';
-import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic, shouldRegressObjective, regressObjective } from './objectiveAdvancer';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
   state: CoachState;
   userUtterance: string;
   maxTurns?: number;
-  /** Injected cross-session context for prompts */
   lastSessionContext?: string;
-  /** If returning from an intervention game */
   returningFromIntervention?: boolean;
   interventionSkill?: string;
-  /** Turn when last drill completed (for cooldown) */
   lastDrillCompletedAtTurn?: number;
-  /** Previous turn analysis (for consecutive signal detection) */
   prevAnalysis?: import('./types').CoachUtteranceAnalysis;
-  /** Session arc state for position-based drill triggers */
   arcState?: ArcState;
 }
 
@@ -45,8 +40,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
 
-  // Step 1.5 — Confusion/correction intercept: handle BEFORE LLM call
-  // These need immediate deterministic repair, not AI-generated responses
+  // Step 1.5 — Confusion/correction intercept
   if (analysis.confusionDetected || analysis.correctionDetected) {
     const repairLine = analysis.confusionDetected
       ? getConfusionRepairLine()
@@ -107,27 +101,23 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     };
   }
 
-  // Step 3 — Transition state (now also tracks metrics)
+  // Step 3 — Transition state
   let nextState = transitionCoachState(state, analysis);
 
-  // Step 3.5 — Post-intervention dampening: slightly elevate support after returning from drill
+  // Post-intervention dampening
   if (state.postInterventionDampening) {
     nextState.supportLevel = Math.min(3, nextState.supportLevel + 1) as 0 | 1 | 2 | 3;
-    // Clear dampening after one turn of use
     nextState.postInterventionDampening = false;
   }
 
-  // Step 4 — Select cue (now severity-aware)
+  // Step 4 — Select cue
   const cueDecision = selectCue(nextState, analysis);
 
-  // Track strategy usage
   if (cueDecision.cueType !== 'expansion_prompt' && cueDecision.cueType !== 'reassurance') {
     nextState = recordStrategy(nextState, cueDecision.cueType);
   }
 
-  // Step 4.5 — (Legacy trigger path removed — sole trigger is drillTriggerEvaluator in Step 4.8)
-
-  // Step 4.6 — Purpose re-anchor check (every 8-12 turns)
+  // Step 4.6 — Purpose re-anchor check
   const PURPOSE_REANCHOR_INTERVAL = 10;
   const turnsSinceAnchor = (state.turnCount + 1) - (state.lastPurposeAnchorTurn || 0);
   const needsPurposeReanchor = turnsSinceAnchor >= PURPOSE_REANCHOR_INTERVAL && nextState.mode !== 'wrapup';
@@ -135,64 +125,43 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState.lastPurposeAnchorTurn = state.turnCount + 1;
   }
 
-  // Step 4.7 — Clinical objective tracking via playbook
+  // Step 4.7 — Get objective prompt from playbook (PROMPT INJECTION ONLY — no advancement logic)
   const playbook = getPlaybook(nextState.topic);
   let objectivePrompt = '';
   if (playbook && nextState.mode !== 'wrapup') {
-    // Evaluate progress on current objective
-    const progress = evaluateObjectiveProgress(userUtterance, nextState, playbook);
-
-    // Track subtopic depth
-    const mainWord = userUtterance.trim().split(/\s+/)[0]?.toLowerCase() || '';
-    const subtopicUpdate = trackSubtopic(nextState, mainWord);
-    Object.assign(nextState, subtopicUpdate);
-
-    // Advance if objective met or force transfer near end
-    if (progress.shouldAdvance) {
-      const advancement = advanceObjective(nextState, playbook);
-      Object.assign(nextState, advancement);
+    const idx = nextState.currentObjectiveIndex ?? 0;
+    const objective = playbook.objectives[Math.min(idx, playbook.objectives.length - 1)];
+    
+    // Simple objective prompt — just tell the LLM what to focus on
+    objectivePrompt = getSimpleObjectivePrompt(objective.id, playbook.topicId);
+    
+    // Auto-advance objective every 2 turns (simple, no dual-brain)
+    const turnsOnObj = nextState.objectiveProgress?.turnsOnObjective ?? 0;
+    if (turnsOnObj >= 2 && idx < playbook.objectives.length - 1) {
+      nextState.currentObjectiveIndex = idx + 1;
+      nextState.objectiveProgress = { turnsOnObjective: 0, lastObjectiveId: playbook.objectives[idx + 1].id };
     } else {
-      // Tick turns on objective
-      Object.assign(nextState, tickObjective(nextState));
-      
-      // Check for regression — user may have worsened mid-session
-      const regressionCheck = shouldRegressObjective(nextState, playbook);
-      if (regressionCheck?.shouldRegress) {
-        const rollback = regressObjective(nextState, playbook, regressionCheck.reason);
-        if (rollback) {
-          Object.assign(nextState, rollback);
-        }
-      }
+      nextState.objectiveProgress = {
+        ...nextState.objectiveProgress,
+        turnsOnObjective: turnsOnObj + 1,
+      };
     }
-
-    // Force transfer if running out of turns
-    if (shouldForceTransfer(nextState, playbook, maxTurns)) {
-      const transferIdx = playbook.objectives.findIndex(o => o.id === 'transfer_check');
-      if (transferIdx >= 0) {
-        nextState.currentObjectiveIndex = transferIdx;
-        nextState.objectiveProgress = { turnsOnObjective: 0, lastObjectiveId: 'transfer_check' };
-      }
-    }
-
-    // Get the objective-specific prompt injection
-    const updatedProgress = evaluateObjectiveProgress(userUtterance, nextState, playbook);
-    objectivePrompt = updatedProgress.objectivePrompt;
   }
 
-  // Step 4.8 — Hybrid drill trigger evaluation
+  // Step 4.8 — Drill trigger evaluation (sole authority: session arc)
   const drillTriggerCtx: DrillTriggerContext = {
     state: nextState,
     analysis,
     prevAnalysis,
     currentObjectiveId: playbook ? playbook.objectives[nextState.currentObjectiveIndex ?? 0]?.id : undefined,
-    objectiveAdvanced: playbook ? evaluateObjectiveProgress(userUtterance, nextState, playbook).shouldAdvance : false,
+    objectiveAdvanced: false,
     lastDrillCompletedAtTurn,
     maxTurns,
     arcState,
   };
   const drillTrigger = evaluateDrillTrigger(drillTriggerCtx);
 
-  // Step 5 — Build prompt (with purpose context + cross-session + deficit + objective)
+  // Step 5 — Build prompt (simplified)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -247,17 +216,9 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback = true;
   }
 
-  // Step 7 — Validate (with anchor context including conversation history words)
-  // Build broader context from recent conversation for anchor checking
-  const recentUserWords = state.conversationHistory
-    .filter(m => m.role === 'user')
-    .slice(-3)
-    .map(m => m.text)
-    .join(' ');
-  const broadUserContext = recentUserWords ? `${recentUserWords} ${userUtterance}` : userUtterance;
-  
+  // Step 7 — Validate (loosened)
   const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts, {
-    lastUserUtterance: broadUserContext,
+    lastUserUtterance: userUtterance,
     topicKeywords: nextState.topicKeywords,
   });
 
@@ -265,11 +226,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   if (!validation.valid) {
     console.warn('[SmartCoach] Validation failed:', validation.reasons, '| Original:', rawLine);
     debugRawOutput = rawLine;
-    // CRITICAL FIX: When validation fails, use mode-only fallback (NOT cue type).
-    // Using phonemic_hint fallback when user isn't stuck creates nonsensical responses.
-    // Only use cue-specific fallbacks when the user is actually struggling.
-    const userIsStuck = analysis.hesitationDetected || analysis.pauseDetected || analysis.likelyErrorType === 'hesitation';
-    finalLine = getFallbackLine(nextState.mode, userIsStuck ? cueDecision.cueType : undefined);
+    finalLine = getFallbackLine(nextState.mode);
     usedFallback = true;
   } else {
     finalLine = postProcessCoachLine(rawLine);
@@ -288,14 +245,12 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     lastUserUtterance: userUtterance,
     lastCoachUtterance: finalLine,
     conversationHistory: newHistory,
-    // Track consecutive fallbacks for LLM failure escalation
     consecutiveFallbacks: usedFallback ? (state.consecutiveFallbacks ?? 0) + 1 : 0,
   };
 
-  // LLM failure escalation: if 3+ consecutive fallbacks, warn and simplify
+  // LLM failure escalation
   if (updatedState.consecutiveFallbacks >= 3) {
     console.error(`[SmartCoach] LLM failure escalation: ${updatedState.consecutiveFallbacks} consecutive fallbacks`);
-    // Force wrapup to avoid degraded experience
     updatedState.mode = 'wrapup';
   }
 
@@ -305,7 +260,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     addEstablishedFact(updatedState, fact);
   }
 
-  // Step 9 — Log
+  // Step 9 — Log (with validation reasons for fallback diagnosis)
   const turnLog: CoachTurnLog = {
     topic: updatedState.topic,
     mode: updatedState.mode,
@@ -318,6 +273,9 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback,
     timestamp: new Date().toISOString(),
   };
+  // Attach validation reasons for diagnosis (not in the type but tracked)
+  (turnLog as any).validationReasons = validation.reasons;
+  (turnLog as any).rejectedLine = debugRawOutput;
   logCoachTurn(turnLog);
 
   return {
@@ -339,7 +297,27 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   };
 }
 
-/** Build messages array for the smart-coach-turn relay (OpenAI-compatible format) */
+/** Simple objective prompt — no complex evaluation, just a clear instruction */
+function getSimpleObjectivePrompt(objectiveId: string, topicId: string): string {
+  switch (objectiveId) {
+    case 'warmup_anchor':
+      return `OBJECTIVE: Get the user to name one item related to ${topicId}. Keep it easy.`;
+    case 'elicit_core_content':
+      return `OBJECTIVE: Expand into details — type, ingredients, people. Get 2+ content words.`;
+    case 'organize_or_expand':
+      return `OBJECTIVE: Move from single words to short phrases. Combine item + detail.`;
+    case 'sentence_level_production':
+      return `OBJECTIVE: Get a full sentence. Frame as real-world: ordering, introducing, describing.`;
+    case 'transfer_check':
+      return `OBJECTIVE: Test real-world transfer. "How would you say this to a waiter/friend?"`;
+    case 'wrapup_reflection':
+      return `OBJECTIVE: Wrap up. Name their exact words that came out well. Connect to real use.`;
+    default:
+      return '';
+  }
+}
+
+/** Build messages array for the smart-coach-turn relay */
 function buildMessagesForRelay(state: CoachState, currentUtterance: string): { role: 'user' | 'assistant'; content: string }[] {
   const messages: { role: 'user' | 'assistant'; content: string }[] = (state.conversationHistory || []).map(t => ({
     role: (t.role === 'maya' ? 'assistant' : 'user') as 'user' | 'assistant',
