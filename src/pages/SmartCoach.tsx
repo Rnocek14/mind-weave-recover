@@ -673,15 +673,33 @@ export default function SmartCoach() {
       transferred: transferResults.filter(r => r.score >= 3).length,
     };
 
-    // Cross-game comparison for summary
-    const summaryNarrative = (() => {
+    // Emotionally grounded closing message
+    const closingMessage = (() => {
       if (game1Result && game2Result) {
         const s1 = Math.round(game1Result.score * 100);
         const s2 = Math.round(game2Result.score * 100);
         const delta = s2 - s1;
-        if (delta >= 10) return `You went from ${s1}% to ${s2}% — real improvement today.`;
-        if (delta >= 0) return `Consistent performance at ${s2}% — building reliable retrieval.`;
-        return `${s2}% on a harder exercise shows you're stretching your skills.`;
+        if (delta >= 10) return `You improved from ${s1}% to ${s2}%. That's your brain rebuilding pathways — real, measurable progress.`;
+        if (s2 >= 80) return `${s2}% accuracy — those words are becoming reliable again. Keep this up.`;
+        if (delta >= 0) return `Steady at ${s2}%. Consistency is how recovery works — you're doing it right.`;
+        return `${s2}% on a harder exercise. Stretching into harder territory is exactly how you get stronger.`;
+      }
+      if (game1Result) {
+        const s = Math.round(game1Result.score * 100);
+        if (s >= 80) return `${s}% — strong session. Your word retrieval is getting faster.`;
+        return `${s}% — every session builds on the last. You showed up, and that matters.`;
+      }
+      return 'Good work today. Every session strengthens your recovery.';
+    })();
+
+    // Personalized "what improved" insight
+    const improvementInsight = (() => {
+      const words = [
+        ...(game1Result?.targetWords || []).slice(0, 2),
+        ...(game2Result?.targetWords || []).slice(0, 1),
+      ];
+      if (words.length > 0) {
+        return `Words practiced: ${words.map(w => `"${w}"`).join(', ')}`;
       }
       return null;
     })();
@@ -697,37 +715,44 @@ export default function SmartCoach() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full max-w-sm mx-auto space-y-5">
+            {/* Hero closing */}
             <div className="bg-card border rounded-2xl p-6 space-y-5">
-              <div className="text-center space-y-2">
-                <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-7 h-7 text-primary" />
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-bold">Session Review</h2>
-                {summaryNarrative && (
-                  <p className="text-sm text-muted-foreground">{summaryNarrative}</p>
-                )}
+                <h2 className="text-xl font-bold">Great session 💪</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">{closingMessage}</p>
               </div>
 
-              <div className="flex justify-around py-2 border-y border-border/50">
+              {/* Stats row */}
+              <div className="flex justify-around py-3 border-y border-border/50">
                 <div className="text-center">
-                  <p className="text-lg font-bold text-foreground">{drillsCompleted}</p>
+                  <p className="text-2xl font-bold text-foreground">{drillsCompleted}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Practices</p>
                 </div>
+                {game1Result && (
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">{Math.round(game1Result.score * 100)}%</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Best score</p>
+                  </div>
+                )}
                 {completionStats.transferred > 0 && (
                   <div className="text-center">
-                    <p className="text-lg font-bold text-primary">{completionStats.transferred}</p>
+                    <p className="text-2xl font-bold text-primary">{completionStats.transferred}</p>
                     <p className="text-[10px] text-primary/70 uppercase tracking-wide font-medium">Transferred</p>
                   </div>
                 )}
               </div>
 
+              {/* Game breakdown */}
               {game1Result && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                   <span className="text-lg">{plan.game1.icon}</span>
                   <div>
                     <p className="text-xs font-medium text-foreground">{plan.game1.label}</p>
                     <p className="text-sm text-muted-foreground">
-                      Score: {Math.round(game1Result.score * 100)}%
+                      {Math.round(game1Result.score * 100)}%
                       {game1Result.targetWords?.length ? ` · ${game1Result.targetWords.slice(0, 3).map(w => `"${w}"`).join(', ')}` : ''}
                     </p>
                   </div>
@@ -739,13 +764,14 @@ export default function SmartCoach() {
                   <div>
                     <p className="text-xs font-medium text-foreground">{plan.game2.label}</p>
                     <p className="text-sm text-muted-foreground">
-                      Score: {Math.round(game2Result.score * 100)}%
+                      {Math.round(game2Result.score * 100)}%
                       {game2Result.targetWords?.length ? ` · ${game2Result.targetWords.slice(0, 3).map(w => `"${w}"`).join(', ')}` : ''}
                     </p>
                   </div>
                 </div>
               )}
 
+              {/* Transfer results */}
               {transferResults.length > 0 && (
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <div className="flex items-center gap-2">
@@ -769,17 +795,13 @@ export default function SmartCoach() {
                 </div>
               )}
 
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-foreground">Try this next</p>
-                  <p className="text-sm text-muted-foreground">
-                    {plan.topic.purpose.transferTarget.charAt(0).toUpperCase() + plan.topic.purpose.transferTarget.slice(1)} — use the words you practiced today.
-                  </p>
-                </div>
-              </div>
+              {/* Improvement insight */}
+              {improvementInsight && (
+                <p className="text-xs text-muted-foreground text-center">{improvementInsight}</p>
+              )}
             </div>
 
+            {/* Recovery score */}
             {recoveryScore.score != null && recoveryScore.confidence !== 'insufficient' && (
               <div className="bg-card border rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
@@ -804,6 +826,7 @@ export default function SmartCoach() {
               </div>
             )}
 
+            {/* Actions */}
             <div className="flex flex-col gap-3">
               <Button size="lg" onClick={() => navigate('/today')} className="w-full gap-2">
                 Done for today
@@ -851,19 +874,16 @@ export default function SmartCoach() {
       );
     }
 
-    // Transfer Check (the ONE input moment)
+    // Transfer Check — lightweight, skippable
     if (phase === 'transfer_check') {
       return (
         <MayaNarrationCard
           narration={transferPromptText}
-          onContinue={() => {
-            // Skip transfer — go straight to game 2
-            setPhase('game2_playing');
-          }}
+          onContinue={() => setPhase('game2_playing')}
           showInput
-          inputPlaceholder="Use those words in a sentence..."
+          inputPlaceholder="Type a short sentence..."
           onSubmit={handleTransferSubmit}
-          actionLabel="Skip"
+          actionLabel="Skip to next practice"
           isProcessing={isProcessing}
           phaseIndex={phaseIndex}
           totalPhases={TOTAL_PHASES}
