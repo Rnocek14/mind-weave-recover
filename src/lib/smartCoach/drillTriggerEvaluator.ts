@@ -98,17 +98,36 @@ export function evaluateDrillTrigger(ctx: DrillTriggerContext): DrillTriggerDeci
     }
   }
 
-  // ── FALLBACK: Signal-based triggers (only if arc slots haven't fired) ──
-  // These preserve the old behavior for edge cases
+  // ── FALLBACK: Signal-based triggers (when no arcState or arc slots haven't fired) ──
   
   // Max 2 drills per session
   if ((state.interventionCount || 0) >= 2) {
     return NO_TRIGGER;
   }
 
+  // Fallback turn gating: no drills before turn 3
+  if (turn < 3) {
+    return NO_TRIGGER;
+  }
+
+  // Targeted practice fallback: late session or transfer_check
+  if (turn >= 6 || ctx.currentObjectiveId === 'transfer_check') {
+    return {
+      kind: 'targeted_practice',
+      reason: 'support',
+      confidence: 0.9,
+      observation: "Time for focused practice — let's strengthen what you've been working on.",
+      signals: ['session_late_phase', `turn_${turn}_of_${maxTurns}`],
+    };
+  }
+
   // Support trigger (2+ signals of struggle)
   const supportResult = evaluateSupportTrigger(ctx);
   if (supportResult) return supportResult;
+
+  // Challenge trigger (all core signals met)
+  const challengeResult = evaluateChallengeTrigger(ctx);
+  if (challengeResult) return challengeResult;
 
   // Repair trigger (off-topic or severe disengagement)
   const repairResult = evaluateRepairTrigger(ctx);
