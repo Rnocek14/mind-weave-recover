@@ -1038,12 +1038,12 @@ export default function SmartCoach() {
                   </div>
                   {pendingIntervention && msg.interventionData.timestamp === pendingIntervention.timestamp && (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs">
-                        <Gamepad2 className="w-3.5 h-3.5" />
-                        Try it
+                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs flex-1">
+                        <Zap className="w-3.5 h-3.5" />
+                        Start practice
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleDeclineIntervention} className="text-xs">
-                        Keep talking
+                      <Button size="sm" variant="ghost" onClick={handleDeclineIntervention} className="text-xs text-muted-foreground">
+                        Skip
                       </Button>
                     </div>
                   )}
