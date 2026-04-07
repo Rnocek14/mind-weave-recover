@@ -1,12 +1,12 @@
 /**
- * Smart Coach — Prompt Builder (v2: Simplified)
+ * Smart Coach — Prompt Builder (v3: Arc-Aware)
  * 
- * REDESIGN: Collapsed from ~600 tokens to ~250.
- * One clear instruction per turn. No contradictory constraints.
- * The LLM gets: persona + topic + ONE action + key context.
+ * Now includes arc phase context so the LLM knows WHERE in the session we are.
+ * ~250 tokens. One clear instruction per turn.
  */
 
 import type { CoachMode, CueType, SeverityProfile, PrimaryDeficit } from './types';
+import type { ArcPhase } from './sessionArc';
 
 export interface PromptContext {
   topic: string;
@@ -36,6 +36,14 @@ export interface PromptContext {
   };
   postInterventionDampening?: boolean;
   objectivePrompt?: string;
+  /** Arc phase for structural awareness */
+  arcPhase?: ArcPhase;
+  /** Words practiced in drills this session */
+  drilledWords?: string[];
+  /** Current turn number */
+  turnNumber?: number;
+  /** Total turns in session */
+  totalTurns?: number;
 }
 
 const EXPAND_DIMENSIONS = [
@@ -71,14 +79,36 @@ const CUE_HINTS: Record<CueType, string> = {
   expansion_prompt: 'Ask about one specific detail they just mentioned.',
 };
 
+// Arc phase context — tells the LLM where we are in the therapy session
+const ARC_PHASE_CONTEXT: Record<ArcPhase, string> = {
+  orient_assess: 'SESSION PHASE: Assessment — You are identifying what words are hard for the user. Ask diagnostic questions that test specific vocabulary. Note what they struggle with.',
+  practice_bridge: 'SESSION PHASE: Practice — User has done a drill. Now get them to USE those practiced words in real conversation. Be directive: ask them to put specific words into sentences.',
+  generalize_close: 'SESSION PHASE: Generalization — Test if practiced words come out naturally. Ask real-world scenario questions. If they use drilled words spontaneously, acknowledge it specifically.',
+};
+
 export function buildPrompt(ctx: PromptContext): string {
   const parts: string[] = [];
 
   // ── Core persona (fixed, short) ──
-  parts.push(`You are Maya, a warm speech coach helping a stroke survivor practice. Sound like a kind, intelligent friend — not a script.`);
+  parts.push(`You are Maya, a warm speech coach helping a stroke survivor practice. Sound like a kind, intelligent friend — not a script. You are directing a therapy session, not having casual chat.`);
 
   // ── Hard rules (minimal, non-contradictory) ──
   parts.push(`RULES: Stay on "${ctx.topic}". Never stutter/hyphenate words. Never say "tell me more" without specifying what. Never use empty praise ("Good job!") — always say what was good. One sentence only. Speak like talking to an intelligent adult.`);
+
+  // ── Session position ──
+  if (ctx.turnNumber !== undefined && ctx.totalTurns !== undefined) {
+    parts.push(`Turn ${ctx.turnNumber + 1} of ${ctx.totalTurns}.`);
+  }
+
+  // ── Arc phase (structural awareness) ──
+  if (ctx.arcPhase) {
+    parts.push(ARC_PHASE_CONTEXT[ctx.arcPhase]);
+  }
+
+  // ── Drilled words (for transfer verification) ──
+  if (ctx.drilledWords && ctx.drilledWords.length > 0) {
+    parts.push(`DRILLED WORDS this session: ${ctx.drilledWords.join(', ')}. Listen for these — acknowledge when used.`);
+  }
 
   // ── Context (compact) ──
   parts.push(`Topic: ${ctx.topic}${ctx.subtopic ? ` → ${ctx.subtopic}` : ''} | Support: ${ctx.supportLevel}/3`);

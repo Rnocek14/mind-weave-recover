@@ -1,7 +1,9 @@
 /**
  * Smart Coach — Session Arc Controller
  * 
- * Replaces the old reactive trigger model with a structured 3-phase arc:
+ * The SOLE authority for session timing, phase transitions, and drill slots.
+ * 
+ * 14-turn arc with 3 phases:
  * 
  * Phase 1: ORIENT + ASSESS (turns 0-3)
  *   - Maya states goal, probes for gaps
@@ -36,6 +38,10 @@ export interface ArcState {
   drilledWords: string[];
   /** Whether transfer bridge has been attempted post-drill-1 */
   transferBridgeAttempted: boolean;
+  /** Whether we're currently in post-drill transfer mode */
+  inTransferMode: boolean;
+  /** Turn when transfer mode was entered */
+  transferModeEnteredAtTurn: number | null;
 }
 
 // ─── Factory ────────────────────────────────────────────────
@@ -49,15 +55,24 @@ export function createArcState(): ArcState {
     identifiedGaps: [],
     drilledWords: [],
     transferBridgeAttempted: false,
+    inTransferMode: false,
+    transferModeEnteredAtTurn: null,
   };
 }
 
-// ─── Phase Computation ──────────────────────────────────────
+// ─── Phase Computation (MUST be called every turn) ──────────
 
 export function computeArcPhase(turn: number, arc: ArcState): ArcPhase {
   if (turn <= 3 && !arc.drill1Fired) return 'orient_assess';
   if (turn <= 7 && !arc.drill2Fired) return 'practice_bridge';
   return 'generalize_close';
+}
+
+/** Update arc state with current phase — call this every turn */
+export function advanceArc(arc: ArcState, turn: number): ArcState {
+  const newPhase = computeArcPhase(turn, arc);
+  if (newPhase === arc.phase) return arc;
+  return { ...arc, phase: newPhase };
 }
 
 // ─── Gap Detection ──────────────────────────────────────────
@@ -102,6 +117,9 @@ export interface DrillSlotDecision {
  * Position-based drill slot evaluation.
  * 
  * Slot 1 (turns 3-5): Conditional — fires when breakdown detected
+ *   Turn 3: only if clear breakdown
+ *   Turn 4: only if clear breakdown  
+ *   Turn 5: fires with weaker signal (1+ breakdown indicator)
  * Slot 2 (turn 7): Mandatory — always fires for reinforcement
  */
 export function evaluateDrillSlot(
@@ -119,14 +137,18 @@ export function evaluateDrillSlot(
     if (turn === 4 && hasGap) {
       return { shouldDrill: true, slotNumber: 1, reason: 'breakdown_detected_turn_4' };
     }
-    if (turn === 5) {
-      // Turn 5 is the last chance — fire even with weaker signal
-      return { shouldDrill: true, slotNumber: 1, reason: 'slot_1_deadline' };
+    if (turn === 5 && hasGap) {
+      // Turn 5: still require at least weak signal, not unconditional
+      return { shouldDrill: true, slotNumber: 1, reason: 'breakdown_detected_turn_5' };
+    }
+    // If turn 5 and NO signal at all — skip slot 1, user is doing fine
+    if (turn === 5 && !hasGap) {
+      return { shouldDrill: false, slotNumber: null, reason: 'slot_1_skipped_no_breakdown' };
     }
   }
 
-  // ── Slot 2: turn 7, mandatory ──
-  if (!arc.drill2Fired && turn >= 7 && arc.drill1Fired) {
+  // ── Slot 2: turn 7+, mandatory (but only if slot 1 has fired or was skipped) ──
+  if (!arc.drill2Fired && turn >= 7) {
     return { shouldDrill: true, slotNumber: 2, reason: 'mandatory_reinforcement' };
   }
 
@@ -214,6 +236,8 @@ export function markDrillFired(arc: ArcState, slotNumber: 1 | 2, drilledWords: s
     drill1Fired: slotNumber === 1 ? true : arc.drill1Fired,
     drill2Fired: slotNumber === 2 ? true : arc.drill2Fired,
     drilledWords: [...arc.drilledWords, ...drilledWords],
+    inTransferMode: true,
+    transferModeEnteredAtTurn: null, // will be set on next turn
   };
 }
 
@@ -227,5 +251,41 @@ export function recordGap(arc: ArcState, gaps: string[], turn: number): ArcState
 }
 
 export function markTransferBridgeAttempted(arc: ArcState): ArcState {
-  return { ...arc, transferBridgeAttempted: true };
+  return { ...arc, transferBridgeAttempted: true, inTransferMode: false };
+}
+
+/** Exit transfer mode after the user has responded to the bridge prompt */
+export function exitTransferMode(arc: ArcState): ArcState {
+  return { ...arc, inTransferMode: false };
+}
+
+// ─── Arc-Aware Mode Override ────────────────────────────────
+
+import type { CoachMode } from './types';
+
+/**
+ * Override the state machine's mode based on arc phase.
+ * This ensures the session FEELS structured even though the state machine
+ * is reactive to utterance signals.
+ */
+export function getArcModeOverride(
+  arc: ArcState,
+  turn: number,
+  stateMachineMode: CoachMode,
+): CoachMode {
+  // Post-drill: force transfer_bridge for 1-2 turns
+  if (arc.inTransferMode) {
+    return 'transfer_bridge';
+  }
+
+  // Generalize phase: prefer expand (real conversation) unless user is struggling
+  if (arc.phase === 'generalize_close') {
+    if (stateMachineMode === 'support' || stateMachineMode === 'scaffold') {
+      return stateMachineMode; // respect struggle signals
+    }
+    return 'expand';
+  }
+
+  // Default: let state machine decide
+  return stateMachineMode;
 }
