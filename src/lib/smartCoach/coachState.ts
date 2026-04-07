@@ -69,6 +69,7 @@ export function createInitialCoachState(options: {
     currentSubtopic: undefined,
     consecutiveDisengagements: 0,
     recentMayaNouns: [],
+    consecutiveFallbacks: 0,
   };
 }
 

@@ -18,7 +18,7 @@ import { getFallbackLine, getConfusionRepairLine, getCorrectionRepairLine } from
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { getPlaybook } from './clinicalPlaybooks';
-import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic } from './objectiveAdvancer';
+import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic, shouldRegressObjective, regressObjective } from './objectiveAdvancer';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
@@ -151,6 +151,15 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     } else {
       // Tick turns on objective
       Object.assign(nextState, tickObjective(nextState));
+      
+      // Check for regression — user may have worsened mid-session
+      const regressionCheck = shouldRegressObjective(nextState, playbook);
+      if (regressionCheck?.shouldRegress) {
+        const rollback = regressObjective(nextState, playbook, regressionCheck.reason);
+        if (rollback) {
+          Object.assign(nextState, rollback);
+        }
+      }
     }
 
     // Force transfer if running out of turns
@@ -275,7 +284,16 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     lastUserUtterance: userUtterance,
     lastCoachUtterance: finalLine,
     conversationHistory: newHistory,
+    // Track consecutive fallbacks for LLM failure escalation
+    consecutiveFallbacks: usedFallback ? (state.consecutiveFallbacks ?? 0) + 1 : 0,
   };
+
+  // LLM failure escalation: if 3+ consecutive fallbacks, warn and simplify
+  if (updatedState.consecutiveFallbacks >= 3) {
+    console.error(`[SmartCoach] LLM failure escalation: ${updatedState.consecutiveFallbacks} consecutive fallbacks`);
+    // Force wrapup to avoid degraded experience
+    updatedState.mode = 'wrapup';
+  }
 
   // Track established facts
   if (analysis.onTopic && analysis.wordCount >= 3) {

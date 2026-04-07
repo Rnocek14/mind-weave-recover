@@ -188,6 +188,8 @@ export interface CoachState {
   consecutiveDisengagements: number;
   /** Nouns/phrases Maya has used recently (for anti-repetition) */
   recentMayaNouns: string[];
+  /** Consecutive LLM fallback count — for escalation tracking */
+  consecutiveFallbacks: number;
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────

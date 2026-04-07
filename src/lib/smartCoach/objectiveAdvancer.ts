@@ -102,6 +102,69 @@ export function advanceObjective(state: CoachState, playbook: ClinicalPlaybook):
 }
 
 /**
+ * Regress to an earlier objective when user shows signs of breakdown.
+ * Called when support escalates significantly mid-session (e.g., user was
+ * at sentence_level_production but now can't produce 2 words).
+ * 
+ * Returns null if no rollback is appropriate (already at earliest objective).
+ */
+export function regressObjective(
+  state: CoachState,
+  playbook: ClinicalPlaybook,
+  reason: 'support_escalation' | 'comprehension_break' | 'repeated_hesitation'
+): Partial<CoachState> | null {
+  const currentIdx = state.currentObjectiveIndex ?? 0;
+  
+  // Can't regress below warmup_anchor (index 0) or elicit_core_content (index 1)
+  if (currentIdx <= 1) return null;
+  
+  // Regress by 1 step (not all the way back — that's demoralizing)
+  const targetIdx = currentIdx - 1;
+  
+  console.log(`[ObjectiveAdvancer] Regressing from ${playbook.objectives[currentIdx]?.id} → ${playbook.objectives[targetIdx]?.id} (${reason})`);
+  
+  return {
+    currentObjectiveIndex: targetIdx,
+    objectiveProgress: {
+      turnsOnObjective: 0,
+      lastObjectiveId: playbook.objectives[targetIdx].id,
+    },
+    subtopicDepth: 0,
+  };
+}
+
+/**
+ * Detect if regression is warranted based on session signals.
+ * Call this after state transition when support has escalated.
+ */
+export function shouldRegressObjective(
+  state: CoachState,
+  playbook: ClinicalPlaybook
+): { shouldRegress: boolean; reason: 'support_escalation' | 'comprehension_break' | 'repeated_hesitation' } | null {
+  const currentIdx = state.currentObjectiveIndex ?? 0;
+  if (currentIdx <= 1) return null;
+  
+  // Regression trigger 1: Support level jumped to 2+ while on advanced objective
+  const advancedObjectives = ['organize_or_expand', 'sentence_level_production', 'transfer_check'];
+  const currentObjId = playbook.objectives[currentIdx]?.id;
+  if (advancedObjectives.includes(currentObjId) && state.supportLevel >= 2) {
+    return { shouldRegress: true, reason: 'support_escalation' };
+  }
+  
+  // Regression trigger 2: 3+ consecutive hesitations on advanced objective
+  if (advancedObjectives.includes(currentObjId) && state.consecutiveHesitations >= 3) {
+    return { shouldRegress: true, reason: 'repeated_hesitation' };
+  }
+  
+  // Regression trigger 3: Comprehension break detected (metrics)
+  if (state.sessionMetrics.comprehensionBreaks > 0 && currentIdx >= 3) {
+    return { shouldRegress: true, reason: 'comprehension_break' };
+  }
+  
+  return null;
+}
+
+/**
  * Increment turns on current objective (call each turn)
  */
 export function tickObjective(state: CoachState): Partial<CoachState> {

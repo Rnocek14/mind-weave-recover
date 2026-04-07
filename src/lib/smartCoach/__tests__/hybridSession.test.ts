@@ -40,6 +40,7 @@ function makeState(overrides: Partial<CoachState> = {}): CoachState {
     subtopicDepth: 0,
     consecutiveDisengagements: 0,
     recentMayaNouns: [],
+    consecutiveFallbacks: 0,
     readinessLevel: 7,
     severityProfile: 'moderate',
     primaryDeficit: 'expressive',
