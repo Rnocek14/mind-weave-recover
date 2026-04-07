@@ -116,6 +116,11 @@ export default function SmartCoach() {
   const sessionSaved = useRef(false);
   const hasRestoredRef = useRef(false);
 
+  // TTS + Micro-feedback + Hint state
+  const tts = useTextToSpeech();
+  const microEncouragement = useMicroEncouragement();
+  const [hintLevel, setHintLevel] = useState(0);
+
   // Auth guard
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
