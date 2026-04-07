@@ -39,6 +39,8 @@ import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheck
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
+import { useRecoveryScore } from '@/hooks/useRecoveryScore';
+import { useProfile } from '@/hooks/useProfile';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -147,6 +149,8 @@ const STRATEGY_NAMES: Record<string, string> = {
 export default function SmartCoach() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
+  const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: true });
 
   const [phase, setPhase] = useState<'topic_select' | 'orientation' | 'readiness' | 'chatting' | 'complete'>('topic_select');
   const [selectedTopic, setSelectedTopic] = useState<TopicDefinition | null>(null);
@@ -1301,6 +1305,73 @@ export default function SmartCoach() {
                 </div>
               )}
             </div>
+
+            {/* Recovery Score card */}
+            {recoveryScore.score != null && recoveryScore.confidence !== 'insufficient' && (
+              <div className="bg-card border rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Recovery Score</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-3xl font-bold text-foreground">{recoveryScore.score}</span>
+                      <span className="text-sm text-muted-foreground">/100</span>
+                      {recoveryScore.weeklyDelta != null && recoveryScore.weeklyDelta !== 0 && (
+                        <span className={cn(
+                          'text-xs font-medium',
+                          recoveryScore.weeklyDelta > 0 ? 'text-primary' : 'text-destructive'
+                        )}>
+                          {recoveryScore.weeklyDelta > 0 ? '+' : ''}{recoveryScore.weeklyDelta} this week
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center',
+                    recoveryScore.trend === 'improving' ? 'bg-primary/10' :
+                    recoveryScore.trend === 'stable' ? 'bg-muted' :
+                    recoveryScore.trend === 'declining' ? 'bg-destructive/10' : 'bg-muted'
+                  )}>
+                    <TrendingUp className={cn(
+                      'w-5 h-5',
+                      recoveryScore.trend === 'improving' ? 'text-primary' :
+                      recoveryScore.trend === 'stable' ? 'text-muted-foreground' :
+                      recoveryScore.trend === 'declining' ? 'text-destructive rotate-180' : 'text-muted-foreground'
+                    )} />
+                  </div>
+                </div>
+                {/* Mini component bars */}
+                {recoveryScore.breakdown && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { label: 'Accuracy', value: recoveryScore.breakdown.accuracy },
+                      { label: 'Independence', value: recoveryScore.breakdown.cueIndependence },
+                      { label: 'Word Mastery', value: recoveryScore.breakdown.wordMastery },
+                    ] as const).map(comp => (
+                      <div key={comp.label} className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-muted-foreground">{comp.label}</span>
+                          <span className="text-[10px] font-medium text-foreground">{Math.round(comp.value)}</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${Math.min(100, comp.value)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-primary"
+                  onClick={() => navigate('/recovery-score')}
+                >
+                  See full breakdown →
+                </Button>
+              </div>
+            )}
 
             {/* See you tomorrow + home practice */}
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
