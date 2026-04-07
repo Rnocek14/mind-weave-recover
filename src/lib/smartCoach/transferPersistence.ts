@@ -24,7 +24,7 @@ export interface TransferCheckEvent {
  */
 export async function persistTransferCheck(event: TransferCheckEvent): Promise<boolean> {
   try {
-    const { error } = await supabase.from('exercise_events').insert({
+    const { error } = await supabase.from('exercise_events').insert([{
       session_id: event.sessionId,
       exercise_slug: event.drillSlug,
       round: event.turnNumber,
