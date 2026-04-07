@@ -148,6 +148,8 @@ export async function loadWordHistory(userId: string, limit = 50): Promise<WordH
             bestScore: transferScore,
             lastScore: transferScore,
             lastCueLevel: 0,
+            bestCueLevel: 0,
+            initialCueLevel: 0,
             sessionCount: 1,
             lastPracticedAt: ev.created_at || new Date().toISOString(),
             topic: taskParams?.drill_slug || '',
@@ -211,6 +213,7 @@ export function buildProgressDelta(
   const improved: ProgressDelta['improved'] = [];
   const retained: ProgressDelta['retained'] = [];
   const declined: ProgressDelta['declined'] = [];
+  const cueFades: ProgressDelta['cueFades'] = [];
 
   for (const result of currentResults) {
     const key = result.target.toLowerCase();
@@ -233,6 +236,15 @@ export function buildProgressDelta(
         to: scoreLabel(result.score),
       });
     }
+
+    // Cue fade: if initial cue was higher than current best
+    if (prev.initialCueLevel > prev.bestCueLevel && prev.sessionCount >= 2) {
+      cueFades.push({
+        word: result.target,
+        fromCue: cueLabel(prev.initialCueLevel),
+        toCue: cueLabel(prev.bestCueLevel),
+      });
+    }
   }
 
   // Build narrative
@@ -243,6 +255,13 @@ export function buildProgressDelta(
       i => `"${i.word}" went from ${i.from} to ${i.to}`
     );
     parts.push(examples.join('. '));
+  }
+
+  if (cueFades.length > 0) {
+    const fadeExamples = cueFades.slice(0, 2).map(
+      f => `"${f.word}" needed ${f.fromCue} before — now ${f.toCue}`
+    );
+    parts.push(fadeExamples.join('. '));
   }
 
   if (retained.length > 0) {
@@ -258,6 +277,7 @@ export function buildProgressDelta(
     improved,
     retained,
     declined,
+    cueFades,
     narrative: parts.length > 0 ? parts.join('. ') + '.' : '',
   };
 }
