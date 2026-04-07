@@ -228,7 +228,7 @@ export default function SmartCoach() {
     };
   }, [phase, user?.id, sessionStats]);
 
-  // Save session on complete
+  // Save session on complete + compute progress delta
   useEffect(() => {
     if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
       sessionSaved.current = true;
@@ -241,8 +241,17 @@ export default function SmartCoach() {
         sessionStats.strategiesUsed,
       );
       persistVoiceSessionSummary(user.id, sid, sessionStats.topicId);
+
+      // Compute progress delta from word history vs current transfer results
+      if (wordHistory.length > 0 && transferResults.length > 0) {
+        const delta = buildProgressDelta(
+          transferResults.map(r => ({ target: r.target, score: r.score })),
+          wordHistory,
+        );
+        if (delta.narrative) setProgressDelta(delta);
+      }
     }
-  }, [phase, user?.id, sessionStats]);
+  }, [phase, user?.id, sessionStats, wordHistory, transferResults]);
 
   // ─── Topic select → orientation ────────────────────────────
 
