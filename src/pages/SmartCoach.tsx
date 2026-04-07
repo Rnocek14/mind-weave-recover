@@ -35,6 +35,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
 import { toast } from 'sonner';
 
+// ─── Toast throttle: prevents spam by enforcing a minimum gap ────
+let lastToastTime = 0;
+const TOAST_MIN_GAP_MS = 4000;
+
+function mayaToast(message: string, opts?: { type?: 'success' | 'default'; duration?: number }) {
+  const now = Date.now();
+  if (now - lastToastTime < TOAST_MIN_GAP_MS) return;
+  lastToastTime = now;
+  const duration = opts?.duration ?? 4000;
+  if (opts?.type === 'success') {
+    toast.success(message, { duration });
+  } else {
+    toast(message, { duration });
+  }
+}
+
 // ─── Session Phase State Machine (Simplified) ──────────────
 
 type SessionPhase =
@@ -300,17 +316,17 @@ export default function SmartCoach() {
     setGame1Result(result);
     setHintLevel(0);
     
-    // Show review as a toast instead of a full-screen card
+    // Show review as a throttled toast
     const score = result.score;
     const pct = Math.round(score * 100);
     if (score >= 0.85) {
-      toast.success(`${pct}% — words came out quickly. Now let's use them.`);
+      mayaToast(`${pct}% — words came out quickly. Now let's use them.`, { type: 'success' });
     } else if (score >= 0.6) {
-      toast(`${pct}% — building momentum. Let's reinforce.`);
+      mayaToast(`${pct}% — building momentum. Let's reinforce.`);
     } else if (score >= 0.4) {
-      toast(`${pct}% — some were tough. We'll approach it differently.`);
+      mayaToast(`${pct}% — some were tough. We'll approach it differently.`);
     } else {
-      toast(`${pct}% — hard round. Let's adjust and try another angle.`);
+      mayaToast(`${pct}% — hard round. Let's adjust and try another angle.`);
     }
     
     microEncouragement.trackGameComplete({
@@ -361,11 +377,11 @@ export default function SmartCoach() {
       
       const feedback = getTransferFeedback(transferResult, transferTargets);
       
-      // Show transfer feedback as brief toast
+      // Show transfer feedback as throttled toast
       if (transferResult.transferScore >= 4) {
-        toast.success(feedback.combined.split('.')[0] + '.');
+        mayaToast(feedback.combined.split('.')[0] + '.', { type: 'success' });
       } else {
-        toast(feedback.combined.split('.')[0] + '.');
+        mayaToast(feedback.combined.split('.')[0] + '.');
       }
       
       transferTargets.forEach(t => {
@@ -427,7 +443,7 @@ export default function SmartCoach() {
       // Only navigate if we haven't saved state yet (i.e., not returning from exercise)
       if (!saved) {
         const gameName = plan.game2.label;
-        toast(`Next up: ${gameName} — reinforcing from a different angle.`, { duration: 3000 });
+        mayaToast(`Next: ${gameName} — different angle, same skills.`, { duration: 3000 });
         navigateToExercise(plan.game2, 2);
       }
     }
@@ -437,17 +453,17 @@ export default function SmartCoach() {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Show cross-game comparison as toast
+    // Show cross-game comparison as throttled toast
     if (game1Result) {
       const s1 = Math.round(game1Result.score * 100);
       const s2 = Math.round(result.score * 100);
       const delta = s2 - s1;
       if (delta >= 10) {
-        toast.success(`${s1}% → ${s2}% — real improvement. The practice is working.`);
+        mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
       } else if (delta >= 0) {
-        toast(`Steady at ${s2}% — building consistent retrieval.`);
+        mayaToast(`Steady at ${s2}% — building reliable retrieval.`);
       } else {
-        toast(`${s2}% on a tougher exercise — that's still progress.`);
+        mayaToast(`${s2}% on a harder exercise — that's progress.`);
       }
     }
     
