@@ -58,8 +58,8 @@ export function evaluateDrillTrigger(ctx: DrillTriggerContext): DrillTriggerDeci
   const { state, analysis, maxTurns } = ctx;
   const turn = state.turnCount;
 
-  // Never trigger during warmup or wrapup
-  if (state.mode === 'warmup' || state.mode === 'wrapup') {
+  // Never trigger during wrapup
+  if (state.mode === 'wrapup') {
     return NO_TRIGGER;
   }
 
@@ -108,17 +108,6 @@ export function evaluateDrillTrigger(ctx: DrillTriggerContext): DrillTriggerDeci
   // Fallback turn gating: no drills before turn 3
   if (turn < 3) {
     return NO_TRIGGER;
-  }
-
-  // Targeted practice fallback: late session or transfer_check
-  if (turn >= 6 || ctx.currentObjectiveId === 'transfer_check') {
-    return {
-      kind: 'targeted_practice',
-      reason: 'support',
-      confidence: 0.9,
-      observation: "Time for focused practice — let's strengthen what you've been working on.",
-      signals: ['session_late_phase', `turn_${turn}_of_${maxTurns}`],
-    };
   }
 
   // Support trigger (2+ signals of struggle)
