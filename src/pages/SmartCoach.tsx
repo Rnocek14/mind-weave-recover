@@ -383,16 +383,47 @@ export default function SmartCoach() {
         addMayaMessage(feedback.combined);
       }
       
-      // After transfer, move to game 2
+      // After transfer, reactively select Game 2 based on actual results
       setTimeout(() => {
-        const game2Intro = buildGame2Setup(plan, game1Result);
-        addMayaMessage(game2Intro);
+        if (plan && game1Result) {
+          const lastTransferScore = transferTargets.length > 0 ? (transferResults[transferResults.length - 1]?.score ?? null) : null;
+          const reactive = selectReactiveGame2(
+            plan.rankedGames,
+            plan.game1.id,
+            game1Result.score,
+            game1Result.targetWords || [],
+            lastTransferScore,
+            {
+              severityProfile: coachProfile.severityProfile,
+              primaryDeficit: coachProfile.primaryDeficit,
+              strugglingPhonemes: coachProfile.strugglingPhonemes,
+              domainScores: coachProfile.domainScores,
+              exerciseHistory: coachProfile.exerciseHistory,
+              lastSessionGoals: coachProfile.lastSessionGoals,
+            },
+          );
+          
+          // Update the plan with reactive Game 2
+          setPlan(prev => prev ? {
+            ...prev,
+            game2: reactive.game,
+            game2Trials: reactive.trials,
+            game2Difficulty: reactive.difficulty,
+            game2CueLevel: reactive.cueLevel,
+          } : prev);
+          
+          const game2Intro = buildGame2Setup(plan, game1Result, reactive.rationale);
+          addMayaMessage(game2Intro);
+        } else {
+          const game2Intro = buildGame2Setup(plan!, null, '');
+          addMayaMessage(game2Intro);
+        }
         setPhase('game2_setup');
       }, 2000);
       
       setIsProcessing(false);
     }, 1000);
-  }, [plan, transferTargets, game1Result, addUserMessage, addMayaMessage]);
+  }, [plan, transferTargets, game1Result, coachProfile, addUserMessage, addMayaMessage, transferResults]);
 
   // ─── Handle modal close (without completion) ──────────────
 
