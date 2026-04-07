@@ -176,6 +176,14 @@ export function validateCoachLine(
     }
   }
 
+  // Reset / continuity-breaking language
+  for (const pattern of RESET_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      reasons.push('reset_language');
+      break;
+    }
+  }
+
   return {
     valid: reasons.length === 0,
     reasons,
