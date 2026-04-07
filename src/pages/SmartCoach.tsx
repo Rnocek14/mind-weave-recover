@@ -575,9 +575,14 @@ export default function SmartCoach() {
     }
   }, [phase, plan, game1Result, game2SetupText, transferPromptText, game1ReviewText, game2ReviewText]);
 
+  const lastSpokenRef = useRef<string | null>(null);
+
   const handleMayaHelp = useCallback((action: MayaHelpAction) => {
     const text = getMayaHelpText(action);
-    if (text) tts.speak(text);
+    if (text) {
+      lastSpokenRef.current = text;
+      tts.speak(text);
+    }
   }, [getMayaHelpText, tts]);
 
   // ─── Render ───────────────────────────────────────────────
@@ -958,6 +963,8 @@ export default function SmartCoach() {
         <MayaAssistantBubble
           isSpeaking={tts.isSpeaking}
           onAction={handleMayaHelp}
+          hintLevel={hintLevel}
+          lastSpokenText={lastSpokenRef.current || undefined}
         />
       )}
     </>
