@@ -387,8 +387,8 @@ describe('Scenario B: Moderate Aphasia — Needs Support', () => {
     expect(selection.configOverrides.cueLevel).toBeGreaterThanOrEqual(1);
   });
 
-  it('B9: max 1 micro-drill per session', () => {
-    const state = makeState({ turnCount: 5, mode: 'expand', interventionCount: 1 });
+  it('B9: max 2 micro-drills per session', () => {
+    const state = makeState({ turnCount: 5, mode: 'expand', interventionCount: 2 });
     const analysis = analyzeUtterance('um... uh...', 'food', state.topicKeywords);
     const result = evaluateDrillTrigger(makeDrillCtx(state, analysis));
     expect(result.kind).toBeNull();
