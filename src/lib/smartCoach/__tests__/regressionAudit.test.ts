@@ -293,7 +293,7 @@ describe('Post-Processor Regression', () => {
 
 describe('Drill Trigger Windows', () => {
   it('blocks drill before turn 3', () => {
-    const state = createInitialCoachState('food', ['food', 'eat']);
+    const state = createInitialCoachState('food');
     state.turnCount = 1;
     const analysis = analyzeUtterance('uh... um...', 'food', ['food']);
     const ctx: DrillTriggerContext = {
@@ -308,12 +308,11 @@ describe('Drill Trigger Windows', () => {
   });
 
   it('allows micro drill in turn 3-6 window', () => {
-    const state = createInitialCoachState('food', ['food', 'eat']);
+    const state = createInitialCoachState('food');
     state.turnCount = 4;
     state.mode = 'scaffold';
     state.supportLevel = 2;
     const analysis = analyzeUtterance('uh... the thing... you know', 'food', ['food']);
-    analysis.hesitationRatio = 0.6;
     const ctx: DrillTriggerContext = {
       state,
       analysis,
@@ -336,13 +335,14 @@ describe('Progress Delta', () => {
     const history: WordHistory[] = [
       makeWordHistory({ word: 'broccoli', bestScore: 3, lastScore: 2 }),
     ];
-    const delta = buildProgressDelta(history, 4);
+    const currentResults = [{ target: 'broccoli', score: 4 }];
+    const delta = buildProgressDelta(currentResults, history);
     expect(delta.improved.length).toBeGreaterThanOrEqual(0);
     expect(delta.narrative.length).toBeGreaterThanOrEqual(0);
   });
 
   it('does not crash on empty history', () => {
-    const delta = buildProgressDelta([], 0);
+    const delta = buildProgressDelta([], []);
     expect(delta.improved).toEqual([]);
     expect(delta.retained).toEqual([]);
   });
