@@ -39,6 +39,8 @@ import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheck
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
+import { useRecoveryScore } from '@/hooks/useRecoveryScore';
+import { useProfile } from '@/hooks/useProfile';
 
 // ─── Chat message type ───────────────────────────────────────
 
