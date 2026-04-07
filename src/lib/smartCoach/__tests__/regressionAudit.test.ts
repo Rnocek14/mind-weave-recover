@@ -293,7 +293,7 @@ describe('Post-Processor Regression', () => {
 
 describe('Drill Trigger Windows', () => {
   it('blocks drill before turn 3', () => {
-    const state = createInitialCoachState('food');
+    const state = createInitialCoachState({ topic: 'food' });
     state.turnCount = 1;
     const analysis = analyzeUtterance('uh... um...', 'food', ['food']);
     const ctx: DrillTriggerContext = {
@@ -308,7 +308,7 @@ describe('Drill Trigger Windows', () => {
   });
 
   it('allows micro drill in turn 3-6 window', () => {
-    const state = createInitialCoachState('food');
+    const state = createInitialCoachState({ topic: 'food' });
     state.turnCount = 4;
     state.mode = 'scaffold';
     state.supportLevel = 2;
