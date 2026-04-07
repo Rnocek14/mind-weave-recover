@@ -38,7 +38,7 @@ import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoice
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
-import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
+import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -524,12 +524,14 @@ export default function SmartCoach() {
       else if (result.drillRecommendation && !result.intervention) {
         const rec = result.drillRecommendation;
         if (rec.kind === 'micro_drill') {
+          const retentionHint = getRetentionDifficultyHint(wordHistory);
           const selection = selectDrill({
             state: result.nextState,
             reason: rec.reason as any,
             signals: rec.signals,
             usedGameIds,
             kind: 'micro_drill',
+            retentionHint,
           });
           setPendingDrill(selection);
           setMessages(prev => [...prev, {
@@ -539,11 +541,13 @@ export default function SmartCoach() {
             timestamp: Date.now(),
           }]);
         } else if (rec.kind === 'targeted_practice') {
+          const retentionHint = getRetentionDifficultyHint(wordHistory);
           const block = selectPracticeBlock({
             state: result.nextState,
             reason: rec.reason as any,
             signals: rec.signals,
             usedGameIds,
+            retentionHint,
           });
           setPendingPracticeBlock(block);
           setMessages(prev => [...prev, {
@@ -1124,7 +1128,38 @@ export default function SmartCoach() {
                     </div>
                   )}
 
-                  {/* Progress delta — word-level improvements across sessions */}
+                  {/* What stuck from before — cross-session retained words */}
+                  {wordHistory.length > 0 && (() => {
+                    const retained = getRetainedWords(wordHistory);
+                    const cueFade = buildCueFadeSummary(wordHistory);
+                    if (retained.length === 0 && !cueFade) return null;
+                    return (
+                      <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                        {retained.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                              <p className="text-xs font-medium text-foreground">What stuck from before</p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              {retained.map((r, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">"{r.word}"</span>
+                                  <span className="text-primary font-medium">{r.level} · {r.sessions} sessions</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {cueFade && (
+                          <p className="text-xs text-muted-foreground pl-6 pt-1 border-t border-border/50">
+                            {cueFade}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {progressDelta && progressDelta.narrative && (
                     <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
                       <div className="flex items-center gap-2">
@@ -1145,6 +1180,16 @@ export default function SmartCoach() {
                         <p className="text-xs text-muted-foreground pl-6">
                           Still strong: {progressDelta.retained.map(r => `"${r.word}"`).join(', ')}
                         </p>
+                      )}
+                      {progressDelta.cueFades.length > 0 && (
+                        <div className="space-y-1 pl-6 pt-1 border-t border-border/50">
+                          <p className="text-xs font-medium text-foreground">Less support needed</p>
+                          {progressDelta.cueFades.map((cf, i) => (
+                            <p key={i} className="text-xs text-muted-foreground">
+                              "{cf.word}": {cf.fromCue} → <span className="font-medium text-primary">{cf.toCue}</span>
+                            </p>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
