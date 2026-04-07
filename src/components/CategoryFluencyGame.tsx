@@ -50,10 +50,13 @@ function getTimerForDifficulty(difficulty: number): number {
   return 20;
 }
 
-function pickCategory(difficulty: number) {
+function pickCategory(difficulty: number, usedCategories: Set<string> = new Set()) {
   const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), CATEGORY_TIERS.length - 1);
   const tier = CATEGORY_TIERS[Math.max(0, tierIndex)];
-  return tier[Math.floor(Math.random() * tier.length)];
+  // Try to pick an unused category first
+  const unused = tier.filter(c => !usedCategories.has(c.category));
+  const pool = unused.length > 0 ? unused : tier;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 /** Success threshold scales with difficulty */
