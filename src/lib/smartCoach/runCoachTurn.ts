@@ -284,7 +284,16 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     lastUserUtterance: userUtterance,
     lastCoachUtterance: finalLine,
     conversationHistory: newHistory,
+    // Track consecutive fallbacks for LLM failure escalation
+    consecutiveFallbacks: usedFallback ? (state.consecutiveFallbacks ?? 0) + 1 : 0,
   };
+
+  // LLM failure escalation: if 3+ consecutive fallbacks, warn and simplify
+  if (updatedState.consecutiveFallbacks >= 3) {
+    console.error(`[SmartCoach] LLM failure escalation: ${updatedState.consecutiveFallbacks} consecutive fallbacks`);
+    // Force wrapup to avoid degraded experience
+    updatedState.mode = 'wrapup';
+  }
 
   // Track established facts
   if (analysis.onTopic && analysis.wordCount >= 3) {
