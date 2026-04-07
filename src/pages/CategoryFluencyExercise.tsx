@@ -127,18 +127,35 @@ export default function CategoryFluencyExercise() {
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
+      
+      const totalScore = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
+      const maxPossible = results.length * 10; // rough max
+      const score = maxPossible > 0 ? Math.min(totalScore / maxPossible, 1) : 0;
+      const allWords = results.flatMap(r => r.words).slice(0, 10);
+      
+      // Store results for SmartCoach to read on restore (avoids event race condition)
+      sessionStorage.setItem('smartCoachExerciseResult', JSON.stringify({
+        exerciseSlug: EXERCISE_SLUG,
+        score,
+        accuracy: score,
+        targetWords: allWords,
+        difficultyReached: results[results.length - 1]?.difficulty ?? 1,
+      }));
+      
       dispatchTimeoutRef.current = window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: {
             exerciseSlug: EXERCISE_SLUG,
             results,
-            totalScore: results.reduce((sum, r) => sum + r.uniqueWordCount, 0),
+            score,
+            targetWords: allWords,
+            totalScore,
           }
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, navigate]);
+  }, [fromLesson, completeSession, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');

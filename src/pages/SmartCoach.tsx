@@ -153,7 +153,35 @@ export default function SmartCoach() {
       setTransferResults(state.transferResults || []);
       setWordHistory(state.wordHistory || []);
       
-      // Determine which phase to resume at
+      // Check if exercise results were stored (preferred over event)
+      const exerciseResultRaw = sessionStorage.getItem('smartCoachExerciseResult');
+      if (exerciseResultRaw) {
+        sessionStorage.removeItem('smartCoachExerciseResult');
+        const exerciseResult = JSON.parse(exerciseResultRaw);
+        
+        const normalized: NormalizedExerciseResult = {
+          slug: exerciseResult.exerciseSlug || '',
+          completed: true,
+          score: exerciseResult.score ?? 0,
+          successBand: (exerciseResult.score ?? 0) >= 0.85 ? 'high' : (exerciseResult.score ?? 0) >= 0.5 ? 'target' : 'low',
+          accuracy: exerciseResult.accuracy ?? exerciseResult.score ?? 0,
+          targetWords: exerciseResult.targetWords || [],
+          difficultyTier: exerciseResult.difficultyReached ?? 1,
+          summary: `Score: ${Math.round((exerciseResult.score ?? 0) * 100)}%`,
+        };
+        
+        if (state.returningFromGame === 1) {
+          // Process game 1 results directly
+          handleGame1CompleteFromRestore(normalized, state.plan);
+          return;
+        } else if (state.returningFromGame === 2) {
+          // Process game 2 results directly
+          handleGame2CompleteFromRestore(normalized);
+          return;
+        }
+      }
+      
+      // Fallback: resume at the playing phase and wait for event
       if (state.returningFromGame === 2) {
         setPhase('game2_playing');
       } else if (state.returningFromGame === 1) {
@@ -191,6 +219,59 @@ export default function SmartCoach() {
     
     window.addEventListener('exercise-complete', handleExerciseComplete);
     return () => window.removeEventListener('exercise-complete', handleExerciseComplete);
+  }, [phase, plan]);
+
+  // ─── Fallback: if stuck in playing phase, poll for stored results ──
+  
+  useEffect(() => {
+    if (phase !== 'game1_playing' && phase !== 'game2_playing') return;
+    if (!plan) return;
+    
+    // Poll sessionStorage every second for 5 seconds
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const raw = sessionStorage.getItem('smartCoachExerciseResult');
+      if (raw) {
+        clearInterval(interval);
+        sessionStorage.removeItem('smartCoachExerciseResult');
+        try {
+          const result = JSON.parse(raw);
+          const normalized: NormalizedExerciseResult = {
+            slug: result.exerciseSlug || '',
+            completed: true,
+            score: result.score ?? 0,
+            successBand: (result.score ?? 0) >= 0.85 ? 'high' : (result.score ?? 0) >= 0.5 ? 'target' : 'low',
+            accuracy: result.accuracy ?? result.score ?? 0,
+            targetWords: result.targetWords || [],
+            difficultyTier: result.difficultyReached ?? 1,
+            summary: `Score: ${Math.round((result.score ?? 0) * 100)}%`,
+          };
+          if (phase === 'game1_playing') handleGame1Complete(normalized);
+          else if (phase === 'game2_playing') handleGame2Complete(normalized);
+        } catch (e) {
+          console.warn('[SmartCoach] Failed to parse stored result:', e);
+        }
+      } else if (attempts >= 5) {
+        // Fallback: skip forward with a default result to avoid infinite spinner
+        clearInterval(interval);
+        console.warn('[SmartCoach] No exercise result received after 5s, skipping forward');
+        const fallback: NormalizedExerciseResult = {
+          slug: phase === 'game1_playing' ? plan.game1.exerciseSlug : plan.game2.exerciseSlug,
+          completed: true,
+          score: 0.5,
+          successBand: 'target',
+          accuracy: 0.5,
+          targetWords: [],
+          difficultyTier: 1,
+          summary: 'Practice completed',
+        };
+        if (phase === 'game1_playing') handleGame1Complete(fallback);
+        else if (phase === 'game2_playing') handleGame2Complete(fallback);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
   }, [phase, plan]);
 
   // Generate plan when profile loads
@@ -295,6 +376,45 @@ export default function SmartCoach() {
       },
     });
   }, [plan, game1Result, transferTargets, transferResults, wordHistory, navigate]);
+
+  // ─── Restore handlers (process results from sessionStorage) ──
+
+  const handleGame1CompleteFromRestore = useCallback((result: NormalizedExerciseResult, restoredPlan: SessionPlan) => {
+    setGame1Result(result);
+    setHintLevel(0);
+    setPlan(restoredPlan);
+
+    const pct = Math.round(result.score * 100);
+    if (result.score >= 0.85) mayaToast(`${pct}% — words came out quickly.`, { type: 'success' });
+    else if (result.score >= 0.6) mayaToast(`${pct}% — building momentum.`);
+    else mayaToast(`${pct}% — let's reinforce from another angle.`);
+
+    const drilledWords = (result.targetWords || []).slice(0, 3);
+    const targets: TransferTarget[] = drilledWords.map(word => ({
+      value: word,
+      type: 'word' as const,
+      functionalContext: restoredPlan.topic.purpose.transferTarget,
+    }));
+    if (targets.length === 0 && restoredPlan.topic.keywords.length > 0) {
+      targets.push({ value: restoredPlan.topic.keywords[0], type: 'word', functionalContext: restoredPlan.topic.purpose.transferTarget });
+    }
+    setTransferTargets(targets);
+    setPhase('transfer_check');
+  }, []);
+
+  const handleGame2CompleteFromRestore = useCallback((result: NormalizedExerciseResult) => {
+    setGame2Result(result);
+    setHintLevel(0);
+    if (game1Result) {
+      const s1 = Math.round(game1Result.score * 100);
+      const s2 = Math.round(result.score * 100);
+      const delta = s2 - s1;
+      if (delta >= 10) mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
+      else if (delta >= 0) mayaToast(`Steady at ${s2}% — reliable retrieval.`);
+      else mayaToast(`${s2}% on a harder exercise — that's progress.`);
+    }
+    setPhase('complete');
+  }, [game1Result]);
 
   // ─── Phase Handlers ───────────────────────────────────────
 
