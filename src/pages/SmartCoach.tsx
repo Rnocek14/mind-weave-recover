@@ -318,12 +318,14 @@ export default function SmartCoach() {
   const handleGame1Complete = useCallback((result: NormalizedExerciseResult) => {
     if (!plan) return;
     setGame1Result(result);
-    setHintLevel(0); // Reset hint ladder for next phase
+    setHintLevel(0);
     
-    // Feed micro-encouragement with aggregate result
-    if (result.score >= 0.7) {
-      microEncouragement.trackTrial(true, null, 0);
-    }
+    // Context-aware post-game feedback
+    microEncouragement.trackGameComplete({
+      score: result.score,
+      targetWords: result.targetWords,
+      gameSlot: 1,
+    });
     
     // Build transfer targets
     const drilledWords = (result.targetWords || []).slice(0, 3);
@@ -425,10 +427,12 @@ export default function SmartCoach() {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Feed micro-encouragement
-    if (result.score >= 0.7) {
-      microEncouragement.trackTrial(true, null, 0);
-    }
+    // Context-aware post-game feedback with cross-game comparison
+    microEncouragement.trackGameComplete({
+      score: result.score,
+      targetWords: result.targetWords,
+      gameSlot: 2,
+    });
     
     setPhase('game2_review');
   }, [microEncouragement]);
@@ -483,13 +487,15 @@ export default function SmartCoach() {
     const drilledWords = (game2Result.targetWords || []).slice(0, 3);
     const review = getPostDrillReview(game2Result.score, drilledWords, 2);
     
-    // Add comparison if we have game 1
+    // Emotional session arc — cross-game comparison with felt-experience language
     if (game1Result) {
       const s1 = Math.round(game1Result.score * 100);
       const s2 = Math.round(game2Result.score * 100);
-      if (s2 > s1 + 10) return `${review}\n\nGood improvement — you went from ${s1}% to ${s2}%. The words are coming faster.`;
-      if (s2 >= s1 - 5) return `${review}\n\nConsistent at ${s2}%. You're building solid retrieval.`;
-      return `${review}\n\nThat round was harder, but that's normal — you're pushing into new territory.`;
+      const delta = s2 - s1;
+      if (delta >= 15) return `${review}\n\nThat's a real shift — ${s1}% to ${s2}%. The words are coming to you faster and more naturally now.`;
+      if (delta >= 5) return `${review}\n\nSmooth improvement — ${s1}% to ${s2}%. Did that round feel easier? That's the practice working.`;
+      if (delta >= -5) return `${review}\n\nSteady at ${s2}% — you're building consistent retrieval. That's what makes it stick.`;
+      return `${review}\n\nThat was a harder exercise, and ${s2}% on a tougher challenge is still progress. The difficulty is intentional.`;
     }
     return review;
   }, [game2Result, game1Result, plan]);
@@ -534,7 +540,7 @@ export default function SmartCoach() {
         return "We're working through today's session together.";
       }
       case 'give_hint': {
-        // Progressive hint ladder: encouragement → semantic → phonemic → model
+        // Progressive hint ladder — game-aware
         const nextLevel = hintLevel + 1;
         setHintLevel(nextLevel);
         
@@ -548,13 +554,43 @@ export default function SmartCoach() {
           if (nextLevel <= 3) return `Here's an example: "I'd like the ${word}, please." Now try your own version.`;
           return `You could say: "Can I have the ${word}?" — any sentence with "${word}" in it works.`;
         }
-        if (nextLevel <= 1) return "Take your time. There's no rush — just try your best.";
-        if (nextLevel <= 2) return "Think about what category it belongs to. What group does it fit in?";
-        if (nextLevel <= 3) {
-          const phonemes = coachProfile.strugglingPhonemes || [];
-          if (phonemes.length > 0) return `Focus on the first sound. Start with the beginning of the word.`;
-          return "Try saying the first sound that comes to mind.";
+        
+        // Game-aware hint strategies based on active exercise type
+        const activeGame = (phase === 'game1_setup' || phase === 'game1_playing') ? plan.game1 : plan.game2;
+        const slug = activeGame?.exerciseSlug || '';
+        
+        // Naming exercises: category → phoneme → model
+        if (slug.includes('naming') || slug.includes('photo')) {
+          if (nextLevel <= 1) return "Take your time — picture it in your mind first.";
+          if (nextLevel <= 2) return "Think about what category it belongs to. Where would you find it?";
+          if (nextLevel <= 3) return "Focus on the first sound. What does the word start with?";
+          return "It's okay — we'll come back to this one. The practice itself is what matters.";
         }
+        // Semantic exercises: association → definition → example
+        if (slug.includes('semantic') || slug.includes('meaning') || slug.includes('synonym') || slug.includes('category')) {
+          if (nextLevel <= 1) return "Think about words that go together with this one.";
+          if (nextLevel <= 2) return "What would you use it for? Where would you see it?";
+          if (nextLevel <= 3) return "Try describing what it means in your own words.";
+          return "That's a hard one. Let's move on — you'll see it again.";
+        }
+        // Sentence/narrative exercises: structure → starter → model
+        if (slug.includes('sentence') || slug.includes('narrative') || slug.includes('retell') || slug.includes('describe')) {
+          if (nextLevel <= 1) return "Start simple — just get the main idea out first.";
+          if (nextLevel <= 2) return "Try: who or what... did what... where or when.";
+          if (nextLevel <= 3) return "Just say the most important word first, then build around it.";
+          return "That's okay — even one word is a good start. Let's keep going.";
+        }
+        // Comprehension exercises
+        if (slug.includes('comprehension') || slug.includes('yes-no') || slug.includes('minimal')) {
+          if (nextLevel <= 1) return "Listen again carefully. Focus on the key word.";
+          if (nextLevel <= 2) return "Think about what sounds different between the two options.";
+          if (nextLevel <= 3) return "Try eliminating — which one doesn't fit?";
+          return "Let's try the next one. Each one is independent.";
+        }
+        // Fallback
+        if (nextLevel <= 1) return "Take your time. There's no rush.";
+        if (nextLevel <= 2) return "Think about what category it belongs to.";
+        if (nextLevel <= 3) return "Focus on the first sound — start with the beginning of the word.";
         return "It's okay to move on. We'll come back to this.";
       }
       case 'explain_this': {
