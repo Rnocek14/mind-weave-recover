@@ -48,3 +48,5 @@ export { evaluateDrillTrigger } from './drillTriggerEvaluator';
 export type { DrillTriggerDecision, DrillTriggerReason } from './drillTriggerEvaluator';
 export { selectDrill, selectPracticeBlock } from './drillSelector';
 export type { DrillSelection } from './drillSelector';
+export { createArcState, computeArcPhase, evaluateDrillSlot, hasClearBreakdown, extractGapWords, getPreDrillNarration, getPostDrillBridge, markDrillFired, recordGap, markTransferBridgeAttempted } from './sessionArc';
+export type { ArcPhase, ArcState, DrillSlotDecision, GapSignals } from './sessionArc';

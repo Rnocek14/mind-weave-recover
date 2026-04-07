@@ -402,6 +402,7 @@ function ModeBadge({ mode }: { mode: CoachMode }) {
     expand: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     scaffold: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
     support: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    transfer_bridge: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
     wrapup: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   };
   return <Badge className={`text-[9px] h-4 ${colors[mode]}`}>{mode}</Badge>;

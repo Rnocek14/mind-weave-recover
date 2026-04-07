@@ -51,11 +51,18 @@ const WRAPUP_LINES = [
   "You kept going even when it was hard. That persistence strengthens the pathways.",
 ];
 
+const TRANSFER_BRIDGE_LINES = [
+  "Now let's use that — how would you say it if you were talking to someone?",
+  "Good practice — now put that word into a sentence you'd actually use.",
+  "Let's see if it sticks — use that word like you would in real life.",
+];
+
 const MODE_FALLBACKS: Record<CoachMode, string[]> = {
   warmup: WARMUP_LINES,
   expand: EXPAND_LINES,
   scaffold: SCAFFOLD_LINES,
   support: SUPPORT_LINES,
+  transfer_bridge: TRANSFER_BRIDGE_LINES,
   wrapup: WRAPUP_LINES,
 };
 

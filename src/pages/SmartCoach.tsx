@@ -23,6 +23,8 @@ import { loadLastSessionSummary, buildProgressComparison, saveSessionSummary } f
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { selectDrill, selectPracticeBlock } from '@/lib/smartCoach/drillSelector';
+import { createArcState, extractGapWords, recordGap, markDrillFired, getPreDrillNarration, getPostDrillBridge, markTransferBridgeAttempted } from '@/lib/smartCoach/sessionArc';
+import type { ArcState } from '@/lib/smartCoach/sessionArc';
 import type { CoachState, CoachMode, CoachTurnResult, SessionMetrics, InterventionEvent, CoachUtteranceAnalysis } from '@/lib/smartCoach/types';
 import type { TopicDefinition } from '@/lib/smartCoach/topicPurposeMap';
 import type { ProgressComparison } from '@/lib/smartCoach/progressNarrative';
@@ -60,6 +62,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
   expand: 'Building on your words',
   scaffold: 'Helping you find it',
   support: 'Making it easier',
+  transfer_bridge: 'Using it in real life',
   wrapup: 'Wrapping up',
 };
 
@@ -174,6 +177,7 @@ export default function SmartCoach() {
   const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
   const [progressDelta, setProgressDelta] = useState<ProgressDelta | null>(null);
   const [retentionFeedbackGiven, setRetentionFeedbackGiven] = useState<Set<string>>(new Set());
+  const [arcState, setArcState] = useState<ArcState>(createArcState());
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
@@ -470,7 +474,16 @@ export default function SmartCoach() {
         lastDrillCompletedAtTurn: lastDrillTurn,
         prevAnalysis,
         returningFromIntervention: isReturningFromDrill,
+        arcState,
       });
+
+      // ── Arc: extract gaps during assessment phase ──
+      if (arcState.phase === 'orient_assess' && selectedTopic) {
+        const gaps = extractGapWords(userText, selectedTopic.keywords, result.analysis);
+        if (gaps.length > 0) {
+          setArcState(prev => recordGap(prev, gaps, turnCount));
+        }
+      }
 
       // Save analysis for next turn's consecutive detection
       setPrevAnalysis(result.analysis);
@@ -507,74 +520,68 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for drill recommendation (sole trigger path)
-      // THERAPY HEARTBEAT: enforce cooldown + minimum turn gates
-      const DRILL_COOLDOWN_TURNS = 2; // Must have 2+ conversation turns between drills
-      const DRILL_MIN_TURN = 3; // First drill after 3 turns (enough to identify a target)
+      // Check for drill recommendation — position-based via arc + signal fallback
+      const DRILL_COOLDOWN_TURNS = 2;
       const drillOnCooldown = lastDrillTurn !== undefined && (turnCount - lastDrillTurn) < DRILL_COOLDOWN_TURNS;
-      const tooEarlyForDrill = turnCount < DRILL_MIN_TURN;
       
-      if (result.drillRecommendation && !drillOnCooldown && !tooEarlyForDrill) {
+      if (result.drillRecommendation && !drillOnCooldown) {
         const rec = result.drillRecommendation;
+        const slotNumber = (rec as any).slotNumber as (1 | 2 | undefined);
         
-        // Fatigue gate: skip targeted practice if micro-drill already fired and user is fatigued
+        // Fatigue gate: skip slot 2 if user is fatigued
         const userFatigued = result.nextState.readinessLevel <= 4 || 
           result.nextState.sessionMetrics.hesitationCount >= 4 ||
           result.nextState.frustrationRisk === 'high';
         const alreadyHadDrill = drillsCompletedThisSession > 0;
         
-        if (rec.kind === 'targeted_practice' && alreadyHadDrill && userFatigued) {
-          // Skip targeted practice — go straight to wrapup
-          console.log('[SmartCoach] Skipping targeted practice: fatigue gate triggered');
-        } else if (rec.kind === 'micro_drill') {
+        if (slotNumber === 2 && alreadyHadDrill && userFatigued) {
+          console.log('[SmartCoach] Skipping drill slot 2: fatigue gate');
+        } else {
           const retentionHint = getRetentionDifficultyHint(wordHistory);
-          const selection = selectDrill({
-            state: result.nextState,
-            reason: rec.reason as any,
-            signals: rec.signals,
-            usedGameIds,
-            kind: 'micro_drill',
-            retentionHint,
-          });
-          const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " Let's try this in a longer sentence — you're ready."
-            : retentionHint.difficultyDelta < 0
-            ? " Let's simplify this and build it step by step."
-            : '';
-          setPendingDrill(selection);
-          // Therapy-style framing: name the breakdown, explain why
-          setMessages(prev => [...prev, {
-            id: `drill-offer-${Date.now()}`,
-            role: 'maya',
-            text: rec.observation + difficultyNote,
-            timestamp: Date.now(),
-          }]);
-        } else if (rec.kind === 'targeted_practice') {
-          const retentionHint = getRetentionDifficultyHint(wordHistory);
-          const block = selectPracticeBlock({
-            state: result.nextState,
-            reason: rec.reason as any,
-            signals: rec.signals,
-            usedGameIds,
-            retentionHint,
-          });
-          const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " Let's make this more detailed — you can handle it."
-            : retentionHint.difficultyDelta < 0
-            ? " We'll keep it simple and build from there."
-            : '';
-          setPendingPracticeBlock(block);
-          setMessages(prev => [...prev, {
-            id: `practice-offer-${Date.now()}`,
-            role: 'maya',
-            text: "Let's lock in what you practiced with a focused round." + difficultyNote,
-            timestamp: Date.now(),
-          }]);
+          
+          if (rec.kind === 'micro_drill') {
+            const selection = selectDrill({
+              state: result.nextState,
+              reason: rec.reason as any,
+              signals: rec.signals,
+              usedGameIds,
+              kind: 'micro_drill',
+              retentionHint,
+            });
+            setPendingDrill(selection);
+            // Use deterministic narration from arc
+            const narration = slotNumber 
+              ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
+              : rec.observation;
+            setMessages(prev => [...prev, {
+              id: `drill-offer-${Date.now()}`,
+              role: 'maya',
+              text: narration,
+              timestamp: Date.now(),
+            }]);
+          } else if (rec.kind === 'targeted_practice') {
+            const block = selectPracticeBlock({
+              state: result.nextState,
+              reason: rec.reason as any,
+              signals: rec.signals,
+              usedGameIds,
+              retentionHint,
+            });
+            setPendingPracticeBlock(block);
+            const narration = slotNumber
+              ? getPreDrillNarration(slotNumber, arcState.identifiedGaps, rec.reason || '')
+              : "Let's lock in what you practiced with a focused round.";
+            setMessages(prev => [...prev, {
+              id: `practice-offer-${Date.now()}`,
+              role: 'maya',
+              text: narration,
+              timestamp: Date.now(),
+            }]);
+          }
         }
-      } else if (result.drillRecommendation && (drillOnCooldown || tooEarlyForDrill)) {
-        console.log('[SmartCoach] Drill recommendation suppressed:', {
+      } else if (result.drillRecommendation && drillOnCooldown) {
+        console.log('[SmartCoach] Drill recommendation suppressed: cooldown active', {
           drillOnCooldown,
-          tooEarlyForDrill,
           turnCount,
           lastDrillTurn,
         });
@@ -690,13 +697,21 @@ export default function SmartCoach() {
     }
 
     // Set post-intervention dampening on coach state so next turn is gentler
-    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
+    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true, mode: 'transfer_bridge' as any } : prev);
 
-    // Add return-to-conversation message
+    // Update arc state: mark drill as fired
+    const drilledWordsList = drillTargets.map(t => t.value);
+    const currentSlot: 1 | 2 = arcState.drill1Fired ? 2 : 1;
+    setArcState(prev => markDrillFired(prev, currentSlot, drilledWordsList));
+
+    // Use deterministic post-drill bridge from arc
+    const transferTarget = selectedTopic.purpose.transferTarget;
+    const bridgeText = getPostDrillBridge(currentSlot, drilledWordsList, transferTarget);
+    
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
       role: 'maya',
-      text: result.returnText,
+      text: bridgeText,
       timestamp: Date.now(),
     }]);
 
