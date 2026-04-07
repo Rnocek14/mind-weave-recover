@@ -170,8 +170,29 @@ export async function loadWordHistory(userId: string, limit = 50): Promise<WordH
 // ─── Check Retention ────────────────────────────────────────
 
 /**
+ * High-frequency English words that should be excluded from retention tracking.
+ * These are too common to be meaningful clinical signals — a user saying "good"
+ * in session N+1 is not evidence of neuroplasticity from practicing "good" in session N.
+ */
+const HIGH_FREQUENCY_EXCLUSIONS = new Set([
+  'good', 'nice', 'yes', 'no', 'okay', 'ok', 'well', 'like', 'just', 'really',
+  'very', 'big', 'small', 'new', 'old', 'thing', 'things', 'time', 'day', 'way',
+  'home', 'house', 'man', 'woman', 'people', 'right', 'left', 'back', 'down', 'up',
+  'out', 'here', 'there', 'now', 'then', 'know', 'think', 'want', 'need', 'feel',
+  'make', 'take', 'give', 'come', 'go', 'get', 'put', 'see', 'look', 'help',
+  'one', 'two', 'three', 'four', 'five', 'lot', 'little', 'much', 'more', 'some',
+  'all', 'other', 'long', 'great', 'fine', 'sure', 'hard', 'easy', 'name',
+  'water', 'food', 'eat', 'drink', 'sleep', 'work', 'walk', 'talk', 'call',
+]);
+
+/** Minimum word length to be considered for retention tracking */
+const MIN_RETENTION_WORD_LENGTH = 4;
+
+/**
  * Check if a user's utterance contains previously-practiced words.
  * Returns retention checks for any matched words.
+ * 
+ * Filters out high-frequency words that would cause false positives.
  */
 export function checkRetention(
   utterance: string,
@@ -184,7 +205,16 @@ export function checkRetention(
 
   for (const wh of wordHistory) {
     const wordLower = wh.word.toLowerCase();
-    if (lower.includes(wordLower)) {
+    
+    // Skip high-frequency words — not clinically meaningful
+    if (HIGH_FREQUENCY_EXCLUSIONS.has(wordLower)) continue;
+    
+    // Skip very short words (< 4 chars) — too likely to be coincidental
+    if (wordLower.length < MIN_RETENTION_WORD_LENGTH) continue;
+    
+    // Require word-boundary match to avoid partial matches (e.g., "cat" in "catch")
+    const wordBoundaryRegex = new RegExp(`\\b${wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+    if (wordBoundaryRegex.test(lower)) {
       // Word from a previous session appeared spontaneously
       checks.push({
         word: wh.word,
