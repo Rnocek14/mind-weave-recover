@@ -664,7 +664,7 @@ export default function SmartCoach() {
                         <span className="text-muted-foreground">"{tr.target}"</span>
                         <span className={cn(
                           'text-xs font-medium',
-                          tr.score >= 4 ? 'text-green-600 dark:text-green-400' :
+                          tr.score >= 4 ? 'text-primary font-semibold' :
                           tr.score >= 3 ? 'text-primary' : 'text-muted-foreground'
                         )}>
                           {tr.label}
