@@ -88,8 +88,9 @@ function findTargetInResponse(target: string, response: string): TargetTransferR
   const lower = response.toLowerCase();
   const targetLower = target.toLowerCase();
   
-  // Exact match
-  if (lower.includes(targetLower)) {
+  // Exact match (word boundary to avoid "cat" matching "caterpillar")
+  const exactPattern = new RegExp(`\\b${targetLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  if (exactPattern.test(response)) {
     return { target, found: true, approximation: 'exact' };
   }
   
