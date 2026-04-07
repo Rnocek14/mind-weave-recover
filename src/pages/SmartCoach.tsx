@@ -1083,7 +1083,7 @@ export default function SmartCoach() {
           );
         })}
 
-        {/* Inline drill card */}
+        {/* Inline drill card — prescriptive, not optional */}
         {(pendingDrill || pendingPracticeBlock) && (
           <div className="max-w-[90%] mx-auto my-2">
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
@@ -1093,21 +1093,24 @@ export default function SmartCoach() {
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium text-foreground">
-                    {pendingPracticeBlock ? 'Quick practice round' : 'Quick practice'}
+                    {pendingPracticeBlock ? "Let's lock in what you practiced" : "Let's practice that now"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {(pendingDrill || pendingPracticeBlock?.[0])?.drill.label} — {
                       (pendingDrill || pendingPracticeBlock?.[0])?.configOverrides.totalTrials || 5
                     } items, ~{Math.ceil(((pendingDrill || pendingPracticeBlock?.[0])?.drill.durationSec || 60) / 60)} min
                   </p>
+                  <p className="text-[11px] text-primary/70 mt-1">
+                    {(pendingDrill || pendingPracticeBlock?.[0])?.drill.rationale}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs">
+                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs flex-1">
                   <Zap className="w-3.5 h-3.5" />
-                  Start
+                  Start practice
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleDeclineDrill} className="text-xs">
+                <Button size="sm" variant="ghost" onClick={handleDeclineDrill} className="text-xs text-muted-foreground">
                   Skip
                 </Button>
               </div>
