@@ -932,31 +932,31 @@ export default function SmartCoach() {
 function buildWarmupQuestion(plan: SessionPlan): string {
   const topicQuestions: Record<string, string[]> = {
     food: [
-      "Before we practice — what's something you ate recently that you enjoyed?",
-      "Quick warm-up — what's your favorite thing to cook or eat?",
+      "Before we practice — tell me something you ate recently. I want to hear how easily the words come out.",
+      "Quick warm-up — describe your favorite meal. Don't worry about being perfect, just talk.",
     ],
     family: [
-      "Before we start — tell me about one person in your family.",
-      "Quick warm-up — who did you see or talk to recently?",
+      "Before we start — tell me about someone in your family. I want to hear how the words flow.",
+      "Quick warm-up — who did you spend time with recently? Just a sentence or two.",
     ],
     hobbies: [
-      "Before we start — what's something you enjoy doing?",
-      "Quick warm-up — what did you do for fun recently?",
+      "Before we start — what's something you enjoy doing? I want to hear how easily you describe it.",
+      "Quick warm-up — tell me what you did for fun recently. Just talk naturally.",
     ],
     daily_routine: [
-      "Before we start — walk me through what you did this morning.",
-      "Quick warm-up — what does a typical morning look like for you?",
+      "Before we start — walk me through this morning. I want to hear how the sequence comes out.",
+      "Quick warm-up — describe what you did when you woke up today.",
     ],
     travel: [
-      "Before we start — what's a place you've been that you liked?",
-      "Quick warm-up — where would you go if you could travel anywhere?",
+      "Before we start — tell me about a place you've visited. I want to hear how the details come out.",
+      "Quick warm-up — where would you go if you could travel anywhere? Describe it briefly.",
     ],
     pets: [
-      "Before we start — do you have a pet? Tell me about them.",
-      "Quick warm-up — what's your favorite animal?",
+      "Before we start — tell me about a pet or animal you like. I want to hear how you describe them.",
+      "Quick warm-up — what's your favorite animal? Tell me why.",
     ],
   };
 
-  const questions = topicQuestions[plan.topic.id] || ["Tell me something about yourself to warm up."];
+  const questions = topicQuestions[plan.topic.id] || ["Tell me about your day so far — I want to hear how the words come out."];
   return questions[Math.floor(Math.random() * questions.length)];
 }
