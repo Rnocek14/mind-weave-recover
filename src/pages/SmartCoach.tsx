@@ -424,6 +424,9 @@ export default function SmartCoach() {
       }
 
       // ── Cross-session retention: check if user uses words from previous sessions ──
+      // Instead of injecting a separate message, we store the feedback prefix
+      // so it can be blended into the next Maya response.
+      let retentionPrefix = '';
       if (wordHistory.length > 0 && !pendingTransferCheck) {
         const retentionChecks = checkRetention(userText, wordHistory);
         const newRetentionWords = retentionChecks.filter(c => !retentionFeedbackGiven.has(c.word.toLowerCase()));
@@ -431,13 +434,7 @@ export default function SmartCoach() {
         if (newRetentionWords.length > 0) {
           const feedback = getRetentionFeedback(newRetentionWords);
           if (feedback) {
-            // Inject retention feedback as a Maya aside (non-blocking)
-            setMessages(prev => [...prev, {
-              id: `maya-retention-${Date.now()}`,
-              role: 'maya',
-              text: feedback,
-              timestamp: Date.now(),
-            }]);
+            retentionPrefix = feedback;
             // Mark these words as already acknowledged
             setRetentionFeedbackGiven(prev => {
               const next = new Set(prev);
@@ -495,11 +492,14 @@ export default function SmartCoach() {
         strategiesUsed: result.nextState.sessionMetrics.strategiesThatHelped,
       } : null);
 
-      // Add Maya's response
+      // Add Maya's response — blend retention feedback if detected
+      const mayaText = retentionPrefix
+        ? `${retentionPrefix} ${result.output}`
+        : result.output;
       const mayaMsg: ChatMessage = {
         id: `maya-${Date.now()}`,
         role: 'maya',
-        text: result.output,
+        text: mayaText,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, mayaMsg]);
@@ -533,11 +533,17 @@ export default function SmartCoach() {
             kind: 'micro_drill',
             retentionHint,
           });
+          // Make difficulty shifts visible to the user
+          const difficultyNote = retentionHint.difficultyDelta > 0
+            ? " You've been strong — let's push a little harder."
+            : retentionHint.difficultyDelta < 0
+            ? " We'll take it easier and reinforce the basics."
+            : '';
           setPendingDrill(selection);
           setMessages(prev => [...prev, {
             id: `drill-offer-${Date.now()}`,
             role: 'maya',
-            text: rec.observation,
+            text: rec.observation + difficultyNote,
             timestamp: Date.now(),
           }]);
         } else if (rec.kind === 'targeted_practice') {
@@ -549,11 +555,16 @@ export default function SmartCoach() {
             usedGameIds,
             retentionHint,
           });
+          const difficultyNote = retentionHint.difficultyDelta > 0
+            ? " You're ready for a more complex version."
+            : retentionHint.difficultyDelta < 0
+            ? " We'll keep it accessible and build from there."
+            : '';
           setPendingPracticeBlock(block);
           setMessages(prev => [...prev, {
             id: `practice-offer-${Date.now()}`,
             role: 'maya',
-            text: "Let's lock in what you practiced with a focused round.",
+            text: "Let's lock in what you practiced with a focused round." + difficultyNote,
             timestamp: Date.now(),
           }]);
         }
@@ -1102,7 +1113,7 @@ export default function SmartCoach() {
                     </div>
                   </div>
 
-                  {/* Transfer results — what transferred from drills */}
+                  {/* Transfer results — top 3 highlights */}
                   {transferResults.length > 0 && (
                     <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                       <div className="flex items-center gap-2">
@@ -1110,7 +1121,10 @@ export default function SmartCoach() {
                         <p className="text-xs font-medium text-foreground">What transferred</p>
                       </div>
                       <div className="space-y-1.5 pl-6">
-                        {transferResults.map((tr, i) => (
+                        {transferResults
+                          .sort((a, b) => b.score - a.score)
+                          .slice(0, 3)
+                          .map((tr, i) => (
                           <div key={i} className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">"{tr.target}"</span>
                             <span className={cn(
@@ -1124,13 +1138,16 @@ export default function SmartCoach() {
                             </span>
                           </div>
                         ))}
+                        {transferResults.length > 3 && (
+                          <p className="text-xs text-muted-foreground/60">+{transferResults.length - 3} more</p>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* What stuck from before — cross-session retained words */}
+                  {/* What stuck from before — capped to 3 words */}
                   {wordHistory.length > 0 && (() => {
-                    const retained = getRetainedWords(wordHistory);
+                    const retained = getRetainedWords(wordHistory).slice(0, 3);
                     const cueFade = buildCueFadeSummary(wordHistory);
                     if (retained.length === 0 && !cueFade) return null;
                     return (
@@ -1160,6 +1177,7 @@ export default function SmartCoach() {
                     );
                   })()}
 
+                  {/* Progress delta — capped to 2 improved + 2 retained + 1 cue fade */}
                   {progressDelta && progressDelta.narrative && (
                     <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
                       <div className="flex items-center gap-2">
@@ -1169,7 +1187,7 @@ export default function SmartCoach() {
                       <p className="text-sm text-muted-foreground pl-6">{progressDelta.narrative}</p>
                       {progressDelta.improved.length > 0 && (
                         <div className="space-y-1 pl-6">
-                          {progressDelta.improved.map((item, i) => (
+                          {progressDelta.improved.slice(0, 2).map((item, i) => (
                             <p key={i} className="text-xs text-foreground">
                               "{item.word}": {item.from} → <span className="font-medium text-primary">{item.to}</span>
                             </p>
@@ -1178,13 +1196,14 @@ export default function SmartCoach() {
                       )}
                       {progressDelta.retained.length > 0 && (
                         <p className="text-xs text-muted-foreground pl-6">
-                          Still strong: {progressDelta.retained.map(r => `"${r.word}"`).join(', ')}
+                          Still strong: {progressDelta.retained.slice(0, 2).map(r => `"${r.word}"`).join(', ')}
+                          {progressDelta.retained.length > 2 ? ` +${progressDelta.retained.length - 2} more` : ''}
                         </p>
                       )}
                       {progressDelta.cueFades.length > 0 && (
                         <div className="space-y-1 pl-6 pt-1 border-t border-border/50">
                           <p className="text-xs font-medium text-foreground">Less support needed</p>
-                          {progressDelta.cueFades.map((cf, i) => (
+                          {progressDelta.cueFades.slice(0, 1).map((cf, i) => (
                             <p key={i} className="text-xs text-muted-foreground">
                               "{cf.word}": {cf.fromCue} → <span className="font-medium text-primary">{cf.toCue}</span>
                             </p>
@@ -1193,6 +1212,31 @@ export default function SmartCoach() {
                       )}
                     </div>
                   )}
+
+                  {/* Recovery Momentum — aggregate signal */}
+                  {(() => {
+                    const independentCount = transferResults.filter(r => r.score >= 4).length;
+                    const retainedCount = wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore >= 3).length;
+                    const cueFadeCount = wordHistory.filter(w => w.sessionCount >= 2 && w.initialCueLevel > w.bestCueLevel).length;
+                    const momentumScore = independentCount + retainedCount + cueFadeCount;
+                    if (momentumScore === 0) return null;
+                    const momentum = momentumScore >= 5
+                      ? { label: 'Building momentum', desc: 'More words are coming without help. Keep going.' }
+                      : momentumScore >= 2
+                      ? { label: 'Holding steady', desc: 'You\'re reinforcing what you\'ve practiced. That matters.' }
+                      : { label: 'Getting started', desc: 'Every word you practice is building your foundation.' };
+                    return (
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <TrendingUp className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-primary">{momentum.label}</p>
+                          <p className="text-xs text-muted-foreground">{momentum.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {wrapupSummary.crossSession && !progressDelta?.narrative && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
