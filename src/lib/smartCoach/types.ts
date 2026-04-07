@@ -191,6 +191,14 @@ export interface CoachState {
   recentMayaNouns: string[];
   /** Consecutive LLM fallback count — for escalation tracking */
   consecutiveFallbacks: number;
+  /** Struggling phonemes from speech profile (for drill targeting) */
+  strugglingPhonemes?: { phoneme: string; accuracy: number; trials: number }[];
+  /** Cognitive domain scores (for data-driven drill selection) */
+  domainScores?: { domainSlug: string; score: number; trialCount: number }[];
+  /** Exercise performance history (for game selection) */
+  exerciseHistory?: { exerciseSlug: string; avgAccuracy: number; trialCount: number }[];
+  /** Cross-session goal context injected into prompts */
+  crossSessionContext?: string;
 }
 
 // ─── Utterance Analysis ──────────────────────────────────────
