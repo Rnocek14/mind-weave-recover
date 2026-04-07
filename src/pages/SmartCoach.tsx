@@ -286,6 +286,7 @@ export default function SmartCoach() {
       state: {
         sessionId: sessionIdRef.current,
         fromLesson: true,
+        returnTo: '/smart-coach',
         trialLimit: trials,
         adaptations: {
           startDifficulty: difficulty,
