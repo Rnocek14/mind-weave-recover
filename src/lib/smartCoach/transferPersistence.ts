@@ -60,7 +60,7 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
         spontaneous: event.result.transferScore >= 4,
         functional: event.result.transferScore >= 3,
       },
-    });
+    }]);
 
     if (error) {
       console.warn('[TransferPersistence] Insert failed:', error.message);
