@@ -535,9 +535,9 @@ export default function SmartCoach() {
           });
           // Make difficulty shifts visible to the user
           const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " You've been strong — let's push a little harder."
+            ? " Let's try this in a longer sentence — you're ready."
             : retentionHint.difficultyDelta < 0
-            ? " We'll take it easier and reinforce the basics."
+            ? " Let's simplify this and build it step by step."
             : '';
           setPendingDrill(selection);
           setMessages(prev => [...prev, {
@@ -556,9 +556,9 @@ export default function SmartCoach() {
             retentionHint,
           });
           const difficultyNote = retentionHint.difficultyDelta > 0
-            ? " You're ready for a more complex version."
+            ? " Let's make this more detailed — you can handle it."
             : retentionHint.difficultyDelta < 0
-            ? " We'll keep it accessible and build from there."
+            ? " We'll keep it simple and build from there."
             : '';
           setPendingPracticeBlock(block);
           setMessages(prev => [...prev, {
@@ -1062,6 +1062,14 @@ export default function SmartCoach() {
   // ─── Session Complete (3-Part Summary) ──────────────────────
 
   if (phase === 'complete') {
+    // Compute completion stats for satisfaction display
+    const completionStats = {
+      practiced: transferResults.length,
+      transferred: transferResults.filter(r => r.score >= 3).length,
+      retained: wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore >= 3).length,
+    };
+    const totalAchievements = completionStats.practiced + completionStats.transferred + completionStats.retained;
+
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
@@ -1074,8 +1082,11 @@ export default function SmartCoach() {
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-5">
             <div className="bg-card border rounded-2xl p-6 space-y-5">
-              <div className="text-center space-y-1">
-                <span className="text-3xl">✨</span>
+              {/* Completion header with checkmark */}
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-7 h-7 text-primary" />
+                </div>
                 <h2 className="text-xl font-bold">Session Review</h2>
                 <p className="text-xs text-muted-foreground">
                   {selectedTopic?.purpose.skillTarget}
@@ -1086,6 +1097,30 @@ export default function SmartCoach() {
                   </p>
                 )}
               </div>
+
+              {/* Quick stats bar */}
+              {totalAchievements > 0 && (
+                <div className="flex justify-around py-2 border-y border-border/50">
+                  {completionStats.practiced > 0 && (
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{completionStats.practiced}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Practiced</p>
+                    </div>
+                  )}
+                  {completionStats.transferred > 0 && (
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-primary">{completionStats.transferred}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Transferred</p>
+                    </div>
+                  )}
+                  {completionStats.retained > 0 && (
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-primary">{completionStats.retained}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Retained</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {wrapupSummary && (
                 <div className="space-y-3">
@@ -1213,7 +1248,7 @@ export default function SmartCoach() {
                     </div>
                   )}
 
-                  {/* Recovery Momentum — aggregate signal */}
+                  {/* Recovery Momentum — evidence-tied signal */}
                   {(() => {
                     const independentCount = transferResults.filter(r => r.score >= 4).length;
                     const retainedCount = wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore >= 3).length;
@@ -1221,9 +1256,9 @@ export default function SmartCoach() {
                     const momentumScore = independentCount + retainedCount + cueFadeCount;
                     if (momentumScore === 0) return null;
                     const momentum = momentumScore >= 5
-                      ? { label: 'Building momentum', desc: 'More words are coming without help. Keep going.' }
+                      ? { label: 'Building momentum', desc: `You used ${independentCount} word${independentCount !== 1 ? 's' : ''} on your own today — more are coming without help.` }
                       : momentumScore >= 2
-                      ? { label: 'Holding steady', desc: 'You\'re reinforcing what you\'ve practiced. That matters.' }
+                      ? { label: 'Holding steady', desc: `${retainedCount > 0 ? `${retainedCount} word${retainedCount !== 1 ? 's' : ''} stuck from before. ` : ''}You're reinforcing what matters.` }
                       : { label: 'Getting started', desc: 'Every word you practice is building your foundation.' };
                     return (
                       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-3">
