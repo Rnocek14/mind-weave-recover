@@ -35,6 +35,9 @@ import { cn } from '@/lib/utils';
 import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
+import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
+import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
+import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 
 // ─── Chat message type ───────────────────────────────────────
 
