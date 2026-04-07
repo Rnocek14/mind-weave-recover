@@ -173,6 +173,9 @@ export default function SmartCoach() {
   const [lastDrillSlug, setLastDrillSlug] = useState<string | null>(null);
   const [transferResults, setTransferResults] = useState<TransferSummaryItem[]>([]);
   const [sessionDrillWords, setSessionDrillWords] = useState<Set<string>>(new Set());
+  const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
+  const [progressDelta, setProgressDelta] = useState<ProgressDelta | null>(null);
+  const [retentionFeedbackGiven, setRetentionFeedbackGiven] = useState<Set<string>>(new Set());
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
