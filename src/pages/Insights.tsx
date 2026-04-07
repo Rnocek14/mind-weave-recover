@@ -237,7 +237,8 @@ export default function Insights() {
 
           {/* Intelligence Tab - caregiver+ */}
           {showAdaptations && (
-            <TabsContent value="intelligence" className="mt-4">
+            <TabsContent value="intelligence" className="mt-4 space-y-6">
+              <TransferAnalyticsSection userId={user!.id} />
               <IntelligenceSection userId={user!.id} profileId={activeProfile?.id} />
             </TabsContent>
           )}
