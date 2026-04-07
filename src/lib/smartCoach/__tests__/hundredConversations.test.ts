@@ -243,7 +243,7 @@ describe('Scenario A: Mild Expressive — Strong Progress', () => {
       { lastSubtopic: 'vegetables', lastUserStruggle: 'broccoli', lastPhraseAttempt: 'the green thing' },
     );
     expect(text).toContain('the green thing');
-    expect(text).toContain('real life');
+    expect(text).toContain('to someone');
   });
 
   it('A10: return text is comprehension-appropriate for yes/no', () => {
