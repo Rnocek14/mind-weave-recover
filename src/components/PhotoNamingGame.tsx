@@ -105,7 +105,7 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, currentLane, nextTrial: nextTrialData, advanceTrial } = usePhotoNamingGame(
+  const { state, currentLane, nextTrial: nextTrialData, advanceTrial, selectAnswer } = usePhotoNamingGame(
     totalTrials, 
     initialDifficulty, 
     customTrials
