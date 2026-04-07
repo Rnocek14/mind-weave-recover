@@ -313,6 +313,12 @@ export default function SmartCoach() {
   const handleGame1Complete = useCallback((result: NormalizedExerciseResult) => {
     if (!plan) return;
     setGame1Result(result);
+    setHintLevel(0); // Reset hint ladder for next phase
+    
+    // Feed micro-encouragement with aggregate result
+    if (result.score >= 0.7) {
+      microEncouragement.trackTrial(true, null, 0);
+    }
     
     // Build transfer targets
     const drilledWords = (result.targetWords || []).slice(0, 3);
@@ -331,7 +337,7 @@ export default function SmartCoach() {
     setTransferTargets(targets);
     
     setPhase('game1_review');
-  }, [plan]);
+  }, [plan, microEncouragement]);
 
   const handleTransferSubmit = useCallback((text: string) => {
     if (!plan) return;
@@ -412,8 +418,15 @@ export default function SmartCoach() {
 
   const handleGame2Complete = useCallback((result: NormalizedExerciseResult) => {
     setGame2Result(result);
+    setHintLevel(0);
+    
+    // Feed micro-encouragement
+    if (result.score >= 0.7) {
+      microEncouragement.trackTrial(true, null, 0);
+    }
+    
     setPhase('game2_review');
-  }, []);
+  }, [microEncouragement]);
 
   const handleChangeFocus = useCallback(() => {
     const newPlan = generateSessionPlan({
