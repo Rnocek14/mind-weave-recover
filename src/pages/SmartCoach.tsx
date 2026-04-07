@@ -159,13 +159,14 @@ export default function SmartCoach() {
       if (!detail || !plan) return;
       
       const normalized: NormalizedExerciseResult = {
+        slug: detail.exerciseSlug || '',
+        completed: true,
         score: detail.score ?? 0,
-        total: detail.total ?? 0,
+        successBand: (detail.score ?? 0) >= 0.85 ? 'high' : (detail.score ?? 0) >= 0.5 ? 'target' : 'low',
         accuracy: detail.accuracy ?? detail.score ?? 0,
         targetWords: detail.targetWords || [],
-        exerciseSlug: detail.exerciseSlug || '',
-        completedTrials: detail.completedTrials ?? detail.total ?? 0,
-        difficultyReached: detail.difficultyReached ?? 1,
+        difficultyTier: detail.difficultyReached ?? 1,
+        summary: `Score: ${Math.round((detail.score ?? 0) * 100)}%`,
       };
       
       if (phase === 'game1_playing') {
