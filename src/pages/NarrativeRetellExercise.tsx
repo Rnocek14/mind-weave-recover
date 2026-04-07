@@ -117,7 +117,7 @@ export default function NarrativeRetellExercise() {
       exerciseCompleteSentRef.current = true;
       window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
     }
-    navigate('/lesson', { state: { resuming: true }, replace: true });
+    navigate(returnTo, { state: { resuming: true }, replace: true });
   }, [navigate]);
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, completeSession, resumeLessonFlow]);
 
-  const handleBack = useCallback(() => navigate(fromLesson ? '/lesson' : '/dashboard'), [navigate, fromLesson]);
+  const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
     if (fromLesson) {
       resumeLessonFlow();
