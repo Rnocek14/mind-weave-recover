@@ -710,16 +710,29 @@ export default function SmartCoach() {
     const currentSlot: 1 | 2 = arcState.drill1Fired ? 2 : 1;
     setArcState(prev => markDrillFired(prev, currentSlot, drilledWordsList));
 
-    // Use deterministic post-drill bridge from arc
+    // Post-drill: TWO messages — review first, then transfer bridge
+    // This makes it feel like a therapist reviewing what happened, then continuing the lesson
+    const reviewText = getPostDrillReview(normalized.score, drilledWordsList, currentSlot);
     const transferTarget = selectedTopic.purpose.transferTarget;
     const bridgeText = getPostDrillBridge(currentSlot, drilledWordsList, transferTarget);
     
+    // Message 1: Plain-language review of the drill result
     setMessages(prev => [...prev, {
-      id: `maya-return-${Date.now()}`,
+      id: `maya-review-${Date.now()}`,
       role: 'maya',
-      text: bridgeText,
+      text: reviewText,
       timestamp: Date.now(),
     }]);
+
+    // Message 2: Transfer bridge (after a short pause so review lands first)
+    setTimeout(() => {
+      setMessages(prev => [...prev, {
+        id: `maya-bridge-${Date.now()}`,
+        role: 'maya',
+        text: bridgeText,
+        timestamp: Date.now(),
+      }]);
+    }, 1200);
 
     // Update session metrics with exercise result
     setSessionStats(prev => prev ? {
