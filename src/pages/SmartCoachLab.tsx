@@ -4,7 +4,7 @@
  * Three-panel layout: Setup + State | Conversation | Debug Inspector
  */
 
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import {
   createInitialCoachState,
   runCoachTurn,
+  createArcState,
   type CoachState,
   type CoachMode,
   type TargetSkill,
