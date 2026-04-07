@@ -32,7 +32,8 @@ import {
   ChallengesSection, 
   StrategiesSection, 
   AlertsSection,
-  IntelligenceSection 
+  IntelligenceSection,
+  TransferAnalyticsSection,
 } from "@/components/insights";
 
 // Clinical tab components (removed - now only in Weekly Review)
