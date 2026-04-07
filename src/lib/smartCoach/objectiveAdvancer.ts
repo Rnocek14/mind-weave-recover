@@ -30,7 +30,7 @@ export interface ObjectiveProgress {
 // ─── Constants ───────────────────────────────────────────────
 
 /** Max turns on any single objective before forced advancement */
-const MAX_TURNS_PER_OBJECTIVE = 3;
+const MAX_TURNS_PER_OBJECTIVE = 2;
 
 /** Minimum word count that counts as a "meaningful" response */
 const MEANINGFUL_WORD_COUNT = 2;
