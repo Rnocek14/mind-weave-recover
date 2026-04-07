@@ -153,7 +153,35 @@ export default function SmartCoach() {
       setTransferResults(state.transferResults || []);
       setWordHistory(state.wordHistory || []);
       
-      // Determine which phase to resume at
+      // Check if exercise results were stored (preferred over event)
+      const exerciseResultRaw = sessionStorage.getItem('smartCoachExerciseResult');
+      if (exerciseResultRaw) {
+        sessionStorage.removeItem('smartCoachExerciseResult');
+        const exerciseResult = JSON.parse(exerciseResultRaw);
+        
+        const normalized: NormalizedExerciseResult = {
+          slug: exerciseResult.exerciseSlug || '',
+          completed: true,
+          score: exerciseResult.score ?? 0,
+          successBand: (exerciseResult.score ?? 0) >= 0.85 ? 'high' : (exerciseResult.score ?? 0) >= 0.5 ? 'target' : 'low',
+          accuracy: exerciseResult.accuracy ?? exerciseResult.score ?? 0,
+          targetWords: exerciseResult.targetWords || [],
+          difficultyTier: exerciseResult.difficultyReached ?? 1,
+          summary: `Score: ${Math.round((exerciseResult.score ?? 0) * 100)}%`,
+        };
+        
+        if (state.returningFromGame === 1) {
+          // Process game 1 results directly
+          handleGame1CompleteFromRestore(normalized, state.plan);
+          return;
+        } else if (state.returningFromGame === 2) {
+          // Process game 2 results directly
+          handleGame2CompleteFromRestore(normalized);
+          return;
+        }
+      }
+      
+      // Fallback: resume at the playing phase and wait for event
       if (state.returningFromGame === 2) {
         setPhase('game2_playing');
       } else if (state.returningFromGame === 1) {
