@@ -35,6 +35,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
 import { toast } from 'sonner';
 
+// ─── Toast throttle: prevents spam by enforcing a minimum gap ────
+let lastToastTime = 0;
+const TOAST_MIN_GAP_MS = 4000;
+
+function mayaToast(message: string, opts?: { type?: 'success' | 'default'; duration?: number }) {
+  const now = Date.now();
+  if (now - lastToastTime < TOAST_MIN_GAP_MS) return;
+  lastToastTime = now;
+  const duration = opts?.duration ?? 4000;
+  if (opts?.type === 'success') {
+    toast.success(message, { duration });
+  } else {
+    toast(message, { duration });
+  }
+}
+
 // ─── Session Phase State Machine (Simplified) ──────────────
 
 type SessionPhase =
@@ -300,17 +316,17 @@ export default function SmartCoach() {
     setGame1Result(result);
     setHintLevel(0);
     
-    // Show review as a toast instead of a full-screen card
+    // Show review as a throttled toast
     const score = result.score;
     const pct = Math.round(score * 100);
     if (score >= 0.85) {
-      toast.success(`${pct}% — words came out quickly. Now let's use them.`);
+      mayaToast(`${pct}% — words came out quickly. Now let's use them.`, { type: 'success' });
     } else if (score >= 0.6) {
-      toast(`${pct}% — building momentum. Let's reinforce.`);
+      mayaToast(`${pct}% — building momentum. Let's reinforce.`);
     } else if (score >= 0.4) {
-      toast(`${pct}% — some were tough. We'll approach it differently.`);
+      mayaToast(`${pct}% — some were tough. We'll approach it differently.`);
     } else {
-      toast(`${pct}% — hard round. Let's adjust and try another angle.`);
+      mayaToast(`${pct}% — hard round. Let's adjust and try another angle.`);
     }
     
     microEncouragement.trackGameComplete({
@@ -361,11 +377,11 @@ export default function SmartCoach() {
       
       const feedback = getTransferFeedback(transferResult, transferTargets);
       
-      // Show transfer feedback as brief toast
+      // Show transfer feedback as throttled toast
       if (transferResult.transferScore >= 4) {
-        toast.success(feedback.combined.split('.')[0] + '.');
+        mayaToast(feedback.combined.split('.')[0] + '.', { type: 'success' });
       } else {
-        toast(feedback.combined.split('.')[0] + '.');
+        mayaToast(feedback.combined.split('.')[0] + '.');
       }
       
       transferTargets.forEach(t => {
@@ -427,7 +443,7 @@ export default function SmartCoach() {
       // Only navigate if we haven't saved state yet (i.e., not returning from exercise)
       if (!saved) {
         const gameName = plan.game2.label;
-        toast(`Next up: ${gameName} — reinforcing from a different angle.`, { duration: 3000 });
+        mayaToast(`Next: ${gameName} — different angle, same skills.`, { duration: 3000 });
         navigateToExercise(plan.game2, 2);
       }
     }
@@ -437,17 +453,17 @@ export default function SmartCoach() {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Show cross-game comparison as toast
+    // Show cross-game comparison as throttled toast
     if (game1Result) {
       const s1 = Math.round(game1Result.score * 100);
       const s2 = Math.round(result.score * 100);
       const delta = s2 - s1;
       if (delta >= 10) {
-        toast.success(`${s1}% → ${s2}% — real improvement. The practice is working.`);
+        mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
       } else if (delta >= 0) {
-        toast(`Steady at ${s2}% — building consistent retrieval.`);
+        mayaToast(`Steady at ${s2}% — building reliable retrieval.`);
       } else {
-        toast(`${s2}% on a tougher exercise — that's still progress.`);
+        mayaToast(`${s2}% on a harder exercise — that's progress.`);
       }
     }
     
@@ -492,10 +508,9 @@ export default function SmartCoach() {
     const drilledWords = (game1Result?.targetWords || []).slice(0, 3);
     if (drilledWords.length > 0) {
       const word = drilledWords[0];
-      const context = plan.topic.purpose.transferTarget.split(',')[0].trim();
-      return `Now the important part — use "${word}" in a sentence, like you would when ${context}.`;
+      return `Quick check — use "${word}" in a sentence.`;
     }
-    return `How would you use what you just practiced in real life?`;
+    return `Quick check — use one of those words in a sentence.`;
   }, [plan, game1Result]);
 
   // ─── Maya help text by phase ──────────────────────────────
@@ -658,15 +673,33 @@ export default function SmartCoach() {
       transferred: transferResults.filter(r => r.score >= 3).length,
     };
 
-    // Cross-game comparison for summary
-    const summaryNarrative = (() => {
+    // Emotionally grounded closing message
+    const closingMessage = (() => {
       if (game1Result && game2Result) {
         const s1 = Math.round(game1Result.score * 100);
         const s2 = Math.round(game2Result.score * 100);
         const delta = s2 - s1;
-        if (delta >= 10) return `You went from ${s1}% to ${s2}% — real improvement today.`;
-        if (delta >= 0) return `Consistent performance at ${s2}% — building reliable retrieval.`;
-        return `${s2}% on a harder exercise shows you're stretching your skills.`;
+        if (delta >= 10) return `You improved from ${s1}% to ${s2}%. That's your brain rebuilding pathways — real, measurable progress.`;
+        if (s2 >= 80) return `${s2}% accuracy — those words are becoming reliable again. Keep this up.`;
+        if (delta >= 0) return `Steady at ${s2}%. Consistency is how recovery works — you're doing it right.`;
+        return `${s2}% on a harder exercise. Stretching into harder territory is exactly how you get stronger.`;
+      }
+      if (game1Result) {
+        const s = Math.round(game1Result.score * 100);
+        if (s >= 80) return `${s}% — strong session. Your word retrieval is getting faster.`;
+        return `${s}% — every session builds on the last. You showed up, and that matters.`;
+      }
+      return 'Good work today. Every session strengthens your recovery.';
+    })();
+
+    // Personalized "what improved" insight
+    const improvementInsight = (() => {
+      const words = [
+        ...(game1Result?.targetWords || []).slice(0, 2),
+        ...(game2Result?.targetWords || []).slice(0, 1),
+      ];
+      if (words.length > 0) {
+        return `Words practiced: ${words.map(w => `"${w}"`).join(', ')}`;
       }
       return null;
     })();
@@ -682,37 +715,44 @@ export default function SmartCoach() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full max-w-sm mx-auto space-y-5">
+            {/* Hero closing */}
             <div className="bg-card border rounded-2xl p-6 space-y-5">
-              <div className="text-center space-y-2">
-                <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-7 h-7 text-primary" />
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-bold">Session Review</h2>
-                {summaryNarrative && (
-                  <p className="text-sm text-muted-foreground">{summaryNarrative}</p>
-                )}
+                <h2 className="text-xl font-bold">Great session 💪</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">{closingMessage}</p>
               </div>
 
-              <div className="flex justify-around py-2 border-y border-border/50">
+              {/* Stats row */}
+              <div className="flex justify-around py-3 border-y border-border/50">
                 <div className="text-center">
-                  <p className="text-lg font-bold text-foreground">{drillsCompleted}</p>
+                  <p className="text-2xl font-bold text-foreground">{drillsCompleted}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Practices</p>
                 </div>
+                {game1Result && (
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">{Math.round(game1Result.score * 100)}%</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Best score</p>
+                  </div>
+                )}
                 {completionStats.transferred > 0 && (
                   <div className="text-center">
-                    <p className="text-lg font-bold text-primary">{completionStats.transferred}</p>
+                    <p className="text-2xl font-bold text-primary">{completionStats.transferred}</p>
                     <p className="text-[10px] text-primary/70 uppercase tracking-wide font-medium">Transferred</p>
                   </div>
                 )}
               </div>
 
+              {/* Game breakdown */}
               {game1Result && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                   <span className="text-lg">{plan.game1.icon}</span>
                   <div>
                     <p className="text-xs font-medium text-foreground">{plan.game1.label}</p>
                     <p className="text-sm text-muted-foreground">
-                      Score: {Math.round(game1Result.score * 100)}%
+                      {Math.round(game1Result.score * 100)}%
                       {game1Result.targetWords?.length ? ` · ${game1Result.targetWords.slice(0, 3).map(w => `"${w}"`).join(', ')}` : ''}
                     </p>
                   </div>
@@ -724,13 +764,14 @@ export default function SmartCoach() {
                   <div>
                     <p className="text-xs font-medium text-foreground">{plan.game2.label}</p>
                     <p className="text-sm text-muted-foreground">
-                      Score: {Math.round(game2Result.score * 100)}%
+                      {Math.round(game2Result.score * 100)}%
                       {game2Result.targetWords?.length ? ` · ${game2Result.targetWords.slice(0, 3).map(w => `"${w}"`).join(', ')}` : ''}
                     </p>
                   </div>
                 </div>
               )}
 
+              {/* Transfer results */}
               {transferResults.length > 0 && (
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <div className="flex items-center gap-2">
@@ -754,17 +795,13 @@ export default function SmartCoach() {
                 </div>
               )}
 
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-foreground">Try this next</p>
-                  <p className="text-sm text-muted-foreground">
-                    {plan.topic.purpose.transferTarget.charAt(0).toUpperCase() + plan.topic.purpose.transferTarget.slice(1)} — use the words you practiced today.
-                  </p>
-                </div>
-              </div>
+              {/* Improvement insight */}
+              {improvementInsight && (
+                <p className="text-xs text-muted-foreground text-center">{improvementInsight}</p>
+              )}
             </div>
 
+            {/* Recovery score */}
             {recoveryScore.score != null && recoveryScore.confidence !== 'insufficient' && (
               <div className="bg-card border rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
@@ -789,6 +826,7 @@ export default function SmartCoach() {
               </div>
             )}
 
+            {/* Actions */}
             <div className="flex flex-col gap-3">
               <Button size="lg" onClick={() => navigate('/today')} className="w-full gap-2">
                 Done for today
@@ -836,19 +874,16 @@ export default function SmartCoach() {
       );
     }
 
-    // Transfer Check (the ONE input moment)
+    // Transfer Check — lightweight, skippable
     if (phase === 'transfer_check') {
       return (
         <MayaNarrationCard
           narration={transferPromptText}
-          onContinue={() => {
-            // Skip transfer — go straight to game 2
-            setPhase('game2_playing');
-          }}
+          onContinue={() => setPhase('game2_playing')}
           showInput
-          inputPlaceholder="Use those words in a sentence..."
+          inputPlaceholder="Type a short sentence..."
           onSubmit={handleTransferSubmit}
-          actionLabel="Skip"
+          actionLabel="Skip to next practice"
           isProcessing={isProcessing}
           phaseIndex={phaseIndex}
           totalPhases={TOTAL_PHASES}
