@@ -316,6 +316,66 @@ export default function SmartCoach() {
     setMessages(prev => [...prev, userMsg]);
 
     try {
+      // ── Transfer scoring: if we're waiting for a post-drill response, score it ──
+      if (pendingTransferCheck && transferTargets.length > 0) {
+        const transferResult = scoreTransfer({
+          targets: transferTargets,
+          userResponse: userText,
+          cueLevelNeeded: coachState.supportLevel,
+          latencyMs: null, // TODO: wire latency from voice input
+          baselineLatencyMs: null,
+          breakdownSignals: {
+            longPause: false,
+            fillerCount: 0,
+            restart: false,
+            abandonment: userText.trim().length === 0,
+          },
+          usedAfterModel: false,
+        });
+
+        // Get feedback and inject into conversation
+        const feedback = getTransferFeedback(transferResult, transferTargets, coachState.cueContext?.cueType);
+        
+        // Track for session summary
+        transferTargets.forEach(t => {
+          setTransferResults(prev => [...prev, {
+            target: t.value,
+            label: TRANSFER_LABELS[transferResult.label],
+            score: transferResult.transferScore,
+          }]);
+        });
+
+        // Persist transfer check
+        if (sessionIdRef.current && lastDrillSlug) {
+          persistTransferCheck({
+            sessionId: sessionIdRef.current,
+            drillSlug: lastDrillSlug,
+            targets: transferTargets,
+            result: transferResult,
+            mayaTransferPrompt: messages[messages.length - 2]?.text || '',
+            userResponse: userText,
+            turnNumber: turnCount,
+          });
+        }
+
+        // Add Maya's transfer feedback as a message
+        setMessages(prev => [...prev, {
+          id: `maya-transfer-${Date.now()}`,
+          role: 'maya',
+          text: feedback.combined,
+          timestamp: Date.now(),
+        }]);
+
+        if (autoPlayVoice) {
+          tts.speak(feedback.combined).catch(() => {});
+        }
+
+        setPendingTransferCheck(false);
+        setTransferTargets([]);
+        setIsProcessing(false);
+        return; // Transfer feedback replaces normal turn processing
+      }
+
       const isReturningFromDrill = justCompletedDrill;
       if (isReturningFromDrill) {
         setJustCompletedDrill(false);
