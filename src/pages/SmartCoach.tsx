@@ -466,7 +466,7 @@ export default function SmartCoach() {
         setJustCompletedDrill(false);
       }
 
-      const result: CoachTurnResult = await runCoachTurn({
+      const result = await runCoachTurn({
         state: coachState,
         userUtterance: userText,
         maxTurns,
@@ -477,8 +477,14 @@ export default function SmartCoach() {
         arcState,
       });
 
+      // ── Arc: sync updated arc state from turn orchestrator ──
+      if (result.updatedArc) {
+        setArcState(result.updatedArc);
+      }
+
       // ── Arc: extract gaps during assessment phase ──
-      if (arcState.phase === 'orient_assess' && selectedTopic) {
+      const currentArc = result.updatedArc || arcState;
+      if (currentArc.phase === 'orient_assess' && selectedTopic) {
         const gaps = extractGapWords(userText, selectedTopic.keywords, result.analysis);
         if (gaps.length > 0) {
           setArcState(prev => recordGap(prev, gaps, turnCount));
