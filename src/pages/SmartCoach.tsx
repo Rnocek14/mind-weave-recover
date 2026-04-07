@@ -38,6 +38,7 @@ import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoice
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
+import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -172,6 +173,9 @@ export default function SmartCoach() {
   const [lastDrillSlug, setLastDrillSlug] = useState<string | null>(null);
   const [transferResults, setTransferResults] = useState<TransferSummaryItem[]>([]);
   const [sessionDrillWords, setSessionDrillWords] = useState<Set<string>>(new Set());
+  const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
+  const [progressDelta, setProgressDelta] = useState<ProgressDelta | null>(null);
+  const [retentionFeedbackGiven, setRetentionFeedbackGiven] = useState<Set<string>>(new Set());
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
@@ -224,7 +228,7 @@ export default function SmartCoach() {
     };
   }, [phase, user?.id, sessionStats]);
 
-  // Save session on complete
+  // Save session on complete + compute progress delta
   useEffect(() => {
     if (phase === 'complete' && user?.id && sessionStats && !sessionSaved.current) {
       sessionSaved.current = true;
@@ -237,8 +241,17 @@ export default function SmartCoach() {
         sessionStats.strategiesUsed,
       );
       persistVoiceSessionSummary(user.id, sid, sessionStats.topicId);
+
+      // Compute progress delta from word history vs current transfer results
+      if (wordHistory.length > 0 && transferResults.length > 0) {
+        const delta = buildProgressDelta(
+          transferResults.map(r => ({ target: r.target, score: r.score })),
+          wordHistory,
+        );
+        if (delta.narrative) setProgressDelta(delta);
+      }
     }
-  }, [phase, user?.id, sessionStats]);
+  }, [phase, user?.id, sessionStats, wordHistory, transferResults]);
 
   // ─── Topic select → orientation ────────────────────────────
 
@@ -261,10 +274,18 @@ export default function SmartCoach() {
   // ─── Readiness → chatting ─────────────────────────────────
 
   const handleStartConversation = useCallback(() => {
-    if (!selectedTopic) return;
+    if (!selectedTopic || !user?.id) return;
 
     // Generate a stable session UUID for this conversation
     sessionIdRef.current = crypto.randomUUID();
+
+    // Load cross-session word history for retention tracking
+    loadWordHistory(user.id).then(history => {
+      setWordHistory(history);
+      if (import.meta.env.DEV && history.length > 0) {
+        console.debug('[SmartCoach] Loaded word history:', history.length, 'words');
+      }
+    });
 
     const opener = buildPurposeOpener(selectedTopic);
 
@@ -298,7 +319,7 @@ export default function SmartCoach() {
       text: opener,
       timestamp: Date.now(),
     }]);
-  }, [selectedTopic, readinessLevel]);
+  }, [selectedTopic, readinessLevel, user?.id]);
 
   // ─── Send a turn ────────────────────────────────────────────
 
@@ -388,11 +409,9 @@ export default function SmartCoach() {
         const lowerText = userText.toLowerCase();
         sessionDrillWords.forEach(word => {
           if (lowerText.includes(word)) {
-            // Upgrade transfer result for this word to carryover level
             setTransferResults(prev => {
               const existing = prev.find(r => r.target.toLowerCase() === word);
               if (existing && existing.score < 4) {
-                // Spontaneous reuse = upgrade to score 4
                 return prev.map(r => r.target.toLowerCase() === word 
                   ? { ...r, score: 4, label: TRANSFER_LABELS['used_independently'] + ' (carryover)' }
                   : r
@@ -402,6 +421,45 @@ export default function SmartCoach() {
             });
           }
         });
+      }
+
+      // ── Cross-session retention: check if user uses words from previous sessions ──
+      if (wordHistory.length > 0 && !pendingTransferCheck) {
+        const retentionChecks = checkRetention(userText, wordHistory);
+        const newRetentionWords = retentionChecks.filter(c => !retentionFeedbackGiven.has(c.word.toLowerCase()));
+        
+        if (newRetentionWords.length > 0) {
+          const feedback = getRetentionFeedback(newRetentionWords);
+          if (feedback) {
+            // Inject retention feedback as a Maya aside (non-blocking)
+            setMessages(prev => [...prev, {
+              id: `maya-retention-${Date.now()}`,
+              role: 'maya',
+              text: feedback,
+              timestamp: Date.now(),
+            }]);
+            // Mark these words as already acknowledged
+            setRetentionFeedbackGiven(prev => {
+              const next = new Set(prev);
+              newRetentionWords.forEach(c => next.add(c.word.toLowerCase()));
+              return next;
+            });
+            // Update transfer results with cross-session retention
+            newRetentionWords.forEach(c => {
+              setTransferResults(prev => {
+                const key = c.word.toLowerCase();
+                const existing = prev.find(r => r.target.toLowerCase() === key);
+                if (existing && existing.score >= 4) return prev;
+                const filtered = prev.filter(r => r.target.toLowerCase() !== key);
+                return [...filtered, {
+                  target: c.word,
+                  label: 'Remembered from last session',
+                  score: 4,
+                }];
+              });
+            });
+          }
+        }
       }
 
       const isReturningFromDrill = justCompletedDrill;
@@ -713,6 +771,9 @@ export default function SmartCoach() {
     setLastDrillSlug(null);
     setTransferResults([]);
     setSessionDrillWords(new Set());
+    setWordHistory([]);
+    setProgressDelta(null);
+    setRetentionFeedbackGiven(new Set());
     exerciseModal.closeExerciseModal();
   };
 
@@ -1063,7 +1124,32 @@ export default function SmartCoach() {
                     </div>
                   )}
 
-                  {wrapupSummary.crossSession && (
+                  {/* Progress delta — word-level improvements across sessions */}
+                  {progressDelta && progressDelta.narrative && (
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs font-medium text-primary">Progress since last session</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground pl-6">{progressDelta.narrative}</p>
+                      {progressDelta.improved.length > 0 && (
+                        <div className="space-y-1 pl-6">
+                          {progressDelta.improved.map((item, i) => (
+                            <p key={i} className="text-xs text-foreground">
+                              "{item.word}": {item.from} → <span className="font-medium text-primary">{item.to}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {progressDelta.retained.length > 0 && (
+                        <p className="text-xs text-muted-foreground pl-6">
+                          Still strong: {progressDelta.retained.map(r => `"${r.word}"`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {wrapupSummary.crossSession && !progressDelta?.narrative && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                       <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                       <div>
