@@ -1128,7 +1128,38 @@ export default function SmartCoach() {
                     </div>
                   )}
 
-                  {/* Progress delta — word-level improvements across sessions */}
+                  {/* What stuck from before — cross-session retained words */}
+                  {wordHistory.length > 0 && (() => {
+                    const retained = getRetainedWords(wordHistory);
+                    const cueFade = buildCueFadeSummary(wordHistory);
+                    if (retained.length === 0 && !cueFade) return null;
+                    return (
+                      <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                        {retained.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                              <p className="text-xs font-medium text-foreground">What stuck from before</p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              {retained.map((r, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">"{r.word}"</span>
+                                  <span className="text-primary font-medium">{r.level} · {r.sessions} sessions</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {cueFade && (
+                          <p className="text-xs text-muted-foreground pl-6 pt-1 border-t border-border/50">
+                            {cueFade}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {progressDelta && progressDelta.narrative && (
                     <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
                       <div className="flex items-center gap-2">
