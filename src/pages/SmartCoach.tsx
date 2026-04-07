@@ -28,8 +28,11 @@ import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import type { SessionMetrics } from '@/lib/smartCoach/types';
 import { MayaNarrationCard } from '@/components/coach/MayaNarrationCard';
 import { MayaAssistantBubble, type MayaHelpAction } from '@/components/coach/MayaAssistantBubble';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { humanizeSlug } from '@/lib/performanceAwareFeedback';
+import { getFeedbackTone } from '@/lib/performanceAwareFeedback';
 
 // ─── Session Phase State Machine ────────────────────────────
 
@@ -438,10 +441,11 @@ export default function SmartCoach() {
     hasRestoredRef.current = false;
   }, []);
 
-  const handleMayaHelp = useCallback((action: MayaHelpAction) => {
-    // Maya help actions — could be expanded with TTS, hints, etc.
-    console.log('[SmartCoach] Maya help:', action);
-  }, []);
+  // ─── TTS for Maya help ──────────────────────────────────────
+  const tts = useTextToSpeech();
+
+
+
 
   // ─── Derived narration text ───────────────────────────────
 
@@ -473,22 +477,71 @@ export default function SmartCoach() {
     if (drilledWords.length > 0) {
       const word = drilledWords[0];
       const context = plan.topic.purpose.transferTarget.split(',')[0].trim();
-      return `Now try using "${word}" in a real sentence — like you would when ${context}.`;
+      return `This is the important part — using it in real life.\n\nTry using "${word}" in a sentence, like you would when ${context}.`;
     }
-    return `How would you use what you just practiced in real life?`;
+    return `This is the important part — how would you use what you just practiced in real life?`;
   }, [plan, game1Result]);
 
   const game2SetupText = useMemo(() => {
     if (!plan) return '';
-    const gameName = plan.game2.label.toLowerCase();
+    const gameName = plan.game2.label;
     if (game1Result && game1Result.score < 0.5) {
-      return `Let's try a different approach to strengthen those words. We'll do ${gameName} — it works on the same skills from a different angle.`;
+      const hardWords = (game1Result.targetWords || []).slice(0, 2).map(w => `"${w}"`).join(' and ');
+      return `${hardWords ? `${hardWords} were tough` : 'That was challenging'} — so we're going to approach it differently.\n\n${gameName} works on the same skills from a different angle. This should feel a bit easier.`;
     }
     if (game1Result && game1Result.score >= 0.8) {
-      return `You did well — let's push further with ${gameName}.`;
+      return `You were strong there — let's push further.\n\n${gameName} will build on that speed and add a new layer.`;
     }
-    return `One more practice round with ${gameName}.`;
+    return `Now let's reinforce what you just practiced.\n\n${gameName} targets the same area from a different angle — the repetition is what builds real retrieval.`;
   }, [plan, game1Result]);
+
+  // ─── Maya help text by phase ──────────────────────────────
+  const getMayaHelpText = useCallback((action: MayaHelpAction): string | null => {
+    if (!plan) return null;
+
+    switch (action) {
+      case 'repeat_instructions': {
+        if (phase === 'warmup') return buildWarmupQuestion(plan);
+        if (phase === 'game1_setup') return plan.game1Setup;
+        if (phase === 'game2_setup') return game2SetupText;
+        if (phase === 'transfer_check') return transferPromptText;
+        if (phase === 'game1_review') return game1ReviewText;
+        if (phase === 'game2_review') return game2ReviewText;
+        if (phase === 'opener') return plan.opener;
+        return "We're working through today's session together.";
+      }
+      case 'give_hint': {
+        if (phase === 'warmup') return "Just say the first thing that comes to mind — there's no wrong answer.";
+        if (phase === 'transfer_check') {
+          const word = (game1Result?.targetWords || [])[0];
+          return word
+            ? `Try starting your sentence with "${word}" — like "I want ${word}" or "The ${word} is..."`
+            : "Try building a short sentence using one of the words you just practiced.";
+        }
+        return "Take your time. There's no rush.";
+      }
+      case 'explain_this': {
+        if (phase === 'game1_setup' || phase === 'game1_playing')
+          return `${plan.game1.label} helps strengthen ${plan.topic.purpose.skillTarget}. The more you practice, the faster the words come.`;
+        if (phase === 'game2_setup' || phase === 'game2_playing')
+          return `${plan.game2.label} reinforces the same skills from a different angle. This builds stronger retrieval pathways.`;
+        if (phase === 'transfer_check')
+          return "This is the most important part — using the words in a real sentence proves your brain can find them when it matters.";
+        return `Today we're working on ${plan.topic.purpose.skillTarget} because it helps with ${plan.topic.purpose.transferTarget}.`;
+      }
+      case 'what_are_we_doing':
+        return `Today's focus: ${plan.topic.label}. We're working on ${plan.topic.purpose.skillTarget} so you can ${plan.topic.purpose.transferTarget}.`;
+      case 'help_me':
+        return "You're doing well. Take a breath, and try again when you're ready. There's no time limit.";
+      default:
+        return null;
+    }
+  }, [phase, plan, game1Result, game2SetupText, transferPromptText, game1ReviewText, game2ReviewText]);
+
+  const handleMayaHelp = useCallback((action: MayaHelpAction) => {
+    const text = getMayaHelpText(action);
+    if (text) tts.speak(text);
+  }, [getMayaHelpText, tts]);
 
   // ─── Render ───────────────────────────────────────────────
 
@@ -726,99 +779,102 @@ export default function SmartCoach() {
   }
 
   // ─── Active Session Phases (Narration Cards) ──────────────
+  // Wrap all active phases with the Maya bubble for persistent presence
 
-  // Opener
-  if (phase === 'opener') {
-    return (
-      <MayaNarrationCard
-        narration={plan.opener}
-        actionLabel="Let's warm up"
-        onContinue={() => setPhase('warmup')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-        icon={plan.topic.emoji}
-      />
-    );
-  }
+  const showBubble = !['loading', 'plan', 'complete'].includes(phase);
 
-  // Warmup (with input)
-  if (phase === 'warmup') {
-    const warmupQ = buildWarmupQuestion(plan);
-    return (
-      <MayaNarrationCard
-        narration={warmupQ}
-        onContinue={() => setPhase('game1_setup')}
-        showInput
-        inputPlaceholder="Type or speak your response..."
-        onSubmit={handleWarmupSubmit}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+  const renderPhaseContent = () => {
+    // Opener
+    if (phase === 'opener') {
+      return (
+        <MayaNarrationCard
+          narration={plan.opener}
+          actionLabel="Let's warm up"
+          onContinue={() => setPhase('warmup')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+          icon={plan.topic.emoji}
+        />
+      );
+    }
 
-  // Game 1 Setup
-  if (phase === 'game1_setup') {
-    return (
-      <MayaNarrationCard
-        narration={plan.game1Setup}
-        subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
-        actionLabel="Start practice"
-        onContinue={handleLaunchGame1}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-        icon={plan.game1.icon}
-      />
-    );
-  }
+    // Warmup (with input)
+    if (phase === 'warmup') {
+      const warmupQ = buildWarmupQuestion(plan);
+      return (
+        <MayaNarrationCard
+          narration={warmupQ}
+          onContinue={() => setPhase('game1_setup')}
+          showInput
+          inputPlaceholder="Type or speak your response..."
+          onSubmit={handleWarmupSubmit}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Game 1 Playing (shouldn't render — we navigated away)
-  if (phase === 'game1_playing') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+    // Game 1 Setup
+    if (phase === 'game1_setup') {
+      return (
+        <MayaNarrationCard
+          narration={plan.game1Setup}
+          subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
+          actionLabel="Start practice"
+          onContinue={handleLaunchGame1}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+          icon={plan.game1.icon}
+        />
+      );
+    }
 
-  // Game 1 Review
-  if (phase === 'game1_review') {
-    return (
-      <MayaNarrationCard
-        narration={game1ReviewText}
-        actionLabel="Continue"
-        onContinue={() => setPhase('transfer_check')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 1 Playing (shouldn't render — we navigated away)
+    if (phase === 'game1_playing') {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
 
-  // Transfer Check (with input)
-  if (phase === 'transfer_check') {
-    return (
-      <MayaNarrationCard
-        narration={transferPromptText}
-        onContinue={() => setPhase('game2_setup')}
-        showInput
-        inputPlaceholder="Use those words in a sentence..."
-        onSubmit={handleTransferSubmit}
-        isProcessing={isProcessing}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 1 Review
+    if (phase === 'game1_review') {
+      return (
+        <MayaNarrationCard
+          narration={game1ReviewText}
+          actionLabel="Continue"
+          onContinue={() => setPhase('transfer_check')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Game 2 Setup
-  if (phase === 'game2_setup') {
-    return (
-      <>
+    // Transfer Check (with input)
+    if (phase === 'transfer_check') {
+      return (
+        <MayaNarrationCard
+          narration={transferPromptText}
+          onContinue={() => setPhase('game2_setup')}
+          showInput
+          inputPlaceholder="Use those words in a sentence..."
+          onSubmit={handleTransferSubmit}
+          isProcessing={isProcessing}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
+
+    // Game 2 Setup
+    if (phase === 'game2_setup') {
+      return (
         <MayaNarrationCard
           narration={game2SetupText}
           subtitle={`${plan.game2Trials} items · ~${Math.ceil(plan.game2.durationSec / 60)} min`}
@@ -829,36 +885,46 @@ export default function SmartCoach() {
           phaseLabels={PHASE_LABELS}
           icon={plan.game2.icon}
         />
-        <MayaAssistantBubble onAction={handleMayaHelp} />
-      </>
-    );
-  }
+      );
+    }
 
-  // Game 2 Playing
-  if (phase === 'game2_playing') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+    // Game 2 Playing
+    if (phase === 'game2_playing') {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
 
-  // Game 2 Review
-  if (phase === 'game2_review') {
-    return (
-      <MayaNarrationCard
-        narration={game2ReviewText}
-        actionLabel="See summary"
-        onContinue={() => setPhase('complete')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 2 Review
+    if (phase === 'game2_review') {
+      return (
+        <MayaNarrationCard
+          narration={game2ReviewText}
+          actionLabel="See summary"
+          onContinue={() => setPhase('complete')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Fallback
-  return null;
+    return null;
+  };
+
+  return (
+    <>
+      {renderPhaseContent()}
+      {showBubble && (
+        <MayaAssistantBubble
+          isSpeaking={tts.isSpeaking}
+          onAction={handleMayaHelp}
+        />
+      )}
+    </>
+  );
 }
 
 // ─── Helper Functions ───────────────────────────────────────
@@ -866,31 +932,31 @@ export default function SmartCoach() {
 function buildWarmupQuestion(plan: SessionPlan): string {
   const topicQuestions: Record<string, string[]> = {
     food: [
-      "Before we practice — what's something you ate recently that you enjoyed?",
-      "Quick warm-up — what's your favorite thing to cook or eat?",
+      "Before we practice — tell me something you ate recently. I want to hear how easily the words come out.",
+      "Quick warm-up — describe your favorite meal. Don't worry about being perfect, just talk.",
     ],
     family: [
-      "Before we start — tell me about one person in your family.",
-      "Quick warm-up — who did you see or talk to recently?",
+      "Before we start — tell me about someone in your family. I want to hear how the words flow.",
+      "Quick warm-up — who did you spend time with recently? Just a sentence or two.",
     ],
     hobbies: [
-      "Before we start — what's something you enjoy doing?",
-      "Quick warm-up — what did you do for fun recently?",
+      "Before we start — what's something you enjoy doing? I want to hear how easily you describe it.",
+      "Quick warm-up — tell me what you did for fun recently. Just talk naturally.",
     ],
     daily_routine: [
-      "Before we start — walk me through what you did this morning.",
-      "Quick warm-up — what does a typical morning look like for you?",
+      "Before we start — walk me through this morning. I want to hear how the sequence comes out.",
+      "Quick warm-up — describe what you did when you woke up today.",
     ],
     travel: [
-      "Before we start — what's a place you've been that you liked?",
-      "Quick warm-up — where would you go if you could travel anywhere?",
+      "Before we start — tell me about a place you've visited. I want to hear how the details come out.",
+      "Quick warm-up — where would you go if you could travel anywhere? Describe it briefly.",
     ],
     pets: [
-      "Before we start — do you have a pet? Tell me about them.",
-      "Quick warm-up — what's your favorite animal?",
+      "Before we start — tell me about a pet or animal you like. I want to hear how you describe them.",
+      "Quick warm-up — what's your favorite animal? Tell me why.",
     ],
   };
 
-  const questions = topicQuestions[plan.topic.id] || ["Tell me something about yourself to warm up."];
+  const questions = topicQuestions[plan.topic.id] || ["Tell me about your day so far — I want to hear how the words come out."];
   return questions[Math.floor(Math.random() * questions.length)];
 }
