@@ -35,6 +35,9 @@ import { cn } from '@/lib/utils';
 import { VoiceInputBar } from '@/components/coach/VoiceInputBar';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoiceSessionSummary } from '@/lib/voiceInteractionTelemetry';
+import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
+import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
+import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -164,6 +167,10 @@ export default function SmartCoach() {
   const [usedGameIds, setUsedGameIds] = useState<string[]>([]);
   const [prevAnalysis, setPrevAnalysis] = useState<CoachUtteranceAnalysis | undefined>(undefined);
   const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
+  const [transferTargets, setTransferTargets] = useState<TransferTarget[]>([]);
+  const [pendingTransferCheck, setPendingTransferCheck] = useState(false);
+  const [lastDrillSlug, setLastDrillSlug] = useState<string | null>(null);
+  const [transferResults, setTransferResults] = useState<TransferSummaryItem[]>([]);
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
@@ -309,6 +316,66 @@ export default function SmartCoach() {
     setMessages(prev => [...prev, userMsg]);
 
     try {
+      // ── Transfer scoring: if we're waiting for a post-drill response, score it ──
+      if (pendingTransferCheck && transferTargets.length > 0) {
+        const transferResult = scoreTransfer({
+          targets: transferTargets,
+          userResponse: userText,
+          cueLevelNeeded: coachState.supportLevel,
+          latencyMs: null, // TODO: wire latency from voice input
+          baselineLatencyMs: null,
+          breakdownSignals: {
+            longPause: false,
+            fillerCount: 0,
+            restart: false,
+            abandonment: userText.trim().length === 0,
+          },
+          usedAfterModel: false,
+        });
+
+        // Get feedback and inject into conversation
+        const feedback = getTransferFeedback(transferResult, transferTargets);
+        
+        // Track for session summary
+        transferTargets.forEach(t => {
+          setTransferResults(prev => [...prev, {
+            target: t.value,
+            label: TRANSFER_LABELS[transferResult.label],
+            score: transferResult.transferScore,
+          }]);
+        });
+
+        // Persist transfer check
+        if (sessionIdRef.current && lastDrillSlug) {
+          persistTransferCheck({
+            sessionId: sessionIdRef.current,
+            drillSlug: lastDrillSlug,
+            targets: transferTargets,
+            result: transferResult,
+            mayaTransferPrompt: messages[messages.length - 2]?.text || '',
+            userResponse: userText,
+            turnNumber: turnCount,
+          });
+        }
+
+        // Add Maya's transfer feedback as a message
+        setMessages(prev => [...prev, {
+          id: `maya-transfer-${Date.now()}`,
+          role: 'maya',
+          text: feedback.combined,
+          timestamp: Date.now(),
+        }]);
+
+        if (autoPlayVoice) {
+          tts.speak(feedback.combined).catch(() => {});
+        }
+
+        setPendingTransferCheck(false);
+        setTransferTargets([]);
+        setIsProcessing(false);
+        return; // Transfer feedback replaces normal turn processing
+      }
+
       const isReturningFromDrill = justCompletedDrill;
       if (isReturningFromDrill) {
         setJustCompletedDrill(false);
@@ -496,6 +563,44 @@ export default function SmartCoach() {
     setLastDrillTurn(turnCount);
     setDrillsCompletedThisSession(prev => prev + 1);
     setJustCompletedDrill(true);
+    setLastDrillSlug(activeGame.exerciseSlug);
+
+    // Set up transfer targets from the drill context
+    const drillTargets: TransferTarget[] = [];
+    // Extract targets from the normalized result's summary or the topic
+    const summaryWords = normalized.summary?.split(/\s+/) || [];
+    const topicTransfer = selectedTopic.purpose.transferTarget;
+    
+    // Use topic keywords as transfer targets
+    if (selectedTopic.keywords && selectedTopic.keywords.length > 0) {
+      // Pick up to 3 keywords as transfer targets
+      const keywords = selectedTopic.keywords.slice(0, 3);
+      keywords.forEach(kw => {
+        drillTargets.push({
+          value: kw,
+          type: 'word',
+          functionalContext: topicTransfer,
+        });
+      });
+    }
+    
+    // If we have specific words from the drill result, add those
+    if (normalized.slug === 'photo-naming' || normalized.slug === 'category-fluency') {
+      // Extract any quoted words from summary
+      const quoted = normalized.summary?.match(/"([^"]+)"/g)?.map(w => w.replace(/"/g, ''));
+      if (quoted) {
+        quoted.slice(0, 3).forEach(word => {
+          if (!drillTargets.some(t => t.value.toLowerCase() === word.toLowerCase())) {
+            drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
+          }
+        });
+      }
+    }
+    
+    if (drillTargets.length > 0) {
+      setTransferTargets(drillTargets);
+      setPendingTransferCheck(true);
+    }
 
     // Set post-intervention dampening on coach state so next turn is gentler
     setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
@@ -573,6 +678,10 @@ export default function SmartCoach() {
     setUsedGameIds([]);
     setPrevAnalysis(undefined);
     setDrillsCompletedThisSession(0);
+    setTransferTargets([]);
+    setPendingTransferCheck(false);
+    setLastDrillSlug(null);
+    setTransferResults([]);
     exerciseModal.closeExerciseModal();
   };
 
@@ -897,7 +1006,32 @@ export default function SmartCoach() {
                     </div>
                   </div>
 
-                  {/* Cross-session comparison */}
+                  {/* Transfer results — what transferred from drills */}
+                  {transferResults.length > 0 && (
+                    <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs font-medium text-foreground">What transferred</p>
+                      </div>
+                      <div className="space-y-1.5 pl-6">
+                        {transferResults.map((tr, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">"{tr.target}"</span>
+                            <span className={cn(
+                              'text-xs font-medium',
+                              tr.score >= 4 ? 'text-green-600 dark:text-green-400' :
+                              tr.score >= 3 ? 'text-primary' :
+                              tr.score >= 2 ? 'text-muted-foreground' :
+                              'text-muted-foreground/60'
+                            )}>
+                              {tr.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {wrapupSummary.crossSession && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                       <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
