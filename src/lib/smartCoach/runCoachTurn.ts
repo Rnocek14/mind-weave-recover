@@ -214,6 +214,8 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     drilledWords: arcState.drilledWords,
     turnNumber: state.turnCount,
     totalTurns: maxTurns,
+    strugglingPhonemes: nextState.strugglingPhonemes,
+    crossSessionContext: nextState.crossSessionContext,
   });
 
   // Step 6 — Generate coach line via edge function

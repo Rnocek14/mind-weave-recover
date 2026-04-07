@@ -43,6 +43,7 @@ import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { useProfile } from '@/hooks/useProfile';
+import { useCoachProfile } from '@/hooks/useCoachProfile';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -148,6 +149,7 @@ export default function SmartCoach() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: true });
+  const coachProfile = useCoachProfile(user?.id);
 
   const [phase, setPhase] = useState<'topic_select' | 'orientation' | 'readiness' | 'chatting' | 'complete'>('topic_select');
   const [selectedTopic, setSelectedTopic] = useState<TopicDefinition | null>(null);
@@ -289,12 +291,23 @@ export default function SmartCoach() {
       }
     });
 
-    const opener = buildPurposeOpener(selectedTopic);
+    // Build opener — include cross-session goals if available
+    const baseOpener = buildPurposeOpener(selectedTopic);
+    const goalContext = coachProfile.lastSessionGoals?.continuityOpener;
+    const opener = goalContext
+      ? `${goalContext}\n\n${baseOpener}`
+      : baseOpener;
 
     const state = createInitialCoachState({
       topic: selectedTopic.id,
       topicKeywords: selectedTopic.keywords,
       readinessLevel,
+      severityProfile: coachProfile.severityProfile,
+      primaryDeficit: coachProfile.primaryDeficit,
+      strugglingPhonemes: coachProfile.strugglingPhonemes,
+      domainScores: coachProfile.domainScores,
+      exerciseHistory: coachProfile.exerciseHistory,
+      crossSessionContext: goalContext || undefined,
     });
     state.conversationHistory = [{ role: 'maya', text: opener }];
 
@@ -321,7 +334,7 @@ export default function SmartCoach() {
       text: opener,
       timestamp: Date.now(),
     }]);
-  }, [selectedTopic, readinessLevel, user?.id]);
+  }, [selectedTopic, readinessLevel, user?.id, coachProfile]);
 
   // ─── Send a turn ────────────────────────────────────────────
 

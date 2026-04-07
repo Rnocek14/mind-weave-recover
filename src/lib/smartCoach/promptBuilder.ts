@@ -44,6 +44,10 @@ export interface PromptContext {
   turnNumber?: number;
   /** Total turns in session */
   totalTurns?: number;
+  /** Struggling phonemes from speech profile */
+  strugglingPhonemes?: { phoneme: string; accuracy: number; trials: number }[];
+  /** Cross-session goal context */
+  crossSessionContext?: string;
 }
 
 const EXPAND_DIMENSIONS = [
@@ -134,6 +138,19 @@ export function buildPrompt(ctx: PromptContext): string {
   // ── Cross-session (one line) ──
   if (ctx.lastSessionContext) {
     parts.push(`Last session: ${ctx.lastSessionContext}`);
+  }
+
+  // ── Struggling phonemes (inform Maya about sound-level issues) ──
+  if (ctx.strugglingPhonemes && ctx.strugglingPhonemes.length > 0) {
+    const phonemeInfo = ctx.strugglingPhonemes.slice(0, 3)
+      .map(p => `"${p.phoneme}" (${Math.round(p.accuracy * 100)}%)`)
+      .join(', ');
+    parts.push(`SPEECH DATA: User struggles with sounds: ${phonemeInfo}. Listen for these — if they mispronounce, note it specifically.`);
+  }
+
+  // ── Cross-session continuity (carried-forward goals) ──
+  if (ctx.crossSessionContext) {
+    parts.push(`CONTINUITY: ${ctx.crossSessionContext}`);
   }
 
   // ── Transfer bridge (highest priority when active) ──
