@@ -60,7 +60,7 @@ const MODE_LABELS: Record<CoachMode, string> = {
 // ─── Phase steps for visual indicator ───────────────────────
 
 const PHASE_STEPS = [
-  { key: 'warmup', label: 'Warm up', icon: MessageCircle },
+  { key: 'warmup', label: 'Talk', icon: MessageCircle },
   { key: 'expand', label: 'Practice', icon: Brain },
   { key: 'support', label: 'Drills', icon: Zap },
   { key: 'wrapup', label: 'Review', icon: CheckCircle2 },
@@ -166,7 +166,7 @@ export default function SmartCoach() {
   const [drillsCompletedThisSession, setDrillsCompletedThisSession] = useState(0);
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
-  const maxTurns = 10; // Extended from 8 for hybrid session
+  const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
 
   // Stable session UUID — generated once when conversation starts
   const sessionIdRef = useRef<string | null>(null);
@@ -396,7 +396,7 @@ export default function SmartCoach() {
           setMessages(prev => [...prev, {
             id: `practice-offer-${Date.now()}`,
             role: 'maya',
-            text: "Let's do one more quick practice to lock that in.",
+            text: "Let's lock in what you practiced with a focused round.",
             timestamp: Date.now(),
           }]);
         }
@@ -710,7 +710,7 @@ export default function SmartCoach() {
           <Button variant="ghost" size="icon" onClick={() => setPhase('topic_select')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Today's Practice</h1>
+          <h1 className="text-lg font-semibold">Today's Session</h1>
         </header>
 
         <div className="flex-1 flex items-center justify-center p-6">
@@ -752,34 +752,31 @@ export default function SmartCoach() {
                     <p className="text-xs text-muted-foreground capitalize">{selectedTopic.purpose.transferTarget}</p>
                   </div>
                 </div>
-
-                <div className="flex items-start gap-2.5">
-                  <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-foreground">How we measure</p>
-                    <p className="text-xs text-muted-foreground">{selectedTopic.purpose.measure}</p>
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Session arc preview */}
-            <div className="bg-muted/30 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Clock className="w-3.5 h-3.5" />
-                <span>~10 minutes</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {PHASE_STEPS.map((step, i) => (
-                  <React.Fragment key={step.key}>
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <step.icon className="w-3 h-3" />
-                      <span>{step.label}</span>
+            {/* Session plan — visible structured arc */}
+            <div className="bg-card border rounded-2xl p-5 space-y-3">
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                Your session plan (~12 min)
+              </p>
+              <div className="space-y-2.5">
+                {[
+                  { step: 1, label: 'Talk', desc: 'We\'ll chat about the topic to warm up', icon: MessageCircle, color: 'text-primary' },
+                  { step: 2, label: 'Practice', desc: 'Targeted exercises based on what you need', icon: Zap, color: 'text-primary' },
+                  { step: 3, label: 'Use it', desc: 'Try using those skills in a real scenario', icon: ArrowRight, color: 'text-primary' },
+                  { step: 4, label: 'Review', desc: 'See what you achieved today', icon: CheckCircle2, color: 'text-primary' },
+                ].map((s) => (
+                  <div key={s.step} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-primary">{s.step}</span>
                     </div>
-                    {i < PHASE_STEPS.length - 1 && (
-                      <span className="text-muted-foreground/30">→</span>
-                    )}
-                  </React.Fragment>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{s.label}</p>
+                      <p className="text-xs text-muted-foreground">{s.desc}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1022,7 +1019,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">~10 minutes</p>
+            <p className="text-[11px] text-muted-foreground mt-1">~12 min · Talk → Practice → Use it → Review</p>
           </div>
         )}
 
@@ -1041,12 +1038,12 @@ export default function SmartCoach() {
                   </div>
                   {pendingIntervention && msg.interventionData.timestamp === pendingIntervention.timestamp && (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs">
-                        <Gamepad2 className="w-3.5 h-3.5" />
-                        Try it
+                      <Button size="sm" variant="default" onClick={handleAcceptIntervention} className="gap-1.5 text-xs flex-1">
+                        <Zap className="w-3.5 h-3.5" />
+                        Start practice
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleDeclineIntervention} className="text-xs">
-                        Keep talking
+                      <Button size="sm" variant="ghost" onClick={handleDeclineIntervention} className="text-xs text-muted-foreground">
+                        Skip
                       </Button>
                     </div>
                   )}
@@ -1086,7 +1083,7 @@ export default function SmartCoach() {
           );
         })}
 
-        {/* Inline drill card */}
+        {/* Inline drill card — prescriptive, not optional */}
         {(pendingDrill || pendingPracticeBlock) && (
           <div className="max-w-[90%] mx-auto my-2">
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
@@ -1096,21 +1093,24 @@ export default function SmartCoach() {
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium text-foreground">
-                    {pendingPracticeBlock ? 'Quick practice round' : 'Quick practice'}
+                    {pendingPracticeBlock ? "Let's lock in what you practiced" : "Let's practice that now"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {(pendingDrill || pendingPracticeBlock?.[0])?.drill.label} — {
                       (pendingDrill || pendingPracticeBlock?.[0])?.configOverrides.totalTrials || 5
                     } items, ~{Math.ceil(((pendingDrill || pendingPracticeBlock?.[0])?.drill.durationSec || 60) / 60)} min
                   </p>
+                  <p className="text-[11px] text-primary/70 mt-1">
+                    {(pendingDrill || pendingPracticeBlock?.[0])?.drill.rationale}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs">
+                <Button size="sm" onClick={handleAcceptDrill} className="gap-1.5 text-xs flex-1">
                   <Zap className="w-3.5 h-3.5" />
-                  Start
+                  Start practice
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleDeclineDrill} className="text-xs">
+                <Button size="sm" variant="ghost" onClick={handleDeclineDrill} className="text-xs text-muted-foreground">
                   Skip
                 </Button>
               </div>

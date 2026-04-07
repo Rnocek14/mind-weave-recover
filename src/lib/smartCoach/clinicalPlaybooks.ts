@@ -224,7 +224,7 @@ const DAILY_ROUTINE_PLAYBOOK: ClinicalPlaybook = {
   topicId: 'daily_routine',
   skillTarget: 'sequencing events, using time markers, retelling daily events in order',
   transferTarget: 'telling someone about your day, answering what did you do today',
-  maxSubtopicDepth: 1, // Strongest tangent control — this topic drifts easily
+  maxSubtopicDepth: 1,
   objectives: [
     {
       id: 'warmup_anchor',
@@ -398,6 +398,184 @@ const HOBBIES_PLAYBOOK: ClinicalPlaybook = {
   ],
 };
 
+// ─── Travel & Places ────────────────────────────────────────
+
+const TRAVEL_PLAYBOOK: ClinicalPlaybook = {
+  topicId: 'travel',
+  skillTarget: 'describing locations, recalling experiences, using spatial and descriptive language',
+  transferTarget: 'telling someone about a trip, giving directions, sharing memories',
+  maxSubtopicDepth: 2,
+  objectives: [
+    {
+      id: 'warmup_anchor',
+      successSignals: ['names a place', 'names a city or country', 'mentions a trip'],
+      elicitationPrompts: [
+        "Where's somewhere you've been that you liked?",
+        "What's a place you've visited?",
+        "Think of a trip you enjoyed — where was it?",
+        "What's your favorite place?",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'elicit_core_content',
+      successSignals: ['describes something about the place', 'names an activity or feature', 'gives a detail'],
+      elicitationPrompts: [
+        "What did you do there?",
+        "What did it look like?",
+        "Who did you go with?",
+        "What do you remember most?",
+      ],
+      redirectPrompts: [
+        "Got it — {detail}. What else do you remember about the place?",
+        "Nice. Staying with that trip, what was the best part?",
+      ],
+    },
+    {
+      id: 'organize_or_expand',
+      successSignals: ['produces 2+ linked details', 'combines place + activity in one response'],
+      elicitationPrompts: [
+        "Can you describe it in one sentence?",
+        "Tell me about one thing you saw there.",
+        "What would you tell a friend about that place?",
+      ],
+      redirectPrompts: [
+        "Nice detail. How would you describe the whole trip to someone?",
+      ],
+    },
+    {
+      id: 'sentence_level_production',
+      successSignals: ['produces a descriptive sentence', 'gives a narrative-style response'],
+      elicitationPrompts: [
+        "How would you describe that trip in one sentence?",
+        "Say it like you're telling a friend about your vacation.",
+        "Can you tell me the whole thing — where you went and what you did?",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'transfer_check',
+      successSignals: ['answers a social question about travel', 'describes a place to an imagined listener'],
+      elicitationPrompts: [
+        "If someone asked where you've traveled, what would you say?",
+        "How would you recommend that place to a friend?",
+        "If someone asked about your favorite trip, how would you answer?",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'wrapup_reflection',
+      successSignals: [],
+      elicitationPrompts: [],
+      redirectPrompts: [],
+    },
+  ],
+  tangentRedirectTemplates: [
+    "Got it — {subtopic}. About the trip itself, what else stands out?",
+    "Nice detail. How would you describe the whole place to someone?",
+    "That makes sense. If you were telling a friend about it, what would you say?",
+  ],
+  transferTemplates: [
+    "If someone asked where you've been, what would you say?",
+    "How would you recommend that place to a friend?",
+    "If someone asked about your favorite trip, how would you answer?",
+  ],
+  wrapupTemplates: [
+    "You described {place} and {detail} clearly. That helps when sharing memories.",
+    "You practiced travel descriptions today. That's real conversation.",
+    "You built a stronger description of a place that matters to you.",
+  ],
+};
+
+// ─── Pets & Animals ─────────────────────────────────────────
+
+const PETS_PLAYBOOK: ClinicalPlaybook = {
+  topicId: 'pets',
+  skillTarget: 'naming animals, describing care routines, using action verbs',
+  transferTarget: 'talking about pets with friends, describing animal needs to a vet',
+  maxSubtopicDepth: 2,
+  objectives: [
+    {
+      id: 'warmup_anchor',
+      successSignals: ['names an animal', 'mentions a pet', 'names a type of animal'],
+      elicitationPrompts: [
+        "Do you have a pet?",
+        "Tell me about an animal you know.",
+        "What kind of animal do you like?",
+        "Have you ever had a pet?",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'elicit_core_content',
+      successSignals: ['names a pet attribute', 'describes behavior or routine', 'gives a detail about the animal'],
+      elicitationPrompts: [
+        "What's their name?",
+        "What do they look like?",
+        "What do they like to do?",
+        "How do you take care of them?",
+      ],
+      redirectPrompts: [
+        "Got it — {detail}. What else can you tell me about them?",
+        "Nice. What do you do together?",
+      ],
+    },
+    {
+      id: 'organize_or_expand',
+      successSignals: ['produces 2+ details', 'combines animal + action or description'],
+      elicitationPrompts: [
+        "Can you describe what you do with them in one sentence?",
+        "Tell me about their daily routine.",
+        "What's a typical day like with your pet?",
+      ],
+      redirectPrompts: [
+        "Nice. How would you describe your pet to someone who's never met them?",
+      ],
+    },
+    {
+      id: 'sentence_level_production',
+      successSignals: ['produces a sentence about the pet', 'describes a routine or story'],
+      elicitationPrompts: [
+        "How would you describe your pet to a new friend?",
+        "Say one full sentence about what your pet is like.",
+        "Tell me about your pet like you're introducing them.",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'transfer_check',
+      successSignals: ['answers a social question about pets', 'describes pet needs clearly'],
+      elicitationPrompts: [
+        "If someone asked about your pet, what would you say?",
+        "How would you tell a vet what's going on with your pet?",
+        "If a friend asked what kind of animal you have, how would you answer?",
+      ],
+      redirectPrompts: [],
+    },
+    {
+      id: 'wrapup_reflection',
+      successSignals: [],
+      elicitationPrompts: [],
+      redirectPrompts: [],
+    },
+  ],
+  tangentRedirectTemplates: [
+    "Got it — {subtopic}. About your pet, what else would someone want to know?",
+    "Nice detail. How would you describe them to a friend?",
+    "That makes sense. What's the main thing about your pet you'd want to share?",
+  ],
+  transferTemplates: [
+    "If someone asked about your pet, what would you say?",
+    "How would you describe your pet to a new friend?",
+    "If a vet asked what your pet needs, how would you answer?",
+  ],
+  wrapupTemplates: [
+    "You described {petName} and {detail} clearly. That helps when talking about pets.",
+    "You practiced pet descriptions today. That's real conversation.",
+    "You used action words to describe your pet's routine. That matters in everyday talk.",
+  ],
+};
+
 // ─── Registry ────────────────────────────────────────────────
 
 export const CLINICAL_PLAYBOOKS: Record<string, ClinicalPlaybook> = {
@@ -405,6 +583,8 @@ export const CLINICAL_PLAYBOOKS: Record<string, ClinicalPlaybook> = {
   family: FAMILY_PLAYBOOK,
   daily_routine: DAILY_ROUTINE_PLAYBOOK,
   hobbies: HOBBIES_PLAYBOOK,
+  travel: TRAVEL_PLAYBOOK,
+  pets: PETS_PLAYBOOK,
 };
 
 /** Get playbook for a topic, or undefined if none exists */
