@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
-import { generateSessionPlan, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
+import { generateSessionPlan, selectReactiveGame2, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
 import { GAME_CATALOG } from '@/lib/smartCoach/gameTrigger';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { getPostDrillReview, getPostDrillBridge } from '@/lib/smartCoach/sessionArc';
@@ -246,6 +246,8 @@ export default function SmartCoach() {
     if (!plan) return;
     const game = slot === 1 ? plan.game1 : plan.game2;
     const trials = slot === 1 ? plan.game1Trials : plan.game2Trials;
+    const difficulty = slot === 1 ? plan.game1Difficulty : plan.game2Difficulty;
+    const cueLevel = slot === 1 ? plan.game1CueLevel : plan.game2CueLevel;
     
     setActiveGame(game);
     setCurrentGameSlot(slot);
@@ -253,8 +255,8 @@ export default function SmartCoach() {
     
     exerciseModal.launchExerciseModal(game.exerciseSlug, {
       totalTrials: trials,
-      difficultyTier: game.defaultConfig.difficultyTier,
-      cueLevel: game.defaultConfig.cueLevel,
+      difficultyTier: difficulty,
+      cueLevel: cueLevel,
       source: 'maya_chat',
     });
   }, [plan, exerciseModal]);
@@ -381,16 +383,47 @@ export default function SmartCoach() {
         addMayaMessage(feedback.combined);
       }
       
-      // After transfer, move to game 2
+      // After transfer, reactively select Game 2 based on actual results
       setTimeout(() => {
-        const game2Intro = buildGame2Setup(plan, game1Result);
-        addMayaMessage(game2Intro);
+        if (plan && game1Result) {
+          const lastTransferScore = transferTargets.length > 0 ? (transferResults[transferResults.length - 1]?.score ?? null) : null;
+          const reactive = selectReactiveGame2(
+            plan.rankedGames,
+            plan.game1.id,
+            game1Result.score,
+            game1Result.targetWords || [],
+            lastTransferScore,
+            {
+              severityProfile: coachProfile.severityProfile,
+              primaryDeficit: coachProfile.primaryDeficit,
+              strugglingPhonemes: coachProfile.strugglingPhonemes,
+              domainScores: coachProfile.domainScores,
+              exerciseHistory: coachProfile.exerciseHistory,
+              lastSessionGoals: coachProfile.lastSessionGoals,
+            },
+          );
+          
+          // Update the plan with reactive Game 2
+          setPlan(prev => prev ? {
+            ...prev,
+            game2: reactive.game,
+            game2Trials: reactive.trials,
+            game2Difficulty: reactive.difficulty,
+            game2CueLevel: reactive.cueLevel,
+          } : prev);
+          
+          const game2Intro = buildGame2Setup(plan, game1Result, reactive.rationale);
+          addMayaMessage(game2Intro);
+        } else {
+          const game2Intro = buildGame2Setup(plan!, null, '');
+          addMayaMessage(game2Intro);
+        }
         setPhase('game2_setup');
       }, 2000);
       
       setIsProcessing(false);
     }, 1000);
-  }, [plan, transferTargets, game1Result, addUserMessage, addMayaMessage]);
+  }, [plan, transferTargets, game1Result, coachProfile, addUserMessage, addMayaMessage, transferResults]);
 
   // ─── Handle modal close (without completion) ──────────────
 
@@ -931,7 +964,20 @@ function buildTransferPrompt(drilledWords: string[], plan: SessionPlan): string 
   return `Now tell me — how would you use what you just practiced in real life?`;
 }
 
-function buildGame2Setup(plan: SessionPlan, game1Result: NormalizedExerciseResult | null): string {
+function buildGame2Setup(plan: SessionPlan, game1Result: NormalizedExerciseResult | null, reactiveRationale?: string): string {
+  const gameName = plan.game2.label.toLowerCase();
+  
+  if (reactiveRationale) {
+    // Use the reactive rationale from selectReactiveGame2
+    if (game1Result && game1Result.score < 0.5) {
+      return `${reactiveRationale}. Let's try ${gameName} — a different approach to strengthen those words.`;
+    }
+    if (game1Result && game1Result.score >= 0.8) {
+      return `${reactiveRationale}. Let's push further with ${gameName}.`;
+    }
+    return `${reactiveRationale}. One more round of practice with ${gameName}.`;
+  }
+  
   if (game1Result && game1Result.score < 0.5) {
     return `Let's try a different approach to strengthen those words. ${plan.game2.rationale.split('—')[0].trim()}.`;
   }
