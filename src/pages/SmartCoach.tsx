@@ -324,6 +324,45 @@ export default function SmartCoach() {
     });
   }, [plan, game1Result, transferTargets, transferResults, wordHistory, navigate]);
 
+  // ─── Restore handlers (process results from sessionStorage) ──
+
+  const handleGame1CompleteFromRestore = useCallback((result: NormalizedExerciseResult, restoredPlan: SessionPlan) => {
+    setGame1Result(result);
+    setHintLevel(0);
+    setPlan(restoredPlan);
+
+    const pct = Math.round(result.score * 100);
+    if (result.score >= 0.85) mayaToast(`${pct}% — words came out quickly.`, { type: 'success' });
+    else if (result.score >= 0.6) mayaToast(`${pct}% — building momentum.`);
+    else mayaToast(`${pct}% — let's reinforce from another angle.`);
+
+    const drilledWords = (result.targetWords || []).slice(0, 3);
+    const targets: TransferTarget[] = drilledWords.map(word => ({
+      value: word,
+      type: 'word' as const,
+      functionalContext: restoredPlan.topic.purpose.transferTarget,
+    }));
+    if (targets.length === 0 && restoredPlan.topic.keywords.length > 0) {
+      targets.push({ value: restoredPlan.topic.keywords[0], type: 'word', functionalContext: restoredPlan.topic.purpose.transferTarget });
+    }
+    setTransferTargets(targets);
+    setPhase('transfer_check');
+  }, []);
+
+  const handleGame2CompleteFromRestore = useCallback((result: NormalizedExerciseResult) => {
+    setGame2Result(result);
+    setHintLevel(0);
+    if (game1Result) {
+      const s1 = Math.round(game1Result.score * 100);
+      const s2 = Math.round(result.score * 100);
+      const delta = s2 - s1;
+      if (delta >= 10) mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
+      else if (delta >= 0) mayaToast(`Steady at ${s2}% — reliable retrieval.`);
+      else mayaToast(`${s2}% on a harder exercise — that's progress.`);
+    }
+    setPhase('complete');
+  }, [game1Result]);
+
   // ─── Phase Handlers ───────────────────────────────────────
 
   const handleStartSession = useCallback(async () => {
