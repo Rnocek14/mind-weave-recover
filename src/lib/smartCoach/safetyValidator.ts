@@ -281,9 +281,12 @@ export function validateCoachLine(
   }
 
   // Praise-without-specificity: starts with praise word but has no task reference
+  // EXCEPTION: If the response has a strong context anchor (quotes a user word or topic),
+  // the praise is contextual, not empty — allow it through
   if (PRAISE_STARTERS.test(trimmed)) {
     const hasTaskRef = TASK_REFERENCE_PATTERNS.some(p => p.test(trimmed));
-    if (!hasTaskRef) {
+    const hasStrongAnchor = hasContextAnchor(trimmed, topic, options.lastUserUtterance, options.topicKeywords);
+    if (!hasTaskRef && !hasStrongAnchor) {
       reasons.push('praise_without_specificity');
     }
   }
