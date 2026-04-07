@@ -233,12 +233,23 @@ export function scoreTransfer(input: TransferCheckInput): TransferCheckResult {
   const latencyEase = computeLatencyEaseScore(input.latencyMs, input.baselineLatencyMs, input.breakdownSignals);
   const functionalFit = computeFunctionalFitScore(targetResults, input.userResponse, input.cueLevelNeeded);
   
-  const rawScore = Math.round(
+  // Critical gate: if no target was found in the response at all, cap at score 1 max
+  const anyFound = targetResults.some(r => r.found);
+  const isEmpty = input.userResponse.trim().length === 0;
+  
+  let rawScore = Math.round(
     targetReuse * 0.35 +
     cueIndependence * 0.25 +
     latencyEase * 0.20 +
     functionalFit * 0.20
   );
+  
+  // Floor: empty/abandoned response → 0; target not found → cap at 20
+  if (isEmpty || input.breakdownSignals.abandonment) {
+    rawScore = 0;
+  } else if (!anyFound) {
+    rawScore = Math.min(rawScore, 19); // forces bucket 0
+  }
   
   const transferScore = bucketScore(rawScore);
   
