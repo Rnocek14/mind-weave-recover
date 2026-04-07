@@ -334,7 +334,7 @@ export default function SmartCoach() {
       text: opener,
       timestamp: Date.now(),
     }]);
-  }, [selectedTopic, readinessLevel, user?.id]);
+  }, [selectedTopic, readinessLevel, user?.id, coachProfile]);
 
   // ─── Send a turn ────────────────────────────────────────────
 

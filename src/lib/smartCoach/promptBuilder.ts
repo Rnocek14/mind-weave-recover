@@ -136,6 +136,19 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`Last session: ${ctx.lastSessionContext}`);
   }
 
+  // ── Struggling phonemes (inform Maya about sound-level issues) ──
+  if (ctx.strugglingPhonemes && ctx.strugglingPhonemes.length > 0) {
+    const phonemeInfo = ctx.strugglingPhonemes.slice(0, 3)
+      .map(p => `"${p.phoneme}" (${Math.round(p.accuracy * 100)}%)`)
+      .join(', ');
+    parts.push(`SPEECH DATA: User struggles with sounds: ${phonemeInfo}. Listen for these — if they mispronounce, note it specifically.`);
+  }
+
+  // ── Cross-session continuity (carried-forward goals) ──
+  if (ctx.crossSessionContext) {
+    parts.push(`CONTINUITY: ${ctx.crossSessionContext}`);
+  }
+
   // ── Transfer bridge (highest priority when active) ──
   if (ctx.returningFromIntervention && ctx.interruptionContext) {
     parts.push(`TRANSFER (PRIORITY): Just finished drill. User was discussing "${ctx.interruptionContext.lastSubtopic}". Ask a real-world transfer question using a practiced word.`);
