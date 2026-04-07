@@ -117,6 +117,7 @@ export function CategoryFluencyGame({
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
   const [config, setConfig] = useState(() => pickCategory(currentDifficulty));
+  const usedCategoriesRef = useRef(new Set<string>());
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
@@ -219,7 +220,8 @@ export function CategoryFluencyGame({
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
   const startRound = useCallback(() => {
-    const cat = pickCategory(currentDifficulty);
+    const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
+    usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
