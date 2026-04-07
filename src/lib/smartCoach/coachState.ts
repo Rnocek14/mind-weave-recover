@@ -32,6 +32,10 @@ export function createInitialCoachState(options: {
   severityProfile?: SeverityProfile;
   primaryDeficit?: PrimaryDeficit;
   readinessLevel?: number;
+  strugglingPhonemes?: { phoneme: string; accuracy: number; trials: number }[];
+  domainScores?: { domainSlug: string; score: number; trialCount: number }[];
+  exerciseHistory?: { exerciseSlug: string; avgAccuracy: number; trialCount: number }[];
+  crossSessionContext?: string;
 }): CoachState {
   const purposeContext = getTopicPurpose(options.topic);
   
@@ -70,6 +74,10 @@ export function createInitialCoachState(options: {
     consecutiveDisengagements: 0,
     recentMayaNouns: [],
     consecutiveFallbacks: 0,
+    strugglingPhonemes: options.strugglingPhonemes,
+    domainScores: options.domainScores,
+    exerciseHistory: options.exerciseHistory,
+    crossSessionContext: options.crossSessionContext,
   };
 }
 
