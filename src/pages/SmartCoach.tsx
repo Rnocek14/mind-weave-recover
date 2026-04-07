@@ -29,6 +29,7 @@ import type { SessionMetrics } from '@/lib/smartCoach/types';
 import { MayaNarrationCard } from '@/components/coach/MayaNarrationCard';
 import { MayaAssistantBubble, type MayaHelpAction } from '@/components/coach/MayaAssistantBubble';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
@@ -441,8 +442,10 @@ export default function SmartCoach() {
     hasRestoredRef.current = false;
   }, []);
 
-  // ─── TTS for Maya help ──────────────────────────────────────
+  // ─── TTS + Micro-feedback ──────────────────────────────────
   const tts = useTextToSpeech();
+  const microEncouragement = useMicroEncouragement();
+  const [hintLevel, setHintLevel] = useState(0); // 0=none, 1=encouragement, 2=semantic, 3=phonemic, 4=model
 
 
 
