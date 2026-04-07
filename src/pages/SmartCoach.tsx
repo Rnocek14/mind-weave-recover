@@ -964,7 +964,20 @@ function buildTransferPrompt(drilledWords: string[], plan: SessionPlan): string 
   return `Now tell me — how would you use what you just practiced in real life?`;
 }
 
-function buildGame2Setup(plan: SessionPlan, game1Result: NormalizedExerciseResult | null): string {
+function buildGame2Setup(plan: SessionPlan, game1Result: NormalizedExerciseResult | null, reactiveRationale?: string): string {
+  const gameName = plan.game2.label.toLowerCase();
+  
+  if (reactiveRationale) {
+    // Use the reactive rationale from selectReactiveGame2
+    if (game1Result && game1Result.score < 0.5) {
+      return `${reactiveRationale}. Let's try ${gameName} — a different approach to strengthen those words.`;
+    }
+    if (game1Result && game1Result.score >= 0.8) {
+      return `${reactiveRationale}. Let's push further with ${gameName}.`;
+    }
+    return `${reactiveRationale}. One more round of practice with ${gameName}.`;
+  }
+  
   if (game1Result && game1Result.score < 0.5) {
     return `Let's try a different approach to strengthen those words. ${plan.game2.rationale.split('—')[0].trim()}.`;
   }
