@@ -13,8 +13,11 @@ const CIRCUMLOCUTION_MARKERS = /\b(the thing|the place|where you|the one that|yo
 // Explicit "I don't know" / giving up markers
 const SURRENDER_MARKERS = /^(i don'?t know|idk|no idea|i can'?t|nothing|i forget|i forgot|don'?t remember|not sure|i'?m not sure|pass|skip)\.{0,3}$/i;
 
+// User confusion markers — they don't understand Maya's response
+const CONFUSION_MARKERS = /\b(what do you mean|what does that mean|i don'?t understand|i don'?t get it|what are you (saying|talking about)|huh\??|confused|that doesn'?t make sense|what\??|i'?m confused|what are you asking)\b/i;
+
 // User correction markers — these should NOT be treated as hesitation or struggle
-const CORRECTION_MARKERS = /\b(i didn'?t|you (just )?asked|i (just )?(said|told you|meant)|that'?s not what|no[,.]?\s+(i|you|it|what)|you'?re (not|wrong)|i don'?t put|it comes with|i was saying|you got it wrong|i never said|that'?s wrong)\b/i;
+const CORRECTION_MARKERS = /\b(i didn'?t|you (just )?asked|i (just )?(said|told you|meant)|that'?s not what|no[,.]?\s+(i|you|it|what)|you'?re (not|wrong)|i don'?t put|it comes with|i was saying|you got it wrong|i never said|that'?s wrong|no i wasn'?t|no i wasnt|i wasn'?t|i wasnt)\b/i;
 
 // Disengagement markers — polite withdrawal, NOT hesitation
 const DISENGAGEMENT_MARKERS = /^(okay|ok|yep|yup|ya|yeah|yes|sure|thank you|thanks|thank|alright|right|cool|fine|got it|mhm|uh huh|sounds good|i guess|whatever)\.{0,3}$/i;
