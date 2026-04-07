@@ -18,8 +18,12 @@ export interface WordHistory {
   bestScore: number;
   /** Last transfer score */
   lastScore: number;
-  /** Cue level needed last time */
+  /** Cue level needed last time (0 = none, 1–4 = escalating) */
   lastCueLevel: number;
+  /** Best (lowest) cue level ever achieved for this word */
+  bestCueLevel: number;
+  /** Initial cue level when this word was first practiced */
+  initialCueLevel: number;
   /** How many sessions this word appeared in */
   sessionCount: number;
   /** When it was last practiced */
@@ -48,6 +52,8 @@ export interface ProgressDelta {
   retained: { word: string; score: number }[];
   /** Words that need more work */
   declined: { word: string; from: string; to: string }[];
+  /** Words where cue level decreased (faded) */
+  cueFades: { word: string; fromCue: string; toCue: string }[];
   /** Summary narrative */
   narrative: string;
 }
@@ -62,8 +68,20 @@ const SCORE_LABELS: Record<number, string> = {
   4: 'independent',
 };
 
+const CUE_LABELS: Record<number, string> = {
+  0: 'no cue',
+  1: 'light prompt',
+  2: 'semantic cue',
+  3: 'phonemic cue',
+  4: 'full model',
+};
+
 function scoreLabel(score: number): string {
   return SCORE_LABELS[Math.min(4, Math.max(0, score))] || 'not yet';
+}
+
+function cueLabel(level: number): string {
+  return CUE_LABELS[Math.min(4, Math.max(0, level))] || 'full support';
 }
 
 // ─── Load Word History ──────────────────────────────────────
