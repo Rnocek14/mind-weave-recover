@@ -441,10 +441,56 @@ export default function SmartCoach() {
     hasRestoredRef.current = false;
   }, []);
 
+  // ─── TTS for Maya help ──────────────────────────────────────
+  const tts = useTextToSpeech();
+
+  // ─── Maya help text by phase ──────────────────────────────
+  const getMayaHelpText = useCallback((action: MayaHelpAction): string | null => {
+    if (!plan) return null;
+
+    switch (action) {
+      case 'repeat_instructions': {
+        if (phase === 'warmup') return buildWarmupQuestion(plan);
+        if (phase === 'game1_setup') return plan.game1Setup;
+        if (phase === 'game2_setup') return game2SetupText;
+        if (phase === 'transfer_check') return transferPromptText;
+        if (phase === 'game1_review') return game1ReviewText;
+        if (phase === 'game2_review') return game2ReviewText;
+        if (phase === 'opener') return plan.opener;
+        return "We're working through today's session together.";
+      }
+      case 'give_hint': {
+        if (phase === 'warmup') return "Just say the first thing that comes to mind — there's no wrong answer.";
+        if (phase === 'transfer_check') {
+          const word = (game1Result?.targetWords || [])[0];
+          return word
+            ? `Try starting your sentence with "${word}" — like "I want ${word}" or "The ${word} is..."`
+            : "Try building a short sentence using one of the words you just practiced.";
+        }
+        return "Take your time. There's no rush.";
+      }
+      case 'explain_this': {
+        if (phase === 'game1_setup' || phase === 'game1_playing')
+          return `${plan.game1.label} helps strengthen ${plan.topic.purpose.skillTarget}. The more you practice, the faster the words come.`;
+        if (phase === 'game2_setup' || phase === 'game2_playing')
+          return `${plan.game2.label} reinforces the same skills from a different angle. This builds stronger retrieval pathways.`;
+        if (phase === 'transfer_check')
+          return "This is the most important part — using the words in a real sentence proves your brain can find them when it matters.";
+        return `Today we're working on ${plan.topic.purpose.skillTarget} because it helps with ${plan.topic.purpose.transferTarget}.`;
+      }
+      case 'what_are_we_doing':
+        return `Today's focus: ${plan.topic.label}. We're working on ${plan.topic.purpose.skillTarget} so you can ${plan.topic.purpose.transferTarget}.`;
+      case 'help_me':
+        return "You're doing well. Take a breath, and try again when you're ready. There's no time limit.";
+      default:
+        return null;
+    }
+  }, [phase, plan, game1Result, game2SetupText, transferPromptText, game1ReviewText, game2ReviewText]);
+
   const handleMayaHelp = useCallback((action: MayaHelpAction) => {
-    // Maya help actions — could be expanded with TTS, hints, etc.
-    console.log('[SmartCoach] Maya help:', action);
-  }, []);
+    const text = getMayaHelpText(action);
+    if (text) tts.speak(text);
+  }, [getMayaHelpText, tts]);
 
   // ─── Derived narration text ───────────────────────────────
 
@@ -476,21 +522,22 @@ export default function SmartCoach() {
     if (drilledWords.length > 0) {
       const word = drilledWords[0];
       const context = plan.topic.purpose.transferTarget.split(',')[0].trim();
-      return `Now try using "${word}" in a real sentence — like you would when ${context}.`;
+      return `This is the important part — using it in real life.\n\nTry using "${word}" in a sentence, like you would when ${context}.`;
     }
-    return `How would you use what you just practiced in real life?`;
+    return `This is the important part — how would you use what you just practiced in real life?`;
   }, [plan, game1Result]);
 
   const game2SetupText = useMemo(() => {
     if (!plan) return '';
-    const gameName = plan.game2.label.toLowerCase();
+    const gameName = plan.game2.label;
     if (game1Result && game1Result.score < 0.5) {
-      return `Let's try a different approach to strengthen those words. We'll do ${gameName} — it works on the same skills from a different angle.`;
+      const hardWords = (game1Result.targetWords || []).slice(0, 2).map(w => `"${w}"`).join(' and ');
+      return `${hardWords ? `${hardWords} were tough` : 'That was challenging'} — so we're going to approach it differently.\n\n${gameName} works on the same skills from a different angle. This should feel a bit easier.`;
     }
     if (game1Result && game1Result.score >= 0.8) {
-      return `You did well — let's push further with ${gameName}.`;
+      return `You were strong there — let's push further.\n\n${gameName} will build on that speed and add a new layer.`;
     }
-    return `One more practice round with ${gameName}.`;
+    return `Now let's reinforce what you just practiced.\n\n${gameName} targets the same area from a different angle — the repetition is what builds real retrieval.`;
   }, [plan, game1Result]);
 
   // ─── Render ───────────────────────────────────────────────
