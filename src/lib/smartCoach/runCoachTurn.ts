@@ -1,15 +1,17 @@
 /**
- * Smart Coach — Turn Orchestrator (v2: Simplified)
+ * Smart Coach — Turn Orchestrator (v3: Arc-Integrated)
  * 
- * REDESIGN: Removed dual-progression conflict.
- * - Session arc (sessionArc.ts) is the SOLE authority for phase/drill timing
- * - Playbook objectives provide prompt injection ONLY (no separate advancement logic)
- * - Validation reasons are tracked for fallback rate diagnosis
+ * The session arc is now MANDATORY and drives:
+ * - Phase computation every turn
+ * - Mode overrides (transfer_bridge after drills)
+ * - Drill timing via position-based slots
+ * - Arc-aware prompt injection
  */
 
 import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
 import { evaluateDrillTrigger, type DrillTriggerContext } from './drillTriggerEvaluator';
 import type { ArcState } from './sessionArc';
+import { advanceArc, getArcModeOverride, exitTransferMode } from './sessionArc';
 import { analyzeUtterance } from './utteranceAnalyzer';
 import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
 import { selectCue } from './cueSelector';
@@ -31,11 +33,15 @@ interface RunCoachTurnArgs {
   interventionSkill?: string;
   lastDrillCompletedAtTurn?: number;
   prevAnalysis?: import('./types').CoachUtteranceAnalysis;
-  arcState?: ArcState;
+  arcState: ArcState;
 }
 
-export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult> {
-  const { state, userUtterance, maxTurns = 8, lastSessionContext, returningFromIntervention, interventionSkill, lastDrillCompletedAtTurn, prevAnalysis, arcState } = args;
+export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnResult & { updatedArc?: ArcState }> {
+  const { state, userUtterance, maxTurns = 14, lastSessionContext, returningFromIntervention, interventionSkill, lastDrillCompletedAtTurn, prevAnalysis } = args;
+  let arcState = args.arcState;
+
+  // Step 0 — Advance arc phase
+  arcState = advanceArc(arcState, state.turnCount);
 
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
@@ -80,6 +86,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       cueDecision: repairCue,
       validation: { valid: true, reasons: [] },
       usedFallback: true,
+      updatedArc: arcState,
     };
   }
 
@@ -98,11 +105,21 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       cueDecision: { cueType: 'reassurance', rationale: 'Session complete' },
       validation: { valid: true, reasons: [] },
       usedFallback: true,
+      updatedArc: arcState,
     };
   }
 
-  // Step 3 — Transition state
+  // Step 3 — Transition state (reactive)
   let nextState = transitionCoachState(state, analysis);
+
+  // Step 3.5 — Arc mode override (structural)
+  // The arc can override the reactive mode to enforce session structure
+  nextState.mode = getArcModeOverride(arcState, state.turnCount, nextState.mode);
+
+  // If user responded to transfer bridge, exit transfer mode
+  if (arcState.inTransferMode && state.turnCount > 0) {
+    arcState = exitTransferMode(arcState);
+  }
 
   // Post-intervention dampening
   if (state.postInterventionDampening) {
@@ -125,17 +142,16 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState.lastPurposeAnchorTurn = state.turnCount + 1;
   }
 
-  // Step 4.7 — Get objective prompt from playbook (PROMPT INJECTION ONLY — no advancement logic)
+  // Step 4.7 — Get objective prompt from playbook
   const playbook = getPlaybook(nextState.topic);
   let objectivePrompt = '';
   if (playbook && nextState.mode !== 'wrapup') {
     const idx = nextState.currentObjectiveIndex ?? 0;
     const objective = playbook.objectives[Math.min(idx, playbook.objectives.length - 1)];
     
-    // Simple objective prompt — just tell the LLM what to focus on
     objectivePrompt = getSimpleObjectivePrompt(objective.id, playbook.topicId);
     
-    // Auto-advance objective every 2 turns (simple, no dual-brain)
+    // Auto-advance objective every 2 turns
     const turnsOnObj = nextState.objectiveProgress?.turnsOnObjective ?? 0;
     if (turnsOnObj >= 2 && idx < playbook.objectives.length - 1) {
       nextState.currentObjectiveIndex = idx + 1;
@@ -161,7 +177,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   };
   const drillTrigger = evaluateDrillTrigger(drillTriggerCtx);
 
-  // Step 5 — Build prompt (simplified)
+  // Step 5 — Build prompt (arc-aware)
   const prompt = buildPrompt({
     topic: nextState.topic,
     subtopic: nextState.subtopic,
@@ -186,6 +202,10 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     interruptionContext: returningFromIntervention ? state.interruptionContext : undefined,
     postInterventionDampening: state.postInterventionDampening,
     objectivePrompt,
+    arcPhase: arcState.phase,
+    drilledWords: arcState.drilledWords,
+    turnNumber: state.turnCount,
+    totalTurns: maxTurns,
   });
 
   // Step 6 — Generate coach line via edge function
@@ -216,7 +236,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback = true;
   }
 
-  // Step 7 — Validate (loosened)
+  // Step 7 — Validate
   const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts, {
     lastUserUtterance: userUtterance,
     topicKeywords: nextState.topicKeywords,
@@ -260,7 +280,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     addEstablishedFact(updatedState, fact);
   }
 
-  // Step 9 — Log (with validation reasons for fallback diagnosis)
+  // Step 9 — Log
   const turnLog: CoachTurnLog = {
     topic: updatedState.topic,
     mode: updatedState.mode,
@@ -273,9 +293,10 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback,
     timestamp: new Date().toISOString(),
   };
-  // Attach validation reasons for diagnosis (not in the type but tracked)
   (turnLog as any).validationReasons = validation.reasons;
   (turnLog as any).rejectedLine = debugRawOutput;
+  (turnLog as any).arcPhase = arcState.phase;
+  (turnLog as any).turnNumber = state.turnCount;
   logCoachTurn(turnLog);
 
   return {
@@ -294,6 +315,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       observation: drillTrigger.observation,
       signals: drillTrigger.signals,
     } : undefined,
+    updatedArc: arcState,
   };
 }
 

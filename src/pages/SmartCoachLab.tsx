@@ -4,7 +4,7 @@
  * Three-panel layout: Setup + State | Conversation | Debug Inspector
  */
 
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import {
   createInitialCoachState,
   runCoachTurn,
+  createArcState,
   type CoachState,
   type CoachMode,
   type TargetSkill,
@@ -107,6 +108,8 @@ export default function SmartCoachLab() {
     toast.info('Session reset');
   }, []);
 
+  const labArcRef = React.useRef(createArcState());
+
   const submitUtterance = useCallback(async (utterance: string) => {
     if (!coachState || isProcessing) return;
     setIsProcessing(true);
@@ -117,7 +120,9 @@ export default function SmartCoachLab() {
         state: coachState,
         userUtterance: utterance,
         maxTurns,
+        arcState: labArcRef.current,
       });
+      if (result.updatedArc) labArcRef.current = result.updatedArc;
       setCoachState(result.nextState);
       setTurns(prev => [...prev, { index: prev.length + 1, userUtterance: utterance, result, stateBefore }]);
     } catch (err) {
