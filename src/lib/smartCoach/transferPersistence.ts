@@ -40,20 +40,20 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
         maya_transfer_prompt: event.mayaTransferPrompt,
       },
       
-      outputs: {
+      outputs: JSON.parse(JSON.stringify({
         transfer_score: event.result.transferScore,
         raw_score: event.result.rawScore,
         label: event.result.label,
         target_results: event.result.targetResults,
         components: event.result.components,
-      },
+      })),
       
-      task_parameters: {
+      task_parameters: JSON.parse(JSON.stringify({
         event_subtype: 'transfer_check',
         drill_slug: event.drillSlug,
-      },
+      })),
       
-      engagement_flags: {
+      engagement_flags: JSON.parse(JSON.stringify({
         event_subtype: 'transfer_check',
         transfer_score: event.result.transferScore,
         any_target_found: event.result.targetResults.some(r => r.found),
