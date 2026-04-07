@@ -387,8 +387,8 @@ describe('Scenario B: Moderate Aphasia — Needs Support', () => {
     expect(selection.configOverrides.cueLevel).toBeGreaterThanOrEqual(1);
   });
 
-  it('B9: max 1 micro-drill per session', () => {
-    const state = makeState({ turnCount: 5, mode: 'expand', interventionCount: 1 });
+  it('B9: max 2 micro-drills per session', () => {
+    const state = makeState({ turnCount: 5, mode: 'expand', interventionCount: 2 });
     const analysis = analyzeUtterance('um... uh...', 'food', state.topicKeywords);
     const result = evaluateDrillTrigger(makeDrillCtx(state, analysis));
     expect(result.kind).toBeNull();
@@ -883,19 +883,19 @@ describe('Scenario E: Edge Cases & Adversarial', () => {
     expect(result.reason).toBe('repair');
   });
 
-  it('E15: no drill before turn 3', () => {
+  it('E15: no drill before turn 2', () => {
     const state = makeState({ turnCount: 1, mode: 'expand' });
     const analysis = analyzeUtterance('um... uh...', 'food', state.topicKeywords);
     const result = evaluateDrillTrigger(makeDrillCtx(state, analysis));
     expect(result.kind).toBeNull();
   });
 
-  it('E16: no drill after turn 6 (micro window)', () => {
+  it('E16: targeted practice fires at turn 7 (lowered floor)', () => {
     const state = makeState({ turnCount: 7, mode: 'expand', interventionCount: 0 });
     const analysis = analyzeUtterance('um... uh...', 'food', state.topicKeywords);
     const result = evaluateDrillTrigger(makeDrillCtx(state, analysis));
-    // Turn 7 is before targeted practice (turn 8) but after micro window (turn 6)
-    expect(result.kind).toBeNull();
+    // Turn 7 is now within micro-drill window OR targeted practice range
+    expect(result.kind).not.toBeNull();
   });
 
   it('E17: post-processing removes multiple questions', () => {

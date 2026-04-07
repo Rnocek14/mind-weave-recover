@@ -82,41 +82,35 @@ function getPhaseIndex(mode: CoachMode): number {
 // ─── Openers with purpose framing ──────────────────────────
 
 function buildPurposeOpener(topic: TopicDefinition): string {
-  // Gold-standard openers: low pressure, concrete, topic obvious, easy retrieval
+  // Directive openers: state what we're working on, then jump in
   const openers: Record<string, string[]> = {
     food: [
-      "Let's start easy — what's something you like to eat?",
-      "What did you have for your last meal?",
-      "What's your favorite thing to cook or eat?",
+      "Today we're practicing food words — the kind you'd use ordering a meal. Let's start: what's something you like to eat?",
+      "We're working on naming food and putting it into phrases you'd use at a restaurant. What did you have for your last meal?",
     ],
     family: [
-      "Let's start simple — who's someone special to you?",
-      "Tell me about one person in your family.",
-      "Who would you like to tell me about?",
+      "Today we're working on talking about people — names, relationships, introductions. Who's someone important to you?",
+      "We're practicing describing family — the way you'd introduce someone. Tell me about one person in your family.",
     ],
     hobbies: [
-      "Let's start easy — what's something you enjoy doing?",
-      "What do you like to do in your free time?",
-      "What's a hobby you enjoy?",
+      "Today we're practicing talking about activities — naming them, describing them, telling someone what you enjoy. What's something you like to do?",
+      "We're working on hobby words and putting them into real sentences. What do you enjoy doing in your free time?",
     ],
     daily_routine: [
-      "Let's start simple — what have you been up to today?",
-      "What does a typical morning look like for you?",
-      "What did you do when you woke up today?",
+      "Today we're working on telling someone about your day — events in order, using time words. What have you been up to today?",
+      "We're practicing retelling your routine — the way you'd answer 'how was your day?' Walk me through this morning.",
     ],
     travel: [
-      "Let's start easy — where's somewhere you've visited?",
-      "What's your favorite place you've been?",
-      "Think of a place you liked visiting — where was it?",
+      "Today we're practicing place words and descriptions — the kind you'd use telling someone about a trip. Where's somewhere you've been?",
+      "We're working on describing places and experiences. What's a place you've visited that you liked?",
     ],
     pets: [
-      "Let's start simple — do you have any pets?",
-      "Tell me about a pet you know.",
-      "What animals do you like?",
+      "Today we're working on describing animals — names, what they do, how you'd tell someone about them. Do you have any pets?",
+      "We're practicing animal words and descriptions. Tell me about a pet you know.",
     ],
   };
 
-  const topicOpeners = openers[topic.id] || [`Let's start easy — tell me the first thing that comes to mind about ${topic.label.toLowerCase()}.`];
+  const topicOpeners = openers[topic.id] || [`Today we're working on ${topic.label.toLowerCase()} words. Let's start — tell me the first thing that comes to mind.`];
   return topicOpeners[Math.floor(Math.random() * topicOpeners.length)];
 }
 
@@ -516,7 +510,7 @@ export default function SmartCoach() {
       // Check for drill recommendation (sole trigger path)
       // THERAPY HEARTBEAT: enforce cooldown + minimum turn gates
       const DRILL_COOLDOWN_TURNS = 2; // Must have 2+ conversation turns between drills
-      const DRILL_MIN_TURN = 6; // No drills before turn 6 (enough conversation for assessment)
+      const DRILL_MIN_TURN = 3; // First drill after 3 turns (enough to identify a target)
       const drillOnCooldown = lastDrillTurn !== undefined && (turnCount - lastDrillTurn) < DRILL_COOLDOWN_TURNS;
       const tooEarlyForDrill = turnCount < DRILL_MIN_TURN;
       

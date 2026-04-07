@@ -61,11 +61,15 @@ const EXPAND_DIMENSIONS = [
 const MODE_INSTRUCTIONS: Record<CoachMode, string> = {
   warmup: `Ask ONE simple, low-pressure question about the topic. No framing, no introduction, no explanation — just jump straight to a natural easy question. Do NOT introduce yourself or explain the session. Example: "What's something you like to eat?" Maximum 14 words. ONE short sentence.`,
   
-  expand: `Follow the gold-standard expansion arc based on conversation depth:
-- EARLY (turns 2-3): Repeat user's word, then ask a natural follow-up that slightly expands context. Example: "Pasta, nice. Do you make it at home or order it somewhere?" Keep binary-friendly without sounding childish.
-- MID (turns 4-5): Narrow retrieval target with a specific follow-up. Example: "Spaghetti with what — red sauce, meat, or something else?" Offer natural choices that create multiple retrieval pathways.
-- LATE (turns 6-7): Connect to real-world transfer. Example: "If you ordered that at a restaurant, what would you call it?" Test phrase-level production in a realistic situation.
-Always: repeat or reference the user's actual words before asking. ONE question per turn. Never ask unanchored follow-ups.`,
+  expand: `You are DIRECTING this session, not just chatting. Follow this pattern:
+- REACT to what they said (anchor to their words)
+- ASSESS silently: did they struggle? did they succeed?
+- ACT: either push harder (longer phrase, real-world scenario) or prepare a drill transition
+EARLY (turns 2-3): Anchor + ask a specific follow-up. "Pasta — nice. What kind do you usually make?"
+MID (turns 3-5): Push toward phrases. "Spaghetti with meatballs — good. How would you order that at a restaurant?"
+LATE (turns 5+): Test or transition. "If you were telling a waiter, what would you say?"
+You are identifying what they CAN and CANNOT do. Every question is diagnostic, not just conversational.
+ONE question per turn. Always anchor to their words. Maximum 18 words.`,
   
   scaffold: `The user is struggling. Name the difficulty specifically without drama. Offer a concrete scaffold tied to what they were trying to say. Example: "That's a tricky one — is it spaghetti, macaroni, or something else?" Use forced-choice or sentence starters based on what they were attempting. Do NOT say "take your time" without also offering a specific way forward.`,
   
