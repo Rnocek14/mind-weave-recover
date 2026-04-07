@@ -66,6 +66,8 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       coachLine: repairLine,
       validationPassed: true,
       usedFallback: true,
+      topic: state.topic,
+      timestamp: Date.now(),
     });
 
     return {
