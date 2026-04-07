@@ -697,13 +697,21 @@ export default function SmartCoach() {
     }
 
     // Set post-intervention dampening on coach state so next turn is gentler
-    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
+    setCoachState(prev => prev ? { ...prev, postInterventionDampening: true, mode: 'transfer_bridge' as any } : prev);
 
-    // Add return-to-conversation message
+    // Update arc state: mark drill as fired
+    const drilledWordsList = drillTargets.map(t => t.value);
+    const currentSlot: 1 | 2 = arcState.drill1Fired ? 2 : 1;
+    setArcState(prev => markDrillFired(prev, currentSlot, drilledWordsList));
+
+    // Use deterministic post-drill bridge from arc
+    const transferTarget = selectedTopic.purpose.transferTarget;
+    const bridgeText = getPostDrillBridge(currentSlot, drilledWordsList, transferTarget);
+    
     setMessages(prev => [...prev, {
       id: `maya-return-${Date.now()}`,
       role: 'maya',
-      text: result.returnText,
+      text: bridgeText,
       timestamp: Date.now(),
     }]);
 
