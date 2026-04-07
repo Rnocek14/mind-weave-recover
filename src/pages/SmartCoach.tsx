@@ -43,6 +43,7 @@ import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
 import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { useProfile } from '@/hooks/useProfile';
+import { useCoachProfile } from '@/hooks/useCoachProfile';
 
 // ─── Chat message type ───────────────────────────────────────
 
@@ -148,6 +149,7 @@ export default function SmartCoach() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: true });
+  const coachProfile = useCoachProfile(user?.id);
 
   const [phase, setPhase] = useState<'topic_select' | 'orientation' | 'readiness' | 'chatting' | 'complete'>('topic_select');
   const [selectedTopic, setSelectedTopic] = useState<TopicDefinition | null>(null);
