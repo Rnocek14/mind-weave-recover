@@ -44,6 +44,10 @@ export interface PromptContext {
   turnNumber?: number;
   /** Total turns in session */
   totalTurns?: number;
+  /** Struggling phonemes from speech profile */
+  strugglingPhonemes?: { phoneme: string; accuracy: number; trials: number }[];
+  /** Cross-session goal context */
+  crossSessionContext?: string;
 }
 
 const EXPAND_DIMENSIONS = [
