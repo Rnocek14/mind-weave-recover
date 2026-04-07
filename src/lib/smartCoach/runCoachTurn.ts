@@ -42,7 +42,48 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
 
-  // Step 2 — Check for wrapup
+  // Step 1.5 — Confusion/correction intercept: handle BEFORE LLM call
+  // These need immediate deterministic repair, not AI-generated responses
+  if (analysis.confusionDetected || analysis.correctionDetected) {
+    const repairLine = analysis.confusionDetected
+      ? getConfusionRepairLine()
+      : getCorrectionRepairLine();
+    
+    const repairHistory = [
+      ...state.conversationHistory,
+      { role: 'user' as const, text: userUtterance },
+      { role: 'maya' as const, text: repairLine },
+    ].slice(-10);
+
+    const repairCue = { cueType: 'reassurance' as const, rationale: analysis.confusionDetected ? 'User confused — repair' : 'User correcting — acknowledge' };
+
+    logCoachTurn({
+      mode: state.mode,
+      supportLevel: state.supportLevel,
+      userUtterance,
+      analysis,
+      cueDecision: repairCue,
+      coachLine: repairLine,
+      validationPassed: true,
+      usedFallback: true,
+    });
+
+    return {
+      nextState: {
+        ...state,
+        turnCount: state.turnCount + 1,
+        lastUserUtterance: userUtterance,
+        lastCoachUtterance: repairLine,
+        conversationHistory: repairHistory,
+      },
+      output: repairLine,
+      analysis,
+      cueDecision: repairCue,
+      validation: { valid: true, reasons: [] },
+      usedFallback: true,
+    };
+  }
+
   if (shouldWrapUp(state, maxTurns)) {
     const wrapState: CoachState = { ...state, mode: 'wrapup' };
     const fallback = getFallbackLine('wrapup');
