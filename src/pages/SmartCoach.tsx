@@ -736,11 +736,14 @@ export default function SmartCoach() {
   const handleExerciseModalClose = useCallback(() => {
     exerciseModal.closeExerciseModal();
     if (activeGame) {
-      // If closed without completing, add a soft return message
+      // Only show "where were we" if the game was NOT completed
+      // (handleExerciseComplete already adds a proper return bridge for completed games)
+      // The modal's onClose fires for both X-button and completion,
+      // but on completion activeGame is already null (set in handleExerciseComplete)
       setMessages(prev => [...prev, {
         id: `maya-return-${Date.now()}`,
         role: 'maya',
-        text: "No worries — let's keep talking. Where were we?",
+        text: "No problem. Let's keep talking — what were you saying?",
         timestamp: Date.now(),
       }]);
       setActiveGame(null);
