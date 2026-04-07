@@ -164,6 +164,34 @@ function evaluateSupportTrigger(ctx: DrillTriggerContext): DrillTriggerDecision 
   return null;
 }
 
+// ─── Challenge Trigger (fallback) ───────────────────────────
+
+function evaluateChallengeTrigger(ctx: DrillTriggerContext): DrillTriggerDecision | null {
+  const { state, analysis } = ctx;
+  const signals: string[] = [];
+
+  if (ctx.objectiveAdvanced) signals.push('objective_advanced');
+  const recentHes = (state.recentHesitations || []).slice(-2);
+  if (recentHes.every(h => !h)) signals.push('no_recent_hesitation');
+  if (analysis.wordCount >= 3 && !analysis.hesitationDetected) signals.push('strong_independent_response');
+  if (state.supportLevel <= 1) signals.push('low_support_level');
+  if (analysis.semanticMatch > 0.5) signals.push('good_semantic_match');
+
+  if (signals.includes('objective_advanced') &&
+      signals.includes('no_recent_hesitation') &&
+      signals.includes('strong_independent_response') &&
+      signals.includes('low_support_level')) {
+    return {
+      kind: 'micro_drill',
+      reason: 'challenge',
+      confidence: 0.8,
+      observation: "You're doing well — let's push that further with a quick challenge.",
+      signals,
+    };
+  }
+  return null;
+}
+
 // ─── Repair Trigger (fallback) ──────────────────────────────
 
 function evaluateRepairTrigger(ctx: DrillTriggerContext): DrillTriggerDecision | null {
