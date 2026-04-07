@@ -119,40 +119,43 @@ export interface DrillSlotDecision {
 /**
  * Position-based drill slot evaluation.
  * 
- * Slot 1 (turns 3-5): Conditional — fires when breakdown detected
- *   Turn 3: only if clear breakdown
- *   Turn 4: only if clear breakdown  
- *   Turn 5: fires with weaker signal (1+ breakdown indicator)
- * Slot 2 (turn 7): Mandatory — always fires for reinforcement
+ * CORE RULE: Drills ONLY fire when a clear breakdown is detected.
+ * If the user is responding well, NO drill fires — even at slot boundaries.
+ * 
+ * Slot 1 (turns 3-5): Conditional — requires 2+ breakdown signals
+ * Slot 2 (turn 7+): Conditional — requires at least 1 breakdown signal
+ *   (was mandatory, now gated: user doing fine = no drill)
+ * 
+ * A session with ZERO drills is a valid, good session.
  */
 export function evaluateDrillSlot(
   turn: number,
   arc: ArcState,
   gapSignals: GapSignals,
 ): DrillSlotDecision {
-  // ── Slot 1: turns 3-5, conditional on breakdown ──
+  const hasGap = hasClearBreakdown(gapSignals);
+
+  // ── Slot 1: turns 3-5, ONLY on clear breakdown ──
   if (!arc.drill1Fired && turn >= 3 && turn <= 5) {
-    const hasGap = hasClearBreakdown(gapSignals);
-    
-    if (turn === 3 && hasGap) {
-      return { shouldDrill: true, slotNumber: 1, reason: 'breakdown_detected_turn_3' };
+    if (hasGap) {
+      return { shouldDrill: true, slotNumber: 1, reason: `breakdown_detected_turn_${turn}` };
     }
-    if (turn === 4 && hasGap) {
-      return { shouldDrill: true, slotNumber: 1, reason: 'breakdown_detected_turn_4' };
-    }
-    if (turn === 5 && hasGap) {
-      // Turn 5: still require at least weak signal, not unconditional
-      return { shouldDrill: true, slotNumber: 1, reason: 'breakdown_detected_turn_5' };
-    }
-    // If turn 5 and NO signal at all — skip slot 1, user is doing fine
-    if (turn === 5 && !hasGap) {
+    // Turn 5 with no breakdown — permanently skip slot 1
+    if (turn === 5) {
       return { shouldDrill: false, slotNumber: null, reason: 'slot_1_skipped_no_breakdown' };
     }
   }
 
-  // ── Slot 2: turn 7+, mandatory (but only if slot 1 has fired or was skipped) ──
+  // ── Slot 2: turn 7+, ONLY if breakdown evidence exists ──
+  // A user who is flowing well should NOT be interrupted for "reinforcement"
   if (!arc.drill2Fired && turn >= 7) {
-    return { shouldDrill: true, slotNumber: 2, reason: 'mandatory_reinforcement' };
+    if (hasGap || arc.identifiedGaps.length > 0) {
+      return { shouldDrill: true, slotNumber: 2, reason: 'reinforcement_with_evidence' };
+    }
+    // Turn 9+: final check — skip slot 2 entirely if still no evidence
+    if (turn >= 9) {
+      return { shouldDrill: false, slotNumber: null, reason: 'slot_2_skipped_no_evidence' };
+    }
   }
 
   return { shouldDrill: false, slotNumber: null, reason: 'no_slot' };
@@ -217,50 +220,44 @@ export function getPreDrillNarration(
 }
 
 /**
- * Post-drill review: Plain therapy language about what happened.
- * This is the REVIEW message — separate from the transfer bridge.
+ * Post-drill review: Short, specific, warm therapy language.
+ * Sounds like a therapist commenting on what just happened.
  */
 export function getPostDrillReview(
   score: number,
   drilledWords: string[],
   slotNumber: 1 | 2,
 ): string {
-  const wordRef = drilledWords.length > 0
-    ? ` with "${drilledWords[0]}"`
-    : '';
+  const word = drilledWords.length > 0 ? drilledWords[0] : '';
 
   if (score >= 0.8) {
-    return `That was good${wordRef}. The words came out faster there.`;
+    if (word) return `That was good — you used "${word}" smoothly there.`;
+    return 'That was good. The words came out easier that time.';
   }
   if (score >= 0.5) {
-    return `Better${wordRef}. Recall is still a little hard, but you're getting there.`;
+    if (word) return `Better — "${word}" is coming along. We'll keep building on that.`;
+    return 'Better. Recall is still tricky, but you\'re getting closer.';
   }
-  return `That was tough${wordRef}, but that's exactly why we practiced. It'll get easier.`;
+  if (word) return `That was hard, but now you've practiced "${word}." It\'ll come faster next time.`;
+  return 'That was tough, but that\'s exactly why we practiced. It\'ll get easier.';
 }
 
 /**
- * Post-drill bridge: Transfer prompt that continues the lesson.
- * Forces the user to USE the drilled words in a real scenario.
+ * Post-drill bridge: Short, natural continuation of the lesson.
+ * NOT a long instruction — just a simple prompt that continues the conversation.
  */
 export function getPostDrillBridge(
   slotNumber: 1 | 2,
   drilledWords: string[],
-  transferTarget: string,
+  topic: string,
 ): string {
-  const firstWord = drilledWords[0];
+  const word = drilledWords[0];
 
-  if (slotNumber === 1) {
-    if (firstWord) {
-      return `Now tell me — ${transferTarget}, how would you use "${firstWord}"?`;
-    }
-    return `Now let's put that to use. ${transferTarget} — what would you say?`;
+  // Short and conversational — like a therapist continuing the session
+  if (word) {
+    return `Now tell me more about your ${topic} — try using "${word}."`;
   }
-
-  // Slot 2: generalization
-  if (firstWord) {
-    return `Let's see if it sticks. If you were ${transferTarget}, how would you say it?`;
-  }
-  return `Good. Now — if you were ${transferTarget}, what would you say?`;
+  return `Okay, let's keep going. Tell me more about your ${topic}.`;
 }
 
 // ─── Arc State Updates ──────────────────────────────────────

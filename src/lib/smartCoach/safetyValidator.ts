@@ -86,6 +86,20 @@ const RE_ASK_PATTERNS = [
   /what were we talking about/i,
 ];
 
+// ── Reset / continuity-breaking language ─────────────────────
+// These destroy the feeling of a continuous therapy session
+
+const RESET_PATTERNS = [
+  /let'?s reset/i,
+  /let'?s start fresh/i,
+  /what were you saying/i,
+  /where were we/i,
+  /let'?s go back to/i,
+  /let me start over/i,
+  /let'?s try that again from/i,
+  /let'?s reset with/i,
+];
+
 export interface ValidateOptions {
   userCorrectionActive?: boolean;
   lastUserUtterance?: string;
@@ -158,6 +172,14 @@ export function validateCoachLine(
   for (const pattern of RE_ASK_PATTERNS) {
     if (pattern.test(trimmed)) {
       reasons.push('re_ask_pattern');
+      break;
+    }
+  }
+
+  // Reset / continuity-breaking language
+  for (const pattern of RESET_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      reasons.push('reset_language');
       break;
     }
   }
