@@ -149,6 +149,8 @@ const STRATEGY_NAMES: Record<string, string> = {
 export default function SmartCoach() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
+  const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: true });
 
   const [phase, setPhase] = useState<'topic_select' | 'orientation' | 'readiness' | 'chatting' | 'complete'>('topic_select');
   const [selectedTopic, setSelectedTopic] = useState<TopicDefinition | null>(null);
