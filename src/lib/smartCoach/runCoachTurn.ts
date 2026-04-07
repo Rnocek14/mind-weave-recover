@@ -67,7 +67,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
       validationPassed: true,
       usedFallback: true,
       topic: state.topic,
-      timestamp: Date.now(),
+      timestamp: new Date().toISOString(),
     });
 
     return {
