@@ -42,6 +42,8 @@ export interface ArcState {
   inTransferMode: boolean;
   /** Turn when transfer mode was entered */
   transferModeEnteredAtTurn: number | null;
+  /** Remaining turns in transfer mode before forced exit */
+  transferTurnsRemaining: number;
 }
 
 // ─── Factory ────────────────────────────────────────────────
@@ -57,6 +59,7 @@ export function createArcState(): ArcState {
     transferBridgeAttempted: false,
     inTransferMode: false,
     transferModeEnteredAtTurn: null,
+    transferTurnsRemaining: 0,
   };
 }
 
@@ -238,6 +241,7 @@ export function markDrillFired(arc: ArcState, slotNumber: 1 | 2, drilledWords: s
     drilledWords: [...arc.drilledWords, ...drilledWords],
     inTransferMode: true,
     transferModeEnteredAtTurn: null, // will be set on next turn
+    transferTurnsRemaining: 3, // max 3 turns to verify transfer
   };
 }
 
@@ -254,9 +258,29 @@ export function markTransferBridgeAttempted(arc: ArcState): ArcState {
   return { ...arc, transferBridgeAttempted: true, inTransferMode: false };
 }
 
-/** Exit transfer mode after the user has responded to the bridge prompt */
+/** 
+ * Check if user used drilled words and decide whether to exit transfer mode.
+ * Exits if: user used a drilled word OR transfer turns exhausted.
+ */
+export function checkTransferExit(arc: ArcState, userUtterance: string): ArcState {
+  if (!arc.inTransferMode) return arc;
+  
+  const remaining = arc.transferTurnsRemaining - 1;
+  const lowerUtterance = userUtterance.toLowerCase();
+  const usedDrilledWord = arc.drilledWords.some(w => lowerUtterance.includes(w.toLowerCase()));
+  
+  // Exit if: word verified OR turns exhausted
+  if (usedDrilledWord || remaining <= 0) {
+    return { ...arc, inTransferMode: false, transferTurnsRemaining: 0 };
+  }
+  
+  // Stay in transfer mode, decrement counter
+  return { ...arc, transferTurnsRemaining: remaining };
+}
+
+/** Force exit transfer mode (legacy compat) */
 export function exitTransferMode(arc: ArcState): ArcState {
-  return { ...arc, inTransferMode: false };
+  return { ...arc, inTransferMode: false, transferTurnsRemaining: 0 };
 }
 
 // ─── Arc-Aware Mode Override ────────────────────────────────
@@ -273,9 +297,20 @@ export function getArcModeOverride(
   turn: number,
   stateMachineMode: CoachMode,
 ): CoachMode {
-  // Post-drill: force transfer_bridge for 1-2 turns
+  // Post-drill: force transfer_bridge until verified or exhausted
   if (arc.inTransferMode) {
     return 'transfer_bridge';
+  }
+
+  // Orient + Assess phase: force diagnostic modes
+  // Turn 0 = warmup (easy opener), Turns 1-3 = expand (diagnostic probing)
+  // Do NOT let the state machine escalate to scaffold/support during assessment
+  // — we need to SEE the struggle, not fix it yet
+  if (arc.phase === 'orient_assess') {
+    if (turn === 0) return 'warmup';
+    // Allow support only if user is truly silent/stuck (wordCount=0)
+    if (stateMachineMode === 'support') return 'support';
+    return 'expand'; // force expand for diagnostic probing
   }
 
   // Generalize phase: prefer expand (real conversation) unless user is struggling
