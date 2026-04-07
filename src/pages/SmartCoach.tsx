@@ -396,7 +396,7 @@ export default function SmartCoach() {
           setMessages(prev => [...prev, {
             id: `practice-offer-${Date.now()}`,
             role: 'maya',
-            text: "Let's do one more quick practice to lock that in.",
+            text: "Let's lock in what you practiced with a focused round.",
             timestamp: Date.now(),
           }]);
         }
@@ -1019,7 +1019,7 @@ export default function SmartCoach() {
             <p className="text-sm text-foreground mt-1">
               {selectedTopic.purpose.skillTarget} — like {selectedTopic.purpose.transferTarget}.
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">~10 minutes</p>
+            <p className="text-[11px] text-muted-foreground mt-1">~12 min · Talk → Practice → Use it → Review</p>
           </div>
         )}
 
