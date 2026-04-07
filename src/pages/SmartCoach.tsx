@@ -1124,7 +1124,32 @@ export default function SmartCoach() {
                     </div>
                   )}
 
-                  {wrapupSummary.crossSession && (
+                  {/* Progress delta — word-level improvements across sessions */}
+                  {progressDelta && progressDelta.narrative && (
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs font-medium text-primary">Progress since last session</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground pl-6">{progressDelta.narrative}</p>
+                      {progressDelta.improved.length > 0 && (
+                        <div className="space-y-1 pl-6">
+                          {progressDelta.improved.map((item, i) => (
+                            <p key={i} className="text-xs text-foreground">
+                              "{item.word}": {item.from} → <span className="font-medium text-primary">{item.to}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {progressDelta.retained.length > 0 && (
+                        <p className="text-xs text-muted-foreground pl-6">
+                          Still strong: {progressDelta.retained.map(r => `"${r.word}"`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {wrapupSummary.crossSession && !progressDelta?.narrative && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                       <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                       <div>
