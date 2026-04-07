@@ -40,7 +40,7 @@ export function adaptExerciseResult(
 ): InterventionResult {
   const returnText = buildGameReturnText(
     game,
-    { score: normalized.score, summary: normalized.summary },
+    { score: normalized.score, summary: normalized.summary, targetWords: normalized.targetWords },
     topicId,
     interruptionContext,
   );
