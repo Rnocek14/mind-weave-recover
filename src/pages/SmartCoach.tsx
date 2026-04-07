@@ -38,7 +38,7 @@ import { trackVoiceEvent, clearVoiceEvents, getVoiceSessionSummary, persistVoice
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { persistTransferCheck } from '@/lib/smartCoach/transferPersistence';
-import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
+import { loadWordHistory, checkRetention, buildProgressDelta, getRetentionFeedback, buildCueFadeSummary, getRetainedWords, getRetentionDifficultyHint, type WordHistory, type ProgressDelta } from '@/lib/smartCoach/crossSessionRetention';
 
 // ─── Chat message type ───────────────────────────────────────
 
