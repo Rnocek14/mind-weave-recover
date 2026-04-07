@@ -105,7 +105,7 @@ export const PhotoNamingGame = ({
   onGameComplete,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
-  const { state, currentLane, nextTrial: nextTrialData, advanceTrial } = usePhotoNamingGame(
+  const { state, currentLane, nextTrial: nextTrialData, advanceTrial, selectAnswer } = usePhotoNamingGame(
     totalTrials, 
     initialDifficulty, 
     customTrials
@@ -1657,15 +1657,19 @@ export const PhotoNamingGame = ({
     // =====================================================================
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
     
+    // CRITICAL FIX: Call the hook's selectAnswer to update state.score
+    // Previously bypassed, causing onGameComplete to always report score=0
+    selectAnswer(word);
+    
     // Show feedback IMMEDIATELY (before any async work)
     setFeedbackData({ 
       correct: isCorrectAnswer, 
-      errorType: isCorrectAnswer ? 'correct' : 'semantic_related', // Will be refined by background analysis
+      errorType: isCorrectAnswer ? 'correct' : 'semantic_related',
     });
     setShowFeedback(true);
     setProcessingAnswer(false);
-    setUtteranceState('scored'); // Phase 2: Mark as scored
-    setRetryPrompt(null); // Clear any retry prompt
+    setUtteranceState('scored');
+    setRetryPrompt(null);
     
     // Play sound IMMEDIATELY
     if (isCorrectAnswer) {

@@ -28,7 +28,7 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
       session_id: event.sessionId,
       exercise_slug: event.drillSlug,
       round: event.turnNumber,
-      score: event.result.transferScore / 4, // Normalize to 0–1
+      score: Math.round(event.result.transferScore / 4 * 100) / 100 > 0.5 ? 1 : 0, // Integer column — store as binary pass/fail
       browser_transcript: event.userResponse,
       
       inputs: JSON.parse(JSON.stringify({
