@@ -563,6 +563,44 @@ export default function SmartCoach() {
     setLastDrillTurn(turnCount);
     setDrillsCompletedThisSession(prev => prev + 1);
     setJustCompletedDrill(true);
+    setLastDrillSlug(activeGame.exerciseSlug);
+
+    // Set up transfer targets from the drill context
+    const drillTargets: TransferTarget[] = [];
+    // Extract targets from the normalized result's summary or the topic
+    const summaryWords = normalized.summary?.split(/\s+/) || [];
+    const topicTransfer = selectedTopic.purpose.transferTarget;
+    
+    // Use topic keywords as transfer targets
+    if (selectedTopic.keywords && selectedTopic.keywords.length > 0) {
+      // Pick up to 3 keywords as transfer targets
+      const keywords = selectedTopic.keywords.slice(0, 3);
+      keywords.forEach(kw => {
+        drillTargets.push({
+          value: kw,
+          type: 'word',
+          functionalContext: topicTransfer,
+        });
+      });
+    }
+    
+    // If we have specific words from the drill result, add those
+    if (normalized.slug === 'photo-naming' || normalized.slug === 'category-fluency') {
+      // Extract any quoted words from summary
+      const quoted = normalized.summary?.match(/"([^"]+)"/g)?.map(w => w.replace(/"/g, ''));
+      if (quoted) {
+        quoted.slice(0, 3).forEach(word => {
+          if (!drillTargets.some(t => t.value.toLowerCase() === word.toLowerCase())) {
+            drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
+          }
+        });
+      }
+    }
+    
+    if (drillTargets.length > 0) {
+      setTransferTargets(drillTargets);
+      setPendingTransferCheck(true);
+    }
 
     // Set post-intervention dampening on coach state so next turn is gentler
     setCoachState(prev => prev ? { ...prev, postInterventionDampening: true } : prev);
