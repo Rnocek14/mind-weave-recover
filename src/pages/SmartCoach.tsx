@@ -383,6 +383,27 @@ export default function SmartCoach() {
         return; // Transfer feedback replaces normal turn processing
       }
 
+      // ── Same-session carryover: check if user spontaneously used drill words ──
+      if (sessionDrillWords.size > 0 && !pendingTransferCheck) {
+        const lowerText = userText.toLowerCase();
+        sessionDrillWords.forEach(word => {
+          if (lowerText.includes(word)) {
+            // Upgrade transfer result for this word to carryover level
+            setTransferResults(prev => {
+              const existing = prev.find(r => r.target.toLowerCase() === word);
+              if (existing && existing.score < 4) {
+                // Spontaneous reuse = upgrade to score 4
+                return prev.map(r => r.target.toLowerCase() === word 
+                  ? { ...r, score: 4, label: TRANSFER_LABELS['used_independently'] + ' (carryover)' }
+                  : r
+                );
+              }
+              return prev;
+            });
+          }
+        });
+      }
+
       const isReturningFromDrill = justCompletedDrill;
       if (isReturningFromDrill) {
         setJustCompletedDrill(false);
