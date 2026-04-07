@@ -265,10 +265,18 @@ export default function SmartCoach() {
   // ─── Readiness → chatting ─────────────────────────────────
 
   const handleStartConversation = useCallback(() => {
-    if (!selectedTopic) return;
+    if (!selectedTopic || !user?.id) return;
 
     // Generate a stable session UUID for this conversation
     sessionIdRef.current = crypto.randomUUID();
+
+    // Load cross-session word history for retention tracking
+    loadWordHistory(user.id).then(history => {
+      setWordHistory(history);
+      if (import.meta.env.DEV && history.length > 0) {
+        console.debug('[SmartCoach] Loaded word history:', history.length, 'words');
+      }
+    });
 
     const opener = buildPurposeOpener(selectedTopic);
 
@@ -302,7 +310,7 @@ export default function SmartCoach() {
       text: opener,
       timestamp: Date.now(),
     }]);
-  }, [selectedTopic, readinessLevel]);
+  }, [selectedTopic, readinessLevel, user?.id]);
 
   // ─── Send a turn ────────────────────────────────────────────
 
