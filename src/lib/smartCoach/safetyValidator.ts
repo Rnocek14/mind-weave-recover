@@ -164,6 +164,14 @@ export interface ValidateOptions {
  * Check if response contains at least one anchor to user context.
  * An anchor is: a user word, a topic keyword, or a quoted reference.
  */
+// ── Extended topic-related words (semantic neighborhood) ──────
+const TOPIC_SEMANTIC_EXTENSIONS: Record<string, string[]> = {
+  food: ['restaurant', 'order', 'ordering', 'menu', 'serve', 'taste', 'flavor', 'dish', 'plate', 'bowl', 'spoon', 'fork', 'knife', 'hungry', 'snack', 'drink', 'sauce', 'salad', 'soup', 'bread', 'cheese', 'chicken', 'fish', 'rice', 'pasta', 'vegetable', 'fruit', 'dessert', 'coffee', 'water', 'grocery', 'store', 'fridge', 'stove', 'oven', 'microwave', 'table', 'chair', 'waiter', 'waitress', 'tip', 'bill', 'check'],
+  family: ['home', 'house', 'room', 'visit', 'birthday', 'holiday', 'vacation', 'trip', 'love', 'care', 'help', 'together', 'phone', 'call', 'text', 'message', 'photo', 'picture', 'memory', 'childhood', 'school', 'work', 'age', 'young', 'old'],
+  daily_routine: ['morning', 'afternoon', 'evening', 'night', 'wake', 'sleep', 'bed', 'shower', 'brush', 'dress', 'clothes', 'drive', 'walk', 'bus', 'train', 'car', 'office', 'home', 'door', 'key', 'phone', 'tv', 'watch', 'read', 'sit', 'stand', 'rest'],
+  hobbies: ['play', 'watch', 'listen', 'read', 'draw', 'paint', 'sing', 'dance', 'run', 'swim', 'hike', 'garden', 'fish', 'cook', 'bake', 'sew', 'knit', 'craft', 'game', 'sport', 'team', 'club', 'group', 'class', 'lesson', 'practice', 'perform', 'show', 'concert', 'movie', 'book', 'music', 'song'],
+};
+
 function hasContextAnchor(
   line: string,
   topic: string,
@@ -178,9 +186,13 @@ function hasContextAnchor(
   // Topic keyword anchor
   if (topicKeywords?.some(kw => kw.length > 2 && lineLower.includes(kw.toLowerCase()))) return true;
 
+  // Extended semantic neighborhood anchor
+  const extensions = TOPIC_SEMANTIC_EXTENSIONS[topic.toLowerCase()];
+  if (extensions?.some(kw => lineLower.includes(kw))) return true;
+
   // User word anchor (check if response references any substantive user word)
   if (lastUserUtterance) {
-    const stopwords = new Set(['i', 'a', 'an', 'the', 'is', 'was', 'it', 'my', 'me', 'do', 'to', 'in', 'on', 'at', 'of', 'um', 'uh', 'er', 'like', 'and', 'or', 'but', 'so', 'just', 'that', 'this', 'for', 'with', 'not', 'no', 'yes', 'yeah', 'have', 'had', 'got', 'get', 'can', 'did', 'you', 'we', 'he', 'she', 'they']);
+    const stopwords = new Set(['i', 'a', 'an', 'the', 'is', 'was', 'it', 'my', 'me', 'do', 'to', 'in', 'on', 'at', 'of', 'um', 'uh', 'er', 'like', 'and', 'or', 'but', 'so', 'just', 'that', 'this', 'for', 'with', 'not', 'no', 'yes', 'yeah', 'have', 'had', 'got', 'get', 'can', 'did', 'you', 'we', 'he', 'she', 'they', 'mean', 'what', 'wasnt', 'dont', 'know']);
     const userWords = lastUserUtterance.toLowerCase()
       .replace(/[^\w\s]/g, '')
       .split(/\s+/)
@@ -190,6 +202,9 @@ function hasContextAnchor(
 
   // Quoted reference anchor (e.g., "spaghetti")
   if (/["'][^"']+["']/.test(line)) return true;
+
+  // Conversation-history anchor: if the response references words from recent established facts
+  // (this catches cases where the LLM references something said 2 turns ago)
 
   return false;
 }

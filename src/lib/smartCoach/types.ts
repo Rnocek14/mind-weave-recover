@@ -204,6 +204,10 @@ export interface CoachUtteranceAnalysis {
   hesitationDetected: boolean;
   /** User is giving polite fillers without real content ("yep", "okay", "thank you") */
   disengagementDetected: boolean;
+  /** User is confused by Maya's last response ("what do you mean", "i don't understand") */
+  confusionDetected: boolean;
+  /** User is correcting Maya ("no i wasnt", "that's not what i said") */
+  correctionDetected: boolean;
   confidence: number; // 0–1
   likelyErrorType:
     | 'none'
@@ -213,7 +217,9 @@ export interface CoachUtteranceAnalysis {
     | 'off_topic'
     | 'hesitation'
     | 'incomplete'
-    | 'disengagement';
+    | 'disengagement'
+    | 'confusion'
+    | 'correction';
 }
 
 // ─── Cue Decision ────────────────────────────────────────────

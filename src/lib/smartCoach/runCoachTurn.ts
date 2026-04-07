@@ -14,7 +14,7 @@ import { selectCue } from './cueSelector';
 import { buildPrompt } from './promptBuilder';
 import { validateCoachLine } from './safetyValidator';
 import { postProcessCoachLine } from './responsePostProcessor';
-import { getFallbackLine } from './fallbackLibrary';
+import { getFallbackLine, getConfusionRepairLine, getCorrectionRepairLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { getPlaybook } from './clinicalPlaybooks';
@@ -42,7 +42,50 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   // Step 1 — Analyze utterance
   const analysis = analyzeUtterance(userUtterance, state.topic, state.topicKeywords);
 
-  // Step 2 — Check for wrapup
+  // Step 1.5 — Confusion/correction intercept: handle BEFORE LLM call
+  // These need immediate deterministic repair, not AI-generated responses
+  if (analysis.confusionDetected || analysis.correctionDetected) {
+    const repairLine = analysis.confusionDetected
+      ? getConfusionRepairLine()
+      : getCorrectionRepairLine();
+    
+    const repairHistory = [
+      ...state.conversationHistory,
+      { role: 'user' as const, text: userUtterance },
+      { role: 'maya' as const, text: repairLine },
+    ].slice(-10);
+
+    const repairCue = { cueType: 'reassurance' as const, rationale: analysis.confusionDetected ? 'User confused — repair' : 'User correcting — acknowledge' };
+
+    logCoachTurn({
+      mode: state.mode,
+      supportLevel: state.supportLevel,
+      userUtterance,
+      analysis,
+      cueDecision: repairCue,
+      coachLine: repairLine,
+      validationPassed: true,
+      usedFallback: true,
+      topic: state.topic,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      nextState: {
+        ...state,
+        turnCount: state.turnCount + 1,
+        lastUserUtterance: userUtterance,
+        lastCoachUtterance: repairLine,
+        conversationHistory: repairHistory,
+      },
+      output: repairLine,
+      analysis,
+      cueDecision: repairCue,
+      validation: { valid: true, reasons: [] },
+      usedFallback: true,
+    };
+  }
+
   if (shouldWrapUp(state, maxTurns)) {
     const wrapState: CoachState = { ...state, mode: 'wrapup' };
     const fallback = getFallbackLine('wrapup');
@@ -191,9 +234,17 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback = true;
   }
 
-  // Step 7 — Validate (with anchor context)
+  // Step 7 — Validate (with anchor context including conversation history words)
+  // Build broader context from recent conversation for anchor checking
+  const recentUserWords = state.conversationHistory
+    .filter(m => m.role === 'user')
+    .slice(-3)
+    .map(m => m.text)
+    .join(' ');
+  const broadUserContext = recentUserWords ? `${recentUserWords} ${userUtterance}` : userUtterance;
+  
   const validation = validateCoachLine(rawLine, nextState.topic, nextState.establishedFacts, {
-    lastUserUtterance: userUtterance,
+    lastUserUtterance: broadUserContext,
     topicKeywords: nextState.topicKeywords,
   });
 
@@ -201,7 +252,11 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
   if (!validation.valid) {
     console.warn('[SmartCoach] Validation failed:', validation.reasons, '| Original:', rawLine);
     debugRawOutput = rawLine;
-    finalLine = getFallbackLine(nextState.mode, cueDecision.cueType);
+    // CRITICAL FIX: When validation fails, use mode-only fallback (NOT cue type).
+    // Using phonemic_hint fallback when user isn't stuck creates nonsensical responses.
+    // Only use cue-specific fallbacks when the user is actually struggling.
+    const userIsStuck = analysis.hesitationDetected || analysis.pauseDetected || analysis.likelyErrorType === 'hesitation';
+    finalLine = getFallbackLine(nextState.mode, userIsStuck ? cueDecision.cueType : undefined);
     usedFallback = true;
   } else {
     finalLine = postProcessCoachLine(rawLine);

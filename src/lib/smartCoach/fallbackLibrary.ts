@@ -96,6 +96,24 @@ const CUE_SPECIFIC: Partial<Record<CueType, string[]>> = {
   ],
 };
 
+// Confusion repair lines — when user says "what do you mean?"
+const CONFUSION_REPAIR_LINES = [
+  "Sorry, let me try that differently. Tell me about what you like to eat.",
+  "My mistake — let me start fresh. What's something you had recently?",
+  "Sorry about that. Let me ask a simpler one.",
+  "Let me rephrase. Just tell me one thing that comes to mind.",
+  "That wasn't clear — my fault. Let's go back to something simple.",
+];
+
+// Correction acknowledgment lines — when user says "no I wasn't"
+const CORRECTION_REPAIR_LINES = [
+  "You're right, sorry about that. Go ahead — what were you thinking?",
+  "My mistake. What would you like to talk about?",
+  "Sorry — I got that wrong. Tell me what's on your mind.",
+  "Fair enough. What were you going to say?",
+  "Got it, my bad. Go ahead.",
+];
+
 let lastIndices: Record<string, number> = {};
 
 function pickRandom(pool: string[], key: string): string {
@@ -115,4 +133,14 @@ export function getFallbackLine(mode: CoachMode, cueType?: CueType): string {
     return pickRandom(CUE_SPECIFIC[cueType]!, `cue_${cueType}`);
   }
   return pickRandom(MODE_FALLBACKS[mode], `mode_${mode}`);
+}
+
+/** Get a confusion repair line — user didn't understand Maya */
+export function getConfusionRepairLine(): string {
+  return pickRandom(CONFUSION_REPAIR_LINES, 'confusion_repair');
+}
+
+/** Get a correction repair line — user is correcting Maya */
+export function getCorrectionRepairLine(): string {
+  return pickRandom(CORRECTION_REPAIR_LINES, 'correction_repair');
 }
