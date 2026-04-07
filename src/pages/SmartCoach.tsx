@@ -157,7 +157,12 @@ export default function SmartCoach() {
         longestResponse: Math.max(0, ...messages.filter(m => m.role === 'user').map(m => m.text.split(/\s+/).length)),
         hesitationCount: 0,
         independentResponses: messages.filter(m => m.role === 'user').length,
+        cueAssistedCount: 0,
+        semanticErrorCount: 0,
+        phonemicErrorCount: 0,
+        comprehensionBreaks: 0,
         strategiesThatHelped: [],
+        avgLatencyEstimate: 0,
       };
       saveSessionSummary(
         user.id,
