@@ -6,10 +6,10 @@
  * and advances clinical objectives through playbooks.
  */
 
-import type { CoachState, CoachTurnResult, CoachTurnLog, InterventionEvent } from './types';
+import type { CoachState, CoachTurnResult, CoachTurnLog } from './types';
 import { evaluateDrillTrigger, type DrillTriggerContext } from './drillTriggerEvaluator';
 import { analyzeUtterance } from './utteranceAnalyzer';
-import { transitionCoachState, shouldWrapUp, shouldTriggerIntervention } from './coachStateMachine';
+import { transitionCoachState, shouldWrapUp } from './coachStateMachine';
 import { selectCue } from './cueSelector';
 import { buildPrompt } from './promptBuilder';
 import { validateCoachLine } from './safetyValidator';
@@ -17,7 +17,6 @@ import { postProcessCoachLine } from './responsePostProcessor';
 import { getFallbackLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
-import { detectGameTrigger, selectGame, buildInterventionFrame } from './gameTrigger';
 import { getPlaybook } from './clinicalPlaybooks';
 import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic } from './objectiveAdvancer';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,33 +79,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     nextState = recordStrategy(nextState, cueDecision.cueType);
   }
 
-  // Step 4.5 — Check for intervention trigger
-  let intervention: InterventionEvent | undefined;
-  const triggerCheck = shouldTriggerIntervention(nextState);
-  if (triggerCheck.shouldTrigger && triggerCheck.pattern) {
-    const triggerResult = detectGameTrigger(nextState);
-    if (triggerResult.triggered && triggerResult.pattern) {
-      const game = selectGame(triggerResult.pattern);
-      const frame = buildInterventionFrame(triggerResult, game);
-      intervention = {
-        observation: frame.observation,
-        rationale: frame.rationale,
-        action: `${frame.action} ${frame.offerText}`,
-        type: 'game_offer',
-        gameId: game.id,
-        timestamp: Date.now(),
-      };
-
-      // Save interruption context BEFORE launching exercise
-      nextState.interruptionContext = {
-        lastSubtopic: nextState.subtopic || nextState.topic,
-        lastUserStruggle: analysis.likelyErrorType !== 'none' ? analysis.likelyErrorType : 'word retrieval',
-        lastPhraseAttempt: userUtterance.trim().slice(0, 100),
-        interruptedAtTurn: state.turnCount,
-      };
-      nextState.interventionCount = (state.interventionCount || 0) + 1;
-    }
-  }
+  // Step 4.5 — (Legacy trigger path removed — sole trigger is drillTriggerEvaluator in Step 4.8)
 
   // Step 4.6 — Purpose re-anchor check (every 8-12 turns)
   const PURPOSE_REANCHOR_INTERVAL = 10;
@@ -279,7 +252,7 @@ export async function runCoachTurn(args: RunCoachTurnArgs): Promise<CoachTurnRes
     usedFallback,
     debugPrompt: prompt,
     debugRawOutput,
-    intervention,
+    intervention: undefined,
     drillRecommendation: drillTrigger.kind ? {
       kind: drillTrigger.kind,
       reason: drillTrigger.reason || 'support',
