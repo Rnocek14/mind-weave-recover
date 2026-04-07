@@ -712,6 +712,7 @@ export default function SmartCoach() {
     setPendingTransferCheck(false);
     setLastDrillSlug(null);
     setTransferResults([]);
+    setSessionDrillWords(new Set());
     exerciseModal.closeExerciseModal();
   };
 
