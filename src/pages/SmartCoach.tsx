@@ -171,6 +171,7 @@ export default function SmartCoach() {
   const [pendingTransferCheck, setPendingTransferCheck] = useState(false);
   const [lastDrillSlug, setLastDrillSlug] = useState<string | null>(null);
   const [transferResults, setTransferResults] = useState<TransferSummaryItem[]>([]);
+  const [sessionDrillWords, setSessionDrillWords] = useState<Set<string>>(new Set());
   const exerciseModal = useExerciseModal();
   const tts = useTextToSpeech();
   const maxTurns = 14; // Full hybrid session arc: chat + drills + transfer + wrapup
@@ -336,13 +337,19 @@ export default function SmartCoach() {
         // Get feedback and inject into conversation
         const feedback = getTransferFeedback(transferResult, transferTargets);
         
-        // Track for session summary
+        // Track for session summary — deduplicate, keep best score per target
         transferTargets.forEach(t => {
-          setTransferResults(prev => [...prev, {
-            target: t.value,
-            label: TRANSFER_LABELS[transferResult.label],
-            score: transferResult.transferScore,
-          }]);
+          setTransferResults(prev => {
+            const key = t.value.toLowerCase();
+            const existing = prev.find(r => r.target.toLowerCase() === key);
+            if (existing && existing.score >= transferResult.transferScore) return prev;
+            const filtered = prev.filter(r => r.target.toLowerCase() !== key);
+            return [...filtered, {
+              target: t.value,
+              label: TRANSFER_LABELS[transferResult.label],
+              score: transferResult.transferScore,
+            }];
+          });
         });
 
         // Persist transfer check
@@ -374,6 +381,27 @@ export default function SmartCoach() {
         setTransferTargets([]);
         setIsProcessing(false);
         return; // Transfer feedback replaces normal turn processing
+      }
+
+      // ── Same-session carryover: check if user spontaneously used drill words ──
+      if (sessionDrillWords.size > 0 && !pendingTransferCheck) {
+        const lowerText = userText.toLowerCase();
+        sessionDrillWords.forEach(word => {
+          if (lowerText.includes(word)) {
+            // Upgrade transfer result for this word to carryover level
+            setTransferResults(prev => {
+              const existing = prev.find(r => r.target.toLowerCase() === word);
+              if (existing && existing.score < 4) {
+                // Spontaneous reuse = upgrade to score 4
+                return prev.map(r => r.target.toLowerCase() === word 
+                  ? { ...r, score: 4, label: TRANSFER_LABELS['used_independently'] + ' (carryover)' }
+                  : r
+                );
+              }
+              return prev;
+            });
+          }
+        });
       }
 
       const isReturningFromDrill = justCompletedDrill;
@@ -565,41 +593,43 @@ export default function SmartCoach() {
     setJustCompletedDrill(true);
     setLastDrillSlug(activeGame.exerciseSlug);
 
-    // Set up transfer targets from the drill context
-    const drillTargets: TransferTarget[] = [];
-    // Extract targets from the normalized result's summary or the topic
-    const summaryWords = normalized.summary?.split(/\s+/) || [];
+    // Set up transfer targets from actual drill items
     const topicTransfer = selectedTopic.purpose.transferTarget;
+    const drillTargets: TransferTarget[] = [];
     
-    // Use topic keywords as transfer targets
-    if (selectedTopic.keywords && selectedTopic.keywords.length > 0) {
-      // Pick up to 3 keywords as transfer targets
-      const keywords = selectedTopic.keywords.slice(0, 3);
-      keywords.forEach(kw => {
-        drillTargets.push({
-          value: kw,
-          type: 'word',
-          functionalContext: topicTransfer,
-        });
+    // PRIORITY 1: Use actual targetWords from the drill result (most precise)
+    if (normalized.targetWords && normalized.targetWords.length > 0) {
+      normalized.targetWords.slice(0, 3).forEach(word => {
+        drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
       });
     }
     
-    // If we have specific words from the drill result, add those
-    if (normalized.slug === 'photo-naming' || normalized.slug === 'category-fluency') {
-      // Extract any quoted words from summary
+    // PRIORITY 2: Extract quoted words from drill summary (e.g. "broccoli")
+    if (drillTargets.length === 0) {
       const quoted = normalized.summary?.match(/"([^"]+)"/g)?.map(w => w.replace(/"/g, ''));
-      if (quoted) {
+      if (quoted && quoted.length > 0) {
         quoted.slice(0, 3).forEach(word => {
-          if (!drillTargets.some(t => t.value.toLowerCase() === word.toLowerCase())) {
-            drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
-          }
+          drillTargets.push({ value: word, type: 'word', functionalContext: topicTransfer });
         });
       }
+    }
+    
+    // PRIORITY 3: Fallback to topic keywords (least precise)
+    if (drillTargets.length === 0 && selectedTopic.keywords?.length) {
+      selectedTopic.keywords.slice(0, 2).forEach(kw => {
+        drillTargets.push({ value: kw, type: 'word', functionalContext: topicTransfer });
+      });
     }
     
     if (drillTargets.length > 0) {
       setTransferTargets(drillTargets);
       setPendingTransferCheck(true);
+      // Track all drill targets for same-session carryover detection
+      setSessionDrillWords(prev => {
+        const newWords = new Set(prev);
+        drillTargets.forEach(t => newWords.add(t.value.toLowerCase()));
+        return newWords;
+      });
     }
 
     // Set post-intervention dampening on coach state so next turn is gentler
@@ -682,6 +712,7 @@ export default function SmartCoach() {
     setPendingTransferCheck(false);
     setLastDrillSlug(null);
     setTransferResults([]);
+    setSessionDrillWords(new Set());
     exerciseModal.closeExerciseModal();
   };
 
