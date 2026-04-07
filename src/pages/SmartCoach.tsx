@@ -513,21 +513,20 @@ export default function SmartCoach() {
         tts.speak(result.output).catch(() => {});
       }
 
-      // Check for legacy intervention trigger
-      if (result.intervention) {
-        setPendingIntervention(result.intervention);
-        setMessages(prev => [...prev, {
-          id: `intervention-${Date.now()}`,
-          role: 'intervention',
-          text: result.intervention!.observation,
-          timestamp: Date.now(),
-          interventionData: result.intervention,
-        }]);
-      }
-      // Check for hybrid drill recommendation (takes priority over legacy)
-      else if (result.drillRecommendation && !result.intervention) {
+      // Check for drill recommendation (sole trigger path)
+      if (result.drillRecommendation) {
         const rec = result.drillRecommendation;
-        if (rec.kind === 'micro_drill') {
+        
+        // Fatigue gate: skip targeted practice if micro-drill already fired and user is fatigued
+        const userFatigued = result.nextState.readinessLevel <= 4 || 
+          result.nextState.sessionMetrics.hesitationCount >= 4 ||
+          result.nextState.frustrationRisk === 'high';
+        const alreadyHadDrill = drillsCompletedThisSession > 0;
+        
+        if (rec.kind === 'targeted_practice' && alreadyHadDrill && userFatigued) {
+          // Skip targeted practice — go straight to wrapup
+          console.log('[SmartCoach] Skipping targeted practice: fatigue gate triggered');
+        } else if (rec.kind === 'micro_drill') {
           const retentionHint = getRetentionDifficultyHint(wordHistory);
           const selection = selectDrill({
             state: result.nextState,
@@ -537,7 +536,6 @@ export default function SmartCoach() {
             kind: 'micro_drill',
             retentionHint,
           });
-          // Make difficulty shifts visible to the user
           const difficultyNote = retentionHint.difficultyDelta > 0
             ? " Let's try this in a longer sentence — you're ready."
             : retentionHint.difficultyDelta < 0
