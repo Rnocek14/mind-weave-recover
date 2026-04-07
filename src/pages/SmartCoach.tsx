@@ -779,99 +779,102 @@ export default function SmartCoach() {
   }
 
   // ─── Active Session Phases (Narration Cards) ──────────────
+  // Wrap all active phases with the Maya bubble for persistent presence
 
-  // Opener
-  if (phase === 'opener') {
-    return (
-      <MayaNarrationCard
-        narration={plan.opener}
-        actionLabel="Let's warm up"
-        onContinue={() => setPhase('warmup')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-        icon={plan.topic.emoji}
-      />
-    );
-  }
+  const showBubble = !['loading', 'plan', 'complete'].includes(phase);
 
-  // Warmup (with input)
-  if (phase === 'warmup') {
-    const warmupQ = buildWarmupQuestion(plan);
-    return (
-      <MayaNarrationCard
-        narration={warmupQ}
-        onContinue={() => setPhase('game1_setup')}
-        showInput
-        inputPlaceholder="Type or speak your response..."
-        onSubmit={handleWarmupSubmit}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+  const renderPhaseContent = () => {
+    // Opener
+    if (phase === 'opener') {
+      return (
+        <MayaNarrationCard
+          narration={plan.opener}
+          actionLabel="Let's warm up"
+          onContinue={() => setPhase('warmup')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+          icon={plan.topic.emoji}
+        />
+      );
+    }
 
-  // Game 1 Setup
-  if (phase === 'game1_setup') {
-    return (
-      <MayaNarrationCard
-        narration={plan.game1Setup}
-        subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
-        actionLabel="Start practice"
-        onContinue={handleLaunchGame1}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-        icon={plan.game1.icon}
-      />
-    );
-  }
+    // Warmup (with input)
+    if (phase === 'warmup') {
+      const warmupQ = buildWarmupQuestion(plan);
+      return (
+        <MayaNarrationCard
+          narration={warmupQ}
+          onContinue={() => setPhase('game1_setup')}
+          showInput
+          inputPlaceholder="Type or speak your response..."
+          onSubmit={handleWarmupSubmit}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Game 1 Playing (shouldn't render — we navigated away)
-  if (phase === 'game1_playing') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+    // Game 1 Setup
+    if (phase === 'game1_setup') {
+      return (
+        <MayaNarrationCard
+          narration={plan.game1Setup}
+          subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
+          actionLabel="Start practice"
+          onContinue={handleLaunchGame1}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+          icon={plan.game1.icon}
+        />
+      );
+    }
 
-  // Game 1 Review
-  if (phase === 'game1_review') {
-    return (
-      <MayaNarrationCard
-        narration={game1ReviewText}
-        actionLabel="Continue"
-        onContinue={() => setPhase('transfer_check')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 1 Playing (shouldn't render — we navigated away)
+    if (phase === 'game1_playing') {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
 
-  // Transfer Check (with input)
-  if (phase === 'transfer_check') {
-    return (
-      <MayaNarrationCard
-        narration={transferPromptText}
-        onContinue={() => setPhase('game2_setup')}
-        showInput
-        inputPlaceholder="Use those words in a sentence..."
-        onSubmit={handleTransferSubmit}
-        isProcessing={isProcessing}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 1 Review
+    if (phase === 'game1_review') {
+      return (
+        <MayaNarrationCard
+          narration={game1ReviewText}
+          actionLabel="Continue"
+          onContinue={() => setPhase('transfer_check')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Game 2 Setup
-  if (phase === 'game2_setup') {
-    return (
-      <>
+    // Transfer Check (with input)
+    if (phase === 'transfer_check') {
+      return (
+        <MayaNarrationCard
+          narration={transferPromptText}
+          onContinue={() => setPhase('game2_setup')}
+          showInput
+          inputPlaceholder="Use those words in a sentence..."
+          onSubmit={handleTransferSubmit}
+          isProcessing={isProcessing}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
+
+    // Game 2 Setup
+    if (phase === 'game2_setup') {
+      return (
         <MayaNarrationCard
           narration={game2SetupText}
           subtitle={`${plan.game2Trials} items · ~${Math.ceil(plan.game2.durationSec / 60)} min`}
@@ -882,36 +885,46 @@ export default function SmartCoach() {
           phaseLabels={PHASE_LABELS}
           icon={plan.game2.icon}
         />
-        <MayaAssistantBubble onAction={handleMayaHelp} />
-      </>
-    );
-  }
+      );
+    }
 
-  // Game 2 Playing
-  if (phase === 'game2_playing') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+    // Game 2 Playing
+    if (phase === 'game2_playing') {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
 
-  // Game 2 Review
-  if (phase === 'game2_review') {
-    return (
-      <MayaNarrationCard
-        narration={game2ReviewText}
-        actionLabel="See summary"
-        onContinue={() => setPhase('complete')}
-        phaseIndex={phaseIndex}
-        totalPhases={TOTAL_PHASES}
-        phaseLabels={PHASE_LABELS}
-      />
-    );
-  }
+    // Game 2 Review
+    if (phase === 'game2_review') {
+      return (
+        <MayaNarrationCard
+          narration={game2ReviewText}
+          actionLabel="See summary"
+          onContinue={() => setPhase('complete')}
+          phaseIndex={phaseIndex}
+          totalPhases={TOTAL_PHASES}
+          phaseLabels={PHASE_LABELS}
+        />
+      );
+    }
 
-  // Fallback
-  return null;
+    return null;
+  };
+
+  return (
+    <>
+      {renderPhaseContent()}
+      {showBubble && (
+        <MayaAssistantBubble
+          isSpeaking={tts.isSpeaking}
+          onAction={handleMayaHelp}
+        />
+      )}
+    </>
+  );
 }
 
 // ─── Helper Functions ───────────────────────────────────────
