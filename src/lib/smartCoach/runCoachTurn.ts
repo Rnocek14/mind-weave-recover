@@ -18,7 +18,7 @@ import { getFallbackLine, getConfusionRepairLine, getCorrectionRepairLine } from
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { getPlaybook } from './clinicalPlaybooks';
-import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic } from './objectiveAdvancer';
+import { evaluateObjectiveProgress, advanceObjective, tickObjective, shouldForceTransfer, trackSubtopic, shouldRegressObjective, regressObjective } from './objectiveAdvancer';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RunCoachTurnArgs {
