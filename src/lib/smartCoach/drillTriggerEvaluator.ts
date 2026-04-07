@@ -80,7 +80,7 @@ export function evaluateDrillTrigger(ctx: DrillTriggerContext): DrillTriggerDeci
       kind: 'targeted_practice',
       reason: 'support',
       confidence: 0.9,
-      observation: "Let's lock in what you practiced today.",
+      observation: "Time for focused practice — let's strengthen what you've been working on.",
       signals: ['session_late_phase', `turn_${turn}_of_${maxTurns}`],
     };
   }
@@ -155,7 +155,7 @@ function evaluateSupportTrigger(ctx: DrillTriggerContext): DrillTriggerDecision 
       kind: 'micro_drill',
       reason: 'support',
       confidence: Math.min(1, 0.5 + signals.length * 0.15),
-      observation: "Let's practice that quickly.",
+      observation: "Let's practice that skill directly — a quick focused round.",
       signals,
     };
   }
@@ -196,7 +196,7 @@ function evaluateChallengeTrigger(ctx: DrillTriggerContext): DrillTriggerDecisio
       kind: 'micro_drill',
       reason: 'challenge',
       confidence: 0.8,
-      observation: "You're doing well — let's push a bit further.",
+      observation: "You're doing well — let's push that further with a quick challenge.",
       signals,
     };
   }
@@ -228,7 +228,7 @@ function evaluateRepairTrigger(ctx: DrillTriggerContext): DrillTriggerDecision |
       kind: 'micro_drill',
       reason: 'repair',
       confidence: 0.6,
-      observation: "Let's reset with a quick round.",
+      observation: "Let's reset with a focused exercise to get back on track.",
       signals,
     };
   }
