@@ -407,25 +407,26 @@ describe('Guard Rails', () => {
     expect(evaluateDrillTrigger(ctx).kind).toBeNull();
   });
 
-  it('never triggers micro-drill before turn 3', () => {
+  it('never triggers micro-drill before turn 2', () => {
     const ctx = makeTriggerCtx({
-      state: makeState({ turnCount: 2, recentHesitations: [true, true, true] }),
+      state: makeState({ turnCount: 1, recentHesitations: [true, true, true] }),
       analysis: makeAnalysis({ hesitationDetected: true, circumlocution: true }),
     });
 
     const result = evaluateDrillTrigger(ctx);
-    // Should not be micro_drill (may be null or targeted_practice but not at turn 2)
+    // Should not be micro_drill at turn 1
     expect(result.kind).not.toBe('micro_drill');
   });
 
-  it('never triggers micro-drill after turn 6 (before turn 8)', () => {
+  it('micro-drill window extends through turn 9', () => {
     const ctx = makeTriggerCtx({
       state: makeState({ turnCount: 7, recentHesitations: [true, true, true] }),
       analysis: makeAnalysis({ hesitationDetected: true, circumlocution: true }),
     });
 
     const result = evaluateDrillTrigger(ctx);
-    expect(result.kind).toBeNull();
+    // Turn 7 is now within the micro-drill window (2-9)
+    expect(result.kind).not.toBeNull();
   });
 
   it('respects 2-turn cooldown after drill', () => {
@@ -456,11 +457,25 @@ describe('Guard Rails', () => {
     expect(result.kind).not.toBeNull();
   });
 
-  it('only allows one micro-drill per session', () => {
+  it('allows two micro-drills per session', () => {
     const ctx = makeTriggerCtx({
       state: makeState({
         turnCount: 5,
         interventionCount: 1, // already had one
+        recentHesitations: [true, true, true],
+      }),
+      analysis: makeAnalysis({ hesitationDetected: true, circumlocution: true }),
+    });
+
+    // With 2 allowed, interventionCount=1 should still allow another
+    expect(evaluateDrillTrigger(ctx).kind).not.toBeNull();
+  });
+
+  it('blocks third micro-drill per session', () => {
+    const ctx = makeTriggerCtx({
+      state: makeState({
+        turnCount: 5,
+        interventionCount: 2, // already had two
         recentHesitations: [true, true, true],
       }),
       analysis: makeAnalysis({ hesitationDetected: true, circumlocution: true }),
