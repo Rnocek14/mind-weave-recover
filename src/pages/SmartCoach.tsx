@@ -460,11 +460,6 @@ export default function SmartCoach() {
     hasRestoredRef.current = false;
   }, []);
 
-  // ─── TTS + Micro-feedback ──────────────────────────────────
-  const tts = useTextToSpeech();
-  const microEncouragement = useMicroEncouragement();
-  const [hintLevel, setHintLevel] = useState(0); // 0=none, 1=encouragement, 2=semantic, 3=phonemic, 4=model
-
 
 
 
