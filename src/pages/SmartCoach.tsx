@@ -1006,7 +1006,32 @@ export default function SmartCoach() {
                     </div>
                   </div>
 
-                  {/* Cross-session comparison */}
+                  {/* Transfer results — what transferred from drills */}
+                  {transferResults.length > 0 && (
+                    <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs font-medium text-foreground">What transferred</p>
+                      </div>
+                      <div className="space-y-1.5 pl-6">
+                        {transferResults.map((tr, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">"{tr.target}"</span>
+                            <span className={cn(
+                              'text-xs font-medium',
+                              tr.score >= 4 ? 'text-green-600 dark:text-green-400' :
+                              tr.score >= 3 ? 'text-primary' :
+                              tr.score >= 2 ? 'text-muted-foreground' :
+                              'text-muted-foreground/60'
+                            )}>
+                              {tr.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {wrapupSummary.crossSession && (
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
                       <TrendingUp className="w-4 h-4 text-primary mt-0.5 shrink-0" />
