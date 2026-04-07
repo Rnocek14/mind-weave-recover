@@ -14,6 +14,7 @@
 import type { CoachState } from './types';
 import type { DrillTriggerReason } from './drillTriggerEvaluator';
 import { GAME_CATALOG, type GameDefinition } from './gameTrigger';
+import type { RetentionDifficultyHint } from './crossSessionRetention';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ export interface DrillSelectionContext {
   usedGameIds: string[];
   /** Whether this is a micro-drill or targeted practice */
   kind: 'micro_drill' | 'targeted_practice';
+  /** Cross-session retention difficulty hint */
+  retentionHint?: RetentionDifficultyHint;
 }
 
 // ─── Issue → Game Mapping ───────────────────────────────────
@@ -168,20 +171,30 @@ function buildSelection(
   ctx: DrillSelectionContext,
   rationale: string
 ): DrillSelection {
-  // Micro-drills get fewer trials
   const isMicro = ctx.kind === 'micro_drill';
+  const retentionDelta = ctx.retentionHint?.difficultyDelta ?? 0;
+
+  // Base difficulty from game config, adjusted by retention performance
+  const baseDifficulty = game.defaultConfig.difficultyTier || 1;
+  const adjustedDifficulty = Math.max(1, Math.min(5, baseDifficulty + retentionDelta));
+
+  // If user has weak words from retention, start with more support
+  const baseCue = ctx.reason === 'support' 
+    ? Math.max(game.defaultConfig.cueLevel || 0, 2) 
+    : game.defaultConfig.cueLevel || 0;
+  const adjustedCue = retentionDelta < 0 ? Math.max(baseCue, 1) : baseCue;
 
   return {
     drill: game,
-    rationale,
+    rationale: retentionDelta !== 0 
+      ? `${rationale} (difficulty ${retentionDelta > 0 ? 'raised' : 'lowered'} from retention data)`
+      : rationale,
     configOverrides: {
       totalTrials: isMicro 
         ? Math.min(game.defaultConfig.totalTrials || 5, 4) 
         : game.defaultConfig.totalTrials,
-      difficultyTier: game.defaultConfig.difficultyTier,
-      cueLevel: ctx.reason === 'support' 
-        ? Math.max(game.defaultConfig.cueLevel || 0, 2) 
-        : game.defaultConfig.cueLevel,
+      difficultyTier: adjustedDifficulty,
+      cueLevel: adjustedCue,
     },
   };
 }
