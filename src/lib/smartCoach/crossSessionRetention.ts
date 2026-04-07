@@ -287,21 +287,24 @@ export function buildProgressDelta(
 /**
  * Generate Maya feedback when a previously-practiced word is detected
  * spontaneously in a new session.
+ * Only fires for meaningful retention (score improvement or multi-session words).
  */
 export function getRetentionFeedback(checks: RetentionCheck[]): string | null {
   if (checks.length === 0) return null;
 
-  const improved = checks.filter(c => c.delta === 'improved' || c.delta === 'new_retention');
+  // Only trigger for real improvement or multi-session retention
+  const improved = checks.filter(c => c.delta === 'improved' && c.previousBest < 4);
   const maintained = checks.filter(c => c.delta === 'maintained');
 
   if (improved.length > 0) {
     const word = improved[0].word;
-    return `You used "${word}" on your own — you practiced that before, and it came back. That's real progress.`;
+    const prevLabel = scoreLabel(improved[0].previousBest);
+    return `You used "${word}" on your own — last time it was ${prevLabel}. That's real progress.`;
   }
 
   if (maintained.length > 0) {
     const word = maintained[0].word;
-    return `"${word}" is sticking — you used it last time too.`;
+    return `"${word}" is sticking — you used it last time too, and it's still strong.`;
   }
 
   return null;
@@ -314,10 +317,11 @@ export function getRetentionFeedback(checks: RetentionCheck[]): string | null {
  * Shows words that progressed from needing support to independence.
  */
 export function buildCueFadeSummary(wordHistory: WordHistory[]): string | null {
-  const faded = wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore > w.lastCueLevel);
+  const faded = wordHistory.filter(w => 
+    w.sessionCount >= 2 && w.initialCueLevel > w.bestCueLevel
+  );
   if (faded.length === 0) return null;
 
-  // Words that went from needing help to independent
   const strongFades = faded
     .filter(w => w.bestScore >= 3)
     .sort((a, b) => b.bestScore - a.bestScore)
@@ -325,6 +329,58 @@ export function buildCueFadeSummary(wordHistory: WordHistory[]): string | null {
 
   if (strongFades.length === 0) return null;
 
-  const words = strongFades.map(w => `"${w.word}"`).join(', ');
-  return `${words} — needed help before, now coming more naturally.`;
+  const descriptions = strongFades.map(w => 
+    `"${w.word}" (${cueLabel(w.initialCueLevel)} → ${cueLabel(w.bestCueLevel)})`
+  );
+  return `Less support needed: ${descriptions.join(', ')}.`;
+}
+
+// ─── Retained Words for Summary ─────────────────────────────
+
+/**
+ * Get words retained from previous sessions for the "What stuck" summary.
+ */
+export function getRetainedWords(wordHistory: WordHistory[]): { word: string; sessions: number; level: string }[] {
+  return wordHistory
+    .filter(w => w.sessionCount >= 2 && w.bestScore >= 3)
+    .sort((a, b) => b.sessionCount - a.sessionCount)
+    .slice(0, 5)
+    .map(w => ({
+      word: w.word,
+      sessions: w.sessionCount,
+      level: scoreLabel(w.bestScore),
+    }));
+}
+
+// ─── Difficulty Adjustment from Retention ───────────────────
+
+export interface RetentionDifficultyHint {
+  /** Words that are retained → can use harder contexts */
+  retainedWords: string[];
+  /** Words not retained → re-expose at lower difficulty */
+  weakWords: string[];
+  /** Suggested difficulty adjustment (-1, 0, +1) */
+  difficultyDelta: number;
+}
+
+/**
+ * Use word history to suggest difficulty adjustments for the next drill.
+ * Retained words → increase complexity. Weak words → lower difficulty.
+ */
+export function getRetentionDifficultyHint(wordHistory: WordHistory[]): RetentionDifficultyHint {
+  const retained = wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore >= 3);
+  const weak = wordHistory.filter(w => w.sessionCount >= 2 && w.bestScore <= 1);
+
+  let difficultyDelta = 0;
+  if (retained.length >= 3 && weak.length === 0) {
+    difficultyDelta = 1; // User is retaining well → push harder
+  } else if (weak.length >= 2) {
+    difficultyDelta = -1; // Multiple weak words → ease up
+  }
+
+  return {
+    retainedWords: retained.map(w => w.word),
+    weakWords: weak.map(w => w.word),
+    difficultyDelta,
+  };
 }
