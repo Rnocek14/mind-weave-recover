@@ -60,12 +60,9 @@ describe('Transfer Scoring', () => {
     expect(result.transferScore).toBeGreaterThanOrEqual(3);
   });
 
-  it('scores absent target as lower than present (BUG: scores 2 even when absent due to cue independence weight)', () => {
+  it('scores absent target as no transfer (fixed: gate on target presence)', () => {
     const result = scoreTransfer(makeTransferInput({ userResponse: 'I had some food' }));
-    // FINDING: scoreTransfer gives score=2 even when target word is absent
-    // because cue independence component still contributes. This is a known
-    // scoring issue — absent target should floor at 0-1.
-    expect(result.transferScore).toBeLessThanOrEqual(2);
+    expect(result.transferScore).toBe(0);
   });
 
   it('scores with cue as lower than without', () => {
@@ -80,19 +77,17 @@ describe('Transfer Scoring', () => {
     expect(typeof TRANSFER_LABELS[result.label]).toBe('string');
   });
 
-  it('handles empty response without crash (BUG: still scores 2 instead of 0)', () => {
+  it('scores empty response as 0 (fixed)', () => {
     const result = scoreTransfer(makeTransferInput({ userResponse: '' }));
-    // FINDING: Empty response gets score=2 — cue independence component still fires
-    expect(result.transferScore).toBeGreaterThanOrEqual(0);
+    expect(result.transferScore).toBe(0);
   });
 
-  it('handles silence/abandonment without crash (BUG: scores 1 instead of 0)', () => {
+  it('scores abandonment as 0 (fixed)', () => {
     const result = scoreTransfer(makeTransferInput({
       userResponse: '',
       breakdownSignals: { longPause: true, fillerCount: 0, restart: false, abandonment: true },
     }));
-    // FINDING: Abandonment still gets score=1 — should be 0
-    expect(result.transferScore).toBeLessThanOrEqual(1);
+    expect(result.transferScore).toBe(0);
   });
 });
 
