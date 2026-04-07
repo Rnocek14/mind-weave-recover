@@ -163,7 +163,7 @@ export default function SmartCoach() {
   const [readinessLevel, setReadinessLevel] = useState(7);
   const [progressData, setProgressData] = useState<ProgressComparison | null>(null);
   const [activeGame, setActiveGame] = useState<GameDefinition | null>(null);
-  const [pendingIntervention, setPendingIntervention] = useState<InterventionEvent | null>(null);
+  const [_pendingIntervention, _setPendingIntervention] = useState<InterventionEvent | null>(null); // legacy — kept for type compat only
   const [autoPlayVoice, setAutoPlayVoice] = useState(false);
   const [pendingDrill, setPendingDrill] = useState<DrillSelection | null>(null);
   const [pendingPracticeBlock, setPendingPracticeBlock] = useState<DrillSelection[] | null>(null);
@@ -625,33 +625,7 @@ export default function SmartCoach() {
     }]);
   }, [pendingPracticeBlock]);
 
-  // ─── Intervention handlers ─────────────────────────────────
-
-  const handleAcceptIntervention = useCallback(() => {
-    if (!pendingIntervention?.gameId) return;
-    const game = GAME_CATALOG[pendingIntervention.gameId];
-    if (game) {
-      setActiveGame(game);
-      // Launch real exercise in modal
-      exerciseModal.launchExerciseModal(game.exerciseSlug, {
-        totalTrials: game.defaultConfig.totalTrials,
-        difficultyTier: game.defaultConfig.difficultyTier,
-        cueLevel: game.defaultConfig.cueLevel,
-        source: 'maya_chat',
-      });
-    }
-    setPendingIntervention(null);
-  }, [pendingIntervention, exerciseModal]);
-
-  const handleDeclineIntervention = useCallback(() => {
-    setPendingIntervention(null);
-    setMessages(prev => [...prev, {
-      id: `maya-decline-${Date.now()}`,
-      role: 'maya',
-      text: "No problem — let's keep talking.",
-      timestamp: Date.now(),
-    }]);
-  }, []);
+  // ─── Legacy intervention handlers removed — drills are sole path now ──
 
   /** Called when a real exercise completes inside ExerciseModalHost */
   const handleExerciseComplete = useCallback((normalized: NormalizedExerciseResult) => {
