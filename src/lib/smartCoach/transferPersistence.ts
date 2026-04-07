@@ -59,7 +59,7 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
         any_target_found: event.result.targetResults.some(r => r.found),
         spontaneous: event.result.transferScore >= 4,
         functional: event.result.transferScore >= 3,
-      },
+      })),
     }]);
 
     if (error) {
