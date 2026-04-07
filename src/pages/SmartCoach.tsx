@@ -246,6 +246,8 @@ export default function SmartCoach() {
     if (!plan) return;
     const game = slot === 1 ? plan.game1 : plan.game2;
     const trials = slot === 1 ? plan.game1Trials : plan.game2Trials;
+    const difficulty = slot === 1 ? plan.game1Difficulty : plan.game2Difficulty;
+    const cueLevel = slot === 1 ? plan.game1CueLevel : plan.game2CueLevel;
     
     setActiveGame(game);
     setCurrentGameSlot(slot);
@@ -253,8 +255,8 @@ export default function SmartCoach() {
     
     exerciseModal.launchExerciseModal(game.exerciseSlug, {
       totalTrials: trials,
-      difficultyTier: game.defaultConfig.difficultyTier,
-      cueLevel: game.defaultConfig.cueLevel,
+      difficultyTier: difficulty,
+      cueLevel: cueLevel,
       source: 'maya_chat',
     });
   }, [plan, exerciseModal]);
