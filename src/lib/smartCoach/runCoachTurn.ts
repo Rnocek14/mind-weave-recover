@@ -14,7 +14,7 @@ import { selectCue } from './cueSelector';
 import { buildPrompt } from './promptBuilder';
 import { validateCoachLine } from './safetyValidator';
 import { postProcessCoachLine } from './responsePostProcessor';
-import { getFallbackLine } from './fallbackLibrary';
+import { getFallbackLine, getConfusionRepairLine, getCorrectionRepairLine } from './fallbackLibrary';
 import { logCoachTurn } from './coachLogger';
 import { addEstablishedFact, recordStrategy } from './coachState';
 import { getPlaybook } from './clinicalPlaybooks';
