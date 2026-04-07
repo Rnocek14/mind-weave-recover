@@ -678,6 +678,10 @@ export default function SmartCoach() {
     setUsedGameIds([]);
     setPrevAnalysis(undefined);
     setDrillsCompletedThisSession(0);
+    setTransferTargets([]);
+    setPendingTransferCheck(false);
+    setLastDrillSlug(null);
+    setTransferResults([]);
     exerciseModal.closeExerciseModal();
   };
 
