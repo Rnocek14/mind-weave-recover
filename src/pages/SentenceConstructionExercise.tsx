@@ -38,7 +38,7 @@ const SentenceConstructionExercise = () => {
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('sentence-construction');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   
   // Shared adaptation contract
@@ -174,7 +174,7 @@ const SentenceConstructionExercise = () => {
     
     if (fromLesson) {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       setTimeout(() => navigate('/dashboard'), 2000);
     }
@@ -207,7 +207,7 @@ const SentenceConstructionExercise = () => {
     toast.info("Exercise skipped - moving to next activity");
     
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   const handleDifficultyChange = (newLevel: number) => {
@@ -226,7 +226,7 @@ const SentenceConstructionExercise = () => {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => {
               window.dispatchEvent(new CustomEvent('exercise-complete'));
-              navigate('/lesson', { state: { resuming: true } });
+              navigate(returnTo, { state: { resuming: true } });
             }}>
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back

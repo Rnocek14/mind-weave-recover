@@ -42,7 +42,7 @@ export default function SynonymGeneratorExercise() {
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const roundCount = Number(location.state?.trialLimit) || 3;
   const lessonAdaptations = restored.adaptations;
@@ -136,13 +136,13 @@ export default function SynonymGeneratorExercise() {
             totalScore: results.reduce((sum, r) => sum + r.matchCount, 0),
           }
         }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, completeSession, navigate]);
 
   const handleBack = useCallback(() => {
-    navigate(fromLesson ? '/lesson' : '/dashboard');
+    navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
   const isReady = !isCreatingSession && !!activeSessionId;

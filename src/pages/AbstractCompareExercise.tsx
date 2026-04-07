@@ -34,7 +34,7 @@ export default function AbstractCompareExercise() {
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 4;
@@ -99,7 +99,7 @@ export default function AbstractCompareExercise() {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-        navigate('/lesson', { state: { resuming: true }, replace: true });
+        navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
   }, [fromLesson, completeSession]);

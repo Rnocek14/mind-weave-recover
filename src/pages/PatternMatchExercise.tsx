@@ -29,7 +29,7 @@ export default function PatternMatchExercise() {
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('pattern-match');
-  const fromLesson = restored.fromLesson;
+  const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export default function PatternMatchExercise() {
     });
     
     window.dispatchEvent(new CustomEvent('exercise-complete'));
-    navigate('/lesson', { state: { resuming: true } });
+    navigate(returnTo, { state: { resuming: true } });
   };
 
   const handleGameStart = async () => {
@@ -138,7 +138,7 @@ export default function PatternMatchExercise() {
     
     if (fromLesson) {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate('/lesson', { state: { resuming: true } });
+      navigate(returnTo, { state: { resuming: true } });
     } else {
       setTimeout(() => navigate('/dashboard'), 2000);
     }
