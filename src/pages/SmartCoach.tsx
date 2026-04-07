@@ -337,13 +337,19 @@ export default function SmartCoach() {
         // Get feedback and inject into conversation
         const feedback = getTransferFeedback(transferResult, transferTargets);
         
-        // Track for session summary
+        // Track for session summary — deduplicate, keep best score per target
         transferTargets.forEach(t => {
-          setTransferResults(prev => [...prev, {
-            target: t.value,
-            label: TRANSFER_LABELS[transferResult.label],
-            score: transferResult.transferScore,
-          }]);
+          setTransferResults(prev => {
+            const key = t.value.toLowerCase();
+            const existing = prev.find(r => r.target.toLowerCase() === key);
+            if (existing && existing.score >= transferResult.transferScore) return prev;
+            const filtered = prev.filter(r => r.target.toLowerCase() !== key);
+            return [...filtered, {
+              target: t.value,
+              label: TRANSFER_LABELS[transferResult.label],
+              score: transferResult.transferScore,
+            }];
+          });
         });
 
         // Persist transfer check
