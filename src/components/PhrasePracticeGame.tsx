@@ -853,7 +853,6 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
       }
     }, recoveryDelayMs);
-      if (showFeedback || processingResultRef.current || manualMicOffRef.current || !isListeningMode) return;
 
       const nextStallCount = consecutiveStallCountRef.current + 1;
       consecutiveStallCountRef.current = nextStallCount;
