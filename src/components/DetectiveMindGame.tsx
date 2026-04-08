@@ -1,26 +1,26 @@
 /**
- * Detective Mind Game Component
+ * Detective Mind Game Component — v2
  * 
- * Interactive mystery game UI with story cards, question options,
- * detective-themed feedback, and generative "explain why" layer.
+ * Redesigned: no reading gate, purpose framing, fixed hint targeting,
+ * model explanation shown, adaptive explain-why, question-type summary.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useDetectiveMindGame, DetectiveTrialResult, DetectiveRank } from '@/hooks/useDetectiveMindGame';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
+import { QuestionType } from '@/data/detectiveMindCases';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
   onGameComplete: (results: DetectiveTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
-  /** Profile-recommended cue type — adapts hint behavior */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
@@ -32,7 +32,15 @@ const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
   'Chief Detective': <Star className="h-5 w-5 text-yellow-500" />,
 };
 
-type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
+const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  literal: 'Finding Facts',
+  inference: 'Reading Between Lines',
+  cause_effect: 'Cause & Effect',
+  prediction: 'Predicting Outcomes',
+  figurative: 'Figurative Language',
+};
+
+type Phase = 'answering' | 'feedback' | 'explaining';
 
 export function DetectiveMindGame({ 
   onTrialComplete, 
@@ -53,22 +61,25 @@ export function DetectiveMindGame({
     nextCase,
   } = useDetectiveMindGame(roundCount, difficultyLevel);
 
-  const [phase, setPhase] = useState<Phase>('reading');
+  const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [lastResult, setLastResult] = useState<DetectiveTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [reasoningPoints, setReasoningPoints] = useState(0);
-  const trialStartRef = useRef(Date.now());
+  const [explainSkipCount, setExplainSkipCount] = useState(0);
+  const caseLoadTimeRef = useRef(Date.now());
+  const firstInteractionRef = useRef<number | null>(null);
 
   // Reset state when case changes
   useEffect(() => {
-    setPhase('reading');
+    setPhase('answering');
     setSelectedOption(null);
     setLastResult(null);
     setUsedHint(false);
     setShowHint(false);
-    trialStartRef.current = Date.now();
+    caseLoadTimeRef.current = Date.now();
+    firstInteractionRef.current = null;
   }, [currentIndex]);
 
   // Check completion (fire once)
@@ -80,38 +91,51 @@ export function DetectiveMindGame({
     }
   }, [isComplete, results, onGameComplete]);
 
-  const handleReadyToAnswer = useCallback(() => {
-    setPhase('answering');
-    trialStartRef.current = Date.now();
-  }, []);
-
   const handleSelectOption = useCallback((index: number) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     
+    // Track first interaction time if not set
+    if (!firstInteractionRef.current) {
+      firstInteractionRef.current = Date.now();
+    }
+    
     setSelectedOption(index);
-    const reactionTimeMs = Date.now() - trialStartRef.current;
+    const reactionTimeMs = Date.now() - caseLoadTimeRef.current;
     const result = submitAnswer(index, reactionTimeMs, usedHint);
     
     if (result) {
       setLastResult(result);
       setPhase('feedback');
-      // Do NOT emit onTrialComplete here — wait until after explanation phase
     }
   }, [phase, selectedOption, usedHint, submitAnswer]);
 
   const handleHint = useCallback(() => {
+    // Track first interaction
+    if (!firstInteractionRef.current) {
+      firstInteractionRef.current = Date.now();
+    }
     setUsedHint(true);
     setShowHint(true);
   }, []);
 
-  // Transition from feedback → explaining
+  // Transition from feedback → explaining or skip to next
   const handleProceedToExplain = useCallback(() => {
     setPhase('explaining');
   }, []);
 
-  // Handle explanation completion — emit single combined trial result
+  const handleSkipExplain = useCallback(() => {
+    setExplainSkipCount(prev => prev + 1);
+    if (lastResult) {
+      onTrialComplete(lastResult);
+    }
+    nextCase();
+  }, [nextCase, lastResult, onTrialComplete]);
+
+  // Handle explanation completion
   const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
-    if (!explainResult.skipped) {
+    if (explainResult.skipped) {
+      setExplainSkipCount(prev => prev + 1);
+    } else if (!explainResult.skipped) {
       setReasoningPoints(prev => prev + explainResult.score.score);
     }
     if (lastResult) {
@@ -124,48 +148,19 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
+  // Explain-why visibility: progressively lighter, never fully gone
+  const explainPromptLevel = useMemo(() => {
+    if (explainSkipCount < 3) return 'full';      // "Explain why (bonus points)" button
+    if (explainSkipCount < 6) return 'collapsed';  // Small text link
+    return 'minimal';                               // Tiny optional link
+  }, [explainSkipCount]);
 
   if (!currentCase || isComplete) {
-    // Summary screen
-    const correctCount = results.filter(r => r.correct).length;
-    return (
-      <div className="max-w-lg mx-auto space-y-6 text-center">
-        <div className="text-6xl">🕵️</div>
-        <h2 className="text-2xl font-bold">Investigation Complete!</h2>
-        <div className="flex items-center justify-center gap-2 text-lg">
-          {RANK_ICONS[rank]}
-          <span className="font-semibold">{rank}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">{correctCount}/{results.length}</div>
-              <div className="text-xs text-muted-foreground">Cases Solved</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">{totalPoints}</div>
-              <div className="text-xs text-muted-foreground">Points</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">{Math.round((correctCount / results.length) * 100)}%</div>
-              <div className="text-xs text-muted-foreground">Accuracy</div>
-            </CardContent>
-          </Card>
-        </div>
-        {reasoningPoints > 0 && (
-          <div className="text-sm text-muted-foreground">
-            🧠 Reasoning score: {reasoningPoints} pts
-          </div>
-        )}
-      </div>
-    );
+    return <DetectiveSummary results={results} totalPoints={totalPoints} rank={rank} reasoningPoints={reasoningPoints} />;
   }
 
   const progressPercent = (currentIndex / totalCases) * 100;
+  const isFirstCase = currentIndex === 0;
 
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
@@ -189,19 +184,32 @@ export function DetectiveMindGame({
 
       <Progress value={progressPercent} className="h-1.5" />
 
+      {/* Purpose banner — first case only */}
+      {isFirstCase && phase === 'answering' && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 text-sm text-center">
+          <span className="font-medium">🕵️ Read the story, find the clues, answer the question.</span>
+          <p className="text-muted-foreground text-xs mt-1">
+            This builds the same skills you use following conversations and reading.
+          </p>
+        </div>
+      )}
+
       {/* Case title */}
-      <div className="flex items-center gap-2 py-2">
+      <div className="flex items-center gap-2 py-1">
         <Search className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-bold">📂 {currentCase.title}</h2>
+        <span className="ml-auto text-xs text-muted-foreground capitalize">
+          {QUESTION_TYPE_LABELS[currentCase.questionType]}
+        </span>
       </div>
 
-      {/* Story card */}
+      {/* Story card — always visible */}
       <Card className="border-2 border-border/50">
         <CardContent className="pt-6 space-y-3">
           {currentCase.story.map((sentence, i) => (
             <p key={i} className={cn(
               "text-base leading-relaxed",
-              showHint && i === 0 && "bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded font-medium"
+              showHint && i === currentCase.hintSentenceIndex && "bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded font-medium"
             )}>
               {sentence}
             </p>
@@ -209,14 +217,7 @@ export function DetectiveMindGame({
         </CardContent>
       </Card>
 
-      {/* Phase: Reading → ready to answer */}
-      {phase === 'reading' && (
-        <Button onClick={handleReadyToAnswer} className="w-full" size="lg">
-          I've read the story — show me the question
-        </Button>
-      )}
-
-      {/* Phase: Answering */}
+      {/* Phase: Answering — question + options shown immediately with story */}
       {phase === 'answering' && (
         <div className="space-y-3">
           <h3 className="text-base font-semibold">{currentCase.question}</h3>
@@ -251,9 +252,9 @@ export function DetectiveMindGame({
         </div>
       )}
 
-      {/* Phase: Feedback — now transitions to explaining */}
+      {/* Phase: Feedback — shows result + model explanation */}
       {phase === 'feedback' && lastResult && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Card className={cn(
             "border-2",
             lastResult.correct 
@@ -281,16 +282,60 @@ export function DetectiveMindGame({
                   {currentCase.options[currentCase.correctIndex]}
                 </p>
               )}
+              {/* Model explanation — always shown */}
+              <div className="border-t pt-2 mt-2">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Why:</span>{' '}
+                  {currentCase.explanation}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
-          <Button onClick={handleProceedToExplain} className="w-full" size="lg">
-            Now explain why →
-          </Button>
+          {/* Explain-why: adaptive, progressively lighter */}
+          <div className="flex gap-2">
+            {explainPromptLevel === 'full' && (
+              <>
+                <Button onClick={handleProceedToExplain} className="flex-1" size="lg">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Explain why (bonus points)
+                </Button>
+                <Button onClick={handleSkipExplain} variant="outline" size="lg">
+                  Next →
+                </Button>
+              </>
+            )}
+            {explainPromptLevel === 'collapsed' && (
+              <div className="w-full space-y-2">
+                <Button onClick={handleSkipExplain} className="w-full" size="lg">
+                  Next Case →
+                </Button>
+                <button
+                  onClick={handleProceedToExplain}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  Want to explain your thinking? (bonus points)
+                </button>
+              </div>
+            )}
+            {explainPromptLevel === 'minimal' && (
+              <div className="w-full space-y-2">
+                <Button onClick={handleSkipExplain} className="w-full" size="lg">
+                  Next Case →
+                </Button>
+                <button
+                  onClick={handleProceedToExplain}
+                  className="w-full text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-0.5"
+                >
+                  Explain reasoning
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Phase: Explaining — generative "why" layer */}
+      {/* Phase: Explaining */}
       {phase === 'explaining' && currentCase && (
         <ExplainWhyPrompt
           wasCorrect={lastResult?.correct ?? false}
@@ -304,6 +349,137 @@ export function DetectiveMindGame({
               : `Why is "${currentCase.options[currentCase.correctIndex]}" the right answer? What clues support it?`
           }
         />
+      )}
+    </div>
+  );
+}
+
+/** Summary screen with question-type breakdown and Maya reflection */
+function DetectiveSummary({ 
+  results, totalPoints, rank, reasoningPoints 
+}: { 
+  results: DetectiveTrialResult[]; 
+  totalPoints: number; 
+  rank: DetectiveRank; 
+  reasoningPoints: number;
+}) {
+  const correctCount = results.filter(r => r.correct).length;
+  const accuracy = results.length > 0 ? correctCount / results.length : 0;
+
+  // Group by question type
+  const typeBreakdown = useMemo(() => {
+    const map = new Map<QuestionType, { correct: number; total: number }>();
+    for (const r of results) {
+      const qt = r.questionType as QuestionType;
+      const entry = map.get(qt) ?? { correct: 0, total: 0 };
+      entry.total += 1;
+      if (r.correct) entry.correct += 1;
+      map.set(qt, entry);
+    }
+    return Array.from(map.entries()).map(([type, stats]) => ({
+      type,
+      label: QUESTION_TYPE_LABELS[type],
+      ...stats,
+    }));
+  }, [results]);
+
+  // Find weakest type for next-step suggestion
+  const weakestType = useMemo(() => {
+    let worst: { type: QuestionType; label: string; acc: number } | null = null;
+    for (const t of typeBreakdown) {
+      const acc = t.total > 0 ? t.correct / t.total : 1;
+      if (!worst || acc < worst.acc) {
+        worst = { type: t.type, label: t.label, acc };
+      }
+    }
+    return worst;
+  }, [typeBreakdown]);
+
+  // Maya reflection
+  const mayaReflection = useMemo(() => {
+    if (accuracy >= 0.8) return "Strong detective work! You're picking up on clues quickly.";
+    if (accuracy >= 0.5) return "Good effort — you're building solid comprehension skills.";
+    return "These are tricky cases. Each one helps you practice finding important details.";
+  }, [accuracy]);
+
+  const realLifeLine = "Understanding clues in stories uses the same skills as following conversations and reading the news.";
+
+  return (
+    <div className="max-w-lg mx-auto space-y-6 text-center">
+      <div className="text-6xl">🕵️</div>
+      <h2 className="text-2xl font-bold">Investigation Complete!</h2>
+      <div className="flex items-center justify-center gap-2 text-lg">
+        {RANK_ICONS[rank]}
+        <span className="font-semibold">{rank}</span>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{correctCount}/{results.length}</div>
+            <div className="text-xs text-muted-foreground">Cases Solved</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{totalPoints}</div>
+            <div className="text-xs text-muted-foreground">Points</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{Math.round(accuracy * 100)}%</div>
+            <div className="text-xs text-muted-foreground">Accuracy</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Question-type breakdown */}
+      {typeBreakdown.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 space-y-2">
+            <h3 className="text-sm font-semibold text-left">Skill Breakdown</h3>
+            {typeBreakdown.map(t => {
+              const acc = t.total > 0 ? t.correct / t.total : 0;
+              const icon = acc >= 0.75 ? '✅' : acc >= 0.5 ? '⚠️' : '○';
+              return (
+                <div key={t.type} className="flex items-center justify-between text-sm">
+                  <span>{t.label}</span>
+                  <span className="font-medium">
+                    {icon} {t.correct}/{t.total}
+                  </span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Next-step suggestion */}
+      {weakestType && weakestType.acc < 0.75 && (
+        <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-left">
+          <span className="font-medium">💡 Next time:</span>{' '}
+          <span className="text-muted-foreground">
+            {weakestType.type === 'inference' && "Look for hidden clues — what characters feel or do can tell you more than what's said directly."}
+            {weakestType.type === 'prediction' && "Think about what comes next — the clues in the story hint at what will happen."}
+            {weakestType.type === 'cause_effect' && "Ask yourself: what caused this to happen? Look for the chain of events."}
+            {weakestType.type === 'figurative' && "Some phrases don't mean exactly what they say — think about the everyday meaning."}
+            {weakestType.type === 'literal' && "Focus on the specific details mentioned in the story."}
+          </span>
+        </div>
+      )}
+
+      {/* Maya reflection */}
+      <div className="bg-primary/5 border border-primary/10 rounded-lg px-4 py-3 text-sm space-y-1">
+        <p className="font-medium">{mayaReflection}</p>
+        <p className="text-muted-foreground text-xs">{realLifeLine}</p>
+      </div>
+
+      {reasoningPoints > 0 && (
+        <div className="text-sm text-muted-foreground">
+          🧠 Reasoning score: {reasoningPoints} pts
+        </div>
       )}
     </div>
   );
