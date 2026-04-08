@@ -56,6 +56,18 @@ export const ExerciseTransitionOverlay = ({
   });
 
   const adaptationMsg = showFeedback ? getAdaptationMessage(lastScore ?? null, nextExerciseName) : null;
+  
+  // Coaching bridge text (Guided/Full modes)
+  const [coachingBridge] = useState(() => 
+    getTransitionCoaching({
+      mode,
+      lastScore: lastScore ?? null,
+      nextExerciseName,
+      nextExerciseId: nextExerciseId || '',
+      completedCount,
+      totalCount,
+    })
+  );
 
   useEffect(() => {
     if (isPaused) return;
