@@ -15,10 +15,11 @@ import { useNarrativeRetellGame, NarrativeTrialResult, SectionStatus } from '@/h
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard } from 'lucide-react';
+import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -110,6 +111,18 @@ export function NarrativeRetellGame({
   // Clinical pipeline hooks
   const { startAttempt, logFinalAnalysis, resetAttempt, currentAttemptId } = useUtteranceLogger();
   const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
+  const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
+
+  // Stop TTS on unmount or when leaving reading phase
+  useEffect(() => {
+    return () => { stopTTS(); };
+  }, [stopTTS]);
+
+  const handleListenToStory = useCallback(() => {
+    if (!currentStory) return;
+    const fullText = currentStory.scenes.map(s => s.text).join(' ');
+    speakTTS(fullText);
+  }, [currentStory, speakTTS]);
 
   // Reset on story change
   useEffect(() => {
@@ -184,6 +197,7 @@ export function NarrativeRetellGame({
   }, [phase, collectedTranscript, stallPromptIndex]);
 
   const handleStartRetelling = useCallback(() => {
+    stopTTS(); // Stop Maya reading if still playing
     setPhase('retelling');
     startTimeRef.current = Date.now();
     retellStartRef.current = Date.now();
@@ -206,7 +220,7 @@ export function NarrativeRetellGame({
       startRecording();
       startListening();
     }
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping]);
+  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, stopTTS]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -397,10 +411,16 @@ export function NarrativeRetellGame({
 
           {/* Action buttons */}
           <div className="space-y-2">
-            <Button onClick={handleStartRetelling} className="w-full" size="lg">
-              {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-              Start retelling
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleStartRetelling} className="flex-1" size="lg" disabled={isTTSSpeaking}>
+                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                Start retelling
+              </Button>
+              <Button variant="outline" size="lg" onClick={isTTSSpeaking ? stopTTS : handleListenToStory}>
+                <Volume2 className="h-4 w-4 mr-1" />
+                {isTTSSpeaking ? 'Stop' : 'Listen'}
+              </Button>
+            </div>
             {isSupported && (
               <button
                 onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
