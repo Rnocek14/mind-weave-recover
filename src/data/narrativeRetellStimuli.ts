@@ -19,6 +19,12 @@ export interface NarrativeStory {
   /** Expected approximate retell length (for coherence baseline) */
   expectedClauses: number;
   tier: 1 | 2 | 3;
+  /** Maps scene indices to narrative sections for structured feedback */
+  structureMap: {
+    beginning: number[];
+    middle: number[];
+    end: number[];
+  };
 }
 
 export const NARRATIVE_STORIES: NarrativeStory[] = [
