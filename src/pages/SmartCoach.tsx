@@ -731,14 +731,21 @@ export default function SmartCoach() {
                 <span className="text-3xl">{plan.topic.emoji}</span>
                 <div>
                   <h2 className="text-lg font-semibold">{plan.topic.label}</h2>
-                  <p className="text-xs text-muted-foreground">{plan.focusDescription}</p>
+                  <p className="text-xs text-muted-foreground">{plan.topic.purpose.skillTarget}</p>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-primary" />
-                ~10 min · {plan.game1.label} + {plan.game2.label}
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {plan.topic.purpose.rationale.split('.')[0]}.
               </p>
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  ~10 min
+                </span>
+                <span>{plan.game1.label} → Transfer → {plan.game2.label}</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
