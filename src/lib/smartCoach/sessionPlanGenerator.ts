@@ -144,6 +144,10 @@ const GAME_ENGINE_DOMAINS: Record<string, string[]> = {
   meaning_match: ['receptive_language', 'semantic_systems'],
   sentence_construction: ['expressive_language'],
   semantic_features: ['semantic_systems', 'expressive_language'],
+  describe_guess: ['expressive_language', 'semantic_systems'],
+  narrative_retell: ['expressive_language'],
+  synonym_generator: ['semantic_systems', 'expressive_language'],
+  minimal_pairs: ['phonology', 'receptive_language'],
 };
 
 /**
@@ -207,6 +211,26 @@ function scoreAllGames(input: SessionPlanInput): ScoredGame[] {
         score -= 2;
         reasons.push(`mastered (${Math.round(perf.avgAccuracy * 100)}%)`);
       }
+    }
+
+    // === Layer: Recency penalty (avoid repeating recent sessions) ===
+    // Check if this exercise was used in the last 1-2 sessions
+    if (perf && perf.trialCount > 0) {
+      // If exercise was done very recently (high trial count relative to others), penalize
+      const maxTrials = Math.max(...input.exerciseHistory.map(e => e.trialCount), 1);
+      const recencyRatio = perf.trialCount / maxTrials;
+      if (recencyRatio > 0.7 && perf.trialCount >= 10) {
+        score -= 3;
+        reasons.push('recently overused — rotating');
+      } else if (recencyRatio > 0.4 && perf.trialCount >= 8) {
+        score -= 1.5;
+        reasons.push('used recently');
+      }
+    }
+    // Boost exercises with zero or very few trials (never/rarely tried)
+    if (!perf || perf.trialCount < 3) {
+      score += 2;
+      reasons.push('fresh exercise — adding variety');
     }
     
     // === Layer: Phoneme needs → boost speech-producing games ===
@@ -453,8 +477,8 @@ function buildOpener(
     parts.push(continuity.continuityOpener);
   }
   
-  parts.push(`Today we're working on ${topic.purpose.skillTarget.toLowerCase()}.`);
-  parts.push(`We'll start with a quick warm-up, then do some focused practice.`);
+  parts.push(`Today we're working on ${topic.purpose.skillTarget.toLowerCase()} — this helps with ${topic.purpose.transferTarget.toLowerCase()}.`);
+  parts.push(`Two focused rounds, then we're done.`);
   
   return parts.join('\n\n');
 }
@@ -470,6 +494,10 @@ function buildGame1Setup(
     sentence_construction: `I'll give you some words — put them together into a sentence that makes sense.`,
     yes_no_comprehension: `Quick round — I'll ask you yes or no questions. Just tap your answer.`,
     meaning_match: `Match each word with the one that means the same thing.`,
+    describe_guess: `I'll show you something — describe it so someone could guess what it is. Use details, not the name.`,
+    narrative_retell: `Listen to a short story, then tell it back in your own words. Focus on the main ideas.`,
+    synonym_generator: `I'll give you a word — think of other words that mean the same thing. The more, the better.`,
+    minimal_pairs: `You'll hear two similar words — tell me which one matches the picture. Listen carefully to the sounds.`,
   };
   
   return setupMap[game1.id] || `Let's practice with a quick exercise.`;

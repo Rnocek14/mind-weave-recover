@@ -47,24 +47,24 @@ export interface DrillSelectionContext {
 
 /** Primary game for each detected issue pattern */
 const ISSUE_TO_GAME: Record<string, { primary: string; backup: string }> = {
-  hesitation_cluster:     { primary: 'photo_naming',          backup: 'semantic_features' },
-  circumlocution:         { primary: 'semantic_features',     backup: 'photo_naming' },
+  hesitation_cluster:     { primary: 'photo_naming',          backup: 'describe_guess' },
+  circumlocution:         { primary: 'semantic_features',     backup: 'synonym_generator' },
   consecutive_hesitation: { primary: 'photo_naming',          backup: 'semantic_features' },
-  low_content_response:   { primary: 'yes_no_comprehension',  backup: 'photo_naming' },
-  phonological_error:     { primary: 'photo_naming',          backup: 'meaning_match' },
-  weak_sentence:          { primary: 'sentence_construction', backup: 'photo_naming' },
-  disengagement_cluster:  { primary: 'photo_naming',          backup: 'yes_no_comprehension' },
-  low_engagement:         { primary: 'photo_naming',          backup: 'yes_no_comprehension' },
+  low_content_response:   { primary: 'yes_no_comprehension',  backup: 'meaning_match' },
+  phonological_error:     { primary: 'minimal_pairs',         backup: 'photo_naming' },
+  weak_sentence:          { primary: 'sentence_construction', backup: 'narrative_retell' },
+  disengagement_cluster:  { primary: 'describe_guess',        backup: 'yes_no_comprehension' },
+  low_engagement:         { primary: 'describe_guess',        backup: 'photo_naming' },
 };
 
 /** Topic → recommended games */
 const TOPIC_TO_GAMES: Record<string, string[]> = {
-  food:          ['photo_naming', 'category_fluency', 'semantic_features'],
-  family:        ['sentence_construction', 'photo_naming', 'meaning_match'],
-  daily_routine: ['sentence_construction', 'category_fluency', 'photo_naming'],
-  hobbies:       ['category_fluency', 'sentence_construction', 'photo_naming'],
-  travel:        ['photo_naming', 'sentence_construction', 'category_fluency'],
-  pets:          ['photo_naming', 'semantic_features', 'category_fluency'],
+  food:          ['photo_naming', 'category_fluency', 'semantic_features', 'describe_guess'],
+  family:        ['sentence_construction', 'narrative_retell', 'photo_naming', 'describe_guess'],
+  daily_routine: ['sentence_construction', 'category_fluency', 'narrative_retell', 'describe_guess'],
+  hobbies:       ['category_fluency', 'describe_guess', 'sentence_construction', 'synonym_generator'],
+  travel:        ['photo_naming', 'narrative_retell', 'sentence_construction', 'describe_guess'],
+  pets:          ['photo_naming', 'semantic_features', 'describe_guess', 'category_fluency'],
 };
 
 // ─── Main Selector ──────────────────────────────────────────
@@ -120,11 +120,11 @@ export function selectPracticeBlock(ctx: Omit<DrillSelectionContext, 'kind'>): D
 
 /** Domain slug → relevant game IDs */
 const DOMAIN_TO_GAMES: Record<string, string[]> = {
-  lexical_retrieval: ['photo_naming', 'category_fluency'],
-  semantic_depth: ['semantic_features', 'meaning_match'],
-  syntax: ['sentence_construction'],
-  phonology: ['photo_naming'], // Photo naming with phonemic cues
-  discourse: ['sentence_construction', 'category_fluency'],
+  lexical_retrieval: ['photo_naming', 'category_fluency', 'synonym_generator'],
+  semantic_depth: ['semantic_features', 'meaning_match', 'describe_guess'],
+  syntax: ['sentence_construction', 'narrative_retell'],
+  phonology: ['minimal_pairs', 'photo_naming'],
+  discourse: ['narrative_retell', 'sentence_construction', 'describe_guess', 'category_fluency'],
 };
 
 function scoreGame(game: GameDefinition, ctx: DrillSelectionContext): number {
