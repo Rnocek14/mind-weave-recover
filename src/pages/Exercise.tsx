@@ -72,6 +72,7 @@ const Exercise = () => {
   const [lastProbeSession, setLastProbeSession] = useState<number | null>(null);
   const [showConfidenceBoost, setShowConfidenceBoost] = useState(false);
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
+  const [isPausedOverlay, setIsPausedOverlay] = useState(false);
   const [todayStats, setTodayStats] = useState({ correct: 0, total: 0, weeklyAccuracy: 0, improvement: 0 });
   const [showMoodCheckIn, setShowMoodCheckIn] = useState(false);
   const [preMood, setPreMood] = useState<number | null>(null);
@@ -1026,6 +1027,42 @@ const Exercise = () => {
           </Card>
         )}
 
+        {/* Pause Overlay */}
+        {isPausedOverlay && isPlaying && (
+          <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
+            <Pause className="w-16 h-16 text-muted-foreground" />
+            <h2 className="text-2xl font-bold text-foreground">Paused</h2>
+            <p className="text-muted-foreground text-center max-w-sm">
+              Take your time. Press Resume when you're ready to continue.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                size="lg"
+                onClick={() => {
+                  setIsPausedOverlay(false);
+                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                    phraseGameRef.current.resume();
+                  }
+                }}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Resume
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
+                onClick={() => {
+                  setIsPausedOverlay(false);
+                  setIsPlaying(false);
+                  navigate("/dashboard");
+                }}
+              >
+                End Session
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Fixed Safety Controls - hide in session mode */}
         {isPlaying && !fromLesson && (
           <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-2 sm:p-4 z-50">
@@ -1035,14 +1072,28 @@ const Exercise = () => {
                 size="sm"
                 className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={() => {
-                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
-                    phraseGameRef.current.pause();
+                  const isEmbedded = exerciseId === 'word-practice' || exerciseId === 'photo-naming' || exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt';
+                  if (isEmbedded) {
+                    if (isPausedOverlay) {
+                      // Resume
+                      setIsPausedOverlay(false);
+                      if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                        phraseGameRef.current.resume();
+                      }
+                    } else {
+                      // Pause
+                      setIsPausedOverlay(true);
+                      if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                        phraseGameRef.current.pause();
+                      }
+                    }
+                  } else {
+                    setIsPlaying(false);
                   }
-                  setIsPlaying(false);
                 }}
               >
-                <Pause className="w-5 h-5 sm:mr-2" />
-                <span className="hidden sm:inline">Pause</span>
+                {isPausedOverlay ? <Play className="w-5 h-5 sm:mr-2" /> : <Pause className="w-5 h-5 sm:mr-2" />}
+                <span className="hidden sm:inline">{isPausedOverlay ? 'Resume' : 'Pause'}</span>
               </Button>
               <Button
                 className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
