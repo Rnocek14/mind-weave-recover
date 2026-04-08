@@ -805,8 +805,18 @@ export default function SmartCoach() {
       ? Math.max(...transferResults.map(r => r.score)) : 0;
     const closingMessage = buildSessionClosing(plan.topic, game1Result, game2Result, bestTransferScore);
 
-    // Personalized "what improved" insight
+    // Detect tangible progress moment
+    const progressMoment = detectProgressMoment(game1Result, game2Result, bestTransferScore);
+    
+    // Cross-session comparison from continuity engine
+    const continuityClosing = continuitySignals
+      ? buildContinuityClosing(continuitySignals, game1Result?.score ?? null, game2Result?.score ?? null)
+      : null;
+
+    // Personalized "what improved" insight — prefer progress moment over word list
     const improvementInsight = (() => {
+      if (progressMoment) return formatProgressForClosing(progressMoment);
+      if (continuityClosing) return continuityClosing;
       const words = [
         ...(game1Result?.targetWords || []).slice(0, 2),
         ...(game2Result?.targetWords || []).slice(0, 1),
