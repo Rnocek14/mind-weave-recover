@@ -27,8 +27,8 @@ export interface PauseDecision {
 }
 
 /** Base intervals — used as defaults, overridden by performance */
-const BASE_ENCOURAGEMENT_SEC = 3;
-const BASE_MICRO_PAUSE_SEC = 8;
+const BASE_ENCOURAGEMENT_SEC = 1.5;
+const BASE_MICRO_PAUSE_SEC = 5;
 const BASE_PAUSE_INTERVAL = 3; // every N exercises
 
 /**
