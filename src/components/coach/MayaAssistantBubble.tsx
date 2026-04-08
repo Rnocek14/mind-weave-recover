@@ -98,7 +98,7 @@ export function MayaAssistantBubble({
                   <span className="block">{opt.label}</span>
                   {opt.action === 'give_hint' && hintLevel > 0 && (
                     <span className="block text-[10px] text-muted-foreground mt-0.5">
-                      Level {Math.min(hintLevel + 1, 4)}/4 — {HINT_LEVELS[Math.min(hintLevel + 1, 4)]}
+                      {Math.min(hintLevel + 1, 3)}/3 — {HINT_LEVELS[Math.min(hintLevel, 2)]}
                     </span>
                   )}
                 </div>
