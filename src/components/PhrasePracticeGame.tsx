@@ -50,6 +50,17 @@ interface PhrasePracticeGameProps {
   onDifficultyChange?: (newLevel: number) => void;
 }
 
+export interface PhrasePracticeGameHandle {
+  /** Mark current phrase as correctly said (manual override) */
+  markCorrect: () => void;
+  /** Skip current phrase as too hard — lowers difficulty and advances */
+  skipTooHard: () => void;
+  /** Pause the game (stop mic, freeze state) */
+  pause: () => void;
+  /** Resume the game (restart mic) */
+  resume: () => void;
+}
+
 // Debounced mic status - only show "mic paused" after 2s of being off
 const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
@@ -70,7 +81,7 @@ const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
   return showMicPaused;
 };
 
-export const PhrasePracticeGame = ({
+export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePracticeGameProps>(({
   totalTrials,
   initialDifficulty,
   autoListen = true, // Default ON for stroke survivors
@@ -79,7 +90,7 @@ export const PhrasePracticeGame = ({
   onTrialComplete,
   onGameComplete,
   onDifficultyChange
-}: PhrasePracticeGameProps) => {
+}, ref) => {
   const { toast } = useToast();
   const { playSuccess, playError } = useGameSounds();
   const { user } = useAuth();
