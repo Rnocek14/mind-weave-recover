@@ -302,6 +302,15 @@ export function SynonymGeneratorGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening]);
 
+  // Auto-start first round when launched from lesson flow
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
+      autoStartedRef.current = true;
+      startRound();
+    }
+  }, [autoStartFirst, phase, currentRound, startRound]);
+
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
     usedWordsRef.current.add(prompt.word);
