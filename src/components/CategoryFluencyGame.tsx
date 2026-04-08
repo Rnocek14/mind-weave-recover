@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Timer, Plus, ThumbsUp, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard } from 'lucide-react';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -267,9 +268,10 @@ export function CategoryFluencyGame({
     setCurrentRound(prev => prev + 1);
     setWords([]);
     setCurrentInput('');
-    setPhase('ready');
     setShowTextInput(false);
-  }, []);
+    // Auto-start next round immediately (no return to 'ready')
+    setTimeout(() => startRound(), 300);
+  }, [startRound]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
@@ -329,11 +331,11 @@ export function CategoryFluencyGame({
     );
   }
 
-  // Round done
+  // Round done — auto-advance after 3s
   if (phase === 'round-done') {
     const lastResult = results[results.length - 1];
     return (
-      <div className="flex flex-col items-center gap-4 py-8 max-w-sm mx-auto text-center">
+      <RoundDoneAutoAdvance onAdvance={nextRound}>
         <ThumbsUp className="w-10 h-10 text-primary" />
         <p className="text-2xl font-bold">{lastResult.uniqueWordCount} words!</p>
         <div className="flex flex-wrap gap-1 justify-center">
@@ -350,11 +352,7 @@ export function CategoryFluencyGame({
             )}
           </Badge>
         )}
-        <Button onClick={nextRound} className="min-h-[48px]">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Next Category
-        </Button>
-      </div>
+      </RoundDoneAutoAdvance>
     );
   }
 

@@ -27,6 +27,8 @@ interface AbstractCompareGameProps {
   onGameComplete: (results: AbstractCompareTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** Auto-start mic on first trial (from lesson flow) */
+  autoStart?: boolean;
 }
 
 type Phase = 'prompt' | 'speaking' | 'scored';
@@ -35,6 +37,7 @@ export function AbstractCompareGame({
   userId,
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
+  autoStart = false,
 }: AbstractCompareGameProps) {
   const { currentItem, currentIndex, totalItems, isComplete, results, submitAnswer, nextItem } =
     useAbstractCompareGame(roundCount, tier);
@@ -60,6 +63,8 @@ export function AbstractCompareGame({
     uploadRecording,
   } = useAudioRecorder();
 
+  const autoStartedRef = useRef(false);
+
   useEffect(() => {
     setPhase('prompt');
     setLastResult(null);
@@ -67,6 +72,7 @@ export function AbstractCompareGame({
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
   }, [currentIndex]);
+
 
   const completedRef = useRef(false);
   useEffect(() => {
@@ -125,6 +131,14 @@ export function AbstractCompareGame({
     startRecording();
     startListening();
   }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
+
+  // Auto-start first trial when launched from lesson
+  useEffect(() => {
+    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
+      autoStartedRef.current = true;
+      setTimeout(() => handleStart(), 400);
+    }
+  }, [autoStart, phase, currentItem, isSupported, handleStart]);
 
   const handleDone = useCallback(async () => {
     if (hasProcessedRef.current) return;

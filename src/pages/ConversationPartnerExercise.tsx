@@ -27,6 +27,7 @@ export default function ConversationPartnerExercise() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile, loading: profileLoading } = useProfile();
   const [gameStarted, setGameStarted] = useState(false);
+  const autoStartedRef = React.useRef(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const restored = useRestoredLessonContext('conversation-partner');
@@ -52,6 +53,14 @@ export default function ConversationPartnerExercise() {
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
     cueSensitive: true,
   });
+
+  // Auto-start when launched from lesson flow
+  React.useEffect(() => {
+    if (fromLesson && !autoStartedRef.current && !gameStarted && !authLoading && !profileLoading && user && activeSessionId) {
+      autoStartedRef.current = true;
+      setGameStarted(true);
+    }
+  }, [fromLesson, gameStarted, authLoading, profileLoading, user, activeSessionId]);
 
   if (authLoading || profileLoading) {
     return (
