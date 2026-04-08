@@ -244,7 +244,7 @@ export function DescribeGuessGame({
   // Cleanup
   useEffect(() => {
     return () => {
-      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
@@ -470,7 +470,7 @@ export function DescribeGuessGame({
   }, [game, speak]);
 
   const handleSkip = useCallback(() => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     promptTimersRef.current.forEach(t => clearTimeout(t));
     stopListening();
@@ -647,7 +647,7 @@ export function DescribeGuessGame({
             <Button
               size="sm"
               onClick={() => {
-                if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+                if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
                 runEvaluation();
               }}
               disabled={!displayTranscript || displayTranscript.trim().length < 3}
