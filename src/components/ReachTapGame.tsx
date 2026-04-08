@@ -82,21 +82,21 @@ export const ReachTapGame = ({
     },
   });
 
-  // Calculate target size as percentage of container with min/max clamps
+  // Calculate target size in pixels based on difficulty
   const getTargetSize = (difficulty: number, containerWidth: number): number => {
-    // Base percentage: higher difficulty = smaller target
-    // Slow mode: 18% -> 10% of container, Normal: 14% -> 6%
-    const basePercent = slowMode 
-      ? Math.max(10, 18 - (difficulty * 0.8))  
-      : Math.max(6, 14 - (difficulty * 0.8));
-    
-    const calculatedSize = (containerWidth * basePercent) / 100;
-    
-    // Clamp between min (accessible touch target) and max (not ridiculously large)
-    const minSize = slowMode ? 48 : 40;  // Minimum 48px for accessibility
-    const maxSize = slowMode ? 90 : 70;  // Maximum reasonable size
-    
-    return Math.max(minSize, Math.min(maxSize, calculatedSize));
+    // Difficulty 1 = large & easy, difficulty 10 = small & challenging
+    // Use fixed pixel sizes for clear visual progression
+    if (slowMode) {
+      // Slow mode: 120px (easy) down to 56px (hard) — always accessible
+      const maxPx = 120;
+      const minPx = 56;
+      return Math.round(maxPx - ((difficulty - 1) / 9) * (maxPx - minPx));
+    } else {
+      // Normal mode: 90px (easy) down to 36px (hard)
+      const maxPx = 90;
+      const minPx = 36;
+      return Math.round(maxPx - ((difficulty - 1) / 9) * (maxPx - minPx));
+    }
   };
 
   // Calculate timeout based on difficulty
