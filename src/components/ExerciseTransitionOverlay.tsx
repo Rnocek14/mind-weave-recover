@@ -6,6 +6,7 @@ import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
 import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } from '@/lib/sessionFeedbackCopy';
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { getTransitionCoaching } from '@/lib/coachingNarrative';
+import { getExerciseMicroGuidance } from '@/lib/exerciseMicroGuidance';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
