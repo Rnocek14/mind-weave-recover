@@ -72,6 +72,32 @@ export default function Today() {
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
+  const [savedSession, setSavedSession] = useState<{
+    currentBlockIndex: number;
+    blockCount: number;
+    lesson: any;
+    clinicalProfile: any;
+    sessionId: string | null;
+  } | null>(null);
+
+  // Check for in-progress session
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('lessonFlowState');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
+          setSavedSession({
+            currentBlockIndex: parsed.currentBlockIndex,
+            blockCount: parsed.blockCount,
+            lesson: parsed.lesson,
+            clinicalProfile: parsed.clinicalProfile || null,
+            sessionId: parsed.sessionId || null,
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // Generate the daily lesson
   const { lesson, todayFocus } = useDailyLesson(
