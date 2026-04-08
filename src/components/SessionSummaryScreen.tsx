@@ -210,6 +210,21 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           </Collapsible>
         )}
 
+        {/* Transfer suggestion — light/full coaching modes */}
+        {showTransferOnSummary && lesson.targetDomains?.[0] && (
+          <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
+            <div className="flex items-start gap-2.5">
+              <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Try this in real life</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {getTransferSuggestion(lesson.targetDomains[0])}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex flex-col gap-3 pt-2">
           <Button size="lg" className="w-full h-14 text-base" onClick={onFinish}>
