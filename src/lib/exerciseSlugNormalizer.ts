@@ -39,10 +39,18 @@ export type ExerciseModality = 'speaking' | 'listening' | 'motor' | 'mixed';
 
 /**
  * Normalize any exercise slug to canonical format.
- * Converts hyphens to underscores and lowercases.
+ * Converts route aliases to canonical exercise slugs first, then normalizes format.
  */
+const EXERCISE_SLUG_ALIASES: Record<string, string> = {
+  'word-practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
+  'word_practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
+  'phrase-practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
+  'phrase_practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
+};
+
 export const normalizeExerciseSlug = (rawSlug: string): string => {
-  return rawSlug.replace(/-/g, '_').toLowerCase();
+  const normalized = rawSlug.replace(/-/g, '_').toLowerCase();
+  return EXERCISE_SLUG_ALIASES[rawSlug.toLowerCase()] ?? EXERCISE_SLUG_ALIASES[normalized] ?? normalized;
 };
 
 /**
