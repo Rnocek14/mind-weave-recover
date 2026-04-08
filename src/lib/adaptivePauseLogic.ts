@@ -27,8 +27,8 @@ export interface PauseDecision {
 }
 
 /** Base intervals — used as defaults, overridden by performance */
-const BASE_ENCOURAGEMENT_SEC = 3;
-const BASE_MICRO_PAUSE_SEC = 8;
+const BASE_ENCOURAGEMENT_SEC = 1.5;
+const BASE_MICRO_PAUSE_SEC = 5;
 const BASE_PAUSE_INTERVAL = 3; // every N exercises
 
 /**
@@ -53,34 +53,32 @@ export function decidePause(signals: PerformanceSignals): PauseDecision {
 
   // Rule 1: If struggling or fatigued, insert micro-pause more frequently + longer
   if (isStruggling || isFatigued) {
-    // Every 2 exercises instead of 3
     if (completedCount > 0 && completedCount % 2 === 0) {
       return {
         type: 'micro-pause',
-        duration: isFatigued ? 12 : 10,
+        duration: isFatigued ? 8 : 6,
         reason: isFatigued ? 'fatigue_detected' : 'struggling_performance',
       };
     }
     return {
       type: 'encouragement',
-      duration: 4, // slightly longer for struggling users
+      duration: 2,
       reason: 'supportive_pacing',
     };
   }
 
   // Rule 2: If performing well, shorter pauses and less frequent micro-pauses
   if (isPerformingWell) {
-    // Micro-pause every 4 exercises instead of 3
     if (completedCount > 0 && completedCount % 4 === 0) {
       return {
         type: 'micro-pause',
-        duration: 6,
+        duration: 4,
         reason: 'scheduled_reset_strong_performance',
       };
     }
     return {
       type: 'encouragement',
-      duration: 2,
+      duration: 1.2,
       reason: 'momentum_preservation',
     };
   }
