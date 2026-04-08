@@ -74,6 +74,7 @@ import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -103,6 +104,7 @@ const App = () => (
               <BrowserRouter>
                 <Toaster />
                 <Sonner />
+                <MayaSessionOverlay />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
