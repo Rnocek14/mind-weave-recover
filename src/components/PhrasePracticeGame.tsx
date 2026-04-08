@@ -792,10 +792,14 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const handleRestartListening = () => {
     setShowRecoveryActions(false);
     consecutiveStallCountRef.current = 0;
+    setIsListeningMode(true); // Re-enable auto-listen
 
     if (isListening) {
       stopListening();
-      setTimeout(() => startListening(), 400);
+      setTimeout(() => {
+        setIsListeningMode(true);
+        startListening();
+      }, 400);
       return;
     }
 
