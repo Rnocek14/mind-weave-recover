@@ -424,18 +424,45 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
       startListening, speechIsListening]);
 
-  // Speech-end evaluation (debounced 3s after last transcript change)
-  // Use fullTranscript as trigger — it accumulates all speech segments
+  // Track transcript changes for silence measurement
   useEffect(() => {
-    if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+    if (fullTranscript) lastTranscriptChangeRef.current = Date.now();
+  }, [fullTranscript]);
 
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+  // Adaptive speech-end evaluation using speech state classifier
+  useEffect(() => {
+    if (!isListening || showFeedback) return;
 
-    debounceTimeoutRef.current = setTimeout(() => {
-      runEvaluation();
-    }, SPEECH_END_DEBOUNCE_MS);
+    if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
+
+    debounceTimeoutRef.current = setInterval(() => {
+      if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current) return;
+      
+      const silenceMs = Date.now() - lastTranscriptChangeRef.current;
+      const elapsedMs = Date.now() - listeningStartRef.current;
+      const trial = currentTrialRef.current;
+      
+      const state = classifySpeechState({
+        transcript: fullTranscript,
+        elapsedMs,
+        silenceDurationMs: silenceMs,
+        promptText: trial?.target,
+      });
+
+      setNudgeHint(state.nudgeHint);
+
+      if (state.suppressAutoSubmit) return;
+
+      const threshold = Math.round(SPEECH_END_BASE_MS * state.patienceMultiplier);
+
+      if (silenceMs >= threshold) {
+        runEvaluation();
+      }
+    }, 200);
+
+    return () => { if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullTranscript, showFeedback]);
+  }, [isListening, showFeedback, fullTranscript]);
 
   const handleChipTap = useCallback((chip: PromptChip) => {
     game.recordFeatureChip(chip.featureType, chip.question);
