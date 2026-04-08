@@ -386,11 +386,11 @@ export function SynonymGeneratorGame({
     );
   }
 
-  // Round done
+  // Round done — auto-advance after 3s
   if (phase === 'round-done') {
     const lastResult = results[results.length - 1];
     return (
-      <div className="flex flex-col items-center gap-4 py-8 max-w-sm mx-auto text-center">
+      <RoundDoneAutoAdvance onAdvance={nextRound}>
         <ThumbsUp className="w-10 h-10 text-primary" />
         <p className="text-2xl font-bold">{lastResult.matchCount} synonyms found!</p>
         <p className="text-sm text-muted-foreground">for "{lastResult.targetWord}"</p>
@@ -414,11 +414,7 @@ export function SynonymGeneratorGame({
             )}
           </Badge>
         )}
-        <Button onClick={nextRound} className="min-h-[48px]">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Next Word
-        </Button>
-      </div>
+      </RoundDoneAutoAdvance>
     );
   }
 
