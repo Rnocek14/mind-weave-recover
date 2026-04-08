@@ -429,18 +429,9 @@ export default function SmartCoach() {
     setGame1Result(result);
     setHintLevel(0);
     
-    // Show review as a throttled toast
-    const score = result.score;
-    const pct = Math.round(score * 100);
-    if (score >= 0.85) {
-      mayaToast(`${pct}% — words came out quickly. Now let's use them.`, { type: 'success' });
-    } else if (score >= 0.6) {
-      mayaToast(`${pct}% — building momentum. Let's reinforce.`);
-    } else if (score >= 0.4) {
-      mayaToast(`${pct}% — some were tough. We'll approach it differently.`);
-    } else {
-      mayaToast(`${pct}% — hard round. Let's adjust and try another angle.`);
-    }
+    // Show purpose-tied micro-reflection
+    const reflection = buildPostGameReflection(result, 1, plan.topic);
+    mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     
     microEncouragement.trackGameComplete({
       score: result.score,
