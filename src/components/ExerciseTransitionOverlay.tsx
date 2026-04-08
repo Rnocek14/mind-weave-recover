@@ -213,6 +213,13 @@ export const ExerciseTransitionOverlay = ({
             Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
           
+          {/* Exercise micro-guidance — Guided/Full modes */}
+          {microGuidance && !coachingBridge && (
+            <p className="text-sm text-muted-foreground/80 italic">
+              {microGuidance}
+            </p>
+          )}
+          
           {/* Coaching bridge — Guided/Full modes */}
           {coachingBridge && (
             <div className="flex items-center justify-center gap-2 mt-2">
