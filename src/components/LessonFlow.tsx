@@ -29,6 +29,7 @@ import {
 } from "@/lib/sessionFlowAnalytics";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
+import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
 
 
 type FlowPhase = 
@@ -592,6 +593,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             <p className="text-muted-foreground">
               {humanizeSlug(currentBlock?.exerciseId || '')}
             </p>
+            {/* Micro-guidance — Guided/Full only */}
+            {showPurpose && (() => {
+              const guidance = getExerciseMicroGuidance(currentBlock?.exerciseId || '');
+              return guidance ? (
+                <p className="text-sm text-muted-foreground/80 italic">{guidance}</p>
+              ) : null;
+            })()}
             {/* Visible adaptivity message */}
             {adaptMsg && (
               <p className="text-sm text-primary/80 font-medium mt-2">
