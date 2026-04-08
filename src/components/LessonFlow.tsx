@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
+import { resetFeedbackHistory } from "@/lib/sessionFeedbackCopy";
 import {
   trackFirstExerciseLaunch,
   trackExerciseComplete,
@@ -275,6 +276,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   };
   
   const handlePreviewStart = () => {
+    resetFeedbackHistory();
     setPhase("exercise");
   };
 
