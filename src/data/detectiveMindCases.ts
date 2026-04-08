@@ -21,6 +21,8 @@ export interface DetectiveCase {
   correctIndex: number;
   explanation: string;
   questionType: QuestionType;
+  /** Index of the sentence containing key evidence for hint highlighting */
+  hintSentenceIndex: number;
 }
 
 export const DETECTIVE_CASES: DetectiveCase[] = [
@@ -39,6 +41,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 0,
     explanation: 'The story says the sink faucet was running, which caused the water.',
     questionType: 'literal',
+    hintSentenceIndex: 1,
   },
   {
     id: 'case-02',
@@ -55,6 +58,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The coworker had crumbs on his shirt — a clue that he ate it.',
     questionType: 'literal',
+    hintSentenceIndex: 3,
   },
   {
     id: 'case-03',
@@ -70,6 +74,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The baseball next to the vase and the open window tell us the ball came in and broke it.',
     questionType: 'literal',
+    hintSentenceIndex: 1,
   },
   {
     id: 'case-04',
@@ -86,6 +91,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Heavy snow and icy roads would slow down the bus.',
     questionType: 'cause_effect',
+    hintSentenceIndex: 1,
   },
   {
     id: 'case-05',
@@ -101,6 +107,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The person near the fence triggered the motion light and the barking.',
     questionType: 'cause_effect',
+    hintSentenceIndex: 1,
   },
   {
     id: 'case-06',
@@ -117,6 +124,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The chocolate on her son\'s face is a clear clue.',
     questionType: 'literal',
+    hintSentenceIndex: 3,
   },
   {
     id: 'case-07',
@@ -150,6 +158,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 2,
     explanation: 'The sister looks nervous — she likely did something wrong. The dog is happy, not guilty.',
     questionType: 'inference',
+    hintSentenceIndex: 3,
   },
   {
     id: 'case-09',
@@ -166,6 +175,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Mark smiled and looked away — classic sign of someone hiding that they did something nice.',
     questionType: 'inference',
+    hintSentenceIndex: 2,
   },
   {
     id: 'case-10',
@@ -182,6 +192,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Muddy field + dark clouds + coach message = game canceled because of bad weather.',
     questionType: 'cause_effect',
+    hintSentenceIndex: 0,
   },
   {
     id: 'case-11',
@@ -199,6 +210,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 2,
     explanation: 'The housekeeper lied about being sick, has a key, and no break-in occurred.',
     questionType: 'inference',
+    hintSentenceIndex: 3,
   },
   {
     id: 'case-12',
@@ -215,6 +227,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Without glasses, identical containers side by side — she likely grabbed salt instead of sugar.',
     questionType: 'inference',
+    hintSentenceIndex: 2,
   },
   {
     id: 'case-13',
@@ -250,6 +263,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Good preparation + confidence + quick callback = likely got the job.',
     questionType: 'prediction',
+    hintSentenceIndex: 4,
   },
   {
     id: 'case-15',
@@ -272,6 +286,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Books, a desk, university sticker, and "Professor" title all point to academic work.',
     questionType: 'prediction',
+    hintSentenceIndex: 3,
   },
   {
     id: 'case-16',
@@ -295,6 +310,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Mr. Garcia prepared while neighbors didn\'t — when the power went out, he was ready.',
     questionType: 'prediction',
+    hintSentenceIndex: 4,
   },
   {
     id: 'case-17',
@@ -317,6 +333,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: '"Breaking the ice" means making people feel comfortable — Amy did this with humor.',
     questionType: 'figurative',
+    hintSentenceIndex: 2,
   },
   {
     id: 'case-18',
@@ -339,6 +356,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: '"The last straw" means the final problem that pushes someone over the edge.',
     questionType: 'figurative',
+    hintSentenceIndex: 2,
   },
   {
     id: 'case-19',
@@ -361,6 +379,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The boss noticed the pattern of avoiding work — they\'ll likely address it.',
     questionType: 'prediction',
+    hintSentenceIndex: 4,
   },
   {
     id: 'case-20',
@@ -383,6 +402,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The circled date with a heart + cold behavior = she\'s hurt he forgot her birthday.',
     questionType: 'inference',
+    hintSentenceIndex: 4,
   },
 ];
 
