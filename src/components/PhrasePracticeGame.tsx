@@ -1106,4 +1106,6 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       )}
     </div>
   );
-};
+});
+
+PhrasePracticeGame.displayName = 'PhrasePracticeGame';
