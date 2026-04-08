@@ -194,11 +194,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             return;
           }
           
-          // Guard: if saved phase is 'exercise', user pressed Back from an exercise
-          // Don't re-launch — show the session preview instead
+          // Guard: if saved phase is 'exercise', the user exited mid-session.
+          // Preserve the resumable state and send them back to Today so the
+          // Continue session card can appear reliably.
           if (savedPhase === 'exercise') {
-            console.log('[LessonFlow] Detected back-from-exercise, clearing state');
-            sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
+            console.log('[LessonFlow] Detected interrupted exercise, preserving resume state and redirecting to /today');
+            navigate('/today', { replace: true });
             return;
           }
           
