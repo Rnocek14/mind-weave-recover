@@ -38,7 +38,7 @@ const Lesson = () => {
 
   // Only redirect if both sources have no lesson
   if (!lesson) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/today" replace />;
   }
 
   return (

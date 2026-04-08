@@ -23,7 +23,7 @@ const Auth = () => {
   // Redirect if already logged in (only after loading completes)
   useEffect(() => {
     if (!loading && user) {
-      navigate("/dashboard");
+      navigate("/today");
     }
   }, [user, loading, navigate]);
 
@@ -105,7 +105,7 @@ const Auth = () => {
         description: "Your progress will be saved locally. Create an account to sync across devices.",
       });
       // Still navigate to dashboard for sessionless mode
-      navigate("/dashboard");
+      navigate("/today");
     } else {
       toast({
         title: "Starting session",

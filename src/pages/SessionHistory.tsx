@@ -160,11 +160,11 @@ const SessionHistory = () => {
         {/* Header */}
         <Button
           variant="ghost"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/today")}
           className="mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
+          Back to Home
         </Button>
 
         <div className="flex items-start justify-between mb-8">

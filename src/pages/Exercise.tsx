@@ -358,7 +358,7 @@ const Exercise = () => {
         description: `You've already practiced for ${doseCap.todayMinutes} minutes today. Great work! Rest is important for recovery.`,
         variant: "default"
       });
-      navigate("/dashboard");
+      navigate("/today");
       return;
     }
 
@@ -684,7 +684,7 @@ const Exercise = () => {
           logIntervention('frustration', 'confidence_boost', 'accepted');
           setIsPlaying(true);
         }}
-        onSwitchExercise={() => navigate("/dashboard")}
+        onSwitchExercise={() => navigate("/today")}
         stats={todayStats}
       />
       
@@ -1054,7 +1054,7 @@ const Exercise = () => {
                 onClick={() => {
                   setIsPausedOverlay(false);
                   setIsPlaying(false);
-                  navigate("/dashboard");
+                  navigate("/today");
                 }}
               >
                 End Session
@@ -1135,7 +1135,7 @@ const Exercise = () => {
                 className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={() => {
                   setIsPlaying(false);
-                  navigate("/dashboard");
+                  navigate("/today");
                 }}
               >
                 <span className="hidden sm:inline">End</span>

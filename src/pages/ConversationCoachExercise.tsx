@@ -99,7 +99,7 @@ export default function ConversationCoachExercise() {
       }));
       navigate(returnTo, { state: { resuming: true } });
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   };
 
@@ -165,7 +165,7 @@ export default function ConversationCoachExercise() {
                     Practice Again
                   </Button>
                   <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
-                    Back to Dashboard
+                    Back to Home
                   </Button>
                 </>
               )}

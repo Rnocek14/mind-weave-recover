@@ -169,7 +169,7 @@ export default function PhonologicalExercise() {
       navigate(returnTo, { state: { resuming: true } });
     } else {
       // Standalone mode - go to dashboard
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/today'), 2000);
     }
   };
 
@@ -183,7 +183,7 @@ export default function PhonologicalExercise() {
       {fromLesson && <SessionSidePanel />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}>
             <ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">Phonological Awareness</h1>

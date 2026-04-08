@@ -165,12 +165,12 @@ export default function TwoCluesExercise() {
     if (fromLesson) {
       navigate(returnTo);
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   }, [navigate, fromLesson]);
 
   const handleHome = useCallback(() => {
-    navigate('/dashboard');
+    navigate('/today');
   }, [navigate]);
 
   // Continue button for completion screen
@@ -180,7 +180,7 @@ export default function TwoCluesExercise() {
         detail: { exerciseSlug: EXERCISE_SLUG }
       }));
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   }, [fromLesson, navigate]);
 

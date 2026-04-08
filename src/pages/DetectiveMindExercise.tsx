@@ -134,7 +134,7 @@ export default function DetectiveMindExercise() {
         detail: { exerciseSlug: EXERCISE_SLUG }
       }));
     } else if (!fromLesson) {
-      navigate('/dashboard');
+      navigate('/today');
     }
   }, [fromLesson, navigate]);
 
@@ -159,7 +159,7 @@ export default function DetectiveMindExercise() {
             <span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">🕵️ Detective Mind</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}>
             <Home className="h-4 w-4" />
           </Button>
         </div>

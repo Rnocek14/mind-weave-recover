@@ -208,7 +208,7 @@ export default function Practice() {
 
         {/* Adaptive Session */}
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/today')}
           className="w-full rounded-xl border-2 border-border p-4 flex items-center gap-4 text-left
             hover:border-primary hover:bg-accent/50
             active:scale-[0.97] transition-all duration-150 ease-out

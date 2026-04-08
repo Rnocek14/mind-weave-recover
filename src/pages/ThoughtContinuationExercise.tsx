@@ -97,7 +97,7 @@ export default function ThoughtContinuationExercise() {
       }));
       navigate(returnTo, { state: { resuming: true } });
     } else if (!fromLesson) {
-      navigate('/dashboard');
+      navigate('/today');
     }
   }, [fromLesson, navigate]);
 
@@ -172,8 +172,8 @@ export default function ThoughtContinuationExercise() {
                       <TrendingUp className="w-4 h-4" />
                       Practice More
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/dashboard')} className="w-full">
-                      Back to Dashboard
+                    <Button variant="outline" onClick={() => navigate('/today')} className="w-full">
+                      Back to Home
                     </Button>
                   </>
                 )}
