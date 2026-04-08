@@ -54,10 +54,20 @@ function getTimerForDifficulty(difficulty: number): number {
 function pickCategory(difficulty: number, usedCategories: Set<string> = new Set()) {
   const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), CATEGORY_TIERS.length - 1);
   const tier = CATEGORY_TIERS[Math.max(0, tierIndex)];
-  // Try to pick an unused category first
+  // Try unused from current tier first
   const unused = tier.filter(c => !usedCategories.has(c.category));
-  const pool = unused.length > 0 ? unused : tier;
-  return pool[Math.floor(Math.random() * pool.length)];
+  if (unused.length > 0) {
+    return unused[Math.floor(Math.random() * unused.length)];
+  }
+  // If current tier exhausted, try ALL tiers for unused categories
+  const allCategories = CATEGORY_TIERS.flat();
+  const allUnused = allCategories.filter(c => !usedCategories.has(c.category));
+  if (allUnused.length > 0) {
+    return allUnused[Math.floor(Math.random() * allUnused.length)];
+  }
+  // Absolute fallback: reset and pick from current tier (very long sessions)
+  usedCategories.clear();
+  return tier[Math.floor(Math.random() * tier.length)];
 }
 
 /** Success threshold scales with difficulty */
@@ -120,8 +130,12 @@ export function CategoryFluencyGame({
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
-  const [config, setConfig] = useState(() => pickCategory(currentDifficulty));
   const usedCategoriesRef = useRef(new Set<string>());
+  const [config, setConfig] = useState(() => {
+    const cat = pickCategory(currentDifficulty);
+    usedCategoriesRef.current.add(cat.category);
+    return cat;
+  });
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
