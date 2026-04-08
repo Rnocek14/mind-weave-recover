@@ -280,12 +280,43 @@ export default function Today() {
             </p>
           </div>
 
+          {/* Resume in-progress session */}
+          {savedSession && (
+            <div className="bg-accent/50 border border-accent rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">
+                  Session in progress
+                </p>
+                <button
+                  onClick={handleDiscardSession}
+                  className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors"
+                  title="Discard session"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-left">
+                You completed {savedSession.currentBlockIndex} of {savedSession.blockCount} exercises.
+              </p>
+              <Button
+                size="lg"
+                className="w-full gap-2 text-base py-5"
+                onClick={handleContinueSession}
+              >
+                <Play className="w-5 h-5" />
+                Continue session
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Main CTA */}
           <Button 
             size="lg" 
             className="w-full gap-2 text-base py-6" 
             onClick={handleStartSession}
             disabled={!lessonReady}
+            variant={savedSession ? 'outline' : 'default'}
           >
             {!lessonReady ? (
               <>
@@ -295,9 +326,11 @@ export default function Today() {
             ) : (
               <>
                 <Zap className="w-5 h-5" />
-                {stats && stats.totalSessions > 0
-                  ? `Start session #${sessionNumber}`
-                  : "Start today's practice"}
+                {savedSession
+                  ? 'Start new session instead'
+                  : stats && stats.totalSessions > 0
+                    ? `Start session #${sessionNumber}`
+                    : "Start today's practice"}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
