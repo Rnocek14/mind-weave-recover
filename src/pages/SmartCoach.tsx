@@ -24,6 +24,9 @@ import { saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
 import { loadWordHistory, type WordHistory } from '@/lib/smartCoach/crossSessionRetention';
+import { buildContinuitySignals, buildContinuityClosing, type ContinuitySignals } from '@/lib/smartCoach/continuityEngine';
+import { LiveObserver } from '@/lib/smartCoach/liveObserver';
+import { detectProgressMoment, formatProgressForClosing } from '@/lib/smartCoach/progressDetector';
 import type { GameDefinition } from '@/lib/smartCoach/gameTrigger';
 import type { NormalizedExerciseResult } from '@/lib/normalizedExerciseResult';
 import type { SessionMetrics } from '@/lib/smartCoach/types';
@@ -117,6 +120,10 @@ export default function SmartCoach() {
   
   // Cross-session
   const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
+  const [continuitySignals, setContinuitySignals] = useState<ContinuitySignals | null>(null);
+  
+  // Live observer
+  const liveObserverRef = useRef(new LiveObserver());
   
   // Session tracking
   const sessionIdRef = useRef<string | null>(null);
@@ -290,6 +297,15 @@ export default function SmartCoach() {
       lastSessionGoals: coachProfile.lastSessionGoals,
     });
     
+    // Build real continuity signals from prior performance
+    const signals = buildContinuitySignals(
+      coachProfile.lastSessionGoals,
+      coachProfile.domainScores,
+      coachProfile.exerciseHistory,
+      coachProfile.strugglingPhonemes,
+    );
+    setContinuitySignals(signals);
+    
     setPlan(newPlan);
     setPhase('plan');
     sessionIdRef.current = crypto.randomUUID();
@@ -297,16 +313,19 @@ export default function SmartCoach() {
     loadWordHistory(user.id).then(setWordHistory);
   }, [coachProfile.loading, user?.id, plan]);
 
-  // Save session on complete
+  // Save session on complete — include game scores for future continuity
   useEffect(() => {
     if (phase === 'complete' && user?.id && plan && !sessionSaved.current) {
       sessionSaved.current = true;
+      const g1Score = game1Result?.score ?? 0;
+      const g2Score = game2Result?.score ?? 0;
+      const avgScore = game2Result ? (g1Score + g2Score) / 2 : g1Score;
       const metrics: SessionMetrics = {
-        wordsProduced: 0,
+        wordsProduced: (game1Result?.targetWords?.length ?? 0) + (game2Result?.targetWords?.length ?? 0),
         longestResponse: 0,
         hesitationCount: 0,
-        independentResponses: 1,
-        cueAssistedCount: 0,
+        independentResponses: Math.round(avgScore * 10),
+        cueAssistedCount: game1Result?.difficultyTier === 1 ? 2 : 0,
         semanticErrorCount: 0,
         phonemicErrorCount: 0,
         comprehensionBreaks: 0,
@@ -315,7 +334,7 @@ export default function SmartCoach() {
       };
       saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, []);
     }
-  }, [phase, user?.id, plan]);
+  }, [phase, user?.id, plan, game1Result, game2Result]);
 
   // ─── Create Supabase session ──────────────────────────────
   
@@ -420,6 +439,7 @@ export default function SmartCoach() {
 
   const handleLaunchGame1 = useCallback(() => {
     if (!plan) return;
+    liveObserverRef.current.reset();
     setPhase('game1_playing');
     navigateToExercise(plan.game1, 1);
   }, [plan, navigateToExercise]);
@@ -717,13 +737,23 @@ export default function SmartCoach() {
 
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-5">
-            {plan.continuityNote && (
+            {/* Continuity: show behavioral opener from real performance data */}
+            {continuitySignals && !continuitySignals.isFirstSession && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1">
                 <p className="text-xs font-medium text-primary flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />
                   Building on progress
                 </p>
-                <p className="text-xs text-muted-foreground">{plan.continuityNote}</p>
+                <p className="text-xs text-muted-foreground">{continuitySignals.opener}</p>
+              </div>
+            )}
+            {continuitySignals?.isFirstSession && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Your first session
+                </p>
+                <p className="text-xs text-muted-foreground">{continuitySignals.opener}</p>
               </div>
             )}
 
@@ -778,8 +808,18 @@ export default function SmartCoach() {
       ? Math.max(...transferResults.map(r => r.score)) : 0;
     const closingMessage = buildSessionClosing(plan.topic, game1Result, game2Result, bestTransferScore);
 
-    // Personalized "what improved" insight
+    // Detect tangible progress moment
+    const progressMoment = detectProgressMoment(game1Result, game2Result, bestTransferScore);
+    
+    // Cross-session comparison from continuity engine
+    const continuityClosing = continuitySignals
+      ? buildContinuityClosing(continuitySignals, game1Result?.score ?? null, game2Result?.score ?? null)
+      : null;
+
+    // Personalized "what improved" insight — prefer progress moment over word list
     const improvementInsight = (() => {
+      if (progressMoment) return formatProgressForClosing(progressMoment);
+      if (continuityClosing) return continuityClosing;
       const words = [
         ...(game1Result?.targetWords || []).slice(0, 2),
         ...(game2Result?.targetWords || []).slice(0, 1),
