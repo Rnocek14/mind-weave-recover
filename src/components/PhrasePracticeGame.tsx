@@ -99,9 +99,12 @@ export const PhrasePracticeGame = ({
   const [voicePreference, setVoicePreference] = useState<string>('alloy');
   const [lastHeardText, setLastHeardText] = useState<string>('');
   const [processingAnswer, setProcessingAnswer] = useState(false);
+  const [showRecoveryActions, setShowRecoveryActions] = useState(false);
   
   // Ref to prevent duplicate processing
   const processingResultRef = useRef(false);
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const consecutiveStallCountRef = useRef(0);
   
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
@@ -306,7 +309,25 @@ export const PhrasePracticeGame = ({
   };
 
   const { isListening, transcript, startListening, stopListening, isSupported, error } = 
-    useSpeechRecognition(handleSpeechResult, false, true); // Enable continuous listening for resilience
+    useSpeechRecognition({
+      onResult: handleSpeechResult,
+      autoStart: false,
+      continuousListening: true,
+      patientMode: true,
+    });
+
+  useEffect(() => {
+    if (transcript || lastHeardText) {
+      consecutiveStallCountRef.current = 0;
+      setShowRecoveryActions(false);
+    }
+  }, [transcript, lastHeardText]);
+
+  useEffect(() => {
+    if (error && !showFeedback) {
+      setShowRecoveryActions(true);
+    }
+  }, [error, showFeedback]);
   
   // Debounce mic status to prevent flickering during auto-restart cycles
   const showMicPausedHint = useDebouncedMicStatus(isListening, 2000);
@@ -553,10 +574,15 @@ export const PhrasePracticeGame = ({
     }, 1200);
   };
 
-  const handleIncorrectAnswer = async (spokenTranscript: string) => {
+  const handleIncorrectAnswer = async (
+    spokenTranscript: string,
+    options?: { advanceAfterFeedback?: boolean }
+  ) => {
     // Prevent duplicate processing
     if (processingResultRef.current) return;
     processingResultRef.current = true;
+    setShowRecoveryActions(false);
+    consecutiveStallCountRef.current = 0;
     
     const trialIdx = currentTrialIndex;
     const capturedPhrase = currentTrial?.phrase || '';
@@ -566,6 +592,9 @@ export const PhrasePracticeGame = ({
     setFeedbackCorrect(false);
     setShowFeedback(true);
     setAttempts(prev => prev + 1);
+    setProcessingAnswer(true);
+    
+    if (isListening) stopListening();
     
     // Update adaptive difficulty tracking (fast, local)
     recordAdaptiveTrial({ correct: false });
@@ -619,6 +648,8 @@ export const PhrasePracticeGame = ({
         });
       } catch (err) {
         console.error('Background analysis error:', err);
+      } finally {
+        setProcessingAnswer(false);
       }
     };
     
@@ -626,15 +657,101 @@ export const PhrasePracticeGame = ({
     runBackgroundAnalysis();
     
     setTimeout(() => {
+      if (options?.advanceAfterFeedback) {
+        nextTrial();
+        return;
+      }
+
       setShowFeedback(false);
       processingResultRef.current = false;
+      setProcessingAnswer(false);
     }, 1200);
   };
+
+  const handleRestartListening = () => {
+    setShowRecoveryActions(false);
+    consecutiveStallCountRef.current = 0;
+
+    if (isListening) {
+      stopListening();
+      setTimeout(() => startListening(), 400);
+      return;
+    }
+
+    startListening();
+  };
+
+  const handleMoveOn = () => {
+    toast({
+      title: 'Moving on',
+      description: 'You can come back to this phrase later.',
+      duration: 2000,
+    });
+    handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
+  };
+
+  useEffect(() => {
+    if (!currentTrial || showFeedback || processingAnswer) {
+      if (recoveryTimerRef.current) {
+        clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (recoveryTimerRef.current) {
+      clearTimeout(recoveryTimerRef.current);
+    }
+
+    const recoveryDelayMs = isListening ? 12000 : 5000;
+
+    recoveryTimerRef.current = setTimeout(() => {
+      if (showFeedback || processingResultRef.current) return;
+
+      const nextStallCount = consecutiveStallCountRef.current + 1;
+      consecutiveStallCountRef.current = nextStallCount;
+      setShowRecoveryActions(true);
+
+      if (nextStallCount >= 3) {
+        toast({
+          title: 'Let’s keep going',
+          description: 'Moving to the next phrase for now.',
+          duration: 2500,
+        });
+        handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
+        return;
+      }
+
+      if (isListening) {
+        stopListening();
+        setTimeout(() => {
+          if (!processingResultRef.current) {
+            startListening();
+          }
+        }, 400);
+      } else {
+        startListening();
+      }
+    }, recoveryDelayMs);
+
+    return () => {
+      if (recoveryTimerRef.current) {
+        clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
+      }
+    };
+  }, [currentTrial?.id, isListening, transcript, lastHeardText, showFeedback, processingAnswer, startListening, stopListening, toast]);
 
   const nextTrial = () => {
     // Stop mic during transition to prevent stale transcripts
     if (isListening) stopListening();
     trialTransitionRef.current = true;
+    if (recoveryTimerRef.current) {
+      clearTimeout(recoveryTimerRef.current);
+      recoveryTimerRef.current = null;
+    }
+    setShowRecoveryActions(false);
+    consecutiveStallCountRef.current = 0;
 
     // Reset attempt for next trial
     resetAttempt();
@@ -675,7 +792,13 @@ export const PhrasePracticeGame = ({
     setShowFeedback(false);
     setLastHeardText('');
     setProcessingAnswer(false);
+    setShowRecoveryActions(false);
     processingResultRef.current = false;
+    consecutiveStallCountRef.current = 0;
+    if (recoveryTimerRef.current) {
+      clearTimeout(recoveryTimerRef.current);
+      recoveryTimerRef.current = null;
+    }
     const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -814,13 +937,37 @@ export const PhrasePracticeGame = ({
           )}
         </div>
 
-        {/* Attempts Counter */}
-        {attempts > 0 && (
-          <div className="text-sm text-muted-foreground">
-            Attempts: {attempts + 1}
+      {/* Attempts Counter */}
+      {attempts > 0 && (
+        <div className="text-sm text-muted-foreground">
+          Attempts: {attempts + 1}
+        </div>
+      )}
+
+      {(showRecoveryActions || error) && !showFeedback && (
+        <Card className="p-4 bg-muted/30 border-border/60">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-sm text-muted-foreground">
+              {error
+                ? 'The mic seems stuck. Try restarting it, hear the phrase again, or move on.'
+                : 'Having trouble with this phrase? You can restart the mic, hear it again, or move on.'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleRestartListening}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Restart Mic
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePlayAudio} disabled={isAudioPlaying}>
+                <Volume2 className="w-4 h-4 mr-2" />
+                {isAudioPlaying ? 'Playing...' : 'Hear It'}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleMoveOn}>
+                Move On
+              </Button>
+            </div>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {/* Feedback */}
       {showFeedback && (
