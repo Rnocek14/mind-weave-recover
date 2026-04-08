@@ -1027,6 +1027,42 @@ const Exercise = () => {
           </Card>
         )}
 
+        {/* Pause Overlay */}
+        {isPausedOverlay && isPlaying && (
+          <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
+            <Pause className="w-16 h-16 text-muted-foreground" />
+            <h2 className="text-2xl font-bold text-foreground">Paused</h2>
+            <p className="text-muted-foreground text-center max-w-sm">
+              Take your time. Press Resume when you're ready to continue.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                size="lg"
+                onClick={() => {
+                  setIsPausedOverlay(false);
+                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                    phraseGameRef.current.resume();
+                  }
+                }}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Resume
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
+                onClick={() => {
+                  setIsPausedOverlay(false);
+                  setIsPlaying(false);
+                  navigate("/dashboard");
+                }}
+              >
+                End Session
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Fixed Safety Controls - hide in session mode */}
         {isPlaying && !fromLesson && (
           <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-glow p-2 sm:p-4 z-50">
