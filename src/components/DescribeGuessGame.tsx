@@ -34,7 +34,7 @@ import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag,
 import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
-const SPEECH_END_DEBOUNCE_MS = 3000; // Wait 3s of silence before evaluating
+const SPEECH_END_BASE_MS = 1500; // Base silence threshold for discourse (adaptive)
 const MIN_SPEECH_CONTENT_WORDS = 2; // Minimum content words to trigger evaluation
 const MIN_LISTENING_DURATION_MS = 2000; // At least 2s of mic time before evaluating
 
