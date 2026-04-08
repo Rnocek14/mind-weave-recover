@@ -84,16 +84,20 @@ export function resetFeedbackHistory(): void {
 let _transitionCount = 0;
 
 /**
- * Whether this transition should show feedback text or be silent ("Next: X" only).
- * Roughly 60-70% show feedback. Pattern: show, show, skip, show, skip, show…
+ * Whether this transition should show feedback text.
+ * ~60% show feedback, ~40% are silent ("Next: X" only).
+ * Pattern avoids mechanical rhythm with slight randomness.
  */
 export function shouldShowFeedback(): boolean {
   _transitionCount++;
   // First transition always shows feedback
   if (_transitionCount === 1) return true;
-  // Pattern: ~65% show. Skip on positions 3, 5, 8, 10…
+  // Base pattern: skip at positions 3 and 5 in each cycle (~60% show)
   const mod = _transitionCount % 5;
-  return mod !== 3 && mod !== 0; // skip at 3 and 5 → 3/5 = 60% show
+  if (mod === 3 || mod === 0) return false;
+  // Add 15% chance of additional silence for organic feel
+  if (Math.random() < 0.15) return false;
+  return true;
 }
 
 export function getPerformanceTransition(lastScore: number | null): TransitionMessage {
