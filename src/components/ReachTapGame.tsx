@@ -84,17 +84,16 @@ export const ReachTapGame = ({
 
   // Calculate target size in pixels based on difficulty
   const getTargetSize = (difficulty: number, containerWidth: number): number => {
-    // Difficulty 1 = large & easy, difficulty 10 = small & challenging
-    // Use fixed pixel sizes for clear visual progression
+    // Difficulty 1 = large & easy, difficulty 10 = tiny & challenging
     if (slowMode) {
-      // Slow mode: 120px (easy) down to 56px (hard) — always accessible
-      const maxPx = 120;
-      const minPx = 56;
+      // Slow mode: 130px (easy) down to 36px (hard)
+      const maxPx = 130;
+      const minPx = 36;
       return Math.round(maxPx - ((difficulty - 1) / 9) * (maxPx - minPx));
     } else {
-      // Normal mode: 90px (easy) down to 36px (hard)
-      const maxPx = 90;
-      const minPx = 36;
+      // Normal mode: 100px (easy) down to 24px (hard)
+      const maxPx = 100;
+      const minPx = 24;
       return Math.round(maxPx - ((difficulty - 1) / 9) * (maxPx - minPx));
     }
   };
@@ -110,6 +109,9 @@ export const ReachTapGame = ({
     }
   };
 
+  // Track previous position to ensure targets jump around
+  const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
+
   // Generate random target position with optional bias for neglect training
   const generateTarget = () => {
     if (!containerRef.current) return;
@@ -118,42 +120,49 @@ export const ReachTapGame = ({
     const containerRect = container.getBoundingClientRect();
     const size = getTargetSize(currentDifficulty, containerRect.width);
     
-    // Ensure target stays within bounds with padding
-    const padding = Math.max(10, containerRect.width * 0.03); // Responsive padding
+    const padding = Math.max(12, size * 0.5);
     const maxX = containerRect.width - size - padding;
     const maxY = containerRect.height - size - padding;
     
+    // Minimum jump distance = 30% of container diagonal
+    const minJump = Math.sqrt(containerRect.width ** 2 + containerRect.height ** 2) * 0.3;
+    
     let x: number;
+    let y: number;
     let side: 'left' | 'center' | 'right';
+    let attempts = 0;
     
-    if (variant === 'left-side-hunt') {
-      // Bias 70% of targets to left side for neglect training
-      const spawnLeft = Math.random() < 0.7;
-      
-      if (spawnLeft) {
-        // Left third of screen
-        x = Math.random() * (containerRect.width / 3) + padding;
-        side = 'left';
+    do {
+      if (variant === 'left-side-hunt') {
+        const spawnLeft = Math.random() < 0.7;
+        if (spawnLeft) {
+          x = Math.random() * (containerRect.width / 3 - size) + padding;
+          side = 'left';
+        } else {
+          x = Math.random() * (containerRect.width * 2/3 - size) + (containerRect.width / 3);
+          side = x > containerRect.width * 2/3 ? 'right' : 'center';
+        }
       } else {
-        // Right two-thirds
-        x = Math.random() * (containerRect.width * 2/3) + (containerRect.width / 3);
-        side = x > containerRect.width * 2/3 ? 'right' : 'center';
+        x = Math.random() * maxX + padding;
+        if (x < containerRect.width / 3) side = 'left';
+        else if (x > containerRect.width * 2/3) side = 'right';
+        else side = 'center';
       }
-    } else {
-      // Standard: random across entire width
-      x = Math.random() * maxX + padding;
       
-      // Determine side for analytics
-      if (x < containerRect.width / 3) {
-        side = 'left';
-      } else if (x > containerRect.width * 2/3) {
-        side = 'right';
-      } else {
-        side = 'center';
+      y = Math.random() * maxY + padding;
+      attempts++;
+      
+      // Ensure sufficient distance from last position (retry up to 10 times)
+      if (lastPositionRef.current && attempts < 10) {
+        const dx = x - lastPositionRef.current.x;
+        const dy = y - lastPositionRef.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minJump) continue;
       }
-    }
-    
-    const y = Math.random() * maxY + padding;
+      break;
+    } while (true);
+
+    lastPositionRef.current = { x, y };
 
     setTarget({
       x,
