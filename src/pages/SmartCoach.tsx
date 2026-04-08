@@ -941,13 +941,16 @@ export default function SmartCoach() {
   const renderPhaseContent = () => {
     // Merged opener + game1 setup — auto-launches after brief read time
     if (phase === 'game1_intro') {
-      const topicIntro = `Today: ${plan.topic.label} — ${plan.topic.purpose.skillTarget}.`;
-      const gameIntro = plan.game1Setup;
-      const whyItMatters = `This helps with ${plan.topic.purpose.transferTarget.toLowerCase()}.`;
+      const { narration, subtitle } = buildGame1Intro(
+        plan.topic,
+        plan.game1,
+        coachProfile.lastSessionGoals,
+        coachProfile.severityProfile,
+      );
       return (
         <MayaNarrationCard
-          narration={`${topicIntro}\n\n${gameIntro}`}
-          subtitle={`${whyItMatters} · ${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
+          narration={narration}
+          subtitle={`${subtitle} · ${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
           actionLabel="Start practice"
           onContinue={handleLaunchGame1}
           phaseIndex={phaseIndex}
