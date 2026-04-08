@@ -137,7 +137,7 @@ export function CategoryFluencyGame({
     usedCategoriesRef.current.add(cat.category);
     return cat;
   });
-  const [words, setWords] = useState<string[]>([]);
+  const [words, setWords] = useState<Array<{ text: string; status: WordValidation }>>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
