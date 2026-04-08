@@ -14,6 +14,7 @@ import { useAbstractCompareGame, AbstractCompareTrialResult } from '@/hooks/useA
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
@@ -139,11 +140,13 @@ export function AbstractCompareGame({
 
       if (state.suppressAutoSubmit) return;
 
-      // Adaptive threshold: base 1500ms for discourse, scaled by patience
-      const threshold = Math.round(1500 * state.patienceMultiplier);
+      // Use cognitive_discourse profile — most patient for abstract reasoning
+      const profile = TIMING_PROFILES.cognitive_discourse;
+      const multiplier = getProfileMultiplier(profile, state.state, state.confidence);
+      const threshold = Math.round(profile.baseSilenceMs * multiplier);
       const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
 
-      if (wordCount >= 2 && silenceMs >= threshold) {
+      if (wordCount >= profile.minWordsForSubmit && silenceMs >= threshold) {
         if (!hasProcessedRef.current) handleDone();
       }
     }, 200);

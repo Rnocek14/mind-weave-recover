@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mic, MicOff, Volume2, SkipForward, Square, Headphones, Play } from 'lucide-react';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -147,10 +148,12 @@ export default function VoicePractice() {
 
         if (state.suppressAutoSubmit) return;
 
-        const threshold = Math.round(1500 * state.patienceMultiplier);
+        const profile = TIMING_PROFILES.discourse;
+        const multiplier = getProfileMultiplier(profile, state.state, state.confidence);
+        const threshold = Math.round(profile.baseSilenceMs * multiplier);
         const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
 
-        if (hasSpokenRef.current && wordCount >= 2 && silenceMs >= threshold) {
+        if (hasSpokenRef.current && wordCount >= profile.minWordsForSubmit && silenceMs >= threshold) {
           console.log('[VoicePractice] Adaptive auto-submit', { silenceMs, threshold, state: state.state });
           handleAutoSubmit();
         }
