@@ -150,6 +150,9 @@ export default function Today() {
 
   const handleStartSession = () => {
     if (!lesson) return;
+    // Clear any saved session when starting fresh
+    sessionStorage.removeItem('lessonFlowState');
+    setSavedSession(null);
     navigate('/lesson', {
       state: {
         lesson,
@@ -159,6 +162,24 @@ export default function Today() {
         autoStart: true,
       },
     });
+  };
+
+  const handleContinueSession = () => {
+    if (!savedSession) return;
+    navigate('/lesson', {
+      state: {
+        lesson: savedSession.lesson,
+        clinicalProfile: savedSession.clinicalProfile,
+        skipDailyCheck: true,
+        autoStart: true,
+        resuming: true,
+      },
+    });
+  };
+
+  const handleDiscardSession = () => {
+    sessionStorage.removeItem('lessonFlowState');
+    setSavedSession(null);
   };
 
   if (authLoading || !loaded) {
