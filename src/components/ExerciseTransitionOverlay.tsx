@@ -74,6 +74,11 @@ export const ExerciseTransitionOverlay = ({
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
+  // Coaching-mode-aware duration: longer when guidance content is present
+  const hasGuidanceContent = !!(microGuidance || coachingBridge);
+  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 1.5;
+  const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
+
   useEffect(() => {
     if (isPaused) return;
     
