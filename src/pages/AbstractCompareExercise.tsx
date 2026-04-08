@@ -111,14 +111,14 @@ export default function AbstractCompareExercise() {
         detail: { exerciseSlug: EXERCISE_SLUG, skipped: true } 
       }));
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   }, [fromLesson, navigate]);
   const handleContinue = useCallback(() => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/dashboard');
+    } else if (!fromLesson) navigate('/today');
   }, [fromLesson, navigate]);
 
   if (isCreatingSession || !activeSessionId) {
@@ -131,7 +131,7 @@ export default function AbstractCompareExercise() {
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>
           <h1 className="text-lg font-semibold">🔗 Abstract Comparison</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}><Home className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}><Home className="h-4 w-4" /></Button>
         </div>
         {fromLesson && <InlineSessionProgress />}
       </header>

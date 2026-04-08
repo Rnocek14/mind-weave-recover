@@ -176,7 +176,7 @@ const SentenceConstructionExercise = () => {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate(returnTo, { state: { resuming: true } });
     } else {
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/today'), 2000);
     }
   };
 
@@ -265,7 +265,7 @@ const SentenceConstructionExercise = () => {
       {/* Compact header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <span className="text-sm font-medium hidden sm:inline">Sentence Construction</span>

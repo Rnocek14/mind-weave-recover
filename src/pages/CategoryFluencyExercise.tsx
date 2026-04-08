@@ -180,7 +180,7 @@ export default function CategoryFluencyExercise() {
             <span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">🐾 Category Fluency</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}>
             <Home className="h-4 w-4" />
           </Button>
         </div>
@@ -196,7 +196,7 @@ export default function CategoryFluencyExercise() {
               {fromLesson ? 'Loading next exercise…' : 'Nice word fluency practice!'}
             </p>
             {!fromLesson && (
-              <Button onClick={() => navigate('/dashboard')} size="lg">Continue</Button>
+              <Button onClick={() => navigate('/today')} size="lg">Continue</Button>
             )}
           </div>
         ) : (

@@ -445,7 +445,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   }, [sessionId, currentBlockIndex, lesson.blocks.length]);
 
   const handleFinish = () => {
-    navigate("/dashboard");
+    navigate("/today");
   };
 
   // Listen for exercise completion — with dedup guard
@@ -493,7 +493,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         profileId={activeProfile?.id || ""}
         clinicalProfile={clinicalProfile}
         onComplete={handleFullAssessmentComplete}
-        onExit={() => navigate("/dashboard")}
+        onExit={() => navigate("/today")}
       />
     );
   }

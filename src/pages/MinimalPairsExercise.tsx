@@ -220,7 +220,7 @@ export default function MinimalPairsExercise() {
             <ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">👂 Minimal Pairs</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}>
             <Home className="h-4 w-4" />
           </Button>
         </div>

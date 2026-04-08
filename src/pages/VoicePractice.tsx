@@ -263,7 +263,7 @@ export default function VoicePractice() {
             ))}
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
+            <Button variant="outline" onClick={() => navigate('/today')}>
               Back to Home
             </Button>
             <Button onClick={() => window.location.reload()}>

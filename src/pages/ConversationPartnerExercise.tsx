@@ -106,7 +106,7 @@ export default function ConversationPartnerExercise() {
       }));
       navigate(returnTo, { state: { resuming: true } });
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   };
 
@@ -174,7 +174,7 @@ export default function ConversationPartnerExercise() {
                     <Button onClick={handlePlayAgain}>
                       Talk Again
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                    <Button variant="outline" onClick={() => navigate('/today')}>
                       Done
                     </Button>
                   </>

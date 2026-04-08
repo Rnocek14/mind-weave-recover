@@ -662,7 +662,7 @@ function PhotoNamingExerciseInner() {
       navigate(returnTo, { state: { resuming: true } });
     } else {
       // Standalone mode - go to dashboard
-      navigate('/dashboard');
+      navigate('/today');
     }
   };
 
@@ -689,7 +689,7 @@ function PhotoNamingExerciseInner() {
             <Button 
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/today')}
               className="px-2 sm:px-3"
             >
               <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" />

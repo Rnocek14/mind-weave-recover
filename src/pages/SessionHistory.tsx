@@ -160,7 +160,7 @@ const SessionHistory = () => {
         {/* Header */}
         <Button
           variant="ghost"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/today")}
           className="mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />

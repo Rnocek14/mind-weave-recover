@@ -99,7 +99,7 @@ export default function ConversationCoachExercise() {
       }));
       navigate(returnTo, { state: { resuming: true } });
     } else {
-      navigate('/dashboard');
+      navigate('/today');
     }
   };
 

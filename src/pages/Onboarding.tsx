@@ -111,7 +111,7 @@ const Onboarding = () => {
       description: "Let's get started with your first session",
     });
 
-    navigate("/dashboard");
+    navigate("/today");
   };
 
   const steps = [

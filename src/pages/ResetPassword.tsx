@@ -41,7 +41,7 @@ const ResetPassword = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Password updated!", description: "Redirecting to dashboard..." });
-      navigate("/dashboard");
+      navigate("/today");
     }
     setSubmitting(false);
   };

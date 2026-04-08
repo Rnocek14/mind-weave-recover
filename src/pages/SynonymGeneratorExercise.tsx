@@ -164,7 +164,7 @@ export default function SynonymGeneratorExercise() {
             <span className="hidden sm:inline">Back</span>
           </Button>
           <h1 className="text-lg font-semibold">🔄 Synonym Generator</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/today')}>
             <Home className="h-4 w-4" />
           </Button>
         </div>
@@ -180,7 +180,7 @@ export default function SynonymGeneratorExercise() {
               {fromLesson ? 'Loading next exercise…' : 'Nice synonym practice!'}
             </p>
             {!fromLesson && (
-              <Button onClick={() => navigate('/dashboard')} size="lg">Continue</Button>
+              <Button onClick={() => navigate('/today')} size="lg">Continue</Button>
             )}
           </div>
         ) : (
