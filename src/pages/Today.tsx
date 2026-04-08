@@ -157,6 +157,7 @@ export default function Today() {
     if (!lesson) return;
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
