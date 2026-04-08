@@ -313,16 +313,19 @@ export default function SmartCoach() {
     loadWordHistory(user.id).then(setWordHistory);
   }, [coachProfile.loading, user?.id, plan]);
 
-  // Save session on complete
+  // Save session on complete — include game scores for future continuity
   useEffect(() => {
     if (phase === 'complete' && user?.id && plan && !sessionSaved.current) {
       sessionSaved.current = true;
+      const g1Score = game1Result?.score ?? 0;
+      const g2Score = game2Result?.score ?? 0;
+      const avgScore = game2Result ? (g1Score + g2Score) / 2 : g1Score;
       const metrics: SessionMetrics = {
-        wordsProduced: 0,
+        wordsProduced: (game1Result?.targetWords?.length ?? 0) + (game2Result?.targetWords?.length ?? 0),
         longestResponse: 0,
         hesitationCount: 0,
-        independentResponses: 1,
-        cueAssistedCount: 0,
+        independentResponses: Math.round(avgScore * 10),
+        cueAssistedCount: game1Result?.difficultyTier === 1 ? 2 : 0,
         semanticErrorCount: 0,
         phonemicErrorCount: 0,
         comprehensionBreaks: 0,
@@ -331,7 +334,7 @@ export default function SmartCoach() {
       };
       saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, []);
     }
-  }, [phase, user?.id, plan]);
+  }, [phase, user?.id, plan, game1Result, game2Result]);
 
   // ─── Create Supabase session ──────────────────────────────
   
