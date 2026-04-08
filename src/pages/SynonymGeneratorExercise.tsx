@@ -190,6 +190,7 @@ export default function SynonymGeneratorExercise() {
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
             roundCount={roundCount}
+            autoStartFirst={fromLesson}
           />
         )}
       </main>

@@ -84,6 +84,8 @@ interface CategoryFluencyGameProps {
   onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
   roundCount?: number;
   bounds?: DifficultyBounds;
+  /** Skip first-round Start button and begin immediately */
+  autoStartFirst?: boolean;
 }
 
 const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
@@ -95,6 +97,7 @@ export function CategoryFluencyGame({
   onDifficultyChange,
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
+  autoStartFirst = false,
 }: CategoryFluencyGameProps) {
   // === Trial-by-trial adaptive difficulty ===
   const {
@@ -250,6 +253,15 @@ export function CategoryFluencyGame({
       setShowTextInput(true);
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening]);
+
+  // Auto-start first round when launched from lesson flow
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
+      autoStartedRef.current = true;
+      startRound();
+    }
+  }, [autoStartFirst, phase, currentRound, startRound]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
