@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useDescribeGuessGame, DescribeGuessTrialResult, getStarCount } from '@/hooks/useDescribeGuessGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
@@ -34,7 +35,7 @@ import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag,
 import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
-const SPEECH_END_BASE_MS = 1500; // Base silence threshold for discourse (adaptive)
+// Speech timing now driven by TIMING_PROFILES.discourse
 const MIN_SPEECH_CONTENT_WORDS = 2; // Minimum content words to trigger evaluation
 const MIN_LISTENING_DURATION_MS = 2000; // At least 2s of mic time before evaluating
 
@@ -453,7 +454,9 @@ export function DescribeGuessGame({
 
       if (state.suppressAutoSubmit) return;
 
-      const threshold = Math.round(SPEECH_END_BASE_MS * state.patienceMultiplier);
+      const profile = TIMING_PROFILES.discourse;
+      const multiplier = getProfileMultiplier(profile, state.state, state.confidence);
+      const threshold = Math.round(profile.baseSilenceMs * multiplier);
 
       if (silenceMs >= threshold) {
         runEvaluation();
