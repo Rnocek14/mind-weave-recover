@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
@@ -72,6 +72,32 @@ export default function Today() {
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
+  const [savedSession, setSavedSession] = useState<{
+    currentBlockIndex: number;
+    blockCount: number;
+    lesson: any;
+    clinicalProfile: any;
+    sessionId: string | null;
+  } | null>(null);
+
+  // Check for in-progress session
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('lessonFlowState');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
+          setSavedSession({
+            currentBlockIndex: parsed.currentBlockIndex,
+            blockCount: parsed.blockCount,
+            lesson: parsed.lesson,
+            clinicalProfile: parsed.clinicalProfile || null,
+            sessionId: parsed.sessionId || null,
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // Generate the daily lesson
   const { lesson, todayFocus } = useDailyLesson(
@@ -124,6 +150,9 @@ export default function Today() {
 
   const handleStartSession = () => {
     if (!lesson) return;
+    // Clear any saved session when starting fresh
+    sessionStorage.removeItem('lessonFlowState');
+    setSavedSession(null);
     navigate('/lesson', {
       state: {
         lesson,
@@ -133,6 +162,24 @@ export default function Today() {
         autoStart: true,
       },
     });
+  };
+
+  const handleContinueSession = () => {
+    if (!savedSession) return;
+    navigate('/lesson', {
+      state: {
+        lesson: savedSession.lesson,
+        clinicalProfile: savedSession.clinicalProfile,
+        skipDailyCheck: true,
+        autoStart: true,
+        resuming: true,
+      },
+    });
+  };
+
+  const handleDiscardSession = () => {
+    sessionStorage.removeItem('lessonFlowState');
+    setSavedSession(null);
   };
 
   if (authLoading || !loaded) {
@@ -233,12 +280,43 @@ export default function Today() {
             </p>
           </div>
 
+          {/* Resume in-progress session */}
+          {savedSession && (
+            <div className="bg-accent/50 border border-accent rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">
+                  Session in progress
+                </p>
+                <button
+                  onClick={handleDiscardSession}
+                  className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors"
+                  title="Discard session"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-left">
+                You completed {savedSession.currentBlockIndex} of {savedSession.blockCount} exercises.
+              </p>
+              <Button
+                size="lg"
+                className="w-full gap-2 text-base py-5"
+                onClick={handleContinueSession}
+              >
+                <Play className="w-5 h-5" />
+                Continue session
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Main CTA */}
           <Button 
             size="lg" 
             className="w-full gap-2 text-base py-6" 
             onClick={handleStartSession}
             disabled={!lessonReady}
+            variant={savedSession ? 'outline' : 'default'}
           >
             {!lessonReady ? (
               <>
@@ -248,9 +326,11 @@ export default function Today() {
             ) : (
               <>
                 <Zap className="w-5 h-5" />
-                {stats && stats.totalSessions > 0
-                  ? `Start session #${sessionNumber}`
-                  : "Start today's practice"}
+                {savedSession
+                  ? 'Start new session instead'
+                  : stats && stats.totalSessions > 0
+                    ? `Start session #${sessionNumber}`
+                    : "Start today's practice"}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
