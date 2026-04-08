@@ -207,8 +207,18 @@ export const ExerciseTransitionOverlay = ({
             Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
           
+          {/* Coaching bridge — Guided/Full modes */}
+          {coachingBridge && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <MessageCircle className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+              <p className="text-sm text-primary/80 font-medium italic">
+                {coachingBridge}
+              </p>
+            </div>
+          )}
+          
           {/* Adaptation message — tertiary, smaller */}
-          {adaptationMsg && (
+          {adaptationMsg && !coachingBridge && (
             <p className="text-xs text-primary/60 font-medium">{adaptationMsg}</p>
           )}
         </div>
