@@ -84,6 +84,8 @@ interface CategoryFluencyGameProps {
   onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
   roundCount?: number;
   bounds?: DifficultyBounds;
+  /** Skip first-round Start button and begin immediately */
+  autoStartFirst?: boolean;
 }
 
 const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
@@ -95,6 +97,7 @@ export function CategoryFluencyGame({
   onDifficultyChange,
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
+  autoStartFirst = false,
 }: CategoryFluencyGameProps) {
   // === Trial-by-trial adaptive difficulty ===
   const {
