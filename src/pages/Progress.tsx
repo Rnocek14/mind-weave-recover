@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Award, MessageCircle, Loader2, TrendingUp } from 'lucide-react';
+import { PatientTabBar } from '@/components/PatientTabBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { SessionAdherenceTracker } from '@/components/SessionAdherenceTracker';
@@ -91,7 +92,7 @@ export default function Progress() {
       : "Complete your first session to start tracking progress.";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-20">
       <header className="p-4 flex items-center gap-3 border-b">
         <Button variant="ghost" size="icon" onClick={() => navigate('/today')}>
           <ArrowLeft className="w-5 h-5" />
@@ -140,6 +141,8 @@ export default function Progress() {
           Start a session
         </Button>
       </div>
+
+      <PatientTabBar />
     </div>
   );
 }
