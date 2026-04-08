@@ -50,6 +50,8 @@ export function NarrativeRetellGame({
   const [sceneIndex, setSceneIndex] = useState(0);
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
+  const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
+  const [typedText, setTypedText] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
