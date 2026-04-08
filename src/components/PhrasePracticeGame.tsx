@@ -423,8 +423,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
   
   // AUTO-LISTEN MODE: Open mic automatically on new trial
+  // Gated by isListeningMode — user can toggle it off manually
   useEffect(() => {
-    if (!autoListen || !currentTrial || showFeedback) return;
+    if (!autoListen || !isListeningMode || !currentTrial || showFeedback) return;
     
     // Don't compete with audio playback
     if (isAudioPlaying) return;
@@ -433,7 +434,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (isListening) return;
     
     const timer = setTimeout(() => {
-      if (isSupported && !isListening) {
+      if (isSupported && !isListening && isListeningMode) {
         console.log('[Auto-Listen] Starting mic after warmup delay');
         startListening();
       }
@@ -441,12 +442,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     
     return () => {
       clearTimeout(timer);
-      // Cleanup: stop listening if navigating away
-      if (isListening) {
-        stopListening();
-      }
     };
-  }, [autoListen, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening, stopListening]);
+  }, [autoListen, isListeningMode, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening]);
 
   // Toggle listening
   const toggleListening = () => {
