@@ -27,6 +27,7 @@ export default function ConversationPartnerExercise() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile, loading: profileLoading } = useProfile();
   const [gameStarted, setGameStarted] = useState(false);
+  const autoStartedRef = React.useRef(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const restored = useRestoredLessonContext('conversation-partner');
