@@ -445,11 +445,13 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     };
   }, [autoListen, isListeningMode, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening]);
 
-  // Toggle listening
+  // Toggle listening — also controls auto-listen mode
   const toggleListening = () => {
     if (isListening) {
+      setIsListeningMode(false); // Disable auto-restart
       stopListening();
     } else {
+      setIsListeningMode(true); // Re-enable auto-listen
       startListening();
     }
   };
