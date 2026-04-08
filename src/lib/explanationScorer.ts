@@ -124,15 +124,43 @@ const SYNONYM_MAP: Record<string, string[]> = {
   'start': ['begin', 'began', 'commenced', 'initiated'],
   'gave': ['returned', 'handed', 'provided', 'offered'],
   'calm': ['relaxed', 'peaceful', 'composed', 'cool', 'steady'],
-  'fix': ['repair', 'mend', 'solve', 'resolved', 'corrected'],
-  'break': ['shatter', 'crack', 'damage', 'destroy'],
+  'fix': ['repair', 'mend', 'solve', 'resolved', 'corrected', 'fixed'],
+  'break': ['shatter', 'crack', 'damage', 'destroy', 'broke', 'broken'],
   'understand': ['comprehend', 'grasp', 'follow', 'get'],
   'agree': ['concur', 'align', 'match', 'share'],
   'avoid': ['prevent', 'dodge', 'evade', 'skip'],
-  'learn': ['master', 'grasp', 'study', 'absorb'],
-  'rain': ['raining', 'rained', 'rainy', 'wet', 'storm'],
+  'learn': ['master', 'grasp', 'study', 'absorb', 'realized', 'understood'],
+  'rain': ['raining', 'rained', 'rainy', 'wet', 'storm', 'drizzle', 'pour'],
   'coat': ['jacket', 'parka', 'hoodie', 'sweater'],
   'walk': ['walked', 'walking', 'stroll', 'hike'],
+  // Narrative-specific synonyms for story retell accuracy
+  'neighbor': ['neighbour', 'guy next door', 'person nearby', 'man', 'woman', 'someone', 'lady'],
+  'help': ['helped', 'helping', 'assist', 'assisted', 'aid', 'aided', 'offered', 'came over', 'pitched in'],
+  'knock': ['knocked', 'hit', 'bump', 'struck', 'fell', 'crash', 'crashed'],
+  'careful': ['cautious', 'slowly', 'watch out', 'be safe', 'more careful', 'lesson'],
+  'together': ['both', 'each other', 'with him', 'with her', 'joined', 'worked on it'],
+  'forgot': ['forgotten', 'left behind', 'didn\'t remember', 'missed', 'overlooked'],
+  'surprise': ['surprised', 'shocking', 'unexpected', 'didn\'t expect', 'jumped out'],
+  'proud': ['happy', 'pleased', 'satisfied', 'glad', 'accomplished'],
+  'found': ['discovered', 'spotted', 'noticed', 'saw', 'came across'],
+  'argue': ['argued', 'fight', 'fought', 'disagreed', 'dispute', 'quarrel'],
+  'friend': ['friends', 'buddy', 'pal', 'companion'],
+  'smile': ['smiled', 'grinned', 'beamed', 'looked happy'],
+  'cry': ['cried', 'tears', 'emotional', 'moved', 'teared up', 'wept'],
+  'clean': ['cleaned', 'wiped', 'mopped', 'tidied', 'picked up', 'mess'],
+  'leave': ['left', 'went', 'departed', 'headed out'],
+  'arrive': ['arrived', 'got there', 'showed up', 'came', 'reached'],
+  'look': ['looked', 'searched', 'checked', 'hunted', 'glanced'],
+  'sit': ['sat', 'sitting', 'seated'],
+  'ride': ['rode', 'riding', 'biking', 'cycling', 'pedaling'],
+  'plant': ['planted', 'planting', 'grew', 'growing', 'sow', 'sowed'],
+  'build': ['built', 'building', 'made', 'constructed', 'put together'],
+  'visit': ['visited', 'visiting', 'went to see', 'came to see', 'stopped by'],
+  'promise': ['promised', 'said would', 'agreed', 'committed'],
+  'teach': ['taught', 'teaching', 'instructor', 'teacher', 'showed'],
+  'retire': ['retired', 'retiring', 'retirement', 'last day', 'done working'],
+  'realize': ['realized', 'noticed', 'understood', 'figured out', 'dawned on'],
+  'lose': ['lost', 'missing', 'couldn\'t find', 'misplaced'],
 };
 
 /** Get all synonym stems for a word */
@@ -151,39 +179,68 @@ function getSynonymStems(word: string): Set<string> {
   return stems;
 }
 
+// ─── Fuzzy matching for close words (handles ASR errors) ───
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/** Check if a word is a fuzzy match (within edit distance threshold) */
+function fuzzyWordMatch(word: string, target: string): boolean {
+  if (word.length < 3 || target.length < 3) return false;
+  const maxDist = target.length <= 4 ? 1 : 2;
+  return levenshteinDistance(word, target) <= maxDist;
+}
+
 // ─── Concept matching ───
 
 /**
  * Check if a concept (word or phrase) matches in the transcript.
- * Uses stemmed token matching + synonym expansion.
+ * Uses stemmed token matching + synonym expansion + fuzzy matching.
  */
 function conceptMatches(concept: string, transcriptStems: Set<string>, transcriptTokens: string[]): boolean {
   const conceptTokens = tokenize(concept);
   
-  // Single-word concept: stem match or synonym match
+  // Single-word concept: stem match, synonym match, or fuzzy match
   if (conceptTokens.length === 1) {
     const synonymStems = getSynonymStems(conceptTokens[0]);
-    return [...synonymStems].some(s => transcriptStems.has(s));
+    if ([...synonymStems].some(s => transcriptStems.has(s))) return true;
+    // Fuzzy fallback: check each transcript token for close match
+    return transcriptTokens.some(t => fuzzyWordMatch(t, conceptTokens[0]));
   }
   
-  // Multi-word phrase: check if stemmed tokens appear in sequence or all present
+  // Multi-word phrase: check if stemmed tokens appear (any order, 50% threshold)
   const conceptStems = conceptTokens.map(stem);
   const allPresent = conceptStems.every(cs => transcriptStems.has(cs));
   if (allPresent) return true;
   
-  // Check with synonyms for each concept token
+  // Check with synonyms + fuzzy for each concept token
   const matchCount = conceptStems.filter(cs => {
     if (transcriptStems.has(cs)) return true;
     // Try synonyms
     const original = conceptTokens.find(t => stem(t) === cs);
     if (original) {
       const syns = getSynonymStems(original);
-      return [...syns].some(s => transcriptStems.has(s));
+      if ([...syns].some(s => transcriptStems.has(s))) return true;
+      // Fuzzy fallback
+      return transcriptTokens.some(t => fuzzyWordMatch(t, original));
     }
     return false;
   }).length;
   
-  return matchCount >= Math.ceil(conceptStems.length * 0.6);
+  // 50% threshold (was 60%) — more lenient for aphasia users
+  return matchCount >= Math.ceil(conceptStems.length * 0.5);
 }
 
 /**

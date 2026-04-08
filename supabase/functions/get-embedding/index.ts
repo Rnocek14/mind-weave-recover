@@ -41,10 +41,16 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      const status = response.status === 429 || response.status === 402 ? 503 : response.status;
+      // Return graceful fallback instead of error status — lets client use rule-based scoring
+      if (response.status === 429 || response.status === 402 || response.status >= 500) {
+        return new Response(
+          JSON.stringify({ embedding: null, fallback: true, warning: 'api_unavailable' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: 'OpenAI API error', details: errorText }),
-        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

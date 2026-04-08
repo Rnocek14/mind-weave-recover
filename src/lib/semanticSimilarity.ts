@@ -32,16 +32,22 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 
     if (error) {
       console.error('Embedding API error:', error);
-      // Disable embeddings for rest of session on quota/billing errors
-      if (error?.message?.includes('503') || error?.message?.includes('429') || error?.message?.includes('quota')) {
-        embeddingDisabled = true;
-        console.warn('Embeddings disabled for this session due to quota limit');
-      }
+      // Disable embeddings for rest of session on ANY error (quota, network, etc.)
+      // The FunctionsHttpError message is generic so we can't check for specific codes
+      embeddingDisabled = true;
+      console.warn('Embeddings disabled for this session — falling back to rule-based scoring');
       return null;
     }
 
     const embedding = data?.embedding;
-    if (!embedding) return null;
+    if (!embedding) {
+      // Edge function returned fallback (quota/rate limit) — disable for session
+      if (data?.fallback) {
+        embeddingDisabled = true;
+        console.warn('Embeddings disabled for this session — API unavailable');
+      }
+      return null;
+    }
 
     // Cache for future use
     embeddingCache[normalized] = embedding;

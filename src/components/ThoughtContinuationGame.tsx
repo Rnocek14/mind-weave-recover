@@ -138,6 +138,7 @@ export function ThoughtContinuationGame({
   const {
     isListening,
     transcript: liveTranscript,
+    fullTranscript,
     startListening,
     stopListening,
     isSupported,
@@ -146,6 +147,7 @@ export function ThoughtContinuationGame({
     autoStart: false,
     continuousListening: true,
     patientMode: true, // Keep mic on continuously - no auto-cutoff
+    discourseMode: true, // Accumulate all speech segments instead of replacing
   });
 
   // ---------------------------------------------------------------------------
@@ -197,8 +199,10 @@ export function ThoughtContinuationGame({
   // ---------------------------------------------------------------------------
   
   useEffect(() => {
-    if (liveTranscript && liveTranscript.trim().length > 0) {
-      setTranscript(liveTranscript);
+    // Use fullTranscript (accumulated discourse) instead of liveTranscript (last segment only)
+    const currentText = fullTranscript || liveTranscript;
+    if (currentText && currentText.trim().length > 0) {
+      setTranscript(currentText);
       
       // Record latency to first word
       if (latencyToFirstWordRef.current === null && latencyStartRef.current) {
@@ -221,7 +225,7 @@ export function ThoughtContinuationGame({
         setPhase('listening');
       }
     }
-  }, [liveTranscript, phase]);
+  }, [fullTranscript, liveTranscript, phase]);
 
   // ---------------------------------------------------------------------------
   // Silence detection for auto-nudges
