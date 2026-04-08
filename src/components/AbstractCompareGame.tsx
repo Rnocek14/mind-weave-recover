@@ -73,13 +73,6 @@ export function AbstractCompareGame({
     latestTranscriptRef.current = '';
   }, [currentIndex]);
 
-  // Auto-start first trial when launched from lesson
-  useEffect(() => {
-    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
-      autoStartedRef.current = true;
-      setTimeout(() => handleStart(), 400);
-    }
-  }, [autoStart, phase, currentItem, isSupported]);
 
   const completedRef = useRef(false);
   useEffect(() => {
