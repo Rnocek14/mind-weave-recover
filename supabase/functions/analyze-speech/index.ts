@@ -64,7 +64,24 @@ serve(async (req) => {
 
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
-      console.error('Whisper API error:', errorText);
+      console.error('Whisper API error:', whisperResponse.status, errorText);
+      
+      // Handle rate limit (429) and server errors (5xx) gracefully
+      if (whisperResponse.status === 429 || whisperResponse.status >= 500) {
+        return new Response(
+          JSON.stringify({
+            transcript: '',
+            confidence: 0,
+            acousticMetrics: null,
+            fallback: true,
+            warning: whisperResponse.status === 429 ? 'rate_limited' : 'service_unavailable',
+            message: 'Speech service is temporarily busy. Your browser speech recognition will be used instead.',
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
       
       // Handle specific Whisper errors gracefully
       if (errorText.includes('audio_too_short')) {
