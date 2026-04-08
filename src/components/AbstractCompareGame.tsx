@@ -13,6 +13,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAbstractCompareGame, AbstractCompareTrialResult } from '@/hooks/useAbstractCompareGame';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
+import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { SpeechNudge } from '@/components/SpeechNudge';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,20 +98,58 @@ export function AbstractCompareGame({
     if (fullTranscript) latestTranscriptRef.current = fullTranscript;
   }, [fullTranscript]);
 
-  // Auto-submit after 3s silence once user has spoken 2+ words
+  // Adaptive silence-based auto-submit using speech state classifier
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTranscriptTimeRef = useRef<number>(Date.now());
+  const speakingStartRef = useRef<number>(Date.now());
+  const [nudgeHint, setNudgeHint] = useState<string | null>(null);
+
+  // Track when transcript changes (proxy for "user is speaking")
+  useEffect(() => {
+    const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    if (transcript.trim()) lastTranscriptTimeRef.current = Date.now();
+  }, [collectedTranscript, fullTranscript]);
+
+  // Reset speaking start when phase enters speaking
+  useEffect(() => {
+    if (phase === 'speaking') {
+      speakingStartRef.current = Date.now();
+      lastTranscriptTimeRef.current = Date.now();
+    }
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== 'speaking') return;
-    const transcript = collectedTranscript || latestTranscriptRef.current || '';
-    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (wordCount >= 2) {
-      silenceTimerRef.current = setTimeout(() => {
+
+    const interval = setInterval(() => {
+      if (hasProcessedRef.current) return;
+      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const silenceMs = Date.now() - lastTranscriptTimeRef.current;
+      const elapsedMs = Date.now() - speakingStartRef.current;
+      const promptText = currentItem ? `${currentItem.wordA} and ${currentItem.wordB}` : undefined;
+
+      const state = classifySpeechState({
+        transcript,
+        elapsedMs,
+        silenceDurationMs: silenceMs,
+        promptText,
+      });
+
+      setNudgeHint(state.nudgeHint);
+
+      if (state.suppressAutoSubmit) return;
+
+      // Adaptive threshold: base 1500ms for discourse, scaled by patience
+      const threshold = Math.round(1500 * state.patienceMultiplier);
+      const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+
+      if (wordCount >= 2 && silenceMs >= threshold) {
         if (!hasProcessedRef.current) handleDone();
-      }, 3000);
-    }
-    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, collectedTranscript, fullTranscript]);
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [phase, collectedTranscript, fullTranscript, currentItem]);
 
   const handleStart = useCallback(() => {
     setPhase('speaking');
