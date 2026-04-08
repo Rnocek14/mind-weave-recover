@@ -80,12 +80,17 @@ export default function Today() {
     sessionId: string | null;
   } | null>(null);
 
-  // Check for in-progress session
+  // Check for in-progress session (from localStorage which persists across navigation)
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem('lessonFlowState');
+      const saved = localStorage.getItem('lessonFlowState_resume');
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Expire after 4 hours
+        if (parsed.savedAt && Date.now() - parsed.savedAt > 4 * 60 * 60 * 1000) {
+          localStorage.removeItem('lessonFlowState_resume');
+          return;
+        }
         if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
           setSavedSession({
             currentBlockIndex: parsed.currentBlockIndex,
