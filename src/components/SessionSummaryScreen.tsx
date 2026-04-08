@@ -269,3 +269,18 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
     </div>
   );
 }
+
+function getTransferSuggestion(domain: string): string {
+  const map: Record<string, string> = {
+    lexical_retrieval: "Try naming 3 objects around you as quickly as you can — that's the same skill you just practiced.",
+    semantic_depth: "Pick one word from today and describe it to someone without saying the word itself.",
+    semantic: "Pick one word from today and describe it to someone without saying the word itself.",
+    phonology: "Listen for a tricky sound in conversation today — notice when you hear it clearly.",
+    phonological: "Listen for a tricky sound in conversation today — notice when you hear it clearly.",
+    syntax: "Try building one full sentence about your day — subject, verb, detail.",
+    discourse: "Tell someone one thing that happened today, in order: first, then, finally.",
+    comprehension: "Ask someone a question and focus on catching the key words in their answer.",
+    executive_function: "Plan your next meal in 3 steps — that uses the same sequencing skill.",
+  };
+  return map[domain] || "Use one word or skill from today's practice in a real conversation.";
+}
