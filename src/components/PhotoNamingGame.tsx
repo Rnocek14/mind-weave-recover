@@ -2186,6 +2186,11 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
+      {/* Entry instruction — first trial only */}
+      {state.trialNumber === 1 && !showFeedback && (
+        <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
+      )}
+
       {/* Image — grows to fill available space */}
       <div className="relative flex-1 min-h-[120px]">
         {state.currentTrial.imageUrl ? (
