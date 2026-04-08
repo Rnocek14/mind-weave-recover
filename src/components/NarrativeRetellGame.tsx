@@ -498,6 +498,12 @@ export function NarrativeRetellGame({
                 <span className="ml-auto text-xs text-muted-foreground">
                   {lastResult.eventsFound}/{lastResult.eventsTotal} key events
                 </span>
+               </div>
+
+              {/* Maya reflection */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 space-y-1">
+                <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
+                <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
               </div>
 
               {/* Story structure breakdown */}
