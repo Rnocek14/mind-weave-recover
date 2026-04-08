@@ -89,7 +89,14 @@ export const PhrasePracticeGame = ({
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [cueLevel, setCueLevel] = useState(1); // Start with phrase visible for better UX // 0=none, 1=visual, 2=audio, 3=both
-  const [showFeedback, setShowFeedback] = useState(false);
+  const [showFeedback, _setShowFeedback] = useState(false);
+  const setShowFeedback = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+    _setShowFeedback(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      showFeedbackRef.current = next;
+      return next;
+    });
+  }, []);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(0);
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
@@ -103,6 +110,7 @@ export const PhrasePracticeGame = ({
   
   // Ref to prevent duplicate processing
   const processingResultRef = useRef(false);
+  const showFeedbackRef = useRef(false);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveStallCountRef = useRef(0);
   
@@ -265,7 +273,16 @@ export const PhrasePracticeGame = ({
   const MAX_ATTEMPTS_BEFORE_SKIP = 5;
 
   const handleSpeechResult = (transcript: string) => {
-    if (!currentTrial || showFeedback || processingResultRef.current) return;
+    // Use refs for guards to avoid stale-closure issues with the speech hook's onResultRef
+    if (!currentTrial || showFeedbackRef.current || processingResultRef.current) {
+      console.log('🎤 handleSpeechResult blocked:', {
+        noTrial: !currentTrial,
+        showFeedback: showFeedbackRef.current,
+        processing: processingResultRef.current,
+        transition: trialTransitionRef.current,
+      });
+      return;
+    }
     // Ignore stale results right after a trial transition
     if (trialTransitionRef.current) return;
 
@@ -315,6 +332,18 @@ export const PhrasePracticeGame = ({
       continuousListening: true,
       patientMode: true,
     });
+
+  // Safety valve: if processingResultRef is stuck for >4s, reset it
+  useEffect(() => {
+    if (!processingResultRef.current) return;
+    const safety = setTimeout(() => {
+      if (processingResultRef.current) {
+        console.warn('⚠️ processingResultRef stuck - force resetting');
+        processingResultRef.current = false;
+      }
+    }, 4000);
+    return () => clearTimeout(safety);
+  }, [showFeedback, currentTrialIndex]);
 
   useEffect(() => {
     if (transcript || lastHeardText) {
