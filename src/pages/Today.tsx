@@ -65,7 +65,6 @@ const MODE_OPTIONS: { value: CoachingMode; label: string; desc: string }[] = [
 export default function Today() {
   // All hooks at the top — never after conditionals
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { mode, setMode } = useCoachingMode();
   const { activeProfile } = useProfile();
