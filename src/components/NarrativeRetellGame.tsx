@@ -54,6 +54,34 @@ function SectionStatusLabel({ status }: { status: SectionStatus }) {
   return <span className="text-muted-foreground">Missed</span>;
 }
 
+/** Generate Maya's structured reflection based on retell result */
+function buildMayaReflection(result: NarrativeTrialResult): string {
+  const { structureBreakdown: sb, eventCoverage } = result;
+  const coveredParts: string[] = [];
+  const weakParts: string[] = [];
+  for (const section of ['beginning', 'middle', 'end'] as const) {
+    if (sb[section].status === 'covered') coveredParts.push(section);
+    else weakParts.push(section);
+  }
+
+  if (eventCoverage >= 0.6 && weakParts.length === 0) {
+    return 'You told the full story clearly, including the key events.';
+  }
+  if (coveredParts.length > 0 && weakParts.length > 0) {
+    return `You got the ${coveredParts.join(' and ')} clearly. The ${weakParts[0]} was harder — that's what we'll focus on next.`;
+  }
+  if (eventCoverage >= 0.3) {
+    return 'You started the story well. Next time, try adding what happened after.';
+  }
+  return "That's okay. Let's try starting with just the beginning next time.";
+}
+
+const REAL_LIFE_CONNECTIONS = [
+  "This is the same skill you use when telling someone what happened during your day.",
+  "This helps when you're explaining something to someone — step by step.",
+  "Retelling stories strengthens the same skills you use in everyday conversations.",
+];
+
 export function NarrativeRetellGame({
   userId,
   sessionId,
