@@ -430,7 +430,7 @@ export function CategoryFluencyGame({
             "transition-all",
             lastAddedWord && "ring-2 ring-primary scale-110"
           )}>
-            {uniqueWords.length}
+            {uniqueValidCount}
           </Badge>
         </div>
         <div className={cn(
@@ -506,18 +506,22 @@ export function CategoryFluencyGame({
         </button>
       )}
 
-      {/* Words entered */}
+      {/* Words entered — valid words get green, invalid get muted */}
       <div className="flex flex-wrap gap-1.5 min-h-[48px]">
         {words.map((w, i) => (
           <Badge 
             key={i} 
             variant="outline" 
             className={cn(
-              "text-sm transition-all",
-              w === lastAddedWord && "ring-1 ring-primary bg-primary/5"
+              "text-sm transition-all flex items-center gap-1",
+              w.status === 'valid' && "border-primary/40 bg-primary/5 text-foreground",
+              w.status === 'invalid' && "border-muted-foreground/30 bg-muted/30 text-muted-foreground line-through",
+              w.text === lastAddedWord && w.status === 'valid' && "ring-1 ring-primary bg-primary/10"
             )}
           >
-            {w}
+            {w.status === 'valid' && <Check className="w-3 h-3 text-primary" />}
+            {w.status === 'invalid' && <X className="w-3 h-3 text-muted-foreground" />}
+            {w.text}
           </Badge>
         ))}
       </div>
