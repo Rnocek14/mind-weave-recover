@@ -259,6 +259,8 @@ export const PhrasePracticeGame = ({
   // Guard: ignore speech results briefly after trial transitions
   const trialTransitionRef = useRef(false);
 
+  const MAX_ATTEMPTS_BEFORE_SKIP = 5;
+
   const handleSpeechResult = (transcript: string) => {
     if (!currentTrial || showFeedback || processingResultRef.current) return;
     // Ignore stale results right after a trial transition
@@ -280,12 +282,24 @@ export const PhrasePracticeGame = ({
     if (evaluation.match) {
       handleCorrectAnswer(evaluation.wordAccuracy, transcript);
     } else if (evaluation.wordAccuracy > 0.3) {
-      // Partial match - give feedback
-      toast({
-        title: "Almost there!",
-        description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
-      });
-      setAttempts(prev => prev + 1);
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      
+      // After max attempts with partial matches, auto-advance with encouragement
+      if (newAttempts >= MAX_ATTEMPTS_BEFORE_SKIP) {
+        toast({
+          title: "Good effort! 💪",
+          description: "Let's move on to the next phrase.",
+          duration: 2500,
+        });
+        // Treat as a partial-credit correct to advance
+        handleCorrectAnswer(evaluation.wordAccuracy, transcript);
+      } else {
+        toast({
+          title: "Almost there!",
+          description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
+        });
+      }
     }
     // Low match (<= 30%) — do nothing, let user keep trying
     // instead of auto-advancing on noise/stale transcripts
