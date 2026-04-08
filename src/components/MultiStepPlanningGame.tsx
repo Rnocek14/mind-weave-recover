@@ -27,6 +27,8 @@ interface MultiStepPlanningGameProps {
   onGameComplete: (results: PlanningTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** Auto-start mic on first trial (from lesson flow) */
+  autoStart?: boolean;
 }
 
 type Phase = 'prompt' | 'speaking' | 'scored';
@@ -35,6 +37,7 @@ export function MultiStepPlanningGame({
   userId,
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 3, tier = 1,
+  autoStart = false,
 }: MultiStepPlanningGameProps) {
   const { currentItem, currentIndex, totalItems, isComplete, results, submitPlan, nextItem } =
     useMultiStepPlanningGame(roundCount, tier);
@@ -60,6 +63,8 @@ export function MultiStepPlanningGame({
     uploadRecording,
   } = useAudioRecorder();
 
+  const autoStartedRef = useRef(false);
+
   useEffect(() => {
     setPhase('prompt');
     setLastResult(null);
@@ -67,6 +72,14 @@ export function MultiStepPlanningGame({
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
   }, [currentIndex]);
+
+  // Auto-start first trial when launched from lesson
+  useEffect(() => {
+    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
+      autoStartedRef.current = true;
+      setTimeout(() => handleStart(), 400);
+    }
+  }, [autoStart, phase, currentItem, isSupported]);
 
   const completedRef = useRef(false);
   useEffect(() => {

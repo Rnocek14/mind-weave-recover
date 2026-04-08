@@ -267,9 +267,10 @@ export function CategoryFluencyGame({
     setCurrentRound(prev => prev + 1);
     setWords([]);
     setCurrentInput('');
-    setPhase('ready');
     setShowTextInput(false);
-  }, []);
+    // Auto-start next round immediately (no return to 'ready')
+    setTimeout(() => startRound(), 300);
+  }, [startRound]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();

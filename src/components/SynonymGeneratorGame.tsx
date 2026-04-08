@@ -316,9 +316,10 @@ export function SynonymGeneratorGame({
     usedWordsRef.current.add(prompt.word);
     setWords([]);
     setCurrentInput('');
-    setPhase('ready');
     setShowTextInput(false);
-  }, [prompt.word]);
+    // Auto-start next round immediately (no return to 'ready')
+    setTimeout(() => startRound(), 300);
+  }, [prompt.word, startRound]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
