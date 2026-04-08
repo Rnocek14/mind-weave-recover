@@ -981,10 +981,14 @@ export function generateDailyLesson(
     // Prefer exercise from different component than last; motor is fine but not required
     let consolidationExercise: typeof scoredExercises[0] = null;
     
-    // First try: any exercise that doesn't share component with last
+    // Collect exerciseIds already in session to prevent duplicates
+    const usedIds = new Set(blocks.map(b => b.exerciseId));
+    
+    // First try: any exercise not already in session and doesn't share component with last
     consolidationExercise = scoredExercises.find(e => 
-      e && !sharesBaseComponent(e, lastAddedExercise)
-    ) || warmup; // Last resort: repeat warmup
+      e && !usedIds.has(e.id) && !sharesBaseComponent(e, lastAddedExercise)
+    ) || scoredExercises.find(e => e && !usedIds.has(e.id)) // fallback: just not duplicate
+    || warmup; // Last resort: repeat warmup
     
     if (consolidationExercise) {
       blocks.push({
