@@ -1,30 +1,33 @@
 /**
- * Meaning Match Arena Game Component
+ * Meaning Match Game Component (v2)
  * 
- * Read a sentence → pick the correct meaning → explain WHY (generative layer).
- * Supports keyword highlight hints and tiered difficulty.
+ * Read a sentence → pick the correct meaning → optionally explain WHY.
+ * Redesigned: no reading gate, adaptive explain-why, model explanation shown,
+ * structured feedback, Maya integration.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useMeaningMatchGame, MeaningMatchTrialResult } from '@/hooks/useMeaningMatchGame';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, XCircle, Lightbulb, Star, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Lightbulb, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
+import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 
 interface MeaningMatchGameProps {
   onTrialComplete: (result: MeaningMatchTrialResult) => void;
   onGameComplete: (results: MeaningMatchTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
-  /** Profile-recommended cue type — adapts hint behavior */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
-type Phase = 'reading' | 'answering' | 'feedback' | 'explaining';
+type Phase = 'answering' | 'feedback' | 'explaining';
 
 /** Highlight keywords in a sentence */
 function highlightSentence(sentence: string, keywords?: string[]): React.ReactNode {
@@ -65,21 +68,28 @@ export function MeaningMatchGame({
     nextItem,
   } = useMeaningMatchGame(roundCount, difficultyLevel);
 
-  const [phase, setPhase] = useState<Phase>('reading');
+  const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [lastResult, setLastResult] = useState<MeaningMatchTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [reasoningPoints, setReasoningPoints] = useState(0);
+  const [explainSkipCount, setExplainSkipCount] = useState(0);
   const trialStartRef = useRef(Date.now());
+  const caseLoadTimeRef = useRef(Date.now());
+  const firstInteractionRef = useRef(false);
+
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'meaning-match' });
 
   // Reset state when item changes
   useEffect(() => {
-    setPhase('reading');
+    setPhase('answering');
     setSelectedOption(null);
     setLastResult(null);
     setUsedHint(false);
     setShowHint(false);
+    firstInteractionRef.current = false;
+    caseLoadTimeRef.current = Date.now();
     trialStartRef.current = Date.now();
   }, [currentIndex]);
 
@@ -92,13 +102,13 @@ export function MeaningMatchGame({
     }
   }, [isComplete, results, onGameComplete]);
 
-  const handleReady = useCallback(() => {
-    setPhase('answering');
-    trialStartRef.current = Date.now();
-  }, []);
-
   const handleSelectOption = useCallback((index: number) => {
     if (phase !== 'answering' || selectedOption !== null) return;
+
+    if (!firstInteractionRef.current) {
+      firstInteractionRef.current = true;
+      trialStartRef.current = Date.now();
+    }
 
     setSelectedOption(index);
     const reactionTimeMs = Date.now() - trialStartRef.current;
@@ -107,24 +117,36 @@ export function MeaningMatchGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
-      // Do NOT emit onTrialComplete here — wait until after explanation phase
     }
   }, [phase, selectedOption, usedHint, submitAnswer]);
 
   const handleHint = useCallback(() => {
+    if (!firstInteractionRef.current) {
+      firstInteractionRef.current = true;
+      trialStartRef.current = Date.now();
+    }
     setUsedHint(true);
     setShowHint(true);
   }, []);
 
-  // Transition from feedback → explaining
+  // Proceed to explain or skip
   const handleProceedToExplain = useCallback(() => {
     setPhase('explaining');
   }, []);
 
-  // Handle explanation completion — emit single combined trial result
+  const handleSkipExplain = useCallback(() => {
+    setExplainSkipCount(prev => prev + 1);
+    if (lastResult) {
+      onTrialComplete(lastResult);
+    }
+    nextItem();
+  }, [nextItem, lastResult, onTrialComplete]);
+
   const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
     if (!explainResult.skipped) {
       setReasoningPoints(prev => prev + explainResult.score.score);
+    } else {
+      setExplainSkipCount(prev => prev + 1);
     }
     if (lastResult) {
       onTrialComplete({
@@ -136,67 +158,137 @@ export function MeaningMatchGame({
     nextItem();
   }, [nextItem, lastResult, onTrialComplete]);
 
+  // Build summary data
+  const summaryData = useMemo(() => {
+    if (!isComplete || results.length === 0) return null;
+
+    const correctCount = results.filter(r => r.correct).length;
+    const accuracy = correctCount / results.length;
+    const literalResults = results.filter(r => r.type === 'literal');
+    const figurativeResults = results.filter(r => r.type === 'figurative');
+    const literalCorrect = literalResults.filter(r => r.correct).length;
+    const figurativeCorrect = figurativeResults.filter(r => r.correct).length;
+
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+
+    if (literalResults.length > 0 && literalCorrect / literalResults.length >= 0.7) {
+      strengths.push(`Strong literal comprehension (${literalCorrect}/${literalResults.length})`);
+    }
+    if (figurativeResults.length > 0 && figurativeCorrect / figurativeResults.length >= 0.7) {
+      strengths.push(`Good figurative understanding (${figurativeCorrect}/${figurativeResults.length})`);
+    }
+    if (accuracy >= 0.8) {
+      strengths.push('Consistently accurate across the exercise');
+    }
+    const noHintTrials = results.filter(r => !r.usedHint && r.correct).length;
+    if (noHintTrials >= results.length * 0.5) {
+      strengths.push('Strong independent performance without hints');
+    }
+
+    if (literalResults.length > 0 && literalCorrect / literalResults.length < 0.5) {
+      weaknesses.push(`Literal meanings need more practice (${literalCorrect}/${literalResults.length})`);
+    }
+    if (figurativeResults.length > 0 && figurativeCorrect / figurativeResults.length < 0.5) {
+      weaknesses.push(`Figurative meanings were challenging (${figurativeCorrect}/${figurativeResults.length})`);
+    }
+    if (results.filter(r => r.usedHint).length > results.length * 0.5) {
+      weaknesses.push('Relied on hints frequently — try without next time');
+    }
+
+    if (strengths.length === 0) {
+      strengths.push('You completed the full exercise — persistence matters');
+    }
+
+    const maya = buildReflection(accuracy);
+
+    return {
+      correctCount,
+      accuracy,
+      literalResults,
+      figurativeResults,
+      literalCorrect,
+      figurativeCorrect,
+      strengths,
+      weaknesses,
+      maya,
+    };
+  }, [isComplete, results, buildReflection]);
 
   // Summary screen
   if (!currentItem || isComplete) {
-    const correctCount = results.filter(r => r.correct).length;
+    if (!summaryData) return null;
+
     return (
-      <div className="max-w-lg mx-auto space-y-6 text-center">
-        <div className="text-6xl">🏆</div>
-        <h2 className="text-2xl font-bold">Arena Complete!</h2>
-        <div className="grid grid-cols-3 gap-4">
+      <div className="max-w-lg mx-auto space-y-6">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Exercise Complete</h2>
+          <p className="text-muted-foreground">
+            {summaryData.correctCount}/{results.length} correct • {Math.round(summaryData.accuracy * 100)}% accuracy
+          </p>
+        </div>
+
+        {/* Type breakdown */}
+        <div className="grid grid-cols-2 gap-3">
           <Card>
             <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">{correctCount}/{results.length}</div>
-              <div className="text-xs text-muted-foreground">Correct</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">{totalPoints}</div>
-              <div className="text-xs text-muted-foreground">Points</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <div className="text-2xl font-bold">
-                {results.length > 0 ? Math.round((correctCount / results.length) * 100) : 0}%
+              <div className="text-lg font-bold">
+                {summaryData.literalCorrect}/{summaryData.literalResults.length}
               </div>
-              <div className="text-xs text-muted-foreground">Accuracy</div>
+              <div className="text-xs text-muted-foreground">Literal</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <div className="text-lg font-bold">
+                {summaryData.figurativeCorrect}/{summaryData.figurativeResults.length}
+              </div>
+              <div className="text-xs text-muted-foreground">Figurative</div>
             </CardContent>
           </Card>
         </div>
+
         {reasoningPoints > 0 && (
-          <div className="text-sm text-muted-foreground">
-            🧠 Reasoning score: {reasoningPoints} pts
-          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            🧠 Reasoning bonus: {reasoningPoints} pts
+          </p>
         )}
+
+        <StructuredFeedbackSummary
+          strengths={summaryData.strengths}
+          weaknesses={summaryData.weaknesses}
+          nextStep={summaryData.maya.nextStep}
+          mayaReflection={summaryData.maya.reflection}
+          realLifeLine={summaryData.maya.realLifeLine}
+        />
       </div>
     );
   }
 
   const progressPercent = (currentIndex / totalItems) * 100;
 
+  // Determine explain-why presentation level based on skip count
+  const explainLevel: 'full' | 'compact' | 'minimal' = 
+    explainSkipCount < 3 ? 'full' : explainSkipCount < 6 ? 'compact' : 'minimal';
+
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
+      {/* Purpose banner on first trial only */}
+      {currentIndex === 0 && (
+        <ExercisePurposeBanner exerciseSlug="meaning-match" />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-1">
-          <Zap className="h-4 w-4 text-primary" />
-          <span className="font-medium">Round {currentIndex + 1} of {totalItems}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Star className="h-4 w-4 text-yellow-500" />
-          <span className="font-medium">{totalPoints}</span>
-          {reasoningPoints > 0 && (
-            <span className="text-xs text-muted-foreground ml-1">+🧠{reasoningPoints}</span>
-          )}
-        </div>
+        <span className="font-medium text-muted-foreground">
+          {currentIndex + 1} of {totalItems}
+        </span>
+        <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
       </div>
 
       <Progress value={progressPercent} className="h-1.5" />
 
-      {/* Sentence card */}
+      {/* Sentence card — always visible, no gate */}
       <Card className="border-2 border-border/50">
         <CardContent className="pt-6">
           <p className="text-lg leading-relaxed">
@@ -212,14 +304,7 @@ export function MeaningMatchGame({
         </CardContent>
       </Card>
 
-      {/* Reading phase */}
-      {phase === 'reading' && (
-        <Button onClick={handleReady} className="w-full" size="lg">
-          What does this mean? →
-        </Button>
-      )}
-
-      {/* Answering phase */}
+      {/* Answering phase — shown immediately, no reading gate */}
       {phase === 'answering' && (
         <div className="space-y-3">
           <h3 className="text-base font-semibold">Pick the best meaning:</h3>
@@ -248,7 +333,6 @@ export function MeaningMatchGame({
                 : 'Highlight keywords (−5 bonus points)'}
             </Button>
           )}
-          {/* Auto-show hint for users who historically need cue support */}
           {!usedHint && recommendedCueType === 'full_word' && (
             <p className="text-xs text-muted-foreground text-center italic">
               💡 Try the hint if you need help — it's okay to use support.
@@ -257,45 +341,71 @@ export function MeaningMatchGame({
         </div>
       )}
 
-      {/* Feedback phase — now transitions to explaining */}
+      {/* Feedback phase — shows explanation + adaptive explain-why */}
       {phase === 'feedback' && lastResult && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Card className={cn(
             "border-2",
             lastResult.correct
-              ? "border-green-500 bg-green-50 dark:bg-green-950/20"
-              : "border-red-500 bg-red-50 dark:bg-red-950/20"
+              ? "border-primary/50 bg-primary/5"
+              : "border-destructive/50 bg-destructive/5"
           )}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
                 {lastResult.correct
-                  ? <CheckCircle className="h-5 w-5 text-green-600" />
-                  : <XCircle className="h-5 w-5 text-red-600" />}
+                  ? <CheckCircle className="h-5 w-5 text-primary" />
+                  : <XCircle className="h-5 w-5 text-destructive" />}
                 <span className="font-bold">
-                  {lastResult.correct ? '✅ Correct!' : '❌ Not quite...'}
+                  {lastResult.correct ? 'Correct' : 'Not quite'}
                 </span>
                 {lastResult.correct && (
-                  <span className="ml-auto text-sm text-green-700 dark:text-green-400 font-medium">
+                  <span className="ml-auto text-sm text-primary font-medium">
                     +{lastResult.points} pts
                   </span>
                 )}
               </div>
               {!lastResult.correct && (
                 <p className="text-sm">
-                  <span className="font-medium">Correct answer:</span>{' '}
+                  <span className="font-medium">Answer:</span>{' '}
                   {currentItem.options[currentItem.correctIndex]}
                 </p>
               )}
+              {/* Model explanation — always shown */}
+              <div className="flex items-start gap-2 pt-1 border-t border-border/30 mt-2">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground">{currentItem.explanation}</p>
+              </div>
             </CardContent>
           </Card>
 
-          <Button onClick={handleProceedToExplain} className="w-full" size="lg">
-            Now explain why →
-          </Button>
+          {/* Adaptive explain-why + Next */}
+          <div className="flex gap-2">
+            <Button onClick={handleSkipExplain} variant="outline" className="flex-1" size="lg">
+              Next →
+            </Button>
+            {explainLevel === 'full' && (
+              <Button onClick={handleProceedToExplain} variant="default" className="flex-1" size="lg">
+                Explain why (bonus)
+              </Button>
+            )}
+            {explainLevel === 'compact' && (
+              <Button onClick={handleProceedToExplain} variant="ghost" size="sm" className="text-xs self-center">
+                Explain why
+              </Button>
+            )}
+            {explainLevel === 'minimal' && (
+              <button
+                onClick={handleProceedToExplain}
+                className="text-xs text-muted-foreground underline self-center"
+              >
+                explain
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Explaining phase — generative "why" layer */}
+      {/* Explaining phase */}
       {phase === 'explaining' && currentItem && (
         <ExplainWhyPrompt
           wasCorrect={lastResult?.correct ?? false}
