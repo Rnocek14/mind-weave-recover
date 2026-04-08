@@ -209,7 +209,36 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Azure Pronunciation Assessment (shared hook)
   const { analyzePronunciation } = usePronunciationAnalysis();
 
-  // Initialize trials ONCE on mount (not on difficulty change)
+  // ── Imperative handle for parent bottom-bar buttons ──
+  const [isPaused, setIsPaused] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    markCorrect: () => {
+      if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
+      handleCorrectAnswer(1.0, currentTrial.phrase);
+    },
+    skipTooHard: () => {
+      if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
+      // Record as failed trial, then step down difficulty and advance
+      recordAdaptiveTrial({ correct: false, reactionTimeMs: 0 });
+      toast({
+        title: "No problem!",
+        description: "Switching to an easier phrase.",
+        duration: 2000,
+      });
+      handleIncorrectAnswer(lastHeardText || '', { advanceAfterFeedback: true });
+    },
+    pause: () => {
+      setIsPaused(true);
+      if (isListening) stopListening();
+    },
+    resume: () => {
+      setIsPaused(false);
+      if (autoListen) {
+        setTimeout(() => startListening(), 500);
+      }
+    },
+  }));
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
