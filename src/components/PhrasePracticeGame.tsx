@@ -667,7 +667,7 @@ export const PhrasePracticeGame = ({
       wordAccuracy: currentAccuracy,
       repetitions: attemptCount + 1,
       whisperTranscript: spokenTranscript || undefined,
-      encouragementScore: calculateEncouragementScore('incorrect'),
+      encouragementScore: calculateEncouragementScore('unrelated'),
       effortfulSpeech: false,
     });
     
