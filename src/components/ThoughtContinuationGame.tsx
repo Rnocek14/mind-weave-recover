@@ -639,6 +639,10 @@ export function ThoughtContinuationGame({
       {/* Main prompt card */}
       <Card className="border-2 border-primary/20 shadow-lg">
         <CardContent className="p-6 space-y-6">
+          {/* Entry instruction — shown only on first prompt */}
+          {promptCount <= 1 && (
+            <p className="text-sm text-center text-muted-foreground">Finish the thought</p>
+          )}
           {/* Prompt text */}
           <div className="text-center">
             <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
