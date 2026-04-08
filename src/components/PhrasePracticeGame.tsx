@@ -103,6 +103,7 @@ export const PhrasePracticeGame = ({
   
   // Ref to prevent duplicate processing
   const processingResultRef = useRef(false);
+  const showFeedbackRef = useRef(false);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveStallCountRef = useRef(0);
   
@@ -265,7 +266,16 @@ export const PhrasePracticeGame = ({
   const MAX_ATTEMPTS_BEFORE_SKIP = 5;
 
   const handleSpeechResult = (transcript: string) => {
-    if (!currentTrial || showFeedback || processingResultRef.current) return;
+    // Use refs for guards to avoid stale-closure issues with the speech hook's onResultRef
+    if (!currentTrial || showFeedbackRef.current || processingResultRef.current) {
+      console.log('🎤 handleSpeechResult blocked:', {
+        noTrial: !currentTrial,
+        showFeedback: showFeedbackRef.current,
+        processing: processingResultRef.current,
+        transition: trialTransitionRef.current,
+      });
+      return;
+    }
     // Ignore stale results right after a trial transition
     if (trialTransitionRef.current) return;
 
