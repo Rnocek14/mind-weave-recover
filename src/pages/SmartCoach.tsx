@@ -734,13 +734,23 @@ export default function SmartCoach() {
 
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-5">
-            {plan.continuityNote && (
+            {/* Continuity: show behavioral opener from real performance data */}
+            {continuitySignals && !continuitySignals.isFirstSession && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1">
                 <p className="text-xs font-medium text-primary flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />
                   Building on progress
                 </p>
-                <p className="text-xs text-muted-foreground">{plan.continuityNote}</p>
+                <p className="text-xs text-muted-foreground">{continuitySignals.opener}</p>
+              </div>
+            )}
+            {continuitySignals?.isFirstSession && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Your first session
+                </p>
+                <p className="text-xs text-muted-foreground">{continuitySignals.opener}</p>
               </div>
             )}
 
