@@ -114,9 +114,8 @@ export function MayaAssistantBubble({
         className={cn(
           'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg relative',
           'bg-primary text-primary-foreground',
-          isSpeaking && 'ring-4 ring-primary/30 animate-pulse',
-          isOpen && 'ring-2 ring-primary/50',
-          !isSpeaking && !isOpen && 'animate-[breathe_3s_ease-in-out_infinite]'
+          isSpeaking && 'ring-4 ring-primary/30',
+          isOpen && 'ring-2 ring-primary/50'
         )}
         title="Ask Maya for help"
       >
