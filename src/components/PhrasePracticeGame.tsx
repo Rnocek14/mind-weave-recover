@@ -230,13 +230,12 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     },
     pause: () => {
       setIsPaused(true);
+      setIsListeningMode(false);
       if (isListening) stopListening();
     },
     resume: () => {
       setIsPaused(false);
-      if (autoListen) {
-        setTimeout(() => startListening(), 500);
-      }
+      setIsListeningMode(true); // Re-enables auto-listen effect
     },
   }));
   const initializedRef = useRef(false);
