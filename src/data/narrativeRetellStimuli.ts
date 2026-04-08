@@ -27,6 +27,9 @@ export interface NarrativeStory {
   };
 }
 
+/** Default structure for all 4-scene stories */
+const DEFAULT_STRUCTURE = { beginning: [0], middle: [1, 2], end: [3] };
+
 export const NARRATIVE_STORIES: NarrativeStory[] = [
   // Tier 1 — Simple, concrete, short sequences
   {
@@ -41,6 +44,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['woke up', 'made coffee', 'cat knocked cup', 'cleaned up', 'made another'],
     expectedClauses: 5,
     tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'lost-keys',
@@ -54,6 +58,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['couldn\'t find keys', 'looked everywhere', 'dog sitting on mat', 'keys under dog'],
     expectedClauses: 4,
     tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'rainy-picnic',
@@ -67,6 +72,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['packed picnic', 'started raining', 'ran to car', 'picnic inside'],
     expectedClauses: 4,
     tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
   },
   // Tier 2 — More characters, cause-effect, emotions
   {
@@ -81,6 +87,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['thought forgotten', 'felt sad', 'lights off', 'surprise party', 'friends planned'],
     expectedClauses: 5,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'broken-bike',
@@ -94,6 +101,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['riding fast', 'hit rock', 'wheel bent', 'neighbor helped', 'fixed together', 'learned careful'],
     expectedClauses: 6,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'library-mix-up',
@@ -107,6 +115,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['wrong book', 'loved it', 'about space', 'went back', 'mistakes discoveries'],
     expectedClauses: 5,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
   // Tier 3 — Abstract elements, inference required
   {
@@ -121,6 +130,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['argued over fence', 'storm knocked tree', 'worked together', 'became friends', 'took down fence'],
     expectedClauses: 5,
     tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'old-photograph',
@@ -134,6 +144,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['found photographs', 'grandmother young', 'same house', 'three generations', 'realized connection'],
     expectedClauses: 5,
     tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
   },
 
   // Additional Tier 1
@@ -149,6 +160,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['made list', 'went to store', 'put in cart', 'paid', 'forgot milk'],
     expectedClauses: 5,
     tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'park-walk',
@@ -162,6 +174,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['walk after lunch', 'ducks in pond', 'started raining', 'used umbrella', 'walked home'],
     expectedClauses: 5,
     tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
   },
 
   // Additional Tier 2
@@ -177,6 +190,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['got the job', 'nervous first day', 'boss introduced', 'shown around', 'felt he belonged'],
     expectedClauses: 5,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'garden-project',
@@ -190,6 +204,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['wanted garden', 'built raised bed', 'planted vegetables', 'sprouts appeared', 'felt proud'],
     expectedClauses: 5,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'hospital-visit',
@@ -203,6 +218,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['visited friend', 'recovering from surgery', 'brought flowers and card', 'friend smiled', 'promised to visit again'],
     expectedClauses: 5,
     tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
   },
 
   // Additional Tier 3
@@ -218,6 +234,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['taught 35 years', 'retiring', 'students gave scrapbook', 'too emotional to speak', 'said they taught him'],
     expectedClauses: 5,
     tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'wrong-train',
@@ -231,6 +248,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['wrong train', 'unfamiliar signs', 'elderly woman helped', 'found right platform', 'arrived late but grateful'],
     expectedClauses: 5,
     tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
   },
   {
     id: 'power-outage',
@@ -244,6 +262,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     keyEvents: ['storm knocked out power', 'lit candles', 'told stories and played games', 'power came back', 'preferred evening without screens'],
     expectedClauses: 5,
     tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
   },
 ];
 
