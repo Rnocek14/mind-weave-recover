@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Wind, Clock, RotateCcw } from 'lucide-react';
+import { Wind, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
-import { getTransitionEncouragement } from '@/lib/performanceAwareFeedback';
+import { getPerformanceTransition, getAdaptationMessage } from '@/lib/sessionFeedbackCopy';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
@@ -14,6 +14,8 @@ interface ExerciseTransitionOverlayProps {
   nextPhase?: 'warmup' | 'primary' | 'secondary' | 'consolidation' | 'support';
   isSupportPivot?: boolean;
   sessionId?: string | null;
+  /** Last exercise score for performance-aware messaging */
+  lastScore?: number | null;
   onContinue: () => void;
   onEnd: () => void;
 }
@@ -27,6 +29,7 @@ export const ExerciseTransitionOverlay = ({
   nextPhase,
   isSupportPivot,
   sessionId,
+  lastScore,
   onContinue,
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
@@ -35,7 +38,16 @@ export const ExerciseTransitionOverlay = ({
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
-  const [encouragement] = useState(() => getTransitionEncouragement());
+
+  // Performance-aware transition message
+  const [feedback] = useState(() => {
+    if (isSupportPivot) {
+      return { line: "Let's take it easier.", emoji: "💛" };
+    }
+    return getPerformanceTransition(lastScore ?? null);
+  });
+
+  const adaptationMsg = getAdaptationMessage(lastScore ?? null, nextExerciseName);
 
   useEffect(() => {
     if (isPaused) return;
@@ -81,6 +93,7 @@ export const ExerciseTransitionOverlay = ({
     setIsPaused(true);
   };
 
+  // ═══════ Micro-pause (breathing break) ═══════
   if (type === 'micro-pause') {
     return (
       <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -92,9 +105,7 @@ export const ExerciseTransitionOverlay = ({
                 key={i}
                 className={cn(
                   "w-3 h-3 rounded-full transition-all duration-300",
-                  i < completedCount
-                    ? "bg-primary scale-100"
-                    : "bg-muted scale-75"
+                  i < completedCount ? "bg-primary scale-100" : "bg-muted scale-75"
                 )}
               />
             ))}
@@ -108,11 +119,10 @@ export const ExerciseTransitionOverlay = ({
           <div>
             <h2 className="text-2xl font-bold mb-1">Take a breath</h2>
             <p className="text-muted-foreground text-lg">
-              You're doing great — {completedCount} of {totalCount} done
+              {completedCount} of {totalCount} done
             </p>
           </div>
 
-          {/* Auto-advance indicator (hidden when paused) */}
           {!isPaused && (
             <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
               <div 
@@ -126,32 +136,17 @@ export const ExerciseTransitionOverlay = ({
             <p className="text-sm text-muted-foreground">Take as long as you need</p>
           )}
 
-          {/* Actions */}
           <div className="flex flex-col gap-2">
             <div className="flex gap-3">
-              <Button 
-                variant="ghost" 
-                size="lg" 
-                className="flex-1 text-muted-foreground"
-                onClick={handleEnd}
-              >
+              <Button variant="ghost" size="lg" className="flex-1 text-muted-foreground" onClick={handleEnd}>
                 End session
               </Button>
-              <Button 
-                size="lg" 
-                className="flex-1"
-                onClick={handleSkipContinue}
-              >
+              <Button size="lg" className="flex-1" onClick={handleSkipContinue}>
                 Continue
               </Button>
             </div>
             {!isPaused && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground mx-auto"
-                onClick={handleNeedMoreTime}
-              >
+              <Button variant="ghost" size="sm" className="text-muted-foreground mx-auto" onClick={handleNeedMoreTime}>
                 <Clock className="w-4 h-4 mr-1.5" />
                 Need more time
               </Button>
@@ -162,24 +157,7 @@ export const ExerciseTransitionOverlay = ({
     );
   }
 
-  // Phase-aware coaching message
-  const getPhaseCoachingMessage = (): string | null => {
-    if (isSupportPivot) {
-      return "That one was tough — let's make this a bit easier 💛";
-    }
-    switch (nextPhase) {
-      case 'warmup': return "Let's start with something gentle";
-      case 'primary': return "Time for the main work — you've got this";
-      case 'secondary': return "Let's stretch a little further 🚀";
-      case 'consolidation': return "Let's finish strong";
-      case 'support': return "Let's slow things down — no rush 💛";
-      default: return null;
-    }
-  };
-
-  const coachingMessage = getPhaseCoachingMessage();
-
-  // Encouragement overlay — brief, auto-advancing
+  // ═══════ Encouragement overlay — performance-aware ═══════
   return (
     <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="max-w-sm w-full text-center space-y-5 animate-in fade-in zoom-in-95 duration-300">
@@ -190,25 +168,24 @@ export const ExerciseTransitionOverlay = ({
               key={i}
               className={cn(
                 "w-2.5 h-2.5 rounded-full transition-all duration-300",
-                i < completedCount
-                  ? "bg-primary scale-100"
-                  : "bg-muted scale-75"
+                i < completedCount ? "bg-primary scale-100" : "bg-muted scale-75"
               )}
             />
           ))}
         </div>
 
-        {/* Encouragement */}
-        <div className="space-y-1">
-          <p className="text-4xl">{isSupportPivot ? '💛' : encouragement.emoji}</p>
-          <h2 className="text-2xl font-bold">
-            {isSupportPivot ? "Let's take it easier" : encouragement.text}
-          </h2>
-          {coachingMessage && (
-            <p className="text-sm text-primary/80 font-medium">{coachingMessage}</p>
+        {/* Performance-aware feedback */}
+        <div className="space-y-1.5">
+          <p className="text-4xl">{feedback.emoji}</p>
+          <h2 className="text-2xl font-bold">{feedback.line}</h2>
+          
+          {/* Visible adaptation message */}
+          {adaptationMsg && (
+            <p className="text-sm text-primary/80 font-medium">{adaptationMsg}</p>
           )}
+          
           <p className="text-muted-foreground">
-            Next up: <span className="font-medium">{nextExerciseName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+            Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
         </div>
 
@@ -220,11 +197,7 @@ export const ExerciseTransitionOverlay = ({
           />
         </div>
 
-        {/* Tap anywhere hint */}
-        <button
-          onClick={handleSkipContinue}
-          className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-        >
+        <button onClick={handleSkipContinue} className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
           Tap to skip
         </button>
       </div>

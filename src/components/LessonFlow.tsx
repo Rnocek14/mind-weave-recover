@@ -104,6 +104,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const recentScoresRef = useRef<number[]>([]);
   const recentRTRef = useRef<number[]>([]);
   const recentTimeoutsRef = useRef(0);
+  const lastExerciseScoreRef = useRef<number | null>(null);
 
   const currentBlock = runtimeBlocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
