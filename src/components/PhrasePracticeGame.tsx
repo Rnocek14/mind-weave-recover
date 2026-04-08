@@ -839,31 +839,18 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const recoveryDelayMs = isListening ? 12000 : 5000;
 
     recoveryTimerRef.current = setTimeout(() => {
-      if (showFeedback || processingResultRef.current || manualMicOffRef.current || !isListeningMode) return;
+      if (showFeedback || processingResultRef.current || manualMicOffRef.current) return;
 
       const nextStallCount = consecutiveStallCountRef.current + 1;
       consecutiveStallCountRef.current = nextStallCount;
-      setShowRecoveryActions(true);
 
       if (nextStallCount >= 3) {
         toast({
-          title: 'Let’s keep going',
+          title: "Let\u2019s keep going",
           description: 'Moving to the next phrase for now.',
           duration: 2500,
         });
         handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
-        return;
-      }
-
-      if (isListening) {
-        stopListening();
-        setTimeout(() => {
-          if (!processingResultRef.current && !manualMicOffRef.current && isListeningMode) {
-            startListening();
-          }
-        }, 400);
-      } else if (!manualMicOffRef.current && isListeningMode) {
-        startListening();
       }
     }, recoveryDelayMs);
 
@@ -1091,30 +1078,6 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         </div>
       )}
 
-      {(showRecoveryActions || error) && !showFeedback && (
-        <Card className="p-4 bg-muted/30 border-border/60">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-sm text-muted-foreground">
-              {error
-                ? 'The mic seems stuck. Try restarting it, hear the phrase again, or move on.'
-                : 'Having trouble with this phrase? You can restart the mic, hear it again, or move on.'}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleRestartListening}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Restart Mic
-              </Button>
-              <Button variant="outline" size="sm" onClick={handlePlayAudio} disabled={isAudioPlaying}>
-                <Volume2 className="w-4 h-4 mr-2" />
-                {isAudioPlaying ? 'Playing...' : 'Hear It'}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={handleMoveOn}>
-                Move On
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Feedback */}
       {showFeedback && (
