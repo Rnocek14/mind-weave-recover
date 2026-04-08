@@ -14,9 +14,20 @@ import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
+import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
+import {
+  trackFirstExerciseLaunch,
+  trackExerciseComplete,
+  trackSessionDropOff,
+  trackSessionComplete,
+  associateSessionWithFlow,
+} from "@/lib/sessionFlowAnalytics";
+import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
+import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import {
   trackFirstExerciseLaunch,
