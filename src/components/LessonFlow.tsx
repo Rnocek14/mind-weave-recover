@@ -284,23 +284,24 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const navigateToExercise = (exerciseId: string) => {
     console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId, currentBlockIndex });
     
-    // Save minimal state to sessionStorage (not full lesson/profile)
-    sessionStorage.setItem('lessonFlowState', JSON.stringify({
+    // Save state to sessionStorage (for exercise return) AND localStorage (for resume from /today)
+    const stateToSave = {
       phase: 'exercise',
       currentBlockIndex,
       sessionId,
       sessionStartTime: sessionStartTimeRef.current,
-      // Persist performance signals for adaptive pauses
       recentScores: recentScoresRef.current,
       recentRTs: recentRTRef.current,
       recentTimeouts: recentTimeoutsRef.current,
-      // Staleness detection keys
       blockCount: lesson.blocks.length,
       firstExerciseId: lesson.blocks[0]?.exerciseId,
-      // Keep lesson/clinicalProfile for components that still read them
       lesson,
       clinicalProfile,
-    }));
+      savedAt: Date.now(),
+    };
+    const stateJson = JSON.stringify(stateToSave);
+    sessionStorage.setItem('lessonFlowState', stateJson);
+    localStorage.setItem('lessonFlowState_resume', stateJson);
     
     const routeMap: Record<string, string> = {
       "photo-naming": "/exercise/photo-naming",
