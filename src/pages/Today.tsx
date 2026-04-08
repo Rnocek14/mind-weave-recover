@@ -184,6 +184,7 @@ export default function Today() {
 
   const handleDiscardSession = () => {
     sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
   };
 
