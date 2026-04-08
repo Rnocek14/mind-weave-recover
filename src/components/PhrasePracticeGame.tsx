@@ -230,13 +230,12 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     },
     pause: () => {
       setIsPaused(true);
+      setIsListeningMode(false);
       if (isListening) stopListening();
     },
     resume: () => {
       setIsPaused(false);
-      if (autoListen) {
-        setTimeout(() => startListening(), 500);
-      }
+      setIsListeningMode(true); // Re-enables auto-listen effect
     },
   }));
   const initializedRef = useRef(false);
@@ -423,8 +422,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const { playPhrase, isPlaying: isAudioPlaying, lastError: audioError } = usePhraseAudio();
   
   // AUTO-LISTEN MODE: Open mic automatically on new trial
+  // Gated by isListeningMode — user can toggle it off manually
   useEffect(() => {
-    if (!autoListen || !currentTrial || showFeedback) return;
+    if (!autoListen || !isListeningMode || !currentTrial || showFeedback) return;
     
     // Don't compete with audio playback
     if (isAudioPlaying) return;
@@ -433,7 +433,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (isListening) return;
     
     const timer = setTimeout(() => {
-      if (isSupported && !isListening) {
+      if (isSupported && !isListening && isListeningMode) {
         console.log('[Auto-Listen] Starting mic after warmup delay');
         startListening();
       }
@@ -441,18 +441,16 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     
     return () => {
       clearTimeout(timer);
-      // Cleanup: stop listening if navigating away
-      if (isListening) {
-        stopListening();
-      }
     };
-  }, [autoListen, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening, stopListening]);
+  }, [autoListen, isListeningMode, listenDelayMs, currentTrial, showFeedback, isAudioPlaying, isListening, isSupported, startListening]);
 
-  // Toggle listening
+  // Toggle listening — also controls auto-listen mode
   const toggleListening = () => {
     if (isListening) {
+      setIsListeningMode(false); // Disable auto-restart
       stopListening();
     } else {
+      setIsListeningMode(true); // Re-enable auto-listen
       startListening();
     }
   };
@@ -910,6 +908,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setLastHeardText('');
     setProcessingAnswer(false);
     setTrialStartTime(Date.now());
+    // Re-enable auto-listen for the new trial
+    setIsListeningMode(true);
 
     // Allow speech results again after a short delay
     setTimeout(() => {
