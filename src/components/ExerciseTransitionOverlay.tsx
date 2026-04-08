@@ -69,6 +69,11 @@ export const ExerciseTransitionOverlay = ({
       totalCount,
     })
   );
+  
+  // Exercise micro-guidance (Guided/Full modes)
+  const [microGuidance] = useState(() => 
+    mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
+  );
 
   useEffect(() => {
     if (isPaused) return;
