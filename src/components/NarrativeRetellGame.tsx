@@ -111,6 +111,18 @@ export function NarrativeRetellGame({
   // Clinical pipeline hooks
   const { startAttempt, logFinalAnalysis, resetAttempt, currentAttemptId } = useUtteranceLogger();
   const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
+  const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
+
+  // Stop TTS on unmount or when leaving reading phase
+  useEffect(() => {
+    return () => { stopTTS(); };
+  }, [stopTTS]);
+
+  const handleListenToStory = useCallback(() => {
+    if (!currentStory) return;
+    const fullText = currentStory.scenes.map(s => s.text).join(' ');
+    speakTTS(fullText);
+  }, [currentStory, speakTTS]);
 
   // Reset on story change
   useEffect(() => {
