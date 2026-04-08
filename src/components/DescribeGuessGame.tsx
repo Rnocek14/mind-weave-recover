@@ -18,6 +18,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { SpeechNudge } from '@/components/SpeechNudge';
 import { useDescribeGuessGame, DescribeGuessTrialResult, getStarCount } from '@/hooks/useDescribeGuessGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
