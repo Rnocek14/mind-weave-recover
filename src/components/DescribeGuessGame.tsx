@@ -635,6 +635,11 @@ export function DescribeGuessGame({
         </Card>
       )}
 
+      {/* Speech nudge - gentle encouragement */}
+      {isListening && !showFeedback && (
+        <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
+      )}
+
       {/* Controls */}
       <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
