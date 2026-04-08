@@ -932,11 +932,7 @@ const Exercise = () => {
               }}
               onDifficultyChange={(newLevel) => {
                 saveLevel(newLevel);
-                toast({
-                  title: "Difficulty Adjusted",
-                  description: `Now at level ${newLevel}`,
-                  duration: 2000,
-                });
+                // Toast already shown by useInGameAdaptation inside PhrasePracticeGame
               }}
             />
           ) : exerciseId === 'left-side-hunt' ? (
