@@ -131,6 +131,14 @@ export function MultiStepPlanningGame({
     startListening();
   }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
 
+  // Auto-start first trial when launched from lesson
+  useEffect(() => {
+    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
+      autoStartedRef.current = true;
+      setTimeout(() => handleStart(), 400);
+    }
+  }, [autoStart, phase, currentItem, isSupported, handleStart]);
+
   const handleDone = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
