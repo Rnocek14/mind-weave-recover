@@ -7,9 +7,10 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Gamepad2, Brain, Home, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { supabase } from '@/integrations/supabase/client';
