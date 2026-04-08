@@ -297,6 +297,15 @@ export default function SmartCoach() {
       lastSessionGoals: coachProfile.lastSessionGoals,
     });
     
+    // Build real continuity signals from prior performance
+    const signals = buildContinuitySignals(
+      coachProfile.lastSessionGoals,
+      coachProfile.domainScores,
+      coachProfile.exerciseHistory,
+      coachProfile.strugglingPhonemes,
+    );
+    setContinuitySignals(signals);
+    
     setPlan(newPlan);
     setPhase('plan');
     sessionIdRef.current = crypto.randomUUID();
