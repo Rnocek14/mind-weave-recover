@@ -991,7 +991,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         {/* Speech Recognition Status */}
         {(
           <div className="flex flex-col items-center gap-3 py-4">
-            {autoListen && (
+            {autoListen && isListeningMode && (
               <p className="text-sm text-muted-foreground">
                 🎤 Auto-listen enabled - speak when ready
               </p>
