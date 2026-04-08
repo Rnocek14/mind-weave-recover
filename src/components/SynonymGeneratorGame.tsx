@@ -317,7 +317,9 @@ export function SynonymGeneratorGame({
     usedWordsRef.current.add(prompt.word);
     setWords([]);
     setCurrentInput('');
-    setShowTextInput(false);
+    // Persist input mode preference — don't reset to speech each round
+    const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
+    setShowTextInput(preferTyping);
     // Auto-start next round immediately (no return to 'ready')
     setTimeout(() => startRound(), 300);
   }, [prompt.word, startRound]);
