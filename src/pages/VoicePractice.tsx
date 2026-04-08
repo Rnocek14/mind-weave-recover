@@ -22,9 +22,11 @@ export default function VoicePractice() {
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasSpokenRef = useRef(false);
-  const SILENCE_TIMEOUT_MS = 3000; // auto-submit after 3s silence
+  const lastTranscriptTimeRef = useRef<number>(Date.now());
+  const listeningStartTimeRef = useRef<number>(Date.now());
+  const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const {
     phase,
