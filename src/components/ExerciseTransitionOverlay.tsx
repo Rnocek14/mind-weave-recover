@@ -6,6 +6,7 @@ import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
 import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } from '@/lib/sessionFeedbackCopy';
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { getTransitionCoaching } from '@/lib/coachingNarrative';
+import { getExerciseMicroGuidance } from '@/lib/exerciseMicroGuidance';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
@@ -67,6 +68,11 @@ export const ExerciseTransitionOverlay = ({
       completedCount,
       totalCount,
     })
+  );
+  
+  // Exercise micro-guidance (Guided/Full modes)
+  const [microGuidance] = useState(() => 
+    mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
   useEffect(() => {
@@ -206,6 +212,13 @@ export const ExerciseTransitionOverlay = ({
           <p className={cn("text-muted-foreground", !showFeedback && "text-xl font-semibold")}>
             Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
+          
+          {/* Exercise micro-guidance — Guided/Full modes */}
+          {microGuidance && !coachingBridge && (
+            <p className="text-sm text-muted-foreground/80 italic">
+              {microGuidance}
+            </p>
+          )}
           
           {/* Coaching bridge — Guided/Full modes */}
           {coachingBridge && (
