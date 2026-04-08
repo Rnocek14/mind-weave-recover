@@ -8,6 +8,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles, Loader2, LayoutDashboard } from 'lucide-react';
+import { PatientTabBar } from '@/components/PatientTabBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -161,7 +162,7 @@ export default function Practice() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-20">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <Button variant="ghost" size="icon" onClick={() => navigate('/today')} className="shrink-0">
@@ -254,6 +255,8 @@ export default function Practice() {
           </div>
         ))}
       </div>
+
+      <PatientTabBar />
     </div>
   );
 }
