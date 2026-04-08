@@ -64,7 +64,7 @@ type SessionPhase =
   | 'complete';
 
 // Phase progress mapping
-const PHASE_LABELS = ['Get ready', 'Practice 1', 'Transfer', 'Practice 2', 'Complete'];
+const PHASE_LABELS = SESSION_PROGRESS_LABELS;
 const TOTAL_PHASES = PHASE_LABELS.length;
 
 function getPhaseIndex(phase: SessionPhase): number {
@@ -385,10 +385,8 @@ export default function SmartCoach() {
     setHintLevel(0);
     setPlan(restoredPlan);
 
-    const pct = Math.round(result.score * 100);
-    if (result.score >= 0.85) mayaToast(`${pct}% — words came out quickly.`, { type: 'success' });
-    else if (result.score >= 0.6) mayaToast(`${pct}% — building momentum.`);
-    else mayaToast(`${pct}% — let's reinforce from another angle.`);
+    const reflection = buildPostGameReflection(result, 1, restoredPlan.topic);
+    mayaToast(reflection);
 
     const drilledWords = (result.targetWords || []).slice(0, 3);
     const targets: TransferTarget[] = drilledWords.map(word => ({
@@ -406,14 +404,8 @@ export default function SmartCoach() {
   const handleGame2CompleteFromRestore = useCallback((result: NormalizedExerciseResult) => {
     setGame2Result(result);
     setHintLevel(0);
-    if (game1Result) {
-      const s1 = Math.round(game1Result.score * 100);
-      const s2 = Math.round(result.score * 100);
-      const delta = s2 - s1;
-      if (delta >= 10) mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
-      else if (delta >= 0) mayaToast(`Steady at ${s2}% — reliable retrieval.`);
-      else mayaToast(`${s2}% on a harder exercise — that's progress.`);
-    }
+    const reflection = buildPostGameReflection(result, 2, plan!.topic, game1Result);
+    mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     setPhase('complete');
   }, [game1Result]);
 
