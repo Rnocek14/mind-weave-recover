@@ -66,6 +66,30 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
   const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
   
+  // Clear stale sessionStorage when mounting with a fresh lesson (not resuming)
+  useEffect(() => {
+    if (!location.state?.resuming) {
+      const saved = sessionStorage.getItem('lessonFlowState');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // If the saved lesson blocks don't match the current lesson, it's stale
+          const savedBlockCount = parsed.blockCount;
+          const savedFirstExercise = parsed.firstExerciseId;
+          if (
+            savedBlockCount !== lesson.blocks.length ||
+            savedFirstExercise !== lesson.blocks[0]?.exerciseId
+          ) {
+            console.log('[LessonFlow] Clearing stale sessionStorage (lesson mismatch)');
+            sessionStorage.removeItem('lessonFlowState');
+          }
+        } catch {
+          sessionStorage.removeItem('lessonFlowState');
+        }
+      }
+    }
+  }, []); // Only on mount
+  
   // Hardened state refs to prevent double-processing
   const hasProcessedResumeRef = useRef(false);
   const isCreatingSessionRef = useRef(false);
@@ -253,6 +277,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       recentScores: recentScoresRef.current,
       recentRTs: recentRTRef.current,
       recentTimeouts: recentTimeoutsRef.current,
+      // Staleness detection keys
+      blockCount: lesson.blocks.length,
+      firstExerciseId: lesson.blocks[0]?.exerciseId,
       // Keep lesson/clinicalProfile for components that still read them
       lesson,
       clinicalProfile,
