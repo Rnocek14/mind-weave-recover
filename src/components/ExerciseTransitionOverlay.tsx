@@ -39,12 +39,8 @@ export const ExerciseTransitionOverlay = ({
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
   const { mode } = useCoachingMode();
-  // Add ±0.3s jitter for organic rhythm
+  // Jitter for organic rhythm
   const jitter = (Math.random() - 0.5) * 0.6;
-  const hasGuidanceContent = !!(microGuidance || coachingBridge);
-  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 1.5;
-  const defaultDuration = type === 'encouragement' ? encouragementBase + jitter : 5 + jitter;
-  const duration = durationOverride ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
