@@ -76,7 +76,7 @@ const Exercise = () => {
   const [preMood, setPreMood] = useState<number | null>(null);
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState(0);
 
-  const totalRounds = 10;
+  const totalRounds = 20;
   const { doseCap, refresh: refreshDoseCap } = useDoseCap(user?.id);
   
   const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, undefined, exerciseId || "photo-naming");
