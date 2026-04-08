@@ -756,23 +756,20 @@ export const PhrasePracticeGame = ({
           <Button
             variant="outline"
             size="lg"
+            onClick={handlePlayAudio}
+            disabled={isAudioPlaying}
+          >
+            <Volume2 className="w-5 h-5 mr-2" />
+            {isAudioPlaying ? 'Playing...' : 'Hear It'}
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             onClick={handleShowCue}
             disabled={cueLevel >= 3}
           >
             <Lightbulb className="w-5 h-5 mr-2" />
-            {cueLevel === 0 ? "Show Phrase" : cueLevel === 1 ? "Hear It" : "Max Hints"}
-          </Button>
-          
-          {cueLevel >= 1 && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handlePlayAudio}
-              disabled={isAudioPlaying}
-            >
-              <Volume2 className="w-5 h-5 mr-2" />
-              {isAudioPlaying ? 'Playing...' : 'Play Audio'}
-            </Button>
+            {cueLevel < 2 ? "Get a Hint" : "Max Hints"}
           )}
           
           {audioError && (
