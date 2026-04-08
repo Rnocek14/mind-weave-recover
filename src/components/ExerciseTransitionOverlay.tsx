@@ -3,7 +3,7 @@ import { Wind, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
-import { getPerformanceTransition, getAdaptationMessage } from '@/lib/sessionFeedbackCopy';
+import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } from '@/lib/sessionFeedbackCopy';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
@@ -33,13 +33,14 @@ export const ExerciseTransitionOverlay = ({
   onContinue,
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
-  const defaultDuration = type === 'encouragement' ? 3 : 8;
+  const defaultDuration = type === 'encouragement' ? 1.5 : 5;
   const duration = durationOverride ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
 
-  // Performance-aware transition message
+  // Performance-aware transition message — with frequency gating
+  const [showFeedback] = useState(() => shouldShowFeedback());
   const [feedback] = useState(() => {
     if (isSupportPivot) {
       return { line: "Let's take it easier.", emoji: "💛" };
@@ -47,7 +48,7 @@ export const ExerciseTransitionOverlay = ({
     return getPerformanceTransition(lastScore ?? null);
   });
 
-  const adaptationMsg = getAdaptationMessage(lastScore ?? null, nextExerciseName);
+  const adaptationMsg = showFeedback ? getAdaptationMessage(lastScore ?? null, nextExerciseName) : null;
 
   useEffect(() => {
     if (isPaused) return;
@@ -174,19 +175,23 @@ export const ExerciseTransitionOverlay = ({
           ))}
         </div>
 
-        {/* Performance-aware feedback */}
+        {/* Performance-aware feedback — gated for natural feel */}
         <div className="space-y-1.5">
-          <p className="text-4xl">{feedback.emoji}</p>
-          <h2 className="text-2xl font-bold">{feedback.line}</h2>
-          
-          {/* Visible adaptation message */}
-          {adaptationMsg && (
-            <p className="text-sm text-primary/80 font-medium">{adaptationMsg}</p>
+          {showFeedback && (
+            <>
+              <p className="text-4xl">{feedback.emoji}</p>
+              <h2 className="text-2xl font-bold">{feedback.line}</h2>
+            </>
           )}
           
-          <p className="text-muted-foreground">
+          <p className={cn("text-muted-foreground", !showFeedback && "text-xl font-semibold")}>
             Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
+          
+          {/* Adaptation message — tertiary, smaller */}
+          {adaptationMsg && (
+            <p className="text-xs text-primary/60 font-medium">{adaptationMsg}</p>
+          )}
         </div>
 
         {/* Auto-advance bar */}
