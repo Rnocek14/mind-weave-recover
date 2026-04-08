@@ -54,6 +54,14 @@ export default function ConversationPartnerExercise() {
     cueSensitive: true,
   });
 
+  // Auto-start when launched from lesson flow
+  React.useEffect(() => {
+    if (fromLesson && !autoStartedRef.current && !gameStarted && !authLoading && !profileLoading && user && activeSessionId) {
+      autoStartedRef.current = true;
+      setGameStarted(true);
+    }
+  }, [fromLesson, gameStarted, authLoading, profileLoading, user, activeSessionId]);
+
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
