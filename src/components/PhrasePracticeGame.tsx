@@ -127,6 +127,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const currentAttemptIdRef = useRef<string | null>(null);
   const currentTrialIndexRef = useRef(0);
   const currentDifficultyRef = useRef(initialDifficulty);
+  const manualMicOffRef = useRef(false);
   // Track phrases completed correctly on first/second attempt — never repeat these
   const masteredPhraseIdsRef = useRef<Set<string>>(new Set());
   
@@ -447,9 +448,11 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Toggle listening — also controls auto-listen mode
   const toggleListening = () => {
     if (isListening) {
+      manualMicOffRef.current = true;
       setIsListeningMode(false); // Disable auto-restart
       stopListening();
     } else {
+      manualMicOffRef.current = false;
       setIsListeningMode(true); // Re-enable auto-listen
       startListening();
     }
@@ -790,6 +793,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   };
 
   const handleRestartListening = () => {
+    manualMicOffRef.current = false;
     setShowRecoveryActions(false);
     consecutiveStallCountRef.current = 0;
     setIsListeningMode(true); // Re-enable auto-listen
@@ -797,6 +801,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (isListening) {
       stopListening();
       setTimeout(() => {
+        if (manualMicOffRef.current) return;
         setIsListeningMode(true);
         startListening();
       }, 400);
