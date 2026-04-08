@@ -532,7 +532,7 @@ export function SynonymGeneratorGame({
       {/* Toggle between speech and text */}
       {speechSupported && (
         <button
-          onClick={() => setShowTextInput(!showTextInput)}
+          onClick={() => { const next = !showTextInput; setShowTextInput(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 self-center"
         >
           {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
