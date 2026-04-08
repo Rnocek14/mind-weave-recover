@@ -230,11 +230,13 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       handleIncorrectAnswer(lastHeardText || '', { advanceAfterFeedback: true });
     },
     pause: () => {
+      manualMicOffRef.current = true;
       setIsPaused(true);
       setIsListeningMode(false);
       if (isListening) stopListening();
     },
     resume: () => {
+      manualMicOffRef.current = false;
       setIsPaused(false);
       setIsListeningMode(true); // Re-enables auto-listen effect
     },
