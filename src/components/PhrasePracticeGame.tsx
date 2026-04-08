@@ -113,6 +113,9 @@ export const PhrasePracticeGame = ({
   const showFeedbackRef = useRef(false);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveStallCountRef = useRef(0);
+  const currentAttemptIdRef = useRef<string | null>(null);
+  const currentTrialIndexRef = useRef(0);
+  const currentDifficultyRef = useRef(initialDifficulty);
   
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
@@ -231,6 +234,18 @@ export const PhrasePracticeGame = ({
 
   const currentTrial = trials[currentTrialIndex] || null;
 
+  useEffect(() => {
+    currentAttemptIdRef.current = currentAttemptId;
+  }, [currentAttemptId]);
+
+  useEffect(() => {
+    currentTrialIndexRef.current = currentTrialIndex;
+  }, [currentTrialIndex]);
+
+  useEffect(() => {
+    currentDifficultyRef.current = currentDifficulty;
+  }, [currentDifficulty]);
+
   // Start attempt and recording when trial becomes active
   useEffect(() => {
     if (currentTrial && !showFeedback && activeSessionId && user?.id) {
@@ -331,6 +346,7 @@ export const PhrasePracticeGame = ({
       autoStart: false,
       continuousListening: true,
       patientMode: true,
+      discourseMode: true,
     });
 
   // Safety valve: if processingResultRef is stuck for >4s, reset it
@@ -452,6 +468,7 @@ export const PhrasePracticeGame = ({
     const currentCueLevel = cueLevel;
     const currentDiff = currentDifficulty;
     const attemptCount = attempts;
+    const attemptIdAtStart = currentAttemptIdRef.current;
     
     // ===== INSTANT FEEDBACK (< 100ms) =====
     playSuccess();
@@ -565,6 +582,11 @@ export const PhrasePracticeGame = ({
 
         // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
         // Include gopData + alignmentData for word/phoneme-level analysis
+        if (attemptIdAtStart && currentAttemptIdRef.current !== attemptIdAtStart) {
+          console.warn('[PhrasePractice] Skipping stale correct analysis write');
+          return;
+        }
+
         logFinalAnalysis({
           transcript: spokenTranscript,
           transcriptSource: 'browser',
@@ -613,6 +635,14 @@ export const PhrasePracticeGame = ({
     setShowRecoveryActions(false);
     consecutiveStallCountRef.current = 0;
     
+    const reactionTime = Date.now() - trialStartTime;
+    const trialData = currentTrial!;
+    const currentCueLevel = cueLevel;
+    const currentDiff = currentDifficulty;
+    const attemptCount = attempts;
+    const currentAccuracy = currentWordAccuracy;
+    const attemptIdAtStart = currentAttemptIdRef.current;
+
     const trialIdx = currentTrialIndex;
     const capturedPhrase = currentTrial?.phrase || '';
     
@@ -627,6 +657,19 @@ export const PhrasePracticeGame = ({
     
     // Update adaptive difficulty tracking (fast, local)
     recordAdaptiveTrial({ correct: false });
+
+    onTrialComplete?.({
+      correct: false,
+      timeMs: reactionTime,
+      cueLevel: currentCueLevel,
+      difficulty: currentDiff,
+      phraseId: trialData.id,
+      wordAccuracy: currentAccuracy,
+      repetitions: attemptCount + 1,
+      whisperTranscript: spokenTranscript || undefined,
+      encouragementScore: calculateEncouragementScore('incorrect'),
+      effortfulSpeech: false,
+    });
     
     // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
     const runBackgroundAnalysis = async () => {
@@ -658,6 +701,11 @@ export const PhrasePracticeGame = ({
         }
         
         // Log final analysis (TERMINAL OUTCOME: incorrect)
+        if (attemptIdAtStart && currentAttemptIdRef.current !== attemptIdAtStart) {
+          console.warn('[PhrasePractice] Skipping stale incorrect analysis write');
+          return;
+        }
+
         logFinalAnalysis({
           transcript: spokenTranscript,
           transcriptSource: 'browser',
@@ -786,16 +834,24 @@ export const PhrasePracticeGame = ({
     resetAttempt();
     processingResultRef.current = false;
     
-    if (currentTrialIndex + 1 >= trials.length) {
+    const currentIndex = currentTrialIndexRef.current;
+
+    if (currentIndex + 1 >= trials.length) {
       completeSession();
       onGameComplete?.(score, currentDifficulty);
       return;
     }
 
-    const remainingTrials = totalTrials - currentTrialIndex - 1;
+    const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const newTrials = getTrialsForLevel(currentDifficulty, remainingTrials);
-      setTrials(prev => [...prev.slice(0, currentTrialIndex + 1), ...newTrials]);
+      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 3);
+      const filteredTrials = currentTrial?.id
+        ? regeneratedTrials.filter(trial => trial.id !== currentTrial.id)
+        : regeneratedTrials;
+      const nextTrials = (filteredTrials.length >= remainingTrials ? filteredTrials : regeneratedTrials)
+        .slice(0, remainingTrials);
+
+      setTrials(prev => [...prev.slice(0, currentIndex + 1), ...nextTrials]);
     }
 
     setCurrentTrialIndex(prev => prev + 1);
