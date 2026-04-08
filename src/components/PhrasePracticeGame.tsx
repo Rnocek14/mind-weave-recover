@@ -679,15 +679,9 @@ export const PhrasePracticeGame = ({
             Practice this phrase:
           </div>
           
-          {cueLevel >= 1 ? (
-            <div className="text-4xl font-bold text-foreground leading-relaxed py-6 px-4 bg-accent/20 rounded-lg">
-              {currentTrial.phrase}
-            </div>
-          ) : (
-            <div className="text-2xl text-muted-foreground italic py-6">
-              (Click "Show Phrase" for help)
-            </div>
-          )}
+          <div className="text-4xl font-bold text-foreground leading-relaxed py-6 px-4 bg-accent/20 rounded-lg">
+            {currentTrial.phrase}
+          </div>
           
           <Badge variant="outline" className="text-sm">
             {currentTrial.category.replace('_', ' ')}
