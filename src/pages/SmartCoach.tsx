@@ -19,6 +19,7 @@ import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { generateSessionPlan, selectReactiveGame2, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { getPostDrillReview } from '@/lib/smartCoach/sessionArc';
+import { buildGame1Intro, buildPostGameReflection, buildTransferPrompt, buildSessionClosing, SESSION_PROGRESS_LABELS } from '@/lib/smartCoach/purposeLayer';
 import { saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
