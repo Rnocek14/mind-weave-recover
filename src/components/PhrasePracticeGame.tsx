@@ -692,7 +692,7 @@ export const PhrasePracticeGame = ({
   const progress = ((currentTrialIndex + 1) / trials.length) * 100;
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-2xl mx-auto space-y-6 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
