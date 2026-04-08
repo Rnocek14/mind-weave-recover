@@ -217,7 +217,9 @@ const Exercise = () => {
   }, [user?.id, exerciseId]);
 
   useEffect(() => {
-    if (isPlaying) {
+    const usesEmbeddedRoundFlow = exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt' || exerciseId === 'photo-naming' || exerciseId === 'word-practice';
+
+    if (isPlaying && !usesEmbeddedRoundFlow) {
       const timer = setInterval(() => {
         setProgress(prev => {
           if (prev >= 100) {
@@ -229,7 +231,7 @@ const Exercise = () => {
       }, 100);
       return () => clearInterval(timer);
     }
-  }, [isPlaying, currentRound]);
+  }, [isPlaying, currentRound, exerciseId]);
 
   const handleRoundComplete = async (wasCorrect: boolean = true) => {
     // Calculate reaction time from when trial started

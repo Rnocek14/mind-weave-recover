@@ -142,8 +142,20 @@ export const PhrasePracticeGame = ({
     uploadRecording 
   } = useAudioRecorder();
   
+  const safeInitialDifficulty = useMemo(
+    () => Math.max(1, Math.min(initialDifficulty, 5)),
+    [initialDifficulty]
+  );
+
   // Capability-based difficulty bounds
-  const bounds = useMemo(() => getCapabilityDifficultyBounds(CANONICAL_SLUGS.PHRASE_PRACTICE, null), []);
+  const bounds = useMemo(() => {
+    const baseBounds = getCapabilityDifficultyBounds(CANONICAL_SLUGS.PHRASE_PRACTICE, null);
+    return {
+      ...baseBounds,
+      suggestedStart: Math.max(1, Math.min(baseBounds.suggestedStart, 5)),
+      ceiling: Math.min(baseBounds.ceiling, 5),
+    };
+  }, []);
 
   // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
   const {
@@ -155,7 +167,7 @@ export const PhrasePracticeGame = ({
   } = useInGameAdaptation({
     exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
     sessionId: activeSessionId,
-    initialDifficulty,
+    initialDifficulty: safeInitialDifficulty,
     bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
@@ -176,7 +188,7 @@ export const PhrasePracticeGame = ({
     if (initializedRef.current) return;
     initializedRef.current = true;
     
-    const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
+    const newTrials = getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
     

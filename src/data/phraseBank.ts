@@ -948,16 +948,29 @@ export function getPhrasesForLevel(level: number, count: number = 10): PhraseTri
 
 // Get mixed phrases across difficulty range
 export function getTrialsForLevel(difficultyLevel: number, totalTrials: number): PhraseTrial[] {
+  const requestedTrials = Math.max(0, totalTrials);
+  if (requestedTrials === 0 || PHRASE_BANK.length === 0) return [];
+
+  // Phrase bank currently supports levels 1-5 only.
+  const safeDifficulty = Math.max(1, Math.min(5, difficultyLevel));
+
   // For level N, include phrases from level N-1, N, and N+1 (if they exist)
-  const minDiff = Math.max(1, difficultyLevel - 1);
-  const maxDiff = Math.min(5, difficultyLevel + 1);
-  
+  const minDiff = Math.max(1, safeDifficulty - 1);
+  const maxDiff = Math.min(5, safeDifficulty + 1);
+
   const availablePhrases = PHRASE_BANK.filter(
     p => p.difficulty >= minDiff && p.difficulty <= maxDiff
   );
-  
-  const shuffled = [...availablePhrases].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(totalTrials, shuffled.length));
+
+  const sourcePool = availablePhrases.length > 0 ? availablePhrases : PHRASE_BANK;
+  const selected: PhraseTrial[] = [];
+
+  while (selected.length < requestedTrials) {
+    const shuffled = [...sourcePool].sort(() => Math.random() - 0.5);
+    selected.push(...shuffled);
+  }
+
+  return selected.slice(0, requestedTrials);
 }
 
 // Generate semantic alternatives (no multiple choice for phrases, but useful for partial credit)
