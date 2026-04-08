@@ -8,6 +8,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mic, MicOff, Volume2, SkipForward, Square, Headphones, Play } from 'lucide-react';
+import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { SpeechNudge } from '@/components/SpeechNudge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoicePracticeSession, VoicePracticePhase } from '@/hooks/useVoicePracticeSession';
@@ -20,9 +22,11 @@ export default function VoicePractice() {
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasSpokenRef = useRef(false);
-  const SILENCE_TIMEOUT_MS = 3000; // auto-submit after 3s silence
+  const lastTranscriptTimeRef = useRef<number>(Date.now());
+  const listeningStartTimeRef = useRef<number>(Date.now());
+  const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const {
     phase,
@@ -78,19 +82,8 @@ export default function VoicePractice() {
         hasSpokenRef.current = true;
       }
 
-      // Reset silence timer on every new speech
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      if (hasSpokenRef.current) {
-        silenceTimerRef.current = setTimeout(() => {
-          // Auto-submit after silence
-          if (hasSpokenRef.current && transcriptRef.current.trim().length > 0) {
-            console.log('[VoicePractice] Auto-submitting after silence');
-            handleAutoSubmit();
-          }
-        }, SILENCE_TIMEOUT_MS);
-      }
+      // Track when last speech occurred
+      lastTranscriptTimeRef.current = Date.now();
     };
 
     recognition.onerror = (event: any) => {
@@ -115,11 +108,12 @@ export default function VoicePractice() {
   }, [isRecording]);
 
   const stopListening = useCallback(() => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
+    if (silenceCheckRef.current) {
+      clearInterval(silenceCheckRef.current);
+      silenceCheckRef.current = null;
     }
     hasSpokenRef.current = false;
+    setNudgeHint(null);
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
@@ -128,13 +122,49 @@ export default function VoicePractice() {
     setIsRecording(false);
   }, []);
 
-  // Auto-start listening when phase changes to 'listening'
+  // Auto-start listening + adaptive silence check when phase changes to 'listening'
   useEffect(() => {
     if (phase === 'listening' || phase === 'listening_followup') {
       startListening();
+      listeningStartTimeRef.current = Date.now();
+      lastTranscriptTimeRef.current = Date.now();
+
+      // Adaptive silence check using speech state classifier
+      if (silenceCheckRef.current) clearInterval(silenceCheckRef.current);
+      silenceCheckRef.current = setInterval(() => {
+        const transcript = transcriptRef.current;
+        const silenceMs = Date.now() - lastTranscriptTimeRef.current;
+        const elapsedMs = Date.now() - listeningStartTimeRef.current;
+
+        const state = classifySpeechState({
+          transcript,
+          elapsedMs,
+          silenceDurationMs: silenceMs,
+          promptText: currentRound?.label,
+        });
+
+        setNudgeHint(state.nudgeHint);
+
+        if (state.suppressAutoSubmit) return;
+
+        const threshold = Math.round(1500 * state.patienceMultiplier);
+        const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+        if (hasSpokenRef.current && wordCount >= 2 && silenceMs >= threshold) {
+          console.log('[VoicePractice] Adaptive auto-submit', { silenceMs, threshold, state: state.state });
+          handleAutoSubmit();
+        }
+      }, 200);
     } else if (isRecording) {
       stopListening();
     }
+
+    return () => {
+      if (silenceCheckRef.current) {
+        clearInterval(silenceCheckRef.current);
+        silenceCheckRef.current = null;
+      }
+    };
   }, [phase]);
 
   // Clean up on unmount
@@ -289,6 +319,11 @@ export default function VoicePractice() {
             <p className="text-muted-foreground animate-pulse">Thinking...</p>
           ) : null}
         </div>
+
+        {/* Speech nudge */}
+        {(phase === 'listening' || phase === 'listening_followup') && (
+          <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!transcript} />
+        )}
 
         {/* Controls */}
         <div className="flex items-center gap-4">

@@ -18,6 +18,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { SpeechNudge } from '@/components/SpeechNudge';
 import { useDescribeGuessGame, DescribeGuessTrialResult, getStarCount } from '@/hooks/useDescribeGuessGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -32,7 +34,7 @@ import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag,
 import { cn } from '@/lib/utils';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
-const SPEECH_END_DEBOUNCE_MS = 3000; // Wait 3s of silence before evaluating
+const SPEECH_END_BASE_MS = 1500; // Base silence threshold for discourse (adaptive)
 const MIN_SPEECH_CONTENT_WORDS = 2; // Minimum content words to trigger evaluation
 const MIN_LISTENING_DURATION_MS = 2000; // At least 2s of mic time before evaluating
 
@@ -76,7 +78,7 @@ export function DescribeGuessGame({
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
 
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const promptTimersRef = useRef<NodeJS.Timeout[]>([]);
   const rawTranscriptRef = useRef<string>('');
   const processingRef = useRef(false);
@@ -84,7 +86,9 @@ export function DescribeGuessGame({
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const listeningStartRef = useRef<number>(0);
+  const lastTranscriptChangeRef = useRef<number>(0);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
@@ -240,7 +244,7 @@ export function DescribeGuessGame({
   // Cleanup
   useEffect(() => {
     return () => {
-      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
@@ -420,18 +424,45 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
       startListening, speechIsListening]);
 
-  // Speech-end evaluation (debounced 3s after last transcript change)
-  // Use fullTranscript as trigger — it accumulates all speech segments
+  // Track transcript changes for silence measurement
   useEffect(() => {
-    if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current || showFeedback) return;
+    if (fullTranscript) lastTranscriptChangeRef.current = Date.now();
+  }, [fullTranscript]);
 
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+  // Adaptive speech-end evaluation using speech state classifier
+  useEffect(() => {
+    if (!isListening || showFeedback) return;
 
-    debounceTimeoutRef.current = setTimeout(() => {
-      runEvaluation();
-    }, SPEECH_END_DEBOUNCE_MS);
+    if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
+
+    debounceTimeoutRef.current = setInterval(() => {
+      if (!fullTranscript || !currentTrialRef.current || evaluatedRef.current || processingRef.current) return;
+      
+      const silenceMs = Date.now() - lastTranscriptChangeRef.current;
+      const elapsedMs = Date.now() - listeningStartRef.current;
+      const trial = currentTrialRef.current;
+      
+      const state = classifySpeechState({
+        transcript: fullTranscript,
+        elapsedMs,
+        silenceDurationMs: silenceMs,
+        promptText: trial?.target,
+      });
+
+      setNudgeHint(state.nudgeHint);
+
+      if (state.suppressAutoSubmit) return;
+
+      const threshold = Math.round(SPEECH_END_BASE_MS * state.patienceMultiplier);
+
+      if (silenceMs >= threshold) {
+        runEvaluation();
+      }
+    }, 200);
+
+    return () => { if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullTranscript, showFeedback]);
+  }, [isListening, showFeedback, fullTranscript]);
 
   const handleChipTap = useCallback((chip: PromptChip) => {
     game.recordFeatureChip(chip.featureType, chip.question);
@@ -439,7 +470,7 @@ export function DescribeGuessGame({
   }, [game, speak]);
 
   const handleSkip = useCallback(() => {
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     promptTimersRef.current.forEach(t => clearTimeout(t));
     stopListening();
@@ -604,6 +635,11 @@ export function DescribeGuessGame({
         </Card>
       )}
 
+      {/* Speech nudge - gentle encouragement */}
+      {isListening && !showFeedback && (
+        <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
+      )}
+
       {/* Controls */}
       <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
@@ -616,7 +652,7 @@ export function DescribeGuessGame({
             <Button
               size="sm"
               onClick={() => {
-                if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+                if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
                 runEvaluation();
               }}
               disabled={!displayTranscript || displayTranscript.trim().length < 3}
