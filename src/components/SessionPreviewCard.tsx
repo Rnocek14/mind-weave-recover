@@ -73,29 +73,30 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
           <p className="text-muted-foreground">Here's your session for today</p>
         </div>
 
-        {/* Focus areas */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-primary">
-            <Target className="w-4 h-4" />
-            Today's focus
+        {/* Focus areas — only in light/full coaching modes */}
+        {showPurpose && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Target className="w-4 h-4" />
+              Today's focus
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {focusAreas.map((area) => (
+                <span
+                  key={area}
+                  className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium"
+                >
+                  {area}
+                </span>
+              ))}
+            </div>
+            {sessionPurpose && (
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {sessionPurpose}
+              </p>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {focusAreas.map((area) => (
-              <span
-                key={area}
-                className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium"
-              >
-                {area}
-              </span>
-            ))}
-          </div>
-          {/* Purpose line — only in light/full modes */}
-          {sessionPurpose && (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {sessionPurpose}
-            </p>
-          )}
-        </div>
+        )}
 
         {/* Session outline */}
         <div className="space-y-2">
