@@ -2,7 +2,7 @@
  * Pre-Session Preview Card
  * 
  * Shows the user what today's session will focus on before it begins.
- * Builds trust by making the session feel intentional and personalized.
+ * In light/full coaching modes, adds purpose text connecting exercises to real goals.
  */
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
 import type { DailyLesson, ExerciseBlock } from "@/lib/dailyLessonEngine";
 import { Sparkles, Clock, Target } from "lucide-react";
+import { useCoachingMode } from "@/contexts/CoachingModeContext";
+import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 
 interface SessionPreviewCardProps {
   lesson: DailyLesson;
@@ -37,20 +39,28 @@ function getSessionGreeting(): string {
 export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPreviewCardProps) => {
   const greeting = getSessionGreeting();
   const name = displayName || "there";
+  const { showPurpose } = useCoachingMode();
 
   // Deduplicate target domains for display
   const focusAreas = [...new Set(lesson.targetDomains)].slice(0, 3).map(humanizeSlug);
 
   // Build a simple session outline from blocks
-  const outline = lesson.blocks.map((block, i) => ({
+  const outline = lesson.blocks.map((block) => ({
     name: humanizeSlug(block.exerciseId),
     phase: getPhaseLabel(block.priority),
     duration: block.duration,
+    purpose: showPurpose ? getExercisePurpose(block.exerciseId) : null,
   }));
 
   const energyLabel = lesson.energyLevel === 'light' ? 'Light session'
     : lesson.energyLevel === 'challenging' ? 'Challenge session'
     : 'Balanced session';
+
+  // Derive a session-level purpose from the primary domain
+  const primaryDomain = lesson.targetDomains?.[0];
+  const sessionPurpose = showPurpose && primaryDomain
+    ? getSessionPurposeText(primaryDomain)
+    : null;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -79,22 +89,32 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
               </span>
             ))}
           </div>
+          {/* Purpose line — only in light/full modes */}
+          {sessionPurpose && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {sessionPurpose}
+            </p>
+          )}
         </div>
 
         {/* Session outline */}
         <div className="space-y-2">
           {outline.map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground font-medium w-16">
-                  {item.phase}
-                </span>
-                <span className="text-sm font-medium">{item.name}</span>
+            <div key={i} className="py-2 px-3 rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground font-medium w-16">
+                    {item.phase}
+                  </span>
+                  <span className="text-sm font-medium">{item.name}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{item.duration}m</span>
               </div>
-              <span className="text-xs text-muted-foreground">{item.duration}m</span>
+              {item.purpose && (
+                <p className="text-xs text-muted-foreground mt-1 ml-[76px]">
+                  {item.purpose}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -123,3 +143,20 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
     </div>
   );
 };
+
+/** Map domain slug to a short, purposeful session-level sentence */
+function getSessionPurposeText(domain: string): string | null {
+  const map: Record<string, string> = {
+    lexical_retrieval: "Building faster word finding for everyday conversation.",
+    semantic_depth: "Strengthening word meaning and connections.",
+    semantic: "Strengthening word meaning and connections.",
+    phonology: "Sharpening sound awareness for clearer speech.",
+    phonological: "Sharpening sound awareness for clearer speech.",
+    syntax: "Practicing sentence building for smoother communication.",
+    discourse: "Working on connected speech and storytelling.",
+    comprehension: "Improving understanding of spoken language.",
+    executive_function: "Practicing flexible thinking and planning.",
+    attention: "Building focused attention for daily tasks.",
+  };
+  return map[domain] || null;
+}

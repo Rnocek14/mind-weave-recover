@@ -2,16 +2,18 @@
  * Today — Daily Session Launcher
  * 
  * Single-purpose screen: one button to start today's practice.
- * Shows streak, session count, and last session context.
+ * Shows streak, session count, and coaching mode toggle.
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { supabase } from '@/integrations/supabase/client';
+import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
+import { cn } from '@/lib/utils';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -30,8 +32,6 @@ async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
   }
 
   const totalSessions = data.length;
-
-  // Calculate streak from unique days
   const toDay = (ts: string) => Math.floor(Date.parse(ts) / 86400000);
   const uniqueDays = [...new Set(data.map(r => toDay(r.created_at)))].sort((a, b) => b - a);
   const today = toDay(new Date().toISOString());
@@ -51,9 +51,16 @@ async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
   return { totalSessions, currentStreak };
 }
 
+const MODE_OPTIONS: { value: CoachingMode; label: string; desc: string }[] = [
+  { value: 'off', label: 'Games only', desc: 'Pure practice, no guidance' },
+  { value: 'light', label: 'Guided', desc: 'Purpose + light feedback' },
+  { value: 'full', label: 'Full coaching', desc: 'Continuity + reflections' },
+];
+
 export default function Today() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { mode, setMode } = useCoachingMode();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -148,11 +155,39 @@ export default function Today() {
             </div>
           )}
 
+          {/* Coaching mode toggle */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <Brain className="w-3.5 h-3.5" />
+              <span>Coaching level</span>
+            </div>
+            <div className="flex rounded-lg border bg-muted/30 p-0.5">
+              {MODE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className={cn(
+                    'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+                    mode === opt.value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  title={opt.desc}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {MODE_OPTIONS.find(o => o.value === mode)?.desc}
+            </p>
+          </div>
+
           {/* Main CTA */}
           <Button 
             size="lg" 
             className="w-full gap-2 text-base py-6" 
-            onClick={() => navigate('/smart-coach')}
+            onClick={() => navigate('/lesson')}
           >
             <Zap className="w-5 h-5" />
             {stats && stats.totalSessions > 0

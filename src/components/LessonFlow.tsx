@@ -14,6 +14,7 @@ import type { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import type { TodayFocus } from "@/lib/adaptiveDecisionEngine";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
@@ -26,6 +27,8 @@ import {
   associateSessionWithFlow,
 } from "@/lib/sessionFlowAnalytics";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
+import { getExercisePurpose } from "@/lib/exercisePurposeMap";
+
 
 type FlowPhase = 
   | "daily-check" 
@@ -48,6 +51,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const { showPurpose } = useCoachingMode();
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
@@ -375,8 +379,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     } else {
       const nextIndex = currentBlockIndex + 1;
       
+      // Micro-reflection toast (light/full mode only)
+      if (showPurpose && recentScoresRef.current.length > 0) {
+        const lastScore = recentScoresRef.current[recentScoresRef.current.length - 1];
+        const exerciseName = humanizeSlug(runtimeBlocks[currentBlockIndex]?.exerciseId || '');
+        const reflection = getMicroReflection(lastScore, exerciseName);
+        if (reflection) {
+          toast(reflection, { duration: 3000 });
+        }
+      }
+      
       // === RUNTIME SUPPORT PIVOT ===
-      // If user is struggling and we have support blocks, inject one
       const currentPriority = runtimeBlocks[currentBlockIndex]?.priority || 'primary';
       if (
         !activeSupportPivot &&
@@ -408,7 +421,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       setCurrentPause(pauseDecision);
       setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
@@ -577,3 +590,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   return null;
 };
+
+/** Generate a brief micro-reflection based on score */
+function getMicroReflection(score: number, exerciseName: string): string | null {
+  if (score >= 85) return `Strong round on ${exerciseName} — that speed carries over.`;
+  if (score >= 65) return `Solid work on ${exerciseName}. Building momentum.`;
+  if (score >= 40) return `${exerciseName} was tough — that's the right challenge level.`;
+  if (score < 40) return `Hard round — the effort still strengthens those pathways.`;
+  return null;
+}

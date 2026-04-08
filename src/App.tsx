@@ -71,6 +71,7 @@ import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
+import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,6 +97,7 @@ const App = () => (
       <TooltipProvider>
         <UiModeProvider>
         <HelpModeProvider>
+          <CoachingModeProvider>
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
@@ -173,7 +175,7 @@ const App = () => (
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
                   <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
-                  <Route path="/smart-coach" element={<SmartCoach />} />
+                  <Route path="/smart-coach" element={<Navigate to="/today" replace />} />
                   
                   {/* Redirect old routes to canonical routes */}
                   <Route path="/session-history" element={<Navigate to="/history" replace />} />
@@ -190,6 +192,7 @@ const App = () => (
               </BrowserRouter>
             </AssessmentProviderWrapper>
           </ProfileProvider>
+          </CoachingModeProvider>
         </HelpModeProvider>
         </UiModeProvider>
       </TooltipProvider>

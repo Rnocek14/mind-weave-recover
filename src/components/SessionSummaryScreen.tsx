@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight } from "lucide-react";
+import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUiMode } from "@/hooks/useUiMode";
+import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
@@ -46,6 +47,7 @@ function scoreToLabel(score: number): { text: string; className: string } {
 export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
+  const { showTransferOnSummary } = useCoachingMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
   const isCaregiver = uiMode === "caregiver";
   const showDetail = isClinician || isCaregiver;
@@ -208,6 +210,21 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           </Collapsible>
         )}
 
+        {/* Transfer suggestion — light/full coaching modes */}
+        {showTransferOnSummary && lesson.targetDomains?.[0] && (
+          <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
+            <div className="flex items-start gap-2.5">
+              <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Try this in real life</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {getTransferSuggestion(lesson.targetDomains[0])}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex flex-col gap-3 pt-2">
           <Button size="lg" className="w-full h-14 text-base" onClick={onFinish}>
@@ -251,4 +268,19 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
       </Card>
     </div>
   );
+}
+
+function getTransferSuggestion(domain: string): string {
+  const map: Record<string, string> = {
+    lexical_retrieval: "Try naming 3 objects around you as quickly as you can — that's the same skill you just practiced.",
+    semantic_depth: "Pick one word from today and describe it to someone without saying the word itself.",
+    semantic: "Pick one word from today and describe it to someone without saying the word itself.",
+    phonology: "Listen for a tricky sound in conversation today — notice when you hear it clearly.",
+    phonological: "Listen for a tricky sound in conversation today — notice when you hear it clearly.",
+    syntax: "Try building one full sentence about your day — subject, verb, detail.",
+    discourse: "Tell someone one thing that happened today, in order: first, then, finally.",
+    comprehension: "Ask someone a question and focus on catching the key words in their answer.",
+    executive_function: "Plan your next meal in 3 steps — that uses the same sequencing skill.",
+  };
+  return map[domain] || "Use one word or skill from today's practice in a real conversation.";
 }
