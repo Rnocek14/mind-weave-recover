@@ -190,6 +190,14 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             return;
           }
           
+          // Guard: if saved phase is 'exercise', user pressed Back from an exercise
+          // Don't re-launch — show the session preview instead
+          if (savedPhase === 'exercise') {
+            console.log('[LessonFlow] Detected back-from-exercise, clearing state');
+            sessionStorage.removeItem('lessonFlowState');
+            return;
+          }
+          
           console.log('[LessonFlow] Restoring state (non-resuming):', { savedPhase, savedIndex, savedSessionId });
           setPhase(savedPhase);
           setCurrentBlockIndex(savedIndex);
