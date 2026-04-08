@@ -902,7 +902,7 @@ const Exercise = () => {
             />
           ) : exerciseId === 'word-practice' ? (
             <PhrasePracticeGame
-              totalTrials={totalRounds}
+              ref={phraseGameRef}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
                 await logTrial({
