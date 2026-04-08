@@ -81,6 +81,9 @@ export const ExerciseTransitionOverlay = ({
   const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 1.5;
   const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
 
+  // Sync timeLeft to computed duration on mount
+  useEffect(() => { setTimeLeft(duration); }, []);
+
   useEffect(() => {
     if (isPaused) return;
     
