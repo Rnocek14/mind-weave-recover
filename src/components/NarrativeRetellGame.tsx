@@ -128,6 +128,7 @@ export function NarrativeRetellGame({
   const handleStartRetelling = useCallback(() => {
     setPhase('retelling');
     startTimeRef.current = Date.now();
+    setTypedText('');
 
     // Start clinical pipeline
     if (currentStory && userId) {
@@ -142,9 +143,11 @@ export function NarrativeRetellGame({
       });
     }
 
-    startRecording();
-    startListening();
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId]);
+    if (!useTyping) {
+      startRecording();
+      startListening();
+    }
+  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
