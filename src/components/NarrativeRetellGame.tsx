@@ -17,8 +17,9 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, BookOpen, ChevronRight, SkipForward } from 'lucide-react';
+import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 interface NarrativeRetellGameProps {
   userId?: string;
