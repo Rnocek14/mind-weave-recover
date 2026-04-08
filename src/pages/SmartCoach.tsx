@@ -675,19 +675,8 @@ export default function SmartCoach() {
         if (nextLevel <= 3) return "Focus on the first sound.";
         return "It's okay to move on. We'll come back to this.";
       }
-      case 'explain_this': {
-        if (phase === 'game1_intro' || phase === 'game1_playing')
-          return `${plan.game1.label} helps strengthen ${plan.topic.purpose.skillTarget}.`;
-        if (phase === 'game2_playing')
-          return `${plan.game2.label} reinforces the same skills from a different angle.`;
-        if (phase === 'transfer_check')
-          return "Using the words in a real sentence proves your brain can find them when it matters.";
-        return `Today: ${plan.topic.purpose.skillTarget} — helps with ${plan.topic.purpose.transferTarget}.`;
-      }
       case 'what_are_we_doing':
         return `Focus: ${plan.topic.label}. Working on ${plan.topic.purpose.skillTarget} so you can ${plan.topic.purpose.transferTarget}.`;
-      case 'help_me':
-        return "Take a breath. Try again when you're ready — no time limit.";
       default:
         return null;
     }
