@@ -524,6 +524,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         nextPhase={nextBlock?.priority}
         isSupportPivot={wasSupportPivot}
         sessionId={sessionId}
+        lastScore={lastExerciseScoreRef.current}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />
@@ -544,6 +545,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
         nextPhase={nextBlock?.priority}
         sessionId={sessionId}
+        lastScore={lastExerciseScoreRef.current}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />
