@@ -101,6 +101,13 @@ const Dashboard = () => {
     }
   }, [uiMode, authLoading, user, navigate]);
 
+  // Patient mode: /today is the canonical home — redirect away from /dashboard
+  useEffect(() => {
+    if (!authLoading && user && uiMode === 'patient') {
+      navigate("/today", { replace: true });
+    }
+  }, [uiMode, authLoading, user, navigate]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
