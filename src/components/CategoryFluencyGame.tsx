@@ -402,9 +402,12 @@ export function CategoryFluencyGame({
   return (
     <div className="flex flex-col gap-4 max-w-sm mx-auto">
       {/* Timer + count */}
+      <div className="text-center mb-1">
+        <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Name {config.label.toLowerCase()}:</span>
+          <span className="text-sm font-medium text-muted-foreground">Count:</span>
           <Badge variant="outline" className={cn(
             "transition-all",
             lastAddedWord && "ring-2 ring-primary scale-110"

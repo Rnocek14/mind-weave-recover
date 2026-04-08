@@ -280,6 +280,11 @@ export function NarrativeRetellGame({
       {/* Reading phase */}
       {phase === 'reading' && (
         <div className="space-y-3">
+          {sceneIndex === 0 && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
+              <p className="text-base font-medium text-foreground">📖 Read the story. You'll tell it back after.</p>
+            </div>
+          )}
           {currentStory.scenes.slice(0, sceneIndex + 1).map((scene, i) => (
             <Card key={i} className={cn("border transition-all", i === sceneIndex ? "border-primary/50 bg-primary/5" : "border-border/50")}>
               <CardContent className="pt-4 flex items-start gap-3">
