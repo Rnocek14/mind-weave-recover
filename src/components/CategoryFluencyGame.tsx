@@ -282,7 +282,9 @@ export function CategoryFluencyGame({
     setCurrentRound(prev => prev + 1);
     setWords([]);
     setCurrentInput('');
-    setShowTextInput(false);
+    // Persist input mode preference — don't reset to speech each round
+    const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
+    setShowTextInput(preferTyping);
     // Auto-start next round immediately (no return to 'ready')
     setTimeout(() => startRound(), 300);
   }, [startRound]);
@@ -351,7 +353,7 @@ export function CategoryFluencyGame({
     return (
       <RoundDoneAutoAdvance onAdvance={nextRound}>
         <ThumbsUp className="w-10 h-10 text-primary" />
-        <p className="text-2xl font-bold">{lastResult.uniqueWordCount} words!</p>
+        <p className="text-2xl font-bold">{lastResult.uniqueWordCount} {lastResult.uniqueWordCount === 1 ? 'word' : 'words'}!</p>
         <div className="flex flex-wrap gap-1 justify-center">
           {lastResult.words.map((w, i) => (
             <Badge key={i} variant="secondary" className="text-xs">{w}</Badge>

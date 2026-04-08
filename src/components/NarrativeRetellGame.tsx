@@ -17,8 +17,9 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, BookOpen, ChevronRight, SkipForward } from 'lucide-react';
+import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 interface NarrativeRetellGameProps {
   userId?: string;
@@ -49,6 +50,8 @@ export function NarrativeRetellGame({
   const [sceneIndex, setSceneIndex] = useState(0);
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
+  const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
+  const [typedText, setTypedText] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
@@ -125,6 +128,7 @@ export function NarrativeRetellGame({
   const handleStartRetelling = useCallback(() => {
     setPhase('retelling');
     startTimeRef.current = Date.now();
+    setTypedText('');
 
     // Start clinical pipeline
     if (currentStory && userId) {
@@ -139,19 +143,21 @@ export function NarrativeRetellGame({
       });
     }
 
-    startRecording();
-    startListening();
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId]);
+    if (!useTyping) {
+      startRecording();
+      startListening();
+    }
+  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     stopListening();
 
-    const recordingResult = await stopRecording();
+    const recordingResult = useTyping ? null : await stopRecording();
 
     setTimeout(async () => {
-      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
       const durationMs = Date.now() - startTimeRef.current;
       const result = submitRetell(transcript, durationMs);
 
@@ -305,16 +311,18 @@ export function NarrativeRetellGame({
                   "{currentStory.scenes[0].text.split(' ').slice(0, 3).join(' ')}..."
                 </div>
               )}
-              {isSupported ? (
-                <Button onClick={handleStartRetelling} className="w-full" size="lg">
-                  <Mic className="h-4 w-4 mr-2" />
-                  Start retelling
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center italic">
-                  Speech not supported in this browser.
-                  <Button variant="ghost" size="sm" onClick={handleSkip} className="ml-2">Skip</Button>
-                </p>
+              <Button onClick={handleStartRetelling} className="w-full" size="lg">
+                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                Start retelling
+              </Button>
+              {isSupported && (
+                <button
+                  onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+                >
+                  {useTyping ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+                  {useTyping ? 'Switch to speech' : 'Switch to typing'}
+                </button>
               )}
             </div>
           )}
@@ -327,8 +335,8 @@ export function NarrativeRetellGame({
           <CardContent className="pt-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Mic className="h-5 w-5 text-primary" />
-                {isListening && (
+                {useTyping ? <Keyboard className="h-5 w-5 text-primary" /> : <Mic className="h-5 w-5 text-primary" />}
+                {!useTyping && isListening && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
@@ -338,10 +346,24 @@ export function NarrativeRetellGame({
               <span className="font-semibold text-sm">
                 Tell the story in your own words...
               </span>
-              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
+              {!useTyping && (
+                <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
+              )}
             </div>
 
-            {(fullTranscript || collectedTranscript) && (
+            {/* Typing mode */}
+            {useTyping && (
+              <Textarea
+                value={typedText}
+                onChange={(e) => setTypedText(e.target.value)}
+                placeholder="Type what happened in the story..."
+                className="min-h-[100px] text-base"
+                autoFocus
+              />
+            )}
+
+            {/* Speech mode transcript */}
+            {!useTyping && (fullTranscript || collectedTranscript) && (
               <div className="bg-muted/50 rounded-lg p-3 min-h-[3rem] max-h-[8rem] overflow-y-auto">
                 <p className="text-sm text-foreground italic">
                   "{collectedTranscript || fullTranscript}"
@@ -350,8 +372,8 @@ export function NarrativeRetellGame({
             )}
 
             <div className="flex gap-2">
-              <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary">
-                <MicOff className="h-4 w-4 mr-2" /> I'm done
+              <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary" disabled={useTyping && !typedText.trim()}>
+                {useTyping ? '✓' : <MicOff className="h-4 w-4 mr-2" />} I'm done
               </Button>
               <Button variant="ghost" size="sm" onClick={handleSkip}>
                 <SkipForward className="h-4 w-4" />

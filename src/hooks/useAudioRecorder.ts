@@ -52,7 +52,8 @@ export const useAudioRecorder = () => {
     } catch (error) {
       console.error('Failed to start recording:', error);
       toast.error('Could not start recording', {
-        description: 'Please check microphone permissions'
+        description: 'Please check microphone permissions',
+        id: 'mic-error', // Dedupe: only show one mic error at a time
       });
       return false;
     }
