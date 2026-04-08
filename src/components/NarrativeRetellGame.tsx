@@ -197,6 +197,7 @@ export function NarrativeRetellGame({
   }, [phase, collectedTranscript, stallPromptIndex]);
 
   const handleStartRetelling = useCallback(() => {
+    stopTTS(); // Stop Maya reading if still playing
     setPhase('retelling');
     startTimeRef.current = Date.now();
     retellStartRef.current = Date.now();
