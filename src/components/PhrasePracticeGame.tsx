@@ -853,30 +853,6 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
       }
     }, recoveryDelayMs);
-      consecutiveStallCountRef.current = nextStallCount;
-      setShowRecoveryActions(true);
-
-      if (nextStallCount >= 3) {
-        toast({
-          title: 'Let’s keep going',
-          description: 'Moving to the next phrase for now.',
-          duration: 2500,
-        });
-        handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
-        return;
-      }
-
-      if (isListening) {
-        stopListening();
-        setTimeout(() => {
-          if (!processingResultRef.current && !manualMicOffRef.current && isListeningMode) {
-            startListening();
-          }
-        }, 400);
-      } else if (!manualMicOffRef.current && isListeningMode) {
-        startListening();
-      }
-    }, recoveryDelayMs);
 
     return () => {
       if (recoveryTimerRef.current) {
