@@ -436,6 +436,7 @@ export default function SmartCoach() {
 
   const handleLaunchGame1 = useCallback(() => {
     if (!plan) return;
+    liveObserverRef.current.reset();
     setPhase('game1_playing');
     navigateToExercise(plan.game1, 1);
   }, [plan, navigateToExercise]);
