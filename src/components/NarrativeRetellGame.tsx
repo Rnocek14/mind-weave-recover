@@ -1,16 +1,17 @@
 /**
- * Narrative Retell Game Component
+ * Narrative Retell Game Component — v2
  * 
- * Shows story scenes → user retells via speech → scores discourse organization.
+ * Shows full story upfront → user retells via speech → structured feedback.
  * 
- * UPGRADED: Capture parity with PhotoNaming:
- * - useUtteranceLogger for persisted utterance analysis records
- * - useAudioRecorder for WAV capture/upload
- * - Discourse-focused: no pronunciation analysis (narrative > phoneme precision)
+ * v2 changes:
+ * - All story cards visible at once (no scene gating)
+ * - Purpose banner for entry clarity
+ * - Stall support prompts during retell
+ * - Structured beginning/middle/end feedback with next-step hint
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useNarrativeRetellGame, NarrativeTrialResult } from '@/hooks/useNarrativeRetellGame';
+import { useNarrativeRetellGame, NarrativeTrialResult, SectionStatus } from '@/hooks/useNarrativeRetellGame';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -34,6 +35,25 @@ interface NarrativeRetellGameProps {
 
 type Phase = 'reading' | 'retelling' | 'scored';
 
+const STALL_PROMPTS = [
+  "Take your time. Start with what happened first.",
+  "Who was in the story?",
+  "What happened next?",
+  "How did the story end?",
+];
+
+function SectionStatusIcon({ status }: { status: SectionStatus }) {
+  if (status === 'covered') return <span>✅</span>;
+  if (status === 'partial') return <span>⚠️</span>;
+  return <span className="text-muted-foreground">○</span>;
+}
+
+function SectionStatusLabel({ status }: { status: SectionStatus }) {
+  if (status === 'covered') return <span className="text-green-700 dark:text-green-400">Covered</span>;
+  if (status === 'partial') return <span className="text-amber-600 dark:text-amber-400">Partial</span>;
+  return <span className="text-muted-foreground">Missed</span>;
+}
+
 export function NarrativeRetellGame({
   userId,
   sessionId,
@@ -47,35 +67,27 @@ export function NarrativeRetellGame({
     useNarrativeRetellGame(roundCount, tier);
 
   const [phase, setPhase] = useState<Phase>('reading');
-  const [sceneIndex, setSceneIndex] = useState(0);
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
+  const [stallPromptIndex, setStallPromptIndex] = useState(-1);
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const retellStartRef = useRef(Date.now());
 
   // Clinical pipeline hooks
-  const {
-    startAttempt,
-    logFinalAnalysis,
-    resetAttempt,
-    currentAttemptId,
-  } = useUtteranceLogger();
-
-  const {
-    startRecording,
-    stopRecording,
-    uploadRecording,
-  } = useAudioRecorder();
+  const { startAttempt, logFinalAnalysis, resetAttempt, currentAttemptId } = useUtteranceLogger();
+  const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
 
   // Reset on story change
   useEffect(() => {
     setPhase('reading');
-    setSceneIndex(0);
     setLastResult(null);
     setCollectedTranscript('');
+    setStallPromptIndex(-1);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
   }, [currentIndex]);
@@ -94,7 +106,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = transcript;
   }, []);
 
-  const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
+  const { isListening, fullTranscript, startListening, stopListening, isSupported } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
   useEffect(() => {
@@ -116,21 +128,39 @@ export function NarrativeRetellGame({
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
   }, [phase, collectedTranscript, fullTranscript]);
 
-  const allScenesRead = currentStory ? sceneIndex >= currentStory.scenes.length - 1 : false;
+  // Stall support: show progressive prompts if user hasn't spoken much
+  useEffect(() => {
+    if (phase !== 'retelling') return;
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
 
-  const handleNextScene = useCallback(() => {
-    if (!currentStory) return;
-    if (sceneIndex < currentStory.scenes.length - 1) {
-      setSceneIndex(prev => prev + 1);
-    }
-  }, [sceneIndex, currentStory]);
+    const checkStall = () => {
+      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+      const elapsed = Date.now() - retellStartRef.current;
+
+      if (wordCount < 2) {
+        if (elapsed > 20000 && stallPromptIndex < 3) setStallPromptIndex(3);
+        else if (elapsed > 15000 && stallPromptIndex < 2) setStallPromptIndex(2);
+        else if (elapsed > 10000 && stallPromptIndex < 1) setStallPromptIndex(1);
+        else if (elapsed > 6000 && stallPromptIndex < 0) setStallPromptIndex(0);
+      }
+    };
+
+    stallTimerRef.current = setTimeout(checkStall, 3000);
+    const interval = setInterval(checkStall, 3000);
+    return () => {
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      clearInterval(interval);
+    };
+  }, [phase, collectedTranscript, stallPromptIndex]);
 
   const handleStartRetelling = useCallback(() => {
     setPhase('retelling');
     startTimeRef.current = Date.now();
+    retellStartRef.current = Date.now();
     setTypedText('');
+    setStallPromptIndex(-1);
 
-    // Start clinical pipeline
     if (currentStory && userId) {
       startAttempt({
         sessionId: sessionId || 'standalone',
@@ -161,15 +191,10 @@ export function NarrativeRetellGame({
       const durationMs = Date.now() - startTimeRef.current;
       const result = submitRetell(transcript, durationMs);
 
-      // Upload audio + log utterance
       let audioStoragePath: string | null = null;
       if (recordingResult?.audioBlob && userId && sessionId) {
         audioStoragePath = await uploadRecording(
-          recordingResult.audioBlob,
-          userId,
-          sessionId,
-          currentIndex,
-          recordingResult.mimeType
+          recordingResult.audioBlob, userId, sessionId, currentIndex, recordingResult.mimeType
         );
       }
 
@@ -178,7 +203,7 @@ export function NarrativeRetellGame({
           transcript: transcript || undefined,
           transcriptSource: 'browser',
           evaluationModel: 'flow',
-          isCorrect: null, // Discourse task - no binary correctness
+          isCorrect: null,
           didSpeak: transcript.trim().length > 0,
           utteranceComplete: transcript.trim().length > 0,
           recordingDurationMs: durationMs,
@@ -195,7 +220,7 @@ export function NarrativeRetellGame({
         onTrialComplete(result);
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -206,7 +231,6 @@ export function NarrativeRetellGame({
     const durationMs = Date.now() - startTimeRef.current;
     const result = submitRetell('', durationMs);
 
-    // Log skip
     if (currentAttemptId) {
       await logFinalAnalysis({
         transcript: '',
@@ -231,6 +255,7 @@ export function NarrativeRetellGame({
     nextStory();
   }, [nextStory]);
 
+  // Game complete screen
   if (!currentStory || isComplete) {
     const avgCoverage = results.length > 0
       ? results.reduce((sum, r) => sum + r.eventCoverage, 0) / results.length
@@ -257,8 +282,6 @@ export function NarrativeRetellGame({
     );
   }
 
-  // allScenesRead computed above hooks
-
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
       <div className="flex items-center justify-between text-sm">
@@ -277,16 +300,18 @@ export function NarrativeRetellGame({
         📂 {currentStory.title}
       </h2>
 
-      {/* Reading phase */}
+      {/* ─── Reading phase: all cards visible at once ─── */}
       {phase === 'reading' && (
         <div className="space-y-3">
-          {sceneIndex === 0 && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
-              <p className="text-base font-medium text-foreground">📖 Read the story. You'll tell it back after.</p>
-            </div>
-          )}
-          {currentStory.scenes.slice(0, sceneIndex + 1).map((scene, i) => (
-            <Card key={i} className={cn("border transition-all", i === sceneIndex ? "border-primary/50 bg-primary/5" : "border-border/50")}>
+          {/* Purpose banner */}
+          <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
+            <p className="text-base font-medium text-foreground">📖 This helps you practice remembering and telling stories clearly.</p>
+            <p className="text-sm text-muted-foreground mt-1">Read the story below. When you're ready, tell it back in your own words.</p>
+          </div>
+
+          {/* All scene cards visible */}
+          {currentStory.scenes.map((scene, i) => (
+            <Card key={i} className="border border-border/50">
               <CardContent className="pt-4 flex items-start gap-3">
                 <span className="text-2xl">{scene.emoji}</span>
                 <p className="text-base leading-relaxed">{scene.text}</p>
@@ -294,47 +319,40 @@ export function NarrativeRetellGame({
             </Card>
           ))}
 
-          {!allScenesRead ? (
-            <Button onClick={handleNextScene} className="w-full" size="lg">
-              Next scene <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground text-center">
-                You've read all scenes. Now retell the story in your own words.
-              </p>
-              {/* Adaptive scaffolding based on recommended cue type */}
-              {recommendedCueType === 'semantic' && currentStory && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
-                  <span className="font-medium">💡 Hint: </span>
-                  Think about: <em>who</em> was in the story, <em>where</em> it happened, and <em>what</em> went wrong.
-                </div>
-              )}
-              {recommendedCueType === 'phonemic' && currentStory && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
-                  <span className="font-medium">💡 Start with: </span>
-                  "{currentStory.scenes[0].text.split(' ').slice(0, 3).join(' ')}..."
-                </div>
-              )}
-              <Button onClick={handleStartRetelling} className="w-full" size="lg">
-                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-                Start retelling
-              </Button>
-              {isSupported && (
-                <button
-                  onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
-                >
-                  {useTyping ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
-                  {useTyping ? 'Switch to speech' : 'Switch to typing'}
-                </button>
-              )}
+          {/* Adaptive scaffolding */}
+          {recommendedCueType === 'semantic' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+              <span className="font-medium">💡 Hint: </span>
+              Think about: <em>who</em> was in the story, <em>where</em> it happened, and <em>what</em> went wrong.
             </div>
           )}
+          {recommendedCueType === 'phonemic' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+              <span className="font-medium">💡 Start with: </span>
+              "{currentStory.scenes[0].text.split(' ').slice(0, 3).join(' ')}..."
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="space-y-2">
+            <Button onClick={handleStartRetelling} className="w-full" size="lg">
+              {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+              Start retelling
+            </Button>
+            {isSupported && (
+              <button
+                onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+              >
+                {useTyping ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+                {useTyping ? 'Switch to speech' : 'Switch to typing'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Retelling phase */}
+      {/* ─── Retelling phase with stall support ─── */}
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
@@ -356,6 +374,9 @@ export function NarrativeRetellGame({
               )}
             </div>
 
+            {/* Helper text */}
+            <p className="text-xs text-muted-foreground">You can start with what happened first.</p>
+
             {/* Typing mode */}
             {useTyping && (
               <Textarea
@@ -376,6 +397,13 @@ export function NarrativeRetellGame({
               </div>
             )}
 
+            {/* Stall support prompts */}
+            {stallPromptIndex >= 0 && (
+              <div className="bg-accent/30 border border-accent/50 rounded-lg px-3 py-2 text-sm text-foreground animate-in fade-in duration-500">
+                💬 {STALL_PROMPTS[stallPromptIndex]}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary" disabled={useTyping && !typedText.trim()}>
                 {useTyping ? '✓' : <MicOff className="h-4 w-4 mr-2" />} I'm done
@@ -388,7 +416,7 @@ export function NarrativeRetellGame({
         </Card>
       )}
 
-      {/* Scored phase */}
+      {/* ─── Scored phase: structured feedback ─── */}
       {phase === 'scored' && lastResult && (
         <div className="space-y-3">
           <Card className={cn("border-2",
@@ -396,7 +424,7 @@ export function NarrativeRetellGame({
             lastResult.eventCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
-            <CardContent className="pt-4 space-y-3">
+            <CardContent className="pt-4 space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg">
                   {lastResult.eventCoverage >= 0.6 ? '🧠' : lastResult.eventCoverage >= 0.3 ? '👍' : '💡'}
@@ -410,9 +438,31 @@ export function NarrativeRetellGame({
                 </span>
               </div>
 
-              {/* Key events checklist */}
+              {/* Story structure breakdown */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Story structure:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['beginning', 'middle', 'end'] as const).map(section => {
+                    const data = lastResult.structureBreakdown[section];
+                    return (
+                      <div key={section} className={cn(
+                        "rounded-lg p-2 text-center border",
+                        data.status === 'covered' ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" :
+                        data.status === 'partial' ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800" :
+                        "bg-muted/30 border-border"
+                      )}>
+                        <SectionStatusIcon status={data.status} />
+                        <p className="text-xs font-medium capitalize mt-1">{section}</p>
+                        <p className="text-[10px] text-muted-foreground">{data.hit}/{data.total} details</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* What you included */}
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Key events:</p>
+                <p className="text-xs font-medium text-muted-foreground">What you included:</p>
                 {lastResult.allKeyEvents.map((event, i) => {
                   const matched = lastResult.matchedEvents.some(
                     m => m.toLowerCase() === event.toLowerCase()
@@ -427,6 +477,12 @@ export function NarrativeRetellGame({
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Next step hint */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                <p className="text-xs font-medium text-primary mb-0.5">💡 Next step</p>
+                <p className="text-sm text-foreground">{lastResult.nextStepHint}</p>
               </div>
 
               {lastResult.transcript && (
