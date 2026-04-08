@@ -173,7 +173,7 @@ export default function ThoughtContinuationExercise() {
                       Practice More
                     </Button>
                     <Button variant="outline" onClick={() => navigate('/today')} className="w-full">
-                      Back to Dashboard
+                      Back to Home
                     </Button>
                   </>
                 )}
