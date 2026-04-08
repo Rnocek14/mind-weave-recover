@@ -51,6 +51,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const { showPurpose } = useCoachingMode();
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
