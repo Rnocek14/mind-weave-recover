@@ -33,7 +33,9 @@ export const ExerciseTransitionOverlay = ({
   onContinue,
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
-  const defaultDuration = type === 'encouragement' ? 1.5 : 5;
+  // Add ±0.3s jitter for organic rhythm
+  const jitter = (Math.random() - 0.5) * 0.6;
+  const defaultDuration = type === 'encouragement' ? 1.5 + jitter : 5 + jitter;
   const duration = durationOverride ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);

@@ -84,26 +84,40 @@ export function resetFeedbackHistory(): void {
 let _transitionCount = 0;
 
 /**
- * Whether this transition should show feedback text or be silent ("Next: X" only).
- * Roughly 60-70% show feedback. Pattern: show, show, skip, show, skip, show…
+ * Whether this transition should show feedback text.
+ * ~60% show feedback, ~40% are silent ("Next: X" only).
+ * Pattern avoids mechanical rhythm with slight randomness.
  */
 export function shouldShowFeedback(): boolean {
   _transitionCount++;
   // First transition always shows feedback
   if (_transitionCount === 1) return true;
-  // Pattern: ~65% show. Skip on positions 3, 5, 8, 10…
+  // Base pattern: skip at positions 3 and 5 in each cycle (~60% show)
   const mod = _transitionCount % 5;
-  return mod !== 3 && mod !== 0; // skip at 3 and 5 → 3/5 = 60% show
+  if (mod === 3 || mod === 0) return false;
+  // Add 15% chance of additional silence for organic feel
+  if (Math.random() < 0.15) return false;
+  return true;
 }
 
 export function getPerformanceTransition(lastScore: number | null): TransitionMessage {
   if (lastScore === null) return pickRandom(ENCOURAGE_TRANSITIONS);
   const tone = getFeedbackTone(lastScore);
+
+  // Weighted distribution: encourage/neutral most common, celebrate/protect rarer
+  // This makes tone feel organic rather than mechanically mapped
+  const roll = Math.random();
   switch (tone) {
-    case 'celebrate': return pickRandom(CELEBRATE_TRANSITIONS);
-    case 'encourage': return pickRandom(ENCOURAGE_TRANSITIONS);
-    case 'support': return pickRandom(SUPPORT_TRANSITIONS);
-    case 'protect': return pickRandom(PROTECT_TRANSITIONS);
+    case 'celebrate':
+      // 70% celebrate, 30% encourage (avoids over-celebration)
+      return pickRandom(roll < 0.7 ? CELEBRATE_TRANSITIONS : ENCOURAGE_TRANSITIONS);
+    case 'encourage':
+      return pickRandom(ENCOURAGE_TRANSITIONS);
+    case 'support':
+      // 75% support, 25% encourage (keeps it gentle but not always heavy)
+      return pickRandom(roll < 0.75 ? SUPPORT_TRANSITIONS : ENCOURAGE_TRANSITIONS);
+    case 'protect':
+      return pickRandom(PROTECT_TRANSITIONS);
   }
 }
 
