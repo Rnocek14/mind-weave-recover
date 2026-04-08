@@ -78,7 +78,7 @@ export function DescribeGuessGame({
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
 
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const promptTimersRef = useRef<NodeJS.Timeout[]>([]);
   const rawTranscriptRef = useRef<string>('');
   const processingRef = useRef(false);
@@ -86,7 +86,9 @@ export function DescribeGuessGame({
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const listeningStartRef = useRef<number>(0);
+  const lastTranscriptChangeRef = useRef<number>(0);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
