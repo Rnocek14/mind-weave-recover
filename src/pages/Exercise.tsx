@@ -72,6 +72,7 @@ const Exercise = () => {
   const [lastProbeSession, setLastProbeSession] = useState<number | null>(null);
   const [showConfidenceBoost, setShowConfidenceBoost] = useState(false);
   const [showBreakPrompt, setShowBreakPrompt] = useState(false);
+  const [isPausedOverlay, setIsPausedOverlay] = useState(false);
   const [todayStats, setTodayStats] = useState({ correct: 0, total: 0, weeklyAccuracy: 0, improvement: 0 });
   const [showMoodCheckIn, setShowMoodCheckIn] = useState(false);
   const [preMood, setPreMood] = useState<number | null>(null);
