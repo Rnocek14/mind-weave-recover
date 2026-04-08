@@ -602,19 +602,20 @@ export const PhrasePracticeGame = ({
   };
 
   const nextTrial = () => {
+    // Stop mic during transition to prevent stale transcripts
+    if (isListening) stopListening();
+    trialTransitionRef.current = true;
+
     // Reset attempt for next trial
     resetAttempt();
     processingResultRef.current = false;
     
     if (currentTrialIndex + 1 >= trials.length) {
-      // Game complete - end session properly
       completeSession();
       onGameComplete?.(score, currentDifficulty);
       return;
     }
 
-    // useInGameAdaptation adjusts difficulty automatically via recordTrial
-    // Regenerate trials at current difficulty for remaining rounds
     const remainingTrials = totalTrials - currentTrialIndex - 1;
     if (remainingTrials > 0) {
       const newTrials = getTrialsForLevel(currentDifficulty, remainingTrials);
@@ -629,6 +630,11 @@ export const PhrasePracticeGame = ({
     setLastHeardText('');
     setProcessingAnswer(false);
     setTrialStartTime(Date.now());
+
+    // Allow speech results again after a short delay
+    setTimeout(() => {
+      trialTransitionRef.current = false;
+    }, 800);
   };
 
   const reset = () => {
