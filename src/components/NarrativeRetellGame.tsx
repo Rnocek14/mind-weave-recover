@@ -357,9 +357,17 @@ export function NarrativeRetellGame({
       {/* ─── Reading phase: all cards visible at once ─── */}
       {phase === 'reading' && (
         <div className="space-y-3">
-          {/* Purpose banner */}
+          {/* Purpose banner with optional prior-round context */}
           <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
-            <p className="text-base font-medium text-foreground">📖 This helps you practice remembering and telling stories clearly.</p>
+            <p className="text-base font-medium text-foreground">
+              {currentIndex === 0
+                ? "📖 Let's work on telling a short story clearly. This helps with real conversations."
+                : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
+                ? "📖 You did well last time. Let's try another story."
+                : results.length > 0 && results[results.length - 1].structureBreakdown.middle.status !== 'covered'
+                ? "📖 Let's work on including the middle details this time."
+                : "📖 Read the next story and tell it back in your own words."}
+            </p>
             <p className="text-sm text-muted-foreground mt-1">Read the story below. When you're ready, tell it back in your own words.</p>
           </div>
 
