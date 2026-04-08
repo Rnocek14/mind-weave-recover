@@ -908,6 +908,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setLastHeardText('');
     setProcessingAnswer(false);
     setTrialStartTime(Date.now());
+    // Re-enable auto-listen for the new trial
+    setIsListeningMode(true);
 
     // Allow speech results again after a short delay
     setTimeout(() => {
