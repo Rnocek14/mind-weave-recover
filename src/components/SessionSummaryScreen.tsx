@@ -215,7 +215,24 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           </Collapsible>
         )}
 
-        {/* Transfer suggestion — light/full coaching modes */}
+        {/* Maya's session insight — Guided/Full coaching modes */}
+        {mode !== 'off' && exerciseScores.length > 0 && (() => {
+          const insight = getSummaryInsight({ mode, exerciseScores, durationMin });
+          return insight ? (
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
+              <div className="flex items-start gap-2.5">
+                <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Maya's observation</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed italic">
+                    "{insight}"
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null;
+        })()}
+
         {showTransferOnSummary && lesson.targetDomains?.[0] && (
           <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
             <div className="flex items-start gap-2.5">
