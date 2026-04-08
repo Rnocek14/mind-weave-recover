@@ -8,6 +8,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mic, MicOff, Volume2, SkipForward, Square, Headphones, Play } from 'lucide-react';
+import { classifySpeechState } from '@/lib/speechStateClassifier';
+import { SpeechNudge } from '@/components/SpeechNudge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoicePracticeSession, VoicePracticePhase } from '@/hooks/useVoicePracticeSession';
