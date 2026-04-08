@@ -936,6 +936,7 @@ export const PhrasePracticeGame = ({
             </p>
           )}
         </div>
+      </Card>
 
       {/* Attempts Counter */}
       {attempts > 0 && (
