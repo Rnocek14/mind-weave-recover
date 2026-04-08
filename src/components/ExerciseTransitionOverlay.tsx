@@ -41,7 +41,8 @@ export const ExerciseTransitionOverlay = ({
   const { mode } = useCoachingMode();
   // Jitter for organic rhythm
   const jitter = (Math.random() - 0.5) * 0.6;
-  const [timeLeft, setTimeLeft] = useState(duration);
+  // Duration calculated below after guidance content is resolved
+  const [timeLeft, setTimeLeft] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
 
