@@ -220,7 +220,7 @@ export function NarrativeRetellGame({
       startRecording();
       startListening();
     }
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping]);
+  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, stopTTS]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
