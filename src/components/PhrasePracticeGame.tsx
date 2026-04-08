@@ -333,6 +333,18 @@ export const PhrasePracticeGame = ({
       patientMode: true,
     });
 
+  // Safety valve: if processingResultRef is stuck for >4s, reset it
+  useEffect(() => {
+    if (!processingResultRef.current) return;
+    const safety = setTimeout(() => {
+      if (processingResultRef.current) {
+        console.warn('⚠️ processingResultRef stuck - force resetting');
+        processingResultRef.current = false;
+      }
+    }, 4000);
+    return () => clearTimeout(safety);
+  }, [showFeedback, currentTrialIndex]);
+
   useEffect(() => {
     if (transcript || lastHeardText) {
       consecutiveStallCountRef.current = 0;
