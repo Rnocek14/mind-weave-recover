@@ -320,6 +320,11 @@ export default function VoicePractice() {
           ) : null}
         </div>
 
+        {/* Speech nudge */}
+        {(phase === 'listening' || phase === 'listening_followup') && (
+          <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!transcript} />
+        )}
+
         {/* Controls */}
         <div className="flex items-center gap-4">
           {(phase === 'listening' || phase === 'listening_followup') && (
