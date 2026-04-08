@@ -125,7 +125,7 @@ export function CategoryFluencyGame({
   const [words, setWords] = useState<string[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
-  const [showTextInput, setShowTextInput] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
   const totalTime = getTimerForDifficulty(currentDifficulty);
@@ -461,7 +461,7 @@ export function CategoryFluencyGame({
       {/* Toggle between speech and text */}
       {speechSupported && (
         <button
-          onClick={() => setShowTextInput(!showTextInput)}
+          onClick={() => { const next = !showTextInput; setShowTextInput(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 self-center"
         >
           {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}

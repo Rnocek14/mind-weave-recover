@@ -104,6 +104,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const recentScoresRef = useRef<number[]>([]);
   const recentRTRef = useRef<number[]>([]);
   const recentTimeoutsRef = useRef(0);
+  const lastExerciseScoreRef = useRef<number | null>(null);
 
   const currentBlock = runtimeBlocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
@@ -140,6 +141,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           const detail = (location.state as any)?.exerciseResult;
           if (detail?.score != null) {
             recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
+            lastExerciseScoreRef.current = detail.score;
           }
           if (detail?.avgReactionTime != null) {
             recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
@@ -522,6 +524,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         nextPhase={nextBlock?.priority}
         isSupportPivot={wasSupportPivot}
         sessionId={sessionId}
+        lastScore={lastExerciseScoreRef.current}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />
@@ -542,6 +545,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         nextExerciseName={humanizeSlug(nextBlock?.exerciseId || "exercise")}
         nextPhase={nextBlock?.priority}
         sessionId={sessionId}
+        lastScore={lastExerciseScoreRef.current}
         onContinue={handleTransitionContinue}
         onEnd={handleEndSession}
       />

@@ -11,6 +11,7 @@ import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
+import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
@@ -130,6 +131,9 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           <h2 className="text-3xl font-bold text-foreground">{headline.text}</h2>
           <p className="text-muted-foreground text-lg">
             You practiced for {durationMin} {durationMin === 1 ? "minute" : "minutes"}
+          </p>
+          <p className="text-sm text-primary/80 font-medium mt-1">
+            {getSessionDelightLine(overallAvg)}
           </p>
         </div>
 
