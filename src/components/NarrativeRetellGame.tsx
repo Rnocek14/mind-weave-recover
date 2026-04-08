@@ -154,10 +154,10 @@ export function NarrativeRetellGame({
     hasProcessedRef.current = true;
     stopListening();
 
-    const recordingResult = await stopRecording();
+    const recordingResult = useTyping ? null : await stopRecording();
 
     setTimeout(async () => {
-      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
       const durationMs = Date.now() - startTimeRef.current;
       const result = submitRetell(transcript, durationMs);
 
