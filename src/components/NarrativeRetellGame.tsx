@@ -54,6 +54,34 @@ function SectionStatusLabel({ status }: { status: SectionStatus }) {
   return <span className="text-muted-foreground">Missed</span>;
 }
 
+/** Generate Maya's structured reflection based on retell result */
+function buildMayaReflection(result: NarrativeTrialResult): string {
+  const { structureBreakdown: sb, eventCoverage } = result;
+  const coveredParts: string[] = [];
+  const weakParts: string[] = [];
+  for (const section of ['beginning', 'middle', 'end'] as const) {
+    if (sb[section].status === 'covered') coveredParts.push(section);
+    else weakParts.push(section);
+  }
+
+  if (eventCoverage >= 0.6 && weakParts.length === 0) {
+    return 'You told the full story clearly, including the key events.';
+  }
+  if (coveredParts.length > 0 && weakParts.length > 0) {
+    return `You got the ${coveredParts.join(' and ')} clearly. The ${weakParts[0]} was harder — that's what we'll focus on next.`;
+  }
+  if (eventCoverage >= 0.3) {
+    return 'You started the story well. Next time, try adding what happened after.';
+  }
+  return "That's okay. Let's try starting with just the beginning next time.";
+}
+
+const REAL_LIFE_CONNECTIONS = [
+  "This is the same skill you use when telling someone what happened during your day.",
+  "This helps when you're explaining something to someone — step by step.",
+  "Retelling stories strengthens the same skills you use in everyday conversations.",
+];
+
 export function NarrativeRetellGame({
   userId,
   sessionId,
@@ -72,6 +100,7 @@ export function NarrativeRetellGame({
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
   const [stallPromptIndex, setStallPromptIndex] = useState(-1);
+  const realLifeLineRef = useRef(REAL_LIFE_CONNECTIONS[Math.floor(Math.random() * REAL_LIFE_CONNECTIONS.length)]);
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
@@ -260,10 +289,35 @@ export function NarrativeRetellGame({
     const avgCoverage = results.length > 0
       ? results.reduce((sum, r) => sum + r.eventCoverage, 0) / results.length
       : 0;
+    const bestSection = results.length > 0 ? (() => {
+      const sectionHits = { beginning: 0, middle: 0, end: 0 };
+      for (const r of results) {
+        for (const s of ['beginning', 'middle', 'end'] as const) {
+          if (r.structureBreakdown[s].status === 'covered') sectionHits[s]++;
+        }
+      }
+      if (sectionHits.beginning >= sectionHits.middle && sectionHits.beginning >= sectionHits.end) return 'beginnings';
+      if (sectionHits.end >= sectionHits.middle) return 'endings';
+      return 'middle details';
+    })() : null;
+
     return (
       <div className="max-w-lg mx-auto space-y-6 text-center">
         <div className="text-6xl">📖</div>
         <h2 className="text-2xl font-bold">Stories Complete!</h2>
+
+        {/* Maya session reflection */}
+        <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-left space-y-1.5">
+          <p className="text-sm text-foreground">
+            {avgCoverage >= 0.6
+              ? `You did well remembering key events across all stories${bestSection ? `, especially ${bestSection}` : ''}.`
+              : avgCoverage >= 0.3
+              ? `You're building your retelling skills. ${bestSection ? `Your ${bestSection} were strongest.` : ''}`
+              : "Keep practicing — retelling gets easier with each session."}
+          </p>
+          <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="pt-4 text-center">
@@ -303,9 +357,17 @@ export function NarrativeRetellGame({
       {/* ─── Reading phase: all cards visible at once ─── */}
       {phase === 'reading' && (
         <div className="space-y-3">
-          {/* Purpose banner */}
+          {/* Purpose banner with optional prior-round context */}
           <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
-            <p className="text-base font-medium text-foreground">📖 This helps you practice remembering and telling stories clearly.</p>
+            <p className="text-base font-medium text-foreground">
+              {currentIndex === 0
+                ? "📖 Let's work on telling a short story clearly. This helps with real conversations."
+                : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
+                ? "📖 You did well last time. Let's try another story."
+                : results.length > 0 && results[results.length - 1].structureBreakdown.middle.status !== 'covered'
+                ? "📖 Let's work on including the middle details this time."
+                : "📖 Read the next story and tell it back in your own words."}
+            </p>
             <p className="text-sm text-muted-foreground mt-1">Read the story below. When you're ready, tell it back in your own words.</p>
           </div>
 
@@ -429,13 +491,16 @@ export function NarrativeRetellGame({
                 <span className="text-lg">
                   {lastResult.eventCoverage >= 0.6 ? '🧠' : lastResult.eventCoverage >= 0.3 ? '👍' : '💡'}
                 </span>
-                <span className="font-bold text-sm">
-                  {lastResult.eventCoverage >= 0.6 ? 'Great retell!' :
-                   lastResult.eventCoverage >= 0.3 ? 'Good effort!' : 'Keep practicing!'}
-                </span>
+                <span className="font-bold text-sm">Your retell</span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {lastResult.eventsFound}/{lastResult.eventsTotal} key events
                 </span>
+               </div>
+
+              {/* Maya reflection */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 space-y-1">
+                <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
+                <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
               </div>
 
               {/* Story structure breakdown */}
