@@ -127,6 +127,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const currentAttemptIdRef = useRef<string | null>(null);
   const currentTrialIndexRef = useRef(0);
   const currentDifficultyRef = useRef(initialDifficulty);
+  const manualMicOffRef = useRef(false);
   // Track phrases completed correctly on first/second attempt — never repeat these
   const masteredPhraseIdsRef = useRef<Set<string>>(new Set());
   
@@ -229,11 +230,13 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       handleIncorrectAnswer(lastHeardText || '', { advanceAfterFeedback: true });
     },
     pause: () => {
+      manualMicOffRef.current = true;
       setIsPaused(true);
       setIsListeningMode(false);
       if (isListening) stopListening();
     },
     resume: () => {
+      manualMicOffRef.current = false;
       setIsPaused(false);
       setIsListeningMode(true); // Re-enables auto-listen effect
     },
@@ -447,9 +450,11 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Toggle listening — also controls auto-listen mode
   const toggleListening = () => {
     if (isListening) {
+      manualMicOffRef.current = true;
       setIsListeningMode(false); // Disable auto-restart
       stopListening();
     } else {
+      manualMicOffRef.current = false;
       setIsListeningMode(true); // Re-enable auto-listen
       startListening();
     }
@@ -468,7 +473,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     // Use longer delay to avoid picking up audio tail
     if (autoListen && isSupported) {
       setTimeout(() => {
-        if (!isListening && !showFeedback && !processingResultRef.current) {
+        if (manualMicOffRef.current) return;
+        if (!isListening && !showFeedback && !processingResultRef.current && isListeningMode) {
           console.log('[Auto-Listen] Restarting mic after audio playback');
           startListening();
         }
@@ -790,6 +796,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   };
 
   const handleRestartListening = () => {
+    manualMicOffRef.current = false;
     setShowRecoveryActions(false);
     consecutiveStallCountRef.current = 0;
     setIsListeningMode(true); // Re-enable auto-listen
@@ -797,6 +804,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (isListening) {
       stopListening();
       setTimeout(() => {
+        if (manualMicOffRef.current) return;
         setIsListeningMode(true);
         startListening();
       }, 400);
@@ -831,7 +839,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const recoveryDelayMs = isListening ? 12000 : 5000;
 
     recoveryTimerRef.current = setTimeout(() => {
-      if (showFeedback || processingResultRef.current) return;
+      if (showFeedback || processingResultRef.current || manualMicOffRef.current || !isListeningMode) return;
 
       const nextStallCount = consecutiveStallCountRef.current + 1;
       consecutiveStallCountRef.current = nextStallCount;
@@ -850,11 +858,11 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       if (isListening) {
         stopListening();
         setTimeout(() => {
-          if (!processingResultRef.current) {
+          if (!processingResultRef.current && !manualMicOffRef.current && isListeningMode) {
             startListening();
           }
         }, 400);
-      } else {
+      } else if (!manualMicOffRef.current && isListeningMode) {
         startListening();
       }
     }, recoveryDelayMs);
@@ -913,6 +921,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setProcessingAnswer(false);
     setTrialStartTime(Date.now());
     // Re-enable auto-listen for the new trial
+    manualMicOffRef.current = false;
     setIsListeningMode(true);
 
     // Allow speech results again after a short delay
