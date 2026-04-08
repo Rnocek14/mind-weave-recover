@@ -15,7 +15,7 @@ const EXERCISE_PURPOSE: Record<string, string> = {
   'synonym-generator': 'Expand word networks with alternative words.',
   'describe-guess': 'Practice describing when the word won\'t come.',
   'narrative-retell': 'Build sequencing for retelling events.',
-  'meaning-match': 'Strengthen word-meaning connections.',
+  'meaning-match': 'This helps you understand what sentences really mean — a skill you use in every conversation.',
   'conversation-partner': 'Practice real conversational exchange.',
   'conversation-coach': 'Guided conversation with coaching support.',
   'two-clues': 'Use context clues to find the right word.',
