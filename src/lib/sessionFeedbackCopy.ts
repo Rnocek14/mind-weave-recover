@@ -99,11 +99,21 @@ export function shouldShowFeedback(): boolean {
 export function getPerformanceTransition(lastScore: number | null): TransitionMessage {
   if (lastScore === null) return pickRandom(ENCOURAGE_TRANSITIONS);
   const tone = getFeedbackTone(lastScore);
+
+  // Weighted distribution: encourage/neutral most common, celebrate/protect rarer
+  // This makes tone feel organic rather than mechanically mapped
+  const roll = Math.random();
   switch (tone) {
-    case 'celebrate': return pickRandom(CELEBRATE_TRANSITIONS);
-    case 'encourage': return pickRandom(ENCOURAGE_TRANSITIONS);
-    case 'support': return pickRandom(SUPPORT_TRANSITIONS);
-    case 'protect': return pickRandom(PROTECT_TRANSITIONS);
+    case 'celebrate':
+      // 70% celebrate, 30% encourage (avoids over-celebration)
+      return pickRandom(roll < 0.7 ? CELEBRATE_TRANSITIONS : ENCOURAGE_TRANSITIONS);
+    case 'encourage':
+      return pickRandom(ENCOURAGE_TRANSITIONS);
+    case 'support':
+      // 75% support, 25% encourage (keeps it gentle but not always heavy)
+      return pickRandom(roll < 0.75 ? SUPPORT_TRANSITIONS : ENCOURAGE_TRANSITIONS);
+    case 'protect':
+      return pickRandom(PROTECT_TRANSITIONS);
   }
 }
 
