@@ -82,19 +82,8 @@ export default function VoicePractice() {
         hasSpokenRef.current = true;
       }
 
-      // Reset silence timer on every new speech
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      if (hasSpokenRef.current) {
-        silenceTimerRef.current = setTimeout(() => {
-          // Auto-submit after silence
-          if (hasSpokenRef.current && transcriptRef.current.trim().length > 0) {
-            console.log('[VoicePractice] Auto-submitting after silence');
-            handleAutoSubmit();
-          }
-        }, SILENCE_TIMEOUT_MS);
-      }
+      // Track when last speech occurred
+      lastTranscriptTimeRef.current = Date.now();
     };
 
     recognition.onerror = (event: any) => {
