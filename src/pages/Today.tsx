@@ -80,12 +80,17 @@ export default function Today() {
     sessionId: string | null;
   } | null>(null);
 
-  // Check for in-progress session
+  // Check for in-progress session (from localStorage which persists across navigation)
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem('lessonFlowState');
+      const saved = localStorage.getItem('lessonFlowState_resume');
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Expire after 4 hours
+        if (parsed.savedAt && Date.now() - parsed.savedAt > 4 * 60 * 60 * 1000) {
+          localStorage.removeItem('lessonFlowState_resume');
+          return;
+        }
         if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
           setSavedSession({
             currentBlockIndex: parsed.currentBlockIndex,
@@ -152,6 +157,7 @@ export default function Today() {
     if (!lesson) return;
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
@@ -166,6 +172,11 @@ export default function Today() {
 
   const handleContinueSession = () => {
     if (!savedSession) return;
+    // Restore to sessionStorage so LessonFlow can find it
+    const resumeData = localStorage.getItem('lessonFlowState_resume');
+    if (resumeData) {
+      sessionStorage.setItem('lessonFlowState', resumeData);
+    }
     navigate('/lesson', {
       state: {
         lesson: savedSession.lesson,
@@ -179,6 +190,7 @@ export default function Today() {
 
   const handleDiscardSession = () => {
     sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
   };
 

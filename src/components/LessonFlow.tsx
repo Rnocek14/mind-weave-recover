@@ -87,10 +87,10 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             savedFirstExercise !== lesson.blocks[0]?.exerciseId
           ) {
             console.log('[LessonFlow] Clearing stale sessionStorage (lesson mismatch)');
-            sessionStorage.removeItem('lessonFlowState');
+            sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
           }
         } catch {
-          sessionStorage.removeItem('lessonFlowState');
+          sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
         }
       }
     }
@@ -190,7 +190,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           // Guard: validate saved state
           if (typeof savedIndex !== 'number' || savedIndex < 0 || savedIndex >= lesson.blocks.length) {
             console.warn('[LessonFlow] Stale saved state, ignoring');
-            sessionStorage.removeItem('lessonFlowState');
+            sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
             return;
           }
           
@@ -198,7 +198,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           // Don't re-launch — show the session preview instead
           if (savedPhase === 'exercise') {
             console.log('[LessonFlow] Detected back-from-exercise, clearing state');
-            sessionStorage.removeItem('lessonFlowState');
+            sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
             return;
           }
           
@@ -208,7 +208,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           setSessionId(savedSessionId);
         } catch (error) {
           console.error('[LessonFlow] Error restoring state:', error);
-          sessionStorage.removeItem('lessonFlowState');
+          sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
         }
       }
     }
@@ -284,23 +284,24 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const navigateToExercise = (exerciseId: string) => {
     console.log('[LessonFlow] Navigating to exercise:', { exerciseId, sessionId, currentBlockIndex });
     
-    // Save minimal state to sessionStorage (not full lesson/profile)
-    sessionStorage.setItem('lessonFlowState', JSON.stringify({
+    // Save state to sessionStorage (for exercise return) AND localStorage (for resume from /today)
+    const stateToSave = {
       phase: 'exercise',
       currentBlockIndex,
       sessionId,
       sessionStartTime: sessionStartTimeRef.current,
-      // Persist performance signals for adaptive pauses
       recentScores: recentScoresRef.current,
       recentRTs: recentRTRef.current,
       recentTimeouts: recentTimeoutsRef.current,
-      // Staleness detection keys
       blockCount: lesson.blocks.length,
       firstExerciseId: lesson.blocks[0]?.exerciseId,
-      // Keep lesson/clinicalProfile for components that still read them
       lesson,
       clinicalProfile,
-    }));
+      savedAt: Date.now(),
+    };
+    const stateJson = JSON.stringify(stateToSave);
+    sessionStorage.setItem('lessonFlowState', stateJson);
+    localStorage.setItem('lessonFlowState_resume', stateJson);
     
     const routeMap: Record<string, string> = {
       "photo-naming": "/exercise/photo-naming",
@@ -477,7 +478,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   useEffect(() => {
     if (phase === 'summary') {
       console.log('[LessonFlow] Clearing saved state');
-      sessionStorage.removeItem('lessonFlowState');
+      sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
     }
   }, [phase]);
 
