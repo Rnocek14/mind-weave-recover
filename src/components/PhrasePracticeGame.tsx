@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -50,6 +50,17 @@ interface PhrasePracticeGameProps {
   onDifficultyChange?: (newLevel: number) => void;
 }
 
+export interface PhrasePracticeGameHandle {
+  /** Mark current phrase as correctly said (manual override) */
+  markCorrect: () => void;
+  /** Skip current phrase as too hard — lowers difficulty and advances */
+  skipTooHard: () => void;
+  /** Pause the game (stop mic, freeze state) */
+  pause: () => void;
+  /** Resume the game (restart mic) */
+  resume: () => void;
+}
+
 // Debounced mic status - only show "mic paused" after 2s of being off
 const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
   const [showMicPaused, setShowMicPaused] = useState(false);
@@ -70,7 +81,7 @@ const useDebouncedMicStatus = (isListening: boolean, delayMs = 2000) => {
   return showMicPaused;
 };
 
-export const PhrasePracticeGame = ({
+export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePracticeGameProps>(({
   totalTrials,
   initialDifficulty,
   autoListen = true, // Default ON for stroke survivors
@@ -79,7 +90,7 @@ export const PhrasePracticeGame = ({
   onTrialComplete,
   onGameComplete,
   onDifficultyChange
-}: PhrasePracticeGameProps) => {
+}, ref) => {
   const { toast } = useToast();
   const { playSuccess, playError } = useGameSounds();
   const { user } = useAuth();
@@ -198,7 +209,36 @@ export const PhrasePracticeGame = ({
   // Azure Pronunciation Assessment (shared hook)
   const { analyzePronunciation } = usePronunciationAnalysis();
 
-  // Initialize trials ONCE on mount (not on difficulty change)
+  // ── Imperative handle for parent bottom-bar buttons ──
+  const [isPaused, setIsPaused] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    markCorrect: () => {
+      if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
+      handleCorrectAnswer(1.0, currentTrial.phrase);
+    },
+    skipTooHard: () => {
+      if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
+      // Record as failed trial, then step down difficulty and advance
+      recordAdaptiveTrial({ correct: false, reactionTimeMs: 0 });
+      toast({
+        title: "No problem!",
+        description: "Switching to an easier phrase.",
+        duration: 2000,
+      });
+      handleIncorrectAnswer(lastHeardText || '', { advanceAfterFeedback: true });
+    },
+    pause: () => {
+      setIsPaused(true);
+      if (isListening) stopListening();
+    },
+    resume: () => {
+      setIsPaused(false);
+      if (autoListen) {
+        setTimeout(() => startListening(), 500);
+      }
+    },
+  }));
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
@@ -1095,4 +1135,6 @@ export const PhrasePracticeGame = ({
       )}
     </div>
   );
-};
+});
+
+PhrasePracticeGame.displayName = 'PhrasePracticeGame';
