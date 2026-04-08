@@ -39,11 +39,12 @@ export const ExerciseTransitionOverlay = ({
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
   const { mode } = useCoachingMode();
-  // Add ±0.3s jitter for organic rhythm
+  // Jitter for organic rhythm
   const jitter = (Math.random() - 0.5) * 0.6;
-  const defaultDuration = type === 'encouragement' ? 1.5 + jitter : 5 + jitter;
-  const duration = durationOverride ?? defaultDuration;
-  const [timeLeft, setTimeLeft] = useState(duration);
+  const [timeLeft, setTimeLeft] = useState(() => {
+    // Will be re-set in effect below once duration is stable
+    return durationOverride ?? (type === 'encouragement' ? 3.5 : 5);
+  });
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
 
@@ -74,6 +75,14 @@ export const ExerciseTransitionOverlay = ({
   const [microGuidance] = useState(() => 
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
+
+  // Coaching-mode-aware duration: longer when guidance content is present
+  const hasGuidanceContent = !!(microGuidance || coachingBridge);
+  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 1.5;
+  const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
+
+  // Sync timeLeft to computed duration on mount
+  useEffect(() => { setTimeLeft(duration); }, []);
 
   useEffect(() => {
     if (isPaused) return;
