@@ -49,7 +49,7 @@ function scoreToLabel(score: number): { text: string; className: string } {
 export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
-  const { showTransferOnSummary } = useCoachingMode();
+  const { showTransferOnSummary, mode } = useCoachingMode();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
   const isCaregiver = uiMode === "caregiver";
   const showDetail = isClinician || isCaregiver;
