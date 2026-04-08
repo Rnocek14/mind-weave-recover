@@ -839,6 +839,20 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const recoveryDelayMs = isListening ? 12000 : 5000;
 
     recoveryTimerRef.current = setTimeout(() => {
+      if (showFeedback || processingResultRef.current || manualMicOffRef.current) return;
+
+      const nextStallCount = consecutiveStallCountRef.current + 1;
+      consecutiveStallCountRef.current = nextStallCount;
+
+      if (nextStallCount >= 3) {
+        toast({
+          title: "Let\u2019s keep going",
+          description: 'Moving to the next phrase for now.',
+          duration: 2500,
+        });
+        handleIncorrectAnswer(lastHeardText || transcript || '', { advanceAfterFeedback: true });
+      }
+    }, recoveryDelayMs);
       if (showFeedback || processingResultRef.current || manualMicOffRef.current || !isListeningMode) return;
 
       const nextStallCount = consecutiveStallCountRef.current + 1;
