@@ -180,36 +180,27 @@ export function buildSessionClosing(
   transferScore: number,
 ): string {
   const realWorld = topic.purpose.transferTarget.toLowerCase();
-  const parts: string[] = [];
 
-  // Performance arc
+  // Pick ONE strong closing line, not a multi-paragraph speech
   if (game1Result && game2Result) {
     const s1 = Math.round(game1Result.score * 100);
     const s2 = Math.round(game2Result.score * 100);
     const delta = s2 - s1;
     if (delta >= 10) {
-      parts.push(`You improved from ${s1}% to ${s2}% across two different exercises. That's your brain finding words through multiple pathways.`);
-    } else if (s2 >= 80) {
-      parts.push(`${s2}% — reliable retrieval. Those words are becoming available for real conversation.`);
-    } else {
-      parts.push(`You worked through two rounds of targeted practice. Every repetition strengthens the connection.`);
+      return `${s1}% → ${s2}% — your brain found the words faster the second time. That's real progress toward ${realWorld}.`;
     }
-  } else if (game1Result) {
+    if (s2 >= 80) {
+      return `${s2}% — reliable retrieval. Those words are becoming available for ${realWorld}.`;
+    }
+    return `Two rounds of targeted practice. Every repetition strengthens the connection to ${realWorld}.`;
+  }
+  
+  if (game1Result) {
     const s = Math.round(game1Result.score * 100);
-    parts.push(`${s}% — focused practice on ${topic.purpose.skillTarget.toLowerCase()}.`);
+    return `${s}% — focused work on ${topic.purpose.skillTarget.toLowerCase()}. Next session builds on this.`;
   }
 
-  // Transfer connection
-  if (transferScore >= 3) {
-    parts.push(`You used the words in context — that's the bridge between practice and ${realWorld}.`);
-  } else if (transferScore > 0) {
-    parts.push(`Transfer is building. Using words in sentences is where real progress shows.`);
-  }
-
-  // Forward look
-  parts.push(`Next session will build on this. The more you practice, the faster the words come.`);
-
-  return parts.join(' ');
+  return `Targeted practice for ${realWorld}. Next session builds on this.`;
 }
 
 // ─── Phase Progress Labels ──────────────────────────────────
