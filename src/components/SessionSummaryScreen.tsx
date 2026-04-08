@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle 
 import { supabase } from "@/integrations/supabase/client";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
+import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
