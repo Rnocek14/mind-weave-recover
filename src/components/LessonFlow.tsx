@@ -379,8 +379,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     } else {
       const nextIndex = currentBlockIndex + 1;
       
+      // Micro-reflection toast (light/full mode only)
+      if (showPurpose && recentScoresRef.current.length > 0) {
+        const lastScore = recentScoresRef.current[recentScoresRef.current.length - 1];
+        const exerciseName = humanizeSlug(runtimeBlocks[currentBlockIndex]?.exerciseId || '');
+        const reflection = getMicroReflection(lastScore, exerciseName);
+        if (reflection) {
+          toast(reflection, { duration: 3000 });
+        }
+      }
+      
       // === RUNTIME SUPPORT PIVOT ===
-      // If user is struggling and we have support blocks, inject one
       const currentPriority = runtimeBlocks[currentBlockIndex]?.priority || 'primary';
       if (
         !activeSupportPivot &&
@@ -412,7 +421,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       setCurrentPause(pauseDecision);
       setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
