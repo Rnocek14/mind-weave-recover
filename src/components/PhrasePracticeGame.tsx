@@ -170,9 +170,13 @@ export const PhrasePracticeGame = ({
   // Azure Pronunciation Assessment (shared hook)
   const { analyzePronunciation } = usePronunciationAnalysis();
 
-  // Initialize trials and load voice preference
+  // Initialize trials ONCE on mount (not on difficulty change)
+  const initializedRef = useRef(false);
   useEffect(() => {
-    const newTrials = getTrialsForLevel(currentDifficulty, totalTrials);
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
+    const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
     
@@ -190,7 +194,6 @@ export const PhrasePracticeGame = ({
         const prefs = data.accessibility_prefs as any;
         const voicePref = prefs?.voicePreference || 'neutral';
         
-        // Map voice preference to OpenAI voice
         const voiceMap = {
           'neutral': 'alloy',
           'male': 'onyx',
@@ -201,7 +204,7 @@ export const PhrasePracticeGame = ({
     };
     
     loadVoicePreference();
-  }, [currentDifficulty, totalTrials, user]);
+  }, [initialDifficulty, totalTrials, user]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -323,20 +326,21 @@ export const PhrasePracticeGame = ({
   const handlePlayAudio = async () => {
     if (!currentTrial || isAudioPlaying) return;
     
-    // Stop listening while audio plays
+    // Stop listening while audio plays to prevent it from hearing the playback
     if (isListening) stopListening();
     
     await playPhrase(currentTrial.phrase, { voice: voicePreference });
     setCueLevel(prev => Math.max(prev, 2)); // Mark that audio cue was used
     
     // Re-open mic after audio finishes (if auto-listen enabled)
+    // Use longer delay to avoid picking up audio tail
     if (autoListen && isSupported) {
       setTimeout(() => {
-        if (!isListening && !showFeedback) {
+        if (!isListening && !showFeedback && !processingResultRef.current) {
           console.log('[Auto-Listen] Restarting mic after audio playback');
           startListening();
         }
-      }, 500);
+      }, 1200);
     }
   };
 
