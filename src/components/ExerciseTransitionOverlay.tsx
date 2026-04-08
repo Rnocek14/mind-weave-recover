@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Wind, Clock } from 'lucide-react';
+import { Wind, Clock, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { trackTransitionAction } from '@/lib/sessionFlowAnalytics';
 import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } from '@/lib/sessionFeedbackCopy';
+import { useCoachingMode } from '@/contexts/CoachingModeContext';
+import { getTransitionCoaching } from '@/lib/coachingNarrative';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
@@ -11,6 +13,7 @@ interface ExerciseTransitionOverlayProps {
   completedCount: number;
   totalCount: number;
   nextExerciseName: string;
+  nextExerciseId?: string;
   nextPhase?: 'warmup' | 'primary' | 'secondary' | 'consolidation' | 'support';
   isSupportPivot?: boolean;
   sessionId?: string | null;
@@ -26,6 +29,7 @@ export const ExerciseTransitionOverlay = ({
   completedCount,
   totalCount,
   nextExerciseName,
+  nextExerciseId,
   nextPhase,
   isSupportPivot,
   sessionId,
@@ -33,6 +37,7 @@ export const ExerciseTransitionOverlay = ({
   onContinue,
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
+  const { mode } = useCoachingMode();
   // Add ±0.3s jitter for organic rhythm
   const jitter = (Math.random() - 0.5) * 0.6;
   const defaultDuration = type === 'encouragement' ? 1.5 + jitter : 5 + jitter;
@@ -51,6 +56,18 @@ export const ExerciseTransitionOverlay = ({
   });
 
   const adaptationMsg = showFeedback ? getAdaptationMessage(lastScore ?? null, nextExerciseName) : null;
+  
+  // Coaching bridge text (Guided/Full modes)
+  const [coachingBridge] = useState(() => 
+    getTransitionCoaching({
+      mode,
+      lastScore: lastScore ?? null,
+      nextExerciseName,
+      nextExerciseId: nextExerciseId || '',
+      completedCount,
+      totalCount,
+    })
+  );
 
   useEffect(() => {
     if (isPaused) return;
@@ -190,8 +207,18 @@ export const ExerciseTransitionOverlay = ({
             Next: <span className="font-medium">{nextExerciseName}</span>
           </p>
           
+          {/* Coaching bridge — Guided/Full modes */}
+          {coachingBridge && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <MessageCircle className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+              <p className="text-sm text-primary/80 font-medium italic">
+                {coachingBridge}
+              </p>
+            </div>
+          )}
+          
           {/* Adaptation message — tertiary, smaller */}
-          {adaptationMsg && (
+          {adaptationMsg && !coachingBridge && (
             <p className="text-xs text-primary/60 font-medium">{adaptationMsg}</p>
           )}
         </div>
