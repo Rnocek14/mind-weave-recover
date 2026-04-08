@@ -40,7 +40,14 @@ async function getEmbedding(text: string): Promise<number[] | null> {
     }
 
     const embedding = data?.embedding;
-    if (!embedding) return null;
+    if (!embedding) {
+      // Edge function returned fallback (quota/rate limit) — disable for session
+      if (data?.fallback) {
+        embeddingDisabled = true;
+        console.warn('Embeddings disabled for this session — API unavailable');
+      }
+      return null;
+    }
 
     // Cache for future use
     embeddingCache[normalized] = embedding;
