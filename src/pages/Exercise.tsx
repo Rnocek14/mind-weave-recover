@@ -217,7 +217,13 @@ const Exercise = () => {
     fetchSessionCount();
   }, [user?.id, exerciseId]);
 
+  // Resume embedded game when isPlaying transitions back to true
   useEffect(() => {
+    if (isPlaying && exerciseId === 'word-practice' && phraseGameRef.current) {
+      phraseGameRef.current.resume();
+    }
+  }, [isPlaying, exerciseId]);
+
     const usesEmbeddedRoundFlow = exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt' || exerciseId === 'photo-naming' || exerciseId === 'word-practice';
 
     if (isPlaying && !usesEmbeddedRoundFlow) {
