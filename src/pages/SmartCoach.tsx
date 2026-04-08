@@ -120,6 +120,10 @@ export default function SmartCoach() {
   
   // Cross-session
   const [wordHistory, setWordHistory] = useState<WordHistory[]>([]);
+  const [continuitySignals, setContinuitySignals] = useState<ContinuitySignals | null>(null);
+  
+  // Live observer
+  const liveObserverRef = useRef(new LiveObserver());
   
   // Session tracking
   const sessionIdRef = useRef<string | null>(null);
