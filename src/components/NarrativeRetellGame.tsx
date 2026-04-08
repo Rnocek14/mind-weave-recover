@@ -491,10 +491,7 @@ export function NarrativeRetellGame({
                 <span className="text-lg">
                   {lastResult.eventCoverage >= 0.6 ? '🧠' : lastResult.eventCoverage >= 0.3 ? '👍' : '💡'}
                 </span>
-                <span className="font-bold text-sm">
-                  {lastResult.eventCoverage >= 0.6 ? 'Great retell!' :
-                   lastResult.eventCoverage >= 0.3 ? 'Good effort!' : 'Keep practicing!'}
-                </span>
+                <span className="font-bold text-sm">Your retell</span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {lastResult.eventsFound}/{lastResult.eventsTotal} key events
                 </span>
