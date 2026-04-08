@@ -19,6 +19,7 @@ import { useRecoveryScore } from '@/hooks/useRecoveryScore';
 import { generateSessionPlan, selectReactiveGame2, type SessionPlan } from '@/lib/smartCoach/sessionPlanGenerator';
 import { adaptExerciseResult } from '@/lib/smartCoach/interventionAdapter';
 import { getPostDrillReview } from '@/lib/smartCoach/sessionArc';
+import { buildGame1Intro, buildPostGameReflection, buildTransferPrompt, buildSessionClosing, SESSION_PROGRESS_LABELS } from '@/lib/smartCoach/purposeLayer';
 import { saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
@@ -63,7 +64,7 @@ type SessionPhase =
   | 'complete';
 
 // Phase progress mapping
-const PHASE_LABELS = ['Get ready', 'Practice 1', 'Transfer', 'Practice 2', 'Complete'];
+const PHASE_LABELS = SESSION_PROGRESS_LABELS;
 const TOTAL_PHASES = PHASE_LABELS.length;
 
 function getPhaseIndex(phase: SessionPhase): number {
@@ -384,10 +385,8 @@ export default function SmartCoach() {
     setHintLevel(0);
     setPlan(restoredPlan);
 
-    const pct = Math.round(result.score * 100);
-    if (result.score >= 0.85) mayaToast(`${pct}% — words came out quickly.`, { type: 'success' });
-    else if (result.score >= 0.6) mayaToast(`${pct}% — building momentum.`);
-    else mayaToast(`${pct}% — let's reinforce from another angle.`);
+    const reflection = buildPostGameReflection(result, 1, restoredPlan.topic);
+    mayaToast(reflection);
 
     const drilledWords = (result.targetWords || []).slice(0, 3);
     const targets: TransferTarget[] = drilledWords.map(word => ({
@@ -405,14 +404,8 @@ export default function SmartCoach() {
   const handleGame2CompleteFromRestore = useCallback((result: NormalizedExerciseResult) => {
     setGame2Result(result);
     setHintLevel(0);
-    if (game1Result) {
-      const s1 = Math.round(game1Result.score * 100);
-      const s2 = Math.round(result.score * 100);
-      const delta = s2 - s1;
-      if (delta >= 10) mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
-      else if (delta >= 0) mayaToast(`Steady at ${s2}% — reliable retrieval.`);
-      else mayaToast(`${s2}% on a harder exercise — that's progress.`);
-    }
+    const reflection = buildPostGameReflection(result, 2, plan!.topic, game1Result);
+    mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     setPhase('complete');
   }, [game1Result]);
 
@@ -436,18 +429,9 @@ export default function SmartCoach() {
     setGame1Result(result);
     setHintLevel(0);
     
-    // Show review as a throttled toast
-    const score = result.score;
-    const pct = Math.round(score * 100);
-    if (score >= 0.85) {
-      mayaToast(`${pct}% — words came out quickly. Now let's use them.`, { type: 'success' });
-    } else if (score >= 0.6) {
-      mayaToast(`${pct}% — building momentum. Let's reinforce.`);
-    } else if (score >= 0.4) {
-      mayaToast(`${pct}% — some were tough. We'll approach it differently.`);
-    } else {
-      mayaToast(`${pct}% — hard round. Let's adjust and try another angle.`);
-    }
+    // Show purpose-tied micro-reflection
+    const reflection = buildPostGameReflection(result, 1, plan.topic);
+    mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     
     microEncouragement.trackGameComplete({
       score: result.score,
@@ -563,7 +547,8 @@ export default function SmartCoach() {
       // Only navigate if we haven't saved state yet (i.e., not returning from exercise)
       if (!saved) {
         const gameName = plan.game2.label;
-        mayaToast(`Next: ${gameName} — different angle, same skills.`, { duration: 3000 });
+        const skillTarget = plan.topic.purpose.skillTarget.toLowerCase();
+        mayaToast(`Next: ${gameName} — reinforcing ${skillTarget} from another angle.`, { duration: 3000 });
         navigateToExercise(plan.game2, 2);
       }
     }
@@ -573,18 +558,10 @@ export default function SmartCoach() {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Show cross-game comparison as throttled toast
-    if (game1Result) {
-      const s1 = Math.round(game1Result.score * 100);
-      const s2 = Math.round(result.score * 100);
-      const delta = s2 - s1;
-      if (delta >= 10) {
-        mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
-      } else if (delta >= 0) {
-        mayaToast(`Steady at ${s2}% — building reliable retrieval.`);
-      } else {
-        mayaToast(`${s2}% on a harder exercise — that's progress.`);
-      }
+    // Show purpose-tied micro-reflection
+    if (plan) {
+      const reflection = buildPostGameReflection(result, 2, plan.topic, game1Result);
+      mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     }
     
     microEncouragement.trackGameComplete({
@@ -626,11 +603,7 @@ export default function SmartCoach() {
   const transferPromptText = useMemo(() => {
     if (!plan) return '';
     const drilledWords = (game1Result?.targetWords || []).slice(0, 3);
-    if (drilledWords.length > 0) {
-      const word = drilledWords[0];
-      return `Quick check — use "${word}" in a sentence.`;
-    }
-    return `Quick check — use one of those words in a sentence.`;
+    return buildTransferPrompt(plan.topic, drilledWords);
   }, [plan, game1Result]);
 
   // ─── Maya help text by phase ──────────────────────────────
@@ -759,14 +732,21 @@ export default function SmartCoach() {
                 <span className="text-3xl">{plan.topic.emoji}</span>
                 <div>
                   <h2 className="text-lg font-semibold">{plan.topic.label}</h2>
-                  <p className="text-xs text-muted-foreground">{plan.focusDescription}</p>
+                  <p className="text-xs text-muted-foreground">{plan.topic.purpose.skillTarget}</p>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-primary" />
-                ~10 min · {plan.game1.label} + {plan.game2.label}
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {plan.topic.purpose.rationale.split('.')[0]}.
               </p>
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  ~10 min
+                </span>
+                <span>{plan.game1.label} → Transfer → {plan.game2.label}</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -793,24 +773,10 @@ export default function SmartCoach() {
       transferred: transferResults.filter(r => r.score >= 3).length,
     };
 
-    // Emotionally grounded closing message
-    const closingMessage = (() => {
-      if (game1Result && game2Result) {
-        const s1 = Math.round(game1Result.score * 100);
-        const s2 = Math.round(game2Result.score * 100);
-        const delta = s2 - s1;
-        if (delta >= 10) return `You improved from ${s1}% to ${s2}%. That's your brain rebuilding pathways — real, measurable progress.`;
-        if (s2 >= 80) return `${s2}% accuracy — those words are becoming reliable again. Keep this up.`;
-        if (delta >= 0) return `Steady at ${s2}%. Consistency is how recovery works — you're doing it right.`;
-        return `${s2}% on a harder exercise. Stretching into harder territory is exactly how you get stronger.`;
-      }
-      if (game1Result) {
-        const s = Math.round(game1Result.score * 100);
-        if (s >= 80) return `${s}% — strong session. Your word retrieval is getting faster.`;
-        return `${s}% — every session builds on the last. You showed up, and that matters.`;
-      }
-      return 'Good work today. Every session strengthens your recovery.';
-    })();
+    // Purpose-tied closing message
+    const bestTransferScore = transferResults.length > 0 
+      ? Math.max(...transferResults.map(r => r.score)) : 0;
+    const closingMessage = buildSessionClosing(plan.topic, game1Result, game2Result, bestTransferScore);
 
     // Personalized "what improved" insight
     const improvementInsight = (() => {
@@ -969,13 +935,16 @@ export default function SmartCoach() {
   const renderPhaseContent = () => {
     // Merged opener + game1 setup — auto-launches after brief read time
     if (phase === 'game1_intro') {
-      const topicIntro = `Today: ${plan.topic.label} — ${plan.topic.purpose.skillTarget}.`;
-      const gameIntro = plan.game1Setup;
-      const whyItMatters = `This helps with ${plan.topic.purpose.transferTarget.toLowerCase()}.`;
+      const { narration, subtitle } = buildGame1Intro(
+        plan.topic,
+        plan.game1,
+        coachProfile.lastSessionGoals,
+        coachProfile.severityProfile,
+      );
       return (
         <MayaNarrationCard
-          narration={`${topicIntro}\n\n${gameIntro}`}
-          subtitle={`${whyItMatters} · ${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
+          narration={narration}
+          subtitle={`${subtitle} · ${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
           actionLabel="Start practice"
           onContinue={handleLaunchGame1}
           phaseIndex={phaseIndex}
