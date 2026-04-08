@@ -590,3 +590,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   return null;
 };
+
+/** Generate a brief micro-reflection based on score */
+function getMicroReflection(score: number, exerciseName: string): string | null {
+  if (score >= 85) return `Strong round on ${exerciseName} — that speed carries over.`;
+  if (score >= 65) return `Solid work on ${exerciseName}. Building momentum.`;
+  if (score >= 40) return `${exerciseName} was tough — that's the right challenge level.`;
+  if (score < 40) return `Hard round — the effort still strengthens those pathways.`;
+  return null;
+}
