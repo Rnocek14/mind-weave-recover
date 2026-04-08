@@ -46,7 +46,7 @@ export default function ThoughtContinuationExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
   
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameStarted, setGameStarted] = useState(fromLesson);
   const [sessionSummary, setSessionSummary] = useState<{
     totalPrompts: number;
     promptsSpoken: number;
