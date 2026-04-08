@@ -410,10 +410,16 @@ export function NarrativeRetellGame({
 
           {/* Action buttons */}
           <div className="space-y-2">
-            <Button onClick={handleStartRetelling} className="w-full" size="lg">
-              {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-              Start retelling
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleStartRetelling} className="flex-1" size="lg" disabled={isTTSSpeaking}>
+                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                Start retelling
+              </Button>
+              <Button variant="outline" size="lg" onClick={isTTSSpeaking ? stopTTS : handleListenToStory}>
+                <Volume2 className="h-4 w-4 mr-1" />
+                {isTTSSpeaking ? 'Stop' : 'Listen'}
+              </Button>
+            </div>
             {isSupported && (
               <button
                 onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
