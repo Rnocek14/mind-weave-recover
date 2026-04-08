@@ -476,6 +476,10 @@ export const PhrasePracticeGame = ({
     playSuccess();
     setScore(prev => prev + 100);
     setFeedbackCorrect(true);
+    // Mark phrase as mastered if answered correctly within 2 attempts — don't repeat it
+    if (attemptCount <= 2 && trialData.id) {
+      masteredPhraseIdsRef.current.add(trialData.id);
+    }
     setShowFeedback(true);
     setProcessingAnswer(true);
     
