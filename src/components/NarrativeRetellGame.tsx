@@ -15,10 +15,11 @@ import { useNarrativeRetellGame, NarrativeTrialResult, SectionStatus } from '@/h
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard } from 'lucide-react';
+import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
