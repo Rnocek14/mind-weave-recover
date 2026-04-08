@@ -850,10 +850,12 @@ export const PhrasePracticeGame = ({
 
     const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 3);
-      const filteredTrials = currentTrial?.id
-        ? regeneratedTrials.filter(trial => trial.id !== currentTrial.id)
-        : regeneratedTrials;
+      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 5);
+      // Exclude current phrase AND any phrases the user already mastered
+      const mastered = masteredPhraseIdsRef.current;
+      const filteredTrials = regeneratedTrials.filter(trial =>
+        trial.id !== currentTrial?.id && !mastered.has(trial.id)
+      );
       const nextTrials = (filteredTrials.length >= remainingTrials ? filteredTrials : regeneratedTrials)
         .slice(0, remainingTrials);
 
