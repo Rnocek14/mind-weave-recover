@@ -765,24 +765,10 @@ export default function SmartCoach() {
       transferred: transferResults.filter(r => r.score >= 3).length,
     };
 
-    // Emotionally grounded closing message
-    const closingMessage = (() => {
-      if (game1Result && game2Result) {
-        const s1 = Math.round(game1Result.score * 100);
-        const s2 = Math.round(game2Result.score * 100);
-        const delta = s2 - s1;
-        if (delta >= 10) return `You improved from ${s1}% to ${s2}%. That's your brain rebuilding pathways — real, measurable progress.`;
-        if (s2 >= 80) return `${s2}% accuracy — those words are becoming reliable again. Keep this up.`;
-        if (delta >= 0) return `Steady at ${s2}%. Consistency is how recovery works — you're doing it right.`;
-        return `${s2}% on a harder exercise. Stretching into harder territory is exactly how you get stronger.`;
-      }
-      if (game1Result) {
-        const s = Math.round(game1Result.score * 100);
-        if (s >= 80) return `${s}% — strong session. Your word retrieval is getting faster.`;
-        return `${s}% — every session builds on the last. You showed up, and that matters.`;
-      }
-      return 'Good work today. Every session strengthens your recovery.';
-    })();
+    // Purpose-tied closing message
+    const bestTransferScore = transferResults.length > 0 
+      ? Math.max(...transferResults.map(r => r.score)) : 0;
+    const closingMessage = buildSessionClosing(plan.topic, game1Result, game2Result, bestTransferScore);
 
     // Personalized "what improved" insight
     const improvementInsight = (() => {
