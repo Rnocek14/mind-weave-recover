@@ -28,15 +28,7 @@ import {
 } from "@/lib/sessionFlowAnalytics";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
-import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
-import {
-  trackFirstExerciseLaunch,
-  trackExerciseComplete,
-  trackSessionDropOff,
-  trackSessionComplete,
-  associateSessionWithFlow,
-} from "@/lib/sessionFlowAnalytics";
-import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
+
 
 type FlowPhase = 
   | "daily-check" 
