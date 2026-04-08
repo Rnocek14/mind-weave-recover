@@ -1036,10 +1036,24 @@ const Exercise = () => {
                 size="sm"
                 className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={() => {
-                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
-                    phraseGameRef.current.pause();
+                  const isEmbedded = exerciseId === 'word-practice' || exerciseId === 'photo-naming' || exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt';
+                  if (isEmbedded) {
+                    if (isPausedOverlay) {
+                      // Resume
+                      setIsPausedOverlay(false);
+                      if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                        phraseGameRef.current.resume();
+                      }
+                    } else {
+                      // Pause
+                      setIsPausedOverlay(true);
+                      if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                        phraseGameRef.current.pause();
+                      }
+                    }
+                  } else {
+                    setIsPlaying(false);
                   }
-                  setIsPlaying(false);
                 }}
               >
                 <Pause className="w-5 h-5 sm:mr-2" />
