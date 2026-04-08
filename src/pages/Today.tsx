@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, Brain } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, Brain, Home, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
