@@ -100,6 +100,50 @@ const GAME_CATALOG: Record<string, GameDefinition> = {
     icon: '🧠',
     defaultConfig: { totalTrials: 3, difficultyTier: 1, cueLevel: 2 },
   },
+  describe_guess: {
+    id: 'describe_guess',
+    exerciseSlug: 'describe-guess',
+    label: 'Describe & Guess',
+    description: 'Describe an object for someone to guess',
+    rationale: 'This practices describing things clearly — a key real-world communication skill.',
+    durationSec: 60,
+    skillTarget: 'expressive_description',
+    icon: '💬',
+    defaultConfig: { totalTrials: 4, difficultyTier: 1 },
+  },
+  narrative_retell: {
+    id: 'narrative_retell',
+    exerciseSlug: 'narrative-retell',
+    label: 'Story Retell',
+    description: 'Listen to a short story and retell it',
+    rationale: 'This strengthens connected speech — putting ideas together in order.',
+    durationSec: 90,
+    skillTarget: 'discourse_production',
+    icon: '📖',
+    defaultConfig: { totalTrials: 2, difficultyTier: 1 },
+  },
+  synonym_generator: {
+    id: 'synonym_generator',
+    exerciseSlug: 'synonym-generator',
+    label: 'Word Alternatives',
+    description: 'Think of different words that mean the same thing',
+    rationale: 'This builds flexible word access — more ways to say what you mean.',
+    durationSec: 45,
+    skillTarget: 'lexical_flexibility',
+    icon: '🔄',
+    defaultConfig: { totalTrials: 4, difficultyTier: 1 },
+  },
+  minimal_pairs: {
+    id: 'minimal_pairs',
+    exerciseSlug: 'minimal-pairs',
+    label: 'Sound Pairs',
+    description: 'Tell apart similar-sounding words',
+    rationale: 'This sharpens sound discrimination — hearing the difference matters for speaking.',
+    durationSec: 45,
+    skillTarget: 'phonological_discrimination',
+    icon: '👂',
+    defaultConfig: { totalTrials: 5, difficultyTier: 1 },
+  },
 };
 
 // ─── Trigger Detection ──────────────────────────────────────
@@ -201,6 +245,7 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
 /** Games that produce speech output (vs receptive-only) */
 const SPEECH_PRODUCING_GAMES = new Set([
   'photo_naming', 'category_fluency', 'sentence_construction', 'semantic_features',
+  'describe_guess', 'narrative_retell', 'synonym_generator',
 ]);
 
 /** Build the return-to-conversation text after a game using normalized results */

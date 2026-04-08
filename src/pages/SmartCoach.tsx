@@ -967,20 +967,22 @@ export default function SmartCoach() {
   const showBubble = !['loading', 'plan', 'complete'].includes(phase);
 
   const renderPhaseContent = () => {
-    // Merged opener + game1 setup (single card)
+    // Merged opener + game1 setup — auto-launches after brief read time
     if (phase === 'game1_intro') {
       const topicIntro = `Today: ${plan.topic.label} — ${plan.topic.purpose.skillTarget}.`;
       const gameIntro = plan.game1Setup;
+      const whyItMatters = `This helps with ${plan.topic.purpose.transferTarget.toLowerCase()}.`;
       return (
         <MayaNarrationCard
           narration={`${topicIntro}\n\n${gameIntro}`}
-          subtitle={`${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
+          subtitle={`${whyItMatters} · ${plan.game1Trials} items · ~${Math.ceil(plan.game1.durationSec / 60)} min`}
           actionLabel="Start practice"
           onContinue={handleLaunchGame1}
           phaseIndex={phaseIndex}
           totalPhases={TOTAL_PHASES}
           phaseLabels={PHASE_LABELS}
           icon={plan.game1.icon}
+          autoAdvanceMs={4000}
         />
       );
     }
