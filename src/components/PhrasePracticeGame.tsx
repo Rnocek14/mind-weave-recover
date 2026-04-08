@@ -241,9 +241,13 @@ export const PhrasePracticeGame = ({
     };
   }, [currentAttemptId, isFinalized, currentTrial, logFinalAnalysis]);
 
-  // Speech recognition
+  // Guard: ignore speech results briefly after trial transitions
+  const trialTransitionRef = useRef(false);
+
   const handleSpeechResult = (transcript: string) => {
     if (!currentTrial || showFeedback || processingResultRef.current) return;
+    // Ignore stale results right after a trial transition
+    if (trialTransitionRef.current) return;
 
     console.log('Speech recognized:', transcript);
     setLastHeardText(transcript);
@@ -251,21 +255,25 @@ export const PhrasePracticeGame = ({
     // Log browser transcript (interim - no duplicates)
     logBrowserTranscript(transcript);
     
+    // Require minimum transcript length to avoid noise triggers
+    const trimmed = transcript.trim();
+    if (trimmed.length < 2) return;
+    
     const evaluation = evaluatePhraseMatch(transcript, currentTrial);
     setCurrentWordAccuracy(evaluation.wordAccuracy);
     
     if (evaluation.match) {
       handleCorrectAnswer(evaluation.wordAccuracy, transcript);
     } else if (evaluation.wordAccuracy > 0.3) {
-      // Partial match - give feedback (NOT a terminal outcome - don't finalize)
+      // Partial match - give feedback
       toast({
         title: "Almost there!",
         description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
       });
       setAttempts(prev => prev + 1);
-    } else {
-      handleIncorrectAnswer(transcript);
     }
+    // Low match (<= 30%) — do nothing, let user keep trying
+    // instead of auto-advancing on noise/stale transcripts
   };
 
   const { isListening, transcript, startListening, stopListening, isSupported, error } = 
