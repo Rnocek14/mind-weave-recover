@@ -224,6 +224,7 @@ const Exercise = () => {
     }
   }, [isPlaying, exerciseId]);
 
+  useEffect(() => {
     const usesEmbeddedRoundFlow = exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt' || exerciseId === 'photo-naming' || exerciseId === 'word-practice';
 
     if (isPlaying && !usesEmbeddedRoundFlow) {
