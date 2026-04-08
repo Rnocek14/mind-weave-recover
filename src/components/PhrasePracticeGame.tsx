@@ -116,6 +116,8 @@ export const PhrasePracticeGame = ({
   const currentAttemptIdRef = useRef<string | null>(null);
   const currentTrialIndexRef = useRef(0);
   const currentDifficultyRef = useRef(initialDifficulty);
+  // Track phrases completed correctly on first/second attempt — never repeat these
+  const masteredPhraseIdsRef = useRef<Set<string>>(new Set());
   
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
@@ -474,6 +476,10 @@ export const PhrasePracticeGame = ({
     playSuccess();
     setScore(prev => prev + 100);
     setFeedbackCorrect(true);
+    // Mark phrase as mastered if answered correctly within 2 attempts — don't repeat it
+    if (attemptCount <= 2 && trialData.id) {
+      masteredPhraseIdsRef.current.add(trialData.id);
+    }
     setShowFeedback(true);
     setProcessingAnswer(true);
     
@@ -844,10 +850,12 @@ export const PhrasePracticeGame = ({
 
     const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 3);
-      const filteredTrials = currentTrial?.id
-        ? regeneratedTrials.filter(trial => trial.id !== currentTrial.id)
-        : regeneratedTrials;
+      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 5);
+      // Exclude current phrase AND any phrases the user already mastered
+      const mastered = masteredPhraseIdsRef.current;
+      const filteredTrials = regeneratedTrials.filter(trial =>
+        trial.id !== currentTrial?.id && !mastered.has(trial.id)
+      );
       const nextTrials = (filteredTrials.length >= remainingTrials ? filteredTrials : regeneratedTrials)
         .slice(0, remainingTrials);
 
