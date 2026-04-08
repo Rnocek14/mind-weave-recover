@@ -770,7 +770,7 @@ export const PhrasePracticeGame = ({
           >
             <Lightbulb className="w-5 h-5 mr-2" />
             {cueLevel < 2 ? "Get a Hint" : "Max Hints"}
-          )}
+          </Button>
           
           {audioError && (
             <p className="text-sm text-muted-foreground">
