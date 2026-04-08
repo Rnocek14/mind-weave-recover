@@ -140,6 +140,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'Driving over something sharp, a pop sound, and pulling to one side = flat tire.',
     questionType: 'literal',
+    hintSentenceIndex: 0,
   },
 
   // ============ TIER 2: MEDIUM (inference/causality, 4-5 sentences, 4 options) ============
@@ -244,6 +245,7 @@ export const DETECTIVE_CASES: DetectiveCase[] = [
     correctIndex: 1,
     explanation: 'The alarm didn\'t go off → she rushed → dressed too quickly → shirt inside out.',
     questionType: 'cause_effect',
+    hintSentenceIndex: 0,
   },
 
   // ============ TIER 3: HARD (prediction/figurative, 5-6 sentences, 4 options) ============
