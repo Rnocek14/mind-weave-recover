@@ -116,6 +116,8 @@ export const PhrasePracticeGame = ({
   const currentAttemptIdRef = useRef<string | null>(null);
   const currentTrialIndexRef = useRef(0);
   const currentDifficultyRef = useRef(initialDifficulty);
+  // Track phrases completed correctly on first/second attempt — never repeat these
+  const masteredPhraseIdsRef = useRef<Set<string>>(new Set());
   
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
