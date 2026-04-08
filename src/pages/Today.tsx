@@ -101,9 +101,14 @@ export default function Today() {
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
   const sessionNumber = (stats?.totalSessions ?? 0) + 1;
 
+  const location = useLocation();
+  const currentTab = location.pathname === '/practice' ? 'practice' 
+    : location.pathname === '/progress' ? 'progress' 
+    : 'home';
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-6">
+      <div className="flex-1 flex items-center justify-center p-6 pb-20">
         <div className="w-full max-w-sm space-y-6 text-center">
           {/* Greeting */}
           <div className="space-y-2">
@@ -195,24 +200,43 @@ export default function Today() {
               : "Start today's practice"}
             <ArrowRight className="w-4 h-4" />
           </Button>
+        </div>
+      </div>
 
-          {/* Secondary options */}
-          <div className="flex justify-center gap-4 pt-2">
-            <button 
-              onClick={() => navigate('/practice')} 
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+      {/* Bottom Tab Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-40">
+        <div className="flex justify-around max-w-lg mx-auto">
+          {([
+            { id: 'home' as const, icon: Home, label: 'Home', path: '/today' },
+            { id: 'practice' as const, icon: Gamepad2, label: 'Practice', path: '/practice' },
+            { id: 'progress' as const, icon: BarChart3, label: 'My Progress', path: '/progress' },
+          ]).map(({ id, icon: Icon, label, path }) => (
+            <button
+              key={id}
+              onClick={() => navigate(path)}
+              className={cn(
+                'flex-1 flex flex-col items-center py-3 min-h-[60px] transition-all duration-150 touch-manipulation select-none relative',
+                'active:scale-95 active:bg-accent/30',
+                currentTab === id
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
             >
-              <Gamepad2 className="w-3 h-3" />
-              Practice games
+              {currentTab === id && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-primary rounded-b-full transition-all" />
+              )}
+              <Icon className={cn(
+                'transition-all duration-150',
+                currentTab === id ? 'w-7 h-7' : 'w-6 h-6'
+              )} />
+              <span className={cn(
+                'font-medium mt-1 transition-all duration-150',
+                currentTab === id ? 'text-sm' : 'text-xs'
+              )}>
+                {label}
+              </span>
             </button>
-            <button 
-              onClick={() => navigate('/progress')} 
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              <Calendar className="w-3 h-3" />
-              View progress
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </div>
