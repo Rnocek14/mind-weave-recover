@@ -245,6 +245,7 @@ export function buildInterventionFrame(trigger: TriggerResult, game: GameDefinit
 /** Games that produce speech output (vs receptive-only) */
 const SPEECH_PRODUCING_GAMES = new Set([
   'photo_naming', 'category_fluency', 'sentence_construction', 'semantic_features',
+  'describe_guess', 'narrative_retell', 'synonym_generator',
 ]);
 
 /** Build the return-to-conversation text after a game using normalized results */
