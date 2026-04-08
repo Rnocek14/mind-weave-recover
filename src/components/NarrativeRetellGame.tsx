@@ -311,16 +311,18 @@ export function NarrativeRetellGame({
                   "{currentStory.scenes[0].text.split(' ').slice(0, 3).join(' ')}..."
                 </div>
               )}
-              {isSupported ? (
-                <Button onClick={handleStartRetelling} className="w-full" size="lg">
-                  <Mic className="h-4 w-4 mr-2" />
-                  Start retelling
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center italic">
-                  Speech not supported in this browser.
-                  <Button variant="ghost" size="sm" onClick={handleSkip} className="ml-2">Skip</Button>
-                </p>
+              <Button onClick={handleStartRetelling} className="w-full" size="lg">
+                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                Start retelling
+              </Button>
+              {isSupported && (
+                <button
+                  onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+                >
+                  {useTyping ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+                  {useTyping ? 'Switch to speech' : 'Switch to typing'}
+                </button>
               )}
             </div>
           )}
