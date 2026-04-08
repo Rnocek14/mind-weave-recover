@@ -122,13 +122,49 @@ export default function VoicePractice() {
     setIsRecording(false);
   }, []);
 
-  // Auto-start listening when phase changes to 'listening'
+  // Auto-start listening + adaptive silence check when phase changes to 'listening'
   useEffect(() => {
     if (phase === 'listening' || phase === 'listening_followup') {
       startListening();
+      listeningStartTimeRef.current = Date.now();
+      lastTranscriptTimeRef.current = Date.now();
+
+      // Adaptive silence check using speech state classifier
+      if (silenceCheckRef.current) clearInterval(silenceCheckRef.current);
+      silenceCheckRef.current = setInterval(() => {
+        const transcript = transcriptRef.current;
+        const silenceMs = Date.now() - lastTranscriptTimeRef.current;
+        const elapsedMs = Date.now() - listeningStartTimeRef.current;
+
+        const state = classifySpeechState({
+          transcript,
+          elapsedMs,
+          silenceDurationMs: silenceMs,
+          promptText: currentRound?.label,
+        });
+
+        setNudgeHint(state.nudgeHint);
+
+        if (state.suppressAutoSubmit) return;
+
+        const threshold = Math.round(1500 * state.patienceMultiplier);
+        const wordCount = transcript.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+        if (hasSpokenRef.current && wordCount >= 2 && silenceMs >= threshold) {
+          console.log('[VoicePractice] Adaptive auto-submit', { silenceMs, threshold, state: state.state });
+          handleAutoSubmit();
+        }
+      }, 200);
     } else if (isRecording) {
       stopListening();
     }
+
+    return () => {
+      if (silenceCheckRef.current) {
+        clearInterval(silenceCheckRef.current);
+        silenceCheckRef.current = null;
+      }
+    };
   }, [phase]);
 
   // Clean up on unmount
