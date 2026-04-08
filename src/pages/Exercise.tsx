@@ -1027,7 +1027,12 @@ const Exercise = () => {
                 variant="outline"
                 size="sm"
                 className="min-w-[50px] sm:min-w-[100px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
-                onClick={() => setIsPlaying(false)}
+                onClick={() => {
+                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                    phraseGameRef.current.pause();
+                  }
+                  setIsPlaying(false);
+                }}
               >
                 <Pause className="w-5 h-5 sm:mr-2" />
                 <span className="hidden sm:inline">Pause</span>
@@ -1035,7 +1040,13 @@ const Exercise = () => {
               <Button
                 className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 size="sm"
-                onClick={() => handleRoundComplete(true)}
+                onClick={() => {
+                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                    phraseGameRef.current.markCorrect();
+                  } else {
+                    handleRoundComplete(true);
+                  }
+                }}
               >
                 <CheckCircle2 className="w-5 h-5 sm:mr-2" />
                 <span className="hidden sm:inline">I Said It!</span>
@@ -1045,11 +1056,15 @@ const Exercise = () => {
                 size="sm"
                 className="min-w-[60px] sm:min-w-[120px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                 onClick={async () => {
-                  const newLevel = await stepDown(sessionId ?? undefined);
-                  toast({
-                    title: "Adjusted!",
-                    description: `Difficulty lowered to level ${newLevel}`,
-                  });
+                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                    phraseGameRef.current.skipTooHard();
+                  } else {
+                    const newLevel = await stepDown(sessionId ?? undefined);
+                    toast({
+                      title: "Adjusted!",
+                      description: `Difficulty lowered to level ${newLevel}`,
+                    });
+                  }
                 }}
                 title="We'll make the next step easier"
               >
