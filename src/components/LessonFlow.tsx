@@ -141,6 +141,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           const detail = (location.state as any)?.exerciseResult;
           if (detail?.score != null) {
             recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
+            lastExerciseScoreRef.current = detail.score;
           }
           if (detail?.avgReactionTime != null) {
             recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
