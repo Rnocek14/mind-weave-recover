@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, RotateCcw, Lightbulb, BookOpen, Target, MessageCircle } from 'lucide-react';
+import { X, RotateCcw, Lightbulb, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MayaAssistantBubbleProps {
@@ -26,19 +26,15 @@ interface MayaAssistantBubbleProps {
 export type MayaHelpAction = 
   | 'repeat_instructions'
   | 'give_hint'
-  | 'explain_this'
-  | 'what_are_we_doing'
-  | 'help_me';
+  | 'what_are_we_doing';
 
-const HELP_OPTIONS: { action: MayaHelpAction; label: string; icon: React.ReactNode; sublabel?: string }[] = [
-  { action: 'repeat_instructions', label: 'Repeat instructions', icon: <RotateCcw className="w-4 h-4" /> },
-  { action: 'give_hint', label: 'Give me a hint', icon: <Lightbulb className="w-4 h-4" />, sublabel: 'Progressive — gets more specific' },
-  { action: 'explain_this', label: 'Explain this', icon: <BookOpen className="w-4 h-4" /> },
-  { action: 'what_are_we_doing', label: "What are we working on?", icon: <Target className="w-4 h-4" /> },
-  { action: 'help_me', label: 'Help me', icon: <MessageCircle className="w-4 h-4" /> },
+const HELP_OPTIONS: { action: MayaHelpAction; label: string; icon: React.ReactNode }[] = [
+  { action: 'repeat_instructions', label: 'What do I do?', icon: <RotateCcw className="w-4 h-4" /> },
+  { action: 'give_hint', label: 'Give me a hint', icon: <Lightbulb className="w-4 h-4" /> },
+  { action: 'what_are_we_doing', label: "Why this exercise?", icon: <Target className="w-4 h-4" /> },
 ];
 
-const HINT_LEVELS = ['', 'Encouragement', 'Category hint', 'Sound hint', 'Example'];
+const HINT_LEVELS = ['Simpler restatement', 'Gentle cue', 'Stronger hint'];
 
 export function MayaAssistantBubble({
   isSpeaking = false,
