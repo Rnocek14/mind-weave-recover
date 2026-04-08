@@ -10,8 +10,11 @@ import { Card } from "@/components/ui/card";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
 import type { DailyLesson, ExerciseBlock } from "@/lib/dailyLessonEngine";
 import { Sparkles, Clock, Target } from "lucide-react";
+import { useState } from "react";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
+import { getContinuityOpener } from "@/lib/coachingNarrative";
+import { MessageCircle } from "lucide-react";
 
 interface SessionPreviewCardProps {
   lesson: DailyLesson;
@@ -39,7 +42,12 @@ function getSessionGreeting(): string {
 export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPreviewCardProps) => {
   const greeting = getSessionGreeting();
   const name = displayName || "there";
-  const { showPurpose } = useCoachingMode();
+  const { showPurpose, showContinuity, mode } = useCoachingMode();
+  
+  // Continuity opener for Full mode
+  const [continuityLine] = useState(() => 
+    showContinuity ? getContinuityOpener(lesson.targetDomains?.[0]) : null
+  );
 
   // Deduplicate target domains for display
   const focusAreas = [...new Set(lesson.targetDomains)].slice(0, 3).map(humanizeSlug);
@@ -72,6 +80,18 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
           </h1>
           <p className="text-muted-foreground">Here's your session for today</p>
         </div>
+
+        {/* Continuity opener — Full coaching mode only */}
+        {continuityLine && (
+          <div className="bg-primary/5 border border-primary/15 rounded-xl p-4">
+            <div className="flex items-start gap-2.5">
+              <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-sm text-foreground leading-relaxed italic">
+                "{continuityLine}"
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Focus areas — only in light/full coaching modes */}
         {showPurpose && (
