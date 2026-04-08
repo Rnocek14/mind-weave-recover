@@ -557,18 +557,10 @@ export default function SmartCoach() {
     setGame2Result(result);
     setHintLevel(0);
     
-    // Show cross-game comparison as throttled toast
-    if (game1Result) {
-      const s1 = Math.round(game1Result.score * 100);
-      const s2 = Math.round(result.score * 100);
-      const delta = s2 - s1;
-      if (delta >= 10) {
-        mayaToast(`${s1}% → ${s2}% — real improvement.`, { type: 'success' });
-      } else if (delta >= 0) {
-        mayaToast(`Steady at ${s2}% — building reliable retrieval.`);
-      } else {
-        mayaToast(`${s2}% on a harder exercise — that's progress.`);
-      }
+    // Show purpose-tied micro-reflection
+    if (plan) {
+      const reflection = buildPostGameReflection(result, 2, plan.topic, game1Result);
+      mayaToast(reflection, { type: result.score >= 0.7 ? 'success' : 'default' });
     }
     
     microEncouragement.trackGameComplete({
@@ -610,11 +602,7 @@ export default function SmartCoach() {
   const transferPromptText = useMemo(() => {
     if (!plan) return '';
     const drilledWords = (game1Result?.targetWords || []).slice(0, 3);
-    if (drilledWords.length > 0) {
-      const word = drilledWords[0];
-      return `Quick check — use "${word}" in a sentence.`;
-    }
-    return `Quick check — use one of those words in a sentence.`;
+    return buildTransferPrompt(plan.topic, drilledWords);
   }, [plan, game1Result]);
 
   // ─── Maya help text by phase ──────────────────────────────
