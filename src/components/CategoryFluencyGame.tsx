@@ -148,7 +148,7 @@ export function CategoryFluencyGame({
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const wordsRef = useRef<string[]>([]);
+  const wordsRef = useRef<Array<{ text: string; status: WordValidation }>>([]);
 
   // Keep wordsRef in sync
   useEffect(() => { wordsRef.current = words; }, [words]);
@@ -163,27 +163,29 @@ export function CategoryFluencyGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
     
-    // Split full accumulated transcript into individual words and add any new ones
     const spokenWords = transcript
       .toLowerCase()
       .split(/[\s,]+/)
       .map(w => w.trim().replace(/[^a-zA-Z'-]/g, ''))
       .filter(w => w.length >= 2);
 
-    const newWords: string[] = [];
+    const newEntries: Array<{ text: string; status: WordValidation }> = [];
     for (const word of spokenWords) {
       if (!processedRef.current.has(word)) {
         processedRef.current.add(word);
-        newWords.push(word);
+        const status = validateCategoryWord(word, config.category);
+        if (status === 'filler') continue; // silently skip filler words
+        newEntries.push({ text: word, status });
       }
     }
 
-    if (newWords.length > 0) {
-      setWords(prev => [...prev, ...newWords]);
-      setLastAddedWord(newWords[newWords.length - 1]);
+    if (newEntries.length > 0) {
+      setWords(prev => [...prev, ...newEntries]);
+      const lastValid = newEntries.filter(e => e.status === 'valid').pop();
+      setLastAddedWord(lastValid?.text ?? newEntries[newEntries.length - 1].text);
       setTimeout(() => setLastAddedWord(null), 800);
     }
-  }, [phase]);
+  }, [phase, config.category]);
 
   const {
     isListening,
@@ -204,10 +206,21 @@ export function CategoryFluencyGame({
     stopListening();
     
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
-    const unique = [...new Set(wordsRef.current.map(w => w.toLowerCase().trim()))].filter(Boolean);
+    
+    // Only count valid, unique words
+    const seen = new Set<string>();
+    const validWords: string[] = [];
+    const allWordTexts: string[] = [];
+    for (const entry of wordsRef.current) {
+      const normalized = entry.text.toLowerCase().trim();
+      allWordTexts.push(normalized);
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      if (entry.status === 'valid') validWords.push(normalized);
+    }
 
     const threshold = getSuccessThreshold(currentDifficulty);
-    const wasSuccessful = unique.length >= threshold;
+    const wasSuccessful = validWords.length >= threshold;
     updateTrial(wasSuccessful);
 
     const prevDiff = currentDifficulty;
@@ -217,9 +230,9 @@ export function CategoryFluencyGame({
 
     const result: CategoryFluencyResult = {
       category: config.category,
-      words: unique,
-      uniqueWordCount: unique.length,
-      wordsPerSecond: durationSec > 0 ? unique.length / durationSec : 0,
+      words: validWords,
+      uniqueWordCount: validWords.length,
+      wordsPerSecond: durationSec > 0 ? validWords.length / durationSec : 0,
       durationSec: Math.round(durationSec),
       timeLimitSec: totalTime,
       difficulty: currentDifficulty,
@@ -293,10 +306,13 @@ export function CategoryFluencyGame({
   const addWord = useCallback(() => {
     const word = currentInput.trim();
     if (!word) return;
-    setWords(prev => [...prev, word]);
+    const status = validateCategoryWord(word, config.category);
+    if (status !== 'filler') {
+      setWords(prev => [...prev, { text: word, status }]);
+    }
     setCurrentInput('');
     inputRef.current?.focus();
-  }, [currentInput]);
+  }, [currentInput, config.category]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -305,7 +321,8 @@ export function CategoryFluencyGame({
     }
   }, [addWord]);
 
-  const uniqueWords = [...new Set(words.map(w => w.toLowerCase().trim()))].filter(Boolean);
+  const validWords = words.filter(w => w.status === 'valid');
+  const uniqueValidCount = new Set(validWords.map(w => w.text.toLowerCase())).size;
 
   // Ready
   if (phase === 'ready') {
