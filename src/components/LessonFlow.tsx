@@ -277,6 +277,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       recentScores: recentScoresRef.current,
       recentRTs: recentRTRef.current,
       recentTimeouts: recentTimeoutsRef.current,
+      // Staleness detection keys
+      blockCount: lesson.blocks.length,
+      firstExerciseId: lesson.blocks[0]?.exerciseId,
       // Keep lesson/clinicalProfile for components that still read them
       lesson,
       clinicalProfile,
