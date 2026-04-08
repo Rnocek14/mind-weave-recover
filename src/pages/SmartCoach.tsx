@@ -547,7 +547,8 @@ export default function SmartCoach() {
       // Only navigate if we haven't saved state yet (i.e., not returning from exercise)
       if (!saved) {
         const gameName = plan.game2.label;
-        mayaToast(`Next: ${gameName} — different angle, same skills.`, { duration: 3000 });
+        const skillTarget = plan.topic.purpose.skillTarget.toLowerCase();
+        mayaToast(`Next: ${gameName} — reinforcing ${skillTarget} from another angle.`, { duration: 3000 });
         navigateToExercise(plan.game2, 2);
       }
     }
