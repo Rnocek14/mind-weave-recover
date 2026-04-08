@@ -172,6 +172,11 @@ export default function Today() {
 
   const handleContinueSession = () => {
     if (!savedSession) return;
+    // Restore to sessionStorage so LessonFlow can find it
+    const resumeData = localStorage.getItem('lessonFlowState_resume');
+    if (resumeData) {
+      sessionStorage.setItem('lessonFlowState', resumeData);
+    }
     navigate('/lesson', {
       state: {
         lesson: savedSession.lesson,
