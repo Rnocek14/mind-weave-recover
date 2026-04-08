@@ -18,7 +18,7 @@ import { useEngagementMonitor } from "@/hooks/useEngagementMonitor";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
 import { ReachTapGame } from "@/components/ReachTapGame";
-import { PhrasePracticeGame } from "@/components/PhrasePracticeGame";
+import { PhrasePracticeGame, type PhrasePracticeGameHandle } from "@/components/PhrasePracticeGame";
 import { SessionSummaryCard } from "@/components/SessionSummaryCard";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { GeneralizationProbe } from "@/components/GeneralizationProbe";
