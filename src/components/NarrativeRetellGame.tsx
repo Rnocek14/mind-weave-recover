@@ -289,10 +289,35 @@ export function NarrativeRetellGame({
     const avgCoverage = results.length > 0
       ? results.reduce((sum, r) => sum + r.eventCoverage, 0) / results.length
       : 0;
+    const bestSection = results.length > 0 ? (() => {
+      const sectionHits = { beginning: 0, middle: 0, end: 0 };
+      for (const r of results) {
+        for (const s of ['beginning', 'middle', 'end'] as const) {
+          if (r.structureBreakdown[s].status === 'covered') sectionHits[s]++;
+        }
+      }
+      if (sectionHits.beginning >= sectionHits.middle && sectionHits.beginning >= sectionHits.end) return 'beginnings';
+      if (sectionHits.end >= sectionHits.middle) return 'endings';
+      return 'middle details';
+    })() : null;
+
     return (
       <div className="max-w-lg mx-auto space-y-6 text-center">
         <div className="text-6xl">📖</div>
         <h2 className="text-2xl font-bold">Stories Complete!</h2>
+
+        {/* Maya session reflection */}
+        <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-left space-y-1.5">
+          <p className="text-sm text-foreground">
+            {avgCoverage >= 0.6
+              ? `You did well remembering key events across all stories${bestSection ? `, especially ${bestSection}` : ''}.`
+              : avgCoverage >= 0.3
+              ? `You're building your retelling skills. ${bestSection ? `Your ${bestSection} were strongest.` : ''}`
+              : "Keep practicing — retelling gets easier with each session."}
+          </p>
+          <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="pt-4 text-center">
