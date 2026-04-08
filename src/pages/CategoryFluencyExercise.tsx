@@ -206,6 +206,7 @@ export default function CategoryFluencyExercise() {
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
             roundCount={roundCount}
+            autoStartFirst={fromLesson}
           />
         )}
       </main>
