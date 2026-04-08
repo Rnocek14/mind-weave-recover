@@ -1,18 +1,22 @@
 /**
- * Today — Daily Session Launcher
+ * Today — Daily Session Launcher (Patient Home)
  * 
  * Single-purpose screen: one button to start today's practice.
  * Shows streak, session count, and coaching mode toggle.
+ * Generates a personalized lesson and passes it to /lesson.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Calendar, Zap, Flame, Award, Gamepad2, Brain, Home, BarChart3 } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Gamepad2, Brain, Home, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
+import { useProfile } from '@/hooks/useProfile';
+import { useDailyLesson } from '@/hooks/useDailyLesson';
+import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 
 interface AdherenceStats {
@@ -58,16 +62,48 @@ const MODE_OPTIONS: { value: CoachingMode; label: string; desc: string }[] = [
 ];
 
 export default function Today() {
+  // All hooks at the top — never after conditionals
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { mode, setMode } = useCoachingMode();
+  const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [clinicalProfile, setClinicalProfile] = useState<ClinicalProfile | null>(null);
+
+  // Generate the daily lesson
+  const { lesson, todayFocus } = useDailyLesson(
+    user?.id || undefined,
+    activeProfile?.id,
+    clinicalProfile
+  );
+
+  const currentTab = location.pathname === '/practice' ? 'practice' 
+    : location.pathname === '/progress' ? 'progress' 
+    : 'home';
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading, navigate]);
+
+  // Load clinical profile
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('profiles')
+        .select('clinical_profile')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.clinical_profile) {
+            setClinicalProfile(data.clinical_profile as unknown as ClinicalProfile);
+          }
+        });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
@@ -86,6 +122,19 @@ export default function Today() {
     }
   }, [user?.id]);
 
+  const handleStartSession = () => {
+    if (!lesson) return;
+    navigate('/lesson', {
+      state: {
+        lesson,
+        clinicalProfile,
+        todayFocus,
+        skipDailyCheck: true,
+        autoStart: true,
+      },
+    });
+  };
+
   if (authLoading || !loaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -100,11 +149,7 @@ export default function Today() {
   const greeting = getGreeting();
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
   const sessionNumber = (stats?.totalSessions ?? 0) + 1;
-
-  const location = useLocation();
-  const currentTab = location.pathname === '/practice' ? 'practice' 
-    : location.pathname === '/progress' ? 'progress' 
-    : 'home';
+  const lessonReady = !!lesson;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -192,13 +237,23 @@ export default function Today() {
           <Button 
             size="lg" 
             className="w-full gap-2 text-base py-6" 
-            onClick={() => navigate('/lesson')}
+            onClick={handleStartSession}
+            disabled={!lessonReady}
           >
-            <Zap className="w-5 h-5" />
-            {stats && stats.totalSessions > 0
-              ? `Start session #${sessionNumber}`
-              : "Start today's practice"}
-            <ArrowRight className="w-4 h-4" />
+            {!lessonReady ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Preparing session...
+              </>
+            ) : (
+              <>
+                <Zap className="w-5 h-5" />
+                {stats && stats.totalSessions > 0
+                  ? `Start session #${sessionNumber}`
+                  : "Start today's practice"}
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>
