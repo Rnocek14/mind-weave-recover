@@ -23,7 +23,7 @@ import { buildGame1Intro, buildPostGameReflection, buildTransferPrompt, buildSes
 import { saveSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { scoreTransfer, TRANSFER_LABELS, type TransferTarget, type TransferCheckResult } from '@/lib/smartCoach/transferScoring';
 import { getTransferFeedback, type TransferSummaryItem } from '@/lib/smartCoach/transferFeedback';
-import { loadWordHistory, type WordHistory } from '@/lib/smartCoach/crossSessionRetention';
+import { loadWordHistory, persistRetentionSnapshots, type WordHistory } from '@/lib/smartCoach/crossSessionRetention';
 import { buildContinuitySignals, buildContinuityClosing, type ContinuitySignals } from '@/lib/smartCoach/continuityEngine';
 import { LiveObserver } from '@/lib/smartCoach/liveObserver';
 import { detectProgressMoment, formatProgressForClosing } from '@/lib/smartCoach/progressDetector';
@@ -333,6 +333,14 @@ export default function SmartCoach() {
         avgLatencyEstimate: 0,
       };
       saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, []);
+
+      // Persist retention snapshots for cohort research
+      if (wordHistory.length > 0) {
+        const profileId = activeProfile?.id;
+        if (profileId) {
+          persistRetentionSnapshots(user.id, profileId, wordHistory);
+        }
+      }
     }
   }, [phase, user?.id, plan, game1Result, game2Result]);
 

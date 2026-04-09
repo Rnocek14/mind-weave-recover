@@ -38,6 +38,7 @@ import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { generateNextActions } from "@/lib/generateNextActions";
 import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
 import { cn } from "@/lib/utils";
+import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 
 interface IntelligenceTabProps {
   userId: string;
@@ -324,6 +325,11 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Functional Communication Check-in */}
+      {userId && profileId && (
+        <FunctionalCheckinForm userId={userId} profileId={profileId} />
       )}
 
       {/* Functional Communication Transfer */}
