@@ -197,9 +197,16 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
               recentTimeouts: recentTimeoutsRef.current,
             });
             
-            console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
+            console.log('[LessonFlow] Resume adaptive pause decision:', pauseDecision);
             setCurrentPause(pauseDecision);
-            setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+            
+            // Show Maya transition on resume path too (critical for Full Coaching continuity)
+            if (sessionFrame && (showPurpose || isVoiceLed) && sessionFrame.mayaTransitions[nextIndex]) {
+              console.log('[LessonFlow] Resume: showing maya-transition for block', nextIndex);
+              setPhase('maya-transition');
+            } else {
+              setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+            }
           }
         } catch (error) {
           console.error('[LessonFlow] Error processing resume:', error);
