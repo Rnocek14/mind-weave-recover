@@ -113,21 +113,26 @@ export function DetectiveMindGame({
       await new Promise(r => setTimeout(r, 1000));
       // Read question
       await vg.autoReadText(currentCase.question);
+      // Signal that auto-read is done so stall timer can start
+      setAutoReadDone(true);
     };
 
     doAutoRead();
   }, [currentCase, currentIndex, hasAutoRead, vg]);
 
   // Full Coaching: spoken stall cue after ~8s of no interaction
+  // Only starts AFTER auto-read finishes to avoid interrupting story reading
   useEffect(() => {
     if (phase !== 'answering' || !vg.isVoiceLed) return;
+    // If voice-led and auto-read hasn't finished yet, don't start stall timer
+    if (vg.shouldAutoReadContent && !autoReadDone) return;
     stallTimerRef.current = setTimeout(() => {
       if (selectedOption === null && !firstInteractionRef.current) {
         vg.speakReminder();
       }
     }, 8000);
     return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
-  }, [phase, vg.isVoiceLed, currentIndex]);
+  }, [phase, vg.isVoiceLed, currentIndex, autoReadDone, vg.shouldAutoReadContent]);
 
   // Check completion (fire once)
   const completedRef = useRef(false);
