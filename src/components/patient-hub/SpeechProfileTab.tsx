@@ -1,15 +1,19 @@
 /**
  * Speech Profile Tab — Longitudinal patient intelligence.
  * Consolidates SpeechProfile + RecoveryProgress into one clean tab.
+ * Includes: trend charts, challenging categories, profile freshness + recompute,
+ * adaptation coverage, evidence/confidence section, best cue callout.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain, Volume2, Target, TrendingUp, TrendingDown, Minus,
-  AlertTriangle, Shield, Zap, Activity
+  AlertTriangle, Shield, Zap, Activity, RefreshCw, Database,
+  Award, BarChart3
 } from "lucide-react";
 import { useUserSpeechProfile } from "@/hooks/useUserSpeechProfile";
 import { useAdaptationProof } from "@/hooks/useAdaptationProof";
@@ -18,7 +22,15 @@ import { useRecoveryScore } from "@/hooks/useRecoveryScore";
 import { useCueIndependence } from "@/hooks/useCueIndependence";
 import { useWordMastery } from "@/hooks/useWordMastery";
 import { useErrorQualityScore } from "@/hooks/useErrorQualityScore";
+import { evaluateProfileFreshness } from "@/lib/profileFreshness";
+import { recomputeSpeechProfileNow } from "@/lib/recomputeSpeechProfile";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  ResponsiveContainer, AreaChart, Area, YAxis, Tooltip as RechartsTooltip,
+} from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 interface SpeechProfileTabProps {
   userId: string;
@@ -43,6 +55,20 @@ function TrendBadge({ trend }: { trend: Trend }) {
   );
 }
 
+function MiniTrendChart({ data, color = "hsl(var(--primary))" }: { data: { value: number }[]; color?: string }) {
+  if (data.length < 2) return null;
+  return (
+    <div className="h-8 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+          <YAxis domain={[0, 100]} hide />
+          <Area type="monotone" dataKey="value" stroke={color} fill={color} fillOpacity={0.1} strokeWidth={1.5} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfileTabProps) {
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(
     userId, { profileId, enabled: !!userId }
@@ -54,7 +80,28 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
   const { mastered, emerging, struggling, loading: wmLoading } = useWordMastery(userId);
   const { currentScore: errorScore, trend: errorTrend, loading: eqLoading } = useErrorQualityScore(userId);
 
+  const [recomputing, setRecomputing] = useState(false);
+  const [recoverySnapshots, setRecoverySnapshots] = useState<any[]>([]);
+
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
+
+  // Fetch recovery score snapshots for trend chart
+  useEffect(() => {
+    if (!profileId) return;
+    supabase
+      .from("recovery_score_snapshots")
+      .select("snapshot_date, recovery_score, accuracy_score, cue_independence_score, error_quality_score")
+      .eq("profile_id", profileId)
+      .order("snapshot_date", { ascending: true })
+      .limit(14)
+      .then(({ data }) => setRecoverySnapshots(data ?? []));
+  }, [profileId]);
+
+  // Profile freshness
+  const freshness = useMemo(
+    () => evaluateProfileFreshness(speechProfile?.updated_at),
+    [speechProfile?.updated_at]
+  );
 
   // Focus phonemes
   const focusPhonemes = useMemo(() => {
@@ -65,12 +112,54 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       .slice(0, 8);
   }, [speechProfile]);
 
-  // Cue efficacy
+  // Cue efficacy + best cue
   const cueEfficacy = speechProfile?.cue_efficacy_by_type;
+  const bestCue = useMemo(() => {
+    if (!cueEfficacy) return null;
+    const entries = Object.entries(cueEfficacy).filter(([, d]) => d.total >= 3);
+    if (entries.length === 0) return null;
+    entries.sort(([, a], [, b]) => b.successRate - a.successRate);
+    return { type: entries[0][0], rate: entries[0][1].successRate, total: entries[0][1].total };
+  }, [cueEfficacy]);
 
   // Error distribution
   const errorDist = speechProfile?.error_type_distribution;
   const totalErrors = errorDist ? Object.values(errorDist).reduce((a, b) => a + b, 0) : 0;
+
+  // Challenging categories
+  const challengingCategories = (speechProfile as any)?.most_challenging_categories;
+
+  // Evidence metrics
+  const trialCount = (speechProfile as any)?.trial_count ?? (speechProfile as any)?.total_trials;
+  const gopDataCount = speechProfile?.trials_with_gop_data;
+  const phonemeTokenCount = speechProfile?.phoneme_token_count;
+  const profileConfidence = (speechProfile as any)?.confidence_level || confidence;
+
+  // Trend chart data from recovery snapshots
+  const recoveryTrendData = useMemo(() =>
+    recoverySnapshots.map((s) => ({ value: Math.round(s.recovery_score) })),
+    [recoverySnapshots]
+  );
+  const accuracyTrendData = useMemo(() =>
+    recoverySnapshots.filter((s) => s.accuracy_score != null).map((s) => ({ value: Math.round(s.accuracy_score) })),
+    [recoverySnapshots]
+  );
+  const cueTrendData = useMemo(() =>
+    recoverySnapshots.filter((s) => s.cue_independence_score != null).map((s) => ({ value: Math.round(s.cue_independence_score) })),
+    [recoverySnapshots]
+  );
+
+  const handleRecompute = async () => {
+    setRecomputing(true);
+    try {
+      await recomputeSpeechProfileNow(userId, { force: true, profileId });
+      toast.success("Speech profile recomputed successfully");
+    } catch (err) {
+      toast.error("Failed to recompute speech profile");
+    } finally {
+      setRecomputing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -82,7 +171,30 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   return (
     <div className="space-y-4 mt-4">
-      {/* Recovery Score */}
+      {/* Profile Freshness + Recompute */}
+      <Card className="border-border/50">
+        <CardContent className="py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Profile status:</span>
+            <Badge
+              variant={freshness.status === "fresh" ? "default" : freshness.status === "stale" || freshness.status === "missing" ? "destructive" : "secondary"}
+              className="text-[10px]"
+            >
+              {freshness.status}
+            </Badge>
+            {freshness.hoursSinceCompute != null && (
+              <span className="text-[10px] text-muted-foreground">{freshness.hoursSinceCompute}h ago</span>
+            )}
+          </div>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleRecompute} disabled={recomputing}>
+            <RefreshCw className={cn("w-3 h-3", recomputing && "animate-spin")} />
+            {recomputing ? "Computing…" : "Recompute"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Recovery Score with trend */}
       {recoveryScore != null && (
         <Card className="border-primary/20">
           <CardHeader className="pb-2 pt-3">
@@ -91,7 +203,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
               Recovery Score
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
+          <CardContent className="pb-3 space-y-3">
             <div className="flex items-center gap-4">
               <div className="text-3xl font-bold text-primary">{Math.round(recoveryScore)}</div>
               <div className="flex-1 space-y-1.5">
@@ -103,6 +215,22 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                   </div>
                 ))}
               </div>
+            </div>
+            {recoveryTrendData.length >= 2 && (
+              <MiniTrendChart data={recoveryTrendData} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Best Cue Type Callout */}
+      {bestCue && (
+        <Card className="border-success/20 bg-success/5">
+          <CardContent className="py-3 flex items-center gap-3">
+            <Award className="w-5 h-5 text-success shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">Best Cue: <span className="capitalize">{bestCue.type.replace(/_/g, " ")}</span></p>
+              <p className="text-xs text-muted-foreground">{Math.round(bestCue.rate * 100)}% success rate ({bestCue.total} trials)</p>
             </div>
           </CardContent>
         </Card>
@@ -131,7 +259,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
         </Card>
       )}
 
-      {/* Cue Response */}
+      {/* Cue Response with trend chart */}
       {cueEfficacy && Object.keys(cueEfficacy).length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-3">
@@ -141,7 +269,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
               {cueTrend && <TrendBadge trend={cueTrend as Trend} />}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
+          <CardContent className="pb-3 space-y-3">
             <div className="space-y-2">
               {Object.entries(cueEfficacy).map(([type, data]) => (
                 <div key={type} className="flex items-center gap-3">
@@ -153,6 +281,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                 </div>
               ))}
             </div>
+            {cueTrendData.length >= 2 && (
+              <MiniTrendChart data={cueTrendData} color="hsl(var(--success, 142 76% 36%))" />
+            )}
           </CardContent>
         </Card>
       )}
@@ -179,6 +310,30 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                     <span className="text-xs text-muted-foreground w-12 text-right">{Math.round((count / totalErrors) * 100)}%</span>
                   </div>
                 ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Challenging Categories */}
+      {challengingCategories && challengingCategories.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              Challenging Categories
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="flex flex-wrap gap-2">
+              {challengingCategories.slice(0, 6).map((cat: any, i: number) => (
+                <Badge key={i} variant="outline" className="text-xs">
+                  {typeof cat === "string" ? cat.replace(/_/g, " ") : cat.category?.replace(/_/g, " ") || "Unknown"}
+                  {typeof cat !== "string" && cat.accuracy != null && (
+                    <span className="ml-1 text-muted-foreground">{Math.round(cat.accuracy * 100)}%</span>
+                  )}
+                </Badge>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -264,12 +419,45 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
         </Card>
       )}
 
-      {/* Freshness indicator */}
-      {speechProfile?.updated_at && (
-        <p className="text-[10px] text-muted-foreground text-center">
-          Speech profile last updated: {new Date(speechProfile.updated_at).toLocaleDateString()}
-        </p>
-      )}
+      {/* Evidence / Confidence */}
+      <Card className="border-border/30">
+        <CardHeader className="pb-2 pt-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Database className="w-4 h-4 text-muted-foreground" />
+            Evidence & Confidence
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
+            {trialCount != null && (
+              <div>
+                <div className="text-lg font-bold">{trialCount}</div>
+                <div className="text-muted-foreground">Trials</div>
+              </div>
+            )}
+            {gopDataCount != null && (
+              <div>
+                <div className="text-lg font-bold">{gopDataCount}</div>
+                <div className="text-muted-foreground">GOP Samples</div>
+              </div>
+            )}
+            {phonemeTokenCount != null && (
+              <div>
+                <div className="text-lg font-bold">{phonemeTokenCount}</div>
+                <div className="text-muted-foreground">Phoneme Tokens</div>
+              </div>
+            )}
+            {profileConfidence && (
+              <div>
+                <Badge variant={profileConfidence === "high" ? "default" : profileConfidence === "medium" ? "secondary" : "outline"} className="text-xs">
+                  {profileConfidence}
+                </Badge>
+                <div className="text-muted-foreground mt-1">Confidence</div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

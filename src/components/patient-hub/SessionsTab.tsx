@@ -1,25 +1,31 @@
 /**
  * Sessions Tab — Per-session clinical evidence with inline expandable cards.
- * Shows exercise breakdown, auto-generated strengths/struggles, adaptation actions, audio.
+ * Shows exercise breakdown with per-exercise trial drill-down, accuracy sparkline,
+ * session plan reasoning, error type badges, grouped audio, best/worst curation.
  */
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Calendar, Clock, Target, ChevronDown, ChevronRight, Volume2, VolumeX,
-  CheckCircle2, XCircle, AlertTriangle, Zap, TrendingUp, Mic
+  CheckCircle2, XCircle, AlertTriangle, Zap, TrendingUp, Mic, Lightbulb,
+  Timer, ArrowRightLeft
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
 import { generateSessionInsight, type SessionInsight } from "@/lib/sessionInsightGenerator";
+import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
+import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
 interface SessionsTabProps {
   userId: string;
   profileId: string | undefined;
   windowSize: number;
+  timeline?: SnapshotDay[];
 }
 
 interface SessionRow {
@@ -28,16 +34,37 @@ interface SessionRow {
   ended_at: string | null;
   duration_sec: number | null;
   summary: any;
+  plan: any;
 }
 
 function formatSlug(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-export function SessionsTab({ userId, profileId, windowSize }: SessionsTabProps) {
+const ERROR_COLORS: Record<string, string> = {
+  semantic: "bg-amber-500",
+  phonological: "bg-blue-500",
+  timeout: "bg-muted-foreground",
+  no_response: "bg-muted-foreground",
+  perseveration: "bg-purple-500",
+  neologism: "bg-rose-500",
+};
+
+export function SessionsTab({ userId, profileId, windowSize, timeline }: SessionsTabProps) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Build sparkline data from timeline
+  const sparkData = useMemo(() => {
+    if (!timeline) return [];
+    return timeline.map((d) => ({
+      date: d.date,
+      accuracy: d.totalMinutes > 0 ? null : null, // will be overridden
+      fatigueRating: d.fatigueRating,
+      trials: 0,
+    }));
+  }, [timeline]);
 
   useEffect(() => {
     if (!profileId) return;
@@ -48,7 +75,7 @@ export function SessionsTab({ userId, profileId, windowSize }: SessionsTabProps)
       setLoading(true);
       const { data } = await supabase
         .from("sessions")
-        .select("id, started_at, ended_at, duration_sec, summary")
+        .select("id, started_at, ended_at, duration_sec, summary, plan")
         .eq("profile_id", profileId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
@@ -59,6 +86,20 @@ export function SessionsTab({ userId, profileId, windowSize }: SessionsTabProps)
     };
     fetch();
   }, [profileId, windowSize]);
+
+  // Build per-session accuracy for sparkline
+  const sessionSparkData = useMemo(() => {
+    if (sessions.length === 0) return [];
+    return sessions
+      .filter((s) => s.summary?.accuracy != null)
+      .reverse()
+      .map((s) => ({
+        date: new Date(s.started_at).toISOString().slice(0, 10),
+        accuracy: Math.round(s.summary.accuracy),
+        fatigueRating: null as number | null,
+        trials: s.summary?.trials || 0,
+      }));
+  }, [sessions]);
 
   if (loading) {
     return (
@@ -78,6 +119,15 @@ export function SessionsTab({ userId, profileId, windowSize }: SessionsTabProps)
 
   return (
     <div className="space-y-3 mt-4">
+      {/* Accuracy Sparkline */}
+      {sessionSparkData.length >= 2 && (
+        <Card className="border-border/50">
+          <CardContent className="py-2 px-4">
+            <AccuracySparkline timeline={sessionSparkData} />
+          </CardContent>
+        </Card>
+      )}
+
       {sessions.map((session) => (
         <SessionCard
           key={session.id}
@@ -101,11 +151,11 @@ function SessionCard({
 }) {
   const { trials, loading, fetchTrials, playAudio, stopAudio, playingId } = useSessionDetail();
   const [adaptations, setAdaptations] = useState<any[]>([]);
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
   useEffect(() => {
     if (isExpanded && trials.length === 0 && !loading) {
       fetchTrials(session.id);
-      // Fetch adaptations for this session
       supabase
         .from("adaptation_events")
         .select("adaptation_type, exercise_slug, value_before, value_after, trigger_type")
@@ -131,21 +181,39 @@ function SessionCard({
     );
   }, [trials, adaptations]);
 
+  // Group trials by exercise for drill-down
+  const trialsByExercise = useMemo(() => {
+    const map = new Map<string, TrialData[]>();
+    trials.forEach((t) => {
+      const slug = t.exercise_slug || "unknown";
+      if (!map.has(slug)) map.set(slug, []);
+      map.get(slug)!.push(t);
+    });
+    return map;
+  }, [trials]);
+
+  // Curated audio: best (correct) and worst (incorrect) picks
+  const curatedAudio = useMemo(() => {
+    const withAudio = trials.filter((t) => t.audio_storage_path);
+    const best = withAudio.find((t) => t.is_correct === true);
+    const worst = withAudio.find((t) => t.is_correct === false);
+    return { best, worst };
+  }, [trials]);
+
+  // Session plan reasoning
+  const planData = session.plan as any;
+  const hasPlan = planData && (planData.exercises?.length > 0 || planData.reasoning || planData.focus);
+
   const durationMin = Math.round((session.duration_sec ?? 0) / 60);
   const date = new Date(session.started_at);
   const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
-  // Quick stats from summary if available
   const summaryData = session.summary as any;
 
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md ring-1 ring-primary/20")}>
-      {/* Header — always visible */}
-      <button
-        className="w-full text-left p-4 flex items-center gap-4"
-        onClick={onToggle}
-      >
+      {/* Header */}
+      <button className="w-full text-left p-4 flex items-center gap-4" onClick={onToggle}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -159,11 +227,7 @@ function SessionCard({
             )}
           </div>
         </div>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-        )}
+        {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
       </button>
 
       {/* Expanded detail */}
@@ -192,6 +256,26 @@ function SessionCard({
                 </div>
               </div>
 
+              {/* Session Plan Reasoning */}
+              {hasPlan && (
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 text-xs text-primary hover:underline w-full">
+                      <Lightbulb className="w-3 h-3" />
+                      <span className="font-semibold">Why This Plan</span>
+                      <ChevronDown className="w-3 h-3 ml-auto" />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 p-2 rounded bg-muted/20 text-xs space-y-1">
+                    {planData.focus && <p><span className="font-medium">Focus:</span> {planData.focus}</p>}
+                    {planData.reasoning && <p><span className="font-medium">Reasoning:</span> {planData.reasoning}</p>}
+                    {planData.exercises?.length > 0 && (
+                      <p><span className="font-medium">Planned:</span> {planData.exercises.map((e: any) => typeof e === "string" ? formatSlug(e) : formatSlug(e.slug || e.exercise_slug || "")).join(", ")}</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
               {/* Strengths & Struggles */}
               <div className="grid grid-cols-2 gap-3">
                 {insight.strengths.length > 0 && (
@@ -216,72 +300,172 @@ function SessionCard({
                 )}
               </div>
 
-              {/* Adaptation actions */}
-              {insight.adaptations.length > 0 && (
+              {/* Adaptation actions with before/after values */}
+              {adaptations.length > 0 && (
                 <div className="space-y-1">
                   <h4 className="text-xs font-semibold text-primary flex items-center gap-1">
-                    <Zap className="w-3 h-3" /> Adaptations
+                    <Zap className="w-3 h-3" /> Adaptations ({adaptations.length})
                   </h4>
-                  {insight.adaptations.map((a, i) => (
-                    <p key={i} className="text-xs text-muted-foreground">• {a}</p>
+                  {adaptations.map((a, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>•</span>
+                      <span className="capitalize">{a.adaptation_type.replace(/_/g, " ")}</span>
+                      {a.exercise_slug && <Badge variant="outline" className="text-[9px] py-0">{formatSlug(a.exercise_slug)}</Badge>}
+                      {a.value_before != null && a.value_after != null && (
+                        <span className="flex items-center gap-1 text-[10px]">
+                          <ArrowRightLeft className="w-2.5 h-2.5" />
+                          {JSON.stringify(a.value_before)} → {JSON.stringify(a.value_after)}
+                        </span>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
 
-              {/* Exercise breakdown */}
+              {/* Exercise breakdown with expandable trial drill-down */}
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold">Exercise Breakdown</h4>
-                {insight.exerciseBreakdown.map((ex) => (
-                  <div key={ex.slug} className="flex items-center justify-between p-2 rounded bg-muted/20">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{ex.label}</span>
-                      {ex.hasAudio && <Mic className="w-3 h-3 text-muted-foreground" />}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{ex.trials} trials</span>
-                      <Badge variant={ex.accuracy >= 80 ? "default" : ex.accuracy >= 50 ? "secondary" : "destructive"} className="text-[10px]">
-                        {ex.accuracy}%
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                {insight.exerciseBreakdown.map((ex) => {
+                  const exTrials = trialsByExercise.get(ex.slug) || [];
+                  const isExExpanded = expandedExercise === ex.slug;
+                  const errorKeys = Object.keys(ex.errorTypes);
 
-              {/* Audio samples */}
-              {trials.some((t) => t.audio_storage_path) && (
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-semibold flex items-center gap-1">
-                    <Volume2 className="w-3 h-3" /> Audio Samples
-                  </h4>
-                  <div className="space-y-1">
-                    {trials
-                      .filter((t) => t.audio_storage_path)
-                      .slice(0, 8)
-                      .map((t, i) => (
-                        <div key={t.attempt_id + i} className="flex items-center gap-2 p-1.5 rounded bg-muted/20 text-xs">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                            onClick={() => playAudio(t.audio_storage_path!, t.attempt_id)}
-                          >
-                            {playingId === t.attempt_id ? (
-                              <VolumeX className="w-3 h-3 text-primary" />
-                            ) : (
-                              <Volume2 className="w-3 h-3 text-muted-foreground" />
-                            )}
-                          </Button>
-                          <span className="font-medium truncate">{t.target_word || formatSlug(t.exercise_slug || "")}</span>
-                          {t.is_correct ? (
-                            <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
-                          ) : (
-                            <XCircle className="w-3 h-3 text-destructive shrink-0" />
-                          )}
-                          {t.transcript && (
-                            <span className="text-muted-foreground truncate">"{t.transcript}"</span>
+                  return (
+                    <div key={ex.slug} className="rounded border border-border/50">
+                      {/* Exercise header - clickable for drill-down */}
+                      <button
+                        className="w-full flex items-center justify-between p-2 hover:bg-muted/10 transition-colors"
+                        onClick={() => setExpandedExercise(isExExpanded ? null : ex.slug)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+                          <span className="text-sm font-medium">{ex.label}</span>
+                          {ex.hasAudio && <Mic className="w-3 h-3 text-muted-foreground" />}
+                          {/* Error type dots */}
+                          {errorKeys.length > 0 && (
+                            <div className="flex gap-0.5">
+                              {errorKeys.map((et) => (
+                                <span key={et} className={cn("w-2 h-2 rounded-full", ERROR_COLORS[et] || "bg-muted-foreground")} title={`${et}: ${ex.errorTypes[et]}`} />
+                              ))}
+                            </div>
                           )}
                         </div>
-                      ))}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{ex.trials} trials</span>
+                          {ex.avgLatencyMs && (
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                              <Timer className="w-2.5 h-2.5" />{(ex.avgLatencyMs / 1000).toFixed(1)}s
+                            </span>
+                          )}
+                          <Badge variant={ex.accuracy >= 80 ? "default" : ex.accuracy >= 50 ? "secondary" : "destructive"} className="text-[10px]">
+                            {ex.accuracy}%
+                          </Badge>
+                        </div>
+                      </button>
+
+                      {/* Expanded trial-level detail */}
+                      {isExExpanded && (
+                        <div className="border-t border-border/30 p-2 space-y-1 bg-muted/5">
+                          {/* Error type breakdown */}
+                          {errorKeys.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {errorKeys.map((et) => (
+                                <Badge key={et} variant="outline" className="text-[9px] py-0 gap-1">
+                                  <span className={cn("w-1.5 h-1.5 rounded-full inline-block", ERROR_COLORS[et] || "bg-muted-foreground")} />
+                                  {et.replace(/_/g, " ")}: {ex.errorTypes[et]}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Each trial row */}
+                          {exTrials.map((t, idx) => (
+                            <div key={t.attempt_id + idx} className="flex items-center gap-2 py-1 px-1.5 rounded text-xs hover:bg-muted/20">
+                              {/* Correct/incorrect */}
+                              {t.is_correct === true ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                              ) : t.is_correct === false ? (
+                                <XCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+                              ) : (
+                                <span className="w-3.5 h-3.5 shrink-0" />
+                              )}
+                              {/* Target word */}
+                              <span className="font-medium min-w-[60px] truncate">{t.target_word || "—"}</span>
+                              {/* Response/transcript */}
+                              {t.transcript && (
+                                <span className="text-muted-foreground truncate max-w-[100px]">→ "{t.transcript}"</span>
+                              )}
+                              {/* Error type badge */}
+                              {t.error_type && t.error_type !== "correct" && (
+                                <Badge variant="outline" className="text-[9px] py-0 shrink-0">
+                                  {t.error_type.replace(/_/g, " ")}
+                                </Badge>
+                              )}
+                              {/* Cue info */}
+                              {t.cue_type_given && t.cue_type_given !== "none" && (
+                                <Badge
+                                  variant={t.cue_was_effective ? "default" : "secondary"}
+                                  className="text-[9px] py-0 shrink-0"
+                                >
+                                  {t.cue_type_given.replace(/_/g, " ")}
+                                  {t.cue_was_effective === true ? " ✓" : t.cue_was_effective === false ? " ✗" : ""}
+                                </Badge>
+                              )}
+                              {/* Latency */}
+                              {t.latency_ms != null && t.latency_ms > 0 && (
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {(t.latency_ms / 1000).toFixed(1)}s
+                                </span>
+                              )}
+                              {/* Audio play */}
+                              {t.audio_storage_path && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 shrink-0 ml-auto"
+                                  onClick={() => playAudio(t.audio_storage_path!, t.attempt_id)}
+                                >
+                                  {playingId === t.attempt_id ? (
+                                    <VolumeX className="w-3 h-3 text-primary" />
+                                  ) : (
+                                    <Volume2 className="w-3 h-3 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Curated Audio: Best & Worst */}
+              {(curatedAudio.best || curatedAudio.worst) && (
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-semibold flex items-center gap-1">
+                    <Volume2 className="w-3 h-3" /> Key Audio
+                  </h4>
+                  <div className="space-y-1">
+                    {curatedAudio.best && (
+                      <AudioTrialRow
+                        trial={curatedAudio.best}
+                        label="Best"
+                        labelClass="text-success"
+                        playAudio={playAudio}
+                        playingId={playingId}
+                      />
+                    )}
+                    {curatedAudio.worst && (
+                      <AudioTrialRow
+                        trial={curatedAudio.worst}
+                        label="Worst"
+                        labelClass="text-destructive"
+                        playAudio={playAudio}
+                        playingId={playingId}
+                      />
+                    )}
                   </div>
                 </div>
               )}
@@ -292,5 +476,48 @@ function SessionCard({
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function AudioTrialRow({
+  trial,
+  label,
+  labelClass,
+  playAudio,
+  playingId,
+}: {
+  trial: TrialData;
+  label: string;
+  labelClass: string;
+  playAudio: (path: string, id: string) => void;
+  playingId: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-2 p-1.5 rounded bg-muted/20 text-xs">
+      <Badge variant="outline" className={cn("text-[9px] py-0 shrink-0", labelClass)}>
+        {label}
+      </Badge>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 shrink-0"
+        onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
+      >
+        {playingId === trial.attempt_id ? (
+          <VolumeX className="w-3 h-3 text-primary" />
+        ) : (
+          <Volume2 className="w-3 h-3 text-muted-foreground" />
+        )}
+      </Button>
+      <span className="font-medium truncate">{trial.target_word || formatSlug(trial.exercise_slug || "")}</span>
+      {trial.is_correct ? (
+        <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+      ) : (
+        <XCircle className="w-3 h-3 text-destructive shrink-0" />
+      )}
+      {trial.transcript && (
+        <span className="text-muted-foreground truncate">"{trial.transcript}"</span>
+      )}
+    </div>
   );
 }
