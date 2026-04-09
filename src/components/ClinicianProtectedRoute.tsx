@@ -37,9 +37,10 @@ export function ClinicianProtectedRoute({
     return <Navigate to="/auth" replace />;
   }
 
-  // Allow if DB roles grant access, OR if uiMode is clinician+ (dev/testing fallback)
+  // Allow if DB roles grant access, OR if clinician/admin uiMode is active.
+  // This app uses uiMode for clinician workflows even when the DB role is just 'user'.
   const hasDbAccess = isAdmin || isModerator;
-  const hasUiModeAccess = roles.length === 0 && isAtLeast("clinician");
+  const hasUiModeAccess = isAtLeast("clinician");
 
   if (!hasDbAccess && !hasUiModeAccess) {
     return <Navigate to={redirectTo} replace />;
