@@ -36,6 +36,8 @@ type FlowPhase =
   | "daily-check" 
   | "full-assessment" 
   | "session-preview"
+  | "maya-intro"
+  | "maya-transition"
   | "exercise" 
   | "transition" 
   | "micro-pause"
