@@ -18,6 +18,7 @@ import { AdaptationEffectivenessSection } from "@/components/cohort/AdaptationEf
 import { DataReadinessAccordion } from "@/components/cohort/DataReadinessAccordion";
 
 export default function CohortResearchAnalytics() {
+  const navigate = useNavigate();
   const {
     phenotypeDistributions,
     gameEffectiveness,
