@@ -8,7 +8,7 @@
 const EXERCISE_PURPOSE: Record<string, string> = {
   'photo-naming': 'Speed up word retrieval for everyday objects.',
   'semantic-features': 'This helps you find words by thinking about their features — like what they do, where they are, and what they look like.',
-  'sentence-construction': 'Practice building complete sentences.',
+  'sentence-construction': 'This helps you build clear sentences in the right order — the same skill you use every time you explain something.',
   'phonological-awareness': 'Strengthen sound discrimination and awareness.',
   'minimal-pairs': 'Sharpen ability to distinguish similar sounds.',
   'category-fluency': 'Improve speed of retrieving words by category.',
