@@ -9,6 +9,8 @@ import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
+import { readAllExerciseDetails } from "@/lib/exerciseDetailsStore";
+import { buildSessionInsight } from "@/lib/reflectionEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -219,12 +221,29 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
         {/* Session frame closing — cross-exercise insights (for Maya-led sessions) */}
         {sessionFrame && exerciseScores.length > 0 && (() => {
-          const blockResults: BlockResult[] = exerciseScores.map(es => ({
-            exerciseId: es.exercise_slug,
-            avgScore: es.avg_score,
-            trialCount: es.trial_count,
-          }));
+          // Merge exercise scores with detailed signals from sessionStorage
+          const savedDetails = readAllExerciseDetails();
+          const blockResults: BlockResult[] = exerciseScores.map((es, i) => {
+            // Try to find matching details by exercise slug or block index
+            const detailEntry = Array.from(savedDetails.values()).find(
+              d => d.exerciseId === es.exercise_slug
+            ) || savedDetails.get(i);
+            return {
+              exerciseId: es.exercise_slug,
+              avgScore: es.avg_score,
+              trialCount: es.trial_count,
+              details: detailEntry?.details,
+            };
+          });
+          
+          // Use reflection engine for signal-based insights
+          const insight = buildSessionInsight(blockResults);
           const closing = sessionFrame.closingBuilder(blockResults);
+          
+          // Prefer reflection engine insights over template-level ones when signals are available
+          const hasDetailedSignals = blockResults.some(br => br.details);
+          const finalStrength = hasDetailedSignals ? insight.strength : closing.strength;
+          const finalNextStep = hasDetailedSignals ? insight.nextStep : closing.nextStep;
           return (
             <div className="bg-primary/5 border border-primary/15 rounded-xl p-5 text-left space-y-3">
               <div className="flex items-start gap-2.5">
@@ -248,12 +267,12 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Strong today</p>
-                <p className="text-sm text-foreground">{closing.strength}</p>
+                <p className="text-sm text-foreground">{finalStrength}</p>
               </div>
               
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next step</p>
-                <p className="text-sm text-foreground">{closing.nextStep}</p>
+                <p className="text-sm text-foreground">{finalNextStep}</p>
               </div>
               
               <p className="text-sm text-muted-foreground leading-relaxed italic border-t border-primary/10 pt-3 mt-2">

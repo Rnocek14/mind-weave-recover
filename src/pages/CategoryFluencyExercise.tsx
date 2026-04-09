@@ -16,6 +16,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -45,6 +46,7 @@ export default function CategoryFluencyExercise() {
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const roundCount = Number(location.state?.trialLimit) || 3;
+  const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
   const adaptation = useSessionAdaptation({
@@ -125,6 +127,17 @@ export default function CategoryFluencyExercise() {
     setCompleted(true);
     completeSession();
 
+    // Save structured details for reflection engine
+    if (blockIndex != null) {
+      const totalWords = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
+      const lastAnalysis = results[results.length - 1]?.analysis;
+      saveExerciseDetails(blockIndex, 'category-fluency', {
+        totalWords,
+        clusters: lastAnalysis?.clusterCount ?? 0,
+        switches: lastAnalysis?.switchCount ?? 0,
+      });
+    }
+
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       
@@ -155,7 +168,7 @@ export default function CategoryFluencyExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, navigate, returnTo]);
+  }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');

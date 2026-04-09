@@ -14,6 +14,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -55,6 +56,7 @@ export default function NarrativeRetellExercise() {
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 3;
   const returnTo = location.state?.returnTo || '/lesson';
+  const blockIndex = location.state?.blockIndex ?? null;
 
   // Shared adaptation contract — profile-aware, not directly phoneme-targeted
   const adaptation = useSessionAdaptation({
@@ -127,10 +129,23 @@ export default function NarrativeRetellExercise() {
   const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
     setCompleted(true);
     completeSession();
+
+    // Save structured details for reflection engine
+    if (blockIndex != null && results.length > 0) {
+      const r = results[0]; // Typically 1 story per block
+      saveExerciseDetails(blockIndex, 'narrative-retell', {
+        structureBreakdown: r.structureBreakdown,
+        eventCoverage: r.eventCoverage,
+        wordCount: r.wordCount,
+        eventsFound: r.eventsFound,
+        eventsTotal: r.eventsTotal,
+      });
+    }
+
     if (fromLesson) {
       completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow]);
+  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
