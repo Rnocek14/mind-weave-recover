@@ -128,6 +128,7 @@ export function NarrativeRetellGame({
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
   const hasAutoReadRef = useRef(false);
+  const autoTransitioningRef = useRef(false);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
     if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
@@ -154,6 +155,15 @@ export function NarrativeRetellGame({
         console.log('[NarrativeRetell] Auto-read complete');
       } catch (e) {
         console.warn('[NarrativeRetell] Story auto-read TTS failed:', e);
+      }
+
+      // Full Coaching: auto-transition to retelling after story is read
+      if (vg.isVoiceLed && !autoTransitioningRef.current) {
+        autoTransitioningRef.current = true;
+        console.log('[NarrativeRetell] Auto-transitioning to retelling phase');
+        // Brief pause before retell prompt
+        await new Promise(r => setTimeout(r, 800));
+        handleStartRetelling();
       }
     };
     doAutoRead();
