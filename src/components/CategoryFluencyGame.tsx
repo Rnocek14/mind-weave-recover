@@ -28,6 +28,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Categories ordered by difficulty
