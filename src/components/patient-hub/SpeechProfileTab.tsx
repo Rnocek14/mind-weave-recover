@@ -87,7 +87,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
 
-  // Fetch recovery score snapshots for trend chart
+  // Fetch recovery score snapshots + word retention data
   useEffect(() => {
     if (!profileId) return;
     supabase
@@ -98,6 +98,21 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       .limit(14)
       .then(({ data }) => setRecoverySnapshots(data ?? []));
   }, [profileId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    loadWordHistory(userId, 100).then((history) => {
+      const retained = getRetainedWords(history);
+      const hint = getRetentionDifficultyHint(history);
+      const totalTracked = history.filter(w => w.sessionCount >= 2).length;
+      setRetentionData({
+        retained,
+        weak: hint.weakWords,
+        retainedCount: hint.retainedWords.length,
+        totalTracked,
+      });
+    });
+  }, [userId]);
 
   // Profile freshness
   const freshness = useMemo(
