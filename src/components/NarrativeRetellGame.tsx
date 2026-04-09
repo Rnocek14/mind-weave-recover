@@ -421,18 +421,21 @@ export function NarrativeRetellGame({
       {/* ─── Reading phase: all cards visible at once ─── */}
       {phase === 'reading' && (
         <div className="space-y-3">
-          {/* Purpose banner with optional prior-round context */}
+          {/* Clear, dynamic purpose banner */}
           <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
-            <p className="text-base font-medium text-foreground">
+            <p className="text-lg font-semibold text-foreground">
               {currentIndex === 0
-                ? "📖 Let's work on telling a short story clearly. This helps with real conversations."
+                ? `📖 Listen to "${currentStory.title}" — then tell it back`
                 : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
-                ? "📖 You did well last time. Let's try another story."
-                : results.length > 0 && results[results.length - 1].structureBreakdown.middle.status !== 'covered'
-                ? "📖 Let's work on including the middle details this time."
-                : "📖 Read the next story and tell it back in your own words."}
+                ? `📖 Great retelling! Here's your next story: "${currentStory.title}"`
+                : `📖 Next story: "${currentStory.title}" — tell it back when ready`}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">Read the story below. When you're ready, tell it back in your own words.</p>
+            {isTTSSpeaking && (
+              <p className="text-sm text-primary mt-1 animate-pulse">🔊 Reading aloud…</p>
+            )}
+            {!isTTSSpeaking && (
+              <p className="text-sm text-muted-foreground mt-1">Read along below, then tell it back in your own words.</p>
+            )}
           </div>
 
           {/* All scene cards visible */}
