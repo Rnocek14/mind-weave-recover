@@ -14,7 +14,6 @@ import {
   ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText,
   Calendar, Activity, Target, Clock, Flame, AlertTriangle
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUiMode } from "@/hooks/useUiMode";
@@ -31,6 +30,7 @@ import { SessionsTab } from "@/components/patient-hub/SessionsTab";
 import { SpeechProfileTab } from "@/components/patient-hub/SpeechProfileTab";
 import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
+import { ClinicianSummaryHeader } from "@/components/patient-hub/ClinicianSummaryHeader";
 
 type WindowSize = 7 | 14 | 30;
 
@@ -151,53 +151,19 @@ export default function PatientHub() {
         </Select>
       </div>
 
-      {/* Summary Bar */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Active:</span>
-              <span className={`font-semibold ${activeDays >= 5 ? "text-green-600 dark:text-green-400" : activeDays >= 3 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
-                {activeDays}/7d
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Sessions:</span>
-              <span className="font-semibold">{summary.totalSessions}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Accuracy:</span>
-              <span className="font-semibold">{summary.avgAccuracy !== null ? `${summary.avgAccuracy}%` : "—"}</span>
-              {accuracyDelta !== null && (
-                <span className={`text-xs ${accuracyDelta > 0 ? "text-green-600" : accuracyDelta < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                  {accuracyDelta > 0 ? "+" : ""}{accuracyDelta}%
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Practice:</span>
-              <span className="font-semibold">{summary.totalMinutes}min</span>
-            </div>
-            {avgFatigue && (
-              <div className="flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">Fatigue:</span>
-                <span className={`font-semibold ${Number(avgFatigue) >= 4 ? "text-red-500" : ""}`}>{avgFatigue}/5</span>
-              </div>
-            )}
-            {unacknowledgedCount > 0 && (
-              <Badge variant="destructive" className="gap-1 ml-auto">
-                <AlertTriangle className="w-3 h-3" />
-                {unacknowledgedCount} alert{unacknowledgedCount > 1 ? "s" : ""}
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Clinician Summary Header — 10-second understanding */}
+      <ClinicianSummaryHeader
+        userId={user?.id || ""}
+        profileId={profileId}
+        timeline={timeline}
+        flags={flags || []}
+        alerts={alerts}
+        avgAccuracy={sessionStats.avgAccuracy}
+        priorAvgAccuracy={sessionStats.priorAvgAccuracy}
+        accuracySlope={sessionStats.accuracySlope}
+        activeDays={activeDays}
+        unacknowledgedCount={unacknowledgedCount}
+      />
 
       {/* 4-Tab Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
