@@ -101,7 +101,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
       setLoading(true);
       const { data } = await supabase
         .from("sessions")
-        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary")
+        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary, user_id, profile_id")
         .eq("profile_id", profileId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
