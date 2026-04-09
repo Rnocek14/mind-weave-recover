@@ -9,7 +9,7 @@
 import { useCallback, useRef } from 'react';
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { getVoiceGuidance, VoiceGuidance } from '@/lib/voiceGuidanceMap';
+import { getVoiceGuidance, resolveVoiceIntro, VoiceGuidance } from '@/lib/voiceGuidanceMap';
 
 export function useVoiceGuidance(exerciseSlug?: string) {
   const { isVoiceLed, shouldAutoSpeak, shouldAutoReadContent } = useCoachingMode();
@@ -36,10 +36,12 @@ export function useVoiceGuidance(exerciseSlug?: string) {
     }
   }, [isVoiceLed, speak, interrupt]);
 
-  /** Speak the exercise intro */
-  const speakIntro = useCallback(async (): Promise<void> => {
+  /** Speak the exercise intro — supports dynamic context */
+  const speakIntro = useCallback(async (context?: Record<string, string>): Promise<void> => {
     if (!shouldAutoSpeak || !guidance) return;
-    return speakIfVoiceLed(guidance.voiceIntro);
+    const text = resolveVoiceIntro(guidance, context);
+    if (!text) return;
+    return speakIfVoiceLed(text);
   }, [shouldAutoSpeak, guidance, speakIfVoiceLed]);
 
   /** Speak the exercise task instruction */

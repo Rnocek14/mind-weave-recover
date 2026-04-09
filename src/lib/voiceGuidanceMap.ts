@@ -7,7 +7,7 @@
 
 export interface VoiceGuidance {
   /** Spoken before exercise starts */
-  voiceIntro: string;
+  voiceIntro: string | ((context?: Record<string, string>) => string);
   /** Spoken when the exercise task begins */
   voiceTask: string;
   /** Spoken if user stalls (~6-10s) */
@@ -16,27 +16,56 @@ export interface VoiceGuidance {
   autoReadStimulus: boolean;
 }
 
+/** Resolve a voiceIntro that may be a function (dynamic) or static string */
+export function resolveVoiceIntro(guidance: VoiceGuidance, context?: Record<string, string>): string {
+  if (typeof guidance.voiceIntro === 'function') {
+    return guidance.voiceIntro(context);
+  }
+  return guidance.voiceIntro;
+}
+
 const guidanceMap: Record<string, VoiceGuidance> = {
   'detective-mind': {
-    voiceIntro: "We're going to read a short story and look for the important clues.",
+    voiceIntro: "Let's read a short story and find the important clues.",
     voiceTask: "Choose the best answer.",
     voiceReminder: "Take your time. You can look back at the story for the clue.",
     autoReadStimulus: true,
   },
   'narrative-retell': {
-    voiceIntro: "I'm going to read you a short story.",
+    voiceIntro: (ctx) => {
+      const title = ctx?.storyTitle;
+      return title
+        ? `I'm going to tell you a story called "${title}". Listen carefully, then tell it back in your own words.`
+        : "I'm going to tell you a short story. Listen carefully, then tell it back in your own words.";
+    },
     voiceTask: "Now tell it back in your own words. Start with what happened first.",
     voiceReminder: "Who was in the story? What happened first?",
     autoReadStimulus: true,
   },
   'category-fluency': {
-    voiceIntro: '', // Dynamic — set per-round with actual category name
+    voiceIntro: (ctx) => {
+      const category = ctx?.category;
+      return category
+        ? `Name as many ${category} as you can.`
+        : "Name as many words in this category as you can.";
+    },
     voiceTask: "Go ahead.",
     voiceReminder: "Try thinking of a different group within the category.",
     autoReadStimulus: false,
   },
+  'synonym-generator': {
+    voiceIntro: (ctx) => {
+      const word = ctx?.word;
+      return word
+        ? `Tell me words that mean the same as "${word}".`
+        : "I'll give you a word. Tell me similar words.";
+    },
+    voiceTask: "Go ahead.",
+    voiceReminder: "Think about words that could replace it in a sentence.",
+    autoReadStimulus: false,
+  },
   'meaning-match': {
-    voiceIntro: "I'll show you a sentence. Pick the word that means the same thing.",
+    voiceIntro: "Read the sentence and pick the word that means the same thing.",
     voiceTask: "Choose the best match.",
     voiceReminder: "Look at the sentence again. Which word fits?",
     autoReadStimulus: true,
@@ -53,22 +82,34 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceReminder: "Take your time. Try saying it slowly.",
     autoReadStimulus: true,
   },
-  'synonym-generator': {
-    voiceIntro: "I'll give you a word. Tell me similar words.",
-    voiceTask: "What words mean something similar?",
-    voiceReminder: "Think about words that could replace it in a sentence.",
-    autoReadStimulus: false,
-  },
   'semantic-feature-analysis': {
-    voiceIntro: "We're going to describe a word by its features.",
-    voiceTask: "Tell me what you know about this word.",
+    voiceIntro: "Look at the word. Tell me what you know about it — what group it's in, what it looks like, what you do with it.",
+    voiceTask: "Select the features that match.",
     voiceReminder: "Think about what group it belongs to, or what it looks like.",
     autoReadStimulus: false,
   },
   'sentence-construction': {
-    voiceIntro: "Put these words in order to make a sentence.",
+    voiceIntro: "Listen to the sentence, then say it back or put the words in order.",
     voiceTask: "Arrange the words.",
     voiceReminder: "Which word comes first?",
+    autoReadStimulus: false,
+  },
+  'photo-naming': {
+    voiceIntro: "Look at each picture and say what you see.",
+    voiceTask: "Say what you see.",
+    voiceReminder: "Take your time. What does it look like?",
+    autoReadStimulus: false,
+  },
+  'two-clues': {
+    voiceIntro: "I'll give you two clues. Tell me what word they describe.",
+    voiceTask: "What word am I describing?",
+    voiceReminder: "Think about both clues together.",
+    autoReadStimulus: false,
+  },
+  'describe-guess': {
+    voiceIntro: "Look at the picture and describe it. I'll try to guess what it is.",
+    voiceTask: "Tell me about it.",
+    voiceReminder: "What does it look like? What do you use it for?",
     autoReadStimulus: false,
   },
 };
