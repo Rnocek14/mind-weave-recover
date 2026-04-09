@@ -35,6 +35,7 @@ import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag,
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
+import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
@@ -161,6 +162,7 @@ export function DescribeGuessGame({
     startListening,
     stopListening,
     isSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     autoStart: false,
@@ -672,6 +674,17 @@ export function DescribeGuessGame({
       {isListening && !showFeedback && (
         <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
       )}
+
+      {/* Mic failure recovery — persistent */}
+      <MicFailureRecovery
+        visible={!!speechError && !isListening && !showFeedback && !isEvaluating}
+        onRetry={() => {
+          startListening();
+          setIsListening(true);
+          listeningStartRef.current = Date.now();
+        }}
+        compact
+      />
 
       {/* Controls */}
       <div className="flex justify-center gap-3 shrink-0 pb-1">

@@ -17,6 +17,8 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useAutoResponseMic } from '@/hooks/useAutoResponseMic';
+import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -102,6 +104,7 @@ export function NarrativeRetellGame({
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
   const [stallPromptIndex, setStallPromptIndex] = useState(-1);
+  const [micFailed, setMicFailed] = useState(false);
   const realLifeLineRef = useRef(REAL_LIFE_CONNECTIONS[Math.floor(Math.random() * REAL_LIFE_CONNECTIONS.length)]);
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -125,6 +128,7 @@ export function NarrativeRetellGame({
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
   const hasAutoReadRef = useRef(false);
+  const autoTransitioningRef = useRef(false);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
     if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
@@ -152,6 +156,15 @@ export function NarrativeRetellGame({
       } catch (e) {
         console.warn('[NarrativeRetell] Story auto-read TTS failed:', e);
       }
+
+      // Full Coaching: auto-transition to retelling after story is read
+      if (vg.isVoiceLed && !autoTransitioningRef.current) {
+        autoTransitioningRef.current = true;
+        console.log('[NarrativeRetell] Auto-transitioning to retelling phase');
+        // Brief pause before retell prompt
+        await new Promise(r => setTimeout(r, 800));
+        handleStartRetelling();
+      }
     };
     doAutoRead();
   }, [phase, currentStory, currentIndex, vg, speakTTS]);
@@ -168,9 +181,11 @@ export function NarrativeRetellGame({
     setLastResult(null);
     setCollectedTranscript('');
     setStallPromptIndex(-1);
+    setMicFailed(false);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
     hasAutoReadRef.current = false;
+    autoTransitioningRef.current = false;
   }, [currentIndex]);
 
   const completedRef = useRef(false);
@@ -187,8 +202,29 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = transcript;
   }, []);
 
-  const { isListening, fullTranscript, startListening, stopListening, isSupported } =
+  const { isListening, fullTranscript, startListening, stopListening, isSupported, error: speechError } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
+
+  // Auto-response mic for Full Coaching: auto-start mic after Maya speaks retell prompt
+  const { scheduleAutoListen, cancelAutoListen, isAutoResponseActive } = useAutoResponseMic({
+    delayAfterTTS: 1000, // 1s pause after Maya finishes prompt
+    enabled: phase === 'retelling' && !useTyping,
+    isTTSSpeaking: isTTSSpeaking || vg.isSpeaking,
+    startListening: () => {
+      console.log('[NarrativeRetell] Auto-response: starting mic');
+      setMicFailed(false);
+      startRecording();
+      startListening();
+    },
+    isListening,
+  });
+
+  // Track mic failures for persistent UI
+  useEffect(() => {
+    if (speechError && phase === 'retelling' && !useTyping) {
+      setMicFailed(true);
+    }
+  }, [speechError, phase, useTyping]);
 
   useEffect(() => {
     if (fullTranscript) latestTranscriptRef.current = fullTranscript;
@@ -255,13 +291,8 @@ export function NarrativeRetellGame({
     retellStartRef.current = Date.now();
     setTypedText('');
     setStallPromptIndex(-1);
+    setMicFailed(false);
     lastSpokenStallRef.current = -1;
-
-    // Full Coaching: speak the retell prompt
-    if (vg.isVoiceLed) {
-      // Slight delay so mic doesn't pick up Maya
-      setTimeout(() => vg.speakTask(), 300);
-    }
 
     if (currentStory && userId) {
       startAttempt({
@@ -275,11 +306,21 @@ export function NarrativeRetellGame({
       });
     }
 
-    if (!useTyping) {
+    // Full Coaching: speak retell prompt, then auto-start mic via auto-response
+    if (vg.isVoiceLed && !useTyping) {
+      const speakAndListen = async () => {
+        await new Promise(r => setTimeout(r, 300)); // Brief pause
+        await vg.speakTask(); // "Now tell it back in your own words"
+        // After speech ends, auto-response mic kicks in via scheduleAutoListen
+        scheduleAutoListen();
+      };
+      speakAndListen();
+    } else if (!useTyping) {
+      // Non-voice-led: start mic immediately
       startRecording();
       startListening();
     }
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, stopTTS]);
+  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, stopTTS, vg, scheduleAutoListen]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -500,6 +541,22 @@ export function NarrativeRetellGame({
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
+            {/* Mic failure recovery — persistent, not toast */}
+            <MicFailureRecovery
+              visible={micFailed && !useTyping}
+              onRetry={() => {
+                setMicFailed(false);
+                startListening();
+                startRecording();
+              }}
+              onSwitchToTyping={() => {
+                setUseTyping(true);
+                sessionStorage.setItem('preferTypingInput', 'true');
+                setMicFailed(false);
+              }}
+              compact
+            />
+
             <div className="flex items-center gap-2">
               <div className="relative">
                 {useTyping ? <Keyboard className="h-5 w-5 text-primary" /> : <Mic className="h-5 w-5 text-primary" />}
@@ -511,9 +568,13 @@ export function NarrativeRetellGame({
                 )}
               </div>
               <span className="font-semibold text-sm">
-                Tell the story in your own words...
+                {!useTyping && isListening
+                  ? '🎤 Listening…'
+                  : !useTyping && vg.isSpeaking
+                  ? '🔊 Maya is speaking…'
+                  : 'Tell the story in your own words...'}
               </span>
-              {!useTyping && (
+              {!useTyping && isListening && (
                 <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
               )}
             </div>
