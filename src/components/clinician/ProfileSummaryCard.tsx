@@ -77,7 +77,7 @@ export function ProfileSummaryCard({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Badge variant="outline" className="text-[9px] h-4 ml-auto">
+          <Badge variant="outline" className="text-xs h-4 ml-auto">
             {profileSource === "clinical_note" ? "From Notes" : "Manual"}
           </Badge>
         </CardTitle>
@@ -115,7 +115,7 @@ export function ProfileSummaryCard({
             <div className="flex flex-wrap gap-1 pl-4">
               {allImpairments.length > 0 ? (
                 allImpairments.slice(0, 8).map((imp, i) => (
-                  <Badge key={i} variant="outline" className="text-[9px] h-5">
+                  <Badge key={i} variant="outline" className="text-xs h-5">
                     <span className="text-muted-foreground mr-1">{imp.domain}:</span>
                     {imp.label}
                   </Badge>
@@ -124,7 +124,7 @@ export function ProfileSummaryCard({
                 <span className="text-xs text-muted-foreground italic">None documented</span>
               )}
               {allImpairments.length > 8 && (
-                <Badge variant="secondary" className="text-[9px] h-5">
+                <Badge variant="secondary" className="text-xs h-5">
                   +{allImpairments.length - 8} more
                 </Badge>
               )}
@@ -140,7 +140,7 @@ export function ProfileSummaryCard({
               </div>
               <div className="flex flex-wrap gap-1 pl-4">
                 {therapyFocus.map((f, i) => (
-                  <Badge key={i} variant="secondary" className="text-[9px] h-5">
+                  <Badge key={i} variant="secondary" className="text-xs h-5">
                     {formatImpairment(f)}
                   </Badge>
                 ))}

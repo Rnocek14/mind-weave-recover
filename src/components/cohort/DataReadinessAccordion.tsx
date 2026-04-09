@@ -31,7 +31,7 @@ export function DataReadinessAccordion({ phenotypeDistributions, retentionByCoho
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-muted-foreground" />
             Data Readiness
-            <Badge variant="outline" className="text-[10px] ml-2">
+            <Badge variant="outline" className="text-xs ml-2">
               {populatedFields}/5 phenotype fields • {totalRetentionWords} retention words • {totalCheckins} check-ins
             </Badge>
           </div>
@@ -58,13 +58,13 @@ export function DataReadinessAccordion({ phenotypeDistributions, retentionByCoho
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-[10px] text-muted-foreground">No data</p>
+                    <p className="text-xs text-muted-foreground">No data</p>
                   )}
                 </CardContent>
               </Card>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-3">
+          <p className="text-xs text-muted-foreground mt-3">
             This section validates that structured phenotype columns, retention snapshots, and functional check-ins are populating correctly.
           </p>
         </AccordionContent>

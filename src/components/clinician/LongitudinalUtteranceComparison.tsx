@@ -199,7 +199,7 @@ export function LongitudinalUtteranceComparison({
               <div className="flex items-center gap-2">
                 {directionIcon(wt.direction)}
                 <span className="font-medium text-sm capitalize">{wt.word}</span>
-                <Badge variant="outline" className="text-[9px] h-4">
+                <Badge variant="outline" className="text-xs h-4">
                   {wt.attempts.length} attempt{wt.attempts.length > 1 ? "s" : ""}
                 </Badge>
               </div>
@@ -233,7 +233,7 @@ export function LongitudinalUtteranceComparison({
                 >
                   <Badge
                     variant={attempt.isPrior ? "outline" : "secondary"}
-                    className="text-[9px] h-4 w-14 justify-center shrink-0"
+                    className="text-xs h-4 w-14 justify-center shrink-0"
                   >
                     {attempt.isPrior ? "Prior" : "Current"}
                   </Badge>
@@ -251,7 +251,7 @@ export function LongitudinalUtteranceComparison({
                     </span>
                   )}
                   {attempt.errorType && (
-                    <Badge variant="outline" className="text-[9px] h-4 shrink-0">
+                    <Badge variant="outline" className="text-xs h-4 shrink-0">
                       {attempt.errorType.replace(/_/g, " ")}
                     </Badge>
                   )}

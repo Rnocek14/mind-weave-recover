@@ -75,7 +75,7 @@ function DeltaCard({ delta }: { delta: WeekOverWeekDelta }) {
         <TooltipTrigger asChild>
           <div className={`rounded-lg p-2.5 ${bgClass} space-y-1 cursor-help`}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                 {delta.label}
               </span>
               <HelpCircle className="w-3 h-3 text-muted-foreground/50" />
@@ -85,7 +85,7 @@ function DeltaCard({ delta }: { delta: WeekOverWeekDelta }) {
               <span className="text-lg font-bold tabular-nums">
                 {delta.current !== null ? delta.current : "—"}
               </span>
-              <span className="text-[10px] text-muted-foreground">{delta.unit}</span>
+              <span className="text-xs text-muted-foreground">{delta.unit}</span>
             </div>
 
             {delta.delta !== null && (
@@ -96,14 +96,14 @@ function DeltaCard({ delta }: { delta: WeekOverWeekDelta }) {
                   {delta.metric === "avgFatigue" ? delta.delta.toFixed(1) : delta.delta}
                   {delta.unit}
                 </span>
-                <span className="text-[9px] text-muted-foreground font-normal">
+                <span className="text-xs text-muted-foreground font-normal">
                   vs prior
                 </span>
               </div>
             )}
 
             {delta.delta === null && delta.prior === null && (
-              <p className="text-[9px] text-muted-foreground">No prior data</p>
+              <p className="text-xs text-muted-foreground">No prior data</p>
             )}
           </div>
         </TooltipTrigger>

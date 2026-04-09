@@ -88,7 +88,7 @@ export function PendingSuggestions({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-500/30">
+                <Badge variant="outline" className="text-xs h-5 text-amber-600 border-amber-500/30">
                   {typeLabel(s.overrideType)}
                 </Badge>
                 {s.targetSlug && (
@@ -97,7 +97,7 @@ export function PendingSuggestions({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {s.suggestedBy || "system"}
               </span>
             </div>

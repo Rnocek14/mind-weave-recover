@@ -46,18 +46,18 @@ export function ProfileCompletenessBanner({ profile, onEditProfile }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium">Profile Incomplete</span>
-            <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600">
+            <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600">
               {completeness}% complete
             </Badge>
           </div>
           <div className="flex flex-wrap gap-1 mt-1">
             {missing.map((f) => (
-              <Badge key={f.key} variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-700">
+              <Badge key={f.key} variant="secondary" className="text-xs bg-amber-500/10 text-amber-700">
                 {f.label}
               </Badge>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             ⚠️ Incomplete data limits analytics reliability. Complete the profile to unlock accurate cohort insights.
           </p>
         </div>
@@ -78,7 +78,7 @@ export function ProfileIncompleteChip({ profile }: { profile: Props["profile"] }
   if (missing.length === 0) return null;
   const pct = Math.round(((REQUIRED_FIELDS.length - missing.length) / REQUIRED_FIELDS.length) * 100);
   return (
-    <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-600">
+    <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600">
       Profile {pct}%
     </Badge>
   );

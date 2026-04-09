@@ -62,7 +62,7 @@ export function ExerciseStruggleCard({ dayGroups }: ExerciseStruggleCardProps) {
               <span className="text-xs text-muted-foreground">
                 {ex.failures} failed / {ex.trials} trials
               </span>
-              <Badge variant={ex.accuracy < 40 ? "destructive" : "secondary"} className="text-[10px]">
+              <Badge variant={ex.accuracy < 40 ? "destructive" : "secondary"} className="text-xs">
                 {ex.accuracy}%
               </Badge>
             </div>

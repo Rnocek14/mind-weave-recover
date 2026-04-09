@@ -229,7 +229,7 @@ export function ActionableNextSteps({
                     <p className="text-sm font-medium">{action.title}</p>
                     <Badge
                       variant="outline"
-                      className={`text-[9px] shrink-0 ${
+                      className={`text-xs shrink-0 ${
                         action.priority === "high" ? "border-red-300 text-red-600" :
                         action.priority === "medium" ? "border-amber-300 text-amber-600" :
                         "border-green-300 text-green-600"

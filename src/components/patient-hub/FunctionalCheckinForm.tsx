@@ -110,14 +110,14 @@ export function FunctionalCheckinForm({ userId, profileId, onComplete }: Functio
         {QUESTIONS.map((q) => (
           <div key={q.key} className="space-y-1.5">
             <div className="text-xs font-medium">{q.label}</div>
-            <div className="text-[10px] text-muted-foreground">{q.description}</div>
+            <div className="text-xs text-muted-foreground">{q.description}</div>
             <div className="flex gap-1">
               {[1, 2, 3, 4, 5].map((val) => (
                 <button
                   key={val}
                   onClick={() => setRatings((r) => ({ ...r, [q.key]: val }))}
                   className={cn(
-                    "flex-1 py-1.5 rounded text-[10px] border transition-colors",
+                    "flex-1 py-1.5 rounded text-xs border transition-colors",
                     ratings[q.key] === val
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-muted/30 hover:bg-muted/60 border-border/50"
@@ -128,7 +128,7 @@ export function FunctionalCheckinForm({ userId, profileId, onComplete }: Functio
                 </button>
               ))}
             </div>
-            <div className="flex justify-between text-[9px] text-muted-foreground px-1">
+            <div className="flex justify-between text-xs text-muted-foreground px-1">
               <span>{q.anchors[0]}</span>
               <span>{q.anchors[4]}</span>
             </div>

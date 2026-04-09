@@ -99,7 +99,7 @@ export function SuccessBandIndicator({ dayData }: SuccessBandIndicatorProps) {
                   style={{ width: `${Math.min(analysis.weightedAcc, 100)}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+              <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
                 <span>0%</span>
                 <span>70%</span>
                 <span>85%</span>
@@ -116,7 +116,7 @@ export function SuccessBandIndicator({ dayData }: SuccessBandIndicatorProps) {
           </div>
 
           <p className="text-xs text-muted-foreground">{config.sublabel}</p>
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             Based on {analysis.totalTrials} trials · Target: 70–85%
           </div>
         </div>

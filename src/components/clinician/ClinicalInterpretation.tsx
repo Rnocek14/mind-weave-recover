@@ -91,7 +91,7 @@ export function ClinicalInterpretation({
               <span className="text-xs font-semibold text-primary uppercase tracking-wide">
                 Clinical Interpretation
               </span>
-              <Badge variant={stateBadgeVariant[interpretation.state]} className="text-[9px] h-4">
+              <Badge variant={stateBadgeVariant[interpretation.state]} className="text-xs h-4">
                 {stateLabels[interpretation.state]}
               </Badge>
               <Badge
@@ -102,7 +102,7 @@ export function ClinicalInterpretation({
                     ? "secondary"
                     : "outline"
                 }
-                className="text-[9px] h-4"
+                className="text-xs h-4"
               >
                 {interpretation.confidence} confidence
               </Badge>

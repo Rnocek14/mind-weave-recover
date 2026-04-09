@@ -81,7 +81,7 @@ export function OutcomePredictionCard({ userId, profileId }: OutcomePredictionCa
           </div>
         )}
 
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Generated {new Date(prediction.created_at).toLocaleDateString()}
         </p>
       </CardContent>

@@ -63,7 +63,7 @@ export function CueEffectivenessSection({ data }: Props) {
 
         <div className="flex flex-wrap gap-1.5">
           {data.slice(0, 12).map((r, i) => (
-            <Badge key={i} variant="outline" className="text-[10px]">
+            <Badge key={i} variant="outline" className="text-xs">
               {r.cueType} × {r.phenotypeValue}: {r.immediateSuccessRate}% ({r.trialCount} trials)
             </Badge>
           ))}

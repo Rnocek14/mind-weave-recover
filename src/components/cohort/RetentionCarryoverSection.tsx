@@ -67,7 +67,7 @@ export function RetentionCarryoverSection({ byCohort, byExercise }: Props) {
             <p className="text-xs font-medium text-muted-foreground">Retention by Topic/Category</p>
             <div className="flex flex-wrap gap-1.5">
               {byExercise.map((r, i) => (
-                <Badge key={i} variant={r.retentionRate >= 50 ? "default" : "outline"} className="text-[10px]">
+                <Badge key={i} variant={r.retentionRate >= 50 ? "default" : "outline"} className="text-xs">
                   {r.exerciseSlug}: {r.retentionRate}% ({r.retainedWords}/{r.totalWords})
                 </Badge>
               ))}
@@ -77,7 +77,7 @@ export function RetentionCarryoverSection({ byCohort, byExercise }: Props) {
 
         <div className="flex flex-wrap gap-1.5">
           {byCohort.map((r, i) => (
-            <Badge key={i} variant="outline" className="text-[10px]">
+            <Badge key={i} variant="outline" className="text-xs">
               {r.phenotypeValue}: {r.retentionRate}% retention ({r.patientCount} patients, {r.totalWords} words)
             </Badge>
           ))}

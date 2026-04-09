@@ -69,7 +69,7 @@ export function GameEffectivenessSection({ data }: Props) {
         {/* By phenotype detail */}
         <div className="flex flex-wrap gap-1.5">
           {data.slice(0, 12).map((r, i) => (
-            <Badge key={i} variant="outline" className="text-[10px]">
+            <Badge key={i} variant="outline" className="text-xs">
               {r.exerciseSlug}: {r.phenotypeValue} → {r.improvementSlope != null && r.improvementSlope > 0 ? "+" : ""}{r.improvementSlope ?? "?"} ({r.trialCount} trials)
             </Badge>
           ))}

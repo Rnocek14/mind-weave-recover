@@ -59,7 +59,7 @@ const ProvenanceBadge = memo(function ProvenanceBadge({
         {label}
       </Badge>
       {date && (
-        <span className="text-[9px] text-muted-foreground/60">
+        <span className="text-xs text-muted-foreground/60">
           {new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </span>
       )}
@@ -169,7 +169,7 @@ export const TherapyFocusMap = memo(function TherapyFocusMap({
       {/* Exercise cards grouped by domain */}
       {domainEntries.map(([domain, cards]) => (
         <div key={domain} className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pl-0.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-0.5">
             {DOMAIN_LABELS[domain] || domain.replace(/_/g, " ")}
           </p>
           <div className="grid gap-1.5">

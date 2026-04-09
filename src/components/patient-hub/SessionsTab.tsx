@@ -337,7 +337,7 @@ function SessionCard({
               </span>
             )}
             {session.caregiver_notes && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground" title={session.caregiver_notes}>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground" title={session.caregiver_notes}>
                 📝 Note
               </span>
             )}
@@ -369,7 +369,7 @@ function SessionCard({
               <span
                 key={ex.slug}
                 className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                  "text-xs px-2 py-0.5 rounded-full font-medium border",
                   ex.accuracy >= 80
                     ? "bg-success/10 text-success border-success/30"
                     : ex.accuracy >= 50
@@ -385,7 +385,7 @@ function SessionCard({
 
         {/* Row 4: Secondary signals */}
         {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs) && (
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {meta.adaptationCount > 0 && (
               <span className="flex items-center gap-1 text-primary">
                 <Zap className="w-3 h-3" />{meta.adaptationCount} adaptations
@@ -419,15 +419,15 @@ function SessionCard({
               <div className="grid grid-cols-3 gap-2">
                 <div className="text-center p-2 rounded-lg bg-muted/30">
                   <div className="text-xl font-bold text-primary">{insight.overallAccuracy}%</div>
-                  <div className="text-[10px] text-muted-foreground">Accuracy</div>
+                  <div className="text-xs text-muted-foreground">Accuracy</div>
                 </div>
                 <div className="text-center p-2 rounded-lg bg-muted/30">
                   <div className="text-xl font-bold">{trials.length}</div>
-                  <div className="text-[10px] text-muted-foreground">Trials</div>
+                  <div className="text-xs text-muted-foreground">Trials</div>
                 </div>
                 <div className="text-center p-2 rounded-lg bg-muted/30">
                   <div className="text-xl font-bold">{insight.exerciseBreakdown.length}</div>
-                  <div className="text-[10px] text-muted-foreground">Exercises</div>
+                  <div className="text-xs text-muted-foreground">Exercises</div>
                 </div>
               </div>
 
@@ -485,9 +485,9 @@ function SessionCard({
                     <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>•</span>
                       <span className="capitalize">{a.adaptation_type.replace(/_/g, " ")}</span>
-                      {a.exercise_slug && <Badge variant="outline" className="text-[9px] py-0">{formatSlug(a.exercise_slug)}</Badge>}
+                      {a.exercise_slug && <Badge variant="outline" className="text-xs py-0">{formatSlug(a.exercise_slug)}</Badge>}
                       {a.value_before != null && a.value_after != null && (
-                        <span className="flex items-center gap-1 text-[10px]">
+                        <span className="flex items-center gap-1 text-xs">
                           <ArrowRightLeft className="w-2.5 h-2.5" />
                           {JSON.stringify(a.value_before)} → {JSON.stringify(a.value_after)}
                         </span>
@@ -528,11 +528,11 @@ function SessionCard({
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">{ex.trials} trials</span>
                           {ex.avgLatencyMs && (
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <Timer className="w-2.5 h-2.5" />{(ex.avgLatencyMs / 1000).toFixed(1)}s
                             </span>
                           )}
-                          <Badge variant={ex.accuracy >= 80 ? "default" : ex.accuracy >= 50 ? "secondary" : "destructive"} className="text-[10px]">
+                          <Badge variant={ex.accuracy >= 80 ? "default" : ex.accuracy >= 50 ? "secondary" : "destructive"} className="text-xs">
                             {ex.accuracy}%
                           </Badge>
                         </div>
@@ -545,7 +545,7 @@ function SessionCard({
                           {errorKeys.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-2">
                               {errorKeys.map((et) => (
-                                <Badge key={et} variant="outline" className="text-[9px] py-0 gap-1">
+                                <Badge key={et} variant="outline" className="text-xs py-0 gap-1">
                                   <span className={cn("w-1.5 h-1.5 rounded-full inline-block", ERROR_COLORS[et] || "bg-muted-foreground")} />
                                   {et.replace(/_/g, " ")}: {ex.errorTypes[et]}
                                 </Badge>
@@ -572,7 +572,7 @@ function SessionCard({
                               )}
                               {/* Error type badge */}
                               {t.error_type && t.error_type !== "correct" && (
-                                <Badge variant="outline" className="text-[9px] py-0 shrink-0">
+                                <Badge variant="outline" className="text-xs py-0 shrink-0">
                                   {t.error_type.replace(/_/g, " ")}
                                 </Badge>
                               )}
@@ -580,7 +580,7 @@ function SessionCard({
                               {t.cue_type_given && t.cue_type_given !== "none" && (
                                 <Badge
                                   variant={t.cue_was_effective ? "default" : "secondary"}
-                                  className="text-[9px] py-0 shrink-0"
+                                  className="text-xs py-0 shrink-0"
                                 >
                                   {t.cue_type_given.replace(/_/g, " ")}
                                   {t.cue_was_effective === true ? " ✓" : t.cue_was_effective === false ? " ✗" : ""}
@@ -588,7 +588,7 @@ function SessionCard({
                               )}
                               {/* Latency */}
                               {t.latency_ms != null && t.latency_ms > 0 && (
-                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                <span className="text-xs text-muted-foreground shrink-0">
                                   {(t.latency_ms / 1000).toFixed(1)}s
                                 </span>
                               )}
@@ -672,7 +672,7 @@ function AudioTrialRow({
 }) {
   return (
     <div className="flex items-center gap-2 p-1.5 rounded bg-muted/20 text-xs">
-      <Badge variant="outline" className={cn("text-[9px] py-0 shrink-0", labelClass)}>
+      <Badge variant="outline" className={cn("text-xs py-0 shrink-0", labelClass)}>
         {label}
       </Badge>
       <Button
@@ -752,7 +752,7 @@ function ClinicianNoteSection({ sessionId, userId, profileId }: { sessionId: str
       {notes.map((n) => (
         <div key={n.id} className="text-xs p-2 rounded bg-muted/20 space-y-0.5">
           <p className="text-foreground">{n.note_text}</p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {new Date(n.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
           </p>
         </div>

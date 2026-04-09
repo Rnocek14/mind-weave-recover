@@ -41,7 +41,7 @@ export function RuntimeConfigInspector({ runtimeConfig, activeOverrides = [] }: 
             <CardTitle className="text-sm font-semibold flex-1">
               Runtime Config Inspector
             </CardTitle>
-            <Badge variant="outline" className="text-[9px] h-5">
+            <Badge variant="outline" className="text-xs h-5">
               {diffEntries.length} diff · {activePractice.length} practice · cue {config.cueOverride !== null ? `L${config.cueOverride}` : "auto"}
             </Badge>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
@@ -117,10 +117,10 @@ export function RuntimeConfigInspector({ runtimeConfig, activeOverrides = [] }: 
 
             {/* Raw JSON (collapsed) */}
             <details className="pl-4">
-              <summary className="text-[10px] text-muted-foreground/50 cursor-pointer hover:text-muted-foreground">
+              <summary className="text-xs text-muted-foreground/50 cursor-pointer hover:text-muted-foreground">
                 Raw JSON
               </summary>
-              <pre className="text-[10px] mt-1 p-2 rounded bg-muted/30 overflow-auto max-h-32 text-muted-foreground font-mono">
+              <pre className="text-xs mt-1 p-2 rounded bg-muted/30 overflow-auto max-h-32 text-muted-foreground font-mono">
                 {JSON.stringify(config.raw, null, 2)}
               </pre>
             </details>

@@ -80,7 +80,7 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
             <Brain className="h-4 w-4 text-primary" />
             Therapy Intelligence Report
           </CardTitle>
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-xs">
             {profile.sessionCount} sessions analyzed
           </Badge>
         </div>
@@ -131,7 +131,7 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
                       <span key={w.word}>
                         {i > 0 && ', '}
                         {w.word}
-                        <span className="text-[10px] text-muted-foreground ml-0.5">({w.sessionCount}s)</span>
+                        <span className="text-xs text-muted-foreground ml-0.5">({w.sessionCount}s)</span>
                       </span>
                     ))}
                   </span>
@@ -145,7 +145,7 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
                     <span className="font-medium text-green-600 dark:text-green-400">
                       {profile.recoveredWords.join(', ')}
                     </span>
-                    <span className="text-[10px] text-muted-foreground ml-1">(previously struggled, now mastered)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(previously struggled, now mastered)</span>
                   </div>
                 </div>
               )}
@@ -163,7 +163,7 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
             <div className="space-y-1.5">
               {profile.persistentPhonemeErrors.map((pe) => (
                 <div key={pe.phonemes} className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+                  <Badge variant="outline" className="text-xs font-mono shrink-0">
                     {pe.phonemes}
                   </Badge>
                   <span className="text-muted-foreground">
@@ -197,7 +197,7 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
                 return (
                   <div key={p.type} className="flex items-center gap-2 text-sm">
                     <span className="font-medium">{label}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       ({p.sessionCount} sessions)
                     </span>
                   </div>
@@ -215,10 +215,10 @@ export function TherapyIntelligenceReport({ profile }: TherapyIntelligenceReport
           </h4>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] font-semibold">
+              <Badge variant="outline" className="text-xs font-semibold">
                 {clinicianStrategy.label}
               </Badge>
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 {clinicianStrategy.confidence} confidence
               </Badge>
             </div>

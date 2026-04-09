@@ -59,7 +59,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
               <Flag className="w-4 h-4" />
               Red Flags
-              <Badge variant="destructive" className="text-[10px]">{redFlags.length}</Badge>
+              <Badge variant="destructive" className="text-xs">{redFlags.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
@@ -69,13 +69,13 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
                     <span className="font-medium">{flag.type.replace(/_/g, " ")}</span>
-                    <Badge variant="outline" className="text-[9px] py-0 ml-auto">
+                    <Badge variant="outline" className="text-xs py-0 ml-auto">
                       {flag.severity}
                     </Badge>
                   </div>
                   <p className="text-muted-foreground mt-1 ml-5">{flag.message}</p>
                   {flag.details && (
-                    <p className="text-muted-foreground mt-0.5 ml-5 text-[10px]">{flag.details}</p>
+                    <p className="text-muted-foreground mt-0.5 ml-5 text-xs">{flag.details}</p>
                   )}
                 </div>
               ))}
@@ -108,7 +108,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Target className="w-4 h-4 text-primary" />
             Functional Goals
-            {goals && <Badge variant="secondary" className="text-[10px]">{goals.filter((g) => !g.archived_at).length}</Badge>}
+            {goals && <Badge variant="secondary" className="text-xs">{goals.filter((g) => !g.archived_at).length}</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-3">
@@ -120,7 +120,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
                 <div key={goal.id} className="p-2 rounded bg-muted/30 text-sm">
                   <p className="font-medium">{goal.goal_text}</p>
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-[10px]">{goal.target_domain?.replace(/_/g, " ")}</Badge>
+                    <Badge variant="outline" className="text-xs">{goal.target_domain?.replace(/_/g, " ")}</Badge>
                     <span>Baseline: {goal.baseline_status}</span>
                     {goal.target_date && <span>Target: {new Date(goal.target_date).toLocaleDateString()}</span>}
                   </div>
@@ -172,7 +172,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Shield className="w-4 h-4 text-primary" />
               Active Overrides
-              <Badge variant="secondary" className="text-[10px]">{activeOverrides.length}</Badge>
+              <Badge variant="secondary" className="text-xs">{activeOverrides.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
@@ -181,7 +181,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
                 <div key={o.id} className="p-2 rounded bg-muted/30 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-medium capitalize">{o.overrideType.replace(/_/g, " ")}</span>
-                    {o.targetSlug && <Badge variant="outline" className="text-[10px]">{o.targetSlug.replace(/-/g, " ")}</Badge>}
+                    {o.targetSlug && <Badge variant="outline" className="text-xs">{o.targetSlug.replace(/-/g, " ")}</Badge>}
                   </div>
                   {o.reason && <p className="text-muted-foreground mt-0.5">{o.reason}</p>}
                 </div>

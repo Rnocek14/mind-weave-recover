@@ -174,7 +174,7 @@ export function ClinicalRecordingPicks({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {pick.errorType && (
-                    <Badge variant="outline" className="text-[9px] h-5">
+                    <Badge variant="outline" className="text-xs h-5">
                       {pick.errorType.replace(/_/g, " ")}
                     </Badge>
                   )}
@@ -195,7 +195,7 @@ export function ClinicalRecordingPicks({
                 <AudioPlaybackWithWaveform storagePath={pick.audioPath} showWaveform={false} />
               </div>
 
-              <p className="text-[9px] text-muted-foreground mt-1 pl-6">
+              <p className="text-xs text-muted-foreground mt-1 pl-6">
                 {new Date(pick.timestamp).toLocaleDateString(undefined, {
                   weekday: "short",
                   month: "short",
