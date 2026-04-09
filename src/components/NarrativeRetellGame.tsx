@@ -541,6 +541,22 @@ export function NarrativeRetellGame({
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
+            {/* Mic failure recovery — persistent, not toast */}
+            <MicFailureRecovery
+              visible={micFailed && !useTyping}
+              onRetry={() => {
+                setMicFailed(false);
+                startListening();
+                startRecording();
+              }}
+              onSwitchToTyping={() => {
+                setUseTyping(true);
+                sessionStorage.setItem('preferTypingInput', 'true');
+                setMicFailed(false);
+              }}
+              compact
+            />
+
             <div className="flex items-center gap-2">
               <div className="relative">
                 {useTyping ? <Keyboard className="h-5 w-5 text-primary" /> : <Mic className="h-5 w-5 text-primary" />}
@@ -552,9 +568,13 @@ export function NarrativeRetellGame({
                 )}
               </div>
               <span className="font-semibold text-sm">
-                Tell the story in your own words...
+                {!useTyping && isListening
+                  ? '🎤 Listening…'
+                  : !useTyping && vg.isSpeaking
+                  ? '🔊 Maya is speaking…'
+                  : 'Tell the story in your own words...'}
               </span>
-              {!useTyping && (
+              {!useTyping && isListening && (
                 <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
               )}
             </div>
