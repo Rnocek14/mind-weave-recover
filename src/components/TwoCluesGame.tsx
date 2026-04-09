@@ -1044,7 +1044,7 @@ export function TwoCluesGame({
                   )}
                 </p>
                 {showThinkingHint && !filteredDisplay && (
-                  <p className="text-sm text-muted-foreground italic animate-in fade-in duration-500">
+                  <p className="text-base text-muted-foreground italic animate-in fade-in duration-500">
                     Take your time. What connects these clues?
                   </p>
                 )}
@@ -1058,8 +1058,8 @@ export function TwoCluesGame({
           <div className="bg-accent/10 border border-accent p-4 rounded-lg flex items-start gap-3 animate-in fade-in duration-300">
             <Lightbulb className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-accent-foreground">{currentCueText}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-base font-medium text-accent-foreground">{currentCueText}</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 {cueLevel === 1 ? 'Category hint' : cueLevel === 2 ? 'Sound hint' : 'Answer revealed'}
               </p>
             </div>
