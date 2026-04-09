@@ -464,7 +464,7 @@ export function scoreExercise(
  * Preset lesson definitions for structured multi-exercise sessions.
  * These bypass normal spacing/adjacency rules — block order is intentional.
  */
-export type LessonPreset = 'comprehension_session' | 'depth_battery_onboarding' | 'depth_battery_weekly';
+export type LessonPreset = 'comprehension_session' | 'core_communication' | 'depth_battery_onboarding' | 'depth_battery_weekly';
 
 const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
   comprehension_session: {
@@ -483,6 +483,25 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
         trialLimit: 5,
         priority: 'primary',
         reasoning: 'Semantic mapping comprehension (5 trials)',
+      },
+    ],
+  },
+  core_communication: {
+    title: 'Core Communication',
+    blocks: [
+      {
+        exerciseId: 'detective-mind',
+        duration: 4,
+        trialLimit: 3,
+        priority: 'primary',
+        reasoning: 'Comprehension + clue-finding (3 cases)',
+      },
+      {
+        exerciseId: 'narrative-retell',
+        duration: 4,
+        trialLimit: 1,
+        priority: 'primary',
+        reasoning: 'Recall + sequencing + expression (1 story)',
       },
     ],
   },
