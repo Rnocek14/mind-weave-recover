@@ -282,13 +282,25 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening]);
 
-  const autoStartedRef = useRef(false);
+  // Voice intro on first mount (Full Coaching mode)
+  const hasSpokenIntroRef = useRef(false);
   useEffect(() => {
-    if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
-      autoStartedRef.current = true;
-      startRound();
+    if (!hasSpokenIntroRef.current && phase === 'ready' && currentRound === 0) {
+      hasSpokenIntroRef.current = true;
+      if (vg.shouldAutoSpeak) {
+        vg.speakIntro();
+      }
+      if (autoStartFirst) {
+        // Wait for intro speech to finish before auto-starting
+        if (vg.shouldAutoSpeak) {
+          const delay = setTimeout(() => startRound(), 3000);
+          return () => clearTimeout(delay);
+        } else {
+          startRound();
+        }
+      }
     }
-  }, [autoStartFirst, phase, currentRound, startRound]);
+  }, [autoStartFirst, phase, currentRound, startRound, vg]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
