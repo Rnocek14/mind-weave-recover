@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useDailyLesson } from '@/hooks/useDailyLesson';
+import { buildPresetLesson } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 
