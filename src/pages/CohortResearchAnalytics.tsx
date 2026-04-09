@@ -16,6 +16,7 @@ import { PlateauAnalysisSection } from "@/components/cohort/PlateauAnalysisSecti
 import { FunctionalImpactSection } from "@/components/cohort/FunctionalImpactSection";
 import { AdaptationEffectivenessSection } from "@/components/cohort/AdaptationEffectivenessSection";
 import { DataReadinessAccordion } from "@/components/cohort/DataReadinessAccordion";
+import { DataSufficiencyBar } from "@/components/cohort/DataSufficiencyBar";
 
 export default function CohortResearchAnalytics() {
   const navigate = useNavigate();
@@ -100,6 +101,15 @@ export default function CohortResearchAnalytics() {
             <CardContent className="py-3 text-sm text-destructive">{error}</CardContent>
           </Card>
         )}
+
+        {/* Data Sufficiency Indicator */}
+        <DataSufficiencyBar
+          patientCount={phenotypeDistributions[0]?.counts.reduce((s, c) => s + c.count, 0) || 0}
+          sessionCount={gameEffectiveness.reduce((s, r) => s + r.trialCount, 0)}
+          trialCount={gameEffectiveness.reduce((s, r) => s + r.trialCount, 0)}
+          retentionWordCount={retentionByCohort.reduce((s, r) => s + r.totalWords, 0)}
+          functionalCheckinCount={functionalTrends.reduce((s, f) => s + f.count, 0)}
+        />
 
         {/* 1. Game Effectiveness */}
         <GameEffectivenessSection data={gameEffectiveness} />

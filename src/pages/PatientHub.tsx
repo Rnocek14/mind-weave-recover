@@ -30,6 +30,7 @@ import { SpeechProfileTab } from "@/components/patient-hub/SpeechProfileTab";
 import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
 import { ClinicianSummaryHeader } from "@/components/patient-hub/ClinicianSummaryHeader";
+import { ProfileCompletenessBanner } from "@/components/patient-hub/ProfileCompletenessBanner";
 
 type WindowSize = 7 | 14 | 30;
 
@@ -155,6 +156,12 @@ export default function PatientHub() {
           </Select>
         </div>
       </div>
+
+      {/* Profile Completeness Warning */}
+      <ProfileCompletenessBanner
+        profile={activeProfile}
+        onEditProfile={() => setActiveTab("patient")}
+      />
 
       {/* Clinician Summary Header — 10-second understanding */}
       <ClinicianSummaryHeader
