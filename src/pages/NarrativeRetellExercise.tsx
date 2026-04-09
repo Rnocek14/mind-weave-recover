@@ -56,6 +56,7 @@ export default function NarrativeRetellExercise() {
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const trialLimit = Number(location.state?.trialLimit) || 3;
   const returnTo = location.state?.returnTo || '/lesson';
+  const blockIndex = location.state?.blockIndex ?? null;
 
   // Shared adaptation contract — profile-aware, not directly phoneme-targeted
   const adaptation = useSessionAdaptation({
