@@ -551,12 +551,17 @@ export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: st
     adaptations: { ...defaultAdaptations, ...b.adaptations },
   }));
   const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
+  // Attach session frame ID for presets that have one
+  const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
+    core_communication: 'core_communication',
+  };
   return {
     totalDuration,
     blocks,
     targetDomains: ['receptive_language', 'semantic_systems'],
     reasoning: [`Preset: ${presetDef.title}`],
     energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+    sessionFrameId: FRAME_MAP[preset],
   };
 }
 
