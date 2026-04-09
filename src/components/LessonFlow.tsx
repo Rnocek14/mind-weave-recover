@@ -27,6 +27,7 @@ import {
   trackSessionComplete,
   associateSessionWithFlow,
 } from "@/lib/sessionFlowAnalytics";
+import { clearExerciseDetails } from "@/lib/exerciseDetailsStore";
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
@@ -302,6 +303,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   
   const handlePreviewStart = () => {
     resetFeedbackHistory();
+    clearExerciseDetails(); // Clear any stale exercise details from previous session
     // If session has a Maya frame, show intro first
     if (sessionFrame && showPurpose) {
       setPhase("maya-intro");
