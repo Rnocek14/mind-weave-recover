@@ -48,7 +48,18 @@ export default function PatientHub() {
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
   const { summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
-  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId);
+  const alertSessionStats = useMemo(() => {
+    if (sessionStats.isLoading) return undefined;
+    return {
+      recentAvgAccuracy: sessionStats.avgAccuracy,
+      priorAvgAccuracy: sessionStats.priorAvgAccuracy,
+      accuracySlope: sessionStats.accuracySlope,
+      recentTrialCount: sessionStats.trialCount,
+      recentSessionCount: sessionStats.sessionCount,
+      priorTrialCount: sessionStats.trialCount,
+    };
+  }, [sessionStats]);
+  const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
