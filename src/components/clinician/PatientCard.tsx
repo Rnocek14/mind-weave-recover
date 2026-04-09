@@ -8,7 +8,6 @@ import {
   Minus,
   HelpCircle,
   Clock,
-  Activity,
   Brain,
   Calendar,
   BarChart3,
@@ -110,50 +109,6 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
     on_track: { label: "On track", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30" },
   };
 
-  // Auto-generated micro-summary
-  const summaryLine = (() => {
-    const parts: string[] = [];
-
-    // Performance clause
-    if (hasSufficientTrials && accuracyDelta7d !== null && accuracyDelta7d !== 0) {
-      const dir = accuracyDelta7d > 0 ? "Improving" : "Declining";
-      parts.push(`${dir} accuracy (${accuracyDelta7d > 0 ? "+" : ""}${accuracyDelta7d}%)`);
-    } else if (avgAccuracy7d !== null) {
-      parts.push(`Accuracy at ${avgAccuracy7d}%`);
-    } else {
-      parts.push("No accuracy data yet");
-    }
-
-    // Engagement clause
-    if (adherenceDays7d >= 5) {
-      parts.push(`consistent practice (${adherenceDays7d}/7 days)`);
-    } else if (adherenceDays7d >= 3) {
-      parts.push(`moderate practice (${adherenceDays7d}/7 days)`);
-    } else if (adherenceDays7d > 0) {
-      parts.push(`low engagement (${adherenceDays7d}/7 days)`);
-    } else if (daysSinceActive === Infinity) {
-      parts.push("no activity recorded");
-    } else {
-      parts.push("no practice this week");
-    }
-
-    // Safety/action clause
-    if (hasCritical) {
-      parts.push(`${criticalAlertCount} critical alert${criticalAlertCount > 1 ? "s" : ""} active`);
-    } else if (hasAlerts) {
-      parts.push(`${activeAlertCount} alert${activeAlertCount > 1 ? "s" : ""} active`);
-    } else if (daysSinceActive >= 5) {
-      parts.push("re-engagement recommended");
-    }
-
-    // Join: "Part1 with part2. Part3."
-    if (parts.length === 0) return "Insufficient data for summary.";
-    let sentence = parts[0];
-    if (parts.length > 1) sentence += " with " + parts[1];
-    if (parts[2]) sentence += ". " + parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
-    return sentence + ".";
-  })();
-
   return (
     <Card
       className={`p-0 cursor-pointer transition-all hover:shadow-md hover:bg-accent/30 overflow-hidden ${
@@ -173,11 +128,11 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-sm truncate">{name}</h3>
-              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${triageConfig[triageStatus].className}`}>
+              <Badge variant="outline" className={`text-xs px-1.5 py-0 shrink-0 ${triageConfig[triageStatus].className}`}>
                 {triageConfig[triageStatus].label}
               </Badge>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
               {daysPostStroke !== null && (
                 <span className="flex items-center gap-0.5">
                   <Calendar className="w-3 h-3" />
@@ -199,19 +154,19 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
           {/* Alert badges */}
           <div className="flex items-center gap-1 shrink-0">
             {hasCritical && (
-              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 gap-0.5">
+              <Badge variant="destructive" className="text-xs px-1.5 py-0.5 gap-0.5">
                 <AlertTriangle className="w-3 h-3" />
                 {criticalAlertCount} critical
               </Badge>
             )}
             {hasAlerts && !hasCritical && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 gap-0.5">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5 gap-0.5">
                 <AlertTriangle className="w-3 h-3" />
                 {activeAlertCount}
               </Badge>
             )}
             {hasCritical && activeAlertCount - criticalAlertCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                 +{activeAlertCount - criticalAlertCount}
               </Badge>
             )}
@@ -224,7 +179,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
         {/* Row 1: Accuracy + Trend */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[11px] text-muted-foreground mb-0.5">Accuracy (7d)</div>
+            <div className="text-xs text-muted-foreground mb-0.5">Accuracy (7d)</div>
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold tabular-nums">
                 {avgAccuracy7d !== null ? `${avgAccuracy7d}%` : "—"}
@@ -243,7 +198,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[11px] text-muted-foreground mb-0.5">Trend</div>
+            <div className="text-xs text-muted-foreground mb-0.5">Trend</div>
             <div className="flex items-center gap-1 justify-end">
               <TrendIcon trend={trend} />
               <span className={`text-xs font-medium ${
@@ -253,7 +208,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
                 {trendLabel(trend)}
               </span>
               {lowData && trend !== "unknown" && (
-                <Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground border-muted-foreground/30">
+                <Badge variant="outline" className="text-xs px-1 py-0 text-muted-foreground border-muted-foreground/30">
                   &lt;10 trials
                 </Badge>
               )}
@@ -264,7 +219,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
         {/* Row 2: Adherence bar */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] text-muted-foreground">Days practiced</span>
+            <span className="text-xs text-muted-foreground">Days practiced</span>
             <span className={`text-xs font-semibold tabular-nums ${adherenceColor(adherenceDays7d)}`}>
               {adherenceDays7d}/7 days
             </span>
@@ -284,7 +239,7 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold tabular-nums">{trials7d}</span>
             {trialDelta !== null && (
-              <span className={`text-[10px] ${
+              <span className={`text-xs ${
                 trialDelta > 0
                   ? "text-green-600 dark:text-green-400"
                   : trialDelta < 0
@@ -298,26 +253,19 @@ export function PatientCard({ patient, onClick }: PatientCardProps) {
         </div>
       </div>
 
-      {/* Summary line */}
-      <div className="px-4 py-2 border-t">
-        <p className="text-[11px] text-muted-foreground leading-relaxed italic">
-          {summaryLine}
-        </p>
-      </div>
-
       {/* Footer: Last active */}
       <div className="px-4 py-2 border-t bg-muted/20 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="w-3 h-3" />
           <span>Last active: {daysSinceLabel(lastActiveDate)}</span>
         </div>
         {isInactive && lastActiveDate && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 dark:text-amber-400 border-amber-400/40">
+          <Badge variant="outline" className="text-xs px-1.5 py-0 text-amber-600 dark:text-amber-400 border-amber-400/40">
             Inactive
           </Badge>
         )}
         {!lastActiveDate && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+          <Badge variant="outline" className="text-xs px-1.5 py-0 text-muted-foreground">
             Never active
           </Badge>
         )}

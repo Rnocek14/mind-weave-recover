@@ -58,7 +58,7 @@ export function PlateauAnalysisSection({ data }: Props) {
             <div className="flex flex-wrap gap-1.5">
               {data.filter(r => r.predictors.length > 0).flatMap((r, i) =>
                 r.predictors.map((pred, j) => (
-                  <Badge key={`${i}-${j}`} variant="destructive" className="text-[10px]">
+                  <Badge key={`${i}-${j}`} variant="destructive" className="text-xs">
                     {r.phenotypeValue}: {pred}
                   </Badge>
                 ))

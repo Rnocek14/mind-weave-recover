@@ -71,7 +71,7 @@ export function FunctionalImpactSection({ trends, impact }: Props) {
             </ResponsiveContainer>
             <div className="flex flex-wrap gap-1.5">
               {impact.map((r, i) => (
-                <Badge key={i} variant={r.gap > 20 ? "destructive" : "outline"} className="text-[10px]">
+                <Badge key={i} variant={r.gap > 20 ? "destructive" : "outline"} className="text-xs">
                   {r.phenotypeValue}: gap {r.gap > 0 ? "+" : ""}{r.gap}% ({r.patientCount} patients)
                   {r.gap > 20 && " ⚠️ improving in-app but not functionally"}
                 </Badge>

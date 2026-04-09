@@ -159,11 +159,11 @@ export function ClinicianStrategyControls({
         <div className="flex items-center gap-2 text-sm">
           <Brain className="w-3.5 h-3.5 text-primary" />
           <span className="font-medium">{currentStrategy.label}</span>
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-xs">
             {currentStrategy.confidence}
           </Badge>
           {lockStrategy && (
-            <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-600">
+            <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
               <Lock className="w-2.5 h-2.5 mr-0.5" />
               Locked
             </Badge>
@@ -179,7 +179,7 @@ export function ClinicianStrategyControls({
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Therapy Strategy</Label>
                 <div className="flex items-center gap-2">
-                  <Label className="text-[10px] text-muted-foreground">Lock</Label>
+                  <Label className="text-xs text-muted-foreground">Lock</Label>
                   <Switch
                     checked={lockStrategy}
                     onCheckedChange={setLockStrategy}
@@ -206,7 +206,7 @@ export function ClinicianStrategyControls({
                 </SelectContent>
               </Select>
               {lockStrategy && (
-                <div className="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
                   <Shield className="w-3 h-3 mt-0.5 shrink-0" />
                   <span>System will use this strategy until unlocked, ignoring auto-selection.</span>
                 </div>
@@ -279,7 +279,7 @@ export function ClinicianStrategyControls({
             {/* Actions */}
             <div className="flex items-center justify-between pt-2">
               {hasChanges && (
-                <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
+                <div className="flex items-center gap-1.5 text-xs text-amber-600">
                   <AlertTriangle className="w-3 h-3" />
                   <span>Unsaved changes</span>
                 </div>

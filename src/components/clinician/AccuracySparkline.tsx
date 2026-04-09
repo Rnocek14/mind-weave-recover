@@ -69,7 +69,7 @@ export function AccuracySparkline({ timeline, height = 48 }: AccuracySparklinePr
     <div className="flex items-center gap-3 w-full">
       <div className="flex items-center gap-1.5 shrink-0">
         <TrendIcon className={`w-3.5 h-3.5 ${trendColor}`} />
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+        <span className="text-xs text-muted-foreground uppercase tracking-wide">
           {data.length}d trend
         </span>
       </div>
@@ -118,7 +118,7 @@ export function AccuracySparkline({ timeline, height = 48 }: AccuracySparklinePr
         </ResponsiveContainer>
       </div>
       {showFatigue && (
-        <span className="text-[9px] text-destructive/70 shrink-0">
+        <span className="text-xs text-destructive/70 shrink-0">
           fatigue ↔ accuracy
         </span>
       )}

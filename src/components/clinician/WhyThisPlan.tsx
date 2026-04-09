@@ -151,38 +151,38 @@ export function WhyThisPlan({
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pl-4">
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
-              <p className="text-[10px] text-muted-foreground">Difficulty</p>
+              <p className="text-xs text-muted-foreground">Difficulty</p>
               <p className="text-sm font-semibold">
                 {globalDifficulty > 0 ? `+${globalDifficulty}` : globalDifficulty < 0 ? String(globalDifficulty) : "Default"}
               </p>
               {Object.entries(difficultyOverrides).filter(([k]) => k !== "_global").length > 0 && (
-                <p className="text-[9px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {Object.entries(difficultyOverrides).filter(([k]) => k !== "_global").length} exercise-specific
                 </p>
               )}
             </div>
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
-              <p className="text-[10px] text-muted-foreground">Cue Level</p>
+              <p className="text-xs text-muted-foreground">Cue Level</p>
               <p className="text-sm font-semibold">
                 {cueOverride !== null ? `Level ${cueOverride}` : "Auto"}
               </p>
               {cueReviewedAt && (
-                <p className="text-[9px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Reviewed {new Date(cueReviewedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </p>
               )}
             </div>
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
-              <p className="text-[10px] text-muted-foreground">Active Overrides</p>
+              <p className="text-xs text-muted-foreground">Active Overrides</p>
               <p className="text-sm font-semibold">{activeOverrides.length}</p>
               {activeOverrides.length > 0 && (
-                <p className="text-[9px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {activeOverrides.map((o) => overrideTypeLabels[o.overrideType] || o.overrideType).join(", ")}
                 </p>
               )}
             </div>
             <div className="rounded-md bg-muted/30 p-2 space-y-0.5">
-              <p className="text-[10px] text-muted-foreground">Practice Assigned</p>
+              <p className="text-xs text-muted-foreground">Practice Assigned</p>
               <p className="text-sm font-semibold">{activePractice.length}</p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export function WhyThisPlan({
 
                 return (
                   <div key={o.id} className="flex items-center gap-2 text-xs rounded-md bg-primary/5 px-2 py-1.5">
-                    <Badge variant="outline" className="text-[9px] h-5 shrink-0 border-primary/30 text-primary">
+                    <Badge variant="outline" className="text-xs h-5 shrink-0 border-primary/30 text-primary">
                       <User className="w-2.5 h-2.5 mr-0.5" />
                       {overrideTypeLabels[o.overrideType] || o.overrideType}
                     </Badge>
@@ -219,7 +219,7 @@ export function WhyThisPlan({
                         — {o.reason}
                       </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                    <span className="text-xs text-muted-foreground/60 shrink-0">
                       {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </span>
                     {onReverseOverride && (
@@ -274,7 +274,7 @@ export function WhyThisPlan({
             <div className="flex flex-wrap items-center gap-1.5 text-xs pl-4">
               <span className="text-muted-foreground">Documented deficits:</span>
               {[...speechImpairments, ...cognitiveImpairments].slice(0, 5).map((imp, i) => (
-                <Badge key={i} variant="outline" className="text-[9px] h-5">
+                <Badge key={i} variant="outline" className="text-xs h-5">
                   {typeof imp === "string" ? imp.replace(/_/g, " ") : String(imp)}
                 </Badge>
               ))}
@@ -283,7 +283,7 @@ export function WhyThisPlan({
               {activeCognitiveDomains.slice(0, 4).map((d) => {
                 const meta = COGNITIVE_DOMAINS.find((cd) => cd.slug === d);
                 return (
-                  <Badge key={d} variant="secondary" className="text-[9px] h-5">
+                  <Badge key={d} variant="secondary" className="text-xs h-5">
                     {meta?.label || d.replace(/_/g, " ")}
                   </Badge>
                 );
@@ -295,7 +295,7 @@ export function WhyThisPlan({
             <div className="flex flex-wrap items-center gap-1.5 text-xs pl-4">
               <span className="text-muted-foreground">Therapy focus:</span>
               {therapyFocus.map((f, i) => (
-                <Badge key={i} className="text-[9px] h-5 bg-primary/10 text-primary border-primary/20">
+                <Badge key={i} className="text-xs h-5 bg-primary/10 text-primary border-primary/20">
                   {typeof f === "string" ? f.replace(/_/g, " ") : String(f)}
                 </Badge>
               ))}
@@ -331,7 +331,7 @@ export function WhyThisPlan({
               {missingDomains.map((d) => {
                 const meta = COGNITIVE_DOMAINS.find((cd) => cd.slug === d);
                 return (
-                  <Badge key={d} variant="outline" className="text-[9px] h-5 border-amber-300 text-amber-600">
+                  <Badge key={d} variant="outline" className="text-xs h-5 border-amber-300 text-amber-600">
                     {meta?.label || d.replace(/_/g, " ")}
                   </Badge>
                 );
@@ -366,7 +366,7 @@ export function WhyThisPlan({
                   <div key={o.id} className="flex items-center gap-2 text-xs">
                     <Badge
                       variant="outline"
-                      className={`text-[9px] h-5 shrink-0 ${statusColors[o.status] || "border-primary/30"}`}
+                      className={`text-xs h-5 shrink-0 ${statusColors[o.status] || "border-primary/30"}`}
                     >
                       <User className="w-2 h-2 mr-0.5" />
                       {overrideTypeLabels[o.overrideType] || o.overrideType}
@@ -380,11 +380,11 @@ export function WhyThisPlan({
                       </Badge>
                     )}
                     {o.reversedAt && (
-                      <span className="text-[9px] text-muted-foreground/50 shrink-0">
+                      <span className="text-xs text-muted-foreground/50 shrink-0">
                         ↩ {new Date(o.reversedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                       </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                    <span className="text-xs text-muted-foreground/60 ml-auto shrink-0">
                       {new Date(o.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </span>
                   </div>
@@ -404,12 +404,12 @@ export function WhyThisPlan({
             <div className="space-y-1 pl-4">
               {recentAdaptations.slice(0, 5).map((a, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
-                  <Badge variant="outline" className="text-[9px] h-5 shrink-0">
+                  <Badge variant="outline" className="text-xs h-5 shrink-0">
                     <Bot className="w-2 h-2 mr-0.5" />
                     {a.type.replace(/_/g, " ")}
                   </Badge>
                   <span className="text-muted-foreground">{a.detail}</span>
-                  <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                  <span className="text-xs text-muted-foreground/60 ml-auto shrink-0">
                     {new Date(a.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </span>
                 </div>

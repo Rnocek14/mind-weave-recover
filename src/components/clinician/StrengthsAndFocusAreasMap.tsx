@@ -59,7 +59,7 @@ const EvidenceTags = memo(function EvidenceTags({ tags }: { tags: EvidenceTag[] 
   return (
     <div className="flex items-center gap-1 pl-5">
       <Info className="w-2.5 h-2.5 text-muted-foreground/50 shrink-0" />
-      <span className="text-[10px] text-muted-foreground/70">
+      <span className="text-xs text-muted-foreground/70">
         Based on: {tags.map(t => t.label).join(" + ")}
       </span>
     </div>
@@ -171,7 +171,7 @@ const GlobalAdjustmentsBar = memo(function GlobalAdjustmentsBar({
 
   return (
     <div className="rounded-md bg-muted/30 border border-border/50 p-2 flex items-center gap-3 flex-wrap">
-      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
         <SlidersHorizontal className="w-3 h-3" />
         Global
       </span>
@@ -181,7 +181,7 @@ const GlobalAdjustmentsBar = memo(function GlobalAdjustmentsBar({
           <span className="font-medium text-foreground">{adj.value}</span>
           <ProvenanceIcon provenance={adj.provenance} role={role} />
           {role === "clinician" && adj.changedAt && (
-            <span className="text-[9px] text-muted-foreground/60">
+            <span className="text-xs text-muted-foreground/60">
               {new Date(adj.changedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
           )}
@@ -292,12 +292,12 @@ const FocusCard = memo(function FocusCard({
             {role === "patient" ? "Games:" : "Exercises:"}
           </span>
           {card.exercises.slice(0, 4).map(name => (
-            <Badge key={name} variant="secondary" className="text-[9px] h-4 px-1.5">
+            <Badge key={name} variant="secondary" className="text-xs h-4 px-1.5">
               {name}
             </Badge>
           ))}
           {card.exercises.length > 4 && (
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+            <Badge variant="outline" className="text-xs h-4 px-1.5">
               +{card.exercises.length - 4}
             </Badge>
           )}
@@ -329,13 +329,13 @@ const FocusCard = memo(function FocusCard({
             <div className="space-y-0.5">
               <div className="flex items-center gap-1">
                 <Lightbulb className="w-3 h-3 text-amber-500 shrink-0" />
-                <span className="text-[10px] text-amber-600 font-medium">
+                <span className="text-xs text-amber-600 font-medium">
                   Suggested exercises:
                 </span>
               </div>
               <div className="flex gap-1 flex-wrap pl-4">
                 {card.suggestedExercises.map(name => (
-                  <Badge key={name} variant="outline" className="text-[9px] h-4 px-1.5 border-amber-300/50">
+                  <Badge key={name} variant="outline" className="text-xs h-4 px-1.5 border-amber-300/50">
                     {name}
                   </Badge>
                 ))}
@@ -344,7 +344,7 @@ const FocusCard = memo(function FocusCard({
           ) : (
             <div className="flex items-center gap-1">
               <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-              <span className="text-[10px] text-amber-600">
+              <span className="text-xs text-amber-600">
                 {getGapActionText(role)}
               </span>
             </div>
@@ -405,7 +405,7 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
       {/* Focus Areas — active treatment targets */}
       {activeFocus.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Target className="w-3 h-3" />
             {getSectionLabel("focus", role)} ({activeFocus.length})
           </p>
@@ -420,7 +420,7 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
       {/* Strengths */}
       {confirmedStrengths.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <CheckCircle2 className="w-3 h-3 text-success" />
             {getSectionLabel("strength", role)} ({confirmedStrengths.length})
           </p>
@@ -435,7 +435,7 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
       {/* Maintained / Monitored */}
       {maintainedAreas.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Eye className="w-3 h-3" />
             {getSectionLabel("maintained", role)} ({maintainedAreas.length})
           </p>
@@ -450,7 +450,7 @@ export const StrengthsAndFocusAreasMap = memo(function StrengthsAndFocusAreasMap
       {/* Uncovered — clinician/caregiver only, patient hidden by default */}
       {uncoveredAreas.length > 0 && role !== "patient" && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <AlertCircle className="w-3 h-3 text-amber-500" />
             {getSectionLabel("uncovered", role)} ({uncoveredAreas.length})
           </p>

@@ -65,7 +65,7 @@ export function DataSufficiencyBar({ patientCount, sessionCount, trialCount, ret
           ) : (
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           )}
-          <Badge className={`text-[10px] ${RELIABILITY_STYLES[reliability.level]}`}>
+          <Badge className={`text-xs ${RELIABILITY_STYLES[reliability.level]}`}>
             Analytics Reliability: {reliability.label}
           </Badge>
           <span className="text-xs text-muted-foreground">{reliability.description}</span>
@@ -75,7 +75,7 @@ export function DataSufficiencyBar({ patientCount, sessionCount, trialCount, ret
             <Badge
               key={t.label}
               variant={t.current >= t.ideal ? "default" : t.current >= t.min ? "secondary" : "outline"}
-              className={`text-[10px] ${t.current < t.min ? "border-destructive/30 text-destructive" : ""}`}
+              className={`text-xs ${t.current < t.min ? "border-destructive/30 text-destructive" : ""}`}
             >
               {t.label}: {t.current}{t.current < t.min ? ` (need ${t.min}+)` : ""}
             </Badge>

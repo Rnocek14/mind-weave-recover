@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Stethoscope, Users, AlertTriangle, Bell, Clock, X, RefreshCw,
-  TrendingUp, Activity, Brain, BarChart3, ExternalLink
+  Stethoscope, Users, AlertTriangle, Clock, X, RefreshCw,
+  Brain, ExternalLink
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
@@ -96,19 +96,6 @@ export default function ClinicianPanel() {
     }).slice(0, 5);
   }, [patients]);
 
-  // Triage rollup counts
-  const triage = useMemo(() => {
-    const now = new Date();
-    const threeDaysAgoStr = localYYYYMMDD(new Date(now.getTime() - 3 * 86400000));
-    let critical = 0, hasAlerts = 0, inactive3d = 0;
-    for (const p of patients) {
-      if (p.criticalAlertCount > 0) critical++;
-      if (p.activeAlertCount > 0) hasAlerts++;
-      if (!p.lastActiveDate || p.lastActiveDate <= threeDaysAgoStr) inactive3d++;
-    }
-    return { critical, hasAlerts, inactive3d };
-  }, [patients]);
-
   // Cohort snapshot
   const cohortSnapshot = useMemo(() => {
     const withAccuracy = patients.filter(p => p.avgAccuracy7d != null);
@@ -119,7 +106,6 @@ export default function ClinicianPanel() {
       ? Math.round(patients.reduce((s, p) => s + p.adherenceDays7d, 0) / patients.length * 10) / 10
       : null;
 
-    // Most common issue
     const issueCounts: Record<string, number> = {};
     for (const p of patients) {
       if (p.trend === "down") issueCounts["Declining"] = (issueCounts["Declining"] || 0) + 1;
@@ -152,7 +138,7 @@ export default function ClinicianPanel() {
         <div className="flex items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Clinician Dashboard</h1>
-          <Badge variant="secondary" className="text-[10px]">{patients.length} patients</Badge>
+          <Badge variant="secondary" className="text-xs">{patients.length} patients</Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>
@@ -172,67 +158,66 @@ export default function ClinicianPanel() {
         </div>
       </div>
 
-      {/* Needs Attention Section */}
+      {/* Needs Attention Section — PRIMARY, visually dominant */}
       {!isLoading && needsAttention.length > 0 && (
-        <Card className="border-l-4 border-l-destructive/60">
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-destructive" />
+        <Card className="border-l-4 border-l-destructive/60 shadow-md">
+          <CardHeader className="pb-3 pt-4">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
               Needs Attention
-              <Badge variant="destructive" className="text-[10px]">{needsAttention.length}</Badge>
+              <Badge variant="destructive" className="text-xs">{needsAttention.length}</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
+          <CardContent className="pb-4">
             <div className="space-y-2">
-              {needsAttention.map(p => (
-                <button
-                  key={p.profileId}
-                  onClick={() => handlePatientClick(p.profileId)}
-                  className="w-full flex items-center justify-between text-xs p-2 rounded-md hover:bg-muted/60 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{p.name}</span>
-                    {p.aphasiaLabel && <span className="text-muted-foreground">{p.aphasiaLabel}</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {p.criticalAlertCount > 0 && (
-                      <Badge variant="destructive" className="text-[9px]">{p.criticalAlertCount} critical</Badge>
-                    )}
-                    {p.trend === "down" && (
-                      <Badge variant="secondary" className="text-[9px] text-destructive">Declining</Badge>
-                    )}
-                    {p.activeAlertCount > 0 && p.criticalAlertCount === 0 && (
-                      <Badge variant="secondary" className="text-[9px]">{p.activeAlertCount} alerts</Badge>
-                    )}
-                    {(!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000))) && (
-                      <Badge variant="outline" className="text-[9px]">Inactive</Badge>
-                    )}
-                    <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
+              {needsAttention.map(p => {
+                // Build reason string
+                const reasons: string[] = [];
+                if (p.criticalAlertCount > 0) reasons.push(`${p.criticalAlertCount} critical alert${p.criticalAlertCount > 1 ? "s" : ""}`);
+                if (p.trend === "down") reasons.push("declining accuracy");
+                if (!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000)))
+                  reasons.push("inactive ≥3d");
+                if (p.activeAlertCount > 0 && p.criticalAlertCount === 0) reasons.push(`${p.activeAlertCount} alert${p.activeAlertCount > 1 ? "s" : ""}`);
+
+                return (
+                  <button
+                    key={p.profileId}
+                    onClick={() => handlePatientClick(p.profileId)}
+                    className="w-full flex items-center justify-between text-sm p-3 rounded-lg hover:bg-muted/60 transition-colors text-left border border-border/50"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-semibold truncate">{p.name}</span>
+                      {p.aphasiaLabel && <span className="text-xs text-muted-foreground shrink-0">{p.aphasiaLabel}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{reasons.join(" · ")}</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Cohort Snapshot + Triage Counts */}
+      {/* Cohort Snapshot */}
       {!isLoading && patients.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAccuracy != null ? `${cohortSnapshot.avgAccuracy}%` : "—"}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg Adherence</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Adherence</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAdherence != null ? `${cohortSnapshot.avgAdherence}d/wk` : "—"}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Top Issue</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Top Issue</div>
             <div className="text-sm font-medium mt-0.5">{cohortSnapshot.topIssue}</div>
           </Card>
           <Card className="p-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate("/admin/cohort-research")}>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
               Research <ExternalLink className="w-2.5 h-2.5" />
             </div>
             <div className="text-sm font-medium mt-0.5 text-primary">Cohort Analytics →</div>
@@ -240,73 +225,7 @@ export default function ClinicianPanel() {
         </div>
       )}
 
-      {/* Triage rollup — clickable filters */}
-      {!isLoading && patients.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-          <button
-            type="button"
-            aria-pressed={riskFilter === "critical"}
-            onClick={() => setRiskFilter(riskFilter === "critical" ? "all" : "critical")}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
-              riskFilter === "critical"
-                ? "border-destructive/40 bg-destructive/10"
-                : "border-transparent hover:bg-muted/60"
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
-            <span className="font-medium text-destructive">{triage.critical}</span>
-            <span className="text-muted-foreground hidden sm:inline">Critical</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={riskFilter === "any_alert"}
-            onClick={() => setRiskFilter(riskFilter === "any_alert" ? "all" : "any_alert")}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
-              riskFilter === "any_alert"
-                ? "border-amber-400/40 bg-amber-500/10"
-                : "border-transparent hover:bg-muted/60"
-            }`}
-          >
-            <Bell className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-medium text-amber-600">{triage.hasAlerts}</span>
-            <span className="text-muted-foreground hidden sm:inline">Has alerts</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={engagementFilter === "inactive_3d"}
-            onClick={() => setEngagementFilter(engagementFilter === "inactive_3d" ? "all" : "inactive_3d")}
-            className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors border ${
-              engagementFilter === "inactive_3d"
-                ? "border-border bg-muted"
-                : "border-transparent hover:bg-muted/60"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="font-medium">{triage.inactive3d}</span>
-            <span className="text-muted-foreground hidden sm:inline">Inactive ≥3d</span>
-          </button>
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={() => {
-                setRiskFilter("all");
-                setEngagementFilter("all");
-                setSearch("");
-                setAphasiaFilter("all");
-                setLateralityFilter("all");
-                setChronicityFilter("all");
-              }}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto sm:ml-0"
-            >
-              <X className="w-3 h-3" />
-              <span>Clear filters</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Filters including phenotype */}
+      {/* Filters — single surface (removed redundant triage chips) */}
       {!isLoading && patients.length > 0 && (
         <div className="space-y-3">
           <CaseloadFilters
@@ -324,7 +243,7 @@ export default function ClinicianPanel() {
           {/* Phenotype filters */}
           <div className="flex flex-wrap items-center gap-2">
             <Brain className="w-4 h-4 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Phenotype:</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Phenotype:</span>
             {phenotypeOptions.aphasia.length > 1 && (
               <Select value={aphasiaFilter} onValueChange={setAphasiaFilter}>
                 <SelectTrigger className="w-[130px] h-8 text-xs">
@@ -363,6 +282,23 @@ export default function ClinicianPanel() {
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRiskFilter("all");
+                  setEngagementFilter("all");
+                  setSearch("");
+                  setAphasiaFilter("all");
+                  setLateralityFilter("all");
+                  setChronicityFilter("all");
+                }}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto sm:ml-0"
+              >
+                <X className="w-3 h-3" />
+                <span>Clear filters</span>
+              </button>
             )}
           </div>
         </div>

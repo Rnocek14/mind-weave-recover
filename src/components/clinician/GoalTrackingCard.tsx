@@ -93,7 +93,7 @@ export function GoalTrackingCard({ userId, profileId }: GoalTrackingCardProps) {
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
           Functional Goals
-          <Badge variant="secondary" className="text-[10px]">{goals.length}</Badge>
+          <Badge variant="secondary" className="text-xs">{goals.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-3 space-y-2">
@@ -101,11 +101,11 @@ export function GoalTrackingCard({ userId, profileId }: GoalTrackingCardProps) {
           <div key={g.id} className="p-2.5 rounded-lg bg-muted/20 space-y-1">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium text-foreground flex-1">{g.goalText}</p>
-              <Badge variant={statusColor(g.latestStatus)} className="text-[10px] shrink-0">
+              <Badge variant={statusColor(g.latestStatus)} className="text-xs shrink-0">
                 {statusLabel(g.latestStatus)}
               </Badge>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="capitalize">{g.targetDomain.replace(/_/g, " ")}</span>
               <span>·</span>
               <span>Baseline: {g.baselineStatus.replace(/_/g, " ")}</span>

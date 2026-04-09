@@ -1,16 +1,20 @@
 /**
- * Intelligence Tab — Clinical interpretation, predictions, strategy, next actions,
- * longitudinal utterance comparison, dose compliance, functional transfer,
- * readiness signal, explainability.
+ * Intelligence Tab — Restructured into 4 clear sections:
+ * 1. What's Happening (summary)
+ * 2. What to Do (PRIMARY — actions)
+ * 3. Why (explanations, collapsed)
+ * 4. Deep Data (collapsed)
  */
 import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Brain, Pill, CheckCircle2, AlertTriangle, ArrowRight, Shield,
-  TrendingUp, TrendingDown, Minus, Info, Activity, Target
+  TrendingUp, TrendingDown, Minus, Info, Activity, Target,
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -36,14 +40,40 @@ import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { generateNextActions } from "@/lib/generateNextActions";
-import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
+import { loadWordHistory, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
 import { cn } from "@/lib/utils";
-import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 
 interface IntelligenceTabProps {
   userId: string;
   profileId: string | undefined;
   windowSize: number;
+}
+
+function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children, badge }: {
+  title: string;
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/40 transition-colors">
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">{title}</span>
+            {badge}
+          </div>
+          <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceTabProps) {
@@ -98,7 +128,6 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
     };
   }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
 
-  // Split recordings into current and prior for utterance comparison
   const priorRecordings = useMemo(() => {
     const currentIds = new Set(recordings.map((r) => r.attemptId));
     return priorRecordingsAll.filter((r) => !currentIds.has(r.attemptId));
@@ -157,7 +186,6 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
     if (retentionRate != null && retentionRate >= 50) {
       links.push({ exercise: "Word retention", functional: "Vocabulary carryover", signal: `${retentionRate}% retention → practiced words transferring to daily use` });
     }
-    // Link to functional goals
     const activeGoals = goals.filter(g => !g.archived_at);
     activeGoals.forEach(g => {
       links.push({ exercise: `Goal: ${g.target_domain}`, functional: g.goal_text, signal: `Active goal — ${g.baseline_status}` });
@@ -177,7 +205,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
 
   return (
     <div className="space-y-4 mt-4">
-      {/* Clinical Interpretation */}
+      {/* ═══════ SECTION 1: WHAT'S HAPPENING ═══════ */}
       <ClinicalInterpretation
         current={currentSummaryWoW}
         prior={priorSummaryWoW}
@@ -187,220 +215,202 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
         profileName={activeProfile?.profile_name || "Patient"}
       />
 
-      {/* Therapy Intelligence */}
-      {intelligenceProfile ? (
-        <TherapyIntelligenceReport profile={intelligenceProfile} />
-      ) : !intelligenceLoading ? (
-        <Card className="border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Brain className="w-4 h-4 text-primary" />
-              Therapy Intelligence
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No intelligence data yet. Will appear after therapy sessions.
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Outcome Prediction */}
-      <OutcomePredictionCard userId={userId} profileId={profileId} />
-
-      {/* Dose Compliance */}
-      {doseComparisons.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Pill className="w-4 h-4 text-primary" />
-              Dose Compliance
-              <Badge variant="secondary" className="text-[10px]">{windowSize}d</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-3">
-              {doseComparisons.map((d) => (
-                <div key={d.domainSlug} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium capitalize">{d.domainLabel}</span>
-                    <div className="flex items-center gap-2">
-                      {d.ratio >= 0.8 ? (
-                        <CheckCircle2 className="w-3 h-3 text-success" />
-                      ) : d.ratio >= 0.5 ? (
-                        <AlertTriangle className="w-3 h-3 text-amber-500" />
-                      ) : (
-                        <AlertTriangle className="w-3 h-3 text-destructive" />
-                      )}
-                      <span className="text-muted-foreground">
-                        {d.completedPerDay}m / {d.prescribed}m daily
-                      </span>
-                      <Badge variant={d.ratio >= 0.8 ? "default" : d.ratio >= 0.5 ? "secondary" : "destructive"} className="text-[10px]">
-                        {Math.round(d.ratio * 100)}%
-                      </Badge>
-                    </div>
-                  </div>
-                  <Progress value={Math.min(d.ratio * 100, 100)} className="h-1.5" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Longitudinal Utterance Comparison */}
-      {recordings.length > 0 && priorRecordings.length > 0 && (
-        <LongitudinalUtteranceComparison
-          currentRecordings={recordings}
-          priorRecordings={priorRecordings}
-          windowSize={windowSize}
-        />
-      )}
-
-      {/* Week-over-Week */}
       <WeekComparisonRow
         deltas={deltas}
         windowSize={windowSize}
         hasPriorData={hasPriorData}
       />
 
-      {/* Strategy Controls */}
-      {user?.id && profileId && (
-        <ClinicianStrategyControls
-          profileId={profileId}
+      {/* ═══════ SECTION 2: WHAT TO DO (PRIMARY) ═══════ */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-foreground flex items-center gap-2 px-1">
+          <Target className="w-4 h-4 text-primary" />
+          What to Do Next
+        </h3>
+
+        <ActionableNextSteps
+          actions={nextActions}
+          profileName={activeProfile?.profile_name || "Patient"}
           userId={userId}
-          clinicianId={user.id}
-          currentStrategy={(() => {
-            const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile ?? null, todayFocus: null, sessionSnapshot: null });
-            return strategy;
-          })()}
-          onOverrideApplied={refetchOverrides}
+          profileId={profileId}
+          clinicianId={user?.id}
+          onActionComplete={refetchOverrides}
         />
-      )}
 
-      {/* Pending Suggestions */}
-      <PendingSuggestions
-        suggestions={suggestedOverrides}
-        userId={userId}
-        profileId={profileId || ""}
-        clinicianId={user?.id || ""}
-        onActionComplete={refetchOverrides}
-      />
+        <PendingSuggestions
+          suggestions={suggestedOverrides}
+          userId={userId}
+          profileId={profileId || ""}
+          clinicianId={user?.id || ""}
+          onActionComplete={refetchOverrides}
+        />
+      </div>
 
-      {/* Next Actions */}
-      <ActionableNextSteps
-        actions={nextActions}
-        profileName={activeProfile?.profile_name || "Patient"}
-        userId={userId}
-        profileId={profileId}
-        clinicianId={user?.id}
-        onActionComplete={refetchOverrides}
-      />
+      {/* ═══════ SECTION 3: WHY (collapsible) ═══════ */}
+      <Card className="border-border/50">
+        <CollapsibleSection title="Why — Clinical Reasoning" icon={Brain} defaultOpen={false}>
+          <div className="space-y-3 pb-3">
+            {intelligenceProfile ? (
+              <TherapyIntelligenceReport profile={intelligenceProfile} />
+            ) : !intelligenceLoading ? (
+              <p className="text-sm text-muted-foreground px-3">
+                No intelligence data yet. Will appear after therapy sessions.
+              </p>
+            ) : null}
 
-      {/* Readiness / Discharge Signal */}
-      {readinessSignal.score != null && (
-        <Card className={cn("border-l-4", readinessSignal.level === "ready" ? "border-l-success" : readinessSignal.level === "stable" ? "border-l-primary" : readinessSignal.level === "improving" ? "border-l-amber-500" : "border-l-destructive")}>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Readiness Signal
-              <Badge variant={readinessSignal.level === "ready" ? "default" : "secondary"} className="text-[10px] capitalize">
-                {readinessSignal.level === "ready" ? "Ready for step-down" : readinessSignal.level}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-2">
-            <div className="space-y-1.5">
-              {readinessSignal.signals.map((s) => (
-                <div key={s.label} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{s.label}</span>
-                  <span className="font-medium">{s.value != null ? `${s.value}%` : "—"}</span>
-                </div>
-              ))}
-            </div>
-            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Info className="w-3 h-3" />
-              Composite of recovery score, cue independence, retention, and accuracy trend
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <OutcomePredictionCard userId={userId} profileId={profileId} />
 
-      {/* Functional Communication Check-in */}
-      {userId && profileId && (
-        <FunctionalCheckinForm userId={userId} profileId={profileId} />
-      )}
+            {/* Readiness Signal */}
+            {readinessSignal.score != null && (
+              <Card className={cn("border-l-4 mx-1", readinessSignal.level === "ready" ? "border-l-success" : readinessSignal.level === "stable" ? "border-l-primary" : readinessSignal.level === "improving" ? "border-l-amber-500" : "border-l-destructive")}>
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Readiness Signal
+                    <Badge variant={readinessSignal.level === "ready" ? "default" : "secondary"} className="text-xs capitalize">
+                      {readinessSignal.level === "ready" ? "Ready for step-down" : readinessSignal.level}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3 space-y-2">
+                  <div className="space-y-1.5">
+                    {readinessSignal.signals.map((s) => (
+                      <div key={s.label} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{s.label}</span>
+                        <span className="font-medium">{s.value != null ? `${s.value}%` : "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Composite of recovery score, cue independence, retention, and accuracy trend
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-      {/* Functional Communication Transfer */}
-      {functionalLinks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Functional Communication Impact
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-2">
-            {functionalLinks.map((link, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs p-2 rounded bg-muted/20">
-                <ArrowRight className="w-3 h-3 mt-0.5 text-primary shrink-0" />
-                <div>
-                  <div className="font-medium">{link.exercise} → {link.functional}</div>
-                  <div className="text-muted-foreground">{link.signal}</div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Explainability — Evidence Behind Scores */}
-      <Card className="border-border/30">
-        <CardHeader className="pb-2 pt-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            Evidence & Explainability
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-3 space-y-3 text-xs">
-          {recoveryScore != null && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">Recovery Score: {recoveryScore}%</span>
-                <Badge variant="outline" className="text-[10px]">{rsConfidence || "low"} confidence</Badge>
-              </div>
-              {rsBreakdown && (
-                <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
-                  {rsBreakdown.accuracy != null && <span>Accuracy: {rsBreakdown.accuracy}%</span>}
-                  {rsBreakdown.latency != null && <span>Latency: {rsBreakdown.latency}%</span>}
-                  {rsBreakdown.cueIndependence != null && <span>Cue: {rsBreakdown.cueIndependence}%</span>}
-                  {rsBreakdown.errorQuality != null && <span>Error Q: {rsBreakdown.errorQuality}%</span>}
-                  {(rsBreakdown as any)?.consistency != null && <span>Consistency: {(rsBreakdown as any).consistency}%</span>}
-                  {rsBreakdown.endurance != null && <span>Endurance: {rsBreakdown.endurance}%</span>}
-                </div>
-              )}
-            </div>
-          )}
-          <div className="space-y-1">
-            <span className="font-medium">Data window: {windowSize} days</span>
-            <div className="text-[10px] text-muted-foreground">
-              {sessionStats.sessionCount} sessions · {sessionStats.trialCount} trials · {activeDays}/7 active days
-            </div>
+            {/* Functional Communication Transfer */}
+            {functionalLinks.length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Functional Communication Impact
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3 space-y-2">
+                  {functionalLinks.map((link, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs p-2 rounded bg-muted/20">
+                      <ArrowRight className="w-3 h-3 mt-0.5 text-primary shrink-0" />
+                      <div>
+                        <div className="font-medium">{link.exercise} → {link.functional}</div>
+                        <div className="text-muted-foreground">{link.signal}</div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
-          {sessionStats.accuracySlope != null && (
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Accuracy trend:</span>
-              {sessionStats.accuracySlope > 0.01 ? (
-                <span className="text-success flex items-center gap-1"><TrendingUp className="w-3 h-3" /> +{(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
-              ) : sessionStats.accuracySlope < -0.01 ? (
-                <span className="text-destructive flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
-              ) : (
-                <span className="text-muted-foreground flex items-center gap-1"><Minus className="w-3 h-3" /> Stable</span>
-              )}
-            </div>
-          )}
-        </CardContent>
+        </CollapsibleSection>
+      </Card>
+
+      {/* ═══════ SECTION 4: DEEP DATA (collapsible, collapsed) ═══════ */}
+      <Card className="border-border/30">
+        <CollapsibleSection title="Deep Data & Controls" icon={Activity} defaultOpen={false}>
+          <div className="space-y-3 pb-3">
+            {/* Dose Compliance */}
+            {doseComparisons.length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Pill className="w-4 h-4 text-primary" />
+                    Dose Compliance
+                    <Badge variant="secondary" className="text-xs">{windowSize}d</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="space-y-3">
+                    {doseComparisons.map((d) => (
+                      <div key={d.domainSlug} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium capitalize">{d.domainLabel}</span>
+                          <div className="flex items-center gap-2">
+                            {d.ratio >= 0.8 ? (
+                              <CheckCircle2 className="w-3 h-3 text-success" />
+                            ) : d.ratio >= 0.5 ? (
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                            ) : (
+                              <AlertTriangle className="w-3 h-3 text-destructive" />
+                            )}
+                            <span className="text-muted-foreground">
+                              {d.completedPerDay}m / {d.prescribed}m daily
+                            </span>
+                            <Badge variant={d.ratio >= 0.8 ? "default" : d.ratio >= 0.5 ? "secondary" : "destructive"} className="text-xs">
+                              {Math.round(d.ratio * 100)}%
+                            </Badge>
+                          </div>
+                        </div>
+                        <Progress value={Math.min(d.ratio * 100, 100)} className="h-1.5" />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Longitudinal Utterance Comparison */}
+            {recordings.length > 0 && priorRecordings.length > 0 && (
+              <div className="mx-1">
+                <LongitudinalUtteranceComparison
+                  currentRecordings={recordings}
+                  priorRecordings={priorRecordings}
+                  windowSize={windowSize}
+                />
+              </div>
+            )}
+
+            {/* Strategy Controls */}
+            {user?.id && profileId && (
+              <div className="mx-1">
+                <ClinicianStrategyControls
+                  profileId={profileId}
+                  userId={userId}
+                  clinicianId={user.id}
+                  currentStrategy={(() => {
+                    const { strategy } = selectTherapyStrategy({ patientProfile: intelligenceProfile ?? null, todayFocus: null, sessionSnapshot: null });
+                    return strategy;
+                  })()}
+                  onOverrideApplied={refetchOverrides}
+                />
+              </div>
+            )}
+
+            {/* Data window summary */}
+            <Card className="border-border/30 mx-1">
+              <CardContent className="py-3 space-y-3 text-xs">
+                <div className="space-y-1">
+                  <span className="font-medium">Data window: {windowSize} days</span>
+                  <div className="text-xs text-muted-foreground">
+                    {sessionStats.sessionCount} sessions · {sessionStats.trialCount} trials · {activeDays}/7 active days
+                  </div>
+                </div>
+                {sessionStats.accuracySlope != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Accuracy trend:</span>
+                    {sessionStats.accuracySlope > 0.01 ? (
+                      <span className="text-success flex items-center gap-1"><TrendingUp className="w-3 h-3" /> +{(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
+                    ) : sessionStats.accuracySlope < -0.01 ? (
+                      <span className="text-destructive flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
+                    ) : (
+                      <span className="text-muted-foreground flex items-center gap-1"><Minus className="w-3 h-3" /> Stable</span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </CollapsibleSection>
       </Card>
     </div>
   );

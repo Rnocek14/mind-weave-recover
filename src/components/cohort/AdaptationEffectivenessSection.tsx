@@ -65,7 +65,7 @@ export function AdaptationEffectivenessSection({ data }: Props) {
 
         <div className="flex flex-wrap gap-1.5">
           {data.slice(0, 15).map((r, i) => (
-            <Badge key={i} variant="outline" className="text-[10px]">
+            <Badge key={i} variant="outline" className="text-xs">
               {r.adaptationType} × {r.phenotypeValue}: {r.fireCount}× ({r.avgConfidence} confidence)
             </Badge>
           ))}
