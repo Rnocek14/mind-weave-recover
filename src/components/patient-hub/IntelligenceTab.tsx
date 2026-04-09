@@ -71,6 +71,21 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId);
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
+  const { score: recoveryScore, breakdown: rsBreakdown, confidence: rsConfidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
+  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
+  const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
+  const { goals, loading: goalsLoading } = useFunctionalGoals(userId);
+
+  // Retention data for readiness signal
+  const [retentionRate, setRetentionRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    loadWordHistory(userId, 100).then((history) => {
+      const hint = getRetentionDifficultyHint(history);
+      const tracked = history.filter(w => w.sessionCount >= 2).length;
+      setRetentionRate(tracked > 0 ? Math.round((hint.retainedWords.length / tracked) * 100) : null);
+    });
+  }, [userId]);
 
   const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
     const cutoff = allDayGroups.length - windowSize;
@@ -107,6 +122,47 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
       }),
     [timeline, flags, alerts, sessionStats, activeDays]
   );
+
+  // Readiness / Discharge Signal
+  const readinessSignal = useMemo(() => {
+    const signals: { label: string; value: number | null; weight: number }[] = [
+      { label: "Recovery Score", value: recoveryScore, weight: 0.3 },
+      { label: "Cue Independence", value: cueScore, weight: 0.25 },
+      { label: "Retention Rate", value: retentionRate, weight: 0.25 },
+      { label: "Accuracy Trend", value: sessionStats.accuracySlope != null ? (sessionStats.accuracySlope > 0.01 ? 80 : sessionStats.accuracySlope > -0.01 ? 60 : 30) : null, weight: 0.2 },
+    ];
+    const validSignals = signals.filter(s => s.value != null);
+    if (validSignals.length < 2) return { level: "insufficient" as const, score: null, signals };
+    const weighted = validSignals.reduce((sum, s) => sum + (s.value! * s.weight), 0) / validSignals.reduce((sum, s) => sum + s.weight, 0);
+    const level = weighted >= 80 ? "ready" as const : weighted >= 65 ? "stable" as const : weighted >= 45 ? "improving" as const : "plateau" as const;
+    return { level, score: Math.round(weighted), signals };
+  }, [recoveryScore, cueScore, retentionRate, sessionStats.accuracySlope]);
+
+  // Functional communication links
+  const functionalLinks = useMemo(() => {
+    const links: { exercise: string; functional: string; signal: string }[] = [];
+    const avgAcc = sessionStats.avgAccuracy;
+    if (avgAcc != null) {
+      if (avgAcc >= 70) {
+        links.push({ exercise: "Photo Naming / Category Fluency", functional: "Object identification in daily life", signal: `${Math.round(avgAcc)}% naming accuracy → functional word retrieval improving` });
+      }
+      if (sessionStats.accuracySlope != null && sessionStats.accuracySlope > 0) {
+        links.push({ exercise: "Response speed trend", functional: "Conversational flow & participation", signal: "Faster responses → improved real-time communication" });
+      }
+    }
+    if (cueScore != null && cueScore >= 60) {
+      links.push({ exercise: "Cue independence", functional: "Independent communication", signal: `${cueScore}% independence → less support needed in daily interactions` });
+    }
+    if (retentionRate != null && retentionRate >= 50) {
+      links.push({ exercise: "Word retention", functional: "Vocabulary carryover", signal: `${retentionRate}% retention → practiced words transferring to daily use` });
+    }
+    // Link to functional goals
+    const activeGoals = goals.filter(g => !g.archivedAt);
+    activeGoals.forEach(g => {
+      links.push({ exercise: `Goal: ${g.targetDomain}`, functional: g.goalText, signal: `Active goal — ${g.baselineStatus}` });
+    });
+    return links;
+  }, [sessionStats, cueScore, retentionRate, goals]);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
