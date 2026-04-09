@@ -152,15 +152,24 @@ export function CategoryFluencyGame({
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
-  const totalTime = getTimerForDifficulty(currentDifficulty);
+  const [totalTime, setTotalTime] = useState(() => getTimerForDifficulty(currentDifficulty));
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const wordsRef = useRef<Array<{ text: string; status: WordValidation }>>([]);
+  const timerExpiredRef = useRef(false);
 
   useEffect(() => { wordsRef.current = words; }, [words]);
   useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
+
+  // Handle timer expiry outside of setState updater to avoid render glitch
+  useEffect(() => {
+    if (timeLeft <= 0 && phase === 'active' && timerExpiredRef.current) {
+      timerExpiredRef.current = false;
+      finishRound();
+    }
+  }, [timeLeft, phase, finishRound]);
 
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
