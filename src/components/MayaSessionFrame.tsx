@@ -34,13 +34,14 @@ export function MayaSessionFrame({
   onContinue 
 }: MayaSessionFrameProps) {
   const { isVoiceLed } = useCoachingMode();
-  const { speak, stop, isSpeaking } = useTextToSpeech();
+  const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   
   // Timing: voice-led waits for TTS + 1s pause; non-voice uses timer
   const defaultDuration = type === 'intro' ? 6 : 4;
   const totalDuration = duration ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [speechDone, setSpeechDone] = useState(false);
+  const [speechStarted, setSpeechStarted] = useState(false);
   const hasSpokenRef = useRef(false);
   const mountedRef = useRef(true);
 
