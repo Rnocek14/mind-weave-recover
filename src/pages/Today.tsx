@@ -368,19 +368,38 @@ export default function Today() {
             )}
           </Button>
 
-          {/* Guided session option */}
-          {mode !== 'off' && !savedSession && (
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full gap-2 text-sm py-5"
-              onClick={handleStartCoreComm}
-            >
-              <Brain className="w-4 h-4" />
-              Core Communication Session
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          )}
+          {/* Recommended session — Maya's choice */}
+          {mode !== 'off' && !savedSession && (() => {
+            const recommendation = recommendNextSession();
+            return (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-medium text-primary uppercase tracking-wide">
+                    Recommended for today
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {recommendation.templateLabel}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {recommendation.reason}
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full gap-2 text-sm py-5"
+                  onClick={() => handleStartRecommended(recommendation)}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Start recommended session
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
