@@ -75,6 +75,7 @@ import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -175,7 +176,7 @@ const App = () => (
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
-                  <Route path="/admin/cohort-research" element={<AppLayout><AdminProtectedRoute><CohortResearchAnalytics /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/cohort-research" element={<AppLayout><ClinicianProtectedRoute><CohortResearchAnalytics /></ClinicianProtectedRoute></AppLayout>} />
                   <Route path="/progress" element={<Progress />} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
