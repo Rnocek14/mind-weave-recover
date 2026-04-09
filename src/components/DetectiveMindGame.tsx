@@ -297,6 +297,36 @@ export function DetectiveMindGame({
               💡 Using the hint can help — no pressure!
             </p>
           )}
+
+          {/* Replay buttons — always visible, especially important in Full Coaching */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                if (!currentCase) return;
+                vg.interrupt();
+                vg.autoReadText(currentCase.story.join(' '));
+              }}
+            >
+              <Volume2 className="h-4 w-4 mr-1" />
+              Repeat story
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                if (!currentCase) return;
+                vg.interrupt();
+                vg.autoReadText(currentCase.question);
+              }}
+            >
+              <Volume2 className="h-4 w-4 mr-1" />
+              Repeat question
+            </Button>
+          </div>
         </div>
       )}
 
