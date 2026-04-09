@@ -302,7 +302,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   
   const handlePreviewStart = () => {
     resetFeedbackHistory();
-    setPhase("exercise");
+    // If session has a Maya frame, show intro first
+    if (sessionFrame && showPurpose) {
+      setPhase("maya-intro");
+    } else {
+      setPhase("exercise");
+    }
   };
 
   const navigateToExercise = (exerciseId: string) => {
