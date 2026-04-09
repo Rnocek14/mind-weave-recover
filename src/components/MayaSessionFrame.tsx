@@ -137,10 +137,10 @@ export function MayaSessionFrame({
         {/* Speaking indicator or auto-advance bar */}
         {isVoiceLed ? (
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            {isSpeaking && (
+            {(isSpeaking || isLoading) && (
               <>
                 <Volume2 className="w-4 h-4 animate-pulse" />
-                <span>Maya is speaking...</span>
+                <span>{isLoading ? 'Maya is preparing...' : 'Maya is speaking...'}</span>
               </>
             )}
           </div>
