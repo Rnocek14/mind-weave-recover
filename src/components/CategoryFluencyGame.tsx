@@ -353,13 +353,16 @@ export function CategoryFluencyGame({
     processedRef.current.clear();
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
+    setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+    timerExpiredRef.current = false;
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          finishRound();
+          clearInterval(timerRef.current!);
+          timerExpiredRef.current = true;
           return 0;
         }
         return prev - 1;
@@ -371,7 +374,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+  }, [currentDifficulty, speechSupported, startListening, vg]);
 
   // Auto-start on first mount — Full Coaching OR when coming from lesson flow.
   // IMPORTANT: beginCountdown is NOT in the dep array — we use a ref instead.
