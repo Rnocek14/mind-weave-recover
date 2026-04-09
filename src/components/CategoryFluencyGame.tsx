@@ -132,7 +132,9 @@ export function CategoryFluencyGame({
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
   const vg = useVoiceGuidance('category-fluency');
-
+  
+  // Countdown state for smooth ready → active transition
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
@@ -266,10 +268,64 @@ export function CategoryFluencyGame({
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
 
-    // Speak the category-specific task in Full Coaching mode
-    if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can. Go ahead.`);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          finishRound();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    if (speechSupported) {
+      setTimeout(() => startListening(), 300);
+    } else {
+      setShowTextInput(true);
     }
+  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+
+  /** Begin the countdown → then auto-start the round */
+  const beginCountdown = useCallback(() => {
+    const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
+    // Pre-set config so the category label shows during countdown
+    usedCategoriesRef.current.add(cat.category);
+    setConfig(cat);
+    setPhase('countdown' as any);
+    
+    // Speak the category-specific intro in Full Coaching mode
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+    }
+
+    // 3-2-1 countdown
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        setCountdown(null);
+        // Actually start the round (config already set)
+        startRoundWithConfig(cat);
+      } else {
+        setCountdown(count);
+      }
+    }, 800);
+  }, [currentDifficulty, vg]);
+
+  /** Start round with an already-picked config (used after countdown) */
+  const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
+    vg.interrupt();
+    setWords([]);
+    setCurrentInput('');
+    setPhase('active');
+    setDifficultyShift(null);
+    processedRef.current.clear();
+    wordsRef.current = [];
+    const newTime = getTimerForDifficulty(currentDifficulty);
+    setTimeLeft(newTime);
+    startTimeRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -288,25 +344,18 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
-  // Voice intro on first mount (Full Coaching mode)
-  const hasSpokenIntroRef = useRef(false);
+  // Auto-start on first mount — always use countdown for smooth entry
+  const hasStartedRef = useRef(false);
   useEffect(() => {
-    if (!hasSpokenIntroRef.current && phase === 'ready' && currentRound === 0) {
-      hasSpokenIntroRef.current = true;
-      if (vg.shouldAutoSpeak) {
-        vg.speakIntro();
-      }
+    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0) {
+      hasStartedRef.current = true;
       if (autoStartFirst) {
-        // Wait for intro speech to finish before auto-starting
-        if (vg.shouldAutoSpeak) {
-          const delay = setTimeout(() => startRound(), 3000);
-          return () => clearTimeout(delay);
-        } else {
-          startRound();
-        }
+        // Small delay to let the component render, then begin countdown
+        const delay = setTimeout(() => beginCountdown(), 400);
+        return () => clearTimeout(delay);
       }
     }
-  }, [autoStartFirst, phase, currentRound, startRound, vg]);
+  }, [autoStartFirst, phase, currentRound, beginCountdown]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
@@ -314,8 +363,8 @@ export function CategoryFluencyGame({
     setCurrentInput('');
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
     setShowTextInput(preferTyping);
-    setTimeout(() => startRound(), 300);
-  }, [startRound]);
+    setTimeout(() => beginCountdown(), 300);
+  }, [beginCountdown]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
@@ -369,13 +418,27 @@ export function CategoryFluencyGame({
   // Timer progress percentage (gentler visual)
   const timerProgress = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
 
-  // === READY ===
-  if (phase === 'ready') {
-    const cat = pickCategory(currentDifficulty);
-    const timer = getTimerForDifficulty(currentDifficulty);
+  // === COUNTDOWN — smooth 3-2-1 transition ===
+  if (countdown !== null) {
     return (
-      <div className="flex flex-col items-center gap-5 py-8 max-w-sm mx-auto text-center">
-        {/* Purpose banner on first round */}
+      <div className="flex flex-col items-center justify-center gap-6 py-12 max-w-sm mx-auto text-center animate-in fade-in duration-300">
+        <p className="text-lg font-semibold text-foreground">
+          Name as many <strong>{config.label.toLowerCase()}</strong> as you can
+        </p>
+        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <span className="text-4xl font-bold text-primary animate-in zoom-in duration-300" key={countdown}>
+            {countdown}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">Get ready…</p>
+      </div>
+    );
+  }
+
+  // === READY (manual start — standalone mode only) ===
+  if (phase === 'ready') {
+    return (
+      <div className="flex flex-col items-center gap-6 py-8 max-w-sm mx-auto text-center">
         {currentRound === 0 && (
           <ExercisePurposeBanner
             exerciseSlug="category-fluency"
@@ -383,20 +446,13 @@ export function CategoryFluencyGame({
           />
         )}
         <div>
-          <p className="text-xl font-bold mb-1">Name: {cat.label}</p>
-          <p className="text-base text-foreground/80">
-            Say as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
+          <p className="text-xl font-bold mb-2">
+            Name as many <strong>{config.label.toLowerCase()}</strong> as you can
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Tip: Think of groups within the category
+          <p className="text-sm text-muted-foreground">
+            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {config.examples}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">e.g. {cat.examples}</p>
         </div>
-        {!speechSupported && (
-          <p className="text-xs text-muted-foreground">
-            Speech not available — you can type instead
-          </p>
-        )}
         {currentRound > 0 && (
           <div className="flex flex-col items-center gap-1">
             <p className="text-sm text-muted-foreground">Round {currentRound + 1} of {roundCount}</p>
@@ -411,7 +467,7 @@ export function CategoryFluencyGame({
             )}
           </div>
         )}
-        <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
+        <Button size="lg" onClick={beginCountdown} className="min-h-[48px] min-w-[140px]">
           <Mic className="w-4 h-4 mr-2" />
           {currentRound === 0 ? 'Start' : 'Next Round'}
         </Button>

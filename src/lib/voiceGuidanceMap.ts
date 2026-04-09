@@ -30,8 +30,8 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     autoReadStimulus: true,
   },
   'category-fluency': {
-    voiceIntro: "Name as many words in a category as you can.",
-    voiceTask: "Go ahead. Say as many as you can.",
+    voiceIntro: '', // Dynamic — set per-round with actual category name
+    voiceTask: "Go ahead.",
     voiceReminder: "Try thinking of a different group within the category.",
     autoReadStimulus: false,
   },
