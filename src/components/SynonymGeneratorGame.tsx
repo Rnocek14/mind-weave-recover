@@ -397,7 +397,7 @@ export function SynonymGeneratorGame({
           <strong>Say</strong> or type as many similar words as you can
         </p>
         {!speechSupported && (
-          <p className="text-xs text-amber-600">Speech not available — you'll type instead</p>
+          <p className="text-xs text-destructive/70">Speech not available — you'll type instead</p>
         )}
         <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
           <Mic className="w-4 h-4 mr-2" />
