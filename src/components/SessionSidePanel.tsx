@@ -88,13 +88,14 @@ export function SessionSidePanel() {
   const navigateToBlock = useCallback((index: number, block: LessonBlock) => {
     if (!sessionId) return;
     
-    // Update sessionStorage with new block index
+    // Re-read fresh state from sessionStorage
     const saved = sessionStorage.getItem('lessonFlowState');
     if (!saved) return;
     
     try {
       const parsed = JSON.parse(saved);
       parsed.currentBlockIndex = index;
+      parsed.phase = 'exercise';
       const stateJson = JSON.stringify(parsed);
       sessionStorage.setItem('lessonFlowState', stateJson);
       localStorage.setItem('lessonFlowState_resume', stateJson);
@@ -102,12 +103,16 @@ export function SessionSidePanel() {
       const route = ROUTE_MAP[block.exerciseId];
       if (route) {
         setIsOpen(false);
-        navigate(route, {
+        // Navigate to /lesson with resuming flag so LessonFlow picks up
+        // the updated index and runs its full navigateToExercise with
+        // all adaptations, focus words, etc.
+        navigate('/lesson', {
           state: {
-            sessionId,
-            fromLesson: true,
-            blockIndex: index,
+            resuming: true,
+            // Tell LessonFlow to treat this as a direct jump (not +1)
+            directJump: index,
           },
+          replace: true,
         });
       }
     } catch (e) {
