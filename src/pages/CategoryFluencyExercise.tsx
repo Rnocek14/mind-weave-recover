@@ -127,6 +127,17 @@ export default function CategoryFluencyExercise() {
     setCompleted(true);
     completeSession();
 
+    // Save structured details for reflection engine
+    if (blockIndex != null) {
+      const totalWords = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
+      const lastAnalysis = results[results.length - 1]?.analysis;
+      saveExerciseDetails(blockIndex, 'category-fluency', {
+        totalWords,
+        clusters: lastAnalysis?.clusters ?? 0,
+        switches: lastAnalysis?.switches ?? 0,
+      });
+    }
+
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       
@@ -157,7 +168,7 @@ export default function CategoryFluencyExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, navigate, returnTo]);
+  }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
