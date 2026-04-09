@@ -601,12 +601,16 @@ export function generateDailyLesson(
       }));
       const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
       console.log('[DailyLessonEngine] Using preset lesson:', preset, blocks.map(b => b.exerciseId).join(' → '));
+      const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
+        core_communication: 'core_communication',
+      };
       return {
         totalDuration,
         blocks,
         targetDomains: ['receptive_language', 'semantic_systems'],
         reasoning: [`Preset: ${presetDef.title}`],
         energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+        sessionFrameId: FRAME_MAP[preset],
       };
     }
   }
