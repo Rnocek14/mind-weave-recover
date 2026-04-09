@@ -268,10 +268,64 @@ export function CategoryFluencyGame({
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
 
-    // Speak the category-specific task in Full Coaching mode
-    if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can. Go ahead.`);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          finishRound();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    if (speechSupported) {
+      setTimeout(() => startListening(), 300);
+    } else {
+      setShowTextInput(true);
     }
+  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+
+  /** Begin the countdown → then auto-start the round */
+  const beginCountdown = useCallback(() => {
+    const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
+    // Pre-set config so the category label shows during countdown
+    usedCategoriesRef.current.add(cat.category);
+    setConfig(cat);
+    setPhase('countdown' as any);
+    
+    // Speak the category-specific intro in Full Coaching mode
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+    }
+
+    // 3-2-1 countdown
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        setCountdown(null);
+        // Actually start the round (config already set)
+        startRoundWithConfig(cat);
+      } else {
+        setCountdown(count);
+      }
+    }, 800);
+  }, [currentDifficulty, vg]);
+
+  /** Start round with an already-picked config (used after countdown) */
+  const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
+    vg.interrupt();
+    setWords([]);
+    setCurrentInput('');
+    setPhase('active');
+    setDifficultyShift(null);
+    processedRef.current.clear();
+    wordsRef.current = [];
+    const newTime = getTimerForDifficulty(currentDifficulty);
+    setTimeLeft(newTime);
+    startTimeRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -290,25 +344,18 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
-  // Voice intro on first mount (Full Coaching mode)
-  const hasSpokenIntroRef = useRef(false);
+  // Auto-start on first mount — always use countdown for smooth entry
+  const hasStartedRef = useRef(false);
   useEffect(() => {
-    if (!hasSpokenIntroRef.current && phase === 'ready' && currentRound === 0) {
-      hasSpokenIntroRef.current = true;
-      if (vg.shouldAutoSpeak) {
-        vg.speakIntro();
-      }
+    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0) {
+      hasStartedRef.current = true;
       if (autoStartFirst) {
-        // Wait for intro speech to finish before auto-starting
-        if (vg.shouldAutoSpeak) {
-          const delay = setTimeout(() => startRound(), 3000);
-          return () => clearTimeout(delay);
-        } else {
-          startRound();
-        }
+        // Small delay to let the component render, then begin countdown
+        const delay = setTimeout(() => beginCountdown(), 400);
+        return () => clearTimeout(delay);
       }
     }
-  }, [autoStartFirst, phase, currentRound, startRound, vg]);
+  }, [autoStartFirst, phase, currentRound, beginCountdown]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
