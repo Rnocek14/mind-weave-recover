@@ -264,6 +264,14 @@ export function CategoryFluencyGame({
     }
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
+  // Handle timer expiry outside of setState updater to avoid progress bar glitch
+  useEffect(() => {
+    if (timeLeft <= 0 && phase === 'active' && timerExpiredRef.current) {
+      timerExpiredRef.current = false;
+      finishRound();
+    }
+  }, [timeLeft, phase, finishRound]);
+
   const startRound = useCallback(() => {
     vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
@@ -276,13 +284,16 @@ export function CategoryFluencyGame({
     processedRef.current.clear();
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
+    setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+    timerExpiredRef.current = false;
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          finishRound();
+          clearInterval(timerRef.current!);
+          timerExpiredRef.current = true;
           return 0;
         }
         return prev - 1;
@@ -294,7 +305,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+  }, [currentDifficulty, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
   const beginCountdown = useCallback(() => {
