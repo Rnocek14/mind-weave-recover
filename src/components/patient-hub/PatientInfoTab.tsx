@@ -192,6 +192,10 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
           </CardContent>
         </Card>
       )}
+      {/* Functional Communication Check-in */}
+      {userId && profileId && (
+        <FunctionalCheckinForm userId={userId} profileId={profileId} />
+      )}
     </div>
   );
 }
