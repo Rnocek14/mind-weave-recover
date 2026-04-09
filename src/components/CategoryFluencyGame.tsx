@@ -252,6 +252,7 @@ export function CategoryFluencyGame({
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
   const startRound = useCallback(() => {
+    vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
@@ -264,6 +265,11 @@ export function CategoryFluencyGame({
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+
+    // Speak the category-specific task in Full Coaching mode
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can. Go ahead.`);
+    }
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -280,7 +286,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening]);
+  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
   // Voice intro on first mount (Full Coaching mode)
   const hasSpokenIntroRef = useRef(false);
