@@ -88,6 +88,7 @@ export function DetectiveMindGame({
     setUsedHint(false);
     setShowHint(false);
     setHasAutoRead(false);
+    setAutoReadDone(false);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
