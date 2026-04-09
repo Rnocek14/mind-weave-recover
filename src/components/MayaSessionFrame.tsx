@@ -60,6 +60,7 @@ export function MayaSessionFrame({
     hasSpokenRef.current = true;
 
     const doSpeak = async () => {
+      setSpeechStarted(true);
       await speak(text);
       if (mountedRef.current) {
         setSpeechDone(true);
@@ -95,9 +96,11 @@ export function MayaSessionFrame({
   }, [isVoiceLed, speechDone, onContinue, type]);
 
   const handleContinue = useCallback(() => {
+    // In voice-led mode, don't allow skipping until speech has at least started loading
+    if (isVoiceLed && !speechStarted && !speechDone) return;
     stop(); // Interrupt any active speech immediately
     onContinue();
-  }, [stop, onContinue]);
+  }, [stop, onContinue, isVoiceLed, speechStarted, speechDone]);
 
   const handleRepeat = useCallback(() => {
     stop();
