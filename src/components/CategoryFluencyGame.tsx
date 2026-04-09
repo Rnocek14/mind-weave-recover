@@ -152,12 +152,13 @@ export function CategoryFluencyGame({
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
-  const totalTime = getTimerForDifficulty(currentDifficulty);
+  const [totalTime, setTotalTime] = useState(() => getTimerForDifficulty(currentDifficulty));
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const wordsRef = useRef<Array<{ text: string; status: WordValidation }>>([]);
+  const timerExpiredRef = useRef(false);
 
   useEffect(() => { wordsRef.current = words; }, [words]);
   useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
@@ -263,6 +264,14 @@ export function CategoryFluencyGame({
     }
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
+  // Handle timer expiry outside of setState updater to avoid progress bar glitch
+  useEffect(() => {
+    if (timeLeft <= 0 && phase === 'active' && timerExpiredRef.current) {
+      timerExpiredRef.current = false;
+      finishRound();
+    }
+  }, [timeLeft, phase, finishRound]);
+
   const startRound = useCallback(() => {
     vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
@@ -275,13 +284,16 @@ export function CategoryFluencyGame({
     processedRef.current.clear();
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
+    setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+    timerExpiredRef.current = false;
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          finishRound();
+          clearInterval(timerRef.current!);
+          timerExpiredRef.current = true;
           return 0;
         }
         return prev - 1;
@@ -293,7 +305,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+  }, [currentDifficulty, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
   const beginCountdown = useCallback(() => {
@@ -341,13 +353,16 @@ export function CategoryFluencyGame({
     processedRef.current.clear();
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
+    setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+    timerExpiredRef.current = false;
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          finishRound();
+          clearInterval(timerRef.current!);
+          timerExpiredRef.current = true;
           return 0;
         }
         return prev - 1;
@@ -359,7 +374,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+  }, [currentDifficulty, speechSupported, startListening, vg]);
 
   // Auto-start on first mount — Full Coaching OR when coming from lesson flow.
   // IMPORTANT: beginCountdown is NOT in the dep array — we use a ref instead.
@@ -433,8 +448,8 @@ export function CategoryFluencyGame({
     };
   }, [results, buildReflection]);
 
-  // Timer progress percentage (gentler visual)
-  const timerProgress = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
+  // Timer progress percentage — clamp to avoid flashing 0% on expiry
+  const timerProgress = phase === 'active' && totalTime > 0 ? Math.max((timeLeft / totalTime) * 100, 0) : 100;
 
   // === COUNTDOWN — smooth speech → 3-2-1 transition ===
   if (phase === 'countdown' || countdown !== null) {
