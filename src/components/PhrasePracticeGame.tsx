@@ -246,6 +246,14 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       setIsListeningMode(true); // Re-enables auto-listen effect
     },
   }));
+  // Voice guidance: speak intro on first mount
+  useEffect(() => {
+    if (!hasSpokenPPIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenPPIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
+
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
