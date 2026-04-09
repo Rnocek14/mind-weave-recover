@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Word bank ──
 interface SynonymPrompt {
