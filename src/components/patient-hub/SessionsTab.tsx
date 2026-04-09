@@ -53,6 +53,8 @@ interface SessionRow {
   mood_rating: number | null;
   caregiver_notes: string | null;
   engagement_summary: any;
+  user_id: string;
+  profile_id: string | null;
 }
 
 interface ExerciseSummary {
