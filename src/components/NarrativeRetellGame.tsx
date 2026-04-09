@@ -155,6 +155,7 @@ export function NarrativeRetellGame({
     setStallPromptIndex(-1);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    hasAutoReadRef.current = false;
   }, [currentIndex]);
 
   const completedRef = useRef(false);
