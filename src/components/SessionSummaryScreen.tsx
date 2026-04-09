@@ -267,12 +267,12 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Strong today</p>
-                <p className="text-sm text-foreground">{closing.strength}</p>
+                <p className="text-sm text-foreground">{finalStrength}</p>
               </div>
               
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next step</p>
-                <p className="text-sm text-foreground">{closing.nextStep}</p>
+                <p className="text-sm text-foreground">{finalNextStep}</p>
               </div>
               
               <p className="text-sm text-muted-foreground leading-relaxed italic border-t border-primary/10 pt-3 mt-2">
