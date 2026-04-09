@@ -234,11 +234,19 @@ export function NarrativeRetellGame({
 
   const handleStartRetelling = useCallback(() => {
     stopTTS(); // Stop Maya reading if still playing
+    vg.interrupt(); // Stop any Full Coaching speech
     setPhase('retelling');
     startTimeRef.current = Date.now();
     retellStartRef.current = Date.now();
     setTypedText('');
     setStallPromptIndex(-1);
+    lastSpokenStallRef.current = -1;
+
+    // Full Coaching: speak the retell prompt
+    if (vg.isVoiceLed) {
+      // Slight delay so mic doesn't pick up Maya
+      setTimeout(() => vg.speakTask(), 300);
+    }
 
     if (currentStory && userId) {
       startAttempt({
