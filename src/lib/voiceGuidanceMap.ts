@@ -29,6 +29,12 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceReminder: "Who was in the story? What happened first?",
     autoReadStimulus: true,
   },
+  'category-fluency': {
+    voiceIntro: "Name as many words in a category as you can.",
+    voiceTask: "Go ahead. Say as many as you can.",
+    voiceReminder: "Try thinking of a different group within the category.",
+    autoReadStimulus: false,
+  },
   'meaning-match': {
     voiceIntro: "I'll show you a sentence. Pick the word that means the same thing.",
     voiceTask: "Choose the best match.",
@@ -46,6 +52,24 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceTask: "Say it back.",
     voiceReminder: "Take your time. Try saying it slowly.",
     autoReadStimulus: true,
+  },
+  'synonym-generator': {
+    voiceIntro: "I'll give you a word. Tell me similar words.",
+    voiceTask: "What words mean something similar?",
+    voiceReminder: "Think about words that could replace it in a sentence.",
+    autoReadStimulus: false,
+  },
+  'semantic-feature-analysis': {
+    voiceIntro: "We're going to describe a word by its features.",
+    voiceTask: "Tell me what you know about this word.",
+    voiceReminder: "Think about what group it belongs to, or what it looks like.",
+    autoReadStimulus: false,
+  },
+  'sentence-construction': {
+    voiceIntro: "Put these words in order to make a sentence.",
+    voiceTask: "Arrange the words.",
+    voiceReminder: "Which word comes first?",
+    autoReadStimulus: false,
   },
 };
 

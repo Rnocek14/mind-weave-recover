@@ -28,6 +28,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Categories ordered by difficulty
@@ -130,6 +131,7 @@ export function CategoryFluencyGame({
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
+  const vg = useVoiceGuidance('category-fluency');
 
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
@@ -250,6 +252,7 @@ export function CategoryFluencyGame({
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
   const startRound = useCallback(() => {
+    vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
@@ -262,6 +265,11 @@ export function CategoryFluencyGame({
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
+
+    // Speak the category-specific task in Full Coaching mode
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can. Go ahead.`);
+    }
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -278,15 +286,27 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening]);
+  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
-  const autoStartedRef = useRef(false);
+  // Voice intro on first mount (Full Coaching mode)
+  const hasSpokenIntroRef = useRef(false);
   useEffect(() => {
-    if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
-      autoStartedRef.current = true;
-      startRound();
+    if (!hasSpokenIntroRef.current && phase === 'ready' && currentRound === 0) {
+      hasSpokenIntroRef.current = true;
+      if (vg.shouldAutoSpeak) {
+        vg.speakIntro();
+      }
+      if (autoStartFirst) {
+        // Wait for intro speech to finish before auto-starting
+        if (vg.shouldAutoSpeak) {
+          const delay = setTimeout(() => startRound(), 3000);
+          return () => clearTimeout(delay);
+        } else {
+          startRound();
+        }
+      }
     }
-  }, [autoStartFirst, phase, currentRound, startRound]);
+  }, [autoStartFirst, phase, currentRound, startRound, vg]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
