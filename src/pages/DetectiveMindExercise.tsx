@@ -18,6 +18,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -108,6 +109,13 @@ export default function DetectiveMindExercise() {
     setCompleted(true);
     completeSession();
 
+    // Save structured details for reflection engine
+    if (blockIndex != null) {
+      saveExerciseDetails(blockIndex, 'detective-mind', {
+        results: results.map(r => ({ questionType: r.questionType, correct: r.correct })),
+      });
+    }
+
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -121,7 +129,7 @@ export default function DetectiveMindExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, blockIndex]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
