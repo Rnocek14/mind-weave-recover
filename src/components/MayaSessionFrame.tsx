@@ -42,8 +42,10 @@ export function MayaSessionFrame({
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [speechDone, setSpeechDone] = useState(false);
   const [speechStarted, setSpeechStarted] = useState(false);
+  const [speechFailed, setSpeechFailed] = useState(false);
   const hasSpokenRef = useRef(false);
   const mountedRef = useRef(true);
+  const speechStartTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Cleanup on unmount — stop any active speech
   useEffect(() => {
@@ -51,6 +53,7 @@ export function MayaSessionFrame({
     return () => {
       mountedRef.current = false;
       stop();
+      if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
     };
   }, [stop]);
 
@@ -59,8 +62,18 @@ export function MayaSessionFrame({
     if (!isVoiceLed || hasSpokenRef.current) return;
     hasSpokenRef.current = true;
 
+    // If speech doesn't start producing audio within 3s, show text fallback
+    speechStartTimerRef.current = setTimeout(() => {
+      if (mountedRef.current && !speechDone) {
+        console.warn('[MayaSessionFrame] TTS did not start in 3s, showing text fallback');
+        setSpeechFailed(true);
+        setSpeechStarted(true); // Allow continue button
+      }
+    }, 3000);
+
     const doSpeak = async () => {
       setSpeechStarted(true);
+      if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
       await speak(text);
       if (mountedRef.current) {
         setSpeechDone(true);
@@ -105,9 +118,11 @@ export function MayaSessionFrame({
   const handleRepeat = useCallback(() => {
     stop();
     setSpeechDone(false);
+    setSpeechFailed(false);
     hasSpokenRef.current = false;
     // Re-trigger speech
     const doSpeak = async () => {
+      setSpeechStarted(true);
       await speak(text);
       if (mountedRef.current) setSpeechDone(true);
     };
@@ -137,12 +152,20 @@ export function MayaSessionFrame({
         {/* Speaking indicator or auto-advance bar */}
         {isVoiceLed ? (
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            {(isSpeaking || isLoading) && (
+            {speechFailed && !isSpeaking && !isLoading ? (
+              <button 
+                onClick={handleRepeat}
+                className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Play voice again</span>
+              </button>
+            ) : (isSpeaking || isLoading) ? (
               <>
                 <Volume2 className="w-4 h-4 animate-pulse" />
                 <span>{isLoading ? 'Maya is preparing...' : 'Maya is speaking...'}</span>
               </>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">
