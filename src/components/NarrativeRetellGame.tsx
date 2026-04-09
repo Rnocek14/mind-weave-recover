@@ -122,23 +122,24 @@ export function NarrativeRetellGame({
     return () => { stopTTS(); vg.interrupt(); };
   }, [stopTTS, vg]);
 
-  // Auto-read story when entering reading phase (always — not just Full Coaching)
+  // Auto-read story when entering reading phase — only in Full Coaching mode
+  // Guided/Games Only: user reads silently and can tap "Listen" manually
   const hasAutoReadRef = useRef(false);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
+    if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
     hasAutoReadRef.current = true;
 
     const doAutoRead = async () => {
-      // Small delay to let the UI settle
       await new Promise(r => setTimeout(r, 600));
       
-      // Full Coaching: speak context-aware intro first
+      // Speak context-aware intro first
       if (vg.shouldAutoSpeak && currentIndex === 0) {
         await vg.speakIntro({ storyTitle: currentStory.title });
         await new Promise(r => setTimeout(r, 600));
       }
       
-      // Read the full story aloud (always, not just Full Coaching — this is the core UX)
+      // Read the full story aloud
       const fullText = currentStory.scenes.map(s => s.text).join(' ');
       try {
         await speakTTS(fullText);
