@@ -1,0 +1,127 @@
+/**
+ * Reusable hook to fetch trial-level data + audio for a given session.
+ * Extracted from SessionDetailPanel logic.
+ */
+import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface TrialData {
+  attempt_id: string;
+  target_word: string;
+  transcript: string | null;
+  is_correct: boolean | null;
+  exercise_slug: string | null;
+  latency_ms: number | null;
+  error_type: string | null;
+  cue_type_given: string | null;
+  cue_was_effective: boolean | null;
+  audio_storage_path: string | null;
+  recording_duration_ms: number | null;
+  pronunciation_status: string | null;
+  semantic_similarity: number | null;
+  phonological_similarity: number | null;
+  stuck_type: string | null;
+  speech_rate_wpm: number | null;
+  created_at: string | null;
+  taskParameters?: any;
+  outputs?: any;
+}
+
+export function useSessionDetail() {
+  const [trials, setTrials] = useState<TrialData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const fetchTrials = useCallback(async (sessionId: string) => {
+    setLoading(true);
+    try {
+      // Try utterance_analyses first
+      const { data: uaData, error: uaError } = await supabase
+        .from("utterance_analyses")
+        .select(
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
+        )
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true });
+
+      if (uaError) throw uaError;
+
+      if (uaData && uaData.length > 0) {
+        setTrials(uaData);
+      } else {
+        // Fallback to exercise_events
+        const { data: eeData, error: eeError } = await supabase
+          .from("exercise_events")
+          .select(
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at"
+          )
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: true });
+
+        if (eeError) throw eeError;
+
+        const mapped: TrialData[] = (eeData ?? []).map((ev) => ({
+          attempt_id: ev.attempt_id || ev.created_at || "",
+          target_word: (ev.task_parameters as any)?.target_word || (ev.task_parameters as any)?.targetWord || (ev.outputs as any)?.target || "",
+          transcript: ev.whisper_transcript || ev.browser_transcript || null,
+          is_correct: ev.score === 1 || ev.score === 100 ? true : ev.score === 0 ? false : null,
+          exercise_slug: ev.exercise_slug,
+          latency_ms: ev.reaction_time_ms,
+          error_type: ev.error_type,
+          cue_type_given: ev.cue_type_given,
+          cue_was_effective: ev.cue_was_effective,
+          audio_storage_path: ev.audio_storage_path,
+          recording_duration_ms: ev.recording_duration_ms,
+          pronunciation_status: null,
+          semantic_similarity: ev.semantic_similarity,
+          phonological_similarity: ev.phonological_similarity,
+          stuck_type: null,
+          speech_rate_wpm: null,
+          created_at: ev.created_at,
+          taskParameters: ev.task_parameters,
+          outputs: ev.outputs,
+        }));
+        setTrials(mapped);
+      }
+    } catch (err) {
+      console.error("Error fetching session trials:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingId(null);
+  }, []);
+
+  const playAudio = useCallback(async (path: string, attemptId: string) => {
+    if (playingId === attemptId) {
+      stopAudio();
+      return;
+    }
+    stopAudio();
+    try {
+      const { data } = await supabase.storage
+        .from("session-recordings")
+        .createSignedUrl(path, 60);
+      if (data?.signedUrl) {
+        const audio = new Audio(data.signedUrl);
+        audio.onended = () => setPlayingId(null);
+        audio.onerror = () => setPlayingId(null);
+        audioRef.current = audio;
+        setPlayingId(attemptId);
+        await audio.play();
+      }
+    } catch (err) {
+      console.error("Error playing audio:", err);
+      setPlayingId(null);
+    }
+  }, [playingId, stopAudio]);
+
+  return { trials, loading, fetchTrials, playAudio, stopAudio, playingId };
+}
