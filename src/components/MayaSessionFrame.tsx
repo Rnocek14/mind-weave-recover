@@ -99,14 +99,25 @@ export function MayaSessionFrame({
   }, [onContinue, isVoiceLed]);
 
   // Voice mode: auto-advance ~1s after speech finishes
+  // Also auto-advance if TTS failed — give user time to read text, then move on
   useEffect(() => {
-    if (!isVoiceLed || !speechDone) return;
-    const postSpeechDelay = type === 'intro' ? 1000 : 750;
-    const timer = setTimeout(() => {
-      if (mountedRef.current) onContinue();
-    }, postSpeechDelay);
-    return () => clearTimeout(timer);
-  }, [isVoiceLed, speechDone, onContinue, type]);
+    if (!isVoiceLed) return;
+    if (speechDone) {
+      const postSpeechDelay = type === 'intro' ? 1000 : 750;
+      const timer = setTimeout(() => {
+        if (mountedRef.current) onContinue();
+      }, postSpeechDelay);
+      return () => clearTimeout(timer);
+    }
+    if (speechFailed && !isSpeaking && !isLoading) {
+      // TTS failed — auto-advance after reading time (based on text length)
+      const readingTime = Math.max(3000, text.length * 50); // ~50ms per char, min 3s
+      const timer = setTimeout(() => {
+        if (mountedRef.current) onContinue();
+      }, readingTime);
+      return () => clearTimeout(timer);
+    }
+  }, [isVoiceLed, speechDone, speechFailed, isSpeaking, isLoading, onContinue, type, text.length]);
 
   const handleContinue = useCallback(() => {
     // In voice-led mode, don't allow skipping until speech has at least started loading
