@@ -12,7 +12,7 @@ const EXERCISE_PURPOSE: Record<string, string> = {
   'phonological-awareness': 'Strengthen sound discrimination and awareness.',
   'minimal-pairs': 'Sharpen ability to distinguish similar sounds.',
   'category-fluency': 'Improve speed of retrieving words by category.',
-  'synonym-generator': 'Expand word networks with alternative words.',
+  'synonym-generator': 'This helps you practice finding different words with similar meanings — a key skill for flexible conversation.',
   'describe-guess': 'Practice describing when the word won\'t come.',
   'narrative-retell': 'Build sequencing for retelling events.',
   'meaning-match': 'This helps you understand what sentences really mean — a skill you use in every conversation.',
