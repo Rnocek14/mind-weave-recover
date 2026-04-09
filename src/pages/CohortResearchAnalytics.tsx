@@ -74,9 +74,14 @@ export default function CohortResearchAnalytics() {
       <div className="container mx-auto max-w-6xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Cohort Research Analytics</h1>
-            <p className="text-sm text-muted-foreground">Discover what works for whom — cross-patient clinical intelligence</p>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Cohort Research Analytics</h1>
+              <p className="text-sm text-muted-foreground">Discover what works for whom — cross-patient clinical intelligence</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={refetch} className="gap-1">
