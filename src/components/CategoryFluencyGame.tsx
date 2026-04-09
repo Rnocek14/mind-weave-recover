@@ -448,8 +448,8 @@ export function CategoryFluencyGame({
     };
   }, [results, buildReflection]);
 
-  // Timer progress percentage (gentler visual)
-  const timerProgress = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
+  // Timer progress percentage — clamp to avoid flashing 0% on expiry
+  const timerProgress = phase === 'active' && totalTime > 0 ? Math.max((timeLeft / totalTime) * 100, 0) : 100;
 
   // === COUNTDOWN — smooth speech → 3-2-1 transition ===
   if (phase === 'countdown' || countdown !== null) {
