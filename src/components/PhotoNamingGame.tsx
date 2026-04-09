@@ -121,6 +121,8 @@ export const PhotoNamingGame = ({
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const micStartTimeRef = useRef<number>(0); // For latency measurement
   const { setLiveSnapshot } = useLiveAnalysis();
+  const vg = useVoiceGuidance('photo-naming');
+  const hasSpokenIntroRef = useRef(false);
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
