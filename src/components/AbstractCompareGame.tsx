@@ -17,6 +17,8 @@ import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -45,6 +47,9 @@ export function AbstractCompareGame({
   const { currentItem, currentIndex, totalItems, isComplete, results, submitAnswer, nextItem } =
     useAbstractCompareGame(roundCount, tier);
 
+  const { mode } = useCoachingMode();
+  const vg = useVoiceGuidance('abstract-compare');
+
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
@@ -67,6 +72,8 @@ export function AbstractCompareGame({
   } = useAudioRecorder();
 
   const autoStartedRef = useRef(false);
+  const voiceIntroPlayedRef = useRef(false);
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setPhase('prompt');
@@ -87,7 +94,6 @@ export function AbstractCompareGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (hasProcessedRef.current || !transcript.trim()) return;
-    // In discourse mode, transcript is already accumulated
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
   }, []);
@@ -105,13 +111,11 @@ export function AbstractCompareGame({
   const speakingStartRef = useRef<number>(Date.now());
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
-  // Track when transcript changes (proxy for "user is speaking")
   useEffect(() => {
     const transcript = collectedTranscript || latestTranscriptRef.current || '';
     if (transcript.trim()) lastTranscriptTimeRef.current = Date.now();
   }, [collectedTranscript, fullTranscript]);
 
-  // Reset speaking start when phase enters speaking
   useEffect(() => {
     if (phase === 'speaking') {
       speakingStartRef.current = Date.now();
@@ -140,7 +144,6 @@ export function AbstractCompareGame({
 
       if (state.suppressAutoSubmit) return;
 
-      // Use cognitive_discourse profile — most patient for abstract reasoning
       const profile = TIMING_PROFILES.cognitive_discourse;
       const multiplier = getProfileMultiplier(profile, state.state, state.confidence);
       const threshold = Math.round(profile.baseSilenceMs * multiplier);
@@ -155,10 +158,10 @@ export function AbstractCompareGame({
   }, [phase, collectedTranscript, fullTranscript, currentItem]);
 
   const handleStart = useCallback(() => {
+    vg.interrupt(); // Stop any TTS before mic starts
     setPhase('speaking');
     startTimeRef.current = Date.now();
     
-    // Start clinical pipeline
     if (currentItem && userId) {
       startAttempt({
         sessionId: sessionId || 'standalone',
@@ -173,15 +176,53 @@ export function AbstractCompareGame({
     
     startRecording();
     startListening();
-  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
+  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId, vg]);
 
-  // Auto-start first trial when launched from lesson
+  const handleStartRef = useRef(handleStart);
+  useEffect(() => { handleStartRef.current = handleStart; }, [handleStart]);
+
+  // Voice guidance: speak intro on first load, speak task context on each trial
   useEffect(() => {
+    if (mode !== 'full' || !currentItem) return;
+    
+    const isFirstTrial = currentIndex === 0 && !voiceIntroPlayedRef.current;
+    
+    const runVoice = async () => {
+      if (isFirstTrial) {
+        voiceIntroPlayedRef.current = true;
+        await vg.speakIntro({ wordA: currentItem.wordA, wordB: currentItem.wordB });
+      } else if (currentIndex > 0) {
+        await vg.speakIfVoiceLed(
+          `How are "${currentItem.wordA}" and "${currentItem.wordB}" similar?`
+        );
+      }
+      // Auto-start mic after voice finishes
+      if (autoStart && phase === 'prompt') {
+        setTimeout(() => handleStartRef.current(), 600);
+      }
+    };
+    
+    runVoice();
+  }, [currentIndex, currentItem?.wordA, currentItem?.wordB, mode]);
+
+  // Stall cue: remind user if no speech after 8s
+  useEffect(() => {
+    if (mode !== 'full' || phase !== 'speaking') return;
+    stallTimerRef.current = setTimeout(() => {
+      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      if (!transcript.trim()) vg.speakReminder();
+    }, 8000);
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
+  }, [phase, mode]);
+
+  // Auto-start first trial when launched from lesson (non-Full mode fallback)
+  useEffect(() => {
+    if (mode === 'full') return; // Voice guidance handles auto-start in full mode
     if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
       autoStartedRef.current = true;
       setTimeout(() => handleStart(), 400);
     }
-  }, [autoStart, phase, currentItem, isSupported, handleStart]);
+  }, [autoStart, phase, currentItem, isSupported, handleStart, mode]);
 
   const handleDone = useCallback(async () => {
     if (hasProcessedRef.current) return;

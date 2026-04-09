@@ -118,6 +118,18 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceReminder: "Just say whatever comes to mind.",
     autoReadStimulus: false,
   },
+  'abstract-compare': {
+    voiceIntro: (ctx) => {
+      const wordA = ctx?.wordA;
+      const wordB = ctx?.wordB;
+      return wordA && wordB
+        ? `How are "${wordA}" and "${wordB}" similar? Tell me what they have in common.`
+        : "I'll give you two words. Tell me how they are similar.";
+    },
+    voiceTask: "Tell me what they have in common.",
+    voiceReminder: "Think about what group they both belong to, or what they share.",
+    autoReadStimulus: false,
+  },
 };
 
 /** Fallback for exercises not yet wired for Full Coaching */
