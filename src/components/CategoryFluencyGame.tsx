@@ -131,6 +131,7 @@ export function CategoryFluencyGame({
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
+  const vg = useVoiceGuidance('category-fluency');
 
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
