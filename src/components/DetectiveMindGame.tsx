@@ -3,6 +3,8 @@
  * 
  * Redesigned: no reading gate, purpose framing, fixed hint targeting,
  * model explanation shown, adaptive explain-why, question-type summary.
+ * 
+ * Full Coaching mode: Maya auto-reads story + question, spoken stall cues.
  */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
@@ -10,11 +12,12 @@ import { useDetectiveMindGame, DetectiveTrialResult, DetectiveRank } from '@/hoo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType } from '@/data/detectiveMindCases';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
