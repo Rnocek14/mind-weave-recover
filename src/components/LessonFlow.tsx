@@ -547,6 +547,32 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
+  // Maya session intro (before first exercise)
+  if (phase === "maya-intro" && sessionFrame) {
+    return (
+      <MayaSessionFrame
+        text={sessionFrame.mayaIntro}
+        type="intro"
+        sessionTheme={sessionFrame.sessionTheme}
+        onContinue={() => setPhase("exercise")}
+      />
+    );
+  }
+
+  // Maya session transition (between exercises)
+  if (phase === "maya-transition" && sessionFrame) {
+    const transitionText = sessionFrame.mayaTransitions[currentBlockIndex] || '';
+    const nextBlock = runtimeBlocks[currentBlockIndex];
+    if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
+    return (
+      <MayaSessionFrame
+        text={transitionText}
+        type="transition"
+        onContinue={handleTransitionContinue}
+      />
+    );
+  }
+
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
     const nextBlock = runtimeBlocks[currentBlockIndex];
