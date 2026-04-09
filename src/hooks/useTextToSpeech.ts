@@ -215,6 +215,17 @@ export const useTextToSpeech = () => {
         throw new Error(`TTS request failed: ${response.status}`);
       }
 
+      // Check if the edge function signaled a fallback (billing/service issue)
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.fallback) {
+          console.warn('[TTS] Edge function signaled fallback:', data.error);
+          throw new Error('TTS_FALLBACK');
+        }
+        throw new Error(data.error || 'TTS failed');
+      }
+
       // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
