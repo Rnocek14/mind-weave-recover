@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle 
 import { supabase } from "@/integrations/supabase/client";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
