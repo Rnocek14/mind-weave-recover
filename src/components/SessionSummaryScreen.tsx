@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
+import { saveSessionSignals } from "@/lib/sessionSignalStore";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
