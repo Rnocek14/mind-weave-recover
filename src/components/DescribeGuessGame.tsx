@@ -208,6 +208,30 @@ export function DescribeGuessGame({
     return true;
   }, []);
 
+  // Voice guidance: speak intro on first trial
+  useEffect(() => {
+    if (!game.currentTrial || game.isComplete) return;
+    if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        // After intro, speak the task
+        vg.speakIfVoiceLed('Tell me about it. Describe what you see.');
+      });
+    }
+  }, [game.currentTrial, game.isComplete, game.currentIndex, vg]);
+
+  // Voice guidance: stall reminder if no speech for ~8s
+  useEffect(() => {
+    if (!game.currentTrial || game.isComplete || showFeedback) return;
+    if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current);
+    stallTimerVgRef.current = setTimeout(() => {
+      if (vg.shouldAutoSpeak && !displayTranscript) {
+        vg.speakReminder();
+      }
+    }, 8000);
+    return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
+  }, [game.currentTrial?.id, game.isComplete, showFeedback, vg, displayTranscript]);
+
   // Begin new trial
   useEffect(() => {
     if (!game.currentTrial || game.isComplete) return;
