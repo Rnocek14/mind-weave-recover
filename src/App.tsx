@@ -36,7 +36,7 @@ import Insights from "./pages/Insights";
 import ClinicianReport from "./pages/ClinicianReport";
 import MinimalPairsExercise from "./pages/MinimalPairsExercise";
 import ClinicianPanel from "./pages/ClinicianPanel";
-import WeeklyPatientReview from "./pages/WeeklyPatientReview";
+import PatientHub from "./pages/PatientHub";
 import OutcomesValidation from "./pages/OutcomesValidation";
 import RecoveryProgress from "./pages/RecoveryProgress";
 import Progress from "./pages/Progress";
@@ -157,7 +157,7 @@ const App = () => (
                   
                   {/* Clinician routes - with header */}
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
-                  <Route path="/clinician/review" element={<AppLayout><WeeklyPatientReview /></AppLayout>} />
+                  <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
                   <Route path="/clinician/report" element={<AppLayout><ClinicianReport /></AppLayout>} />
                   
                   {/* Admin routes - with header */}
