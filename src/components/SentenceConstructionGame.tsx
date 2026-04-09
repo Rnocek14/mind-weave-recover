@@ -140,6 +140,10 @@ export const SentenceConstructionGame = ({
       vg.speakIntro();
     }
   }, [vg.shouldAutoSpeak]);
+
+  // Stall timer for voice reminder
+  const stallTimerSCRef = useRef<NodeJS.Timeout | null>(null);
+
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
   const [showTiles, setShowTiles] = useState(false);

@@ -61,16 +61,31 @@ export function MinimalPairsGame({
       vg.speakIntro();
     }
   }, [vg.shouldAutoSpeak]);
+
+  // Stall timer for voice reminder
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
   
-  // Auto-play target word when trial changes
+  // Auto-play target word when trial changes + stall timer
   useEffect(() => {
     if (currentTrial && !showFeedback) {
       const timer = setTimeout(() => {
         speak(currentTrial.targetWord);
       }, 500);
-      return () => clearTimeout(timer);
+      
+      // Start stall timer
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = setTimeout(() => {
+        if (!showFeedback) {
+          vg.speakReminder();
+        }
+      }, 10000);
+      
+      return () => { 
+        clearTimeout(timer); 
+        if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      };
     }
   }, [currentTrial, showFeedback, speak]);
   

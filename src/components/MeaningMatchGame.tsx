@@ -92,6 +92,9 @@ export function MeaningMatchGame({
     }
   }, [vg.shouldAutoSpeak]);
 
+  // Stall timer for voice reminder
+  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Reset state when item changes
   useEffect(() => {
     setPhase('answering');
@@ -102,6 +105,21 @@ export function MeaningMatchGame({
     firstInteractionRef.current = false;
     caseLoadTimeRef.current = Date.now();
     trialStartRef.current = Date.now();
+    
+    // Auto-read the sentence in Full Coaching mode
+    if (vg.shouldAutoSpeak && currentItem) {
+      vg.autoReadText(currentItem.sentence);
+    }
+
+    // Start stall timer
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+    stallTimerRef.current = setTimeout(() => {
+      if (selectedOption === null && !firstInteractionRef.current) {
+        vg.speakReminder();
+      }
+    }, 10000);
+
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
   }, [currentIndex]);
 
   // Fire completion once
