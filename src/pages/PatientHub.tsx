@@ -157,6 +157,12 @@ export default function PatientHub() {
         </div>
       </div>
 
+      {/* Profile Completeness Warning */}
+      <ProfileCompletenessBanner
+        profile={activeProfile}
+        onEditProfile={() => setActiveTab("patient")}
+      />
+
       {/* Clinician Summary Header — 10-second understanding */}
       <ClinicianSummaryHeader
         userId={user?.id || ""}
