@@ -133,8 +133,8 @@ export default function CategoryFluencyExercise() {
       const lastAnalysis = results[results.length - 1]?.analysis;
       saveExerciseDetails(blockIndex, 'category-fluency', {
         totalWords,
-        clusters: lastAnalysis?.clusters ?? 0,
-        switches: lastAnalysis?.switches ?? 0,
+        clusters: lastAnalysis?.clusterCount ?? 0,
+        switches: lastAnalysis?.switchCount ?? 0,
       });
     }
 
