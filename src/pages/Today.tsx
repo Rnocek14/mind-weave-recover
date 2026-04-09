@@ -405,6 +405,14 @@ export default function Today() {
         </div>
       </div>
 
+      {/* Dev/testing shortcut to Patient Hub */}
+      <button
+        onClick={() => navigate('/clinician/review')}
+        className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+      >
+        Clinician Hub →
+      </button>
+
       <PatientTabBar />
     </div>
   );
