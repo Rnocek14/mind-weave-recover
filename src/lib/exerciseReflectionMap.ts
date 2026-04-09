@@ -189,6 +189,21 @@ const REFLECTION_MAP: Record<string, ExerciseReflectionTemplate> = {
     },
     skillCategories: ['expression', 'automaticity'],
   },
+
+  'minimal-pairs': {
+    getReflection: (acc) => {
+      if (acc >= 0.8) return 'You distinguished similar sounds accurately — strong listening skills.';
+      if (acc >= 0.5) return 'You caught many sound differences. The similar ones take more practice.';
+      return 'Hearing sound differences improves with practice. Each trial sharpens your ear.';
+    },
+    realLifeLine: 'This is the same skill you use when telling apart similar words in conversation — like "coat" and "goat".',
+    getNextStep: (acc) => {
+      if (acc >= 0.8) return 'Try harder sound contrasts with less obvious differences.';
+      if (acc >= 0.5) return 'Focus on listening to the first sound of each word carefully.';
+      return 'Use the replay button to hear the word again before choosing.';
+    },
+    skillCategories: ['comprehension', 'phonology'],
+  },
 };
 
 export function getExerciseReflection(slug: string): ExerciseReflectionTemplate | null {

@@ -20,6 +20,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -609,6 +610,10 @@ export function ThoughtContinuationGame({
 
   return (
     <div className="flex flex-col gap-6 max-w-xl mx-auto p-4">
+      {/* Purpose banner — first prompt only */}
+      {promptCount <= 1 && (
+        <ExercisePurposeBanner exerciseSlug="thought-continuation" />
+      )}
       {/* Progress indicator */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{promptCount} of {PROMPTS_PER_SESSION}</span>

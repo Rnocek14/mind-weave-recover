@@ -23,6 +23,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -949,6 +950,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6 pb-20">
+      {/* Purpose banner — first trial only */}
+      {currentTrialIndex === 0 && !showFeedback && (
+        <ExercisePurposeBanner exerciseSlug="phrase-practice" />
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">

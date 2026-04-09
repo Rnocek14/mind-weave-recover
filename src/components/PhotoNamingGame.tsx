@@ -26,6 +26,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
@@ -2186,9 +2187,12 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Entry instruction — first trial only */}
+      {/* Purpose banner + entry instruction — first trial only */}
       {state.trialNumber === 1 && !showFeedback && (
-        <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
+        <>
+          <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+          <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
+        </>
       )}
 
       {/* Image — grows to fill available space */}

@@ -33,6 +33,9 @@ import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
+import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
@@ -93,6 +96,7 @@ export function DescribeGuessGame({
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'describe-guess' });
 
   const bounds = getCapabilityDifficultyBounds('describe_guess', null);
 
@@ -487,30 +491,56 @@ export function DescribeGuessGame({
 
   // Completion screen
   if (game.isComplete) {
+    const totalTrialsCompleted = game.meaningWins + game.wordWins + (game.totalTrials - game.meaningWins - game.wordWins);
+    const accuracy = totalTrialsCompleted > 0 ? (game.meaningWins + game.wordWins) / totalTrialsCompleted : 0;
+    const maya = buildReflection(accuracy);
+
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+    if (game.meaningWins > 0) strengths.push(`${game.meaningWins} descriptions understood by meaning`);
+    if (game.wordWins > 0) strengths.push(`${game.wordWins} exact words retrieved`);
+    if (game.strategyWins > 0) strengths.push(`Used ${game.strategyWins} describing strategies`);
+    if (game.meaningWins === 0 && game.wordWins === 0) weaknesses.push('Try describing what the item does and where you find it');
+    if (game.strategyWins < 2) weaknesses.push('Try using more feature types: category, use, appearance');
+
     return (
-      <div className="max-w-md mx-auto text-center space-y-6 py-8">
-        <div className="text-6xl">🎉</div>
-        <h2 className="text-2xl font-bold">Describing practice done!</h2>
+      <div className="max-w-md mx-auto space-y-4 py-4">
+        <div className="text-center space-y-2">
+          <div className="text-5xl">🎉</div>
+          <h2 className="text-2xl font-bold">Describing practice done!</h2>
+        </div>
         <div className="flex justify-center gap-6 text-lg">
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-600">{game.meaningWins}</div>
-            <div className="text-sm text-muted-foreground">Meaning Wins</div>
+            <div className="text-3xl font-bold text-primary">{game.meaningWins}</div>
+            <div className="text-sm text-muted-foreground">Meaning</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">{game.wordWins}</div>
-            <div className="text-sm text-muted-foreground">Word Wins</div>
+            <div className="text-sm text-muted-foreground">Word</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-amber-600">{game.strategyWins}</div>
-            <div className="text-sm text-muted-foreground">Strategy Wins</div>
+            <div className="text-3xl font-bold text-primary">{game.strategyWins}</div>
+            <div className="text-sm text-muted-foreground">Strategy</div>
           </div>
         </div>
+
+        <StructuredFeedbackSummary
+          strengths={strengths}
+          weaknesses={weaknesses}
+          nextStep={maya.nextStep}
+          mayaReflection={maya.reflection}
+          realLifeLine={maya.realLifeLine}
+        />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto h-full flex flex-col gap-2">
+      {/* Purpose banner — first trial only */}
+      {game.currentIndex === 0 && !showFeedback && (
+        <ExercisePurposeBanner exerciseSlug="describe-guess" />
+      )}
       {/* Progress — compact */}
       <div className="shrink-0">
         <div className="flex justify-between text-xs text-muted-foreground mb-1">

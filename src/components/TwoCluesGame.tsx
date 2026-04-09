@@ -30,6 +30,7 @@ import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, Tren
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const SCORING_DEBOUNCE_MS = 750;
@@ -976,6 +977,10 @@ export function TwoCluesGame({
   return (
     <Card className="max-w-md mx-auto">
       <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-6">
+        {/* Purpose banner — first trial only */}
+        {currentIndex === 0 && !showFeedback && (
+          <ExercisePurposeBanner exerciseSlug="two-clues" />
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <Badge variant="outline" className="text-xs">

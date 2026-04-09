@@ -6,13 +6,16 @@
  */
 
 import { useEffect } from 'react';
+import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
+import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
@@ -46,6 +49,7 @@ export function MinimalPairsGame({
   });
   
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'minimal-pairs' });
   
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
   
@@ -96,37 +100,59 @@ export function MinimalPairsGame({
     const accuracy = state.totalTrials > 0 
       ? Math.round((correctCount / state.totalTrials) * 100) 
       : 0;
+    const accNorm = accuracy / 100;
+    const maya = buildReflection(accNorm);
+    
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+    if (accuracy >= 80) strengths.push('Strong sound discrimination accuracy');
+    if (correctCount >= totalTrials * 0.6) strengths.push(`Got ${correctCount} of ${state.totalTrials} correct`);
+    if (accuracy < 60) weaknesses.push('Some similar sounds were hard to tell apart');
+    if (accuracy >= 60 && accuracy < 80) weaknesses.push('A few tricky sound pairs need more practice');
     
     return (
-      <Card className="p-6">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-            <Trophy className="w-8 h-8 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Exercise Complete!</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Great work on phoneme discrimination</p>
-          </div>
-          <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="text-xl font-bold text-primary">{score}</div>
-              <div className="text-xs text-muted-foreground">Score</div>
+      <div className="max-w-md mx-auto space-y-4">
+        <Card className="p-6">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+              <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="text-xl font-bold text-green-600">{correctCount}</div>
-              <div className="text-xs text-muted-foreground">Correct</div>
+            <div>
+              <h2 className="text-xl font-bold">Exercise Complete!</h2>
+              <p className="text-muted-foreground mt-1 text-sm">Sound discrimination practice</p>
             </div>
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="text-xl font-bold">{accuracy}%</div>
-              <div className="text-xs text-muted-foreground">Accuracy</div>
+            <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-xl font-bold text-primary">{score}</div>
+                <div className="text-xs text-muted-foreground">Score</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-xl font-bold text-primary">{correctCount}</div>
+                <div className="text-xs text-muted-foreground">Correct</div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-xl font-bold">{accuracy}%</div>
+                <div className="text-xs text-muted-foreground">Accuracy</div>
+              </div>
             </div>
           </div>
+        </Card>
+
+        <StructuredFeedbackSummary
+          strengths={strengths}
+          weaknesses={weaknesses}
+          nextStep={maya.nextStep}
+          mayaReflection={maya.reflection}
+          realLifeLine={maya.realLifeLine}
+        />
+
+        <div className="text-center">
           <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
             <RotateCcw className="w-4 h-4 mr-2" />
             Practice Again
           </Button>
         </div>
-      </Card>
+      </div>
     );
   }
   
@@ -134,6 +160,10 @@ export function MinimalPairsGame({
   
   return (
     <div className="space-y-2 sm:space-y-4">
+      {/* Purpose banner — first trial only */}
+      {trialIndex === 0 && !showFeedback && (
+        <ExercisePurposeBanner exerciseSlug="minimal-pairs" />
+      )}
       {/* Compact header */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
