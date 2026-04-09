@@ -11,6 +11,12 @@ export interface CaseloadPatient {
   daysPostStroke: number | null;
   aphasiaLabel: string | null;
 
+  // Phenotype (from new queryable columns)
+  aphasiaType: string | null;
+  laterality: string | null;
+  chronicity: string | null;
+  strokeMechanism: string | null;
+
   // 7-day aggregates
   trials7d: number;
   priorTrials7d: number;
