@@ -17,6 +17,8 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useAutoResponseMic } from '@/hooks/useAutoResponseMic';
+import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
