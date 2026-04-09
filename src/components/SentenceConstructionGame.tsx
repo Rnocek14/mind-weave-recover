@@ -1,8 +1,19 @@
+/**
+ * Sentence Construction v2
+ * 
+ * Grammar and syntax exercise with:
+ * - Purpose framing + Maya integration
+ * - Speech-first with tile fallback (preserved)
+ * - Grammar-aware feedback explaining WHY the correct structure works
+ * - Structured summary with grammar-type breakdown
+ */
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { CardContent } from "@/components/ui/card";
 import type { ExerciseConfig } from '@/lib/clinicalProfileMapper';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import {
@@ -20,8 +31,10 @@ import {
 import { useSentenceGame } from "@/hooks/useSentenceGame";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useMayaExerciseFrame } from "@/hooks/useMayaExerciseFrame";
+import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
+import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
-import { AdaptationBadges } from '@/components/AdaptationBadges';
 
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
@@ -52,6 +65,41 @@ interface ExerciseAdaptation {
   reason: string;
 }
 
+// Grammar focus display labels and explanations
+const GRAMMAR_LABELS: Record<string, { label: string; explanation: string }> = {
+  'SVO': { label: 'Word Order', explanation: 'Subject → Verb → Object is the basic sentence pattern' },
+  'articles': { label: 'Articles', explanation: 'Words like "the," "a," and "an" help specify nouns' },
+  'past_tense': { label: 'Past Tense', explanation: 'Past tense verbs describe what already happened' },
+  'present_tense': { label: 'Present Tense', explanation: 'Present tense describes what is happening now' },
+  'future_tense': { label: 'Future Tense', explanation: 'Future tense describes what will happen' },
+  'pronouns': { label: 'Pronouns', explanation: 'Words like "he," "she," "they" replace names' },
+  'prepositions': { label: 'Prepositions', explanation: 'Words like "on," "in," "under" show location or direction' },
+  'conjunctions': { label: 'Joining Words', explanation: 'Words like "and," "but," "because" connect ideas' },
+  'adjectives': { label: 'Describing Words', explanation: 'Adjectives describe nouns — what something looks like, how it feels' },
+  'adverbs': { label: 'Adverbs', explanation: 'Words that describe how, when, or where something happens' },
+  'questions': { label: 'Questions', explanation: 'Questions rearrange word order to ask for information' },
+  'negation': { label: 'Negation', explanation: '"Not," "don\'t," "won\'t" — making sentences negative' },
+  'passive_voice': { label: 'Passive Voice', explanation: 'The object comes first: "The ball was kicked by the boy"' },
+  'relative_clauses': { label: 'Relative Clauses', explanation: 'Extra detail added with "who," "which," "that"' },
+  'compound': { label: 'Compound Sentences', explanation: 'Two ideas joined together in one sentence' },
+  'complex': { label: 'Complex Sentences', explanation: 'Main idea + supporting detail' },
+};
+
+function getGrammarLabel(focus: string): string {
+  return GRAMMAR_LABELS[focus]?.label || focus.replace(/_/g, ' ');
+}
+
+function getGrammarExplanation(focus: string): string {
+  return GRAMMAR_LABELS[focus]?.explanation || '';
+}
+
+// Track grammar performance across trials
+interface GrammarStats {
+  focus: string;
+  correct: number;
+  incorrect: number;
+}
+
 export const SentenceConstructionGame = ({
   config,
   bounds,
@@ -80,11 +128,14 @@ export const SentenceConstructionGame = ({
   } = useSentenceGame(10, difficultyLevel, focusPhonemes);
 
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'sentence-construction' });
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
   const [showTiles, setShowTiles] = useState(false);
   const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
   const hasProcessedSpeechRef = useRef(false);
+  const [showPurpose, setShowPurpose] = useState(true);
+  const [grammarStats, setGrammarStats] = useState<GrammarStats[]>([]);
 
   const trial = getCurrentTrial();
 
@@ -107,7 +158,6 @@ export const SentenceConstructionGame = ({
     autoStart: false,
   });
 
-  // Auto-start mic when trial changes
   useEffect(() => {
     setTrialStartTime(Date.now());
     setHintUsed(false);
@@ -115,14 +165,11 @@ export const SentenceConstructionGame = ({
     hasProcessedSpeechRef.current = false;
     stop();
     if (trial?.modelAudio && !completed) {
-      const timer = setTimeout(() => {
-        speak(trial.modelAudio!);
-      }, 300);
+      const timer = setTimeout(() => { speak(trial.modelAudio!); }, 300);
       return () => clearTimeout(timer);
     }
   }, [currentTrial, completed]);
 
-  // Auto-start mic after TTS finishes reading
   useEffect(() => {
     if (!isSpeaking && !isLoading && trial && !completed && !showFeedback && speechSupported && !showTiles) {
       const timer = setTimeout(() => {
@@ -138,48 +185,49 @@ export const SentenceConstructionGame = ({
     }
   }, [completed]);
 
-  // Match spoken sentence to word tiles
+  const recordGrammarResult = useCallback((focus: string, correct: boolean) => {
+    setGrammarStats(prev => {
+      const existing = prev.find(s => s.focus === focus);
+      if (existing) {
+        return prev.map(s => s.focus === focus
+          ? { ...s, correct: s.correct + (correct ? 1 : 0), incorrect: s.incorrect + (correct ? 0 : 1) }
+          : s
+        );
+      }
+      return [...prev, { focus, correct: correct ? 1 : 0, incorrect: correct ? 0 : 1 }];
+    });
+  }, []);
+
   const submitSpokenSentence = useCallback(() => {
     if (!trial || !spokenSentence || hasProcessedSpeechRef.current) return;
     hasProcessedSpeechRef.current = true;
     stopListening();
 
     const spokenWords = spokenSentence.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-    const correctWords = trial.correctAnswer.map(w => w.toLowerCase());
-
-    // Map spoken words to option indices
     const usedIndices = new Set<number>();
     const mappedIndices: number[] = [];
 
     for (const spoken of spokenWords) {
-      // Find the best matching option that hasn't been used yet
       let bestIdx = -1;
       for (let i = 0; i < trial.options.length; i++) {
         if (usedIndices.has(i)) continue;
-        if (trial.options[i].toLowerCase() === spoken) {
-          bestIdx = i;
-          break;
-        }
+        if (trial.options[i].toLowerCase() === spoken) { bestIdx = i; break; }
       }
-      if (bestIdx >= 0) {
-        mappedIndices.push(bestIdx);
-        usedIndices.add(bestIdx);
-      }
+      if (bestIdx >= 0) { mappedIndices.push(bestIdx); usedIndices.add(bestIdx); }
     }
 
-    // Set the answer via the mapped indices
     if (mappedIndices.length > 0) {
-      // Clear and set all at once by selecting each word
       clearAnswer();
       mappedIndices.forEach(idx => selectWord(idx));
     }
 
-    // Auto-submit after a beat
     setTimeout(() => {
       const result = submitAnswer();
       if (!result) return;
       const reactionTime = Date.now() - trialStartTime;
       if (trial?.modelAudio) speak(trial.modelAudio);
+      recordGrammarResult(result.trial.grammarFocus, result.correct);
+      setShowPurpose(false);
       if (onTrialComplete) {
         onTrialComplete({
           correct: result.correct,
@@ -190,9 +238,8 @@ export const SentenceConstructionGame = ({
         });
       }
     }, 300);
-  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak]);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult]);
 
-  // Auto-submit when speech stops and we have a sentence
   useEffect(() => {
     if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
       const timer = setTimeout(() => submitSpokenSentence(), 600);
@@ -202,24 +249,20 @@ export const SentenceConstructionGame = ({
 
   const handleHint = () => {
     setHintUsed(true);
-    if (trial?.modelAudio) {
-      speak(trial.modelAudio);
-    }
+    if (trial?.modelAudio) speak(trial.modelAudio);
   };
 
   const handlePlayAudio = () => {
-    if (trial?.modelAudio) {
-      speak(trial.modelAudio);
-    }
+    if (trial?.modelAudio) speak(trial.modelAudio);
   };
 
   const handleSubmit = () => {
     const result = submitAnswer();
     if (!result) return;
     const reactionTime = Date.now() - trialStartTime;
-    if (trial?.modelAudio) {
-      speak(trial.modelAudio);
-    }
+    if (trial?.modelAudio) speak(trial.modelAudio);
+    recordGrammarResult(result.trial.grammarFocus, result.correct);
+    setShowPurpose(false);
     if (onTrialComplete) {
       onTrialComplete({
         correct: result.correct,
@@ -253,42 +296,94 @@ export const SentenceConstructionGame = ({
     );
   }
 
+  // ── Summary screen ──
   if (completed) {
-    const accuracy = Math.round((score / trials.length) * 100);
+    const accuracy = trials.length > 0 ? score / trials.length : 0;
     const weakestArea = getWeakestGrammarArea();
+    const maya = buildReflection(accuracy);
+
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+
+    // Grammar breakdown analysis
+    const strongAreas = grammarStats.filter(s => s.correct > 0 && s.incorrect === 0);
+    const weakAreas = grammarStats.filter(s => s.incorrect > s.correct);
+    const mixedAreas = grammarStats.filter(s => s.correct > 0 && s.incorrect > 0 && s.correct >= s.incorrect);
+
+    if (strongAreas.length > 0) {
+      strengths.push(`Strong with: ${strongAreas.map(s => getGrammarLabel(s.focus)).join(', ')}`);
+    }
+    if (accuracy >= 0.7) {
+      strengths.push(`${Math.round(accuracy * 100)}% accuracy — consistent sentence building`);
+    }
+    if (mixedAreas.length > 0) {
+      strengths.push(`Improving: ${mixedAreas.map(s => getGrammarLabel(s.focus)).join(', ')}`);
+    }
+
+    if (weakAreas.length > 0) {
+      weaknesses.push(`Needs practice: ${weakAreas.map(s => getGrammarLabel(s.focus)).join(', ')}`);
+      const weakExplanations = weakAreas
+        .map(s => getGrammarExplanation(s.focus))
+        .filter(Boolean)
+        .slice(0, 1);
+      if (weakExplanations.length > 0) {
+        weaknesses.push(`Tip: ${weakExplanations[0]}`);
+      }
+    }
+
+    if (strengths.length === 0) strengths.push(`Completed ${trials.length} sentences — building consistency`);
 
     return (
-      <Card className="p-6">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-primary flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-1">Session Complete!</h2>
-            <p className="text-lg text-muted-foreground">
-              Score: {score} / {trials.length} ({accuracy}%)
-            </p>
-          </div>
-          {weakestArea && (
-            <div className="p-3 bg-warning/10 border border-warning rounded-lg">
-              <div className="flex items-start gap-2">
-                <Lightbulb className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                <div className="text-left text-sm">
-                  <p className="font-medium">Focus area: {weakestArea.replace(/_/g, " ")}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => window.history.back()} className="min-h-[48px]">
-              Back
-            </Button>
-            <Button onClick={() => nextTrial(difficultyLevel)} className="min-h-[48px]">
-              Continue
-            </Button>
-          </div>
+      <div className="space-y-4 max-w-lg mx-auto">
+        <div className="text-center space-y-2">
+          <div className="text-4xl">📝</div>
+          <h2 className="text-xl font-bold">Session Complete</h2>
+          <p className="text-2xl font-bold text-primary">{score} / {trials.length}</p>
         </div>
-      </Card>
+
+        {/* Grammar breakdown */}
+        {grammarStats.length > 0 && (
+          <Card>
+            <CardContent className="pt-4">
+              <h3 className="text-sm font-medium mb-2">Grammar Breakdown</h3>
+              <div className="space-y-1.5">
+                {grammarStats.map(({ focus, correct, incorrect }) => {
+                  const total = correct + incorrect;
+                  const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                  return (
+                    <div key={focus} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 text-foreground/80">{getGrammarLabel(focus)}</span>
+                      <div className="w-20">
+                        <Progress value={pct} className="h-2" />
+                      </div>
+                      <span className="text-xs text-muted-foreground w-14 text-right">
+                        {correct}/{total}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <StructuredFeedbackSummary
+          strengths={strengths}
+          weaknesses={weaknesses}
+          nextStep={maya.nextStep}
+          mayaReflection={maya.reflection}
+          realLifeLine={maya.realLifeLine}
+        />
+
+        <div className="flex gap-3 justify-center">
+          <Button variant="outline" onClick={() => window.history.back()} className="min-h-[48px]">
+            Back
+          </Button>
+          <Button onClick={() => nextTrial(difficultyLevel)} className="min-h-[48px]">
+            Continue
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -296,22 +391,27 @@ export const SentenceConstructionGame = ({
   const canSubmit = currentAnswer.length > 0;
 
   return (
-    <div className="space-y-2 sm:space-y-3">
+    <div className="space-y-2 sm:space-y-3 max-w-lg mx-auto">
+      {/* Purpose banner — first trial only */}
+      {showPurpose && currentTrial === 0 && (
+        <ExercisePurposeBanner exerciseSlug="sentence-construction" />
+      )}
+
       {/* Compact progress */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs sm:text-sm">
           <span className="text-muted-foreground">
             {currentTrial + 1} of {trials.length}
           </span>
-          <span className="font-medium">Score: {score}</span>
+          <span className="font-medium">{score} correct</span>
         </div>
         <Progress value={progress} className="h-1.5" />
       </div>
 
-      {/* Task info + audio — compact row */}
+      {/* Task info + audio */}
       <div className="flex items-center justify-between">
         <Badge variant="outline" className="text-xs">
-          {trial.grammarFocus.replace(/_/g, " ")}
+          {getGrammarLabel(trial.grammarFocus)}
         </Badge>
         <Button
           variant="outline"
@@ -331,7 +431,6 @@ export const SentenceConstructionGame = ({
           {/* Speech mode (default) */}
           {!showTiles && !showFeedback && (
             <div className="space-y-3">
-              {/* Scrambled words shown as reference */}
               <div className="flex flex-wrap gap-1.5 p-2.5 bg-muted/50 rounded-lg">
                 {trial.options.map((word, idx) => (
                   <Badge key={idx} variant="outline" className="text-sm px-2.5 py-1">
@@ -340,7 +439,6 @@ export const SentenceConstructionGame = ({
                 ))}
               </div>
 
-              {/* Mic orb */}
               <div className="flex flex-col items-center gap-3 py-4">
                 <button
                   onClick={() => {
@@ -368,15 +466,11 @@ export const SentenceConstructionGame = ({
                 </p>
               </div>
 
-              {/* Switch to tiles */}
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full text-xs text-muted-foreground"
-                onClick={() => {
-                  stopListening();
-                  setShowTiles(true);
-                }}
+                onClick={() => { stopListening(); setShowTiles(true); }}
               >
                 <Keyboard className="w-3 h-3 mr-1" /> Switch to word tiles
               </Button>
@@ -386,7 +480,6 @@ export const SentenceConstructionGame = ({
           {/* Tile mode (fallback) */}
           {showTiles && !showFeedback && (
             <>
-              {/* Sentence Construction Area */}
               <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-primary rounded-lg">
                 {answerWords.length === 0 ? (
                   <span className="text-muted-foreground text-sm">Tap words to build sentence</span>
@@ -399,7 +492,6 @@ export const SentenceConstructionGame = ({
                 )}
               </div>
 
-              {/* Word Options */}
               <div className="flex flex-wrap gap-2">
                 {getAvailableWords().map((item) => (
                   <Button
@@ -414,7 +506,6 @@ export const SentenceConstructionGame = ({
                 ))}
               </div>
 
-              {/* Controls */}
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" size="sm" onClick={removeLastWord} disabled={currentAnswer.length === 0} className="min-h-[44px]">
                   <RotateCcw className="w-4 h-4 mr-1" /> Undo
@@ -427,17 +518,15 @@ export const SentenceConstructionGame = ({
                 </Button>
               </div>
 
-              {/* Switch to mic */}
               <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowTiles(false)}>
                 <Mic className="w-3 h-3 mr-1" /> Switch to voice
               </Button>
             </>
           )}
 
-          {/* Feedback (shared) */}
+          {/* Feedback — now with grammar explanation */}
           {showFeedback && (
             <>
-              {/* Show what was built */}
               <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2.5 bg-muted border-2 border-dashed border-border rounded-lg">
                 {answerWords.map((word, idx) => (
                   <Badge key={idx} variant="secondary" className="text-sm px-2.5 py-1">
@@ -446,28 +535,36 @@ export const SentenceConstructionGame = ({
                 ))}
               </div>
 
-              <div
-                className={cn(
-                  "p-3 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2",
-                  feedbackCorrect
-                    ? "bg-success/10 border-success"
-                    : "bg-destructive/10 border-destructive"
-                )}
-              >
-                <div className="flex items-center gap-2">
+              <div className={cn(
+                "p-3 rounded-lg border animate-in fade-in slide-in-from-bottom-2 space-y-2",
+                feedbackCorrect
+                  ? "bg-primary/5 border-primary/20"
+                  : "bg-destructive/5 border-destructive/20"
+              )}>
+                <div className="flex items-start gap-2">
                   {feedbackCorrect ? (
-                    <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                   )}
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-1">
                     <p className="font-medium text-sm">
-                      {feedbackCorrect ? "Correct!" : "Not quite right"}
+                      {feedbackCorrect ? "Correct sentence!" : "Not quite right"}
                     </p>
                     {!feedbackCorrect && (
-                      <p className="text-xs mt-0.5">
-                        Answer: <span className="font-medium">{trial.targetSentence}</span>
+                      <p className="text-sm">
+                        Correct: <span className="font-medium">{trial.targetSentence}</span>
                       </p>
+                    )}
+                    {/* Grammar explanation */}
+                    {getGrammarExplanation(trial.grammarFocus) && (
+                      <div className="flex items-start gap-1.5 text-xs text-muted-foreground mt-1">
+                        <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>{getGrammarLabel(trial.grammarFocus)}:</strong>{' '}
+                          {getGrammarExplanation(trial.grammarFocus)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
