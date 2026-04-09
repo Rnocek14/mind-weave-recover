@@ -50,6 +50,12 @@ export const useTextToSpeech = () => {
       }, estimatedDuration);
       
       const attemptSpeak = () => {
+        // Warm-up: speak a silent utterance first to prime the audio context
+        // This prevents the first syllable from being clipped
+        const warmup = new SpeechSynthesisUtterance('');
+        warmup.volume = 0;
+        window.speechSynthesis.speak(warmup);
+
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9;
         utterance.pitch = 1;
