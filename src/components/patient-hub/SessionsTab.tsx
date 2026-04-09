@@ -35,23 +35,32 @@ interface SessionRow {
   duration_sec: number | null;
   summary: any;
   plan: any;
+  mood_rating: number | null;
+  caregiver_notes: string | null;
+  engagement_summary: any;
 }
 
-function formatSlug(slug: string): string {
-  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+interface ExerciseSummary {
+  slug: string;
+  trialCount: number;
+  correctCount: number;
+  accuracy: number;
+  audioCount: number;
+  avgRtMs: number | null;
 }
 
-const ERROR_COLORS: Record<string, string> = {
-  semantic: "bg-amber-500",
-  phonological: "bg-blue-500",
-  timeout: "bg-muted-foreground",
-  no_response: "bg-muted-foreground",
-  perseveration: "bg-purple-500",
-  neologism: "bg-rose-500",
-};
+interface SessionMeta {
+  exercises: ExerciseSummary[];
+  totalTrials: number;
+  overallAccuracy: number;
+  totalAudio: number;
+  avgRtMs: number | null;
+  adaptationCount: number;
+}
 
 export function SessionsTab({ userId, profileId, windowSize, timeline }: SessionsTabProps) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [sessionMeta, setSessionMeta] = useState<Map<string, SessionMeta>>(new Map());
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -71,20 +80,102 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - windowSize);
 
-    const fetch = async () => {
+    const fetchAll = async () => {
       setLoading(true);
       const { data } = await supabase
         .from("sessions")
-        .select("id, started_at, ended_at, duration_sec, summary, plan")
+        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary")
         .eq("profile_id", profileId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
         .order("started_at", { ascending: false })
         .limit(50);
-      setSessions(data ?? []);
+      
+      const sessionRows = (data ?? []) as SessionRow[];
+      setSessions(sessionRows);
+
+      if (sessionRows.length > 0) {
+        const sessionIds = sessionRows.map((s) => s.id);
+
+        // Batch fetch exercise events summary + adaptation counts
+        const [eventsRes, adaptRes] = await Promise.all([
+          supabase
+            .from("exercise_events")
+            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
+            .in("session_id", sessionIds),
+          supabase
+            .from("adaptation_events" as any)
+            .select("session_id")
+            .in("session_id", sessionIds),
+        ]);
+
+        const events = eventsRes.data ?? [];
+        const adaptations = (adaptRes.data ?? []) as any[];
+
+        // Build per-session meta
+        const metaMap = new Map<string, SessionMeta>();
+
+        // Group events by session
+        const bySession = new Map<string, typeof events>();
+        events.forEach((e) => {
+          if (!bySession.has(e.session_id)) bySession.set(e.session_id, []);
+          bySession.get(e.session_id)!.push(e);
+        });
+
+        // Count adaptations per session
+        const adaptCounts = new Map<string, number>();
+        adaptations.forEach((a: any) => {
+          adaptCounts.set(a.session_id, (adaptCounts.get(a.session_id) || 0) + 1);
+        });
+
+        sessionIds.forEach((sid) => {
+          const evts = bySession.get(sid) || [];
+          const exMap = new Map<string, { trials: number; correct: number; audio: number; rtSum: number; rtCount: number }>();
+
+          evts.forEach((e) => {
+            const slug = e.exercise_slug || "unknown";
+            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, correct: 0, audio: 0, rtSum: 0, rtCount: 0 });
+            const ex = exMap.get(slug)!;
+            ex.trials++;
+            if (e.score === 1 || e.score === 100) ex.correct++;
+            if (e.audio_storage_path) ex.audio++;
+            if (e.reaction_time_ms && e.reaction_time_ms > 0) {
+              ex.rtSum += e.reaction_time_ms;
+              ex.rtCount++;
+            }
+          });
+
+          const exercises: ExerciseSummary[] = Array.from(exMap.entries()).map(([slug, d]) => ({
+            slug,
+            trialCount: d.trials,
+            correctCount: d.correct,
+            accuracy: d.trials > 0 ? Math.round((d.correct / d.trials) * 100) : 0,
+            audioCount: d.audio,
+            avgRtMs: d.rtCount > 0 ? Math.round(d.rtSum / d.rtCount) : null,
+          }));
+
+          const totalTrials = evts.length;
+          const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
+          const totalAudio = evts.filter((e) => e.audio_storage_path).length;
+          const allRt = evts.filter((e) => e.reaction_time_ms && e.reaction_time_ms > 0).map((e) => e.reaction_time_ms!);
+          const avgRtMs = allRt.length > 0 ? Math.round(allRt.reduce((a, b) => a + b, 0) / allRt.length) : null;
+
+          metaMap.set(sid, {
+            exercises,
+            totalTrials,
+            overallAccuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : 0,
+            totalAudio,
+            avgRtMs,
+            adaptationCount: adaptCounts.get(sid) || 0,
+          });
+        });
+
+        setSessionMeta(metaMap);
+      }
+
       setLoading(false);
     };
-    fetch();
+    fetchAll();
   }, [profileId, windowSize]);
 
   // Build per-session accuracy for sparkline
