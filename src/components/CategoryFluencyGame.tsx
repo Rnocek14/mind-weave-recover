@@ -291,7 +291,7 @@ export function CategoryFluencyGame({
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
-    setPhase('countdown' as any);
+    setPhase('countdown');
     
     // Speak the category-specific intro in Full Coaching mode (fire-and-forget)
     // Don't await — TTS may fail without gesture context on auto-start,
