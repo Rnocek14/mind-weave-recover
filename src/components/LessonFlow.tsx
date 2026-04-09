@@ -107,6 +107,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const recentRTRef = useRef<number[]>([]);
   const recentTimeoutsRef = useRef(0);
   const lastExerciseScoreRef = useRef<number | null>(null);
+  const blockScoresRef = useRef<Record<number, number>>({});
 
   const currentBlock = runtimeBlocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
@@ -139,11 +140,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           if (parsed.recentRTs) recentRTRef.current = parsed.recentRTs;
           if (parsed.recentTimeouts != null) recentTimeoutsRef.current = parsed.recentTimeouts;
           
+          // Restore block scores if available
+          if (parsed.blockScores) blockScoresRef.current = parsed.blockScores;
+          
           // Extract score from the exercise-complete event detail if available
           const detail = (location.state as any)?.exerciseResult;
           if (detail?.score != null) {
             recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
             lastExerciseScoreRef.current = detail.score;
+            blockScoresRef.current[savedIndex] = detail.score;
           }
           if (detail?.avgReactionTime != null) {
             recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
@@ -294,6 +299,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       recentScores: recentScoresRef.current,
       recentRTs: recentRTRef.current,
       recentTimeouts: recentTimeoutsRef.current,
+      blockScores: blockScoresRef.current,
       blockCount: lesson.blocks.length,
       firstExerciseId: lesson.blocks[0]?.exerciseId,
       lesson,
