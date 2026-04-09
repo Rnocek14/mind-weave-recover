@@ -238,6 +238,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         <SessionCard
           key={session.id}
           session={session}
+          meta={sessionMeta.get(session.id)}
           isExpanded={expandedId === session.id}
           onToggle={() => setExpandedId(expandedId === session.id ? null : session.id)}
         />
