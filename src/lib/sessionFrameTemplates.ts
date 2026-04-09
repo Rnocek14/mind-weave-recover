@@ -252,27 +252,77 @@ function buildGeneralClosing(results: BlockResult[]): SessionFrameClosing {
   };
 }
 
-/** Build dynamic Maya transitions based on the actual exercise blocks */
+/** Build dynamic Maya transitions based on the actual exercise blocks.
+ *  Each transition has: reflection on what was just practiced + purpose of what's next.
+ */
 function buildDynamicTransitions(blocks: { exerciseId: string; priority?: string }[]): Record<number, string> {
   const transitions: Record<number, string> = {};
   
-  const EXERCISE_BRIDGES: Record<string, { after: string; before: string }> = {
-    'category-fluency': { after: 'Good — that warms up your word finding.', before: 'Let\'s start by generating words quickly.' },
-    'photo-naming': { after: 'Nice work naming those.', before: 'Now let\'s practice finding the right word for what you see.' },
-    'describe-guess': { after: 'Good describing.', before: 'Now let\'s practice describing things without saying the word.' },
-    'narrative-retell': { after: 'Good storytelling.', before: 'Now let\'s practice telling a story back.' },
-    'detective-mind': { after: 'Good detective work.', before: 'Now let\'s find the important clues in a story.' },
-    'two-clues': { after: 'Good clue-solving.', before: 'Now let\'s figure out words from two clues.' },
-    'synonym-generator': { after: 'Good word connections.', before: 'Now let\'s find words that mean the same thing.' },
-    'thought-continuation': { after: 'Good thinking.', before: 'Now let\'s practice finishing thoughts.' },
-    'meaning-match': { after: 'Good matching.', before: 'Now let\'s match words to their meanings.' },
-    'abstract-compare': { after: 'Good comparing.', before: 'Now let\'s think about how things are similar.' },
-    'semantic-features': { after: 'Good feature work.', before: 'Now let\'s describe what makes things unique.' },
-    'fix-sentence': { after: 'Good sentence work.', before: 'Now let\'s fix some sentences.' },
-    'sentence-construction': { after: 'Good sentences.', before: 'Now let\'s build some sentences.' },
-    'minimal-pairs': { after: 'Good sound work.', before: 'Now let\'s practice telling similar sounds apart.' },
-    'dual-load-naming': { after: 'Good multitasking.', before: 'Now let\'s name things while thinking about something else.' },
-    'multi-step-plan': { after: 'Good planning.', before: 'Now let\'s practice planning steps in order.' },
+  const EXERCISE_BRIDGES: Record<string, { reflection: string; purpose: string }> = {
+    'category-fluency': {
+      reflection: 'That warmed up your word-finding speed.',
+      purpose: 'Let\'s work on finding words quickly by category.',
+    },
+    'photo-naming': {
+      reflection: 'Good practice connecting pictures to words.',
+      purpose: 'Now let\'s practice naming what you see.',
+    },
+    'describe-guess': {
+      reflection: 'Nice — describing things uses the same skills as everyday conversation.',
+      purpose: 'Now let\'s practice describing things in detail.',
+    },
+    'narrative-retell': {
+      reflection: 'Good work organizing that story. Retelling builds your sequencing skills.',
+      purpose: 'Now let\'s practice telling a story back in your own words.',
+    },
+    'detective-mind': {
+      reflection: 'Good detective work. Catching key details builds your comprehension.',
+      purpose: 'Now let\'s read a story and find the important clues.',
+    },
+    'two-clues': {
+      reflection: 'Good — combining clues to find a word is like solving puzzles in conversation.',
+      purpose: 'Now let\'s figure out words from two clues.',
+    },
+    'synonym-generator': {
+      reflection: 'Nice — having multiple words for the same idea makes speaking easier.',
+      purpose: 'Now let\'s find different words that mean the same thing.',
+    },
+    'thought-continuation': {
+      reflection: 'Good thinking. Finishing thoughts naturally keeps conversations flowing.',
+      purpose: 'Now let\'s practice finishing sentences naturally.',
+    },
+    'meaning-match': {
+      reflection: 'Good — understanding word meanings helps you follow conversations better.',
+      purpose: 'Now let\'s match words to their meanings.',
+    },
+    'abstract-compare': {
+      reflection: 'Nice work. Comparing things uses deep thinking skills.',
+      purpose: 'Now let\'s think about how things are similar.',
+    },
+    'semantic-features': {
+      reflection: 'Good work describing those features. That helps with word-finding.',
+      purpose: 'Now let\'s describe what makes things unique.',
+    },
+    'fix-sentence': {
+      reflection: 'Good — catching sentence errors builds your grammar sense.',
+      purpose: 'Now let\'s practice fixing sentences that have a wrong word.',
+    },
+    'sentence-construction': {
+      reflection: 'Good practice building sentences. That helps with speaking in order.',
+      purpose: 'Now let\'s build some sentences from scrambled words.',
+    },
+    'minimal-pairs': {
+      reflection: 'Good listening. Telling similar sounds apart is important for understanding speech.',
+      purpose: 'Now let\'s practice hearing the difference between similar sounds.',
+    },
+    'dual-load-naming': {
+      reflection: 'Good multitasking. That builds real-world conversation stamina.',
+      purpose: 'Now let\'s name things while holding something else in mind.',
+    },
+    'multi-step-plan': {
+      reflection: 'Good planning. Organizing steps helps with everyday tasks.',
+      purpose: 'Now let\'s practice planning steps in order.',
+    },
   };
 
   for (let i = 1; i < blocks.length; i++) {
@@ -281,10 +331,10 @@ function buildDynamicTransitions(blocks: { exerciseId: string; priority?: string
     const prevBridge = EXERCISE_BRIDGES[prev.exerciseId];
     const nextBridge = EXERCISE_BRIDGES[next.exerciseId];
     
-    const afterPart = prevBridge?.after || 'Good work on that.';
-    const beforePart = nextBridge?.before || `Now let's move to the next exercise.`;
+    const reflectionPart = prevBridge?.reflection || 'Good work on that.';
+    const purposePart = nextBridge?.purpose || `Let's move to the next exercise.`;
     
-    transitions[i] = `${afterPart} ${beforePart}`;
+    transitions[i] = `${reflectionPart} ${purposePart}`;
   }
   
   return transitions;
