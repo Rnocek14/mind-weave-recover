@@ -71,8 +71,13 @@ export function DetectiveMindGame({
   const [showHint, setShowHint] = useState(false);
   const [reasoningPoints, setReasoningPoints] = useState(0);
   const [explainSkipCount, setExplainSkipCount] = useState(0);
+  const [hasAutoRead, setHasAutoRead] = useState(false);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Voice guidance for Full Coaching mode
+  const vg = useVoiceGuidance('detective-mind');
 
   // Reset state when case changes
   useEffect(() => {
@@ -81,9 +86,46 @@ export function DetectiveMindGame({
     setLastResult(null);
     setUsedHint(false);
     setShowHint(false);
+    setHasAutoRead(false);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
   }, [currentIndex]);
+
+  // Full Coaching: auto-read story then question on case load
+  useEffect(() => {
+    if (!currentCase || hasAutoRead || !vg.shouldAutoReadContent) return;
+    setHasAutoRead(true);
+
+    const doAutoRead = async () => {
+      // First case gets the exercise intro
+      if (currentIndex === 0) {
+        await vg.speakIntro();
+        // Brief pause after intro
+        await new Promise(r => setTimeout(r, 800));
+      }
+      // Read story
+      const storyText = currentCase.story.join(' ');
+      await vg.autoReadText(storyText);
+      // Pause between story and question (~1s)
+      await new Promise(r => setTimeout(r, 1000));
+      // Read question
+      await vg.autoReadText(currentCase.question);
+    };
+
+    doAutoRead();
+  }, [currentCase, currentIndex, hasAutoRead, vg]);
+
+  // Full Coaching: spoken stall cue after ~8s of no interaction
+  useEffect(() => {
+    if (phase !== 'answering' || !vg.isVoiceLed) return;
+    stallTimerRef.current = setTimeout(() => {
+      if (selectedOption === null && !firstInteractionRef.current) {
+        vg.speakReminder();
+      }
+    }, 8000);
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
+  }, [phase, vg.isVoiceLed, currentIndex]);
 
   // Check completion (fire once)
   const completedRef = useRef(false);
