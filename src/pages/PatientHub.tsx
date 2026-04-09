@@ -11,8 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText,
-  Calendar, Activity, Target, Clock, Flame, AlertTriangle
+  ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
