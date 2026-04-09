@@ -114,10 +114,32 @@ export function NarrativeRetellGame({
   const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
   const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
 
+  // Voice guidance for Full Coaching mode
+  const vg = useVoiceGuidance('narrative-retell');
+
   // Stop TTS on unmount or when leaving reading phase
   useEffect(() => {
-    return () => { stopTTS(); };
-  }, [stopTTS]);
+    return () => { stopTTS(); vg.interrupt(); };
+  }, [stopTTS, vg]);
+
+  // Full Coaching: auto-read story when entering reading phase
+  const hasAutoReadRef = useRef(false);
+  useEffect(() => {
+    if (phase !== 'reading' || !currentStory || !vg.shouldAutoReadContent || hasAutoReadRef.current) return;
+    hasAutoReadRef.current = true;
+
+    const doAutoRead = async () => {
+      // First story gets the exercise intro
+      if (currentIndex === 0) {
+        await vg.speakIntro();
+        await new Promise(r => setTimeout(r, 800));
+      }
+      // Read the full story
+      const fullText = currentStory.scenes.map(s => s.text).join(' ');
+      await vg.autoReadText(fullText);
+    };
+    doAutoRead();
+  }, [phase, currentStory, currentIndex, vg]);
 
   const handleListenToStory = useCallback(() => {
     if (!currentStory) return;
