@@ -1213,6 +1213,7 @@ export function generateDailyLesson(
     reasoning,
     energyLevel,
     doseReasoning: doseResult.reasoning,
+    sessionFrameId: 'general_session',
   };
 }
 

@@ -32,7 +32,7 @@ import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
 import { MayaSessionFrame } from "./MayaSessionFrame";
-import { getSessionFrame } from "@/lib/sessionFrameTemplates";
+import { getSessionFrame, getOrCreateSessionFrame } from "@/lib/sessionFrameTemplates";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 
 
@@ -78,8 +78,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
   const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
   
-  // Session frame template (Maya-led sessions)
-  const sessionFrame = lesson.sessionFrameId ? getSessionFrame(lesson.sessionFrameId) : null;
+  // Session frame template — always create one for Full Coaching, even without explicit ID
+  const sessionFrame = getOrCreateSessionFrame(lesson.sessionFrameId, lesson.blocks);
   
   // Clear stale sessionStorage when mounting with a fresh lesson (not resuming)
   useEffect(() => {
