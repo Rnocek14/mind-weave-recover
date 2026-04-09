@@ -220,6 +220,84 @@ const LOW_ENERGY: SessionFrameTemplate = {
   closingBuilder: buildLowEnergyClosing,
 };
 
+// ─── General Session Template (dynamic/adaptive lessons) ────────────
+
+function buildGeneralClosing(results: BlockResult[]): SessionFrameClosing {
+  const practiced: string[] = [];
+  for (const r of results) {
+    const label = r.exerciseId.replace(/-/g, ' ');
+    practiced.push(label);
+  }
+
+  const avgScore = results.length > 0
+    ? results.reduce((s, r) => s + r.avgScore, 0) / results.length
+    : 50;
+
+  let strength = 'staying focused across multiple exercises';
+  let nextStep = 'keep building consistency';
+
+  if (avgScore >= 70) {
+    strength = 'strong performance across the session';
+    nextStep = 'try pushing for more detail and speed next time';
+  } else if (avgScore >= 50) {
+    strength = 'engaging with challenging material';
+    nextStep = 'focus on the exercises that felt hardest';
+  }
+
+  return {
+    practiced,
+    strength,
+    nextStep,
+    realLifeLine: 'Every session strengthens the skills you use in daily conversations.',
+  };
+}
+
+/** Build dynamic Maya transitions based on the actual exercise blocks */
+function buildDynamicTransitions(blocks: { exerciseId: string; priority?: string }[]): Record<number, string> {
+  const transitions: Record<number, string> = {};
+  
+  const EXERCISE_BRIDGES: Record<string, { after: string; before: string }> = {
+    'category-fluency': { after: 'Good — that warms up your word finding.', before: 'Let\'s start by generating words quickly.' },
+    'photo-naming': { after: 'Nice work naming those.', before: 'Now let\'s practice finding the right word for what you see.' },
+    'describe-guess': { after: 'Good describing.', before: 'Now let\'s practice describing things without saying the word.' },
+    'narrative-retell': { after: 'Good storytelling.', before: 'Now let\'s practice telling a story back.' },
+    'detective-mind': { after: 'Good detective work.', before: 'Now let\'s find the important clues in a story.' },
+    'two-clues': { after: 'Good clue-solving.', before: 'Now let\'s figure out words from two clues.' },
+    'synonym-generator': { after: 'Good word connections.', before: 'Now let\'s find words that mean the same thing.' },
+    'thought-continuation': { after: 'Good thinking.', before: 'Now let\'s practice finishing thoughts.' },
+    'meaning-match': { after: 'Good matching.', before: 'Now let\'s match words to their meanings.' },
+    'abstract-compare': { after: 'Good comparing.', before: 'Now let\'s think about how things are similar.' },
+    'semantic-features': { after: 'Good feature work.', before: 'Now let\'s describe what makes things unique.' },
+    'fix-sentence': { after: 'Good sentence work.', before: 'Now let\'s fix some sentences.' },
+    'sentence-construction': { after: 'Good sentences.', before: 'Now let\'s build some sentences.' },
+    'minimal-pairs': { after: 'Good sound work.', before: 'Now let\'s practice telling similar sounds apart.' },
+    'dual-load-naming': { after: 'Good multitasking.', before: 'Now let\'s name things while thinking about something else.' },
+    'multi-step-plan': { after: 'Good planning.', before: 'Now let\'s practice planning steps in order.' },
+  };
+
+  for (let i = 1; i < blocks.length; i++) {
+    const prev = blocks[i - 1];
+    const next = blocks[i];
+    const prevBridge = EXERCISE_BRIDGES[prev.exerciseId];
+    const nextBridge = EXERCISE_BRIDGES[next.exerciseId];
+    
+    const afterPart = prevBridge?.after || 'Good work on that.';
+    const beforePart = nextBridge?.before || `Now let's move to the next exercise.`;
+    
+    transitions[i] = `${afterPart} ${beforePart}`;
+  }
+  
+  return transitions;
+}
+
+const GENERAL_SESSION: SessionFrameTemplate = {
+  id: 'general_session',
+  sessionTheme: 'Today\'s Practice',
+  mayaIntro: "Welcome back. Let's warm up and then build on your skills today.",
+  mayaTransitions: {}, // Will be dynamically populated
+  closingBuilder: buildGeneralClosing,
+};
+
 // ─── Template Registry ──────────────────────────────────────────────
 
 const TEMPLATES: Record<string, SessionFrameTemplate> = {
@@ -227,10 +305,30 @@ const TEMPLATES: Record<string, SessionFrameTemplate> = {
   expression_focused: EXPRESSION_FOCUSED,
   comprehension_focused: COMPREHENSION_FOCUSED,
   low_energy: LOW_ENERGY,
+  general_session: GENERAL_SESSION,
 };
 
 export function getSessionFrame(templateId: string): SessionFrameTemplate | null {
   return TEMPLATES[templateId] || null;
+}
+
+/** Get or create a session frame, with dynamic transitions for general sessions */
+export function getOrCreateSessionFrame(templateId: string | undefined, blocks: { exerciseId: string; priority?: string }[]): SessionFrameTemplate | null {
+  if (templateId) {
+    const frame = TEMPLATES[templateId];
+    if (frame) {
+      // If it's the general template, dynamically populate transitions
+      if (templateId === 'general_session') {
+        return { ...frame, mayaTransitions: buildDynamicTransitions(blocks) };
+      }
+      // For specific templates, fill in any missing transitions dynamically
+      const dynamicTransitions = buildDynamicTransitions(blocks);
+      const merged = { ...dynamicTransitions, ...frame.mayaTransitions };
+      return { ...frame, mayaTransitions: merged };
+    }
+  }
+  // No template specified — create a general one with dynamic transitions
+  return { ...GENERAL_SESSION, mayaTransitions: buildDynamicTransitions(blocks) };
 }
 
 export function getAllSessionFrameIds(): string[] {
