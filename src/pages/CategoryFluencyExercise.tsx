@@ -16,6 +16,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
+import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -45,6 +46,7 @@ export default function CategoryFluencyExercise() {
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const roundCount = Number(location.state?.trialLimit) || 3;
+  const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
   const adaptation = useSessionAdaptation({
