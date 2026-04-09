@@ -154,7 +154,16 @@ export function FixSentenceGame({
   // Speak the sentence when trial changes
   useEffect(() => {
     if (game.currentTrial && !game.isComplete) {
-      speak(game.currentTrial.sentence);
+      // Wait for intro speech to complete before reading the sentence
+      const waitForIntro = () => {
+        if (!introCompleteRef.current) {
+          setTimeout(waitForIntro, 200);
+          return;
+        }
+        if (!game.currentTrial) return;
+        speak(game.currentTrial.sentence);
+      };
+      waitForIntro();
       game.startRound();
 
       // Begin attempt
