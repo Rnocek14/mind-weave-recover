@@ -48,6 +48,7 @@ import AdminSuccessBand from "./pages/AdminSuccessBand";
 import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
+import CohortResearchAnalytics from "./pages/CohortResearchAnalytics";
 import SmartCoach from "./pages/SmartCoach";
 import Practice from "./pages/Practice";
 import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
@@ -173,6 +174,7 @@ const App = () => (
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/cohort-research" element={<AppLayout><AdminProtectedRoute><CohortResearchAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/progress" element={<Progress />} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />

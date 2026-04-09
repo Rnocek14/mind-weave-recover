@@ -414,3 +414,45 @@ export function getRetentionDifficultyHint(wordHistory: WordHistory[]): Retentio
     difficultyDelta,
   };
 }
+
+// ─── Persist Retention Snapshots ────────────────────────────
+
+/**
+ * Persist current word histories to the retention_snapshots table.
+ * Called on session end to make retention data queryable for cohort analysis.
+ */
+export async function persistRetentionSnapshots(
+  userId: string,
+  profileId: string,
+  wordHistories: WordHistory[],
+): Promise<void> {
+  if (!wordHistories.length || !userId || !profileId) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const rows = wordHistories.map((wh) => ({
+    user_id: userId,
+    profile_id: profileId,
+    word: wh.word.toLowerCase(),
+    best_score: wh.bestScore,
+    best_cue_level: wh.bestCueLevel,
+    last_score: wh.lastScore,
+    last_cue_level: wh.lastCueLevel,
+    session_count: wh.sessionCount,
+    last_practiced_at: wh.lastPracticedAt,
+    topic: wh.topic || null,
+    snapshot_date: today,
+  }));
+
+  try {
+    const { error } = await supabase
+      .from('retention_snapshots')
+      .upsert(rows, { onConflict: 'profile_id,word,snapshot_date' });
+
+    if (error) {
+      console.warn('[CrossSessionRetention] Failed to persist snapshots:', error);
+    }
+  } catch (err) {
+    console.warn('[CrossSessionRetention] Error persisting snapshots:', err);
+  }
+}
