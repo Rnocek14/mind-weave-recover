@@ -96,6 +96,7 @@ export function DescribeGuessGame({
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'describe-guess' });
 
   const bounds = getCapabilityDifficultyBounds('describe_guess', null);
 
