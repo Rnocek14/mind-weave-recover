@@ -1,21 +1,26 @@
 /**
- * Patient Info Tab — Clinical context, goals, readiness, overrides, alerts.
+ * Patient Info Tab — Clinical context, goals, readiness, overrides, alerts, red flags.
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Target, Heart, AlertTriangle, Shield
+  Target, Heart, AlertTriangle, Shield, Flag
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
+import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
+import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
+import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
+import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
 interface PatientInfoTabProps {
   userId: string;
   profileId: string | undefined;
+  timeline?: SnapshotDay[];
 }
 
 function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
@@ -30,11 +35,13 @@ function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
   return null;
 }
 
-export function PatientInfoTab({ userId, profileId }: PatientInfoTabProps) {
+export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfoTabProps) {
   const { activeProfile } = useProfile();
   const { goals, loading: goalsLoading } = useFunctionalGoals(userId);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { activeOverrides } = useClinicianOverrides(profileId);
+  const { flags: redFlags, isLoading: redFlagsLoading } = useRedFlagDetection(userId);
+  const { alerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline);
 
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
   const strokeDate = activeProfile?.stroke_date ?? null;
@@ -45,6 +52,46 @@ export function PatientInfoTab({ userId, profileId }: PatientInfoTabProps) {
 
   return (
     <div className="space-y-4 mt-4">
+      {/* Red Flags */}
+      {redFlags.length > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
+              <Flag className="w-4 h-4" />
+              Red Flags
+              <Badge variant="destructive" className="text-[10px]">{redFlags.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="space-y-2">
+              {redFlags.map((flag, i) => (
+                <div key={i} className="p-2 rounded bg-destructive/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
+                    <span className="font-medium">{flag.title || flag.type}</span>
+                    <Badge variant="outline" className="text-[9px] py-0 ml-auto">
+                      {flag.severity}
+                    </Badge>
+                  </div>
+                  {flag.description && (
+                    <p className="text-muted-foreground mt-1 ml-5">{flag.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recovery Alerts with acknowledge/resolve actions */}
+      {alerts.length > 0 && (
+        <RecoveryAlertsPanel
+          alerts={alerts}
+          onAcknowledge={acknowledgeAlert}
+          onResolve={resolveAlert}
+        />
+      )}
+
       {/* Clinical Profile */}
       <ProfileSummaryCard
         clinicalProfile={clinicalProfile}

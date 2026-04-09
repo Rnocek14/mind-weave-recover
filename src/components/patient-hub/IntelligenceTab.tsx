@@ -1,10 +1,13 @@
 /**
- * Intelligence Tab — Clinical interpretation, predictions, strategy, next actions.
+ * Intelligence Tab — Clinical interpretation, predictions, strategy, next actions,
+ * longitudinal utterance comparison, dose compliance.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Brain } from "lucide-react";
+import { Brain, Pill, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
@@ -14,6 +17,7 @@ import { useWeeklySessionStats } from "@/hooks/useWeeklySessionStats";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
+import { useDoseTargets } from "@/hooks/useDoseTargets";
 import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
@@ -21,6 +25,7 @@ import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionC
 import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
 import { ClinicianStrategyControls } from "@/components/clinician/ClinicianStrategyControls";
 import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
+import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { generateNextActions } from "@/lib/generateNextActions";
 
@@ -35,10 +40,10 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { activeProfile } = useProfile();
 
   const { timeline, flags, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
-  const { dayGroups, summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
+  const { dayGroups, summary, recordings, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
   const { timeline: priorTimeline } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
-  const { dayGroups: allDayGroups } = useWeeklySessionTimeline(profileId, windowSize * 2);
+  const { dayGroups: allDayGroups, recordings: priorRecordingsAll } = useWeeklySessionTimeline(profileId, windowSize * 2);
 
   const alertSessionStats = useMemo(() => {
     if (sessionStats.isLoading) return undefined;
@@ -55,6 +60,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { alerts } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
   const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId);
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
+  const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
 
   const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
     const cutoff = allDayGroups.length - windowSize;
@@ -65,6 +71,12 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
       priorTimelineSplit: priorTimeline.slice(0, Math.max(0, priorTimeline.length - windowSize)),
     };
   }, [allDayGroups, dayGroups, timeline, priorTimeline, windowSize]);
+
+  // Split recordings into current and prior for utterance comparison
+  const priorRecordings = useMemo(() => {
+    const currentIds = new Set(recordings.map((r) => r.attemptId));
+    return priorRecordingsAll.filter((r) => !currentIds.has(r.attemptId));
+  }, [recordings, priorRecordingsAll]);
 
   const hasPriorData = priorDayGroups.some((d) => d.sessions.length > 0);
   const { current: currentSummaryWoW, prior: priorSummaryWoW, deltas } = useWeekOverWeek(
@@ -129,6 +141,55 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
 
       {/* Outcome Prediction */}
       <OutcomePredictionCard userId={userId} profileId={profileId} />
+
+      {/* Dose Compliance */}
+      {doseComparisons.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Pill className="w-4 h-4 text-primary" />
+              Dose Compliance
+              <Badge variant="secondary" className="text-[10px]">{windowSize}d</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="space-y-3">
+              {doseComparisons.map((d) => (
+                <div key={d.domainSlug} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium capitalize">{d.domainLabel}</span>
+                    <div className="flex items-center gap-2">
+                      {d.ratio >= 0.8 ? (
+                        <CheckCircle2 className="w-3 h-3 text-success" />
+                      ) : d.ratio >= 0.5 ? (
+                        <AlertTriangle className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <AlertTriangle className="w-3 h-3 text-destructive" />
+                      )}
+                      <span className="text-muted-foreground">
+                        {d.completedPerDay}m / {d.prescribed}m daily
+                      </span>
+                      <Badge variant={d.ratio >= 0.8 ? "default" : d.ratio >= 0.5 ? "secondary" : "destructive"} className="text-[10px]">
+                        {Math.round(d.ratio * 100)}%
+                      </Badge>
+                    </div>
+                  </div>
+                  <Progress value={Math.min(d.ratio * 100, 100)} className="h-1.5" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Longitudinal Utterance Comparison */}
+      {recordings.length > 0 && priorRecordings.length > 0 && (
+        <LongitudinalUtteranceComparison
+          currentRecordings={recordings}
+          priorRecordings={priorRecordings}
+          windowSize={windowSize}
+        />
+      )}
 
       {/* Week-over-Week */}
       <WeekComparisonRow

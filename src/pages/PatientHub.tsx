@@ -209,7 +209,7 @@ export default function PatientHub() {
         </TabsList>
 
         <TabsContent value="sessions">
-          <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+          <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
         </TabsContent>
 
         <TabsContent value="speech">
@@ -217,7 +217,7 @@ export default function PatientHub() {
         </TabsContent>
 
         <TabsContent value="patient">
-          <PatientInfoTab userId={user?.id || ""} profileId={profileId} />
+          <PatientInfoTab userId={user?.id || ""} profileId={profileId} timeline={timeline} />
         </TabsContent>
 
         <TabsContent value="intelligence">
