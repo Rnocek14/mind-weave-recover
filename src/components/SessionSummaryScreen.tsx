@@ -55,7 +55,8 @@ function scoreToLabel(score: number): { text: string; className: string } {
 export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
-  const { showTransferOnSummary, mode } = useCoachingMode();
+  const { showTransferOnSummary, mode, isVoiceLed } = useCoachingMode();
+  const { speak, stop } = useTextToSpeech();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
   const isCaregiver = uiMode === "caregiver";
   const showDetail = isClinician || isCaregiver;
@@ -63,6 +64,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const [exerciseScores, setExerciseScores] = useState<ExerciseScore[]>([]);
   const [durationSec, setDurationSec] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const hasSpokenClosingRef = useRef(false);
+
+  // Cleanup TTS on unmount
+  useEffect(() => { return () => { stop(); }; }, [stop]);
 
   // Fetch actual session results
   useEffect(() => {
