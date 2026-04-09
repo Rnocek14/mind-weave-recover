@@ -205,7 +205,9 @@ export function SynonymGeneratorGame({
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'synonym-generator' });
+  const vg = useVoiceGuidance('synonym-generator');
 
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<SynonymRoundResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-feedback' | 'done'>('ready');
