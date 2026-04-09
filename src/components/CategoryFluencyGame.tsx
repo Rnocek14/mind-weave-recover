@@ -163,14 +163,6 @@ export function CategoryFluencyGame({
   useEffect(() => { wordsRef.current = words; }, [words]);
   useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
 
-  // Handle timer expiry outside of setState updater to avoid render glitch
-  useEffect(() => {
-    if (timeLeft <= 0 && phase === 'active' && timerExpiredRef.current) {
-      timerExpiredRef.current = false;
-      finishRound();
-    }
-  }, [timeLeft, phase, finishRound]);
-
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
 
