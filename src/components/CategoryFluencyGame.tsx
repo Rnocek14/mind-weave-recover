@@ -250,8 +250,16 @@ export function CategoryFluencyGame({
     if (currentRound + 1 >= roundCount) {
       setPhase('done');
       onGameComplete?.(newResults);
+      // Spoken feedback on final round
+      if (vg.shouldAutoSpeak) {
+        vg.speakIfVoiceLed(`Nice work — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+      }
     } else {
       setPhase('round-done');
+      // Spoken feedback between rounds
+      if (vg.shouldAutoSpeak) {
+        vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+      }
     }
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
 
