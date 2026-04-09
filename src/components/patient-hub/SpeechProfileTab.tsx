@@ -436,6 +436,68 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
         </Card>
       )}
 
+      {/* Retention / Carryover Evidence */}
+      {retentionData && retentionData.totalTracked > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Repeat className="w-4 h-4 text-primary" />
+              Retention & Carryover
+              <Badge variant="secondary" className="text-[10px]">
+                {retentionData.retainedCount}/{retentionData.totalTracked} retained
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3 space-y-3">
+            {/* Retention rate bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Cross-session retention</span>
+                <span className="font-semibold">
+                  {retentionData.totalTracked > 0 ? Math.round((retentionData.retainedCount / retentionData.totalTracked) * 100) : 0}%
+                </span>
+              </div>
+              <Progress
+                value={retentionData.totalTracked > 0 ? (retentionData.retainedCount / retentionData.totalTracked) * 100 : 0}
+                className="h-2"
+              />
+            </div>
+
+            {/* Retained words */}
+            {retentionData.retained.length > 0 && (
+              <div className="space-y-1">
+                <h5 className="text-[10px] font-semibold text-success flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Retained Words
+                </h5>
+                <div className="flex flex-wrap gap-1">
+                  {retentionData.retained.map((r) => (
+                    <Badge key={r.word} variant="outline" className="text-[10px] py-0 gap-1">
+                      "{r.word}" <span className="text-muted-foreground">({r.sessions} sessions, {r.level})</span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weak / not-retained words */}
+            {retentionData.weak.length > 0 && (
+              <div className="space-y-1">
+                <h5 className="text-[10px] font-semibold text-destructive flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Needs Re-exposure
+                </h5>
+                <div className="flex flex-wrap gap-1">
+                  {retentionData.weak.map((w) => (
+                    <Badge key={w} variant="destructive" className="text-[10px] py-0">
+                      "{w}"
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Evidence / Confidence */}
       <Card className="border-border/30">
         <CardHeader className="pb-2 pt-3">
