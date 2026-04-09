@@ -227,14 +227,14 @@ export function buildFluencyFeedback(analysis: FluencyAnalysis, category: string
   }
 
   if (analysis.uniqueWords < 3) {
-    weaknesses.push('Finding words was harder this time — that's okay, it builds with practice');
+    weaknesses.push("Finding words was harder this time — that\u2019s okay, it builds with practice");
   }
 
   // Next step
   if (analysis.retrievalPattern === 'focused') {
     nextStep = 'Try the "switch" strategy: when you run out of words in one group, jump to a new group.';
   } else if (analysis.retrievalPattern === 'scattered') {
-    nextStep = 'Try staying in one group (like "pets") until you can't think of more, then switch.';
+    nextStep = "Try staying in one group (like \"pets\") until you can\u2019t think of more, then switch.";
   } else if (analysis.uniqueWords < 5) {
     nextStep = `Think about subcategories within ${category} — it helps you find more words.`;
   } else {
