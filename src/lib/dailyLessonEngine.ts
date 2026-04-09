@@ -466,7 +466,7 @@ export function scoreExercise(
  * Preset lesson definitions for structured multi-exercise sessions.
  * These bypass normal spacing/adjacency rules — block order is intentional.
  */
-export type LessonPreset = 'comprehension_session' | 'core_communication' | 'depth_battery_onboarding' | 'depth_battery_weekly';
+export type LessonPreset = 'comprehension_session' | 'core_communication' | 'expression_focused' | 'comprehension_focused' | 'low_energy' | 'depth_battery_onboarding' | 'depth_battery_weekly';
 
 const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
   comprehension_session: {
@@ -524,6 +524,77 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
       { exerciseId: 'dual-load-naming', duration: 2, trialLimit: 1, priority: 'secondary', reasoning: 'Load tolerance check (1 set)' },
     ],
   },
+  expression_focused: {
+    title: 'Expression Focus',
+    blocks: [
+      {
+        exerciseId: 'semantic-features',
+        duration: 4,
+        trialLimit: 3,
+        priority: 'primary',
+        reasoning: 'Feature analysis for word retrieval (3 words)',
+      },
+      {
+        exerciseId: 'synonym-generator',
+        duration: 3,
+        trialLimit: 5,
+        priority: 'primary',
+        reasoning: 'Semantic network activation (5 words)',
+      },
+      {
+        exerciseId: 'category-fluency',
+        duration: 3,
+        trialLimit: 2,
+        priority: 'secondary',
+        reasoning: 'Rapid word generation (2 categories)',
+      },
+    ],
+  },
+  comprehension_focused: {
+    title: 'Comprehension Focus',
+    blocks: [
+      {
+        exerciseId: 'detective-mind',
+        duration: 4,
+        trialLimit: 4,
+        priority: 'primary',
+        reasoning: 'Inference and literal comprehension (4 cases)',
+      },
+      {
+        exerciseId: 'meaning-match',
+        duration: 3,
+        trialLimit: 5,
+        priority: 'primary',
+        reasoning: 'Semantic relationship mapping (5 pairs)',
+      },
+      {
+        exerciseId: 'narrative-retell',
+        duration: 4,
+        trialLimit: 1,
+        priority: 'primary',
+        reasoning: 'Full story comprehension + retelling (1 story)',
+      },
+    ],
+  },
+  low_energy: {
+    title: 'Light Session',
+    blocks: [
+      {
+        exerciseId: 'meaning-match',
+        duration: 3,
+        trialLimit: 5,
+        priority: 'warmup',
+        reasoning: 'Low-effort semantic matching (5 pairs)',
+      },
+      {
+        exerciseId: 'photo-naming',
+        duration: 3,
+        trialLimit: 5,
+        priority: 'primary',
+        reasoning: 'Familiar naming practice (5 images)',
+      },
+    ],
+  },
 };
 
 /**
@@ -554,6 +625,9 @@ export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: st
   // Attach session frame ID for presets that have one
   const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
     core_communication: 'core_communication',
+    expression_focused: 'expression_focused',
+    comprehension_focused: 'comprehension_focused',
+    low_energy: 'low_energy',
   };
   return {
     totalDuration,
