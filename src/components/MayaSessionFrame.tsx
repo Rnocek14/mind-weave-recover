@@ -57,10 +57,13 @@ export function MayaSessionFrame({
     };
   }, [stop]);
 
-  // Auto-speak in Full Coaching mode
+  // Auto-speak in Full Coaching mode — stop any prior speech first
   useEffect(() => {
     if (!isVoiceLed || hasSpokenRef.current) return;
     hasSpokenRef.current = true;
+
+    // Stop any leftover speech from the previous exercise/screen
+    stop();
 
     // If speech doesn't start producing audio within 3s, show text fallback
     speechStartTimerRef.current = setTimeout(() => {
@@ -71,16 +74,21 @@ export function MayaSessionFrame({
       }
     }, 3000);
 
-    const doSpeak = async () => {
-      setSpeechStarted(true);
-      if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
-      await speak(text);
-      if (mountedRef.current) {
-        setSpeechDone(true);
-      }
-    };
-    doSpeak();
-  }, [isVoiceLed, text, speak]);
+    // Small delay to let any prior audio context settle before starting new speech
+    const startDelay = setTimeout(() => {
+      const doSpeak = async () => {
+        setSpeechStarted(true);
+        if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
+        await speak(text);
+        if (mountedRef.current) {
+          setSpeechDone(true);
+        }
+      };
+      doSpeak();
+    }, 300);
+
+    return () => clearTimeout(startDelay);
+  }, [isVoiceLed, text, speak, stop]);
 
   // Timer-based auto-advance (non-voice mode)
   useEffect(() => {

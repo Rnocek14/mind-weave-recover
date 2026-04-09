@@ -67,10 +67,18 @@ export function FixSentenceGame({
 
   // Speak intro on first mount in Full Coaching mode
   const hasSpokenIntroRef = useRef(false);
+  const introCompleteRef = useRef(false);
   useEffect(() => {
     if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
       hasSpokenIntroRef.current = true;
-      vg.speakIntro();
+      // Speak intro, then mark complete so sentence read waits
+      vg.speakIntro().then(() => {
+        introCompleteRef.current = true;
+      }).catch(() => {
+        introCompleteRef.current = true;
+      });
+    } else if (!vg.shouldAutoSpeak) {
+      introCompleteRef.current = true;
     }
   }, [vg.shouldAutoSpeak]);
 
