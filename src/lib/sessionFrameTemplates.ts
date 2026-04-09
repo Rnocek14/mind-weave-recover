@@ -98,10 +98,135 @@ const CORE_COMMUNICATION: SessionFrameTemplate = {
   closingBuilder: buildCoreCommunicationClosing,
 };
 
+// ─── Expression-Focused Template ────────────────────────────────────
+
+function buildExpressionClosing(results: BlockResult[]): SessionFrameClosing {
+  const practiced: string[] = [];
+  const exerciseMap: Record<string, string> = {
+    'semantic-features': 'describing word features',
+    'synonym-generator': 'finding related words',
+    'category-fluency': 'generating words by category',
+    'photo-naming': 'naming from pictures',
+  };
+  for (const r of results) {
+    if (exerciseMap[r.exerciseId]) practiced.push(exerciseMap[r.exerciseId]);
+  }
+
+  const avgScore = results.length > 0
+    ? results.reduce((s, r) => s + r.avgScore, 0) / results.length
+    : 50;
+
+  let strength = 'working on word retrieval skills';
+  let nextStep = 'keep building naming speed and accuracy';
+
+  if (avgScore >= 70) {
+    strength = 'strong word-finding across multiple exercises';
+    nextStep = 'try using these words in full sentences';
+  } else if (avgScore >= 50) {
+    strength = 'engaging with word retrieval challenges';
+    nextStep = 'slow down and use feature descriptions to help find words';
+  }
+
+  return {
+    practiced,
+    strength,
+    nextStep,
+    realLifeLine: 'These are the same skills you use when you want to say a specific word in conversation.',
+  };
+}
+
+const EXPRESSION_FOCUSED: SessionFrameTemplate = {
+  id: 'expression_focused',
+  sessionTheme: 'Expression Focus',
+  mayaIntro: "Today we'll work on getting the right words out — describing, naming, and finding related words.",
+  mayaTransitions: {
+    1: "Good work describing those features. Now let's use that skill to find related words.",
+    2: "Now let's try generating words quickly by category.",
+  },
+  closingBuilder: buildExpressionClosing,
+};
+
+// ─── Comprehension-Focused Template ─────────────────────────────────
+
+function buildComprehensionClosing(results: BlockResult[]): SessionFrameClosing {
+  const practiced: string[] = [];
+  const exerciseMap: Record<string, string> = {
+    'detective-mind': 'finding clues in stories',
+    'meaning-match': 'matching word meanings',
+    'narrative-retell': 'retelling a story in order',
+  };
+  for (const r of results) {
+    if (exerciseMap[r.exerciseId]) practiced.push(exerciseMap[r.exerciseId]);
+  }
+
+  const avgScore = results.length > 0
+    ? results.reduce((s, r) => s + r.avgScore, 0) / results.length
+    : 50;
+
+  let strength = 'working through comprehension exercises';
+  let nextStep = 'focus on catching key details while reading';
+
+  if (avgScore >= 70) {
+    strength = 'solid understanding across reading and listening';
+    nextStep = 'try catching more subtle or implied details';
+  } else if (avgScore >= 50) {
+    strength = 'engaging with comprehension challenges';
+    nextStep = 'try re-reading key sentences before answering';
+  }
+
+  return {
+    practiced,
+    strength,
+    nextStep,
+    realLifeLine: 'These skills help you follow conversations, understand instructions, and catch important details.',
+  };
+}
+
+const COMPREHENSION_FOCUSED: SessionFrameTemplate = {
+  id: 'comprehension_focused',
+  sessionTheme: 'Comprehension Focus',
+  mayaIntro: "Today we'll focus on understanding — catching details, making connections, and following stories.",
+  mayaTransitions: {
+    1: "You found the key clues. Now let's work on matching word meanings.",
+    2: "Good. Now let's put it all together by retelling a story.",
+  },
+  closingBuilder: buildComprehensionClosing,
+};
+
+// ─── Low-Energy Template ────────────────────────────────────────────
+
+function buildLowEnergyClosing(results: BlockResult[]): SessionFrameClosing {
+  const practiced: string[] = [];
+  for (const r of results) {
+    const label = r.exerciseId.replace(/-/g, ' ');
+    practiced.push(label);
+  }
+
+  return {
+    practiced,
+    strength: 'showing up and staying consistent',
+    nextStep: 'keep the daily habit going — even short sessions count',
+    realLifeLine: 'Every session strengthens the pathways you need for daily communication.',
+  };
+}
+
+const LOW_ENERGY: SessionFrameTemplate = {
+  id: 'low_energy',
+  sessionTheme: 'Light Session',
+  mayaIntro: "Let's keep it short and focused today. A little practice goes a long way.",
+  mayaTransitions: {
+    1: "One more quick exercise, then we'll wrap up.",
+  },
+  closingBuilder: buildLowEnergyClosing,
+};
+
 // ─── Template Registry ──────────────────────────────────────────────
 
 const TEMPLATES: Record<string, SessionFrameTemplate> = {
   core_communication: CORE_COMMUNICATION,
+  expression_focused: EXPRESSION_FOCUSED,
+  comprehension_focused: COMPREHENSION_FOCUSED,
+  low_energy: LOW_ENERGY,
 };
 
 export function getSessionFrame(templateId: string): SessionFrameTemplate | null {
