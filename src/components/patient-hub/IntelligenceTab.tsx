@@ -1,13 +1,17 @@
 /**
  * Intelligence Tab — Clinical interpretation, predictions, strategy, next actions,
- * longitudinal utterance comparison, dose compliance.
+ * longitudinal utterance comparison, dose compliance, functional transfer,
+ * readiness signal, explainability.
  */
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Brain, Pill, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Brain, Pill, CheckCircle2, AlertTriangle, ArrowRight, Shield,
+  TrendingUp, TrendingDown, Minus, Info, Activity, Target
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
@@ -18,6 +22,10 @@ import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useDoseTargets } from "@/hooks/useDoseTargets";
+import { useRecoveryScore } from "@/hooks/useRecoveryScore";
+import { useCueIndependence } from "@/hooks/useCueIndependence";
+import { useLearningRate } from "@/hooks/useLearningRate";
+import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
 import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
@@ -28,6 +36,8 @@ import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { generateNextActions } from "@/lib/generateNextActions";
+import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
+import { cn } from "@/lib/utils";
 
 interface IntelligenceTabProps {
   userId: string;
