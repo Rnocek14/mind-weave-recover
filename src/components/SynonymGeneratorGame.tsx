@@ -377,15 +377,16 @@ export function SynonymGeneratorGame({
     beginCountdown();
   }, [beginCountdown]);
 
-  // Auto-start on first mount
+  // Auto-start on first mount — only in Full Coaching mode
+  // Guided/Games Only: show Start button so user controls when timer begins
   const autoStartedRef = useRef(false);
   useEffect(() => {
-    if (!autoStartedRef.current && phase === 'ready' && currentRound === 0) {
+    if (!autoStartedRef.current && phase === 'ready' && currentRound === 0 && vg.isVoiceLed) {
       autoStartedRef.current = true;
       const delay = setTimeout(() => beginCountdown(), 400);
       return () => clearTimeout(delay);
     }
-  }, [phase, currentRound, beginCountdown]);
+  }, [phase, currentRound, beginCountdown, vg.isVoiceLed]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
