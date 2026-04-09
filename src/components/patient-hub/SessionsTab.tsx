@@ -249,10 +249,12 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
 function SessionCard({
   session,
+  meta,
   isExpanded,
   onToggle,
 }: {
   session: SessionRow;
+  meta?: SessionMeta;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -315,26 +317,89 @@ function SessionCard({
   const date = new Date(session.started_at);
   const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const summaryData = session.summary as any;
 
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md ring-1 ring-primary/20")}>
-      {/* Header */}
-      <button className="w-full text-left p-4 flex items-center gap-4" onClick={onToggle}>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+      {/* Rich collapsed header */}
+      <button className="w-full text-left p-4 space-y-2" onClick={onToggle}>
+        {/* Row 1: Date, time, chevron */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="font-semibold text-sm">{dateStr}</span>
             <span className="text-xs text-muted-foreground">{timeStr}</span>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{durationMin}m</span>
-            {summaryData?.accuracy != null && (
-              <span className="flex items-center gap-1"><Target className="w-3 h-3" />{Math.round(summaryData.accuracy)}%</span>
+            {session.mood_rating && (
+              <span className="text-sm" title={`Mood: ${session.mood_rating}/5`}>
+                {MOOD_EMOJI[session.mood_rating] || "🙂"}
+              </span>
+            )}
+            {session.caregiver_notes && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground" title={session.caregiver_notes}>
+                📝 Note
+              </span>
             )}
           </div>
+          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
         </div>
-        {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+
+        {/* Row 2: Key metrics */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{durationMin}m</span>
+          {meta && (
+            <>
+              <span className="flex items-center gap-1">
+                <Target className="w-3 h-3" />
+                <span className={cn("font-semibold", meta.overallAccuracy >= 80 ? "text-success" : meta.overallAccuracy >= 50 ? "text-amber-500" : "text-destructive")}>
+                  {meta.overallAccuracy}%
+                </span>
+              </span>
+              <span>{meta.totalTrials} trials</span>
+              <span>{meta.exercises.length} exercises</span>
+            </>
+          )}
+        </div>
+
+        {/* Row 3: Exercise pills */}
+        {meta && meta.exercises.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {meta.exercises.map((ex) => (
+              <span
+                key={ex.slug}
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                  ex.accuracy >= 80
+                    ? "bg-success/10 text-success border-success/30"
+                    : ex.accuracy >= 50
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                    : "bg-destructive/10 text-destructive border-destructive/30"
+                )}
+              >
+                {formatSlug(ex.slug)} {ex.accuracy}%
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Row 4: Secondary signals */}
+        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs) && (
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            {meta.adaptationCount > 0 && (
+              <span className="flex items-center gap-1 text-primary">
+                <Zap className="w-3 h-3" />{meta.adaptationCount} adaptations
+              </span>
+            )}
+            {meta.totalAudio > 0 && (
+              <span className="flex items-center gap-1">
+                <Mic className="w-3 h-3" />{meta.totalAudio} recordings
+              </span>
+            )}
+            {meta.avgRtMs && (
+              <span className="flex items-center gap-1">
+                <Timer className="w-3 h-3" />Avg {(meta.avgRtMs / 1000).toFixed(1)}s
+              </span>
+            )}
+          </div>
+        )}
       </button>
 
       {/* Expanded detail */}
