@@ -990,7 +990,7 @@ export function TwoCluesGame({
 
         {/* Clue words */}
         <div className="text-center space-y-2 sm:space-y-4">
-          <p className="text-sm text-muted-foreground">What word connects these clues?</p>
+          <p className="text-base sm:text-lg font-medium text-foreground">What word connects these clues?</p>
           <div className="flex justify-center gap-3 flex-wrap">
             {currentPuzzle.clues.map((clue, i) => (
               <div
