@@ -48,11 +48,11 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
     userId, { profileId, enabled: !!userId }
   );
   const { summary: adaptationSummary, isLoading: adaptLoading } = useAdaptationProof(userId, windowSize);
-  const { rates, isLoading: lrLoading } = useLearningRate(userId, profileId);
-  const { score: recoveryScore, isLoading: rsLoading } = useRecoveryScore(userId, profileId);
-  const { current: cueData, trend: cueTrend, isLoading: cueLoading } = useCueIndependence(userId, profileId);
-  const { stats: wordStats, isLoading: wmLoading } = useWordMastery(userId, profileId);
-  const { current: errorQuality, trend: errorTrend, isLoading: eqLoading } = useErrorQualityScore(userId, profileId);
+  const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
+  const { score: recoveryScore, breakdown, confidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
+  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
+  const { mastered, emerging, struggling, loading: wmLoading } = useWordMastery(userId);
+  const { currentScore: errorScore, trend: errorTrend, loading: eqLoading } = useErrorQualityScore(userId);
 
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
 
@@ -83,7 +83,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
   return (
     <div className="space-y-4 mt-4">
       {/* Recovery Score */}
-      {recoveryScore && (
+      {recoveryScore != null && (
         <Card className="border-primary/20">
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -93,13 +93,13 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
           </CardHeader>
           <CardContent className="pb-3">
             <div className="flex items-center gap-4">
-              <div className="text-3xl font-bold text-primary">{Math.round(recoveryScore.score)}</div>
+              <div className="text-3xl font-bold text-primary">{Math.round(recoveryScore)}</div>
               <div className="flex-1 space-y-1.5">
-                {recoveryScore.components && Object.entries(recoveryScore.components).slice(0, 4).map(([key, val]: [string, any]) => (
+                {breakdown && Object.entries(breakdown).slice(0, 4).map(([key, val]) => (
                   <div key={key} className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground capitalize w-24 truncate">{key.replace(/_/g, " ")}</span>
-                    <Progress value={typeof val === "number" ? val : val?.score ?? 0} className="h-1.5 flex-1" />
-                    <span className="text-muted-foreground w-8 text-right">{typeof val === "number" ? Math.round(val) : Math.round(val?.score ?? 0)}</span>
+                    <Progress value={typeof val === "number" ? val : 0} className="h-1.5 flex-1" />
+                    <span className="text-muted-foreground w-8 text-right">{typeof val === "number" ? Math.round(val) : "—"}</span>
                   </div>
                 ))}
               </div>
@@ -185,7 +185,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       )}
 
       {/* Word Mastery */}
-      {wordStats && (
+      {(mastered > 0 || emerging > 0 || struggling > 0) && (
         <Card>
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -196,15 +196,15 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
           <CardContent className="pb-3">
             <div className="grid grid-cols-3 gap-3 text-center">
               <div>
-                <div className="text-xl font-bold text-success">{wordStats.mastered ?? 0}</div>
+                <div className="text-xl font-bold text-success">{mastered}</div>
                 <div className="text-[10px] text-muted-foreground">Mastered</div>
               </div>
               <div>
-                <div className="text-xl font-bold text-primary">{wordStats.emerging ?? 0}</div>
+                <div className="text-xl font-bold text-primary">{emerging}</div>
                 <div className="text-[10px] text-muted-foreground">Emerging</div>
               </div>
               <div>
-                <div className="text-xl font-bold text-destructive">{wordStats.struggling ?? 0}</div>
+                <div className="text-xl font-bold text-destructive">{struggling}</div>
                 <div className="text-[10px] text-muted-foreground">Struggling</div>
               </div>
             </div>
@@ -213,7 +213,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       )}
 
       {/* Learning Rates */}
-      {rates && rates.length > 0 && (
+      {learningRates && learningRates.length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -223,9 +223,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
           </CardHeader>
           <CardContent className="pb-3">
             <div className="space-y-2">
-              {rates.slice(0, 4).map((r: any) => {
-                const slope = r.accuracy_slope ?? r.accuracySlope;
-                const trend: Trend = slope > 0.02 ? "improving" : slope < -0.01 ? "declining" : slope != null ? "stable" : "insufficient";
+              {learningRates.slice(0, 4).map((r) => {
+                const slope = r.accuracy_slope;
+                const trend: Trend = slope != null && slope > 0.02 ? "improving" : slope != null && slope < -0.01 ? "declining" : slope != null ? "stable" : "insufficient";
                 return (
                   <div key={r.domain} className="flex items-center justify-between text-xs">
                     <span className="capitalize font-medium">{r.domain?.replace(/_/g, " ")}</span>
@@ -250,14 +250,14 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
           <CardContent className="pb-3">
             <div className="grid grid-cols-2 gap-3 text-center">
               <div>
-                <div className="text-lg font-bold">{adaptationSummary.totalEvents ?? 0}</div>
-                <div className="text-[10px] text-muted-foreground">Adaptations Made</div>
+                <div className="text-lg font-bold">{adaptationSummary.totalAdapted ?? 0}</div>
+                <div className="text-[10px] text-muted-foreground">Adapted Trials</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-success">
-                  {adaptationSummary.accuracyLift != null ? `+${Math.round(adaptationSummary.accuracyLift)}%` : "—"}
+                  {adaptationSummary.overallAdaptationRate != null ? `${Math.round(adaptationSummary.overallAdaptationRate * 100)}%` : "—"}
                 </div>
-                <div className="text-[10px] text-muted-foreground">Accuracy Lift</div>
+                <div className="text-[10px] text-muted-foreground">Adaptation Rate</div>
               </div>
             </div>
           </CardContent>

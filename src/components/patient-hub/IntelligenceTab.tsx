@@ -1,11 +1,10 @@
 /**
  * Intelligence Tab — Clinical interpretation, predictions, strategy, next actions.
- * The "So what should I do?" tab.
  */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Brain, Lightbulb, TrendingUp, Zap } from "lucide-react";
+import { Brain } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
@@ -38,9 +37,22 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { timeline, flags, isLoading: snapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize);
   const { dayGroups, summary, isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
   const sessionStats = useWeeklySessionStats(profileId);
-  const { timeline: priorTimeline, isLoading: priorSnapshotLoading } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
-  const { dayGroups: allDayGroups, isLoading: priorTimelineLoading } = useWeeklySessionTimeline(profileId, windowSize * 2);
-  const { alerts } = useRecoveryAlerts(profileId);
+  const { timeline: priorTimeline } = useWeeklyRecoverySnapshot(profileId, windowSize * 2);
+  const { dayGroups: allDayGroups } = useWeeklySessionTimeline(profileId, windowSize * 2);
+
+  const alertSessionStats = useMemo(() => {
+    if (sessionStats.isLoading) return undefined;
+    return {
+      recentAvgAccuracy: sessionStats.avgAccuracy,
+      priorAvgAccuracy: sessionStats.priorAvgAccuracy,
+      accuracySlope: sessionStats.accuracySlope,
+      recentTrialCount: sessionStats.trialCount,
+      recentSessionCount: sessionStats.sessionCount,
+      priorTrialCount: sessionStats.trialCount,
+    };
+  }, [sessionStats]);
+
+  const { alerts } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
   const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId);
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
 

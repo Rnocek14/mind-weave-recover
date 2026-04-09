@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  User, Calendar, Target, Heart, AlertTriangle, Shield, Stethoscope
+  Target, Heart, AlertTriangle, Shield
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
 import { useDailyReadiness } from "@/hooks/useDailyReadiness";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
-import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 
 interface PatientInfoTabProps {
@@ -33,10 +32,9 @@ function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
 
 export function PatientInfoTab({ userId, profileId }: PatientInfoTabProps) {
   const { activeProfile } = useProfile();
-  const { goals, isLoading: goalsLoading } = useFunctionalGoals(userId, profileId);
+  const { goals, loading: goalsLoading } = useFunctionalGoals(userId);
   const { todayCheckin } = useDailyReadiness(profileId);
-  const { activeOverrides, isLoading: overridesLoading } = useClinicianOverrides(profileId);
-  const { alerts } = useRecoveryAlerts(profileId);
+  const { activeOverrides } = useClinicianOverrides(profileId);
 
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
   const strokeDate = activeProfile?.stroke_date ?? null;
@@ -62,15 +60,15 @@ export function PatientInfoTab({ userId, profileId }: PatientInfoTabProps) {
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Target className="w-4 h-4 text-primary" />
             Functional Goals
-            {goals && <Badge variant="secondary" className="text-[10px]">{goals.filter((g: any) => !g.archived_at).length}</Badge>}
+            {goals && <Badge variant="secondary" className="text-[10px]">{goals.filter((g) => !g.archived_at).length}</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-3">
           {goalsLoading ? (
             <Skeleton className="h-16 w-full" />
-          ) : goals && goals.filter((g: any) => !g.archived_at).length > 0 ? (
+          ) : goals && goals.filter((g) => !g.archived_at).length > 0 ? (
             <div className="space-y-2">
-              {goals.filter((g: any) => !g.archived_at).map((goal: any) => (
+              {goals.filter((g) => !g.archived_at).map((goal) => (
                 <div key={goal.id} className="p-2 rounded bg-muted/30 text-sm">
                   <p className="font-medium">{goal.goal_text}</p>
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -138,32 +136,6 @@ export function PatientInfoTab({ userId, profileId }: PatientInfoTabProps) {
                     {o.targetSlug && <Badge variant="outline" className="text-[10px]">{o.targetSlug.replace(/-/g, " ")}</Badge>}
                   </div>
                   {o.reason && <p className="text-muted-foreground mt-0.5">{o.reason}</p>}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Alerts */}
-      {alerts && alerts.filter((a: any) => !a.resolved_at).length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-4 h-4" />
-              Active Alerts
-              <Badge variant="destructive" className="text-[10px]">{alerts.filter((a: any) => !a.resolved_at).length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              {alerts.filter((a: any) => !a.resolved_at).map((alert: any) => (
-                <div key={alert.id} className="p-2 rounded bg-destructive/5 text-xs border border-destructive/20">
-                  <p className="font-medium">{alert.title}</p>
-                  {alert.description && <p className="text-muted-foreground mt-0.5">{alert.description}</p>}
-                  <Badge variant={alert.severity === "critical" ? "destructive" : "secondary"} className="text-[10px] mt-1">
-                    {alert.severity}
-                  </Badge>
                 </div>
               ))}
             </div>
