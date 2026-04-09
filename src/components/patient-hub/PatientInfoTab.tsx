@@ -16,6 +16,7 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
+import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
 interface PatientInfoTabProps {
