@@ -18,6 +18,7 @@ import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
   sessionId: string | null;
+  sessionFrame?: SessionFrameTemplate | null;
   onFinish: () => void;
 }
 
