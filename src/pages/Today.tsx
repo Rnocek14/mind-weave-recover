@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useDailyLesson } from '@/hooks/useDailyLesson';
+import { buildPresetLesson } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 
@@ -164,6 +165,22 @@ export default function Today() {
         lesson,
         clinicalProfile,
         todayFocus,
+        skipDailyCheck: true,
+        autoStart: true,
+      },
+    });
+  };
+
+  const handleStartCoreComm = () => {
+    const coreLesson = buildPresetLesson('core_communication');
+    if (!coreLesson) return;
+    sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
+    setSavedSession(null);
+    navigate('/lesson', {
+      state: {
+        lesson: coreLesson,
+        clinicalProfile,
         skipDailyCheck: true,
         autoStart: true,
       },
@@ -347,6 +364,20 @@ export default function Today() {
               </>
             )}
           </Button>
+
+          {/* Guided session option */}
+          {mode !== 'off' && !savedSession && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full gap-2 text-sm py-5"
+              onClick={handleStartCoreComm}
+            >
+              <Brain className="w-4 h-4" />
+              Core Communication Session
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 

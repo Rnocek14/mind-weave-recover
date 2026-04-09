@@ -30,12 +30,17 @@ import {
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
+import { MayaSessionFrame } from "./MayaSessionFrame";
+import { getSessionFrame } from "@/lib/sessionFrameTemplates";
+import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 
 
 type FlowPhase = 
   | "daily-check" 
   | "full-assessment" 
   | "session-preview"
+  | "maya-intro"
+  | "maya-transition"
   | "exercise" 
   | "transition" 
   | "micro-pause"
@@ -71,6 +76,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [activeSupportPivot, setActiveSupportPivot] = useState(false);
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
   const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
+  
+  // Session frame template (Maya-led sessions)
+  const sessionFrame = lesson.sessionFrameId ? getSessionFrame(lesson.sessionFrameId) : null;
   
   // Clear stale sessionStorage when mounting with a fresh lesson (not resuming)
   useEffect(() => {
@@ -294,7 +302,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   
   const handlePreviewStart = () => {
     resetFeedbackHistory();
-    setPhase("exercise");
+    // If session has a Maya frame, show intro first
+    if (sessionFrame && showPurpose) {
+      setPhase("maya-intro");
+    } else {
+      setPhase("exercise");
+    }
   };
 
   const navigateToExercise = (exerciseId: string) => {
@@ -450,7 +463,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       
       console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
       setCurrentPause(pauseDecision);
-      setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+      
+      // If session frame has a Maya transition for this block, show it instead of standard transition
+      if (sessionFrame && showPurpose && sessionFrame.mayaTransitions[nextIndex]) {
+        setPhase('maya-transition');
+      } else {
+        setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+      }
     }
   }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose]);
 
@@ -528,6 +547,32 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
+  // Maya session intro (before first exercise)
+  if (phase === "maya-intro" && sessionFrame) {
+    return (
+      <MayaSessionFrame
+        text={sessionFrame.mayaIntro}
+        type="intro"
+        sessionTheme={sessionFrame.sessionTheme}
+        onContinue={() => setPhase("exercise")}
+      />
+    );
+  }
+
+  // Maya session transition (between exercises)
+  if (phase === "maya-transition" && sessionFrame) {
+    const transitionText = sessionFrame.mayaTransitions[currentBlockIndex] || '';
+    const nextBlock = runtimeBlocks[currentBlockIndex];
+    if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
+    return (
+      <MayaSessionFrame
+        text={transitionText}
+        type="transition"
+        onContinue={handleTransitionContinue}
+      />
+    );
+  }
+
   // Auto-advancing encouragement overlay
   if (phase === "transition") {
     const nextBlock = runtimeBlocks[currentBlockIndex];
@@ -580,6 +625,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       <SessionSummaryScreen
         lesson={lesson}
         sessionId={sessionId}
+        sessionFrame={sessionFrame}
         onFinish={handleFinish}
       />
     );

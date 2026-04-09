@@ -124,6 +124,8 @@ export interface DailyLesson {
   reasoning: string[];
   energyLevel: 'light' | 'moderate' | 'challenging';
   doseReasoning?: DoseReasoning;
+  /** If set, LessonFlow will use this session frame template for Maya intro/transitions/closing */
+  sessionFrameId?: string;
 }
 
 /**
@@ -464,7 +466,7 @@ export function scoreExercise(
  * Preset lesson definitions for structured multi-exercise sessions.
  * These bypass normal spacing/adjacency rules — block order is intentional.
  */
-export type LessonPreset = 'comprehension_session' | 'depth_battery_onboarding' | 'depth_battery_weekly';
+export type LessonPreset = 'comprehension_session' | 'core_communication' | 'depth_battery_onboarding' | 'depth_battery_weekly';
 
 const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
   comprehension_session: {
@@ -483,6 +485,25 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
         trialLimit: 5,
         priority: 'primary',
         reasoning: 'Semantic mapping comprehension (5 trials)',
+      },
+    ],
+  },
+  core_communication: {
+    title: 'Core Communication',
+    blocks: [
+      {
+        exerciseId: 'detective-mind',
+        duration: 4,
+        trialLimit: 3,
+        priority: 'primary',
+        reasoning: 'Comprehension + clue-finding (3 cases)',
+      },
+      {
+        exerciseId: 'narrative-retell',
+        duration: 4,
+        trialLimit: 1,
+        priority: 'primary',
+        reasoning: 'Recall + sequencing + expression (1 story)',
       },
     ],
   },
@@ -530,12 +551,17 @@ export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: st
     adaptations: { ...defaultAdaptations, ...b.adaptations },
   }));
   const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
+  // Attach session frame ID for presets that have one
+  const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
+    core_communication: 'core_communication',
+  };
   return {
     totalDuration,
     blocks,
     targetDomains: ['receptive_language', 'semantic_systems'],
     reasoning: [`Preset: ${presetDef.title}`],
     energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+    sessionFrameId: FRAME_MAP[preset],
   };
 }
 
@@ -575,12 +601,16 @@ export function generateDailyLesson(
       }));
       const totalDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
       console.log('[DailyLessonEngine] Using preset lesson:', preset, blocks.map(b => b.exerciseId).join(' → '));
+      const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
+        core_communication: 'core_communication',
+      };
       return {
         totalDuration,
         blocks,
         targetDomains: ['receptive_language', 'semantic_systems'],
         reasoning: [`Preset: ${presetDef.title}`],
         energyLevel: totalDuration <= 7 ? 'light' : 'moderate',
+        sessionFrameId: FRAME_MAP[preset],
       };
     }
   }

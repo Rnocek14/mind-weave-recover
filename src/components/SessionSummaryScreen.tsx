@@ -8,6 +8,7 @@ import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
   sessionId: string | null;
+  sessionFrame?: SessionFrameTemplate | null;
   onFinish: () => void;
 }
 
@@ -46,7 +48,7 @@ function scoreToLabel(score: number): { text: string; className: string } {
   }
 }
 
-export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSummaryScreenProps) {
+export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
   const { showTransferOnSummary, mode } = useCoachingMode();
@@ -215,8 +217,54 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           </Collapsible>
         )}
 
-        {/* Maya's session insight — Guided/Full coaching modes */}
-        {mode !== 'off' && exerciseScores.length > 0 && (() => {
+        {/* Session frame closing — cross-exercise insights (for Maya-led sessions) */}
+        {sessionFrame && exerciseScores.length > 0 && (() => {
+          const blockResults: BlockResult[] = exerciseScores.map(es => ({
+            exerciseId: es.exercise_slug,
+            avgScore: es.avg_score,
+            trialCount: es.trial_count,
+          }));
+          const closing = sessionFrame.closingBuilder(blockResults);
+          return (
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-5 text-left space-y-3">
+              <div className="flex items-start gap-2.5">
+                <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-foreground">Maya's session reflection</p>
+              </div>
+              
+              {closing.practiced.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Practiced today</p>
+                  <ul className="text-sm text-foreground space-y-0.5">
+                    {closing.practiced.map((item, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="capitalize">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Strong today</p>
+                <p className="text-sm text-foreground">{closing.strength}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next step</p>
+                <p className="text-sm text-foreground">{closing.nextStep}</p>
+              </div>
+              
+              <p className="text-sm text-muted-foreground leading-relaxed italic border-t border-primary/10 pt-3 mt-2">
+                {closing.realLifeLine}
+              </p>
+            </div>
+          );
+        })()}
+
+        {/* Maya's session insight — Guided/Full coaching modes (non-framed sessions) */}
+        {!sessionFrame && mode !== 'off' && exerciseScores.length > 0 && (() => {
           const insight = getSummaryInsight({ mode, exerciseScores, durationMin });
           return insight ? (
             <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
@@ -233,7 +281,7 @@ export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSum
           ) : null;
         })()}
 
-        {showTransferOnSummary && lesson.targetDomains?.[0] && (
+        {showTransferOnSummary && !sessionFrame && lesson.targetDomains?.[0] && (
           <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-left">
             <div className="flex items-start gap-2.5">
               <MessageCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
