@@ -250,70 +250,123 @@ function sentenceInsight(signals: SentenceConstructionSignals): { strength?: str
  * Build a session-level insight by analyzing real exercise outputs.
  * Selects 1 strength and 1 next-step from the strongest signals available.
  */
-export function buildSessionInsight(results: BlockResult[]): SessionInsight {
-  const strengths: string[] = [];
-  const nextSteps: string[] = [];
-  
-  for (const block of results) {
-    if (!block.details) continue;
-    
-    switch (block.exerciseId) {
-      case 'narrative-retell': {
-        const s = extractNarrativeSignals(block.details);
-        if (s) {
-          const insight = narrativeInsight(s);
-          if (insight.strength) strengths.push(insight.strength);
-          if (insight.nextStep) nextSteps.push(insight.nextStep);
-        }
-        break;
+/**
+ * Weighted insight with priority score.
+ * Higher weight = more clinically significant / bigger gap.
+ */
+interface WeightedInsight {
+  text: string;
+  weight: number;
+}
+
+/**
+ * Compute a gap-based weight for nextSteps (bigger gap = higher priority)
+ * and a consistency-based weight for strengths (stronger signal = higher priority).
+ */
+function extractWeightedInsights(
+  block: BlockResult
+): { strengths: WeightedInsight[]; nextSteps: WeightedInsight[] } {
+  const strengths: WeightedInsight[] = [];
+  const nextSteps: WeightedInsight[] = [];
+
+  if (!block.details) return { strengths, nextSteps };
+
+  switch (block.exerciseId) {
+    case 'narrative-retell': {
+      const s = extractNarrativeSignals(block.details);
+      if (s) {
+        const sections = [s.beginning, s.middle, s.end];
+        const covered = sections.filter(x => x === 'covered').length;
+        const missed = sections.filter(x => x === 'missed').length;
+        const insight = narrativeInsight(s);
+        // Strength weight: higher when more sections covered
+        if (insight.strength) strengths.push({ text: insight.strength, weight: covered * 0.33 });
+        // NextStep weight: higher when more sections missed (bigger gap)
+        if (insight.nextStep) nextSteps.push({ text: insight.nextStep, weight: missed * 0.4 });
       }
-      case 'detective-mind': {
-        const s = extractDetectiveSignals(block.details);
-        if (s) {
-          const insight = detectiveInsight(s);
-          if (insight.strength) strengths.push(insight.strength);
-          if (insight.nextStep) nextSteps.push(insight.nextStep);
-        }
-        break;
+      break;
+    }
+    case 'detective-mind': {
+      const s = extractDetectiveSignals(block.details);
+      if (s) {
+        const insight = detectiveInsight(s);
+        // Strength: weighted by overall accuracy
+        if (insight.strength) strengths.push({ text: insight.strength, weight: s.overallAccuracy });
+        // NextStep: weighted by size of accuracy gap (1 - accuracy = gap)
+        if (insight.nextStep) nextSteps.push({ text: insight.nextStep, weight: 1 - s.overallAccuracy });
       }
-      case 'category-fluency': {
-        const s = extractCategoryFluencySignals(block.details);
-        if (s) {
-          const insight = categoryFluencyInsight(s);
-          if (insight.strength) strengths.push(insight.strength);
-          if (insight.nextStep) nextSteps.push(insight.nextStep);
-        }
-        break;
+      break;
+    }
+    case 'category-fluency': {
+      const s = extractCategoryFluencySignals(block.details);
+      if (s) {
+        const insight = categoryFluencyInsight(s);
+        const switchRatio = s.totalWords > 0 ? s.switches / s.totalWords : 0;
+        if (insight.strength) strengths.push({ text: insight.strength, weight: 0.5 + switchRatio });
+        // Low switches = bigger gap = higher priority
+        if (insight.nextStep) nextSteps.push({ text: insight.nextStep, weight: s.switches <= 1 ? 0.8 : 0.4 });
       }
-      case 'semantic-features': {
-        const s = extractSFASignals(block.details);
-        if (s) {
-          const insight = sfaInsight(s);
-          if (insight.strength) strengths.push(insight.strength);
-          if (insight.nextStep) nextSteps.push(insight.nextStep);
-        }
-        break;
+      break;
+    }
+    case 'semantic-features': {
+      const s = extractSFASignals(block.details);
+      if (s) {
+        const insight = sfaInsight(s);
+        const covered = Object.values(s.featureCoverage).filter(Boolean).length;
+        const total = Object.keys(s.featureCoverage).length || 1;
+        if (insight.strength) strengths.push({ text: insight.strength, weight: covered / total });
+        // Failed retrieval despite features = high-priority gap
+        if (insight.nextStep) nextSteps.push({ text: insight.nextStep, weight: !s.retrievalSuccess ? 0.9 : 0.4 });
       }
-      case 'sentence-construction': {
-        const s = extractSentenceSignals(block.details);
-        if (s) {
-          const insight = sentenceInsight(s);
-          if (insight.strength) strengths.push(insight.strength);
-          if (insight.nextStep) nextSteps.push(insight.nextStep);
+      break;
+    }
+    case 'sentence-construction': {
+      const s = extractSentenceSignals(block.details);
+      if (s) {
+        const insight = sentenceInsight(s);
+        const scores = Object.values(s.grammar);
+        const avgGrammar = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0.5;
+        if (insight.strength) strengths.push({ text: insight.strength, weight: avgGrammar });
+        // Weakest grammar category = big gap
+        if (insight.nextStep) {
+          const weakest = Math.min(...scores, 1);
+          nextSteps.push({ text: insight.nextStep, weight: 1 - weakest });
         }
-        break;
       }
+      break;
     }
   }
-  
-  // Pick the best signal; fall back to score-based
-  if (strengths.length === 0 && nextSteps.length === 0) {
+
+  return { strengths, nextSteps };
+}
+
+/**
+ * Build a session-level insight by analyzing real exercise outputs.
+ * Uses weighted prioritization: biggest gap wins for nextStep,
+ * strongest consistent signal wins for strength.
+ */
+export function buildSessionInsight(results: BlockResult[]): SessionInsight {
+  const allStrengths: WeightedInsight[] = [];
+  const allNextSteps: WeightedInsight[] = [];
+
+  for (const block of results) {
+    const { strengths, nextSteps } = extractWeightedInsights(block);
+    allStrengths.push(...strengths);
+    allNextSteps.push(...nextSteps);
+  }
+
+  // No signals → fall back to score-based
+  if (allStrengths.length === 0 && allNextSteps.length === 0) {
     return buildScoreBasedInsight(results);
   }
-  
+
+  // Sort descending by weight — highest priority first
+  allStrengths.sort((a, b) => b.weight - a.weight);
+  allNextSteps.sort((a, b) => b.weight - a.weight);
+
   return {
-    strength: strengths[0] || 'staying focused through the full session',
-    nextStep: nextSteps[0] || 'keep building consistency across exercises',
+    strength: allStrengths[0]?.text || 'staying focused through the full session',
+    nextStep: allNextSteps[0]?.text || 'keep building consistency across exercises',
   };
 }
 
