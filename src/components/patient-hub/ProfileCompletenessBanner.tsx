@@ -58,7 +58,7 @@ export function ProfileCompletenessBanner({ profile, onEditProfile }: Props) {
             ))}
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            Missing fields reduce cohort analytics accuracy. Fill them to improve cross-patient insights.
+            ⚠️ Incomplete data limits analytics reliability. Complete the profile to unlock accurate cohort insights.
           </p>
         </div>
         {onEditProfile && (
