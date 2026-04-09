@@ -363,8 +363,8 @@ export function CategoryFluencyGame({
     setCurrentInput('');
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
     setShowTextInput(preferTyping);
-    setTimeout(() => startRound(), 300);
-  }, [startRound]);
+    setTimeout(() => beginCountdown(), 300);
+  }, [beginCountdown]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
