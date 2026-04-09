@@ -530,6 +530,35 @@ export function NarrativeRetellGame({
               </div>
             )}
 
+            {/* Replay buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  if (!currentStory) return;
+                  vg.interrupt();
+                  const fullText = currentStory.scenes.map(s => s.text).join(' ');
+                  vg.isVoiceLed ? vg.autoReadText(fullText) : speakTTS(fullText);
+                }}
+              >
+                <Volume2 className="h-4 w-4 mr-1" />
+                Read story again
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  vg.interrupt();
+                  vg.speakTask();
+                }}
+              >
+                <Volume2 className="h-4 w-4 mr-1" />
+                Repeat instructions
+              </Button>
+            </div>
+
             <div className="flex gap-2">
               <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary" disabled={useTyping && !typedText.trim()}>
                 {useTyping ? '✓' : <MicOff className="h-4 w-4 mr-2" />} I'm done
