@@ -129,10 +129,23 @@ export default function NarrativeRetellExercise() {
   const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
     setCompleted(true);
     completeSession();
+
+    // Save structured details for reflection engine
+    if (blockIndex != null && results.length > 0) {
+      const r = results[0]; // Typically 1 story per block
+      saveExerciseDetails(blockIndex, 'narrative-retell', {
+        structureBreakdown: r.structureBreakdown,
+        eventCoverage: r.eventCoverage,
+        wordCount: r.wordCount,
+        eventsFound: r.eventsFound,
+        eventsTotal: r.eventsTotal,
+      });
+    }
+
     if (fromLesson) {
       completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow]);
+  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
