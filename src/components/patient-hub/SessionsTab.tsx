@@ -12,9 +12,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   Calendar, Clock, Target, ChevronDown, ChevronRight, Volume2, VolumeX,
   CheckCircle2, XCircle, AlertTriangle, Zap, TrendingUp, Mic, Lightbulb,
-  Timer, ArrowRightLeft
+  Timer, ArrowRightLeft, FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
 import { generateSessionInsight, type SessionInsight } from "@/lib/sessionInsightGenerator";
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
