@@ -77,6 +77,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
   const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
   
+  // Session frame template (Maya-led sessions)
+  const sessionFrame = lesson.sessionFrameId ? getSessionFrame(lesson.sessionFrameId) : null;
+  
   // Clear stale sessionStorage when mounting with a fresh lesson (not resuming)
   useEffect(() => {
     if (!location.state?.resuming) {
