@@ -551,9 +551,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Maya session intro (before first exercise)
   if (phase === "maya-intro" && sessionFrame) {
+    // Use recommendation reason if provided, otherwise use template default
+    const recommendationReason = location.state?.recommendationReason;
+    const introText = recommendationReason || sessionFrame.mayaIntro;
     return (
       <MayaSessionFrame
-        text={sessionFrame.mayaIntro}
+        text={introText}
         type="intro"
         sessionTheme={sessionFrame.sessionTheme}
         onContinue={() => setPhase("exercise")}
