@@ -135,15 +135,23 @@ export function NarrativeRetellGame({
       
       // Speak context-aware intro first
       if (vg.shouldAutoSpeak && currentIndex === 0) {
-        await vg.speakIntro({ storyTitle: currentStory.title });
+        try {
+          await vg.speakIntro({ storyTitle: currentStory.title });
+        } catch (e) {
+          console.warn('[NarrativeRetell] Intro TTS failed:', e);
+        }
         await new Promise(r => setTimeout(r, 600));
       }
       
       // Read the full story aloud
       const fullText = currentStory.scenes.map(s => s.text).join(' ');
+      console.log('[NarrativeRetell] Auto-reading story:', currentStory.title);
       try {
         await speakTTS(fullText);
-      } catch { /* TTS may fail, that's OK — text is visible */ }
+        console.log('[NarrativeRetell] Auto-read complete');
+      } catch (e) {
+        console.warn('[NarrativeRetell] Story auto-read TTS failed:', e);
+      }
     };
     doAutoRead();
   }, [phase, currentStory, currentIndex, vg, speakTTS]);
