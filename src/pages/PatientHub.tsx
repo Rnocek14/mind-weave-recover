@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText
+  ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText, Users
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -138,16 +138,22 @@ export default function PatientHub() {
             </p>
           </div>
         </div>
-        <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
-          <SelectTrigger className="w-24 h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">7 days</SelectItem>
-            <SelectItem value="14">14 days</SelectItem>
-            <SelectItem value="30">30 days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => navigate('/admin/cohort-research')}>
+            <Users className="w-3.5 h-3.5" />
+            Cohort
+          </Button>
+          <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
+            <SelectTrigger className="w-24 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 days</SelectItem>
+              <SelectItem value="14">14 days</SelectItem>
+              <SelectItem value="30">30 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Clinician Summary Header — 10-second understanding */}
