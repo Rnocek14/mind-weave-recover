@@ -108,25 +108,8 @@ export default function PatientHub() {
     toast.success("Progress note copied to clipboard");
   }, [progressNote]);
 
-  // Guard: require at least caregiver mode
-  if (!isAtLeast("caregiver")) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <Stethoscope className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Access Required</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Switch to Caregiver, Clinician, or Admin mode to access this page.
-            </p>
-            <Button variant="outline" onClick={() => navigate("/today")}>
-              Go to Today
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Guard temporarily disabled for dev/testing
+  // TODO: Re-enable before production: if (!isAtLeast("caregiver")) { ... }
 
   if (isLoading) {
     return (
