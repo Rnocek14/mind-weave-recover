@@ -181,7 +181,19 @@ export const SentenceConstructionGame = ({
     stop();
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => { speak(trial.modelAudio!); }, 300);
-      return () => clearTimeout(timer);
+      
+      // Stall timer
+      if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
+      stallTimerSCRef.current = setTimeout(() => {
+        if (!completed && !showFeedback) {
+          vg.speakReminder();
+        }
+      }, 12000);
+      
+      return () => { 
+        clearTimeout(timer); 
+        if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
+      };
     }
   }, [currentTrial, completed]);
 
