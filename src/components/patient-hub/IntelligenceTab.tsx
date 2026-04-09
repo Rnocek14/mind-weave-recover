@@ -370,7 +370,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
                   {rsBreakdown.latency != null && <span>Latency: {rsBreakdown.latency}%</span>}
                   {rsBreakdown.cueIndependence != null && <span>Cue: {rsBreakdown.cueIndependence}%</span>}
                   {rsBreakdown.errorQuality != null && <span>Error Q: {rsBreakdown.errorQuality}%</span>}
-                  {rsBreakdown.consistency != null && <span>Consistency: {rsBreakdown.consistency}%</span>}
+                  {(rsBreakdown as any)?.consistency != null && <span>Consistency: {(rsBreakdown as any).consistency}%</span>}
                   {rsBreakdown.endurance != null && <span>Endurance: {rsBreakdown.endurance}%</span>}
                 </div>
               )}
