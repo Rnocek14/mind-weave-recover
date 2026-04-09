@@ -474,16 +474,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       setCurrentPause(pauseDecision);
       
       // Show Maya transition if session frame exists and has a transition for this block
-      if (sessionFrame && showPurpose && sessionFrame.mayaTransitions[nextIndex]) {
-        setPhase('maya-transition');
-      } else if (sessionFrame && isVoiceLed && sessionFrame.mayaTransitions[nextIndex]) {
-        // Full Coaching: always show Maya transitions even if showPurpose is somehow off
+      if (sessionFrame && (showPurpose || isVoiceLed) && sessionFrame.mayaTransitions[nextIndex]) {
         setPhase('maya-transition');
       } else {
         setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
       }
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose, isVoiceLed, sessionFrame]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
