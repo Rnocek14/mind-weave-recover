@@ -251,10 +251,7 @@ export function CategoryFluencyGame({
     if (currentRound + 1 >= roundCount) {
       setPhase('done');
       onGameComplete?.(newResults);
-      // Spoken feedback on final round
-      if (vg.shouldAutoSpeak) {
-        vg.speakIfVoiceLed(`Nice work — you named ${validWords.length} ${config.label.toLowerCase()}.`);
-      }
+      // No spoken feedback on final round — the transition card handles reflection
     } else {
       setPhase('round-done');
       // Spoken feedback between rounds
