@@ -296,6 +296,106 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
         clinicianId={user?.id}
         onActionComplete={refetchOverrides}
       />
+
+      {/* Readiness / Discharge Signal */}
+      {readinessSignal.score != null && (
+        <Card className={cn("border-l-4", readinessSignal.level === "ready" ? "border-l-success" : readinessSignal.level === "stable" ? "border-l-primary" : readinessSignal.level === "improving" ? "border-l-amber-500" : "border-l-destructive")}>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Readiness Signal
+              <Badge variant={readinessSignal.level === "ready" ? "default" : "secondary"} className="text-[10px] capitalize">
+                {readinessSignal.level === "ready" ? "Ready for step-down" : readinessSignal.level}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3 space-y-2">
+            <div className="space-y-1.5">
+              {readinessSignal.signals.map((s) => (
+                <div key={s.label} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{s.label}</span>
+                  <span className="font-medium">{s.value != null ? `${s.value}%` : "—"}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Info className="w-3 h-3" />
+              Composite of recovery score, cue independence, retention, and accuracy trend
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Functional Communication Transfer */}
+      {functionalLinks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" />
+              Functional Communication Impact
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3 space-y-2">
+            {functionalLinks.map((link, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs p-2 rounded bg-muted/20">
+                <ArrowRight className="w-3 h-3 mt-0.5 text-primary shrink-0" />
+                <div>
+                  <div className="font-medium">{link.exercise} → {link.functional}</div>
+                  <div className="text-muted-foreground">{link.signal}</div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Explainability — Evidence Behind Scores */}
+      <Card className="border-border/30">
+        <CardHeader className="pb-2 pt-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Info className="w-4 h-4 text-muted-foreground" />
+            Evidence & Explainability
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pb-3 space-y-3 text-xs">
+          {recoveryScore != null && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Recovery Score: {recoveryScore}%</span>
+                <Badge variant="outline" className="text-[10px]">{rsConfidence || "low"} confidence</Badge>
+              </div>
+              {rsBreakdown && (
+                <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
+                  {rsBreakdown.accuracy != null && <span>Accuracy: {rsBreakdown.accuracy}%</span>}
+                  {rsBreakdown.latency != null && <span>Latency: {rsBreakdown.latency}%</span>}
+                  {rsBreakdown.cueIndependence != null && <span>Cue: {rsBreakdown.cueIndependence}%</span>}
+                  {rsBreakdown.errorQuality != null && <span>Error Q: {rsBreakdown.errorQuality}%</span>}
+                  {rsBreakdown.consistency != null && <span>Consistency: {rsBreakdown.consistency}%</span>}
+                  {rsBreakdown.endurance != null && <span>Endurance: {rsBreakdown.endurance}%</span>}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="space-y-1">
+            <span className="font-medium">Data window: {windowSize} days</span>
+            <div className="text-[10px] text-muted-foreground">
+              {sessionStats.sessionCount} sessions · {sessionStats.trialCount} trials · {activeDays}/7 active days
+            </div>
+          </div>
+          {sessionStats.accuracySlope != null && (
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Accuracy trend:</span>
+              {sessionStats.accuracySlope > 0.01 ? (
+                <span className="text-success flex items-center gap-1"><TrendingUp className="w-3 h-3" /> +{(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
+              ) : sessionStats.accuracySlope < -0.01 ? (
+                <span className="text-destructive flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {(sessionStats.accuracySlope * 100).toFixed(1)}%/day</span>
+              ) : (
+                <span className="text-muted-foreground flex items-center gap-1"><Minus className="w-3 h-3" /> Stable</span>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
