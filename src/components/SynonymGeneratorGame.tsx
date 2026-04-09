@@ -318,9 +318,9 @@ export function SynonymGeneratorGame({
     }
   }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust, stopListening]);
 
-  const startRound = useCallback(() => {
-    const newPrompt = pickPrompt(currentDifficulty, usedWordsRef.current);
-    setPrompt(newPrompt);
+  /** Start round with a given prompt (used after countdown) */
+  const startRoundWithPrompt = useCallback((p: SynonymPrompt) => {
+    vg.interrupt();
     setWords([]);
     setCurrentInput('');
     setPhase('active');
@@ -343,25 +343,58 @@ export function SynonymGeneratorGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening]);
+  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
+  /** Begin the countdown → then auto-start the round */
+  const beginCountdown = useCallback(() => {
+    const newPrompt = pickPrompt(currentDifficulty, usedWordsRef.current);
+    usedWordsRef.current.add(newPrompt.word);
+    setPrompt(newPrompt);
+    setPhase('countdown' as any);
+
+    // Speak the word-specific intro
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(`Tell me words that mean the same as "${newPrompt.word}".`);
+    }
+
+    // 3-2-1 countdown
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        setCountdown(null);
+        startRoundWithPrompt(newPrompt);
+      } else {
+        setCountdown(count);
+      }
+    }, 800);
+  }, [currentDifficulty, vg, startRoundWithPrompt]);
+
+  // Legacy startRound for manual start (falls through to countdown)
+  const startRound = useCallback(() => {
+    beginCountdown();
+  }, [beginCountdown]);
+
+  // Auto-start on first mount
   const autoStartedRef = useRef(false);
   useEffect(() => {
-    if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
+    if (!autoStartedRef.current && phase === 'ready' && currentRound === 0) {
       autoStartedRef.current = true;
-      startRound();
+      const delay = setTimeout(() => beginCountdown(), 400);
+      return () => clearTimeout(delay);
     }
-  }, [autoStartFirst, phase, currentRound, startRound]);
+  }, [phase, currentRound, beginCountdown]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
-    usedWordsRef.current.add(prompt.word);
     setWords([]);
     setCurrentInput('');
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
     setShowTextInput(preferTyping);
-    setTimeout(() => startRound(), 300);
-  }, [prompt.word, startRound]);
+    setTimeout(() => beginCountdown(), 300);
+  }, [beginCountdown]);
 
   const addWord = useCallback(() => {
     const word = currentInput.trim();
@@ -384,25 +417,43 @@ export function SynonymGeneratorGame({
 
   const matchCount = wordStatuses.filter(w => w.matched).length;
 
-  // ── Ready screen ──
+  // === COUNTDOWN — smooth 3-2-1 transition ===
+  if (countdown !== null) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-6 py-12 max-w-sm mx-auto text-center animate-in fade-in duration-300">
+        <p className="text-lg font-semibold text-foreground">
+          Words that mean the same as <strong className="text-primary">{prompt.word}</strong>
+        </p>
+        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <span className="text-4xl font-bold text-primary animate-in zoom-in duration-300" key={countdown}>
+            {countdown}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">Get ready…</p>
+      </div>
+    );
+  }
+
+  // === READY (manual start — standalone mode only) ===
   if (phase === 'ready') {
     return (
-      <div className="flex flex-col items-center gap-4 py-6 max-w-md mx-auto text-center">
+      <div className="flex flex-col items-center gap-6 py-8 max-w-sm mx-auto text-center">
         {currentRound === 0 && (
           <ExercisePurposeBanner exerciseSlug="synonym-generator" />
         )}
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Think of words that mean the same as:</p>
-          <p className="text-3xl font-bold text-primary">{prompt.word}</p>
+        <div>
+          <p className="text-xl font-bold mb-2">
+            Words that mean the same as <strong className="text-primary">{prompt.word}</strong>
+          </p>
           <p className="text-xs text-muted-foreground italic">({prompt.partOfSpeech}) — {prompt.meaningNote}</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Say or type as many similar words as you can
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          <strong>Say</strong> or type as many similar words as you can
-        </p>
         {!speechSupported && (
           <p className="text-xs text-destructive/70">Speech not available — you'll type instead</p>
         )}
-        <Button size="lg" onClick={startRound} className="min-h-[48px] min-w-[140px]">
+        <Button size="lg" onClick={beginCountdown} className="min-h-[48px] min-w-[140px]">
           <Mic className="w-4 h-4 mr-2" />
           {currentRound === 0 ? 'Start' : 'Next Word'}
         </Button>
