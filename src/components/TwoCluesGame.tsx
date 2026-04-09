@@ -976,6 +976,10 @@ export function TwoCluesGame({
   return (
     <Card className="max-w-md mx-auto">
       <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-6">
+        {/* Purpose banner — first trial only */}
+        {currentIndex === 0 && !showFeedback && (
+          <ExercisePurposeBanner exerciseSlug="two-clues" />
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <Badge variant="outline" className="text-xs">

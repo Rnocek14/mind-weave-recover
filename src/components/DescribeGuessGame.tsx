@@ -511,6 +511,10 @@ export function DescribeGuessGame({
 
   return (
     <div className="max-w-2xl mx-auto h-full flex flex-col gap-2">
+      {/* Purpose banner — first trial only */}
+      {game.currentIndex === 0 && !showFeedback && (
+        <ExercisePurposeBanner exerciseSlug="describe-guess" />
+      )}
       {/* Progress — compact */}
       <div className="shrink-0">
         <div className="flex justify-between text-xs text-muted-foreground mb-1">

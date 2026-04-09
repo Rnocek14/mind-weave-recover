@@ -2186,9 +2186,12 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Entry instruction — first trial only */}
+      {/* Purpose banner + entry instruction — first trial only */}
       {state.trialNumber === 1 && !showFeedback && (
-        <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
+        <>
+          <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+          <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
+        </>
       )}
 
       {/* Image — grows to fill available space */}

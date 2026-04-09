@@ -134,6 +134,10 @@ export function MinimalPairsGame({
   
   return (
     <div className="space-y-2 sm:space-y-4">
+      {/* Purpose banner — first trial only */}
+      {trialIndex === 0 && !showFeedback && (
+        <ExercisePurposeBanner exerciseSlug="minimal-pairs" />
+      )}
       {/* Compact header */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
