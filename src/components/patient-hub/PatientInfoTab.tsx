@@ -1,5 +1,6 @@
 /**
- * Patient Info Tab — Clinical context, goals, readiness, overrides, alerts, red flags.
+ * Patient Info Tab — Clinical context, goals, readiness, overrides, alerts, red flags,
+ * functional check-ins.
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
