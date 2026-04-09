@@ -21,6 +21,21 @@ import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
+function formatSlug(slug: string): string {
+  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+const ERROR_COLORS: Record<string, string> = {
+  semantic: "bg-amber-500",
+  phonological: "bg-blue-500",
+  timeout: "bg-muted-foreground",
+  no_response: "bg-muted-foreground",
+  perseveration: "bg-purple-500",
+  neologism: "bg-rose-500",
+};
+
+const MOOD_EMOJI: Record<number, string> = { 1: "😞", 2: "😐", 3: "🙂", 4: "😊", 5: "😄" };
+
 interface SessionsTabProps {
   userId: string;
   profileId: string | undefined;
@@ -35,23 +50,32 @@ interface SessionRow {
   duration_sec: number | null;
   summary: any;
   plan: any;
+  mood_rating: number | null;
+  caregiver_notes: string | null;
+  engagement_summary: any;
 }
 
-function formatSlug(slug: string): string {
-  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+interface ExerciseSummary {
+  slug: string;
+  trialCount: number;
+  correctCount: number;
+  accuracy: number;
+  audioCount: number;
+  avgRtMs: number | null;
 }
 
-const ERROR_COLORS: Record<string, string> = {
-  semantic: "bg-amber-500",
-  phonological: "bg-blue-500",
-  timeout: "bg-muted-foreground",
-  no_response: "bg-muted-foreground",
-  perseveration: "bg-purple-500",
-  neologism: "bg-rose-500",
-};
+interface SessionMeta {
+  exercises: ExerciseSummary[];
+  totalTrials: number;
+  overallAccuracy: number;
+  totalAudio: number;
+  avgRtMs: number | null;
+  adaptationCount: number;
+}
 
 export function SessionsTab({ userId, profileId, windowSize, timeline }: SessionsTabProps) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [sessionMeta, setSessionMeta] = useState<Map<string, SessionMeta>>(new Map());
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -71,20 +95,102 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - windowSize);
 
-    const fetch = async () => {
+    const fetchAll = async () => {
       setLoading(true);
       const { data } = await supabase
         .from("sessions")
-        .select("id, started_at, ended_at, duration_sec, summary, plan")
+        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary")
         .eq("profile_id", profileId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
         .order("started_at", { ascending: false })
         .limit(50);
-      setSessions(data ?? []);
+      
+      const sessionRows = (data ?? []) as SessionRow[];
+      setSessions(sessionRows);
+
+      if (sessionRows.length > 0) {
+        const sessionIds = sessionRows.map((s) => s.id);
+
+        // Batch fetch exercise events summary + adaptation counts
+        const [eventsRes, adaptRes] = await Promise.all([
+          supabase
+            .from("exercise_events")
+            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
+            .in("session_id", sessionIds),
+          supabase
+            .from("adaptation_events" as any)
+            .select("session_id")
+            .in("session_id", sessionIds),
+        ]);
+
+        const events = eventsRes.data ?? [];
+        const adaptations = (adaptRes.data ?? []) as any[];
+
+        // Build per-session meta
+        const metaMap = new Map<string, SessionMeta>();
+
+        // Group events by session
+        const bySession = new Map<string, typeof events>();
+        events.forEach((e) => {
+          if (!bySession.has(e.session_id)) bySession.set(e.session_id, []);
+          bySession.get(e.session_id)!.push(e);
+        });
+
+        // Count adaptations per session
+        const adaptCounts = new Map<string, number>();
+        adaptations.forEach((a: any) => {
+          adaptCounts.set(a.session_id, (adaptCounts.get(a.session_id) || 0) + 1);
+        });
+
+        sessionIds.forEach((sid) => {
+          const evts = bySession.get(sid) || [];
+          const exMap = new Map<string, { trials: number; correct: number; audio: number; rtSum: number; rtCount: number }>();
+
+          evts.forEach((e) => {
+            const slug = e.exercise_slug || "unknown";
+            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, correct: 0, audio: 0, rtSum: 0, rtCount: 0 });
+            const ex = exMap.get(slug)!;
+            ex.trials++;
+            if (e.score === 1 || e.score === 100) ex.correct++;
+            if (e.audio_storage_path) ex.audio++;
+            if (e.reaction_time_ms && e.reaction_time_ms > 0) {
+              ex.rtSum += e.reaction_time_ms;
+              ex.rtCount++;
+            }
+          });
+
+          const exercises: ExerciseSummary[] = Array.from(exMap.entries()).map(([slug, d]) => ({
+            slug,
+            trialCount: d.trials,
+            correctCount: d.correct,
+            accuracy: d.trials > 0 ? Math.round((d.correct / d.trials) * 100) : 0,
+            audioCount: d.audio,
+            avgRtMs: d.rtCount > 0 ? Math.round(d.rtSum / d.rtCount) : null,
+          }));
+
+          const totalTrials = evts.length;
+          const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
+          const totalAudio = evts.filter((e) => e.audio_storage_path).length;
+          const allRt = evts.filter((e) => e.reaction_time_ms && e.reaction_time_ms > 0).map((e) => e.reaction_time_ms!);
+          const avgRtMs = allRt.length > 0 ? Math.round(allRt.reduce((a, b) => a + b, 0) / allRt.length) : null;
+
+          metaMap.set(sid, {
+            exercises,
+            totalTrials,
+            overallAccuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : 0,
+            totalAudio,
+            avgRtMs,
+            adaptationCount: adaptCounts.get(sid) || 0,
+          });
+        });
+
+        setSessionMeta(metaMap);
+      }
+
       setLoading(false);
     };
-    fetch();
+    fetchAll();
   }, [profileId, windowSize]);
 
   // Build per-session accuracy for sparkline
@@ -132,6 +238,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         <SessionCard
           key={session.id}
           session={session}
+          meta={sessionMeta.get(session.id)}
           isExpanded={expandedId === session.id}
           onToggle={() => setExpandedId(expandedId === session.id ? null : session.id)}
         />
@@ -142,10 +249,12 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
 function SessionCard({
   session,
+  meta,
   isExpanded,
   onToggle,
 }: {
   session: SessionRow;
+  meta?: SessionMeta;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -208,26 +317,89 @@ function SessionCard({
   const date = new Date(session.started_at);
   const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const summaryData = session.summary as any;
 
   return (
     <Card className={cn("transition-shadow", isExpanded && "shadow-md ring-1 ring-primary/20")}>
-      {/* Header */}
-      <button className="w-full text-left p-4 flex items-center gap-4" onClick={onToggle}>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+      {/* Rich collapsed header */}
+      <button className="w-full text-left p-4 space-y-2" onClick={onToggle}>
+        {/* Row 1: Date, time, chevron */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="font-semibold text-sm">{dateStr}</span>
             <span className="text-xs text-muted-foreground">{timeStr}</span>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{durationMin}m</span>
-            {summaryData?.accuracy != null && (
-              <span className="flex items-center gap-1"><Target className="w-3 h-3" />{Math.round(summaryData.accuracy)}%</span>
+            {session.mood_rating && (
+              <span className="text-sm" title={`Mood: ${session.mood_rating}/5`}>
+                {MOOD_EMOJI[session.mood_rating] || "🙂"}
+              </span>
+            )}
+            {session.caregiver_notes && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground" title={session.caregiver_notes}>
+                📝 Note
+              </span>
             )}
           </div>
+          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
         </div>
-        {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+
+        {/* Row 2: Key metrics */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{durationMin}m</span>
+          {meta && (
+            <>
+              <span className="flex items-center gap-1">
+                <Target className="w-3 h-3" />
+                <span className={cn("font-semibold", meta.overallAccuracy >= 80 ? "text-success" : meta.overallAccuracy >= 50 ? "text-amber-500" : "text-destructive")}>
+                  {meta.overallAccuracy}%
+                </span>
+              </span>
+              <span>{meta.totalTrials} trials</span>
+              <span>{meta.exercises.length} exercises</span>
+            </>
+          )}
+        </div>
+
+        {/* Row 3: Exercise pills */}
+        {meta && meta.exercises.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {meta.exercises.map((ex) => (
+              <span
+                key={ex.slug}
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                  ex.accuracy >= 80
+                    ? "bg-success/10 text-success border-success/30"
+                    : ex.accuracy >= 50
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                    : "bg-destructive/10 text-destructive border-destructive/30"
+                )}
+              >
+                {formatSlug(ex.slug)} {ex.accuracy}%
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Row 4: Secondary signals */}
+        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs) && (
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            {meta.adaptationCount > 0 && (
+              <span className="flex items-center gap-1 text-primary">
+                <Zap className="w-3 h-3" />{meta.adaptationCount} adaptations
+              </span>
+            )}
+            {meta.totalAudio > 0 && (
+              <span className="flex items-center gap-1">
+                <Mic className="w-3 h-3" />{meta.totalAudio} recordings
+              </span>
+            )}
+            {meta.avgRtMs && (
+              <span className="flex items-center gap-1">
+                <Timer className="w-3 h-3" />Avg {(meta.avgRtMs / 1000).toFixed(1)}s
+              </span>
+            )}
+          </div>
+        )}
       </button>
 
       {/* Expanded detail */}
