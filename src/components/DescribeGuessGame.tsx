@@ -162,6 +162,7 @@ export function DescribeGuessGame({
     startListening,
     stopListening,
     isSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     autoStart: false,
