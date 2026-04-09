@@ -119,6 +119,8 @@ export function ThoughtContinuationGame({
   
   // Hooks
   const { speak } = useTextToSpeech();
+  const vg = useVoiceGuidance('thought-continuation');
+  const hasSpokenIntroRef = useRef(false);
   const { 
     startAttempt, 
     logFinalAnalysis, 

@@ -158,6 +158,9 @@ export function TwoCluesGame({
   
   const { speak } = useTextToSpeech();
   const { playHint } = useGameSounds();
+  const vg = useVoiceGuidance('two-clues');
+  const hasSpokenIntroRef = useRef(false);
+  const stallTimerVgRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync refs for stale-closure safety
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
