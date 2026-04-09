@@ -157,9 +157,9 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
       links.push({ exercise: "Word retention", functional: "Vocabulary carryover", signal: `${retentionRate}% retention → practiced words transferring to daily use` });
     }
     // Link to functional goals
-    const activeGoals = goals.filter(g => !g.archivedAt);
+    const activeGoals = goals.filter(g => !g.archived_at);
     activeGoals.forEach(g => {
-      links.push({ exercise: `Goal: ${g.targetDomain}`, functional: g.goalText, signal: `Active goal — ${g.baselineStatus}` });
+      links.push({ exercise: `Goal: ${g.target_domain}`, functional: g.goal_text, signal: `Active goal — ${g.baseline_status}` });
     });
     return links;
   }, [sessionStats, cueScore, retentionRate, goals]);
