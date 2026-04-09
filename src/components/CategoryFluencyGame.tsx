@@ -316,7 +316,7 @@ export function CategoryFluencyGame({
 
   /** Start round with an already-picked config (used after countdown) */
   const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
-    vg.interrupt();
+    // Speech already finished before countdown — no need to interrupt
     setWords([]);
     setCurrentInput('');
     setPhase('active');
