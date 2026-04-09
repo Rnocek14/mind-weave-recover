@@ -49,6 +49,7 @@ export function MinimalPairsGame({
   });
   
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'minimal-pairs' });
   
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
   
