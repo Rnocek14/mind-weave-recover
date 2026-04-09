@@ -130,9 +130,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
   const challengingCategories = (speechProfile as any)?.most_challenging_categories;
 
   // Evidence metrics
-  const trialCount = speechProfile?.trial_count ?? (speechProfile as any)?.total_trials;
-  const gopDataCount = (speechProfile as any)?.gop_data_count;
-  const phonemeTokenCount = (speechProfile as any)?.phoneme_token_count;
+  const trialCount = (speechProfile as any)?.trial_count ?? (speechProfile as any)?.total_trials;
+  const gopDataCount = speechProfile?.trials_with_gop_data;
+  const phonemeTokenCount = speechProfile?.phoneme_token_count;
   const profileConfidence = (speechProfile as any)?.confidence_level || confidence;
 
   // Trend chart data from recovery snapshots

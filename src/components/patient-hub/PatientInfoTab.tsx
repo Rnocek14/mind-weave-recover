@@ -68,13 +68,14 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
                 <div key={i} className="p-2 rounded bg-destructive/10 text-xs">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
-                    <span className="font-medium">{flag.title || flag.type}</span>
+                    <span className="font-medium">{flag.type.replace(/_/g, " ")}</span>
                     <Badge variant="outline" className="text-[9px] py-0 ml-auto">
                       {flag.severity}
                     </Badge>
                   </div>
-                  {flag.description && (
-                    <p className="text-muted-foreground mt-1 ml-5">{flag.description}</p>
+                  <p className="text-muted-foreground mt-1 ml-5">{flag.message}</p>
+                  {flag.details && (
+                    <p className="text-muted-foreground mt-0.5 ml-5 text-[10px]">{flag.details}</p>
                   )}
                 </div>
               ))}
