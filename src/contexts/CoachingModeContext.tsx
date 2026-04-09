@@ -22,6 +22,12 @@ interface CoachingModeContextValue {
   showContinuity: boolean;
   /** Whether transfer suggestion should appear on summary */
   showTransferOnSummary: boolean;
+  /** Whether Maya should auto-speak intros, instructions, transitions */
+  shouldAutoSpeak: boolean;
+  /** Whether Maya should auto-read stories/questions/stimuli */
+  shouldAutoReadContent: boolean;
+  /** Whether voice is the primary interface (UI simplification) */
+  isVoiceLed: boolean;
 }
 
 const CoachingModeContext = createContext<CoachingModeContextValue | null>(null);
@@ -48,6 +54,9 @@ export function CoachingModeProvider({ children }: { children: React.ReactNode }
     showPurpose: mode === 'light' || mode === 'full',
     showContinuity: mode === 'full',
     showTransferOnSummary: mode === 'light' || mode === 'full',
+    shouldAutoSpeak: mode === 'full',
+    shouldAutoReadContent: mode === 'full',
+    isVoiceLed: mode === 'full',
   };
 
   return (

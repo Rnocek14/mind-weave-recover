@@ -16,6 +16,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -113,10 +114,32 @@ export function NarrativeRetellGame({
   const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
   const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
 
+  // Voice guidance for Full Coaching mode
+  const vg = useVoiceGuidance('narrative-retell');
+
   // Stop TTS on unmount or when leaving reading phase
   useEffect(() => {
-    return () => { stopTTS(); };
-  }, [stopTTS]);
+    return () => { stopTTS(); vg.interrupt(); };
+  }, [stopTTS, vg]);
+
+  // Full Coaching: auto-read story when entering reading phase
+  const hasAutoReadRef = useRef(false);
+  useEffect(() => {
+    if (phase !== 'reading' || !currentStory || !vg.shouldAutoReadContent || hasAutoReadRef.current) return;
+    hasAutoReadRef.current = true;
+
+    const doAutoRead = async () => {
+      // First story gets the exercise intro
+      if (currentIndex === 0) {
+        await vg.speakIntro();
+        await new Promise(r => setTimeout(r, 800));
+      }
+      // Read the full story
+      const fullText = currentStory.scenes.map(s => s.text).join(' ');
+      await vg.autoReadText(fullText);
+    };
+    doAutoRead();
+  }, [phase, currentStory, currentIndex, vg]);
 
   const handleListenToStory = useCallback(() => {
     if (!currentStory) return;
@@ -132,6 +155,7 @@ export function NarrativeRetellGame({
     setStallPromptIndex(-1);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    hasAutoReadRef.current = false;
   }, [currentIndex]);
 
   const completedRef = useRef(false);
@@ -171,6 +195,8 @@ export function NarrativeRetellGame({
   }, [phase, collectedTranscript, fullTranscript]);
 
   // Stall support: show progressive prompts if user hasn't spoken much
+  // In Full Coaching mode, speak the prompts aloud
+  const lastSpokenStallRef = useRef(-1);
   useEffect(() => {
     if (phase !== 'retelling') return;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
@@ -181,10 +207,20 @@ export function NarrativeRetellGame({
       const elapsed = Date.now() - retellStartRef.current;
 
       if (wordCount < 2) {
-        if (elapsed > 20000 && stallPromptIndex < 3) setStallPromptIndex(3);
-        else if (elapsed > 15000 && stallPromptIndex < 2) setStallPromptIndex(2);
-        else if (elapsed > 10000 && stallPromptIndex < 1) setStallPromptIndex(1);
-        else if (elapsed > 6000 && stallPromptIndex < 0) setStallPromptIndex(0);
+        let newIndex = stallPromptIndex;
+        if (elapsed > 20000 && stallPromptIndex < 3) newIndex = 3;
+        else if (elapsed > 15000 && stallPromptIndex < 2) newIndex = 2;
+        else if (elapsed > 10000 && stallPromptIndex < 1) newIndex = 1;
+        else if (elapsed > 6000 && stallPromptIndex < 0) newIndex = 0;
+        
+        if (newIndex > stallPromptIndex) {
+          setStallPromptIndex(newIndex);
+          // Speak the stall prompt in Full Coaching mode
+          if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
+            lastSpokenStallRef.current = newIndex;
+            vg.speakIfVoiceLed(STALL_PROMPTS[newIndex]);
+          }
+        }
       }
     };
 
@@ -194,15 +230,23 @@ export function NarrativeRetellGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       clearInterval(interval);
     };
-  }, [phase, collectedTranscript, stallPromptIndex]);
+  }, [phase, collectedTranscript, stallPromptIndex, vg]);
 
   const handleStartRetelling = useCallback(() => {
     stopTTS(); // Stop Maya reading if still playing
+    vg.interrupt(); // Stop any Full Coaching speech
     setPhase('retelling');
     startTimeRef.current = Date.now();
     retellStartRef.current = Date.now();
     setTypedText('');
     setStallPromptIndex(-1);
+    lastSpokenStallRef.current = -1;
+
+    // Full Coaching: speak the retell prompt
+    if (vg.isVoiceLed) {
+      // Slight delay so mic doesn't pick up Maya
+      setTimeout(() => vg.speakTask(), 300);
+    }
 
     if (currentStory && userId) {
       startAttempt({
@@ -485,6 +529,35 @@ export function NarrativeRetellGame({
                 💬 {STALL_PROMPTS[stallPromptIndex]}
               </div>
             )}
+
+            {/* Replay buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  if (!currentStory) return;
+                  vg.interrupt();
+                  const fullText = currentStory.scenes.map(s => s.text).join(' ');
+                  vg.isVoiceLed ? vg.autoReadText(fullText) : speakTTS(fullText);
+                }}
+              >
+                <Volume2 className="h-4 w-4 mr-1" />
+                Read story again
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  vg.interrupt();
+                  vg.speakTask();
+                }}
+              >
+                <Volume2 className="h-4 w-4 mr-1" />
+                Repeat instructions
+              </Button>
+            </div>
 
             <div className="flex gap-2">
               <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary" disabled={useTyping && !typedText.trim()}>

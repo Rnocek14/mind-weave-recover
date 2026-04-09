@@ -3,6 +3,8 @@
  * 
  * Redesigned: no reading gate, purpose framing, fixed hint targeting,
  * model explanation shown, adaptive explain-why, question-type summary.
+ * 
+ * Full Coaching mode: Maya auto-reads story + question, spoken stall cues.
  */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
@@ -10,11 +12,12 @@ import { useDetectiveMindGame, DetectiveTrialResult, DetectiveRank } from '@/hoo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType } from '@/data/detectiveMindCases';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -68,8 +71,13 @@ export function DetectiveMindGame({
   const [showHint, setShowHint] = useState(false);
   const [reasoningPoints, setReasoningPoints] = useState(0);
   const [explainSkipCount, setExplainSkipCount] = useState(0);
+  const [hasAutoRead, setHasAutoRead] = useState(false);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Voice guidance for Full Coaching mode
+  const vg = useVoiceGuidance('detective-mind');
 
   // Reset state when case changes
   useEffect(() => {
@@ -78,9 +86,46 @@ export function DetectiveMindGame({
     setLastResult(null);
     setUsedHint(false);
     setShowHint(false);
+    setHasAutoRead(false);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
   }, [currentIndex]);
+
+  // Full Coaching: auto-read story then question on case load
+  useEffect(() => {
+    if (!currentCase || hasAutoRead || !vg.shouldAutoReadContent) return;
+    setHasAutoRead(true);
+
+    const doAutoRead = async () => {
+      // First case gets the exercise intro
+      if (currentIndex === 0) {
+        await vg.speakIntro();
+        // Brief pause after intro
+        await new Promise(r => setTimeout(r, 800));
+      }
+      // Read story
+      const storyText = currentCase.story.join(' ');
+      await vg.autoReadText(storyText);
+      // Pause between story and question (~1s)
+      await new Promise(r => setTimeout(r, 1000));
+      // Read question
+      await vg.autoReadText(currentCase.question);
+    };
+
+    doAutoRead();
+  }, [currentCase, currentIndex, hasAutoRead, vg]);
+
+  // Full Coaching: spoken stall cue after ~8s of no interaction
+  useEffect(() => {
+    if (phase !== 'answering' || !vg.isVoiceLed) return;
+    stallTimerRef.current = setTimeout(() => {
+      if (selectedOption === null && !firstInteractionRef.current) {
+        vg.speakReminder();
+      }
+    }, 8000);
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
+  }, [phase, vg.isVoiceLed, currentIndex]);
 
   // Check completion (fire once)
   const completedRef = useRef(false);
@@ -93,6 +138,9 @@ export function DetectiveMindGame({
 
   const handleSelectOption = useCallback((index: number) => {
     if (phase !== 'answering' || selectedOption !== null) return;
+    
+    // Interrupt Maya if she's still speaking
+    vg.interrupt();
     
     // Track first interaction time if not set
     if (!firstInteractionRef.current) {
@@ -107,7 +155,7 @@ export function DetectiveMindGame({
       setLastResult(result);
       setPhase('feedback');
     }
-  }, [phase, selectedOption, usedHint, submitAnswer]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -249,6 +297,36 @@ export function DetectiveMindGame({
               💡 Using the hint can help — no pressure!
             </p>
           )}
+
+          {/* Replay buttons — always visible, especially important in Full Coaching */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                if (!currentCase) return;
+                vg.interrupt();
+                vg.autoReadText(currentCase.story.join(' '));
+              }}
+            >
+              <Volume2 className="h-4 w-4 mr-1" />
+              Repeat story
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                if (!currentCase) return;
+                vg.interrupt();
+                vg.autoReadText(currentCase.question);
+              }}
+            >
+              <Volume2 className="h-4 w-4 mr-1" />
+              Repeat question
+            </Button>
+          </div>
         </div>
       )}
 

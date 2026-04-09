@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle 
 import { supabase } from "@/integrations/supabase/client";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
@@ -54,7 +55,8 @@ function scoreToLabel(score: number): { text: string; className: string } {
 export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
-  const { showTransferOnSummary, mode } = useCoachingMode();
+  const { showTransferOnSummary, mode, isVoiceLed } = useCoachingMode();
+  const { speak, stop } = useTextToSpeech();
   const isClinician = uiMode === "clinician" || uiMode === "admin";
   const isCaregiver = uiMode === "caregiver";
   const showDetail = isClinician || isCaregiver;
@@ -62,6 +64,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const [exerciseScores, setExerciseScores] = useState<ExerciseScore[]>([]);
   const [durationSec, setDurationSec] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const hasSpokenClosingRef = useRef(false);
+
+  // Cleanup TTS on unmount
+  useEffect(() => { return () => { stop(); }; }, [stop]);
 
   // Fetch actual session results
   useEffect(() => {
@@ -146,6 +152,30 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       completed: true,
     });
   }, [exerciseScores, sessionFrame]);
+
+  // Full Coaching: speak the closing reflection once scores are ready
+  useEffect(() => {
+    if (!isVoiceLed || hasSpokenClosingRef.current || exerciseScores.length === 0) return;
+    hasSpokenClosingRef.current = true;
+
+    // Build a spoken summary
+    const savedDetails = readAllExerciseDetails();
+    const blockResults: BlockResult[] = exerciseScores.map((es, i) => {
+      const detailEntry = Array.from(savedDetails.values()).find(
+        d => d.exerciseId === es.exercise_slug
+      ) || savedDetails.get(i);
+      return {
+        exerciseId: es.exercise_slug,
+        avgScore: es.avg_score,
+        trialCount: es.trial_count,
+        details: detailEntry?.details,
+      };
+    });
+    
+    const insight = buildSessionInsight(blockResults);
+    const spokenClosing = `${insight.strength}. ${insight.nextStep}.`;
+    speak(spokenClosing);
+  }, [isVoiceLed, exerciseScores, speak]);
 
   const totalTrials = useMemo(
     () => exerciseScores.reduce((sum, s) => sum + s.trial_count, 0),
