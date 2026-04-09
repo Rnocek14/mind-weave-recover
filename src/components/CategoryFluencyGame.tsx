@@ -132,7 +132,9 @@ export function CategoryFluencyGame({
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
   const vg = useVoiceGuidance('category-fluency');
-
+  
+  // Countdown state for smooth ready → active transition
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
