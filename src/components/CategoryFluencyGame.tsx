@@ -419,19 +419,27 @@ export function CategoryFluencyGame({
   // Timer progress percentage (gentler visual)
   const timerProgress = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
 
-  // === COUNTDOWN — smooth 3-2-1 transition ===
-  if (countdown !== null) {
+  // === COUNTDOWN — smooth speech → 3-2-1 transition ===
+  if (phase === 'countdown' || countdown !== null) {
     return (
       <div className="flex flex-col items-center justify-center gap-6 py-12 max-w-sm mx-auto text-center animate-in fade-in duration-300">
         <p className="text-lg font-semibold text-foreground">
           Name as many <strong>{config.label.toLowerCase()}</strong> as you can
         </p>
-        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-          <span className="text-4xl font-bold text-primary animate-in zoom-in duration-300" key={countdown}>
-            {countdown}
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground">Get ready…</p>
+        {countdown !== null ? (
+          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-4xl font-bold text-primary animate-in zoom-in duration-300" key={countdown}>
+              {countdown}
+            </span>
+          </div>
+        ) : (
+          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+            <Volume2 className="w-10 h-10 text-primary animate-pulse" />
+          </div>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {countdown !== null ? 'Get ready…' : 'Maya is speaking…'}
+        </p>
       </div>
     );
   }
