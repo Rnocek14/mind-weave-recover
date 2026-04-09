@@ -286,32 +286,36 @@ export function CategoryFluencyGame({
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
-  const beginCountdown = useCallback(async () => {
+  const beginCountdown = useCallback(() => {
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
     setPhase('countdown' as any);
     
-    // Speak the category-specific intro in Full Coaching mode — wait for it to finish
+    // Speak the category-specific intro in Full Coaching mode (fire-and-forget)
+    // Don't await — TTS may fail without gesture context on auto-start,
+    // and we don't want to block the countdown
     if (vg.shouldAutoSpeak) {
-      await vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
     }
 
-    // 3-2-1 countdown (starts AFTER speech finishes)
-    setCountdown(3);
-    let count = 3;
-    const interval = setInterval(() => {
-      count -= 1;
-      if (count <= 0) {
-        clearInterval(interval);
-        setCountdown(null);
-        // Actually start the round (config already set)
-        startRoundWithConfig(cat);
-      } else {
-        setCountdown(count);
-      }
-    }, 800);
+    // Start 3-2-1 countdown after a brief pause (gives speech time to begin)
+    const speechDelay = vg.shouldAutoSpeak ? 2200 : 0;
+    setTimeout(() => {
+      setCountdown(3);
+      let count = 3;
+      const interval = setInterval(() => {
+        count -= 1;
+        if (count <= 0) {
+          clearInterval(interval);
+          setCountdown(null);
+          startRoundWithConfig(cat);
+        } else {
+          setCountdown(count);
+        }
+      }, 800);
+    }, speechDelay);
   }, [currentDifficulty, vg]);
 
   /** Start round with an already-picked config (used after countdown) */
@@ -344,16 +348,15 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
-  // Auto-start on first mount — only in Full Coaching mode
-  // Guided/Games Only: show Start button so user controls when timer begins
+  // Auto-start on first mount — Full Coaching OR when coming from lesson flow
   const hasStartedRef = useRef(false);
   useEffect(() => {
-    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && vg.isVoiceLed) {
+    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && (vg.isVoiceLed || autoStartFirst)) {
       hasStartedRef.current = true;
       const delay = setTimeout(() => beginCountdown(), 400);
       return () => clearTimeout(delay);
     }
-  }, [phase, currentRound, beginCountdown, vg.isVoiceLed]);
+  }, [phase, currentRound, beginCountdown, vg.isVoiceLed, autoStartFirst]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
