@@ -16,6 +16,7 @@ import { PlateauAnalysisSection } from "@/components/cohort/PlateauAnalysisSecti
 import { FunctionalImpactSection } from "@/components/cohort/FunctionalImpactSection";
 import { AdaptationEffectivenessSection } from "@/components/cohort/AdaptationEffectivenessSection";
 import { DataReadinessAccordion } from "@/components/cohort/DataReadinessAccordion";
+import { DataSufficiencyBar } from "@/components/cohort/DataSufficiencyBar";
 
 export default function CohortResearchAnalytics() {
   const navigate = useNavigate();
