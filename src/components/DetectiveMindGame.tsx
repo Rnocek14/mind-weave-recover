@@ -72,6 +72,7 @@ export function DetectiveMindGame({
   const [reasoningPoints, setReasoningPoints] = useState(0);
   const [explainSkipCount, setExplainSkipCount] = useState(0);
   const [hasAutoRead, setHasAutoRead] = useState(false);
+  const [autoReadDone, setAutoReadDone] = useState(false);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
