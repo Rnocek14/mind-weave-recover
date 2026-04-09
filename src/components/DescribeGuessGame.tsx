@@ -675,6 +675,17 @@ export function DescribeGuessGame({
         <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
       )}
 
+      {/* Mic failure recovery — persistent */}
+      <MicFailureRecovery
+        visible={!!speechError && !isListening && !showFeedback && !isEvaluating}
+        onRetry={() => {
+          startListening();
+          setIsListening(true);
+          listeningStartRef.current = Date.now();
+        }}
+        compact
+      />
+
       {/* Controls */}
       <div className="flex justify-center gap-3 shrink-0 pb-1">
         {isEvaluating ? (
