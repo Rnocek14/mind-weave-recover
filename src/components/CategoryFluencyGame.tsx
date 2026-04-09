@@ -349,13 +349,11 @@ export function CategoryFluencyGame({
   useEffect(() => {
     if (!hasStartedRef.current && phase === 'ready' && currentRound === 0) {
       hasStartedRef.current = true;
-      if (autoStartFirst) {
-        // Small delay to let the component render, then begin countdown
-        const delay = setTimeout(() => beginCountdown(), 400);
-        return () => clearTimeout(delay);
-      }
+      // Always auto-start with countdown for effortless entry
+      const delay = setTimeout(() => beginCountdown(), 400);
+      return () => clearTimeout(delay);
     }
-  }, [autoStartFirst, phase, currentRound, beginCountdown]);
+  }, [phase, currentRound, beginCountdown]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
