@@ -463,7 +463,13 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       
       console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
       setCurrentPause(pauseDecision);
-      setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+      
+      // If session frame has a Maya transition for this block, show it instead of standard transition
+      if (sessionFrame && showPurpose && sessionFrame.mayaTransitions[nextIndex]) {
+        setPhase('maya-transition');
+      } else {
+        setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+      }
     }
   }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose]);
 
