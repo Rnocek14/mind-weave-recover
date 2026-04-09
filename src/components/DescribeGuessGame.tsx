@@ -37,6 +37,7 @@ import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
