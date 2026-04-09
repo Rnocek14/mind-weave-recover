@@ -151,6 +151,9 @@ export function FixSentenceGame({
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
   useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
 
+  // Stall timer for voice reminder
+  const stallTimerFixRef = useRef<NodeJS.Timeout | null>(null);
+
   // Speak the sentence when trial changes
   useEffect(() => {
     if (game.currentTrial && !game.isComplete) {
@@ -165,6 +168,14 @@ export function FixSentenceGame({
       };
       waitForIntro();
       game.startRound();
+
+      // Stall timer
+      if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
+      stallTimerFixRef.current = setTimeout(() => {
+        if (!showFeedback && !isProcessing) {
+          vg.speakReminder();
+        }
+      }, 10000);
 
       // Begin attempt
       if (sessionId && userId) {
@@ -194,6 +205,7 @@ export function FixSentenceGame({
         }, 500);
       }
     }
+    return () => { if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
