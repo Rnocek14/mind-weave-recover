@@ -1,23 +1,33 @@
 /**
- * Category Fluency Game — Standalone exercise component
+ * Category Fluency Game v2 — Clinical verbal fluency exercise
  * 
- * "Name as many [category] as you can before time runs out"
+ * "Name as many [category] as you can"
  * PRIMARY INPUT: Speech (microphone) — words are added as you say them
  * FALLBACK: Text input for accessibility
- * Adaptive: harder categories + shrinking timer as difficulty increases
- * Trial-by-trial adaptation via useAdaptiveDifficulty
+ * 
+ * v2 enhancements:
+ * - Purpose framing via ExercisePurposeBanner
+ * - Clustering/switching analysis
+ * - Gentler timer (progress bar, not countdown)
+ * - Structured summary with Maya reflection
+ * - StructuredFeedbackSummary integration
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, ThumbsUp, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard, Check, X } from 'lucide-react';
+import { Timer, Plus, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard, Check, X } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, type WordValidation } from '@/data/categoryWordLists';
+import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
+import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
 // Categories ordered by difficulty
@@ -55,23 +65,15 @@ function getTimerForDifficulty(difficulty: number): number {
 function pickCategory(difficulty: number, usedCategories: Set<string> = new Set()) {
   const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), CATEGORY_TIERS.length - 1);
   const tier = CATEGORY_TIERS[Math.max(0, tierIndex)];
-  // Try unused from current tier first
   const unused = tier.filter(c => !usedCategories.has(c.category));
-  if (unused.length > 0) {
-    return unused[Math.floor(Math.random() * unused.length)];
-  }
-  // If current tier exhausted, try ALL tiers for unused categories
+  if (unused.length > 0) return unused[Math.floor(Math.random() * unused.length)];
   const allCategories = CATEGORY_TIERS.flat();
   const allUnused = allCategories.filter(c => !usedCategories.has(c.category));
-  if (allUnused.length > 0) {
-    return allUnused[Math.floor(Math.random() * allUnused.length)];
-  }
-  // Absolute fallback: reset and pick from current tier (very long sessions)
+  if (allUnused.length > 0) return allUnused[Math.floor(Math.random() * allUnused.length)];
   usedCategories.clear();
   return tier[Math.floor(Math.random() * tier.length)];
 }
 
-/** Success threshold scales with difficulty */
 function getSuccessThreshold(difficulty: number): number {
   if (difficulty <= 2) return 3;
   if (difficulty <= 4) return 5;
@@ -87,6 +89,7 @@ export interface CategoryFluencyResult {
   timeLimitSec: number;
   difficulty: number;
   difficultyChanged?: 'up' | 'down' | null;
+  analysis?: FluencyAnalysis;
 }
 
 interface CategoryFluencyGameProps {
@@ -96,7 +99,6 @@ interface CategoryFluencyGameProps {
   onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
   roundCount?: number;
   bounds?: DifficultyBounds;
-  /** Skip first-round Start button and begin immediately */
   autoStartFirst?: boolean;
 }
 
@@ -111,7 +113,6 @@ export function CategoryFluencyGame({
   bounds = DEFAULT_BOUNDS,
   autoStartFirst = false,
 }: CategoryFluencyGameProps) {
-  // === Trial-by-trial adaptive difficulty ===
   const {
     currentDifficulty,
     updateTrial,
@@ -127,6 +128,8 @@ export function CategoryFluencyGame({
       onDifficultyChange?.(newLevel, dir);
     },
   });
+
+  const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
 
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
@@ -150,19 +153,14 @@ export function CategoryFluencyGame({
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const wordsRef = useRef<Array<{ text: string; status: WordValidation }>>([]);
 
-  // Keep wordsRef in sync
   useEffect(() => { wordsRef.current = words; }, [words]);
-
-  useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
+  useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
 
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
-    
     const spokenWords = transcript
       .toLowerCase()
       .split(/[\s,]+/)
@@ -174,7 +172,7 @@ export function CategoryFluencyGame({
       if (!processedRef.current.has(word)) {
         processedRef.current.add(word);
         const status = validateCategoryWord(word, config.category);
-        if (status === 'filler') continue; // silently skip filler words
+        if (status === 'filler') continue;
         newEntries.push({ text: word, status });
       }
     }
@@ -204,20 +202,19 @@ export function CategoryFluencyGame({
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     stopListening();
-    
+
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
-    
-    // Only count valid, unique words
     const seen = new Set<string>();
     const validWords: string[] = [];
-    const allWordTexts: string[] = [];
     for (const entry of wordsRef.current) {
       const normalized = entry.text.toLowerCase().trim();
-      allWordTexts.push(normalized);
       if (seen.has(normalized)) continue;
       seen.add(normalized);
       if (entry.status === 'valid') validWords.push(normalized);
     }
+
+    const allWordTexts = wordsRef.current.map(w => w.text.toLowerCase().trim());
+    const analysis = analyzeFluency(allWordTexts, config.category);
 
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
@@ -237,6 +234,7 @@ export function CategoryFluencyGame({
       timeLimitSec: totalTime,
       difficulty: currentDifficulty,
       difficultyChanged: shift,
+      analysis,
     };
 
     const newResults = [...results, result];
@@ -275,7 +273,6 @@ export function CategoryFluencyGame({
       });
     }, 1000);
 
-    // Auto-start mic
     if (speechSupported) {
       setTimeout(() => startListening(), 300);
     } else {
@@ -283,7 +280,6 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening]);
 
-  // Auto-start first round when launched from lesson flow
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (autoStartFirst && !autoStartedRef.current && phase === 'ready' && currentRound === 0) {
@@ -296,10 +292,8 @@ export function CategoryFluencyGame({
     setCurrentRound(prev => prev + 1);
     setWords([]);
     setCurrentInput('');
-    // Persist input mode preference — don't reset to speech each round
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
     setShowTextInput(preferTyping);
-    // Auto-start next round immediately (no return to 'ready')
     setTimeout(() => startRound(), 300);
   }, [startRound]);
 
@@ -324,23 +318,63 @@ export function CategoryFluencyGame({
   const validWords = words.filter(w => w.status === 'valid');
   const uniqueValidCount = new Set(validWords.map(w => w.text.toLowerCase())).size;
 
-  // Ready
+  // Summary data for done phase
+  const summaryData = useMemo(() => {
+    if (results.length === 0) return null;
+    const totalWords = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
+    const allWords = results.flatMap(r => r.words);
+    const combinedAnalysis = analyzeFluency(allWords, results[0].category);
+
+    // Merge analyses from all rounds
+    const allClusters = results.flatMap(r => r.analysis?.clusters ?? []);
+    const totalSwitches = results.reduce((sum, r) => sum + (r.analysis?.switchCount ?? 0), 0);
+    const totalPerseverations = results.reduce((sum, r) => sum + (r.analysis?.perseverations ?? 0), 0);
+
+    const accuracy = Math.min(totalWords / (results.length * 5), 1);
+    const maya = buildReflection(accuracy);
+    const feedback = buildFluencyFeedback(combinedAnalysis, results[0].category);
+
+    return {
+      totalWords,
+      allClusters,
+      totalSwitches,
+      totalPerseverations,
+      accuracy,
+      maya,
+      feedback,
+      combinedAnalysis,
+    };
+  }, [results, buildReflection]);
+
+  // Timer progress percentage (gentler visual)
+  const timerProgress = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
+
+  // === READY ===
   if (phase === 'ready') {
     const cat = pickCategory(currentDifficulty);
     const timer = getTimerForDifficulty(currentDifficulty);
     return (
       <div className="flex flex-col items-center gap-5 py-8 max-w-sm mx-auto text-center">
-        <div className="text-5xl">🧠</div>
+        {/* Purpose banner on first round */}
+        {currentRound === 0 && (
+          <ExercisePurposeBanner
+            exerciseSlug="category-fluency"
+            adaptiveMessage="This helps you practice finding words in a group — like foods, animals, or things around you."
+          />
+        )}
         <div>
           <p className="text-xl font-bold mb-1">Name: {cat.label}</p>
-          <p className="text-muted-foreground">
-            <strong>Say</strong> as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
+          <p className="text-base text-foreground/80">
+            Say as many <strong>{cat.label.toLowerCase()}</strong> as you can in {timer} seconds
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Tip: Think of groups within the category
           </p>
           <p className="text-xs text-muted-foreground mt-1">e.g. {cat.examples}</p>
         </div>
         {!speechSupported && (
-          <p className="text-xs text-amber-600">
-            Speech not available — you'll type instead
+          <p className="text-xs text-muted-foreground">
+            Speech not available — you can type instead
           </p>
         )}
         {currentRound > 0 && (
@@ -365,24 +399,30 @@ export function CategoryFluencyGame({
     );
   }
 
-  // Round done — auto-advance after 3s
+  // === ROUND DONE ===
   if (phase === 'round-done') {
     const lastResult = results[results.length - 1];
+    const roundAnalysis = lastResult.analysis;
     return (
       <RoundDoneAutoAdvance onAdvance={nextRound}>
-        <ThumbsUp className="w-10 h-10 text-primary" />
-        <p className="text-2xl font-bold">{lastResult.uniqueWordCount} {lastResult.uniqueWordCount === 1 ? 'word' : 'words'}!</p>
+        <p className="text-2xl font-bold">{lastResult.uniqueWordCount} {lastResult.uniqueWordCount === 1 ? 'word' : 'words'}</p>
         <div className="flex flex-wrap gap-1 justify-center">
           {lastResult.words.map((w, i) => (
             <Badge key={i} variant="secondary" className="text-xs">{w}</Badge>
           ))}
         </div>
+        {roundAnalysis && roundAnalysis.clusterCount > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {roundAnalysis.clusterCount} group{roundAnalysis.clusterCount > 1 ? 's' : ''} found
+            {roundAnalysis.switchCount > 0 && ` • ${roundAnalysis.switchCount} switch${roundAnalysis.switchCount > 1 ? 'es' : ''}`}
+          </p>
+        )}
         {difficultyShift && (
           <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
             {difficultyShift === 'up' ? (
-              <><TrendingUp className="w-3 h-3 mr-1" /> Next round: harder category + less time</>
+              <><TrendingUp className="w-3 h-3 mr-1" /> Next: harder category + less time</>
             ) : (
-              <><TrendingDown className="w-3 h-3 mr-1" /> Next round: easier category + more time</>
+              <><TrendingDown className="w-3 h-3 mr-1" /> Next: easier category + more time</>
             )}
           </Badge>
         )}
@@ -390,21 +430,32 @@ export function CategoryFluencyGame({
     );
   }
 
-  // Done
-  if (phase === 'done') {
-    const totalWords = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
+  // === DONE — Structured Summary ===
+  if (phase === 'done' && summaryData) {
     return (
-      <div className="flex flex-col items-center gap-4 py-8 max-w-sm mx-auto text-center">
-        <div className="text-5xl">🏆</div>
-        <p className="text-2xl font-bold">{totalWords} total words</p>
-        <div className="space-y-3 w-full">
+      <div className="flex flex-col gap-4 py-4 max-w-md mx-auto">
+        <div className="text-center space-y-2">
+          <p className="text-2xl font-bold">{summaryData.totalWords} total words</p>
+          <p className="text-sm text-muted-foreground">across {results.length} rounds</p>
+        </div>
+
+        {/* Per-round breakdown */}
+        <div className="space-y-2">
           {results.map((r, i) => (
-            <div key={i} className="flex items-center justify-between px-4 py-2 rounded-lg bg-muted/50">
-              <span className="font-medium capitalize">{r.category}</span>
+            <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/50">
+              <div>
+                <span className="font-medium capitalize">{r.category}</span>
+                {r.analysis && r.analysis.clusterCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {r.analysis.clusterCount} group{r.analysis.clusterCount > 1 ? 's' : ''}
+                    {r.analysis.switchCount > 0 && ` • ${r.analysis.switchCount} switch${r.analysis.switchCount > 1 ? 'es' : ''}`}
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">{r.uniqueWordCount} words</Badge>
                 {r.difficultyChanged && (
-                  r.difficultyChanged === 'up' 
+                  r.difficultyChanged === 'up'
                     ? <TrendingUp className="w-3 h-3 text-primary" />
                     : <TrendingDown className="w-3 h-3 text-muted-foreground" />
                 )}
@@ -412,34 +463,76 @@ export function CategoryFluencyGame({
             </div>
           ))}
         </div>
+
+        {/* Clustering insight */}
+        {summaryData.allClusters.length > 0 && (
+          <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
+            <p className="text-sm font-medium">Word Groups Found</p>
+            <div className="flex flex-wrap gap-1.5">
+              {summaryData.allClusters
+                .filter((c, i, arr) => arr.findIndex(a => a.subcategory === c.subcategory) === i)
+                .slice(0, 6)
+                .map((cluster, i) => (
+                  <Badge key={i} variant="outline" className="text-xs capitalize">
+                    {cluster.subcategory.replace(/_/g, ' ')} ({cluster.words.length})
+                  </Badge>
+                ))}
+            </div>
+            {summaryData.totalPerseverations > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {summaryData.totalPerseverations} repeated word{summaryData.totalPerseverations > 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Structured feedback */}
+        <StructuredFeedbackSummary
+          strengths={summaryData.feedback.strengths}
+          weaknesses={summaryData.feedback.weaknesses}
+          nextStep={summaryData.feedback.nextStep}
+          mayaReflection={summaryData.maya.reflection}
+          realLifeLine={summaryData.maya.realLifeLine}
+        />
       </div>
     );
   }
 
-  // Active — speech-first with text fallback
+  // === ACTIVE — speech-first with gentler timer ===
   return (
     <div className="flex flex-col gap-4 max-w-sm mx-auto">
-      {/* Timer + count */}
+      {/* Category label */}
       <div className="text-center mb-1">
         <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Count:</span>
-          <Badge variant="outline" className={cn(
-            "transition-all",
-            lastAddedWord && "ring-2 ring-primary scale-110"
+
+      {/* Gentler timer: progress bar + count */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Words:</span>
+            <Badge variant="outline" className={cn(
+              "transition-all",
+              lastAddedWord && "ring-2 ring-primary scale-110"
+            )}>
+              {uniqueValidCount}
+            </Badge>
+          </div>
+          <div className={cn(
+            "flex items-center gap-1 text-sm font-mono tabular-nums",
+            timeLeft <= 5 ? 'text-destructive' : 'text-muted-foreground'
           )}>
-            {uniqueValidCount}
-          </Badge>
+            <Timer className="w-3.5 h-3.5" />
+            {timeLeft}s
+          </div>
         </div>
-        <div className={cn(
-          "flex items-center gap-1 text-lg font-mono font-bold tabular-nums",
-          timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-muted-foreground'
-        )}>
-          <Timer className="w-4 h-4" />
-          {timeLeft}s
-        </div>
+        <Progress
+          value={timerProgress}
+          className={cn(
+            "h-2 transition-all",
+            timeLeft <= 5 && "[&>div]:bg-destructive"
+          )}
+        />
       </div>
 
       {/* Mic status + live transcript */}
@@ -462,16 +555,16 @@ export function CategoryFluencyGame({
               <MicOff className="w-8 h-8 text-muted-foreground" />
             )}
           </button>
-          
+
           {isListening && (
             <p className="text-sm text-muted-foreground animate-pulse">
-              {liveTranscript || "Listening — say words aloud…"}
+              {liveTranscript || "Listening \u2014 say words aloud\u2026"}
             </p>
           )}
 
           {lastAddedWord && (
             <Badge className="animate-in fade-in zoom-in text-sm bg-primary text-primary-foreground">
-              ✓ {lastAddedWord}
+              \u2713 {lastAddedWord}
             </Badge>
           )}
         </div>
@@ -506,12 +599,12 @@ export function CategoryFluencyGame({
         </button>
       )}
 
-      {/* Words entered — valid words get green, invalid get muted */}
+      {/* Words entered */}
       <div className="flex flex-wrap gap-1.5 min-h-[48px]">
         {words.map((w, i) => (
-          <Badge 
-            key={i} 
-            variant="outline" 
+          <Badge
+            key={i}
+            variant="outline"
             className={cn(
               "text-sm transition-all flex items-center gap-1",
               w.status === 'valid' && "border-primary/40 bg-primary/5 text-foreground",
