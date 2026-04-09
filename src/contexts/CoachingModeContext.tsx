@@ -54,6 +54,9 @@ export function CoachingModeProvider({ children }: { children: React.ReactNode }
     showPurpose: mode === 'light' || mode === 'full',
     showContinuity: mode === 'full',
     showTransferOnSummary: mode === 'light' || mode === 'full',
+    shouldAutoSpeak: mode === 'full',
+    shouldAutoReadContent: mode === 'full',
+    isVoiceLed: mode === 'full',
   };
 
   return (
