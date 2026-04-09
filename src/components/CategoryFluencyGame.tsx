@@ -134,6 +134,8 @@ export function CategoryFluencyGame({
   const vg = useVoiceGuidance('category-fluency');
   
   // Countdown state for smooth ready → active transition
+  // Ref to hold latest beginCountdown — prevents effect cleanup from killing the timeout
+  const beginCountdownRef = useRef<() => void>(() => {});
   const [countdown, setCountdown] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
@@ -318,6 +320,9 @@ export function CategoryFluencyGame({
     }, speechDelay);
   }, [currentDifficulty, vg]);
 
+  // Keep ref updated so the auto-start timeout always calls the latest version
+  useEffect(() => { beginCountdownRef.current = beginCountdown; }, [beginCountdown]);
+
   /** Start round with an already-picked config (used after countdown) */
   const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
     // Speech already finished before countdown — no need to interrupt
@@ -348,15 +353,19 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
-  // Auto-start on first mount — Full Coaching OR when coming from lesson flow
+  // Auto-start on first mount — Full Coaching OR when coming from lesson flow.
+  // IMPORTANT: beginCountdown is NOT in the dep array — we use a ref instead.
+  // This prevents React cleanup from clearing the timeout when TTS state changes
+  // cause useVoiceGuidance to re-render and give beginCountdown a new reference.
   const hasStartedRef = useRef(false);
   useEffect(() => {
     if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && (vg.isVoiceLed || autoStartFirst)) {
       hasStartedRef.current = true;
-      const delay = setTimeout(() => beginCountdown(), 400);
-      return () => clearTimeout(delay);
+      const delay = setTimeout(() => beginCountdownRef.current(), 400);
+      return () => { clearTimeout(delay); hasStartedRef.current = false; };
     }
-  }, [phase, currentRound, beginCountdown, vg.isVoiceLed, autoStartFirst]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentRound, vg.isVoiceLed, autoStartFirst]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
