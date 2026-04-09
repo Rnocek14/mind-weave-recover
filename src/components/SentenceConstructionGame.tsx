@@ -140,6 +140,10 @@ export const SentenceConstructionGame = ({
       vg.speakIntro();
     }
   }, [vg.shouldAutoSpeak]);
+
+  // Stall timer for voice reminder
+  const stallTimerSCRef = useRef<NodeJS.Timeout | null>(null);
+
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
   const [showTiles, setShowTiles] = useState(false);
@@ -177,7 +181,19 @@ export const SentenceConstructionGame = ({
     stop();
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => { speak(trial.modelAudio!); }, 300);
-      return () => clearTimeout(timer);
+      
+      // Stall timer
+      if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
+      stallTimerSCRef.current = setTimeout(() => {
+        if (!completed && !showFeedback) {
+          vg.speakReminder();
+        }
+      }, 12000);
+      
+      return () => { 
+        clearTimeout(timer); 
+        if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
+      };
     }
   }, [currentTrial, completed]);
 

@@ -174,6 +174,9 @@ export const SemanticFeatureGame = ({
   const [trialResults, setTrialResults] = useState<TrialResult[]>([]);
   const [showPurpose, setShowPurpose] = useState(true);
 
+  // Stall timer for voice reminder
+  const stallTimerSFARef = useRef<NodeJS.Timeout | null>(null);
+
   // Reset phase when trial changes
   useEffect(() => {
     if (!game.completed && !game.showFeedback) {
@@ -181,7 +184,16 @@ export const SemanticFeatureGame = ({
       setRetrievalAnswer(null);
       setCurrentResult(null);
       startTrial();
+      
+      // Stall timer
+      if (stallTimerSFARef.current) clearTimeout(stallTimerSFARef.current);
+      stallTimerSFARef.current = setTimeout(() => {
+        if (!game.completed && !game.showFeedback) {
+          vg.speakReminder();
+        }
+      }, 12000);
     }
+    return () => { if (stallTimerSFARef.current) clearTimeout(stallTimerSFARef.current); };
   }, [game.currentTrial, game.completed]);
 
   // Generate retrieval choices when entering retrieval phase

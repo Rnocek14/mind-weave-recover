@@ -24,6 +24,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -96,6 +97,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const { playSuccess, playError } = useGameSounds();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const vg = useVoiceGuidance('phrase-practice');
+  const hasSpokenPPIntroRef = useRef(false);
+  const stallTimerPPRef = useRef<NodeJS.Timeout | null>(null);
   
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
@@ -242,6 +246,14 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       setIsListeningMode(true); // Re-enables auto-listen effect
     },
   }));
+  // Voice guidance: speak intro on first mount
+  useEffect(() => {
+    if (!hasSpokenPPIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenPPIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
+
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
