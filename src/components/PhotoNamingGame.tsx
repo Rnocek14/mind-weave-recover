@@ -392,6 +392,17 @@ export const PhotoNamingGame = ({
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
   
+  // Voice guidance: speak intro on first trial
+  useEffect(() => {
+    if (state.isComplete || state.trialNumber !== 1) return;
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        vg.speakIfVoiceLed('Say what you see.');
+      });
+    }
+  }, [state.trialNumber, state.isComplete, vg]);
+
   // Reset logger counters when session starts/changes
   useEffect(() => {
     if (activeSessionId) {
