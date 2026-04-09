@@ -130,10 +130,15 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             return;
           }
           
-          const nextIndex = savedIndex + 1;
+          // Check if this is a direct jump from SessionSidePanel
+          const isDirectJump = location.state?.directJump !== undefined;
+          
+          // For direct jumps, use the saved index directly (panel already set it)
+          // For normal exercise returns, advance to next block
+          const nextIndex = isDirectJump ? savedIndex : savedIndex + 1;
           const isLast = nextIndex >= lesson.blocks.length;
           
-          console.log('[LessonFlow] Processing resume:', { savedIndex, nextIndex, isLast });
+          console.log('[LessonFlow] Processing resume:', { savedIndex, nextIndex, isLast, isDirectJump });
           
           // Restore performance signals if available
           if (parsed.recentScores) recentScoresRef.current = parsed.recentScores;
@@ -143,30 +148,35 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           // Restore block scores if available
           if (parsed.blockScores) blockScoresRef.current = parsed.blockScores;
           
-          // Extract score from the exercise-complete event detail if available
-          const detail = (location.state as any)?.exerciseResult;
-          if (detail?.score != null) {
-            recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
-            lastExerciseScoreRef.current = detail.score;
-            blockScoresRef.current[savedIndex] = detail.score;
-          }
-          if (detail?.avgReactionTime != null) {
-            recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
-          }
-          if (detail?.timeouts != null) {
-            recentTimeoutsRef.current = detail.timeouts;
+          if (!isDirectJump) {
+            // Extract score from the exercise-complete event detail if available
+            const detail = (location.state as any)?.exerciseResult;
+            if (detail?.score != null) {
+              recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
+              lastExerciseScoreRef.current = detail.score;
+              blockScoresRef.current[savedIndex] = detail.score;
+            }
+            if (detail?.avgReactionTime != null) {
+              recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
+            }
+            if (detail?.timeouts != null) {
+              recentTimeoutsRef.current = detail.timeouts;
+            }
+            
+            // Track exercise completion
+            trackExerciseComplete(savedSessionId, savedIndex, lesson.blocks.length, 
+              lesson.blocks[savedIndex]?.exerciseId || 'unknown');
           }
           
           setSessionId(savedSessionId);
           setCurrentBlockIndex(nextIndex);
 
-          // Track exercise completion
-          trackExerciseComplete(savedSessionId, savedIndex, lesson.blocks.length, 
-            lesson.blocks[savedIndex]?.exerciseId || 'unknown');
-          
-          if (isLast) {
+          if (isLast && !isDirectJump) {
             trackSessionComplete(savedSessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
             setPhase('summary');
+          } else if (isDirectJump) {
+            // Direct jump: go straight to exercise phase
+            setPhase('exercise');
           } else {
             // Use adaptive pause logic
             const pauseDecision = decidePause({
