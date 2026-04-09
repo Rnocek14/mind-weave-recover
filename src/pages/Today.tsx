@@ -171,6 +171,22 @@ export default function Today() {
     });
   };
 
+  const handleStartCoreComm = () => {
+    const coreLesson = buildPresetLesson('core_communication');
+    if (!coreLesson) return;
+    sessionStorage.removeItem('lessonFlowState');
+    localStorage.removeItem('lessonFlowState_resume');
+    setSavedSession(null);
+    navigate('/lesson', {
+      state: {
+        lesson: coreLesson,
+        clinicalProfile,
+        skipDailyCheck: true,
+        autoStart: true,
+      },
+    });
+  };
+
   const handleContinueSession = () => {
     if (!savedSession) return;
     // Restore to sessionStorage so LessonFlow can find it
