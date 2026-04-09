@@ -11,6 +11,12 @@ export interface CaseloadPatient {
   daysPostStroke: number | null;
   aphasiaLabel: string | null;
 
+  // Phenotype (from new queryable columns)
+  aphasiaType: string | null;
+  laterality: string | null;
+  chronicity: string | null;
+  strokeMechanism: string | null;
+
   // 7-day aggregates
   trials7d: number;
   priorTrials7d: number;
@@ -63,7 +69,7 @@ export function useClinicianCaseload() {
       // Step 1: Get all accessible profiles (RLS-filtered)
       const { data: profiles, error: profileErr } = await supabase
         .from("profiles")
-        .select("id, user_id, profile_name, stroke_date, clinical_profile, is_active")
+        .select("id, user_id, profile_name, stroke_date, clinical_profile, is_active, aphasia_type, laterality, chronicity_tag, stroke_mechanism_tag")
         .eq("is_active", true)
         .order("profile_name");
 
@@ -240,6 +246,10 @@ export function useClinicianCaseload() {
             strokeDate: p.stroke_date,
             daysPostStroke: daysPost,
             aphasiaLabel: deriveAphasiaLabel(cp),
+            aphasiaType: (p as any).aphasia_type || null,
+            laterality: (p as any).laterality || null,
+            chronicity: (p as any).chronicity_tag || null,
+            strokeMechanism: (p as any).stroke_mechanism_tag || null,
             trials7d: recentScores.length,
             priorTrials7d: priorScores.length,
             adherenceDays7d: adherenceDays,
