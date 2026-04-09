@@ -195,6 +195,8 @@ export function NarrativeRetellGame({
   }, [phase, collectedTranscript, fullTranscript]);
 
   // Stall support: show progressive prompts if user hasn't spoken much
+  // In Full Coaching mode, speak the prompts aloud
+  const lastSpokenStallRef = useRef(-1);
   useEffect(() => {
     if (phase !== 'retelling') return;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
@@ -205,10 +207,20 @@ export function NarrativeRetellGame({
       const elapsed = Date.now() - retellStartRef.current;
 
       if (wordCount < 2) {
-        if (elapsed > 20000 && stallPromptIndex < 3) setStallPromptIndex(3);
-        else if (elapsed > 15000 && stallPromptIndex < 2) setStallPromptIndex(2);
-        else if (elapsed > 10000 && stallPromptIndex < 1) setStallPromptIndex(1);
-        else if (elapsed > 6000 && stallPromptIndex < 0) setStallPromptIndex(0);
+        let newIndex = stallPromptIndex;
+        if (elapsed > 20000 && stallPromptIndex < 3) newIndex = 3;
+        else if (elapsed > 15000 && stallPromptIndex < 2) newIndex = 2;
+        else if (elapsed > 10000 && stallPromptIndex < 1) newIndex = 1;
+        else if (elapsed > 6000 && stallPromptIndex < 0) newIndex = 0;
+        
+        if (newIndex > stallPromptIndex) {
+          setStallPromptIndex(newIndex);
+          // Speak the stall prompt in Full Coaching mode
+          if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
+            lastSpokenStallRef.current = newIndex;
+            vg.speakIfVoiceLed(STALL_PROMPTS[newIndex]);
+          }
+        }
       }
     };
 
@@ -218,7 +230,7 @@ export function NarrativeRetellGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       clearInterval(interval);
     };
-  }, [phase, collectedTranscript, stallPromptIndex]);
+  }, [phase, collectedTranscript, stallPromptIndex, vg]);
 
   const handleStartRetelling = useCallback(() => {
     stopTTS(); // Stop Maya reading if still playing
