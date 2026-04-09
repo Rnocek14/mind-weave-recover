@@ -47,6 +47,9 @@ export function AbstractCompareGame({
   const { currentItem, currentIndex, totalItems, isComplete, results, submitAnswer, nextItem } =
     useAbstractCompareGame(roundCount, tier);
 
+  const { mode } = useCoachingMode();
+  const vg = useVoiceGuidance('abstract-compare');
+
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
