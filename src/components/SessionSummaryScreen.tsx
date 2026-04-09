@@ -221,12 +221,29 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
         {/* Session frame closing — cross-exercise insights (for Maya-led sessions) */}
         {sessionFrame && exerciseScores.length > 0 && (() => {
-          const blockResults: BlockResult[] = exerciseScores.map(es => ({
-            exerciseId: es.exercise_slug,
-            avgScore: es.avg_score,
-            trialCount: es.trial_count,
-          }));
+          // Merge exercise scores with detailed signals from sessionStorage
+          const savedDetails = readAllExerciseDetails();
+          const blockResults: BlockResult[] = exerciseScores.map((es, i) => {
+            // Try to find matching details by exercise slug or block index
+            const detailEntry = Array.from(savedDetails.values()).find(
+              d => d.exerciseId === es.exercise_slug
+            ) || savedDetails.get(i);
+            return {
+              exerciseId: es.exercise_slug,
+              avgScore: es.avg_score,
+              trialCount: es.trial_count,
+              details: detailEntry?.details,
+            };
+          });
+          
+          // Use reflection engine for signal-based insights
+          const insight = buildSessionInsight(blockResults);
           const closing = sessionFrame.closingBuilder(blockResults);
+          
+          // Prefer reflection engine insights over template-level ones when signals are available
+          const hasDetailedSignals = blockResults.some(br => br.details);
+          const finalStrength = hasDetailedSignals ? insight.strength : closing.strength;
+          const finalNextStep = hasDetailedSignals ? insight.nextStep : closing.nextStep;
           return (
             <div className="bg-primary/5 border border-primary/15 rounded-xl p-5 text-left space-y-3">
               <div className="flex items-start gap-2.5">
