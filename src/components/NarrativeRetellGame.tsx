@@ -104,6 +104,7 @@ export function NarrativeRetellGame({
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
   const [stallPromptIndex, setStallPromptIndex] = useState(-1);
+  const [micFailed, setMicFailed] = useState(false);
   const realLifeLineRef = useRef(REAL_LIFE_CONNECTIONS[Math.floor(Math.random() * REAL_LIFE_CONNECTIONS.length)]);
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
