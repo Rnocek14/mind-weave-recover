@@ -57,9 +57,21 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('ElevenLabs API error:', response.status, errorText);
+      
+      // Auth/billing errors (401/402) — user needs to fix their ElevenLabs subscription
+      // Signal fallback so the client uses browser TTS instead of crashing
+      const isAuthOrBilling = response.status === 401 || response.status === 402;
+      if (isAuthOrBilling) {
+        return new Response(
+          JSON.stringify({ error: 'TTS_BILLING_ISSUE', fallback: true, details: errorText }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Server errors — also signal fallback
       return new Response(
-        JSON.stringify({ error: 'TTS generation failed', details: errorText }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'SERVICE_UNAVAILABLE', fallback: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
