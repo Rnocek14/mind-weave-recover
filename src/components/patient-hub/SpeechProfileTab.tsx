@@ -224,7 +224,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
           <CardContent className="pb-3">
             <div className="space-y-2">
               {learningRates.slice(0, 4).map((r) => {
-                const slope = r.accuracy_slope;
+                const slope = r.accuracySlope;
                 const trend: Trend = slope != null && slope > 0.02 ? "improving" : slope != null && slope < -0.01 ? "declining" : slope != null ? "stable" : "insufficient";
                 return (
                   <div key={r.domain} className="flex items-center justify-between text-xs">
