@@ -12,9 +12,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   Calendar, Clock, Target, ChevronDown, ChevronRight, Volume2, VolumeX,
   CheckCircle2, XCircle, AlertTriangle, Zap, TrendingUp, Mic, Lightbulb,
-  Timer, ArrowRightLeft
+  Timer, ArrowRightLeft, FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
 import { generateSessionInsight, type SessionInsight } from "@/lib/sessionInsightGenerator";
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
@@ -53,6 +54,8 @@ interface SessionRow {
   mood_rating: number | null;
   caregiver_notes: string | null;
   engagement_summary: any;
+  user_id: string;
+  profile_id: string | null;
 }
 
 interface ExerciseSummary {
@@ -99,7 +102,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
       setLoading(true);
       const { data } = await supabase
         .from("sessions")
-        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary")
+        .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary, user_id, profile_id")
         .eq("profile_id", profileId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
@@ -641,6 +644,9 @@ function SessionCard({
                   </div>
                 </div>
               )}
+
+              {/* Clinician Session Notes */}
+              <ClinicianNoteSection sessionId={session.id} userId={session.user_id || ""} profileId={session.profile_id} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">No trial data for this session.</p>
@@ -690,6 +696,87 @@ function AudioTrialRow({
       {trial.transcript && (
         <span className="text-muted-foreground truncate">"{trial.transcript}"</span>
       )}
+    </div>
+  );
+}
+
+/** Clinician note inline editor for a session */
+function ClinicianNoteSection({ sessionId, userId, profileId }: { sessionId: string; userId: string; profileId: string | null }) {
+  const [notes, setNotes] = useState<{ id: string; note_text: string; note_type: string; created_at: string; updated_at: string }[]>([]);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    supabase
+      .from("clinician_session_notes" as any)
+      .select("id, note_text, note_type, created_at, updated_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        setNotes((data as any) ?? []);
+        setLoaded(true);
+      });
+  }, [sessionId]);
+
+  const handleSave = async () => {
+    if (!draft.trim() || !user?.id) return;
+    setSaving(true);
+    const { data, error } = await supabase
+      .from("clinician_session_notes" as any)
+      .insert({
+        session_id: sessionId,
+        user_id: userId,
+        profile_id: profileId,
+        clinician_id: user.id,
+        note_text: draft.trim(),
+        note_type: "observation",
+      } as any)
+      .select("id, note_text, note_type, created_at, updated_at")
+      .single();
+    if (!error && data) {
+      setNotes((prev) => [...prev, data as any]);
+      setDraft("");
+    }
+    setSaving(false);
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-border/30">
+      <h4 className="text-xs font-semibold flex items-center gap-1 text-muted-foreground">
+        <FileText className="w-3 h-3" /> Clinician Notes
+      </h4>
+      {notes.map((n) => (
+        <div key={n.id} className="text-xs p-2 rounded bg-muted/20 space-y-0.5">
+          <p className="text-foreground">{n.note_text}</p>
+          <p className="text-[10px] text-muted-foreground">
+            {new Date(n.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          </p>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Add clinical observation..."
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          className="text-xs h-7"
+          disabled={!draft.trim() || saving}
+          onClick={(e) => { e.stopPropagation(); handleSave(); }}
+        >
+          {saving ? "..." : "Save"}
+        </Button>
+      </div>
     </div>
   );
 }

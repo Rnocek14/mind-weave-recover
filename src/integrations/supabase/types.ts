@@ -621,6 +621,57 @@ export type Database = {
           },
         ]
       }
+      clinician_session_notes: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          id: string
+          note_text: string
+          note_type: string
+          profile_id: string | null
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          id?: string
+          note_text: string
+          note_type?: string
+          profile_id?: string | null
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          id?: string
+          note_text?: string
+          note_type?: string
+          profile_id?: string | null
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_session_notes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_session_notes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_conversation_summaries: {
         Row: {
           avg_score: number | null

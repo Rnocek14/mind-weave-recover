@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain, Volume2, Target, TrendingUp, TrendingDown, Minus,
   AlertTriangle, Shield, Zap, Activity, RefreshCw, Database,
-  Award, BarChart3
+  Award, BarChart3, Repeat, CheckCircle2
 } from "lucide-react";
 import { useUserSpeechProfile } from "@/hooks/useUserSpeechProfile";
 import { useAdaptationProof } from "@/hooks/useAdaptationProof";
@@ -24,6 +24,7 @@ import { useWordMastery } from "@/hooks/useWordMastery";
 import { useErrorQualityScore } from "@/hooks/useErrorQualityScore";
 import { evaluateProfileFreshness } from "@/lib/profileFreshness";
 import { recomputeSpeechProfileNow } from "@/lib/recomputeSpeechProfile";
+import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -82,10 +83,11 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   const [recomputing, setRecomputing] = useState(false);
   const [recoverySnapshots, setRecoverySnapshots] = useState<any[]>([]);
+  const [retentionData, setRetentionData] = useState<{ retained: { word: string; sessions: number; level: string }[]; weak: string[]; retainedCount: number; totalTracked: number } | null>(null);
 
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
 
-  // Fetch recovery score snapshots for trend chart
+  // Fetch recovery score snapshots + word retention data
   useEffect(() => {
     if (!profileId) return;
     supabase
@@ -96,6 +98,21 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       .limit(14)
       .then(({ data }) => setRecoverySnapshots(data ?? []));
   }, [profileId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    loadWordHistory(userId, 100).then((history) => {
+      const retained = getRetainedWords(history);
+      const hint = getRetentionDifficultyHint(history);
+      const totalTracked = history.filter(w => w.sessionCount >= 2).length;
+      setRetentionData({
+        retained,
+        weak: hint.weakWords,
+        retainedCount: hint.retainedWords.length,
+        totalTracked,
+      });
+    });
+  }, [userId]);
 
   // Profile freshness
   const freshness = useMemo(
@@ -415,6 +432,68 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                 <div className="text-[10px] text-muted-foreground">Adaptation Rate</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Retention / Carryover Evidence */}
+      {retentionData && retentionData.totalTracked > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Repeat className="w-4 h-4 text-primary" />
+              Retention & Carryover
+              <Badge variant="secondary" className="text-[10px]">
+                {retentionData.retainedCount}/{retentionData.totalTracked} retained
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3 space-y-3">
+            {/* Retention rate bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Cross-session retention</span>
+                <span className="font-semibold">
+                  {retentionData.totalTracked > 0 ? Math.round((retentionData.retainedCount / retentionData.totalTracked) * 100) : 0}%
+                </span>
+              </div>
+              <Progress
+                value={retentionData.totalTracked > 0 ? (retentionData.retainedCount / retentionData.totalTracked) * 100 : 0}
+                className="h-2"
+              />
+            </div>
+
+            {/* Retained words */}
+            {retentionData.retained.length > 0 && (
+              <div className="space-y-1">
+                <h5 className="text-[10px] font-semibold text-success flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Retained Words
+                </h5>
+                <div className="flex flex-wrap gap-1">
+                  {retentionData.retained.map((r) => (
+                    <Badge key={r.word} variant="outline" className="text-[10px] py-0 gap-1">
+                      "{r.word}" <span className="text-muted-foreground">({r.sessions} sessions, {r.level})</span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weak / not-retained words */}
+            {retentionData.weak.length > 0 && (
+              <div className="space-y-1">
+                <h5 className="text-[10px] font-semibold text-destructive flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Needs Re-exposure
+                </h5>
+                <div className="flex flex-wrap gap-1">
+                  {retentionData.weak.map((w) => (
+                    <Badge key={w} variant="destructive" className="text-[10px] py-0">
+                      "{w}"
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
