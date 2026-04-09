@@ -209,6 +209,8 @@ export function SynonymGeneratorGame({
   const vg = useVoiceGuidance('synonym-generator');
 
   const [countdown, setCountdown] = useState<number | null>(null);
+  // Ref to hold latest beginCountdown — prevents effect cleanup from killing the timeout
+  const beginCountdownRef = useRef<() => void>(() => {});
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<SynonymRoundResult[]>([]);
   const [phase, setPhase] = useState<'ready' | 'active' | 'round-feedback' | 'done'>('ready');
@@ -372,21 +374,27 @@ export function SynonymGeneratorGame({
     }, 800);
   }, [currentDifficulty, vg, startRoundWithPrompt]);
 
+  // Keep ref updated so the auto-start timeout always calls the latest version
+  useEffect(() => { beginCountdownRef.current = beginCountdown; }, [beginCountdown]);
+
   // Legacy startRound for manual start (falls through to countdown)
   const startRound = useCallback(() => {
     beginCountdown();
   }, [beginCountdown]);
 
-  // Auto-start on first mount — only in Full Coaching mode
-  // Guided/Games Only: show Start button so user controls when timer begins
+  // Auto-start on first mount — only in Full Coaching mode.
+  // IMPORTANT: beginCountdown is NOT in the dep array — we use a ref instead.
+  // This prevents React cleanup from clearing the timeout when TTS state changes
+  // cause useVoiceGuidance to re-render and give beginCountdown a new reference.
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (!autoStartedRef.current && phase === 'ready' && currentRound === 0 && vg.isVoiceLed) {
       autoStartedRef.current = true;
-      const delay = setTimeout(() => beginCountdown(), 400);
-      return () => clearTimeout(delay);
+      const delay = setTimeout(() => beginCountdownRef.current(), 400);
+      return () => { clearTimeout(delay); autoStartedRef.current = false; };
     }
-  }, [phase, currentRound, beginCountdown, vg.isVoiceLed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentRound, vg.isVoiceLed]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
