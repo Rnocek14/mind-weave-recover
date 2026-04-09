@@ -31,6 +31,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
