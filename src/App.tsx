@@ -75,6 +75,7 @@ import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
