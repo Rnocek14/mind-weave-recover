@@ -30,6 +30,9 @@ import {
 import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
+import { MayaSessionFrame } from "./MayaSessionFrame";
+import { getSessionFrame } from "@/lib/sessionFrameTemplates";
+import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 
 
 type FlowPhase = 
