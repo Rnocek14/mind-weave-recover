@@ -1,19 +1,18 @@
 /**
- * Speech Profile Tab — Longitudinal patient intelligence.
- * Consolidates SpeechProfile + RecoveryProgress into one clean tab.
- * Includes: trend charts, challenging categories, profile freshness + recompute,
- * adaptation coverage, evidence/confidence section, best cue callout.
+ * Speech Profile Tab — Restructured into narrative hierarchy:
+ * Core Performance (always visible) → Detailed Patterns (collapsible) → Data Quality (collapsible)
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Brain, Volume2, Target, TrendingUp, TrendingDown, Minus,
   AlertTriangle, Shield, Zap, Activity, RefreshCw, Database,
-  Award, BarChart3, Repeat, CheckCircle2
+  Award, BarChart3, Repeat, CheckCircle2, ChevronDown
 } from "lucide-react";
 import { useUserSpeechProfile } from "@/hooks/useUserSpeechProfile";
 import { useAdaptationProof } from "@/hooks/useAdaptationProof";
@@ -28,10 +27,9 @@ import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  ResponsiveContainer, AreaChart, Area, YAxis, Tooltip as RechartsTooltip,
+  ResponsiveContainer, AreaChart, Area, YAxis,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 
 interface SpeechProfileTabProps {
   userId: string;
@@ -70,6 +68,33 @@ function MiniTrendChart({ data, color = "hsl(var(--primary))" }: { data: { value
   );
 }
 
+function CollapsibleSection({ title, icon: Icon, defaultOpen = false, children, badge }: {
+  title: string;
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/40 transition-colors">
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">{title}</span>
+            {badge}
+          </div>
+          <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfileTabProps) {
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(
     userId, { profileId, enabled: !!userId }
@@ -87,7 +112,6 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
 
-  // Fetch recovery score snapshots + word retention data
   useEffect(() => {
     if (!profileId) return;
     supabase
@@ -114,13 +138,11 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
     });
   }, [userId]);
 
-  // Profile freshness
   const freshness = useMemo(
     () => evaluateProfileFreshness(speechProfile?.updated_at),
     [speechProfile?.updated_at]
   );
 
-  // Focus phonemes
   const focusPhonemes = useMemo(() => {
     if (!speechProfile?.phoneme_difficulty_map) return [];
     return Object.entries(speechProfile.phoneme_difficulty_map)
@@ -129,7 +151,6 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
       .slice(0, 8);
   }, [speechProfile]);
 
-  // Cue efficacy + best cue
   const cueEfficacy = speechProfile?.cue_efficacy_by_type;
   const bestCue = useMemo(() => {
     if (!cueEfficacy) return null;
@@ -139,32 +160,36 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
     return { type: entries[0][0], rate: entries[0][1].successRate, total: entries[0][1].total };
   }, [cueEfficacy]);
 
-  // Error distribution
   const errorDist = speechProfile?.error_type_distribution;
   const totalErrors = errorDist ? Object.values(errorDist).reduce((a, b) => a + b, 0) : 0;
-
-  // Challenging categories
   const challengingCategories = (speechProfile as any)?.most_challenging_categories;
-
-  // Evidence metrics
   const trialCount = (speechProfile as any)?.trial_count ?? (speechProfile as any)?.total_trials;
   const gopDataCount = speechProfile?.trials_with_gop_data;
   const phonemeTokenCount = speechProfile?.phoneme_token_count;
   const profileConfidence = (speechProfile as any)?.confidence_level || confidence;
 
-  // Trend chart data from recovery snapshots
   const recoveryTrendData = useMemo(() =>
     recoverySnapshots.map((s) => ({ value: Math.round(s.recovery_score) })),
-    [recoverySnapshots]
-  );
-  const accuracyTrendData = useMemo(() =>
-    recoverySnapshots.filter((s) => s.accuracy_score != null).map((s) => ({ value: Math.round(s.accuracy_score) })),
     [recoverySnapshots]
   );
   const cueTrendData = useMemo(() =>
     recoverySnapshots.filter((s) => s.cue_independence_score != null).map((s) => ({ value: Math.round(s.cue_independence_score) })),
     [recoverySnapshots]
   );
+
+  // Primary weakness — top focus sound or top struggling category
+  const primaryWeakness = useMemo(() => {
+    if (focusPhonemes.length > 0) {
+      const [phoneme, data] = focusPhonemes[0];
+      return `/${phoneme}/ at ${Math.round(data.accuracy * 100)}% accuracy`;
+    }
+    if (challengingCategories && challengingCategories.length > 0) {
+      const cat = challengingCategories[0];
+      const name = typeof cat === "string" ? cat : cat.category || "Unknown";
+      return name.replace(/_/g, " ");
+    }
+    return null;
+  }, [focusPhonemes, challengingCategories]);
 
   const handleRecompute = async () => {
     setRecomputing(true);
@@ -188,30 +213,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   return (
     <div className="space-y-4 mt-4">
-      {/* Profile Freshness + Recompute */}
-      <Card className="border-border/50">
-        <CardContent className="py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Profile status:</span>
-            <Badge
-              variant={freshness.status === "fresh" ? "default" : freshness.status === "stale" || freshness.status === "missing" ? "destructive" : "secondary"}
-              className="text-[10px]"
-            >
-              {freshness.status}
-            </Badge>
-            {freshness.hoursSinceCompute != null && (
-              <span className="text-[10px] text-muted-foreground">{freshness.hoursSinceCompute}h ago</span>
-            )}
-          </div>
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleRecompute} disabled={recomputing}>
-            <RefreshCw className={cn("w-3 h-3", recomputing && "animate-spin")} />
-            {recomputing ? "Computing…" : "Recompute"}
-          </Button>
-        </CardContent>
-      </Card>
+      {/* ═══════ CORE PERFORMANCE (always visible) ═══════ */}
 
-      {/* Recovery Score with trend */}
+      {/* Recovery Score */}
       {recoveryScore != null && (
         <Card className="border-primary/20">
           <CardHeader className="pb-2 pt-3">
@@ -240,302 +244,365 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
         </Card>
       )}
 
-      {/* Best Cue Type Callout */}
-      {bestCue && (
-        <Card className="border-success/20 bg-success/5">
-          <CardContent className="py-3 flex items-center gap-3">
-            <Award className="w-5 h-5 text-success shrink-0" />
-            <div>
-              <p className="text-sm font-semibold">Best Cue: <span className="capitalize">{bestCue.type.replace(/_/g, " ")}</span></p>
-              <p className="text-xs text-muted-foreground">{Math.round(bestCue.rate * 100)}% success rate ({bestCue.total} trials)</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Best Cue + Retention + Primary Weakness — compact row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Best Cue */}
+        {bestCue && (
+          <Card className="border-success/20 bg-success/5">
+            <CardContent className="py-3 flex items-center gap-3">
+              <Award className="w-5 h-5 text-success shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">Best Cue</p>
+                <p className="text-xs text-muted-foreground capitalize">{bestCue.type.replace(/_/g, " ")} · {Math.round(bestCue.rate * 100)}%</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Focus Sounds */}
-      {focusPhonemes.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Volume2 className="w-4 h-4 text-primary" />
-              Focus Sounds
-              <Badge variant="secondary" className="text-[10px]">{focusPhonemes.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="flex flex-wrap gap-2">
-              {focusPhonemes.map(([phoneme, data]) => (
-                <div key={phoneme} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-xs">
-                  <span className="font-bold text-destructive">/{phoneme}/</span>
-                  <span className="text-muted-foreground">{Math.round(data.accuracy * 100)}% ({data.trials}t)</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {/* Retention */}
+        {retentionData && retentionData.totalTracked > 0 && (
+          <Card>
+            <CardContent className="py-3 flex items-center gap-3">
+              <Repeat className="w-5 h-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">Retention</p>
+                <p className="text-xs text-muted-foreground">
+                  {Math.round((retentionData.retainedCount / retentionData.totalTracked) * 100)}% · {retentionData.retainedCount}/{retentionData.totalTracked} words
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Cue Response with trend chart */}
-      {cueEfficacy && Object.keys(cueEfficacy).length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Cue Response
-              {cueTrend && <TrendBadge trend={cueTrend as Trend} />}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-3">
-            <div className="space-y-2">
-              {Object.entries(cueEfficacy).map(([type, data]) => (
-                <div key={type} className="flex items-center gap-3">
-                  <span className="text-xs font-medium w-20 capitalize">{type.replace(/_/g, " ")}</span>
-                  <Progress value={data.successRate * 100} className="h-2 flex-1" />
-                  <span className="text-xs text-muted-foreground w-16 text-right">
-                    {Math.round(data.successRate * 100)}% ({data.total}t)
-                  </span>
-                </div>
-              ))}
-            </div>
-            {cueTrendData.length >= 2 && (
-              <MiniTrendChart data={cueTrendData} color="hsl(var(--success, 142 76% 36%))" />
-            )}
-          </CardContent>
-        </Card>
-      )}
+        {/* Primary Weakness */}
+        {primaryWeakness && (
+          <Card className="border-destructive/20">
+            <CardContent className="py-3 flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">Primary Weakness</p>
+                <p className="text-xs text-muted-foreground">{primaryWeakness}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-      {/* Error Patterns */}
-      {errorDist && totalErrors > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-primary" />
-              Error Patterns
-              {errorTrend && <TrendBadge trend={errorTrend as Trend} />}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              {Object.entries(errorDist)
-                .filter(([type]) => type !== "correct")
-                .sort(([, a], [, b]) => b - a)
-                .map(([type, count]) => (
-                  <div key={type} className="flex items-center gap-3">
-                    <span className="text-xs w-28 truncate capitalize">{type.replace(/_/g, " ")}</span>
-                    <Progress value={(count / totalErrors) * 100} className="h-2 flex-1" />
-                    <span className="text-xs text-muted-foreground w-12 text-right">{Math.round((count / totalErrors) * 100)}%</span>
+      {/* ═══════ DETAILED PATTERNS (collapsible) ═══════ */}
+      <Card className="border-border/50">
+        <CollapsibleSection title="Detailed Patterns" icon={BarChart3} defaultOpen={false}>
+          <div className="space-y-3 pb-3">
+            {/* Focus Sounds */}
+            {focusPhonemes.length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-primary" />
+                    Focus Sounds
+                    <Badge variant="secondary" className="text-xs">{focusPhonemes.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {focusPhonemes.map(([phoneme, data]) => (
+                      <div key={phoneme} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-xs">
+                        <span className="font-bold text-destructive">/{phoneme}/</span>
+                        <span className="text-muted-foreground">{Math.round(data.accuracy * 100)}% ({data.trials}t)</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </CardContent>
+              </Card>
+            )}
 
-      {/* Challenging Categories */}
-      {challengingCategories && challengingCategories.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              Challenging Categories
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="flex flex-wrap gap-2">
-              {challengingCategories.slice(0, 6).map((cat: any, i: number) => (
-                <Badge key={i} variant="outline" className="text-xs">
-                  {typeof cat === "string" ? cat.replace(/_/g, " ") : cat.category?.replace(/_/g, " ") || "Unknown"}
-                  {typeof cat !== "string" && cat.accuracy != null && (
-                    <span className="ml-1 text-muted-foreground">{Math.round(cat.accuracy * 100)}%</span>
+            {/* Cue Response */}
+            {cueEfficacy && Object.keys(cueEfficacy).length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Cue Response
+                    {cueTrend && <TrendBadge trend={cueTrend as Trend} />}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3 space-y-3">
+                  <div className="space-y-2">
+                    {Object.entries(cueEfficacy).map(([type, data]) => (
+                      <div key={type} className="flex items-center gap-3">
+                        <span className="text-xs font-medium w-20 capitalize">{type.replace(/_/g, " ")}</span>
+                        <Progress value={data.successRate * 100} className="h-2 flex-1" />
+                        <span className="text-xs text-muted-foreground w-16 text-right">
+                          {Math.round(data.successRate * 100)}% ({data.total}t)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {cueTrendData.length >= 2 && (
+                    <MiniTrendChart data={cueTrendData} color="hsl(var(--success, 142 76% 36%))" />
                   )}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </CardContent>
+              </Card>
+            )}
 
-      {/* Word Mastery */}
-      {(mastered > 0 || emerging > 0 || struggling > 0) && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Brain className="w-4 h-4 text-primary" />
-              Word Mastery
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <div className="text-xl font-bold text-success">{mastered}</div>
-                <div className="text-[10px] text-muted-foreground">Mastered</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold text-primary">{emerging}</div>
-                <div className="text-[10px] text-muted-foreground">Emerging</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold text-destructive">{struggling}</div>
-                <div className="text-[10px] text-muted-foreground">Struggling</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Learning Rates */}
-      {learningRates && learningRates.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Activity className="w-4 h-4 text-primary" />
-              Learning Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              {learningRates.slice(0, 4).map((r) => {
-                const slope = r.accuracySlope;
-                const trend: Trend = slope != null && slope > 0.02 ? "improving" : slope != null && slope < -0.01 ? "declining" : slope != null ? "stable" : "insufficient";
-                return (
-                  <div key={r.domain} className="flex items-center justify-between text-xs">
-                    <span className="capitalize font-medium">{r.domain?.replace(/_/g, " ")}</span>
-                    <TrendBadge trend={trend} />
+            {/* Error Patterns */}
+            {errorDist && totalErrors > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-primary" />
+                    Error Patterns
+                    {errorTrend && <TrendBadge trend={errorTrend as Trend} />}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="space-y-2">
+                    {Object.entries(errorDist)
+                      .filter(([type]) => type !== "correct")
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex items-center gap-3">
+                          <span className="text-xs w-28 truncate capitalize">{type.replace(/_/g, " ")}</span>
+                          <Progress value={(count / totalErrors) * 100} className="h-2 flex-1" />
+                          <span className="text-xs text-muted-foreground w-12 text-right">{Math.round((count / totalErrors) * 100)}%</span>
+                        </div>
+                      ))}
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </CardContent>
+              </Card>
+            )}
 
-      {/* Adaptation Impact */}
-      {adaptationSummary && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" />
-              Adaptation Impact
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div>
-                <div className="text-lg font-bold">{adaptationSummary.totalAdapted ?? 0}</div>
-                <div className="text-[10px] text-muted-foreground">Adapted Trials</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-success">
-                  {adaptationSummary.overallAdaptationRate != null ? `${Math.round(adaptationSummary.overallAdaptationRate * 100)}%` : "—"}
-                </div>
-                <div className="text-[10px] text-muted-foreground">Adaptation Rate</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            {/* Challenging Categories */}
+            {challengingCategories && challengingCategories.length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    Challenging Categories
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {challengingCategories.slice(0, 6).map((cat: any, i: number) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {typeof cat === "string" ? cat.replace(/_/g, " ") : cat.category?.replace(/_/g, " ") || "Unknown"}
+                        {typeof cat !== "string" && cat.accuracy != null && (
+                          <span className="ml-1 text-muted-foreground">{Math.round(cat.accuracy * 100)}%</span>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-      {/* Retention / Carryover Evidence */}
-      {retentionData && retentionData.totalTracked > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Repeat className="w-4 h-4 text-primary" />
-              Retention & Carryover
-              <Badge variant="secondary" className="text-[10px]">
-                {retentionData.retainedCount}/{retentionData.totalTracked} retained
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-3">
-            {/* Retention rate bar */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Cross-session retention</span>
-                <span className="font-semibold">
-                  {retentionData.totalTracked > 0 ? Math.round((retentionData.retainedCount / retentionData.totalTracked) * 100) : 0}%
-                </span>
-              </div>
-              <Progress
-                value={retentionData.totalTracked > 0 ? (retentionData.retainedCount / retentionData.totalTracked) * 100 : 0}
-                className="h-2"
-              />
-            </div>
+            {/* Word Mastery */}
+            {(mastered > 0 || emerging > 0 || struggling > 0) && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    Word Mastery
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <div className="text-xl font-bold text-success">{mastered}</div>
+                      <div className="text-xs text-muted-foreground">Mastered</div>
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold text-primary">{emerging}</div>
+                      <div className="text-xs text-muted-foreground">Emerging</div>
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold text-destructive">{struggling}</div>
+                      <div className="text-xs text-muted-foreground">Struggling</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Retained words */}
-            {retentionData.retained.length > 0 && (
-              <div className="space-y-1">
-                <h5 className="text-[10px] font-semibold text-success flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Retained Words
-                </h5>
-                <div className="flex flex-wrap gap-1">
-                  {retentionData.retained.map((r) => (
-                    <Badge key={r.word} variant="outline" className="text-[10px] py-0 gap-1">
-                      "{r.word}" <span className="text-muted-foreground">({r.sessions} sessions, {r.level})</span>
+            {/* Retention detail */}
+            {retentionData && retentionData.totalTracked > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Repeat className="w-4 h-4 text-primary" />
+                    Retention & Carryover
+                    <Badge variant="secondary" className="text-xs">
+                      {retentionData.retainedCount}/{retentionData.totalTracked} retained
                     </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Weak / not-retained words */}
-            {retentionData.weak.length > 0 && (
-              <div className="space-y-1">
-                <h5 className="text-[10px] font-semibold text-destructive flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Needs Re-exposure
-                </h5>
-                <div className="flex flex-wrap gap-1">
-                  {retentionData.weak.map((w) => (
-                    <Badge key={w} variant="destructive" className="text-[10px] py-0">
-                      "{w}"
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Evidence / Confidence */}
-      <Card className="border-border/30">
-        <CardHeader className="pb-2 pt-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Database className="w-4 h-4 text-muted-foreground" />
-            Evidence & Confidence
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
-            {trialCount != null && (
-              <div>
-                <div className="text-lg font-bold">{trialCount}</div>
-                <div className="text-muted-foreground">Trials</div>
-              </div>
-            )}
-            {gopDataCount != null && (
-              <div>
-                <div className="text-lg font-bold">{gopDataCount}</div>
-                <div className="text-muted-foreground">GOP Samples</div>
-              </div>
-            )}
-            {phonemeTokenCount != null && (
-              <div>
-                <div className="text-lg font-bold">{phonemeTokenCount}</div>
-                <div className="text-muted-foreground">Phoneme Tokens</div>
-              </div>
-            )}
-            {profileConfidence && (
-              <div>
-                <Badge variant={profileConfidence === "high" ? "default" : profileConfidence === "medium" ? "secondary" : "outline"} className="text-xs">
-                  {profileConfidence}
-                </Badge>
-                <div className="text-muted-foreground mt-1">Confidence</div>
-              </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3 space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Cross-session retention</span>
+                      <span className="font-semibold">
+                        {Math.round((retentionData.retainedCount / retentionData.totalTracked) * 100)}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={(retentionData.retainedCount / retentionData.totalTracked) * 100}
+                      className="h-2"
+                    />
+                  </div>
+                  {retentionData.retained.length > 0 && (
+                    <div className="space-y-1">
+                      <h5 className="text-xs font-semibold text-success flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Retained Words
+                      </h5>
+                      <div className="flex flex-wrap gap-1">
+                        {retentionData.retained.map((r) => (
+                          <Badge key={r.word} variant="outline" className="text-xs py-0 gap-1">
+                            "{r.word}" <span className="text-muted-foreground">({r.sessions}s, {r.level})</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {retentionData.weak.length > 0 && (
+                    <div className="space-y-1">
+                      <h5 className="text-xs font-semibold text-destructive flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Needs Re-exposure
+                      </h5>
+                      <div className="flex flex-wrap gap-1">
+                        {retentionData.weak.map((w) => (
+                          <Badge key={w} variant="destructive" className="text-xs py-0">
+                            "{w}"
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
-        </CardContent>
+        </CollapsibleSection>
+      </Card>
+
+      {/* ═══════ DATA QUALITY (collapsible) ═══════ */}
+      <Card className="border-border/30">
+        <CollapsibleSection title="Data Quality & Profile" icon={Database} defaultOpen={false}>
+          <div className="space-y-3 pb-3">
+            {/* Profile Freshness */}
+            <Card className="mx-1 border-border/50">
+              <CardContent className="py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Profile status:</span>
+                  <Badge
+                    variant={freshness.status === "fresh" ? "default" : freshness.status === "stale" || freshness.status === "missing" ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {freshness.status}
+                  </Badge>
+                  {freshness.hoursSinceCompute != null && (
+                    <span className="text-xs text-muted-foreground">{freshness.hoursSinceCompute}h ago</span>
+                  )}
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleRecompute} disabled={recomputing}>
+                  <RefreshCw className={cn("w-3 h-3", recomputing && "animate-spin")} />
+                  {recomputing ? "Computing…" : "Recompute"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Learning Rates */}
+            {learningRates && learningRates.length > 0 && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-primary" />
+                    Learning Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="space-y-2">
+                    {learningRates.slice(0, 4).map((r) => {
+                      const slope = r.accuracySlope;
+                      const trend: Trend = slope != null && slope > 0.02 ? "improving" : slope != null && slope < -0.01 ? "declining" : slope != null ? "stable" : "insufficient";
+                      return (
+                        <div key={r.domain} className="flex items-center justify-between text-xs">
+                          <span className="capitalize font-medium">{r.domain?.replace(/_/g, " ")}</span>
+                          <TrendBadge trend={trend} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Adaptation Impact */}
+            {adaptationSummary && (
+              <Card className="mx-1">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-primary" />
+                    Adaptation Impact
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div>
+                      <div className="text-lg font-bold">{adaptationSummary.totalAdapted ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">Adapted Trials</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-success">
+                        {adaptationSummary.overallAdaptationRate != null ? `${Math.round(adaptationSummary.overallAdaptationRate * 100)}%` : "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Adaptation Rate</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Evidence / Confidence */}
+            <Card className="border-border/30 mx-1">
+              <CardHeader className="pb-2 pt-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Database className="w-4 h-4 text-muted-foreground" />
+                  Evidence & Confidence
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
+                  {trialCount != null && (
+                    <div>
+                      <div className="text-lg font-bold">{trialCount}</div>
+                      <div className="text-muted-foreground">Trials</div>
+                    </div>
+                  )}
+                  {gopDataCount != null && (
+                    <div>
+                      <div className="text-lg font-bold">{gopDataCount}</div>
+                      <div className="text-muted-foreground">Pronunciation Samples</div>
+                    </div>
+                  )}
+                  {phonemeTokenCount != null && (
+                    <div>
+                      <div className="text-lg font-bold">{phonemeTokenCount}</div>
+                      <div className="text-muted-foreground">Sound Tokens</div>
+                    </div>
+                  )}
+                  {profileConfidence && (
+                    <div>
+                      <Badge variant={profileConfidence === "high" ? "default" : profileConfidence === "medium" ? "secondary" : "outline"} className="text-xs">
+                        {profileConfidence}
+                      </Badge>
+                      <div className="text-muted-foreground mt-1">Confidence</div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </CollapsibleSection>
       </Card>
     </div>
   );
