@@ -625,6 +625,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       <SessionSummaryScreen
         lesson={lesson}
         sessionId={sessionId}
+        sessionFrame={sessionFrame}
         onFinish={handleFinish}
       />
     );
