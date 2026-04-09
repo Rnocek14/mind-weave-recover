@@ -48,7 +48,7 @@ function scoreToLabel(score: number): { text: string; className: string } {
   }
 }
 
-export function SessionSummaryScreen({ lesson, sessionId, onFinish }: SessionSummaryScreenProps) {
+export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish }: SessionSummaryScreenProps) {
   const navigate = useNavigate();
   const { uiMode } = useUiMode();
   const { showTransferOnSummary, mode } = useCoachingMode();
