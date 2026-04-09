@@ -139,6 +139,9 @@ export function DetectiveMindGame({
   const handleSelectOption = useCallback((index: number) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     
+    // Interrupt Maya if she's still speaking
+    vg.interrupt();
+    
     // Track first interaction time if not set
     if (!firstInteractionRef.current) {
       firstInteractionRef.current = Date.now();
@@ -152,7 +155,7 @@ export function DetectiveMindGame({
       setLastResult(result);
       setPhase('feedback');
     }
-  }, [phase, selectedOption, usedHint, submitAnswer]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
