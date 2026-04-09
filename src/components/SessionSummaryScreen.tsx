@@ -8,6 +8,7 @@ import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
+import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
