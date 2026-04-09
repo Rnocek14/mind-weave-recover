@@ -9,6 +9,8 @@ import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getSummaryInsight } from "@/lib/coachingNarrative";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
+import { readAllExerciseDetails } from "@/lib/exerciseDetailsStore";
+import { buildSessionInsight } from "@/lib/reflectionEngine";
 import { buildPresetLesson } from "@/lib/dailyLessonEngine";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
