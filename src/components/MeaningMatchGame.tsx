@@ -18,6 +18,7 @@ import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface MeaningMatchGameProps {
   onTrialComplete: (result: MeaningMatchTrialResult) => void;
@@ -80,6 +81,16 @@ export function MeaningMatchGame({
   const firstInteractionRef = useRef(false);
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'meaning-match' });
+  const vg = useVoiceGuidance('meaning-match');
+
+  // Speak intro on first mount in Full Coaching mode
+  const hasSpokenIntroRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
 
   // Reset state when item changes
   useEffect(() => {

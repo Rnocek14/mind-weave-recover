@@ -5,8 +5,9 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -50,6 +51,16 @@ export function MinimalPairsGame({
   
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'minimal-pairs' });
+  const vg = useVoiceGuidance('minimal-pairs');
+
+  // Speak intro on first mount in Full Coaching mode
+  const hasSpokenIntroRef = useRef(false);
+  useEffect(() => {
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
   
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
   
