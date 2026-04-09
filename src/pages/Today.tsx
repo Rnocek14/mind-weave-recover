@@ -172,18 +172,20 @@ export default function Today() {
     });
   };
 
-  const handleStartCoreComm = () => {
-    const coreLesson = buildPresetLesson('core_communication');
-    if (!coreLesson) return;
+  const handleStartRecommended = (recommendation: SessionRecommendation) => {
+    const presetId = recommendation.templateId as LessonPreset;
+    const recLesson = buildPresetLesson(presetId);
+    if (!recLesson) return;
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
-        lesson: coreLesson,
+        lesson: recLesson,
         clinicalProfile,
         skipDailyCheck: true,
         autoStart: true,
+        recommendationReason: recommendation.mayaReason,
       },
     });
   };
