@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
+import { saveSessionSignals } from "@/lib/sessionSignalStore";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
@@ -113,6 +114,38 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
     const total = exerciseScores.reduce((sum, s) => sum + s.avg_score, 0);
     return Math.round(total / exerciseScores.length);
   }, [exerciseScores]);
+
+  // Save session signals for the recommendation engine
+  useEffect(() => {
+    if (exerciseScores.length === 0) return;
+    
+    const savedDetails = readAllExerciseDetails();
+    const blockResults: BlockResult[] = exerciseScores.map((es, i) => {
+      const detailEntry = Array.from(savedDetails.values()).find(
+        d => d.exerciseId === es.exercise_slug
+      ) || savedDetails.get(i);
+      return {
+        exerciseId: es.exercise_slug,
+        avgScore: es.avg_score,
+        trialCount: es.trial_count,
+        details: detailEntry?.details,
+      };
+    });
+    
+    const insight = buildSessionInsight(blockResults);
+    
+    saveSessionSignals({
+      timestamp: Date.now(),
+      insight,
+      exerciseScores: exerciseScores.map(es => ({
+        exerciseId: es.exercise_slug,
+        avgScore: es.avg_score,
+        trialCount: es.trial_count,
+      })),
+      templateId: sessionFrame?.id,
+      completed: true,
+    });
+  }, [exerciseScores, sessionFrame]);
 
   const totalTrials = useMemo(
     () => exerciseScores.reduce((sum, s) => sum + s.trial_count, 0),

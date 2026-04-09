@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useDailyLesson } from '@/hooks/useDailyLesson';
-import { buildPresetLesson } from '@/lib/dailyLessonEngine';
+import { buildPresetLesson, type LessonPreset } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
+import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -171,18 +172,20 @@ export default function Today() {
     });
   };
 
-  const handleStartCoreComm = () => {
-    const coreLesson = buildPresetLesson('core_communication');
-    if (!coreLesson) return;
+  const handleStartRecommended = (recommendation: SessionRecommendation) => {
+    const presetId = recommendation.templateId as LessonPreset;
+    const recLesson = buildPresetLesson(presetId);
+    if (!recLesson) return;
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
-        lesson: coreLesson,
+        lesson: recLesson,
         clinicalProfile,
         skipDailyCheck: true,
         autoStart: true,
+        recommendationReason: recommendation.mayaReason,
       },
     });
   };
@@ -365,19 +368,38 @@ export default function Today() {
             )}
           </Button>
 
-          {/* Guided session option */}
-          {mode !== 'off' && !savedSession && (
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full gap-2 text-sm py-5"
-              onClick={handleStartCoreComm}
-            >
-              <Brain className="w-4 h-4" />
-              Core Communication Session
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          )}
+          {/* Recommended session — Maya's choice */}
+          {mode !== 'off' && !savedSession && (() => {
+            const recommendation = recommendNextSession();
+            return (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-medium text-primary uppercase tracking-wide">
+                    Recommended for today
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {recommendation.templateLabel}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {recommendation.reason}
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full gap-2 text-sm py-5"
+                  onClick={() => handleStartRecommended(recommendation)}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Start recommended session
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

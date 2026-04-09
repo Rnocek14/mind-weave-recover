@@ -1,43 +1,58 @@
 
+## Adaptive Session Builder v2
 
-# Fix Transition Duration for Guided/Full Modes
+### What we're building
+A recommendation engine that uses recent session signals to choose the best next therapy session — template, exercises, difficulty, and focus target — so Maya feels strategic, not just reflective.
 
-## The Problem
+### Build pieces
 
-Encouragement transitions last ~1.2–1.5 seconds. That's fine for **Games Only** (just momentum), but in **Guided** and **Full Coaching**, these transitions now carry micro-guidance text and coaching bridges that users can't read in time. The content is there but functionally invisible.
+**1. New session templates** (`sessionFrameTemplates.ts`)
+Add 3 new templates alongside existing `core_communication`:
+- `expression_focused` — SFA + Synonym Generator + Category Fluency (for naming/retrieval gaps)
+- `comprehension_focused` — Detective Mind + Meaning Match + Narrative Retell (for understanding gaps)
+- `low_energy` — shorter blocks, easier difficulty, 2-3 exercises max (for fatigue/skip patterns)
 
-## Why It Matters
+**2. Session signal history store** (`sessionSignalStore.ts`)
+- Save the reflection engine's output (strength, nextStep, per-exercise weights) to localStorage after each session
+- Read last 3-5 sessions for trend detection
+- Track skip count and completion rate
 
-In Guided/Full modes, the transition is doing real work — it shows:
-- Exercise micro-guidance ("Name as many as you can")
-- Coaching bridge text ("That builds on what we just practiced")
-- Adaptation messages
+**3. Recommendation engine** (`sessionRecommender.ts`)
+```
+recommendNextSession(recentSignals, profile?) → {
+  templateId, reason, focusTarget, recommendedDifficulty, blocks
+}
+```
+Logic:
+- Weak narrative + weak inference → `core_communication`
+- Strong comprehension, weak retrieval/naming → `expression_focused`
+- Weak clue-finding / meaning → `comprehension_focused`
+- High fatigue/skips/low completion → `low_energy`
+- No history / balanced → `core_communication` (default)
 
-At 1.2–1.5s, an aphasia user cannot read any of this. The guidance exists but doesn't land.
+**4. Today page upgrade** (`Today.tsx`)
+- Replace generic session button with a **recommended session card**
+- Shows: template name, Maya's reason, focus target, start button
+- Example: "Recommended today: Expression-Focused — to strengthen word retrieval after last session's naming gaps"
 
-**Games Only** should stay fast — no guidance content, pure momentum.
+**5. Maya intro uses recommendation reason** (`MayaSessionFrame.tsx` / `LessonFlow.tsx`)
+- Pass the recommendation `reason` into the session frame
+- Maya's intro references *why* this session was chosen
+- Example: "Last time, you caught key clues well, but holding onto the middle of the story was harder. Today we'll work on that."
 
-## The Fix
+### Files to create
+- `src/lib/sessionSignalStore.ts` — persist/read recent session signals
+- `src/lib/sessionRecommender.ts` — recommendation engine
 
-Make transition duration **coaching-mode-aware** in `ExerciseTransitionOverlay.tsx`:
+### Files to modify
+- `src/lib/sessionFrameTemplates.ts` — add 3 new templates
+- `src/lib/dailyLessonEngine.ts` — add new presets for each template
+- `src/pages/Today.tsx` — recommended session card
+- `src/components/MayaSessionFrame.tsx` — dynamic intro from reason
+- `src/components/LessonFlow.tsx` — pass recommendation context
+- `src/components/SessionSummaryScreen.tsx` — save signals after session
 
-- **Games Only (`off`)**: Keep current timing (~1.5s encouragement, ~5s micro-pause) — unchanged
-- **Guided (`light`)**: Increase encouragement to ~3.5s when micro-guidance or coaching bridge is present
-- **Full (`full`)**: Same ~3.5s, with room for slightly longer if coaching bridge is verbose
-
-The logic change is small — in the duration calculation (line 44), check `mode` and whether guidance content exists. If mode is not `off` and there's guidance text to show, use a longer base duration (~3.5s instead of 1.5s).
-
-## Files to Modify
-
-1. **`src/components/ExerciseTransitionOverlay.tsx`** — Adjust `defaultDuration` calculation: if `mode !== 'off'` and guidance content is present (microGuidance or coachingBridge), use ~3.5s base for encouragement type instead of 1.5s.
-
-That's it — one file, one conditional change.
-
-## What This Does NOT Change
-
-- Games Only timing stays exactly the same
-- Micro-pause timing stays the same
-- No new UI elements
-- No new components
-- Adaptive pause logic in `adaptivePauseLogic.ts` unchanged (its `durationOverride` still works)
-
+### Not changing
+- Exercise components (untouched)
+- Existing preset logic (preserved, extended)
+- Core LessonFlow orchestration (extended, not rewritten)
