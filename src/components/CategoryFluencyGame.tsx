@@ -286,19 +286,19 @@ export function CategoryFluencyGame({
   }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
-  const beginCountdown = useCallback(() => {
+  const beginCountdown = useCallback(async () => {
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
     setConfig(cat);
     setPhase('countdown' as any);
     
-    // Speak the category-specific intro in Full Coaching mode
+    // Speak the category-specific intro in Full Coaching mode — wait for it to finish
     if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+      await vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
     }
 
-    // 3-2-1 countdown
+    // 3-2-1 countdown (starts AFTER speech finishes)
     setCountdown(3);
     let count = 3;
     const interval = setInterval(() => {
@@ -316,7 +316,7 @@ export function CategoryFluencyGame({
 
   /** Start round with an already-picked config (used after countdown) */
   const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
-    vg.interrupt();
+    // Speech already finished before countdown — no need to interrupt
     setWords([]);
     setCurrentInput('');
     setPhase('active');

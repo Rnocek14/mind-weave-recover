@@ -34,13 +34,14 @@ export function MayaSessionFrame({
   onContinue 
 }: MayaSessionFrameProps) {
   const { isVoiceLed } = useCoachingMode();
-  const { speak, stop, isSpeaking } = useTextToSpeech();
+  const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   
   // Timing: voice-led waits for TTS + 1s pause; non-voice uses timer
   const defaultDuration = type === 'intro' ? 6 : 4;
   const totalDuration = duration ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [speechDone, setSpeechDone] = useState(false);
+  const [speechStarted, setSpeechStarted] = useState(false);
   const hasSpokenRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -59,6 +60,7 @@ export function MayaSessionFrame({
     hasSpokenRef.current = true;
 
     const doSpeak = async () => {
+      setSpeechStarted(true);
       await speak(text);
       if (mountedRef.current) {
         setSpeechDone(true);
@@ -94,9 +96,11 @@ export function MayaSessionFrame({
   }, [isVoiceLed, speechDone, onContinue, type]);
 
   const handleContinue = useCallback(() => {
+    // In voice-led mode, don't allow skipping until speech has at least started loading
+    if (isVoiceLed && !speechStarted && !speechDone) return;
     stop(); // Interrupt any active speech immediately
     onContinue();
-  }, [stop, onContinue]);
+  }, [stop, onContinue, isVoiceLed, speechStarted, speechDone]);
 
   const handleRepeat = useCallback(() => {
     stop();
@@ -133,10 +137,10 @@ export function MayaSessionFrame({
         {/* Speaking indicator or auto-advance bar */}
         {isVoiceLed ? (
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            {isSpeaking && (
+            {(isSpeaking || isLoading) && (
               <>
                 <Volume2 className="w-4 h-4 animate-pulse" />
-                <span>Maya is speaking...</span>
+                <span>{isLoading ? 'Maya is preparing...' : 'Maya is speaking...'}</span>
               </>
             )}
           </div>
