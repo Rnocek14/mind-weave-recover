@@ -253,16 +253,37 @@ export const useTextToSpeech = () => {
         setIsSpeaking(true);
 
         return new Promise((resolve, reject) => {
-          // Safety timeout — never stay stuck in tts_playing for more than 30s
+          // Safety timeout — resolve quickly so session never stalls
+          // 5s is enough for any reasonable audio; if onended doesn't fire, move on
+          const audioDuration = audio.duration;
+          const timeoutMs = (!isNaN(audioDuration) && audioDuration > 0) 
+            ? Math.min((audioDuration + 2) * 1000, 60000)  // audio duration + 2s buffer
+            : 5000; // If duration unknown, 5s fallback
           const safetyTimeout = setTimeout(() => {
-            console.warn('[TTS] Safety timeout — resolving after 30s');
+            console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
             resolve();
-          }, 30000);
+          }, timeoutMs);
+
+          // Also set a secondary timeout after metadata loads with accurate duration
+          audio.onloadedmetadata = () => {
+            if (!isNaN(audio.duration) && audio.duration > 0) {
+              clearTimeout(safetyTimeout);
+              const accurateTimeout = setTimeout(() => {
+                console.warn('[TTS] Duration-based timeout — resolving');
+                setIsSpeaking(false);
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+              }, (audio.duration + 2) * 1000);
+              // Store for cleanup
+              (audio as any)._accurateTimeout = accurateTimeout;
+            }
+          };
 
           audio.onended = () => {
             clearTimeout(safetyTimeout);
+            if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
             resolve();
@@ -270,11 +291,12 @@ export const useTextToSpeech = () => {
 
           audio.onerror = () => {
             clearTimeout(safetyTimeout);
+            if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
             setIsSpeaking(false);
             URL.revokeObjectURL(audioUrl);
             // Don't reject — fall through gracefully so session continues
-            console.warn('[TTS] Audio playback error, resolving gracefully');
-            resolve();
+            console.warn('[TTS] Audio playback error, falling back to browser TTS');
+            speakBrowser(text).then(resolve).catch(() => resolve());
           };
 
           audio.play().catch((playError) => {

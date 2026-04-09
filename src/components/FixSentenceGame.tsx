@@ -20,6 +20,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormalizer';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
@@ -62,6 +63,16 @@ export function FixSentenceGame({
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
+  const vg = useVoiceGuidance('fix-sentence');
+
+  // Speak intro on first mount in Full Coaching mode
+  const hasSpokenIntroRef = useRef(false);
+  useEffect(() => {
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
 
   const bounds = getCapabilityDifficultyBounds('fix_sentence', null);
 

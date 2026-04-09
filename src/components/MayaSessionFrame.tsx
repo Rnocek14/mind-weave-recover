@@ -42,8 +42,10 @@ export function MayaSessionFrame({
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [speechDone, setSpeechDone] = useState(false);
   const [speechStarted, setSpeechStarted] = useState(false);
+  const [speechFailed, setSpeechFailed] = useState(false);
   const hasSpokenRef = useRef(false);
   const mountedRef = useRef(true);
+  const speechStartTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Cleanup on unmount — stop any active speech
   useEffect(() => {
@@ -51,6 +53,7 @@ export function MayaSessionFrame({
     return () => {
       mountedRef.current = false;
       stop();
+      if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
     };
   }, [stop]);
 
@@ -59,8 +62,18 @@ export function MayaSessionFrame({
     if (!isVoiceLed || hasSpokenRef.current) return;
     hasSpokenRef.current = true;
 
+    // If speech doesn't start producing audio within 3s, show text fallback
+    speechStartTimerRef.current = setTimeout(() => {
+      if (mountedRef.current && !speechDone) {
+        console.warn('[MayaSessionFrame] TTS did not start in 3s, showing text fallback');
+        setSpeechFailed(true);
+        setSpeechStarted(true); // Allow continue button
+      }
+    }, 3000);
+
     const doSpeak = async () => {
       setSpeechStarted(true);
+      if (speechStartTimerRef.current) clearTimeout(speechStartTimerRef.current);
       await speak(text);
       if (mountedRef.current) {
         setSpeechDone(true);
@@ -86,14 +99,25 @@ export function MayaSessionFrame({
   }, [onContinue, isVoiceLed]);
 
   // Voice mode: auto-advance ~1s after speech finishes
+  // Also auto-advance if TTS failed — give user time to read text, then move on
   useEffect(() => {
-    if (!isVoiceLed || !speechDone) return;
-    const postSpeechDelay = type === 'intro' ? 1000 : 750;
-    const timer = setTimeout(() => {
-      if (mountedRef.current) onContinue();
-    }, postSpeechDelay);
-    return () => clearTimeout(timer);
-  }, [isVoiceLed, speechDone, onContinue, type]);
+    if (!isVoiceLed) return;
+    if (speechDone) {
+      const postSpeechDelay = type === 'intro' ? 1000 : 750;
+      const timer = setTimeout(() => {
+        if (mountedRef.current) onContinue();
+      }, postSpeechDelay);
+      return () => clearTimeout(timer);
+    }
+    if (speechFailed && !isSpeaking && !isLoading) {
+      // TTS failed — auto-advance after reading time (based on text length)
+      const readingTime = Math.max(3000, text.length * 50); // ~50ms per char, min 3s
+      const timer = setTimeout(() => {
+        if (mountedRef.current) onContinue();
+      }, readingTime);
+      return () => clearTimeout(timer);
+    }
+  }, [isVoiceLed, speechDone, speechFailed, isSpeaking, isLoading, onContinue, type, text.length]);
 
   const handleContinue = useCallback(() => {
     // In voice-led mode, don't allow skipping until speech has at least started loading
@@ -105,9 +129,11 @@ export function MayaSessionFrame({
   const handleRepeat = useCallback(() => {
     stop();
     setSpeechDone(false);
+    setSpeechFailed(false);
     hasSpokenRef.current = false;
     // Re-trigger speech
     const doSpeak = async () => {
+      setSpeechStarted(true);
       await speak(text);
       if (mountedRef.current) setSpeechDone(true);
     };
@@ -137,12 +163,20 @@ export function MayaSessionFrame({
         {/* Speaking indicator or auto-advance bar */}
         {isVoiceLed ? (
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            {(isSpeaking || isLoading) && (
+            {speechFailed && !isSpeaking && !isLoading ? (
+              <button 
+                onClick={handleRepeat}
+                className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Play voice again</span>
+              </button>
+            ) : (isSpeaking || isLoading) ? (
               <>
                 <Volume2 className="w-4 h-4 animate-pulse" />
                 <span>{isLoading ? 'Maya is preparing...' : 'Maya is speaking...'}</span>
               </>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">

@@ -200,13 +200,16 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             console.log('[LessonFlow] Resume adaptive pause decision:', pauseDecision);
             setCurrentPause(pauseDecision);
             
-            // Show Maya transition on resume path too (critical for Full Coaching continuity)
-            if (sessionFrame && (showPurpose || isVoiceLed) && sessionFrame.mayaTransitions[nextIndex]) {
-              console.log('[LessonFlow] Resume: showing maya-transition for block', nextIndex);
-              setPhase('maya-transition');
-            } else {
-              setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
-            }
+              // Always show Maya transition on resume in guided/voice mode
+              if (sessionFrame && (showPurpose || isVoiceLed)) {
+                if (!sessionFrame.mayaTransitions[nextIndex]) {
+                  sessionFrame.mayaTransitions[nextIndex] = `Good work on that. Let's continue with the next exercise.`;
+                }
+                console.log('[LessonFlow] Resume: showing maya-transition for block', nextIndex);
+                setPhase('maya-transition');
+              } else {
+                setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+              }
           }
         } catch (error) {
           console.error('[LessonFlow] Error processing resume:', error);
@@ -473,8 +476,16 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
       setCurrentPause(pauseDecision);
       
-      // Show Maya transition if session frame exists and has a transition for this block
-      if (sessionFrame && (showPurpose || isVoiceLed) && sessionFrame.mayaTransitions[nextIndex]) {
+      // Always show Maya transition between exercises in guided/voice-led mode
+      // This ensures continuity — user is never "dropped" into an exercise cold
+      if (sessionFrame && (showPurpose || isVoiceLed)) {
+        // If no specific transition text exists, generate a generic one
+        if (!sessionFrame.mayaTransitions[nextIndex]) {
+          // Build a dynamic transition on the fly
+          const prevExercise = runtimeBlocks[currentBlockIndex]?.exerciseId || '';
+          const nextExercise = runtimeBlocks[nextIndex]?.exerciseId || '';
+          sessionFrame.mayaTransitions[nextIndex] = `Good work on that. Now let's move to the next exercise.`;
+        }
         setPhase('maya-transition');
       } else {
         setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');

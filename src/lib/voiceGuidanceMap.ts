@@ -130,6 +130,12 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceReminder: "Think about what group they both belong to, or what they share.",
     autoReadStimulus: false,
   },
+  'fix-sentence': {
+    voiceIntro: "Listen to the sentence. One word is wrong — say the right word to fix it.",
+    voiceTask: "What word should go there instead?",
+    voiceReminder: "Listen to the sentence again. Which word doesn't belong?",
+    autoReadStimulus: true,
+  },
 };
 
 /** Fallback for exercises not yet wired for Full Coaching */
