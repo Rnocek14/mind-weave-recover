@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain, Volume2, Target, TrendingUp, TrendingDown, Minus,
   AlertTriangle, Shield, Zap, Activity, RefreshCw, Database,
-  Award, BarChart3
+  Award, BarChart3, Repeat, CheckCircle2
 } from "lucide-react";
 import { useUserSpeechProfile } from "@/hooks/useUserSpeechProfile";
 import { useAdaptationProof } from "@/hooks/useAdaptationProof";
@@ -24,6 +24,7 @@ import { useWordMastery } from "@/hooks/useWordMastery";
 import { useErrorQualityScore } from "@/hooks/useErrorQualityScore";
 import { evaluateProfileFreshness } from "@/lib/profileFreshness";
 import { recomputeSpeechProfileNow } from "@/lib/recomputeSpeechProfile";
+import { loadWordHistory, getRetainedWords, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
