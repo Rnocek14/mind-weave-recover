@@ -22,6 +22,12 @@ interface CoachingModeContextValue {
   showContinuity: boolean;
   /** Whether transfer suggestion should appear on summary */
   showTransferOnSummary: boolean;
+  /** Whether Maya should auto-speak intros, instructions, transitions */
+  shouldAutoSpeak: boolean;
+  /** Whether Maya should auto-read stories/questions/stimuli */
+  shouldAutoReadContent: boolean;
+  /** Whether voice is the primary interface (UI simplification) */
+  isVoiceLed: boolean;
 }
 
 const CoachingModeContext = createContext<CoachingModeContextValue | null>(null);
