@@ -32,7 +32,7 @@ import { prefetchExerciseRoute } from "@/lib/exercisePrefetch";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
 import { MayaSessionFrame } from "./MayaSessionFrame";
-import { getSessionFrame } from "@/lib/sessionFrameTemplates";
+import { getSessionFrame, getOrCreateSessionFrame } from "@/lib/sessionFrameTemplates";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 
 
@@ -59,7 +59,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const { showPurpose } = useCoachingMode();
+  const { showPurpose, isVoiceLed } = useCoachingMode();
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
@@ -78,8 +78,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
   const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
   
-  // Session frame template (Maya-led sessions)
-  const sessionFrame = lesson.sessionFrameId ? getSessionFrame(lesson.sessionFrameId) : null;
+  // Session frame template — always create one for Full Coaching, even without explicit ID
+  const sessionFrame = getOrCreateSessionFrame(lesson.sessionFrameId, lesson.blocks);
   
   // Clear stale sessionStorage when mounting with a fresh lesson (not resuming)
   useEffect(() => {
@@ -304,8 +304,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const handlePreviewStart = () => {
     resetFeedbackHistory();
     clearExerciseDetails(); // Clear any stale exercise details from previous session
-    // If session has a Maya frame, show intro first
-    if (sessionFrame && showPurpose) {
+    // Full Coaching: always show Maya intro; Guided: show if session frame exists
+    if (sessionFrame && (isVoiceLed || showPurpose)) {
       setPhase("maya-intro");
     } else {
       setPhase("exercise");
@@ -466,8 +466,11 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       console.log('[LessonFlow] Adaptive pause decision:', pauseDecision);
       setCurrentPause(pauseDecision);
       
-      // If session frame has a Maya transition for this block, show it instead of standard transition
+      // Show Maya transition if session frame exists and has a transition for this block
       if (sessionFrame && showPurpose && sessionFrame.mayaTransitions[nextIndex]) {
+        setPhase('maya-transition');
+      } else if (sessionFrame && isVoiceLed && sessionFrame.mayaTransitions[nextIndex]) {
+        // Full Coaching: always show Maya transitions even if showPurpose is somehow off
         setPhase('maya-transition');
       } else {
         setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');

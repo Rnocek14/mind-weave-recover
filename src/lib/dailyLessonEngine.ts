@@ -677,6 +677,9 @@ export function generateDailyLesson(
       console.log('[DailyLessonEngine] Using preset lesson:', preset, blocks.map(b => b.exerciseId).join(' → '));
       const FRAME_MAP: Partial<Record<LessonPreset, string>> = {
         core_communication: 'core_communication',
+        expression_focused: 'expression_focused',
+        comprehension_focused: 'comprehension_focused',
+        low_energy: 'low_energy',
       };
       return {
         totalDuration,
@@ -1213,6 +1216,7 @@ export function generateDailyLesson(
     reasoning,
     energyLevel,
     doseReasoning: doseResult.reasoning,
+    sessionFrameId: 'general_session',
   };
 }
 
