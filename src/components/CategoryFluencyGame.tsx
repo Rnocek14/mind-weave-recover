@@ -137,7 +137,7 @@ export function CategoryFluencyGame({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [results, setResults] = useState<CategoryFluencyResult[]>([]);
-  const [phase, setPhase] = useState<'ready' | 'active' | 'round-done' | 'done'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'countdown' | 'active' | 'round-done' | 'done'>('ready');
   const usedCategoriesRef = useRef(new Set<string>());
   const [config, setConfig] = useState(() => {
     const cat = pickCategory(currentDifficulty);
