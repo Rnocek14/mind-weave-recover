@@ -83,6 +83,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   const [recomputing, setRecomputing] = useState(false);
   const [recoverySnapshots, setRecoverySnapshots] = useState<any[]>([]);
+  const [retentionData, setRetentionData] = useState<{ retained: { word: string; sessions: number; level: string }[]; weak: string[]; retainedCount: number; totalTracked: number } | null>(null);
 
   const isLoading = profileLoading || adaptLoading || lrLoading || rsLoading;
 
