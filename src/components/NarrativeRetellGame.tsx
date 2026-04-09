@@ -122,24 +122,30 @@ export function NarrativeRetellGame({
     return () => { stopTTS(); vg.interrupt(); };
   }, [stopTTS, vg]);
 
-  // Full Coaching: auto-read story when entering reading phase
+  // Auto-read story when entering reading phase (always — not just Full Coaching)
   const hasAutoReadRef = useRef(false);
   useEffect(() => {
-    if (phase !== 'reading' || !currentStory || !vg.shouldAutoReadContent || hasAutoReadRef.current) return;
+    if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
     hasAutoReadRef.current = true;
 
     const doAutoRead = async () => {
-      // First story gets the exercise intro
-      if (currentIndex === 0) {
-        await vg.speakIntro();
-        await new Promise(r => setTimeout(r, 800));
+      // Small delay to let the UI settle
+      await new Promise(r => setTimeout(r, 600));
+      
+      // Full Coaching: speak context-aware intro first
+      if (vg.shouldAutoSpeak && currentIndex === 0) {
+        await vg.speakIntro({ storyTitle: currentStory.title });
+        await new Promise(r => setTimeout(r, 600));
       }
-      // Read the full story
+      
+      // Read the full story aloud (always, not just Full Coaching — this is the core UX)
       const fullText = currentStory.scenes.map(s => s.text).join(' ');
-      await vg.autoReadText(fullText);
+      try {
+        await speakTTS(fullText);
+      } catch { /* TTS may fail, that's OK — text is visible */ }
     };
     doAutoRead();
-  }, [phase, currentStory, currentIndex, vg]);
+  }, [phase, currentStory, currentIndex, vg, speakTTS]);
 
   const handleListenToStory = useCallback(() => {
     if (!currentStory) return;
