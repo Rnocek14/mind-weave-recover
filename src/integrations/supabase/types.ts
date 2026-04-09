@@ -1247,6 +1247,56 @@ export type Database = {
         }
         Relationships: []
       }
+      functional_checkins: {
+        Row: {
+          caregiver_burden: number | null
+          checkin_date: string
+          communication_of_needs: number | null
+          conversational_participation: number | null
+          created_at: string
+          id: string
+          independence_level: number | null
+          notes: string | null
+          profile_id: string | null
+          rated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          caregiver_burden?: number | null
+          checkin_date?: string
+          communication_of_needs?: number | null
+          conversational_participation?: number | null
+          created_at?: string
+          id?: string
+          independence_level?: number | null
+          notes?: string | null
+          profile_id?: string | null
+          rated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          caregiver_burden?: number | null
+          checkin_date?: string
+          communication_of_needs?: number | null
+          conversational_participation?: number | null
+          created_at?: string
+          id?: string
+          independence_level?: number | null
+          notes?: string | null
+          profile_id?: string | null
+          rated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "functional_checkins_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       functional_goals: {
         Row: {
           archived_at: string | null
@@ -1593,10 +1643,12 @@ export type Database = {
       profiles: {
         Row: {
           accessibility_prefs: Json | null
+          aphasia_type: string | null
           avatar_url: string | null
           birthdate: string | null
           capability_profile_id: string | null
           caregiver_mode_enabled: boolean | null
+          chronicity_tag: string | null
           clinical_profile: Json | null
           consent_version: number | null
           created_at: string | null
@@ -1608,20 +1660,25 @@ export type Database = {
           hand_bias: string | null
           id: string
           is_active: boolean | null
+          laterality: string | null
+          primary_territory: string | null
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
           runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null
+          stroke_mechanism_tag: string | null
           user_id: string
         }
         Insert: {
           accessibility_prefs?: Json | null
+          aphasia_type?: string | null
           avatar_url?: string | null
           birthdate?: string | null
           capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
+          chronicity_tag?: string | null
           clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
@@ -1633,20 +1690,25 @@ export type Database = {
           hand_bias?: string | null
           id?: string
           is_active?: boolean | null
+          laterality?: string | null
+          primary_territory?: string | null
           profile_created_at?: string | null
           profile_name: string
           profile_notes?: string | null
           runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
+          stroke_mechanism_tag?: string | null
           user_id: string
         }
         Update: {
           accessibility_prefs?: Json | null
+          aphasia_type?: string | null
           avatar_url?: string | null
           birthdate?: string | null
           capability_profile_id?: string | null
           caregiver_mode_enabled?: boolean | null
+          chronicity_tag?: string | null
           clinical_profile?: Json | null
           consent_version?: number | null
           created_at?: string | null
@@ -1658,12 +1720,15 @@ export type Database = {
           hand_bias?: string | null
           id?: string
           is_active?: boolean | null
+          laterality?: string | null
+          primary_territory?: string | null
           profile_created_at?: string | null
           profile_name?: string
           profile_notes?: string | null
           runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
+          stroke_mechanism_tag?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1914,6 +1979,62 @@ export type Database = {
             columns: ["replaces_summary_id"]
             isOneToOne: false
             referencedRelation: "recovery_summaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retention_snapshots: {
+        Row: {
+          best_cue_level: number | null
+          best_score: number | null
+          created_at: string
+          id: string
+          last_cue_level: number | null
+          last_practiced_at: string | null
+          last_score: number | null
+          profile_id: string | null
+          session_count: number | null
+          snapshot_date: string
+          topic: string | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          best_cue_level?: number | null
+          best_score?: number | null
+          created_at?: string
+          id?: string
+          last_cue_level?: number | null
+          last_practiced_at?: string | null
+          last_score?: number | null
+          profile_id?: string | null
+          session_count?: number | null
+          snapshot_date?: string
+          topic?: string | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          best_cue_level?: number | null
+          best_score?: number | null
+          created_at?: string
+          id?: string
+          last_cue_level?: number | null
+          last_practiced_at?: string | null
+          last_score?: number | null
+          profile_id?: string | null
+          session_count?: number | null
+          snapshot_date?: string
+          topic?: string | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retention_snapshots_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2872,10 +2993,12 @@ export type Database = {
         Args: never
         Returns: {
           accessibility_prefs: Json | null
+          aphasia_type: string | null
           avatar_url: string | null
           birthdate: string | null
           capability_profile_id: string | null
           caregiver_mode_enabled: boolean | null
+          chronicity_tag: string | null
           clinical_profile: Json | null
           consent_version: number | null
           created_at: string | null
@@ -2887,12 +3010,15 @@ export type Database = {
           hand_bias: string | null
           id: string
           is_active: boolean | null
+          laterality: string | null
+          primary_territory: string | null
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
           runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null
+          stroke_mechanism_tag: string | null
           user_id: string
         }[]
         SetofOptions: {
