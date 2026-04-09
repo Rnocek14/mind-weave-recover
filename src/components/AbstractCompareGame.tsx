@@ -17,6 +17,8 @@ import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
