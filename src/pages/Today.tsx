@@ -342,60 +342,62 @@ export default function Today() {
             </div>
           )}
 
-          {/* Main CTA */}
-          <Button 
-            size="lg" 
-            className="w-full gap-2 text-base py-6" 
-            onClick={handleStartSession}
-            disabled={!lessonReady}
-            variant={savedSession ? 'outline' : 'default'}
-          >
-            {!lessonReady ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Preparing session...
-              </>
-            ) : (
-              <>
-                <Zap className="w-5 h-5" />
-                {savedSession
-                  ? 'Start new session instead'
-                  : stats && stats.totalSessions > 0
-                    ? `Start session #${sessionNumber}`
-                    : "Start today's practice"}
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
+          {/* Main CTA — uses recommendation when coaching is on */}
+          {(() => {
+            const recommendation = mode !== 'off' ? recommendNextSession() : null;
+            const useRecommendation = recommendation && recommendation.confidence !== 'low';
 
-          {/* Recommended session — Maya's choice */}
-          {mode !== 'off' && !savedSession && (() => {
-            const recommendation = recommendNextSession();
             return (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-3">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-primary shrink-0" />
-                  <p className="text-xs font-medium text-primary uppercase tracking-wide">
-                    Recommended for today
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    {recommendation.templateLabel}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {recommendation.reason}
-                  </p>
-                </div>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full gap-2 text-sm py-5"
-                  onClick={() => handleStartRecommended(recommendation)}
+              <div className="space-y-3">
+                {/* Maya's reasoning */}
+                {useRecommendation && !savedSession && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-primary shrink-0" />
+                      <p className="text-xs font-medium text-primary uppercase tracking-wide">
+                        Today's focus
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {recommendation.templateLabel}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {recommendation.reason}
+                    </p>
+                  </div>
+                )}
+
+                <Button 
+                  size="lg" 
+                  className="w-full gap-2 text-base py-6" 
+                  onClick={() => {
+                    if (useRecommendation && !savedSession) {
+                      handleStartRecommended(recommendation);
+                    } else {
+                      handleStartSession();
+                    }
+                  }}
+                  disabled={!lessonReady}
+                  variant={savedSession ? 'outline' : 'default'}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Start recommended session
-                  <ArrowRight className="w-4 h-4" />
+                  {!lessonReady ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Preparing session...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      {savedSession
+                        ? 'Start new session instead'
+                        : useRecommendation
+                          ? `Start session #${sessionNumber}`
+                          : stats && stats.totalSessions > 0
+                            ? `Start session #${sessionNumber}`
+                            : "Start today's practice"}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </Button>
               </div>
             );
