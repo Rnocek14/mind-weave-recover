@@ -79,16 +79,17 @@ const REFLECTION_MAP: Record<string, ExerciseReflectionTemplate> = {
 
   'semantic-features': {
     getReflection: (acc) => {
-      if (acc >= 0.8) return 'You described features clearly, which is excellent for word finding.';
-      if (acc >= 0.5) return 'Good feature identification. Try thinking about what the item does and where you find it.';
-      return 'Describing features is a powerful strategy for finding words when they feel stuck.';
+      if (acc >= 0.8) return 'You identified features well and used them to retrieve the words — that is exactly how this strategy works in real life.';
+      if (acc >= 0.5) return 'You found many features. With practice, using those features to retrieve the word gets faster and more automatic.';
+      return 'Thinking about what something does, where it is, and what it looks like builds pathways to the word. Each trial strengthens those connections.';
     },
-    realLifeLine: 'When a word is on the tip of your tongue, describing its features helps you find it.',
+    realLifeLine: 'When a word is on the tip of your tongue, thinking about its features — what group it belongs to, what you do with it, where you find it — helps you reach it.',
     getNextStep: (acc) => {
-      if (acc >= 0.8) return 'Try using features to retrieve the target word faster.';
-      return 'Practice describing category, use, and location for each item.';
+      if (acc >= 0.8) return 'Try harder items where the features are less obvious.';
+      if (acc >= 0.5) return 'Focus on function and category features — those are the strongest retrieval cues.';
+      return 'Start with familiar items and practice naming the category, use, and appearance.';
     },
-    skillCategories: ['semantics', 'word-retrieval'],
+    skillCategories: ['semantics', 'word-retrieval', 'naming'],
   },
 
   'sentence-construction': {
