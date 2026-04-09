@@ -124,6 +124,8 @@ export interface DailyLesson {
   reasoning: string[];
   energyLevel: 'light' | 'moderate' | 'challenging';
   doseReasoning?: DoseReasoning;
+  /** If set, LessonFlow will use this session frame template for Maya intro/transitions/closing */
+  sessionFrameId?: string;
 }
 
 /**
