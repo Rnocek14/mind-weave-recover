@@ -153,6 +153,30 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
     });
   }, [exerciseScores, sessionFrame]);
 
+  // Full Coaching: speak the closing reflection once scores are ready
+  useEffect(() => {
+    if (!isVoiceLed || hasSpokenClosingRef.current || exerciseScores.length === 0) return;
+    hasSpokenClosingRef.current = true;
+
+    // Build a spoken summary
+    const savedDetails = readAllExerciseDetails();
+    const blockResults: BlockResult[] = exerciseScores.map((es, i) => {
+      const detailEntry = Array.from(savedDetails.values()).find(
+        d => d.exerciseId === es.exercise_slug
+      ) || savedDetails.get(i);
+      return {
+        exerciseId: es.exercise_slug,
+        avgScore: es.avg_score,
+        trialCount: es.trial_count,
+        details: detailEntry?.details,
+      };
+    });
+    
+    const insight = buildSessionInsight(blockResults);
+    const spokenClosing = `${insight.strength}. ${insight.nextStep}.`;
+    speak(spokenClosing);
+  }, [isVoiceLed, exerciseScores, speak]);
+
   const totalTrials = useMemo(
     () => exerciseScores.reduce((sum, s) => sum + s.trial_count, 0),
     [exerciseScores]
