@@ -641,6 +641,9 @@ function SessionCard({
                   </div>
                 </div>
               )}
+
+              {/* Clinician Session Notes */}
+              <ClinicianNoteSection sessionId={session.id} userId={session.user_id || ""} profileId={session.profile_id} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">No trial data for this session.</p>
