@@ -31,6 +31,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -120,6 +121,8 @@ export const PhotoNamingGame = ({
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const micStartTimeRef = useRef<number>(0); // For latency measurement
   const { setLiveSnapshot } = useLiveAnalysis();
+  const vg = useVoiceGuidance('photo-naming');
+  const hasSpokenIntroRef = useRef(false);
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -389,6 +392,17 @@ export const PhotoNamingGame = ({
     };
   }, [state.trialNumber]); // Use trialNumber for unique trial identity
   
+  // Voice guidance: speak intro on first trial
+  useEffect(() => {
+    if (state.isComplete || state.trialNumber !== 1) return;
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        vg.speakIfVoiceLed('Say what you see.');
+      });
+    }
+  }, [state.trialNumber, state.isComplete, vg]);
+
   // Reset logger counters when session starts/changes
   useEffect(() => {
     if (activeSessionId) {

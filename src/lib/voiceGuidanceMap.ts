@@ -112,6 +112,12 @@ const guidanceMap: Record<string, VoiceGuidance> = {
     voiceReminder: "What does it look like? What do you use it for?",
     autoReadStimulus: false,
   },
+  'thought-continuation': {
+    voiceIntro: "I'll start a thought, and you finish it. There are no wrong answers.",
+    voiceTask: "Finish the thought.",
+    voiceReminder: "Just say whatever comes to mind.",
+    autoReadStimulus: false,
+  },
 };
 
 /** Fallback for exercises not yet wired for Full Coaching */

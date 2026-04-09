@@ -37,6 +37,7 @@ import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
@@ -98,6 +99,9 @@ export function DescribeGuessGame({
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'describe-guess' });
+  const vg = useVoiceGuidance('describe-guess');
+  const hasSpokenIntroRef = useRef(false);
+  const stallTimerVgRef = useRef<NodeJS.Timeout | null>(null);
 
   const bounds = getCapabilityDifficultyBounds('describe_guess', null);
 
@@ -203,6 +207,30 @@ export function DescribeGuessGame({
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
     return true;
   }, []);
+
+  // Voice guidance: speak intro on first trial
+  useEffect(() => {
+    if (!game.currentTrial || game.isComplete) return;
+    if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        // After intro, speak the task
+        vg.speakIfVoiceLed('Tell me about it. Describe what you see.');
+      });
+    }
+  }, [game.currentTrial, game.isComplete, game.currentIndex, vg]);
+
+  // Voice guidance: stall reminder if no speech for ~8s
+  useEffect(() => {
+    if (!game.currentTrial || game.isComplete || showFeedback) return;
+    if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current);
+    stallTimerVgRef.current = setTimeout(() => {
+      if (vg.shouldAutoSpeak && !displayTranscript) {
+        vg.speakReminder();
+      }
+    }, 8000);
+    return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
+  }, [game.currentTrial?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
   // Begin new trial
   useEffect(() => {

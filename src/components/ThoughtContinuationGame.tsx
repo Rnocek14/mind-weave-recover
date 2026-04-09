@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -118,6 +119,8 @@ export function ThoughtContinuationGame({
   
   // Hooks
   const { speak } = useTextToSpeech();
+  const vg = useVoiceGuidance('thought-continuation');
+  const hasSpokenIntroRef = useRef(false);
   const { 
     startAttempt, 
     logFinalAnalysis, 
@@ -189,6 +192,29 @@ export function ThoughtContinuationGame({
   // Initialize first prompt
   // ---------------------------------------------------------------------------
   
+  // Voice guidance: speak intro on first prompt
+  useEffect(() => {
+    if (!currentPrompt || promptCount !== 1) return;
+    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        // After intro, read the first prompt aloud
+        if (currentPrompt) {
+          vg.speakIfVoiceLed(currentPrompt.promptText);
+        }
+      });
+    }
+  }, [currentPrompt, promptCount, vg]);
+
+  // Voice guidance: read prompt text aloud on subsequent prompts
+  useEffect(() => {
+    if (!currentPrompt || promptCount <= 1) return;
+    if (vg.shouldAutoSpeak) {
+      vg.speakIfVoiceLed(currentPrompt.promptText);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPrompt?.id, promptCount]);
+
   useEffect(() => {
     if (!currentPrompt && promptCount === 0) {
       selectAndSetNextPrompt();

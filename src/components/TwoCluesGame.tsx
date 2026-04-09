@@ -31,6 +31,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const SCORING_DEBOUNCE_MS = 750;
@@ -157,6 +158,9 @@ export function TwoCluesGame({
   
   const { speak } = useTextToSpeech();
   const { playHint } = useGameSounds();
+  const vg = useVoiceGuidance('two-clues');
+  const hasSpokenIntroRef = useRef(false);
+  const stallTimerVgRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync refs for stale-closure safety
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
@@ -388,6 +392,39 @@ export function TwoCluesGame({
     rawTranscriptRef.current = '';
     setScoringPhase('idle');
   }, []);
+
+  // Voice guidance: speak intro on first trial
+  useEffect(() => {
+    if (!game.currentPuzzle || game.isComplete) return;
+    if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenIntroRef.current = true;
+      vg.speakIntro().then(() => {
+        vg.speakIfVoiceLed('What word am I describing?');
+      });
+    }
+  }, [game.currentPuzzle, game.isComplete, game.currentIndex, vg]);
+
+  // Voice guidance: speak clues aloud for each new puzzle
+  useEffect(() => {
+    if (!game.currentPuzzle || game.isComplete || showFeedback) return;
+    if (vg.shouldAutoSpeak && game.currentIndex > 0) {
+      const clues = game.currentPuzzle.clues.join(', and ');
+      vg.speakIfVoiceLed(clues);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.currentPuzzle?.id, game.isComplete, showFeedback]);
+
+  // Voice guidance: stall reminder if no speech for ~8s
+  useEffect(() => {
+    if (!game.currentPuzzle || game.isComplete || showFeedback) return;
+    if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current);
+    stallTimerVgRef.current = setTimeout(() => {
+      if (vg.shouldAutoSpeak && !displayTranscript) {
+        vg.speakReminder();
+      }
+    }, 8000);
+    return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
+  }, [game.currentPuzzle?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
   // Auto-start listening when puzzle changes
   useEffect(() => {
