@@ -158,7 +158,7 @@ const App = () => (
                   {/* Clinician routes - with header */}
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
                   <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
-                  <Route path="/clinician/report" element={<AppLayout><ClinicianReport /></AppLayout>} />
+                  <Route path="/clinician/report" element={<Navigate to="/clinician/review" replace />} />
                   
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
