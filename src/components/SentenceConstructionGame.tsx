@@ -32,6 +32,7 @@ import { useSentenceGame } from "@/hooks/useSentenceGame";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useMayaExerciseFrame } from "@/hooks/useMayaExerciseFrame";
+import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
 import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
 import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
@@ -129,6 +130,16 @@ export const SentenceConstructionGame = ({
 
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'sentence-construction' });
+  const vg = useVoiceGuidance('sentence-construction');
+
+  // Speak intro on first mount in Full Coaching mode
+  const hasSpokenSCIntroRef = useRef(false);
+  useEffect(() => {
+    if (!hasSpokenSCIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenSCIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
   const [showTiles, setShowTiles] = useState(false);

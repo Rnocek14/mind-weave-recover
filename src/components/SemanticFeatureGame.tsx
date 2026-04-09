@@ -15,6 +15,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -135,6 +136,16 @@ export const SemanticFeatureGame = ({
   const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId || null, 'semantic-features');
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'semantic-features' });
+  const vg = useVoiceGuidance('semantic-feature-analysis');
+
+  // Speak intro on first mount in Full Coaching mode
+  const hasSpokenSFAIntroRef = useRef(false);
+  useEffect(() => {
+    if (!hasSpokenSFAIntroRef.current && vg.shouldAutoSpeak) {
+      hasSpokenSFAIntroRef.current = true;
+      vg.speakIntro();
+    }
+  }, [vg.shouldAutoSpeak]);
 
   const {
     currentDifficulty,
