@@ -17,7 +17,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Plus, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard, Check, X } from 'lucide-react';
+import { Timer, Plus, RotateCcw, TrendingUp, TrendingDown, Mic, MicOff, Keyboard, Check, X, Volume2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
