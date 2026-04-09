@@ -21,6 +21,21 @@ import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
+function formatSlug(slug: string): string {
+  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+const ERROR_COLORS: Record<string, string> = {
+  semantic: "bg-amber-500",
+  phonological: "bg-blue-500",
+  timeout: "bg-muted-foreground",
+  no_response: "bg-muted-foreground",
+  perseveration: "bg-purple-500",
+  neologism: "bg-rose-500",
+};
+
+const MOOD_EMOJI: Record<number, string> = { 1: "😞", 2: "😐", 3: "🙂", 4: "😊", 5: "😄" };
+
 interface SessionsTabProps {
   userId: string;
   profileId: string | undefined;
