@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X } from 'lucide-react';
+import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useDailyLesson } from '@/hooks/useDailyLesson';
-import { buildPresetLesson } from '@/lib/dailyLessonEngine';
+import { buildPresetLesson, type LessonPreset } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
+import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
 
 interface AdherenceStats {
   totalSessions: number;
