@@ -23,6 +23,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;

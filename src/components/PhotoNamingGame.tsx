@@ -26,6 +26,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';

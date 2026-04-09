@@ -30,6 +30,7 @@ import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, Tren
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const SCORING_DEBOUNCE_MS = 750;

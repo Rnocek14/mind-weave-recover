@@ -13,6 +13,7 @@ import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 interface MinimalPairsGameProps {
   difficulty?: number;

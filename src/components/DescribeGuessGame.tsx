@@ -33,6 +33,7 @@ import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
