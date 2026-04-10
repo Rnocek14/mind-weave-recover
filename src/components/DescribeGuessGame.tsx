@@ -567,7 +567,7 @@ export function DescribeGuessGame({
     }
   }, [game, stopListening, isRecording, stopRecording, uploadRecording, sessionId, userId,
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
-      startListening, speechIsListening]);
+      startListening, speechIsListening, wordSaidRedirect]);
 
   // Keep ref in sync so pre-declaration useEffects can call runEvaluation
   useEffect(() => { runEvaluationRef.current = runEvaluation; }, [runEvaluation]);
