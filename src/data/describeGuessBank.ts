@@ -309,10 +309,210 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
     difficulty: 3,
     category: 'nature',
   },
+
+  // ══════════════ ADDITIONAL WORDS ══════════════
+
+  // Difficulty 1
+  {
+    id: 'dg_hat',
+    target: 'hat',
+    photoBankId: 'hat_1',
+    acceptedWords: ['hat', 'cap'],
+    wordAliases: { hat: ['hats'], cap: ['caps'] },
+    featureKeywords: {
+      function: ['wear', 'cover', 'protect', 'shade', 'sun'],
+      location: ['head', 'closet', 'hook', 'rack'],
+      appearance: ['brim', 'round', 'visor', 'soft'],
+      material: ['cloth', 'cotton', 'wool', 'fabric', 'straw'],
+      category: ['clothing', 'accessory', 'headwear'],
+    },
+    difficulty: 1,
+    category: 'clothing',
+  },
+  {
+    id: 'dg_bed',
+    target: 'bed',
+    photoBankId: 'bed_1',
+    acceptedWords: ['bed'],
+    wordAliases: { bed: ['beds', 'bad'] },
+    featureKeywords: {
+      function: ['sleep', 'rest', 'lie down', 'nap', 'dream'],
+      location: ['bedroom', 'room', 'hotel', 'house'],
+      appearance: ['big', 'flat', 'soft', 'pillow', 'blanket', 'sheets', 'mattress'],
+      material: ['wood', 'metal', 'fabric', 'foam', 'cotton'],
+      category: ['furniture'],
+    },
+    difficulty: 1,
+    category: 'furniture',
+  },
+  {
+    id: 'dg_ball',
+    target: 'ball',
+    photoBankId: 'ball_1',
+    acceptedWords: ['ball'],
+    wordAliases: { ball: ['balls', 'bawl'] },
+    featureKeywords: {
+      function: ['throw', 'catch', 'kick', 'bounce', 'play', 'roll'],
+      location: ['field', 'gym', 'park', 'ground', 'yard'],
+      appearance: ['round', 'sphere', 'smooth', 'colorful'],
+      material: ['rubber', 'leather', 'plastic', 'foam'],
+      category: ['toy', 'sports', 'equipment'],
+    },
+    difficulty: 1,
+    category: 'sports',
+  },
+  {
+    id: 'dg_book',
+    target: 'book',
+    photoBankId: 'book_1',
+    acceptedWords: ['book', 'novel'],
+    wordAliases: { book: ['books', 'buk'], novel: ['novels'] },
+    featureKeywords: {
+      function: ['read', 'learn', 'study', 'story', 'stories'],
+      location: ['shelf', 'library', 'table', 'desk', 'school', 'bookstore'],
+      appearance: ['pages', 'cover', 'rectangular', 'thick', 'thin', 'spine'],
+      material: ['paper', 'cardboard', 'cloth'],
+      category: ['literature', 'reading material'],
+    },
+    difficulty: 1,
+    category: 'objects',
+  },
+
+  // Difficulty 2
+  {
+    id: 'dg_umbrella',
+    target: 'umbrella',
+    photoBankId: 'umbrella_1',
+    acceptedWords: ['umbrella', 'parasol'],
+    wordAliases: { umbrella: ['umbrellas', 'umberella'] },
+    featureKeywords: {
+      function: ['rain', 'protect', 'cover', 'dry', 'shade', 'shelter'],
+      location: ['outside', 'hand', 'car', 'door', 'stand'],
+      appearance: ['round', 'curved', 'handle', 'canopy', 'fabric', 'fold'],
+      material: ['nylon', 'metal', 'plastic', 'fabric', 'cloth'],
+      category: ['accessory', 'tool', 'rain gear'],
+    },
+    difficulty: 2,
+    category: 'accessories',
+  },
+  {
+    id: 'dg_scissors',
+    target: 'scissors',
+    photoBankId: 'scissors_1',
+    acceptedWords: ['scissors', 'shears'],
+    wordAliases: { scissors: ['scissor', 'sizors'], shears: ['sheers'] },
+    featureKeywords: {
+      function: ['cut', 'cutting', 'trim', 'snip', 'paper', 'hair'],
+      location: ['desk', 'drawer', 'office', 'school', 'kitchen'],
+      appearance: ['two blades', 'sharp', 'handles', 'holes', 'pointed'],
+      material: ['metal', 'steel', 'plastic', 'rubber'],
+      category: ['tool', 'office supply', 'stationery'],
+    },
+    difficulty: 2,
+    category: 'tools',
+  },
+  {
+    id: 'dg_clock',
+    target: 'clock',
+    photoBankId: 'clock_1',
+    acceptedWords: ['clock'],
+    wordAliases: { clock: ['clocks', 'clok'] },
+    featureKeywords: {
+      function: ['time', 'tell time', 'alarm', 'wake up', 'tick'],
+      location: ['wall', 'table', 'bedroom', 'kitchen', 'office', 'tower'],
+      appearance: ['round', 'face', 'hands', 'numbers', 'dial'],
+      material: ['plastic', 'metal', 'wood', 'glass'],
+      category: ['electronics', 'device', 'timepiece'],
+    },
+    difficulty: 2,
+    category: 'home',
+  },
+  {
+    id: 'dg_cat',
+    target: 'cat',
+    photoBankId: 'cat_1',
+    acceptedWords: ['cat', 'kitten', 'kitty'],
+    wordAliases: { cat: ['cats', 'kat'], kitten: ['kittens'] },
+    featureKeywords: {
+      function: ['pet', 'purr', 'meow', 'scratch', 'hunt', 'cuddle'],
+      location: ['house', 'home', 'couch', 'lap', 'window', 'bed'],
+      appearance: ['fur', 'whiskers', 'tail', 'paws', 'ears', 'eyes', 'claws'],
+      material: ['fur', 'hair'],
+      category: ['animal', 'pet', 'mammal'],
+    },
+    difficulty: 2,
+    category: 'animals',
+  },
+
+  // Difficulty 3
+  {
+    id: 'dg_bridge',
+    target: 'bridge',
+    photoBankId: 'bridge_1',
+    acceptedWords: ['bridge'],
+    wordAliases: { bridge: ['bridges', 'brij'] },
+    featureKeywords: {
+      function: ['cross', 'connect', 'walk over', 'drive over', 'span'],
+      location: ['river', 'water', 'road', 'highway', 'city'],
+      appearance: ['long', 'arches', 'cables', 'tall', 'wide', 'railings'],
+      material: ['steel', 'concrete', 'stone', 'wood', 'metal', 'iron'],
+      category: ['structure', 'infrastructure', 'construction'],
+    },
+    difficulty: 3,
+    category: 'places',
+  },
+  {
+    id: 'dg_candle',
+    target: 'candle',
+    photoBankId: 'candle_1',
+    acceptedWords: ['candle'],
+    wordAliases: { candle: ['candles', 'kandel'] },
+    featureKeywords: {
+      function: ['light', 'burn', 'smell', 'melt', 'glow', 'flame'],
+      location: ['table', 'cake', 'church', 'bathroom', 'dinner'],
+      appearance: ['tall', 'thin', 'wick', 'flame', 'dripping', 'cylindrical'],
+      material: ['wax', 'paraffin', 'cotton'],
+      category: ['decoration', 'lighting'],
+    },
+    difficulty: 3,
+    category: 'home',
+  },
+  {
+    id: 'dg_bicycle',
+    target: 'bicycle',
+    photoBankId: 'bicycle_1',
+    acceptedWords: ['bicycle', 'bike'],
+    wordAliases: { bicycle: ['bicycles', 'bycicle'], bike: ['bikes', 'bik'] },
+    featureKeywords: {
+      function: ['ride', 'pedal', 'exercise', 'travel', 'race'],
+      location: ['road', 'path', 'park', 'garage', 'sidewalk', 'street'],
+      appearance: ['wheels', 'two wheels', 'handlebars', 'seat', 'pedals', 'chain', 'spokes'],
+      material: ['metal', 'steel', 'aluminum', 'rubber', 'carbon'],
+      category: ['vehicle', 'transportation', 'sports equipment'],
+    },
+    difficulty: 3,
+    category: 'transportation',
+  },
+  {
+    id: 'dg_window',
+    target: 'window',
+    photoBankId: 'window_1',
+    acceptedWords: ['window'],
+    wordAliases: { window: ['windows', 'windo'] },
+    featureKeywords: {
+      function: ['see', 'look', 'open', 'close', 'light', 'air', 'view', 'ventilate'],
+      location: ['wall', 'house', 'building', 'car', 'room'],
+      appearance: ['glass', 'frame', 'pane', 'rectangular', 'square', 'curtains'],
+      material: ['glass', 'wood', 'metal', 'aluminum', 'plastic'],
+      category: ['part of house', 'building', 'architecture'],
+    },
+    difficulty: 3,
+    category: 'home',
+  },
 ];
 
 /**
- * Get trials filtered by difficulty
+ * Get trials filtered by difficulty — guaranteed no repeated targets
  */
 export function getDescribeGuessTrials(options?: {
   difficulty?: number;
@@ -323,6 +523,15 @@ export function getDescribeGuessTrials(options?: {
   if (options?.difficulty) {
     trials = trials.filter(t => t.difficulty <= options.difficulty!);
   }
+
+  // Deduplicate by target word (safety net)
+  const seen = new Set<string>();
+  trials = trials.filter(t => {
+    const key = t.target.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   
   // Shuffle
   for (let i = trials.length - 1; i > 0; i--) {
