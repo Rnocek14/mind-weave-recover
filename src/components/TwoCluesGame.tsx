@@ -909,6 +909,7 @@ export function TwoCluesGame({
   }, [resetAttempt, beginAttempt, setProcessingGuard]);
 
   const handleSkip = useCallback(async () => {
+    if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     cancelRecording();
     stopListening();
@@ -921,6 +922,7 @@ export function TwoCluesGame({
   }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
 
   const handleContinue = useCallback(() => {
+    if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     clearTranscriptState();
     setShowFeedback(false);
