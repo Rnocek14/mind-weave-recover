@@ -429,7 +429,7 @@ export function DescribeGuessGame({
             feedbackTimerRef.current = setTimeout(() => {
               resetAttempt();
               game.nextTrial();
-            }, 3500);
+            }, 6000);
           }, 6000);
         });
       } else {
@@ -458,7 +458,7 @@ export function DescribeGuessGame({
         feedbackTimerRef.current = setTimeout(() => {
           resetAttempt();
           game.nextTrial();
-        }, 3500);
+        }, 6000);
       }
     } catch (err) {
       console.error('Evaluation error:', err);
