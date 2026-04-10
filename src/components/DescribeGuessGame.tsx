@@ -109,6 +109,7 @@ export function DescribeGuessGame({
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isListeningRef = useRef(false);
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
@@ -325,12 +326,14 @@ export function DescribeGuessGame({
     if (game.checkWordMatch(textToCheck, trial)) {
       game.recordWordRetrieval();
 
-      // Check if they already produced descriptive content — if so, don't redirect
+      // Check if they already produced descriptive content — if so, fast-track evaluation
       const contentWords = getContentWordCount(textToCheck);
       const targetWordCount = trial.target.split(/\s+/).length;
       const wordsExcludingTarget = contentWords - targetWordCount;
       if (wordsExcludingTarget >= 3 || game.featureTypesUsed.size >= 1) {
-        // They described AND said the word — that's fine, let evaluation proceed
+        // They described AND said the word — immediately evaluate (no silence wait)
+        console.log('[DescribeGuess] Word said after description — fast-tracking evaluation');
+        runEvaluationRef.current();
         return;
       }
 
@@ -566,7 +569,9 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
       startListening, speechIsListening]);
 
-  // Track transcript changes for silence measurement
+  // Keep ref in sync so pre-declaration useEffects can call runEvaluation
+  useEffect(() => { runEvaluationRef.current = runEvaluation; }, [runEvaluation]);
+
   useEffect(() => {
     if (fullTranscript) lastTranscriptChangeRef.current = Date.now();
   }, [fullTranscript]);
