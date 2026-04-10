@@ -257,6 +257,18 @@ export function CategoryFluencyGame({
 
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    // Flush any pending word before scoring
+    if (pendingWordRef.current && !processedRef.current.has(pendingWordRef.current)) {
+      const pw = pendingWordRef.current;
+      processedRef.current.add(pw);
+      const status = validateCategoryWord(pw, config.category);
+      if (status !== 'filler') {
+        wordsRef.current = [...wordsRef.current, { text: pw, status }];
+        setWords(wordsRef.current);
+      }
+      pendingWordRef.current = null;
+    }
     stopListening();
 
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
