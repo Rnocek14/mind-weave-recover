@@ -569,7 +569,9 @@ export function DescribeGuessGame({
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
       startListening, speechIsListening]);
 
-  // Track transcript changes for silence measurement
+  // Keep ref in sync so pre-declaration useEffects can call runEvaluation
+  useEffect(() => { runEvaluationRef.current = runEvaluation; }, [runEvaluation]);
+
   useEffect(() => {
     if (fullTranscript) lastTranscriptChangeRef.current = Date.now();
   }, [fullTranscript]);
