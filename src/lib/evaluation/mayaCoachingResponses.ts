@@ -2,14 +2,103 @@
  * Maya Coaching Responses for Validation Rejections
  * 
  * Maps rejection reasons to varied, therapeutic Maya lines.
- * Uses a rotation buffer to avoid repetition.
- * Integrates with TTS so Maya speaks the coaching line.
+ * Features:
+ * - Rotation buffer to avoid repetition
+ * - Exercise-specific scaffolding lines
+ * - Attempt-aware tone shifting (softer after repeated failures)
+ * - Timing control: 300ms delay + debounce to prevent overlapping/rushed speech
+ * - TTS integration with graceful fallback
  */
 
-import type { RejectionReason } from './responseValidation';
+import type { RejectionReason, ResponseMode } from './responseValidation';
 
-/** Multiple phrasings per rejection reason, rotated to avoid repetition */
-const COACHING_LINES: Record<RejectionReason, string[]> = {
+// ─── Exercise-specific coaching lines ────────────────────────────────────────
+
+type ExerciseKey = 'describe_guess' | 'photo_naming' | 'two_clues' | 'fix_sentence' 
+  | 'narrative_retell' | 'abstract_compare' | 'multi_step_planning' 
+  | 'thought_continuation' | 'generic';
+
+/** Context-aware lines: exercise → reason → phrases */
+const CONTEXTUAL_LINES: Partial<Record<ExerciseKey, Partial<Record<RejectionReason, string[]>>>> = {
+  describe_guess: {
+    too_short: [
+      "Try describing what it looks like or what it does.",
+      "Think about its shape, color, or where you'd find it.",
+      "What category does it belong to?",
+    ],
+    instruction_echo: [
+      "Instead of the instructions, describe what you see in the picture.",
+      "Tell me about the object — what does it look like?",
+    ],
+  },
+  photo_naming: {
+    too_short: [
+      "Try saying the name of what you see.",
+      "What is this object called?",
+    ],
+    filler: [
+      "Take a moment, then say the word when it comes to you.",
+      "No rush — picture it in your mind, then name it.",
+    ],
+  },
+  two_clues: {
+    too_short: [
+      "What word connects those two clues?",
+      "Think about what they both describe.",
+    ],
+    instruction_echo: [
+      "Tell me your guess — what word fits both clues?",
+    ],
+  },
+  fix_sentence: {
+    too_short: [
+      "Say the corrected word — what should it be?",
+      "Which word needs to change?",
+    ],
+    instruction_echo: [
+      "Instead of the instructions, say the word that fixes the sentence.",
+    ],
+  },
+  narrative_retell: {
+    too_short: [
+      "Try telling me what happened first in the story.",
+      "Start with who was in the story and what they did.",
+      "Can you add what happened next?",
+    ],
+    filler: [
+      "Take your time — start with the beginning of the story.",
+      "Think about the main character. What did they do?",
+    ],
+  },
+  abstract_compare: {
+    too_short: [
+      "How are they similar? Think about what they share.",
+      "What do they have in common?",
+    ],
+    filler: [
+      "Take a moment. What makes these two things alike?",
+    ],
+  },
+  multi_step_planning: {
+    too_short: [
+      "What would you do first? Then what comes next?",
+      "Try describing the steps you'd take.",
+    ],
+  },
+  thought_continuation: {
+    too_short: [
+      "Keep going — finish the thought.",
+      "What comes next in your mind?",
+    ],
+    filler: [
+      "That's a start — try completing the idea.",
+    ],
+  },
+};
+
+// ─── Generic fallback lines ─────────────────────────────────────────────────
+
+const GENERIC_LINES: Record<RejectionReason, string[]> = {
   empty: [
     "I didn't hear anything — take your time and try again.",
     "No rush. When you're ready, give it a go.",
@@ -21,7 +110,7 @@ const COACHING_LINES: Record<RejectionReason, string[]> = {
     "That's okay — try putting your answer into words.",
   ],
   instruction_echo: [
-    "I think you repeated the instructions — try telling me what you see instead.",
+    "I think you repeated the instructions — try telling me your answer instead.",
     "That sounded like the instructions. What's your actual answer?",
     "Instead of the instructions, tell me what you think.",
   ],
@@ -42,37 +131,145 @@ const COACHING_LINES: Record<RejectionReason, string[]> = {
   ],
 };
 
-/** Track last used index per reason to rotate phrasings */
+// ─── Attempt-aware softening (after 2+ consecutive rejections) ──────────────
+
+const SOFTENED_LINES: Partial<Record<RejectionReason, string[]>> = {
+  empty: [
+    "Still here with you. Try whenever you're ready.",
+    "No pressure at all. Take as long as you need.",
+  ],
+  filler: [
+    "You're doing fine. Try to say what's on your mind.",
+  ],
+  too_short: [
+    "Even one more word would help. You're doing great.",
+    "That's a start — anything else you can add?",
+  ],
+  non_answer: [
+    "That's completely okay. Let's try a different angle.",
+    "No worries. Just say whatever comes to mind.",
+  ],
+  instruction_echo: [
+    "Let me help — just tell me what you notice or think.",
+  ],
+  prompt_repeat: [
+    "That's alright. Try saying it a different way.",
+  ],
+};
+
+// ─── Rotation + selection logic ─────────────────────────────────────────────
+
 const lastUsedIndex: Record<string, number> = {};
 
-/**
- * Get a varied Maya coaching line for a rejection reason.
- * Rotates through options to avoid repetition.
- */
-export function getMayaCoachingLine(reason: RejectionReason): string {
-  const lines = COACHING_LINES[reason];
-  const key = reason;
+function pickRotated(lines: string[], key: string): string {
   const lastIdx = lastUsedIndex[key] ?? -1;
   const nextIdx = (lastIdx + 1) % lines.length;
   lastUsedIndex[key] = nextIdx;
   return lines[nextIdx];
 }
 
+/** Track consecutive rejections per exercise for tone softening */
+const consecutiveRejections: Record<string, number> = {};
+
+export interface CoachingContext {
+  exerciseKey?: ExerciseKey;
+  /** Number of consecutive rejections in this trial/session */
+  consecutiveFailures?: number;
+}
+
 /**
- * Speak a Maya coaching line via TTS and return the text.
- * Falls back to returning text only if speak function is not provided.
+ * Get a context-aware, varied Maya coaching line.
+ * Priority: exercise-specific → softened (if repeated) → generic
  */
-export async function speakMayaCoaching(
-  reason: RejectionReason,
-  speakFn?: (text: string) => Promise<void>,
-): Promise<string> {
-  const line = getMayaCoachingLine(reason);
-  if (speakFn) {
-    try {
-      await speakFn(line);
-    } catch (err) {
-      console.warn('[MayaCoaching] TTS failed, text-only fallback:', err);
+export function getMayaCoachingLine(
+  reason: RejectionReason, 
+  context?: CoachingContext,
+): string {
+  const exercise = context?.exerciseKey || 'generic';
+  const failures = context?.consecutiveFailures ?? 0;
+  const rotKey = `${exercise}_${reason}`;
+
+  // After 2+ consecutive rejections, use softened tone
+  if (failures >= 2) {
+    const softened = SOFTENED_LINES[reason];
+    if (softened?.length) {
+      return pickRotated(softened, `${rotKey}_soft`);
     }
   }
-  return line;
+
+  // Try exercise-specific lines first
+  const contextual = CONTEXTUAL_LINES[exercise]?.[reason];
+  if (contextual?.length) {
+    return pickRotated(contextual, rotKey);
+  }
+
+  // Fall back to generic
+  return pickRotated(GENERIC_LINES[reason], `generic_${reason}`);
+}
+
+// ─── Timing control ─────────────────────────────────────────────────────────
+
+const COACHING_DELAY_MS = 300;
+let pendingCoachingTimer: ReturnType<typeof setTimeout> | null = null;
+let lastCoachingTimestamp = 0;
+const MIN_COACHING_INTERVAL_MS = 2000; // Don't speak coaching more than once per 2s
+
+/**
+ * Speak a Maya coaching line with timing control.
+ * - 300ms delay before speaking (gives user space)
+ * - Debounced: cancels pending coaching if called again quickly
+ * - Minimum 2s interval between coaching utterances
+ * 
+ * Returns the coaching text immediately for UI display.
+ */
+export function speakMayaCoaching(
+  reason: RejectionReason,
+  speakFn?: (text: string) => Promise<void>,
+  context?: CoachingContext,
+): Promise<string> {
+  // Track consecutive rejections
+  const exKey = context?.exerciseKey || 'generic';
+  consecutiveRejections[exKey] = (consecutiveRejections[exKey] || 0) + 1;
+  const enrichedContext: CoachingContext = {
+    ...context,
+    consecutiveFailures: consecutiveRejections[exKey],
+  };
+
+  const line = getMayaCoachingLine(reason, enrichedContext);
+
+  // Cancel any pending coaching
+  if (pendingCoachingTimer) {
+    clearTimeout(pendingCoachingTimer);
+    pendingCoachingTimer = null;
+  }
+
+  if (!speakFn) {
+    return Promise.resolve(line);
+  }
+
+  // Check minimum interval
+  const now = Date.now();
+  const timeSinceLast = now - lastCoachingTimestamp;
+  const effectiveDelay = Math.max(COACHING_DELAY_MS, MIN_COACHING_INTERVAL_MS - timeSinceLast);
+
+  return new Promise<string>((resolve) => {
+    pendingCoachingTimer = setTimeout(() => {
+      pendingCoachingTimer = null;
+      lastCoachingTimestamp = Date.now();
+      speakFn(line).catch(err => {
+        console.warn('[MayaCoaching] TTS failed, text-only fallback:', err);
+      });
+      resolve(line);
+    }, effectiveDelay);
+  });
+}
+
+/**
+ * Reset consecutive rejection counter for an exercise.
+ * Call this when a valid response is accepted.
+ */
+export function resetCoachingState(exerciseKey?: ExerciseKey) {
+  if (exerciseKey) {
+    consecutiveRejections[exerciseKey] = 0;
+  }
 }
