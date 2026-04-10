@@ -365,6 +365,8 @@ export function ThoughtContinuationGame({
     // =========================================================================
     
     const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
+    trackValidation('thought_continuation', validation);
+    logValidationDetail('thought_continuation', transcript, validation);
     const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
     const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
     const completionResult = detectUtteranceComplete(transcript, null);
