@@ -124,7 +124,6 @@ export default function CategoryFluencyExercise() {
   }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
-    setCompleted(true);
     completeSession();
 
     // Save structured details for reflection engine
@@ -167,8 +166,15 @@ export default function CategoryFluencyExercise() {
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
+    } else {
+      // Standalone mode: mark completed so the game summary stays visible with onFinish
+      setCompleted(true);
     }
   }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
+
+  const handleFinish = useCallback(() => {
+    navigate('/today');
+  }, [navigate]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
