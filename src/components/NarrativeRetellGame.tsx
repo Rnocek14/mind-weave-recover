@@ -343,7 +343,7 @@ export function NarrativeRetellGame({
         speakMayaCoaching(validation.rejectionReason, speakTTS, { exerciseKey: 'narrative_retell' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
-        resetCoachingState('narrative_retell');
+        resetCoachingState('narrative_retell', speakTTS);
       }
       const result = submitRetell(validation.valid ? transcript : '', durationMs);
 
