@@ -270,7 +270,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const finalizeTrial = useCallback((
     transcript: string,
     guessResult: GuessResult,
-    wordWin: boolean,
+    rawWordWin: boolean,
     selfCorrected: boolean = false,
   ) => {
     if (!currentTrial) return;
@@ -282,6 +282,15 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     const strategyWin = allFeatures.length >= 2;
     const hasContent = getContentWordCount(transcript) >= 1;
     const communicationWin = hasContent; // Any meaningful speech = acknowledged
+
+    // Only award wordWin if the patient produced meaningful descriptive content
+    // before/alongside saying the target word. This prevents "blurting" the answer
+    // without circumlocution from earning the Word Retrieval star.
+    // Criteria: used at least 1 feature type OR said 3+ content words (beyond the target itself)
+    const targetWordCount = currentTrial.target.split(/\s+/).length;
+    const contentWordsExcludingTarget = getContentWordCount(transcript) - targetWordCount;
+    const producedDescription = allFeatures.length >= 1 || contentWordsExcludingTarget >= 3;
+    const wordWin = rawWordWin && producedDescription;
 
     if (meaningWin || wordWin) playSuccess();
 
