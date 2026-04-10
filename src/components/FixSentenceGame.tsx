@@ -233,6 +233,7 @@ export function FixSentenceGame({
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
@@ -401,6 +402,7 @@ export function FixSentenceGame({
   };
 
   const handleSkip = useCallback(() => {
+    if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     stopListening();
     setIsListening(false);
@@ -411,6 +413,7 @@ export function FixSentenceGame({
   }, [stopListening, isRecording, stopRecording, resetAttempt, game]);
 
   const handleTryAgain = useCallback(() => {
+    if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     setShowFeedback(false);
     lastScoredRef.current = '';
     rawTranscriptRef.current = '';
@@ -554,9 +557,14 @@ export function FixSentenceGame({
                 <p className="text-muted-foreground">
                   Try again! Think about what would make the sentence correct.
                 </p>
-                <Button variant="outline" size="sm" onClick={handleTryAgain} className="mt-2">
-                  <RotateCcw className="h-4 w-4 mr-1" /> Try Again
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button variant="outline" size="sm" onClick={handleTryAgain}>
+                    <RotateCcw className="h-4 w-4 mr-1" /> Try Again
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleSkip}>
+                    <SkipForward className="h-4 w-4 mr-1" /> Skip
+                  </Button>
+                </div>
               </>
             )}
           </CardContent>
