@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 
 const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
+const WRONG_ANSWER_DISPLAY_MS = 6000; // Show "not quite" feedback before auto-retry
 
 interface FixSentenceGameProps {
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
@@ -64,6 +65,8 @@ export function FixSentenceGame({
   const processingRef = useRef(false);
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ttsAbortRef = useRef(false);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
