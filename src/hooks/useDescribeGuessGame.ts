@@ -25,7 +25,6 @@ import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { useGameSounds } from '@/hooks/useGameSounds';
-import { useGameSounds } from '@/hooks/useGameSounds';
 
 export interface DescribeGuessTrialResult {
   trialId: string;
@@ -183,6 +182,8 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     }
 
     const analysisText = getSemanticAnalysisText(transcript);
+
+    const directMatch = matchAnswer(transcript, trial.target, trial.acceptedWords, trial.category);
     if (directMatch.isMatch && directMatch.countsAsCorrect) {
       return {
         guessed: true,
