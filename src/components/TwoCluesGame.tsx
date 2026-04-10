@@ -155,6 +155,7 @@ export function TwoCluesGame({
   const showCueRef = useRef(false);
   const showFeedbackRef = useRef(false);
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
@@ -447,6 +448,7 @@ export function TwoCluesGame({
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (thinkingHintTimeoutRef.current) clearTimeout(thinkingHintTimeoutRef.current);
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
       void finalizeAttemptRef.current('abandoned');
@@ -848,7 +850,16 @@ export function TwoCluesGame({
           game.nextRound();
         }, AUTO_ADVANCE_DELAY_MS);
       } else {
-        shouldHoldProcessing = false;
+        // Wrong answer: auto-retry after brief feedback
+        shouldHoldProcessing = true;
+        const currentAttemptNum = currentAttemptNumRef.current || 1;
+        autoRetryTimerRef.current = setTimeout(() => {
+          autoRetryTimerRef.current = null;
+          setShowFeedback(false);
+          resetAttempt();
+          setProcessingGuard(false);
+          beginAttempt(currentAttemptNum + 1);
+        }, 2500);
       }
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
@@ -885,6 +896,10 @@ export function TwoCluesGame({
   }, [speak]);
 
   const handleTryAgain = useCallback(() => {
+    if (autoRetryTimerRef.current) {
+      clearTimeout(autoRetryTimerRef.current);
+      autoRetryTimerRef.current = null;
+    }
     setShowFeedback(false);
     setProcessingGuard(false);
     resetAttempt();
@@ -894,6 +909,7 @@ export function TwoCluesGame({
   }, [resetAttempt, beginAttempt, setProcessingGuard]);
 
   const handleSkip = useCallback(async () => {
+    if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     cancelRecording();
     stopListening();
@@ -906,6 +922,7 @@ export function TwoCluesGame({
   }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
 
   const handleContinue = useCallback(() => {
+    if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     clearTranscriptState();
     setShowFeedback(false);
