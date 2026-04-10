@@ -483,6 +483,11 @@ export function FixSentenceGame({
           Heard: "<span className="font-medium text-foreground">{displayTranscript}</span>"
         </div>
       )}
+      {validationHint && !showFeedback && (
+        <div className="text-center text-sm text-muted-foreground italic">
+          💡 {validationHint}
+        </div>
+      )}
 
       {/* Feedback */}
       {showFeedback && game.lastResult && (
