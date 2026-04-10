@@ -54,6 +54,7 @@ export function AbstractCompareGame({
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
+  const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -237,7 +238,14 @@ export function AbstractCompareGame({
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
       const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
+      trackValidation('abstract_compare', validation);
+      logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
+      if (!validation.valid && validation.rejectionReason) {
+        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+      } else {
+        setValidationCoaching(null);
+      }
       const result = submitAnswer(validation.valid ? transcript : '', durationMs);
       
       // Upload audio + log utterance

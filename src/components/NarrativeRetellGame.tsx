@@ -102,6 +102,7 @@ export function NarrativeRetellGame({
 
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
+  const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
@@ -334,7 +335,14 @@ export function NarrativeRetellGame({
     setTimeout(async () => {
       const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
       const validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      trackValidation('narrative_retell', validation);
+      logValidationDetail('narrative_retell', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
+      if (!validation.valid && validation.rejectionReason) {
+        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+      } else {
+        setValidationCoaching(null);
+      }
       const result = submitRetell(validation.valid ? transcript : '', durationMs);
 
       let audioStoragePath: string | null = null;

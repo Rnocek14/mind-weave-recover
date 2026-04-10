@@ -46,6 +46,7 @@ export function MultiStepPlanningGame({
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<PlanningTrialResult | null>(null);
+  const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -151,7 +152,14 @@ export function MultiStepPlanningGame({
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
       const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
+      trackValidation('multi_step_planning', validation);
+      logValidationDetail('multi_step_planning', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
+      if (!validation.valid && validation.rejectionReason) {
+        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+      } else {
+        setValidationCoaching(null);
+      }
       const result = submitPlan(validation.valid ? transcript : '', durationMs);
 
       // Upload audio + log utterance
