@@ -55,6 +55,7 @@ const FOODS = new Set([
   'lettuce', 'spinach', 'cabbage', 'cucumber', 'celery', 'peas', 'beans', 'mushroom',
   'cauliflower', 'asparagus', 'zucchini', 'squash', 'pumpkin', 'eggplant', 'radish',
   'turnip', 'beet', 'artichoke', 'kale', 'okra', 'leek', 'yam', 'sweet potato',
+  'green beans', 'black beans', 'bell pepper', 'brussels sprouts', 'bok choy',
   // Grains / Staples
   'bread', 'rice', 'pasta', 'noodles', 'cereal', 'oatmeal', 'pancake', 'waffle',
   'toast', 'bagel', 'muffin', 'croissant', 'tortilla', 'cracker', 'pretzel',
