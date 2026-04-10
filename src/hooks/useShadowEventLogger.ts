@@ -3,40 +3,61 @@
  * 
  * Captures system predictions vs actual user outcomes for ML training
  * and therapy optimization research.
+ * 
+ * Gated by Shadow Mode feature flag — no-ops when disabled.
  */
 
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isShadowModeEnabled, SHADOW_MODEL_VERSION } from '@/lib/shadowMode';
 import type { ShadowEvent } from '@/types/utteranceAnalysis';
 
 interface UseShadowEventLoggerOptions {
   userId: string | undefined;
   profileId?: string;
   sessionId?: string | null;
+  /** Profile runtime_config for feature flag check */
+  runtimeConfig?: Record<string, any> | null;
 }
 
 export const useShadowEventLogger = ({
   userId,
   profileId,
   sessionId,
+  runtimeConfig,
 }: UseShadowEventLoggerOptions) => {
-  const configRef = useRef({ userId, profileId, sessionId });
+  const configRef = useRef({ userId, profileId, sessionId, runtimeConfig });
   
   // Update ref on changes
-  configRef.current = { userId, profileId, sessionId };
+  configRef.current = { userId, profileId, sessionId, runtimeConfig };
 
   /**
-   * Log a shadow event to the database (fire-and-forget)
+   * Log a shadow event to the database (fire-and-forget).
+   * Returns false if skipped (no user, flag off) or failed.
    */
   const logShadowEvent = useCallback(async (
     event: ShadowEvent,
-    attemptId?: string
+    attemptId?: string,
+    provenance?: {
+      cueTypeCandidate?: string;
+      triggerReason?: string;
+      userSelfRecovered?: boolean;
+      environment?: string;
+    }
   ): Promise<boolean> => {
-    const { userId, profileId, sessionId } = configRef.current;
+    const { userId, profileId, sessionId, runtimeConfig } = configRef.current;
     
     if (!userId) {
       if (import.meta.env.DEV) {
         console.debug('[ShadowEventLogger] No userId, skipping');
+      }
+      return false;
+    }
+
+    // Feature flag gate
+    if (!isShadowModeEnabled(runtimeConfig)) {
+      if (import.meta.env.DEV) {
+        console.debug('[ShadowEventLogger] Shadow Mode disabled, skipping write');
       }
       return false;
     }
@@ -72,6 +93,16 @@ export const useShadowEventLogger = ({
           // Full payloads
           analysis_data: event.analysis || {},
           task_data: event.context || {},
+          
+          // Provenance (NEW)
+          model_version: SHADOW_MODEL_VERSION,
+          source_type: 'shadow',
+          review_status: 'pending',
+          asr_confidence: event.analysis?.asrConfidence || null,
+          cue_type_candidate: provenance?.cueTypeCandidate || null,
+          trigger_reason: provenance?.triggerReason || null,
+          user_self_recovered: provenance?.userSelfRecovered ?? null,
+          environment: provenance?.environment || 'structured',
         });
 
       if (error) {
@@ -80,7 +111,7 @@ export const useShadowEventLogger = ({
       }
 
       if (import.meta.env.DEV) {
-        console.debug('[ShadowEventLogger] Logged shadow event:', event.context.taskType);
+        console.debug('[ShadowEventLogger] ✅ Logged shadow event:', event.context.taskType, '| target:', event.context.targetWord || event.context.targetPhrase);
       }
 
       return true;
