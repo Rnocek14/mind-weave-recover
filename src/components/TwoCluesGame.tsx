@@ -667,7 +667,7 @@ export function TwoCluesGame({
       return;
     }
     setValidationHint(null);
-    resetCoachingState('two_clues');
+    resetCoachingState('two_clues', speak);
 
     // GUARD: Cooldown
     const timeSinceLastScore = Date.now() - lastScoredAtRef.current;

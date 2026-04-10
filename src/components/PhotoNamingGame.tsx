@@ -628,7 +628,7 @@ export const PhotoNamingGame = ({
     if (!validation.valid && validation.rejectionReason) {
       speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'photo_naming' }).then(line => setRetryPrompt(line));
     }
-    if (validation.valid) resetCoachingState('photo_naming');
+    if (validation.valid) resetCoachingState('photo_naming', speakMaya);
     return validation.valid;
   }, []);
   

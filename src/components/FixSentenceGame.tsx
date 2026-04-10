@@ -252,7 +252,7 @@ export function FixSentenceGame({
       return;
     }
     setValidationHint(null);
-    resetCoachingState('fix_sentence');
+    resetCoachingState('fix_sentence', speak);
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);

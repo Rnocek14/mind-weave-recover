@@ -214,7 +214,7 @@ export function DescribeGuessGame({
       return false;
     }
     setValidationHint(null);
-    resetCoachingState('describe_guess');
+    resetCoachingState('describe_guess', speak);
     // Check mic was on long enough
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;

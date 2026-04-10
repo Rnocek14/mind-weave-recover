@@ -248,7 +248,7 @@ export function AbstractCompareGame({
         speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'abstract_compare' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
-        resetCoachingState('abstract_compare');
+        resetCoachingState('abstract_compare', speakMaya);
         setValidationCoaching(null);
       }
       const result = submitAnswer(validation.valid ? transcript : '', durationMs);

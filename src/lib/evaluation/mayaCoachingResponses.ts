@@ -1,24 +1,26 @@
 /**
- * Maya Coaching Responses for Validation Rejections
+ * Maya Coaching Responses for Validation Rejections + Positive Reinforcement
  * 
- * Maps rejection reasons to varied, therapeutic Maya lines.
  * Features:
  * - Rotation buffer to avoid repetition
  * - Exercise-specific scaffolding lines
  * - Attempt-aware tone shifting (softer after repeated failures)
  * - Timing control: 300ms delay + debounce to prevent overlapping/rushed speech
+ * - Coaching frequency cap: max 2 spoken coaching per trial, then silent
+ * - Positive reinforcement: varied micro-praise after valid responses
  * - TTS integration with graceful fallback
  */
 
-import type { RejectionReason, ResponseMode } from './responseValidation';
+import type { RejectionReason } from './responseValidation';
 
-// ─── Exercise-specific coaching lines ────────────────────────────────────────
+// ─── Exercise type ──────────────────────────────────────────────────────────
 
-type ExerciseKey = 'describe_guess' | 'photo_naming' | 'two_clues' | 'fix_sentence' 
+export type ExerciseKey = 'describe_guess' | 'photo_naming' | 'two_clues' | 'fix_sentence' 
   | 'narrative_retell' | 'abstract_compare' | 'multi_step_planning' 
   | 'thought_continuation' | 'generic';
 
-/** Context-aware lines: exercise → reason → phrases */
+// ─── Exercise-specific coaching lines ────────────────────────────────────────
+
 const CONTEXTUAL_LINES: Partial<Record<ExerciseKey, Partial<Record<RejectionReason, string[]>>>> = {
   describe_guess: {
     too_short: [
@@ -157,6 +159,58 @@ const SOFTENED_LINES: Partial<Record<RejectionReason, string[]>> = {
   ],
 };
 
+// ─── Positive reinforcement lines ───────────────────────────────────────────
+
+const GENERIC_REINFORCEMENT = [
+  "Nice, that's it.",
+  "Good — that was clear.",
+  "Yes, that works.",
+  "That's right.",
+  "Well done.",
+];
+
+/** Exercise-specific reinforcement for richer feedback */
+const CONTEXTUAL_REINFORCEMENT: Partial<Record<ExerciseKey, string[]>> = {
+  describe_guess: [
+    "Great description.",
+    "Nice — you gave good detail.",
+    "That helped me picture it.",
+  ],
+  photo_naming: [
+    "That's the one.",
+    "Right — good recall.",
+    "Yes, exactly.",
+  ],
+  narrative_retell: [
+    "Good retelling.",
+    "Nice — you got the key parts.",
+    "That was a clear summary.",
+  ],
+  abstract_compare: [
+    "Good connection.",
+    "That's a strong comparison.",
+    "Yes — that links them well.",
+  ],
+  fix_sentence: [
+    "That fixes it.",
+    "Right — that sounds correct now.",
+    "Good catch.",
+  ],
+  two_clues: [
+    "That's the word.",
+    "Nice — you figured it out.",
+    "Exactly right.",
+  ],
+};
+
+/** After a struggle (2+ prior rejections), reinforcement is warmer */
+const RECOVERY_REINFORCEMENT = [
+  "You got there — that's what matters.",
+  "See? You had it in you.",
+  "That took effort, and it paid off.",
+  "Nicely done — worth the try.",
+];
+
 // ─── Rotation + selection logic ─────────────────────────────────────────────
 
 const lastUsedIndex: Record<string, number> = {};
@@ -168,8 +222,16 @@ function pickRotated(lines: string[], key: string): string {
   return lines[nextIdx];
 }
 
+// ─── State tracking ─────────────────────────────────────────────────────────
+
 /** Track consecutive rejections per exercise for tone softening */
 const consecutiveRejections: Record<string, number> = {};
+
+/** Track coaching count per trial to enforce frequency cap */
+const coachingCountPerTrial: Record<string, number> = {};
+
+/** Max spoken coaching interventions per trial before going silent */
+const MAX_COACHING_PER_TRIAL = 2;
 
 export interface CoachingContext {
   exerciseKey?: ExerciseKey;
@@ -207,28 +269,52 @@ export function getMayaCoachingLine(
   return pickRotated(GENERIC_LINES[reason], `generic_${reason}`);
 }
 
+/**
+ * Get a positive reinforcement line after a valid response.
+ * Context-aware: exercise-specific, and warmer after recovery from struggle.
+ */
+export function getReinforcementLine(exerciseKey?: ExerciseKey): string {
+  const ex = exerciseKey || 'generic';
+  const priorFailures = consecutiveRejections[ex] || 0;
+
+  // If user struggled (2+ rejections) then succeeded, use recovery praise
+  if (priorFailures >= 2) {
+    return pickRotated(RECOVERY_REINFORCEMENT, `recovery_${ex}`);
+  }
+
+  // Try exercise-specific reinforcement
+  const contextual = CONTEXTUAL_REINFORCEMENT[ex];
+  if (contextual?.length) {
+    return pickRotated(contextual, `reinforce_${ex}`);
+  }
+
+  return pickRotated(GENERIC_REINFORCEMENT, 'reinforce_generic');
+}
+
 // ─── Timing control ─────────────────────────────────────────────────────────
 
 const COACHING_DELAY_MS = 300;
 let pendingCoachingTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCoachingTimestamp = 0;
-const MIN_COACHING_INTERVAL_MS = 2000; // Don't speak coaching more than once per 2s
+const MIN_COACHING_INTERVAL_MS = 2000;
 
 /**
- * Speak a Maya coaching line with timing control.
- * - 300ms delay before speaking (gives user space)
+ * Speak a Maya coaching line with timing + frequency control.
+ * - 300ms delay before speaking
  * - Debounced: cancels pending coaching if called again quickly
  * - Minimum 2s interval between coaching utterances
+ * - Max 2 spoken coaching per trial; after that, text-only (silent)
  * 
- * Returns the coaching text immediately for UI display.
+ * Returns the coaching text for UI display (always).
  */
 export function speakMayaCoaching(
   reason: RejectionReason,
   speakFn?: (text: string) => Promise<void>,
   context?: CoachingContext,
 ): Promise<string> {
-  // Track consecutive rejections
   const exKey = context?.exerciseKey || 'generic';
+  
+  // Track consecutive rejections
   consecutiveRejections[exKey] = (consecutiveRejections[exKey] || 0) + 1;
   const enrichedContext: CoachingContext = {
     ...context,
@@ -237,13 +323,21 @@ export function speakMayaCoaching(
 
   const line = getMayaCoachingLine(reason, enrichedContext);
 
+  // Track coaching count for frequency cap
+  coachingCountPerTrial[exKey] = (coachingCountPerTrial[exKey] || 0) + 1;
+  const coachingCount = coachingCountPerTrial[exKey];
+
   // Cancel any pending coaching
   if (pendingCoachingTimer) {
     clearTimeout(pendingCoachingTimer);
     pendingCoachingTimer = null;
   }
 
-  if (!speakFn) {
+  // If over cap or no speak function, return text-only (silent coaching)
+  if (!speakFn || coachingCount > MAX_COACHING_PER_TRIAL) {
+    if (coachingCount > MAX_COACHING_PER_TRIAL) {
+      console.log(`[MayaCoaching] Silent mode — ${coachingCount} coaching this trial (cap: ${MAX_COACHING_PER_TRIAL})`);
+    }
     return Promise.resolve(line);
   }
 
@@ -265,11 +359,65 @@ export function speakMayaCoaching(
 }
 
 /**
- * Reset consecutive rejection counter for an exercise.
- * Call this when a valid response is accepted.
+ * Speak positive reinforcement after a valid response.
+ * Uses same timing control as coaching. Short and quick.
  */
-export function resetCoachingState(exerciseKey?: ExerciseKey) {
-  if (exerciseKey) {
-    consecutiveRejections[exerciseKey] = 0;
+export function speakMayaReinforcement(
+  speakFn?: (text: string) => Promise<void>,
+  exerciseKey?: ExerciseKey,
+): Promise<string> {
+  const line = getReinforcementLine(exerciseKey);
+
+  if (!speakFn) {
+    return Promise.resolve(line);
   }
+
+  // Cancel any pending coaching (reinforcement takes priority)
+  if (pendingCoachingTimer) {
+    clearTimeout(pendingCoachingTimer);
+    pendingCoachingTimer = null;
+  }
+
+  // Brief delay for natural pacing
+  return new Promise<string>((resolve) => {
+    setTimeout(() => {
+      lastCoachingTimestamp = Date.now();
+      speakFn(line).catch(err => {
+        console.warn('[MayaCoaching] Reinforcement TTS failed:', err);
+      });
+      resolve(line);
+    }, 200);
+  });
+}
+
+/**
+ * Reset coaching state for an exercise + optionally speak reinforcement.
+ * Reinforcement only speaks when there were prior coaching interventions
+ * (completing the coaching loop), not on first-try successes.
+ */
+export function resetCoachingState(
+  exerciseKey?: ExerciseKey,
+  speakFn?: (text: string) => Promise<void>,
+) {
+  if (!exerciseKey) return;
+  
+  const priorFailures = consecutiveRejections[exerciseKey] || 0;
+  
+  // Speak reinforcement only if user recovered from prior coaching
+  if (priorFailures > 0 && speakFn) {
+    const line = getReinforcementLine(exerciseKey);
+    // Cancel any pending coaching first
+    if (pendingCoachingTimer) {
+      clearTimeout(pendingCoachingTimer);
+      pendingCoachingTimer = null;
+    }
+    setTimeout(() => {
+      speakFn(line).catch(err => {
+        console.warn('[MayaCoaching] Reinforcement TTS failed:', err);
+      });
+    }, 200);
+  }
+  
+  consecutiveRejections[exerciseKey] = 0;
+  coachingCountPerTrial[exerciseKey] = 0;
 }

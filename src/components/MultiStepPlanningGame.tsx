@@ -162,7 +162,7 @@ export function MultiStepPlanningGame({
         speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'multi_step_planning' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
-        resetCoachingState('multi_step_planning');
+        resetCoachingState('multi_step_planning', speakMaya);
       }
       const result = submitPlan(validation.valid ? transcript : '', durationMs);
 
