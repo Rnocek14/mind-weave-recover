@@ -28,7 +28,8 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { classifyStuckType, getStuckTypeLabel, type StuckType, type TierAMetrics } from '@/lib/stuckTypeClassifier';
 import { 
   selectNextPrompt, 

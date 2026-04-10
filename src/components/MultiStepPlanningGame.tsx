@@ -19,7 +19,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 
 interface MultiStepPlanningGameProps {
   userId?: string;
