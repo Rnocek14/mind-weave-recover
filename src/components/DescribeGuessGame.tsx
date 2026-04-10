@@ -423,6 +423,13 @@ export function DescribeGuessGame({
         setGuessMessage(`I got it! It's "${trial.target}"! 🎉 Now try saying the word.`);
         setAwaitingWordAttempt(true);
 
+        // Store context so real-time word detection can finalize early
+        wordAttemptContextRef.current = {
+          originalTranscript: currentTranscript,
+          guessResult,
+          audioPromise,
+        };
+
         // Clear transcript so only post-guess speech is evaluated for word match
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
