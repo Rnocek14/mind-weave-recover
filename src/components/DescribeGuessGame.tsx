@@ -28,7 +28,8 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
-import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
@@ -199,9 +200,8 @@ export function DescribeGuessGame({
    */
   const hasSubstantialSpeech = useCallback((text: string): boolean => {
     if (!text || text.trim().length === 0) return false;
-    const cleaned = extractAnswerFromTranscript(text);
-    if (isMostlyFiller(cleaned)) return false;
-    if (getContentWordCount(cleaned) < MIN_SPEECH_CONTENT_WORDS) return false;
+    const validation = validateSpokenResponse({ transcript: text, expectedMode: 'description' });
+    if (!validation.valid) return false;
     // Check mic was on long enough
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
