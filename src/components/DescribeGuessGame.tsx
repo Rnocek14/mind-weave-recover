@@ -29,7 +29,8 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
@@ -198,10 +199,20 @@ export function DescribeGuessGame({
    * Check if transcript has enough substance to evaluate.
    * Prevents false positives from empty/filler-only speech.
    */
+  const [validationHint, setValidationHint] = useState<string | null>(null);
+
   const hasSubstantialSpeech = useCallback((text: string): boolean => {
     if (!text || text.trim().length === 0) return false;
     const validation = validateSpokenResponse({ transcript: text, expectedMode: 'description' });
-    if (!validation.valid) return false;
+    trackValidation('describe_guess', validation);
+    logValidationDetail('describe_guess', text, validation);
+    if (!validation.valid) {
+      if (validation.rejectionReason) {
+        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+      }
+      return false;
+    }
+    setValidationHint(null);
     // Check mic was on long enough
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
