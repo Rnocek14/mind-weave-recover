@@ -204,18 +204,10 @@ export function DescribeGuessGame({
 
   const hasSubstantialSpeech = useCallback((text: string): boolean => {
     if (!text || text.trim().length === 0) return false;
-    const validation = validateSpokenResponse({ transcript: text, expectedMode: 'description' });
-    trackValidation('describe_guess', validation);
-    logValidationDetail('describe_guess', text, validation);
-    if (!validation.valid) {
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'describe_guess' }).then(line => setValidationHint(line));
-      }
-      return false;
-    }
-    setValidationHint(null);
-    resetCoachingState('describe_guess', speak);
-    // Check mic was on long enough
+    // Skip duplicate validation — the hook's evaluateGuess already validates.
+    // Only check minimum content words and listening duration here.
+    const contentWords = getContentWordCount(text);
+    if (contentWords < MIN_SPEECH_CONTENT_WORDS) return false;
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
     return true;
@@ -387,14 +379,17 @@ export function DescribeGuessGame({
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
-          // Retry startListening with small delay in case state machine isn't IDLE yet
+          // Retry startListening with small delay — use ref to check actual state
           const tryStart = (retries = 3) => {
             startListening();
             setIsListening(true);
             listeningStartRef.current = Date.now();
-            // If startListening was blocked, retry after a short delay
-            if (!speechIsListening && retries > 0) {
-              setTimeout(() => tryStart(retries - 1), 400);
+            // Check via setTimeout so the state machine has time to transition
+            if (retries > 0) {
+              setTimeout(() => {
+                // Re-check if actually listening by seeing if startListening needs retry
+                if (!isListeningRef.current) tryStart(retries - 1);
+              }, 400);
             }
           };
           setTimeout(() => tryStart(), 300);
