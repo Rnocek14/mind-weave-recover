@@ -333,7 +333,7 @@ export function DescribeGuessGame({
       if (wordsExcludingTarget >= 3 || game.featureTypesUsed.size >= 1) {
         // They described AND said the word — immediately evaluate (no silence wait)
         console.log('[DescribeGuess] Word said after description — fast-tracking evaluation');
-        runEvaluation();
+        runEvaluationRef.current();
         return;
       }
 
@@ -361,7 +361,7 @@ export function DescribeGuessGame({
         }, 300);
       });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak, runEvaluation]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
