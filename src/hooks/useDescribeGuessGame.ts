@@ -24,6 +24,7 @@ import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describe
 import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { useGameSounds } from '@/hooks/useGameSounds';
 
 export interface DescribeGuessTrialResult {
@@ -175,6 +176,9 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       transcript,
       expectedMode: 'description',
     });
+
+    trackValidation('describe_guess', validation);
+    logValidationDetail('describe_guess', transcript, validation);
 
     if (!validation.valid) {
       console.log('[DescribeGuess] Pre-scoring rejection:', validation.rejectionReason);
