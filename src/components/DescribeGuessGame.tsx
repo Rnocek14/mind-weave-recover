@@ -360,7 +360,7 @@ export function DescribeGuessGame({
         }, 300);
       });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak, runEvaluation]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
