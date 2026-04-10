@@ -31,7 +31,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
@@ -209,11 +209,12 @@ export function DescribeGuessGame({
     logValidationDetail('describe_guess', text, validation);
     if (!validation.valid) {
       if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak).then(line => setValidationHint(line));
+        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'describe_guess' }).then(line => setValidationHint(line));
       }
       return false;
     }
     setValidationHint(null);
+    resetCoachingState('describe_guess');
     // Check mic was on long enough
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
