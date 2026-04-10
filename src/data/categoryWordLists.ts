@@ -299,6 +299,18 @@ export function validateCategoryWord(word: string, categorySlug: string): WordVa
 }
 
 /**
+ * Check if a multi-word phrase is an exact match in the category word list.
+ * Used for bigram matching in speech — stricter than validateCategoryWord
+ * to avoid false compound matches like "dog cat" → valid.
+ */
+export function isExactCategoryMatch(phrase: string, categorySlug: string): boolean {
+  const clean = phrase.toLowerCase().trim();
+  const wordSet = CATEGORY_WORD_MAP[categorySlug];
+  if (!wordSet) return false;
+  return wordSet.has(clean);
+}
+
+/**
  * Get count of valid words from a list
  */
 export function countValidWords(words: string[], categorySlug: string): number {

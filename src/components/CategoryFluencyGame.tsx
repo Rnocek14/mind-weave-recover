@@ -25,7 +25,7 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { validateCategoryWord, type WordValidation } from '@/data/categoryWordLists';
+import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
@@ -195,8 +195,8 @@ export function CategoryFluencyGame({
         skipIndices.add(i + 1);
         continue;
       }
-      const status = validateCategoryWord(bigram, config.category);
-      if (status === 'valid') {
+      // Only combine if the bigram is an EXACT entry in the word list
+      if (isExactCategoryMatch(bigram, config.category)) {
         processedRef.current.add(bigram);
         // Also mark individual words as processed so they don't show as invalid
         processedRef.current.add(singleWords[i]);
