@@ -288,6 +288,7 @@ export function DescribeGuessGame({
     return () => {
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
