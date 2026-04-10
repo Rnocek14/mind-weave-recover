@@ -657,6 +657,13 @@ export function DescribeGuessGame({
         </div>
       )}
 
+      {/* Validation coaching hint */}
+      {validationHint && !showFeedback && !guessMessage && (
+        <div className="text-center text-sm text-muted-foreground italic shrink-0">
+          💡 {validationHint}
+        </div>
+      )}
+
       {/* Guess message */}
       {guessMessage && !showFeedback && (
         <Card className="border-2 border-primary bg-primary/5 shrink-0">
