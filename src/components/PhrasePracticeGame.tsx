@@ -25,6 +25,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
