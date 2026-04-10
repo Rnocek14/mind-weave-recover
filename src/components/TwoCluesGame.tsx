@@ -125,6 +125,7 @@ export function TwoCluesGame({
   const [filteredDisplay, setFilteredDisplay] = useState('');
   const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
   const [showThinkingHint, setShowThinkingHint] = useState(false);
+  const [validationHint, setValidationHint] = useState<string | null>(null);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   
   // Cue ladder state
@@ -655,10 +656,16 @@ export function TwoCluesGame({
 
     // GUARD: Universal validation pipeline
     const validation = validateSpokenResponse({ transcript: latestWithoutClues, expectedMode: 'naming' });
+    trackValidation('two_clues', validation);
+    logValidationDetail('two_clues', latestWithoutClues, validation);
     if (!validation.valid || candidate.length < 2) {
       console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
+      if (validation.rejectionReason) {
+        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+      }
       return;
     }
+    setValidationHint(null);
 
     // GUARD: Cooldown
     const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
