@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 
 const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
+const WRONG_ANSWER_DISPLAY_MS = 6000; // Show "not quite" feedback before auto-retry
 
 interface FixSentenceGameProps {
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
@@ -64,6 +65,8 @@ export function FixSentenceGame({
   const processingRef = useRef(false);
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ttsAbortRef = useRef(false);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
@@ -161,16 +164,29 @@ export function FixSentenceGame({
   // Speak the sentence when trial changes
   useEffect(() => {
     if (game.currentTrial && !game.isComplete) {
-      // Wait for intro speech to complete before reading the sentence
-      const waitForIntro = () => {
-        if (!introCompleteRef.current) {
-          setTimeout(waitForIntro, 200);
-          return;
+      ttsAbortRef.current = false;
+      
+      // Wait for intro speech to complete, then speak sentence, THEN start mic
+      const startTrialFlow = async () => {
+        // Wait for intro if needed
+        while (!introCompleteRef.current) {
+          await new Promise(r => setTimeout(r, 200));
         }
-        if (!game.currentTrial) return;
-        speak(game.currentTrial.sentence);
+        if (!game.currentTrial || ttsAbortRef.current) return;
+        
+        // Speak the sentence and WAIT for it to finish
+        await speak(game.currentTrial.sentence);
+        
+        // Only start mic AFTER TTS completes
+        if (ttsAbortRef.current) return;
+        
+        if (sessionId && userId) {
+          startListening();
+          setIsListening(true);
+          if (isRecordingSupported) startRecording();
+        }
       };
-      waitForIntro();
+
       game.startRound();
 
       // Stall timer
@@ -181,7 +197,7 @@ export function FixSentenceGame({
         }
       }, 10000);
 
-      // Begin attempt
+      // Begin attempt tracking
       if (sessionId && userId) {
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
         lastScoredRef.current = '';
@@ -200,16 +216,15 @@ export function FixSentenceGame({
           targetWord: game.currentTrial.acceptedFixes[0] || game.currentTrial.wrongWord,
           category: game.currentTrial.category,
         });
-
-        // Start listening after brief delay for TTS
-        setTimeout(() => {
-          startListening();
-          setIsListening(true);
-          if (isRecordingSupported) startRecording();
-        }, 500);
       }
+
+      startTrialFlow();
     }
-    return () => { if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current); };
+    return () => {
+      ttsAbortRef.current = true;
+      if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
@@ -218,6 +233,7 @@ export function FixSentenceGame({
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
@@ -331,6 +347,12 @@ export function FixSentenceGame({
 
         if (!result.isCorrect && !result.isPartialCredit) {
           setPrevWrongAttempt(finalCandidate);
+          
+          // Auto-retry after wrong answer (with dismiss option in UI)
+          if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+          autoRetryTimerRef.current = setTimeout(() => {
+            handleTryAgain();
+          }, WRONG_ANSWER_DISPLAY_MS);
         }
 
         // Auto-advance on correct/partial
@@ -351,7 +373,7 @@ export function FixSentenceGame({
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, showFeedback]);
+  }, [transcript]);
 
   // Render sentence with highlighted wrong word
   const renderSentence = () => {
@@ -380,6 +402,7 @@ export function FixSentenceGame({
   };
 
   const handleSkip = useCallback(() => {
+    if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     stopListening();
     setIsListening(false);
@@ -390,6 +413,7 @@ export function FixSentenceGame({
   }, [stopListening, isRecording, stopRecording, resetAttempt, game]);
 
   const handleTryAgain = useCallback(() => {
+    if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     setShowFeedback(false);
     lastScoredRef.current = '';
     rawTranscriptRef.current = '';
@@ -533,9 +557,14 @@ export function FixSentenceGame({
                 <p className="text-muted-foreground">
                   Try again! Think about what would make the sentence correct.
                 </p>
-                <Button variant="outline" size="sm" onClick={handleTryAgain} className="mt-2">
-                  <RotateCcw className="h-4 w-4 mr-1" /> Try Again
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button variant="outline" size="sm" onClick={handleTryAgain}>
+                    <RotateCcw className="h-4 w-4 mr-1" /> Try Again
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleSkip}>
+                    <SkipForward className="h-4 w-4 mr-1" /> Skip
+                  </Button>
+                </div>
               </>
             )}
           </CardContent>
