@@ -1857,6 +1857,16 @@ export const PhotoNamingGame = ({
           }
         ) : null;
         
+        // Persist shadow event (fire-and-forget, gated by feature flag)
+        if (shadowEvent) {
+          logShadowEvent(shadowEvent, undefined, {
+            cueTypeCandidate: capturedCueLevel > 0 ? cueTypeGiven : undefined,
+            triggerReason: capturedCueLevel > 0 ? 'cue_level_active' : undefined,
+            userSelfRecovered: errorClassification.errorType === 'self_corrected',
+            environment: 'structured',
+          });
+        }
+
         // Log telemetry with unified analysis
         onTrialComplete?.({
           correct,
