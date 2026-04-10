@@ -391,12 +391,33 @@ export function speakMayaReinforcement(
 }
 
 /**
- * Reset coaching state for an exercise.
- * Call this when a valid response is accepted or on new trial.
+ * Reset coaching state for an exercise + optionally speak reinforcement.
+ * Reinforcement only speaks when there were prior coaching interventions
+ * (completing the coaching loop), not on first-try successes.
  */
-export function resetCoachingState(exerciseKey?: ExerciseKey) {
-  if (exerciseKey) {
-    consecutiveRejections[exerciseKey] = 0;
-    coachingCountPerTrial[exerciseKey] = 0;
+export function resetCoachingState(
+  exerciseKey?: ExerciseKey,
+  speakFn?: (text: string) => Promise<void>,
+) {
+  if (!exerciseKey) return;
+  
+  const priorFailures = consecutiveRejections[exerciseKey] || 0;
+  
+  // Speak reinforcement only if user recovered from prior coaching
+  if (priorFailures > 0 && speakFn) {
+    const line = getReinforcementLine(exerciseKey);
+    // Cancel any pending coaching first
+    if (pendingCoachingTimer) {
+      clearTimeout(pendingCoachingTimer);
+      pendingCoachingTimer = null;
+    }
+    setTimeout(() => {
+      speakFn(line).catch(err => {
+        console.warn('[MayaCoaching] Reinforcement TTS failed:', err);
+      });
+    }, 200);
   }
+  
+  consecutiveRejections[exerciseKey] = 0;
+  coachingCountPerTrial[exerciseKey] = 0;
 }
