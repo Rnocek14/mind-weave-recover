@@ -685,6 +685,9 @@ export function NarrativeRetellGame({
                 <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
                 <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
               </div>
+              {validationCoaching && lastResult.eventCoverage === 0 && (
+                <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
+              )}
 
               {/* Story structure breakdown */}
               <div className="space-y-2">
