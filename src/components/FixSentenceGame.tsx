@@ -22,7 +22,8 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
-import { extractAnswerFromTranscript, isMostlyFiller } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -238,7 +239,8 @@ export function FixSentenceGame({
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
-    if (isMostlyFiller(candidate) || candidate.length < 2) return;
+    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.broken });
+    if (!validation.valid || candidate.length < 2) return;
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
