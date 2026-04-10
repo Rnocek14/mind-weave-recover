@@ -86,6 +86,8 @@ export function DescribeGuessGame({
   const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
+  const [wordSaidRedirect, setWordSaidRedirect] = useState(false);
+  const wordSaidRedirectFiredRef = useRef(false);
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const promptTimersRef = useRef<NodeJS.Timeout[]>([]);
@@ -311,16 +313,50 @@ export function DescribeGuessGame({
     }
   }, [fullTranscript]);
 
-  // Check for direct word match in real-time (check both current and accumulated)
+  // Check for direct word match in real-time — redirect user to describe instead
   useEffect(() => {
     const trial = currentTrialRef.current;
     const textToCheck = fullTranscript || transcript;
     if (!textToCheck || !trial || evaluatedRef.current || awaitingWordAttempt) return;
+    if (wordSaidRedirectFiredRef.current) return; // Only redirect once per trial
 
     if (game.checkWordMatch(textToCheck, trial)) {
       game.recordWordRetrieval();
+
+      // Check if they already produced descriptive content — if so, don't redirect
+      const contentWords = getContentWordCount(textToCheck);
+      const targetWordCount = trial.target.split(/\s+/).length;
+      const wordsExcludingTarget = contentWords - targetWordCount;
+      if (wordsExcludingTarget >= 3 || game.featureTypesUsed.size >= 1) {
+        // They described AND said the word — that's fine, let evaluation proceed
+        return;
+      }
+
+      // They blurted the word without describing — redirect them
+      wordSaidRedirectFiredRef.current = true;
+      setWordSaidRedirect(true);
+      stopListening();
+      setIsListening(false);
+
+      const redirectMsg = `That's the word! Now try describing "${trial.target}" without saying it — what does it look like, what is it used for?`;
+      setGuessMessage(redirectMsg);
+
+      speak(redirectMsg).then(() => {
+        // Reset transcript so their description attempt is clean
+        rawTranscriptRef.current = '';
+        setDisplayTranscript('');
+        setWordSaidRedirect(false);
+        setGuessMessage(null);
+
+        // Resume listening for their description
+        setTimeout(() => {
+          startListening();
+          setIsListening(true);
+          listeningStartRef.current = Date.now();
+        }, 300);
+      });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
