@@ -258,6 +258,8 @@ export function DescribeGuessGame({
     setShowFeedback(false);
     setGuessMessage(null);
     setAwaitingWordAttempt(false);
+    setWordSaidRedirect(false);
+    wordSaidRedirectFiredRef.current = false;
     setDisplayTranscript('');
     rawTranscriptRef.current = '';
     processingRef.current = false;
