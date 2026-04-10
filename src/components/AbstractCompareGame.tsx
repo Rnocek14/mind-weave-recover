@@ -24,6 +24,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Layers, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 
 interface AbstractCompareGameProps {
   userId?: string;
@@ -234,8 +235,9 @@ export function AbstractCompareGame({
     
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
       const durationMs = Date.now() - startTimeRef.current;
-      const result = submitAnswer(transcript, durationMs);
+      const result = submitAnswer(validation.valid ? transcript : '', durationMs);
       
       // Upload audio + log utterance
       let audioStoragePath: string | null = null;

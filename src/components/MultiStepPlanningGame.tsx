@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 
 interface MultiStepPlanningGameProps {
   userId?: string;
@@ -148,8 +149,9 @@ export function MultiStepPlanningGame({
 
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
       const durationMs = Date.now() - startTimeRef.current;
-      const result = submitPlan(transcript, durationMs);
+      const result = submitPlan(validation.valid ? transcript : '', durationMs);
 
       // Upload audio + log utterance
       let audioStoragePath: string | null = null;

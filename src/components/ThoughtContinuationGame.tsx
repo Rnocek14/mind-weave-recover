@@ -28,6 +28,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { classifyStuckType, getStuckTypeLabel, type StuckType, type TierAMetrics } from '@/lib/stuckTypeClassifier';
 import { 
   selectNextPrompt, 
@@ -362,8 +363,9 @@ export function ThoughtContinuationGame({
     // TIER A METRICS - Locally measurable, no alignment required
     // =========================================================================
     
+    const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
     const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
-    const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS;
+    const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
     const completionResult = detectUtteranceComplete(transcript, null);
     const latencyToFirstWordMs = latencyToFirstWordRef.current || 
       (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
