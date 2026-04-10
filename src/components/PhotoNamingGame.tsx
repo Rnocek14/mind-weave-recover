@@ -19,8 +19,10 @@ import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedb
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -226,6 +228,7 @@ export const PhotoNamingGame = ({
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
+  const { speak: speakMaya } = useTextToSpeech();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // FIX 1: Auto-create session for standalone games (use canonical slug)
@@ -623,7 +626,7 @@ export const PhotoNamingGame = ({
     trackValidation('photo_naming', validation);
     logValidationDetail('photo_naming', transcript, validation);
     if (!validation.valid && validation.rejectionReason) {
-      setRetryPrompt(getRejectionCoachingText(validation.rejectionReason));
+      speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setRetryPrompt(line));
     }
     return validation.valid;
   }, []);

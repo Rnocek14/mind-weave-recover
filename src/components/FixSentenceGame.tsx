@@ -23,8 +23,9 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -246,7 +247,7 @@ export function FixSentenceGame({
     logValidationDetail('fix_sentence', transcript, validation);
     if (!validation.valid || candidate.length < 2) {
       if (validation.rejectionReason) {
-        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speak).then(line => setValidationHint(line));
       }
       return;
     }

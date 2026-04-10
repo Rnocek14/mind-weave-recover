@@ -24,8 +24,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Layers, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface AbstractCompareGameProps {
   userId?: string;
@@ -51,6 +53,7 @@ export function AbstractCompareGame({
 
   const { mode } = useCoachingMode();
   const vg = useVoiceGuidance('abstract-compare');
+  const { speak: speakMaya } = useTextToSpeech();
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
@@ -242,7 +245,7 @@ export function AbstractCompareGame({
       logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
       }

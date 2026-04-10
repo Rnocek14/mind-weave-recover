@@ -25,8 +25,9 @@ import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
 
 interface NarrativeRetellGameProps {
   userId?: string;
@@ -339,7 +340,7 @@ export function NarrativeRetellGame({
       logValidationDetail('narrative_retell', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speakTTS).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
       }
