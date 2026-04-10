@@ -255,20 +255,6 @@ export function FixSentenceGame({
     const trial = currentTrialRef.current;
     if (!transcript || !trial || processingRef.current || showFeedback) return;
 
-    const candidate = extractAnswerFromTranscript(transcript);
-    if (candidate === lastScoredRef.current && candidate.length > 0) return;
-    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
-    trackValidation('fix_sentence', validation);
-    logValidationDetail('fix_sentence', transcript, validation);
-    if (!validation.valid || candidate.length < 2) {
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'fix_sentence' }).then(line => setValidationHint(line));
-      }
-      return;
-    }
-    setValidationHint(null);
-    resetCoachingState('fix_sentence', speak);
-
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
