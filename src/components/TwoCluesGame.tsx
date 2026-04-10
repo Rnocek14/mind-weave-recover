@@ -434,16 +434,17 @@ export function TwoCluesGame({
     return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
-  // Auto-start listening when puzzle changes
+  // Auto-start listening when puzzle changes (new puzzle only — NOT on showFeedback toggle)
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
     game.startRound();
 
-    if (!showFeedback && sessionId && userId) {
-      beginAttempt(1);
+    if (sessionId && userId) {
+      beginAttemptRef.current(1);
     }
-  }, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.currentPuzzle?.id, game.isComplete, sessionId, userId]);
 
   // Cleanup on unmount
   useEffect(() => {
