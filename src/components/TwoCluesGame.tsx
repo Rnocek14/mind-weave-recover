@@ -863,7 +863,7 @@ export function TwoCluesGame({
           resetAttempt();
           setProcessingGuard(false);
           beginAttempt(currentAttemptNum + 1);
-        }, 4000);
+        }, 6000);
       }
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
@@ -1224,8 +1224,11 @@ export function TwoCluesGame({
                   <Button size="sm" variant="outline" onClick={handleTryAgain} className="gap-1">
                     <Mic className="h-4 w-4" /> Try Again
                   </Button>
-                  <Button size="sm" onClick={handleContinue}>
-                    Next →
+                  <Button size="sm" variant="outline" onClick={handleContinue}>
+                    Skip →
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleTryAgain} className="text-muted-foreground">
+                    ✕ Dismiss
                   </Button>
                 </>
               )}
