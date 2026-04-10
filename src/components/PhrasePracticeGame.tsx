@@ -635,6 +635,16 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           utteranceAnalysis
         ) : undefined;
         
+        // Persist shadow event (fire-and-forget, gated by feature flag)
+        if (shadowEvent) {
+          logShadowEvent(shadowEvent, undefined, {
+            cueTypeCandidate: currentCueLevel > 0 ? 'visual' : undefined,
+            triggerReason: currentCueLevel > 0 ? 'cue_level_active' : undefined,
+            userSelfRecovered: false,
+            environment: 'structured',
+          });
+        }
+
         // Log trial
         onTrialComplete?.({
           correct: true,
