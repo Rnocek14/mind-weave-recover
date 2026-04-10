@@ -155,6 +155,7 @@ export function TwoCluesGame({
   const showCueRef = useRef(false);
   const showFeedbackRef = useRef(false);
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
