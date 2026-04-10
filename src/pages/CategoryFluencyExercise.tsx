@@ -124,7 +124,6 @@ export default function CategoryFluencyExercise() {
   }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
-    setCompleted(true);
     completeSession();
 
     // Save structured details for reflection engine
@@ -167,8 +166,15 @@ export default function CategoryFluencyExercise() {
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
+    } else {
+      // Standalone mode: mark completed so the game summary stays visible with onFinish
+      setCompleted(true);
     }
   }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
+
+  const handleFinish = useCallback(() => {
+    navigate('/today');
+  }, [navigate]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -201,27 +207,15 @@ export default function CategoryFluencyExercise() {
       </header>
 
       <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
-        {completed ? (
-          <div className="max-w-md mx-auto text-center space-y-6">
-            <div className="text-6xl">🏆</div>
-            <h2 className="text-2xl font-bold">Great Work!</h2>
-            <p className="text-muted-foreground">
-              {fromLesson ? 'Loading next exercise…' : 'Nice word fluency practice!'}
-            </p>
-            {!fromLesson && (
-              <Button onClick={() => navigate('/today')} size="lg">Continue</Button>
-            )}
-          </div>
-        ) : (
           <CategoryFluencyGame
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
+            onFinish={!fromLesson ? handleFinish : undefined}
             roundCount={roundCount}
             autoStartFirst={fromLesson}
           />
-        )}
       </main>
 
       {fromLesson && <SessionSidePanel />}
