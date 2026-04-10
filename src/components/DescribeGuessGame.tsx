@@ -97,6 +97,8 @@ export function DescribeGuessGame({
   const listeningStartRef = useRef<number>(0);
   const lastTranscriptChangeRef = useRef<number>(0);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isListeningRef = useRef(false);
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
@@ -180,7 +182,7 @@ export function DescribeGuessGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
+  useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
 
   // Start prompt cooldown timers when trial begins
   const startPromptTimers = useCallback(() => {
@@ -204,18 +206,10 @@ export function DescribeGuessGame({
 
   const hasSubstantialSpeech = useCallback((text: string): boolean => {
     if (!text || text.trim().length === 0) return false;
-    const validation = validateSpokenResponse({ transcript: text, expectedMode: 'description' });
-    trackValidation('describe_guess', validation);
-    logValidationDetail('describe_guess', text, validation);
-    if (!validation.valid) {
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'describe_guess' }).then(line => setValidationHint(line));
-      }
-      return false;
-    }
-    setValidationHint(null);
-    resetCoachingState('describe_guess', speak);
-    // Check mic was on long enough
+    // Skip duplicate validation — the hook's evaluateGuess already validates.
+    // Only check minimum content words and listening duration here.
+    const contentWords = getContentWordCount(text);
+    if (contentWords < MIN_SPEECH_CONTENT_WORDS) return false;
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
     return true;
@@ -294,6 +288,7 @@ export function DescribeGuessGame({
     return () => {
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
@@ -387,14 +382,17 @@ export function DescribeGuessGame({
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
-          // Retry startListening with small delay in case state machine isn't IDLE yet
+          // Retry startListening with small delay — use ref to check actual state
           const tryStart = (retries = 3) => {
             startListening();
             setIsListening(true);
             listeningStartRef.current = Date.now();
-            // If startListening was blocked, retry after a short delay
-            if (!speechIsListening && retries > 0) {
-              setTimeout(() => tryStart(retries - 1), 400);
+            // Check via setTimeout so the state machine has time to transition
+            if (retries > 0) {
+              setTimeout(() => {
+                // Re-check if actually listening by seeing if startListening needs retry
+                if (!isListeningRef.current) tryStart(retries - 1);
+              }, 400);
             }
           };
           setTimeout(() => tryStart(), 300);
@@ -431,7 +429,7 @@ export function DescribeGuessGame({
             feedbackTimerRef.current = setTimeout(() => {
               resetAttempt();
               game.nextTrial();
-            }, 3500);
+            }, 6000);
           }, 6000);
         });
       } else {
@@ -460,7 +458,7 @@ export function DescribeGuessGame({
         feedbackTimerRef.current = setTimeout(() => {
           resetAttempt();
           game.nextTrial();
-        }, 3500);
+        }, 6000);
       }
     } catch (err) {
       console.error('Evaluation error:', err);
@@ -519,6 +517,14 @@ export function DescribeGuessGame({
     speak(chip.question);
   }, [game, speak]);
 
+  const handleDismissFeedback = useCallback(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    resetAttempt();
+    game.nextTrial();
+    setShowFeedback(false);
+  }, [resetAttempt, game]);
+
   const handleSkip = useCallback(() => {
     if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -526,6 +532,7 @@ export function DescribeGuessGame({
     stopListening();
     setIsListening(false);
     setIsEvaluating(false);
+    setAwaitingWordAttempt(false);
     if (isRecording) stopRecording();
     resetAttempt();
     game.nextTrial();
@@ -714,6 +721,9 @@ export function DescribeGuessGame({
             <p className="text-sm text-muted-foreground">
               The word was: <strong className="text-foreground">{game.lastResult.target}</strong>
             </p>
+            <Button size="sm" variant="ghost" onClick={handleDismissFeedback} className="text-xs">
+              ✕ Dismiss
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -768,13 +778,18 @@ export function DescribeGuessGame({
             </Button>
           </>
         ) : awaitingWordAttempt ? (
-          <div className={cn(
-            'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
-            isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
-          )}>
-            {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-            {isListening ? 'Say the word...' : 'Mic off'}
-          </div>
+          <>
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
+              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+            )}>
+              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+              {isListening ? 'Say the word...' : 'Mic off'}
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
+              <SkipForward className="h-4 w-4 mr-1" /> Skip
+            </Button>
+          </>
         ) : (
           <Badge variant="secondary" className="text-sm px-3 py-1.5">
             Next up...

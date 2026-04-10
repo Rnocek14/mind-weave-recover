@@ -325,7 +325,11 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     const nextIdx = currentIndex + 1;
     if (nextIdx >= trials.length) {
       setIsComplete(true);
-      onGameComplete?.(results);
+      // Use functional update to get latest results (avoids stale closure)
+      setResults(prev => {
+        onGameComplete?.(prev);
+        return prev;
+      });
       return;
     }
     setCurrentIndex(nextIdx);
@@ -335,7 +339,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     setPromptsShown([]);
     wordRetrievalTimeRef.current = null;
     roundStartTimeRef.current = Date.now();
-  }, [currentIndex, trials.length, results, onGameComplete]);
+  }, [currentIndex, trials.length, onGameComplete]);
 
   const startRound = useCallback(() => {
     roundStartTimeRef.current = Date.now();
