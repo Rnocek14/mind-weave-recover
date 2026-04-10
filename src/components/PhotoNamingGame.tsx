@@ -19,7 +19,8 @@ import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedb
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -619,6 +620,11 @@ export const PhotoNamingGame = ({
   // Helper: Check if transcript is high enough quality to score
   const isTranscriptScoreable = useCallback((transcript: string): boolean => {
     const validation = validateSpokenResponse({ transcript, expectedMode: 'naming' });
+    trackValidation('photo_naming', validation);
+    logValidationDetail('photo_naming', transcript, validation);
+    if (!validation.valid && validation.rejectionReason) {
+      setRetryPrompt(getRejectionCoachingText(validation.rejectionReason));
+    }
     return validation.valid;
   }, []);
   

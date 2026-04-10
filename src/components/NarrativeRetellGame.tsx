@@ -25,7 +25,8 @@ import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 
 interface NarrativeRetellGameProps {
   userId?: string;
@@ -101,6 +102,7 @@ export function NarrativeRetellGame({
 
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
+  const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const [useTyping, setUseTyping] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [typedText, setTypedText] = useState('');
@@ -333,7 +335,14 @@ export function NarrativeRetellGame({
     setTimeout(async () => {
       const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
       const validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      trackValidation('narrative_retell', validation);
+      logValidationDetail('narrative_retell', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
+      if (!validation.valid && validation.rejectionReason) {
+        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+      } else {
+        setValidationCoaching(null);
+      }
       const result = submitRetell(validation.valid ? transcript : '', durationMs);
 
       let audioStoragePath: string | null = null;
@@ -676,6 +685,9 @@ export function NarrativeRetellGame({
                 <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
                 <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
               </div>
+              {validationCoaching && lastResult.eventCoverage === 0 && (
+                <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
+              )}
 
               {/* Story structure breakdown */}
               <div className="space-y-2">

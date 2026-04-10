@@ -20,7 +20,8 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
 import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -124,6 +125,7 @@ export function TwoCluesGame({
   const [filteredDisplay, setFilteredDisplay] = useState('');
   const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
   const [showThinkingHint, setShowThinkingHint] = useState(false);
+  const [validationHint, setValidationHint] = useState<string | null>(null);
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   
   // Cue ladder state
@@ -654,10 +656,16 @@ export function TwoCluesGame({
 
     // GUARD: Universal validation pipeline
     const validation = validateSpokenResponse({ transcript: latestWithoutClues, expectedMode: 'naming' });
+    trackValidation('two_clues', validation);
+    logValidationDetail('two_clues', latestWithoutClues, validation);
     if (!validation.valid || candidate.length < 2) {
       console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
+      if (validation.rejectionReason) {
+        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+      }
       return;
     }
+    setValidationHint(null);
 
     // GUARD: Cooldown
     const timeSinceLastScore = Date.now() - lastScoredAtRef.current;
@@ -1090,6 +1098,11 @@ export function TwoCluesGame({
                 {showThinkingHint && !filteredDisplay && (
                   <p className="text-base text-muted-foreground italic animate-in fade-in duration-500">
                     Take your time. What connects these clues?
+                  </p>
+                )}
+                {validationHint && !showFeedback && !filteredDisplay && (
+                  <p className="text-sm text-muted-foreground italic animate-in fade-in duration-300">
+                    💡 {validationHint}
                   </p>
                 )}
               </>

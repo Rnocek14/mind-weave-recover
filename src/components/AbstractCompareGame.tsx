@@ -24,7 +24,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Layers, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 
 interface AbstractCompareGameProps {
   userId?: string;
@@ -53,6 +54,7 @@ export function AbstractCompareGame({
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
+  const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -236,7 +238,14 @@ export function AbstractCompareGame({
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
       const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
+      trackValidation('abstract_compare', validation);
+      logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
+      if (!validation.valid && validation.rejectionReason) {
+        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+      } else {
+        setValidationCoaching(null);
+      }
       const result = submitAnswer(validation.valid ? transcript : '', durationMs);
       
       // Upload audio + log utterance
@@ -396,6 +405,9 @@ export function AbstractCompareGame({
                   <p className="text-xs text-muted-foreground mb-1">You said:</p>
                   <p className="text-sm italic">"{lastResult.transcript}"</p>
                 </div>
+              )}
+              {validationCoaching && !lastResult.transcript && (
+                <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
               )}
             </CardContent>
           </Card>

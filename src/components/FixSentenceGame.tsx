@@ -23,7 +23,8 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
-import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +54,7 @@ export function FixSentenceGame({
   const [showFeedback, setShowFeedback] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
+  const [validationHint, setValidationHint] = useState<string | null>(null);
   const [prevWrongAttempt, setPrevWrongAttempt] = useState<string | null>(null);
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -240,7 +242,15 @@ export function FixSentenceGame({
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
     const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
-    if (!validation.valid || candidate.length < 2) return;
+    trackValidation('fix_sentence', validation);
+    logValidationDetail('fix_sentence', transcript, validation);
+    if (!validation.valid || candidate.length < 2) {
+      if (validation.rejectionReason) {
+        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+      }
+      return;
+    }
+    setValidationHint(null);
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
@@ -471,6 +481,11 @@ export function FixSentenceGame({
       {displayTranscript && (
         <div className="text-center text-lg text-muted-foreground">
           Heard: "<span className="font-medium text-foreground">{displayTranscript}</span>"
+        </div>
+      )}
+      {validationHint && !showFeedback && (
+        <div className="text-center text-sm text-muted-foreground italic">
+          💡 {validationHint}
         </div>
       )}
 
