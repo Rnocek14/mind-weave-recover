@@ -92,6 +92,14 @@ export function DescribeGuessGame({
   const rawTranscriptRef = useRef<string>('');
   const processingRef = useRef(false);
   const evaluatedRef = useRef(false);
+  const wordAttemptContextRef = useRef<{
+    originalTranscript: string;
+    guessResult: any;
+    audioPromise: Promise<void>;
+    audioStoragePath?: string;
+    recordingDurationMs?: number;
+    pronunciationData?: any;
+  } | null>(null);
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const listeningStartRef = useRef<number>(0);
