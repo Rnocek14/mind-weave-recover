@@ -409,7 +409,7 @@ export function DescribeGuessGame({
    */
   const runEvaluation = useCallback(async () => {
     const trial = currentTrialRef.current;
-    if (!trial || evaluatedRef.current || processingRef.current) return;
+    if (!trial || evaluatedRef.current || processingRef.current || wordSaidRedirect) return;
 
     const currentTranscript = rawTranscriptRef.current;
 
