@@ -109,6 +109,7 @@ export function DescribeGuessGame({
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isListeningRef = useRef(false);
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
