@@ -54,6 +54,7 @@ export function FixSentenceGame({
   const [showFeedback, setShowFeedback] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
+  const [validationHint, setValidationHint] = useState<string | null>(null);
   const [prevWrongAttempt, setPrevWrongAttempt] = useState<string | null>(null);
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -241,7 +242,15 @@ export function FixSentenceGame({
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
     const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
-    if (!validation.valid || candidate.length < 2) return;
+    trackValidation('fix_sentence', validation);
+    logValidationDetail('fix_sentence', transcript, validation);
+    if (!validation.valid || candidate.length < 2) {
+      if (validation.rejectionReason) {
+        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+      }
+      return;
+    }
+    setValidationHint(null);
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
