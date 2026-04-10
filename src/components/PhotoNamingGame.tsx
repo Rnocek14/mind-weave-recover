@@ -620,6 +620,11 @@ export const PhotoNamingGame = ({
   // Helper: Check if transcript is high enough quality to score
   const isTranscriptScoreable = useCallback((transcript: string): boolean => {
     const validation = validateSpokenResponse({ transcript, expectedMode: 'naming' });
+    trackValidation('photo_naming', validation);
+    logValidationDetail('photo_naming', transcript, validation);
+    if (!validation.valid && validation.rejectionReason) {
+      setRetryPrompt(getRejectionCoachingText(validation.rejectionReason));
+    }
     return validation.valid;
   }, []);
   
