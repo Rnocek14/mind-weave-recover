@@ -289,11 +289,14 @@ export function validateCategoryWord(word: string, categorySlug: string): WordVa
     if (wordSet.has(candidate)) return 'valid';
   }
   
-  // Check if the word is a substring of any valid word or vice versa (for speech mishearing)
+  // Check if the word is a truncated form of a valid word (speech mishearing)
   // e.g., "eleph" for "elephant", "hippo" for "hippopotamus"
+  // Require the input to cover at least 60% of the valid word to avoid false matches
+  // like "blue" → "bluejay" or "car" → "cardinal"
   for (const valid of wordSet) {
-    if (valid.startsWith(clean) && clean.length >= 3) return 'valid';
-    if (clean.startsWith(valid) && valid.length >= 3) return 'valid';
+    if (valid.includes(' ')) continue; // Skip compound words for prefix matching
+    if (valid.startsWith(clean) && clean.length >= 4 && clean.length / valid.length >= 0.6) return 'valid';
+    if (clean.startsWith(valid) && valid.length >= 4 && valid.length / clean.length >= 0.6) return 'valid';
   }
   
   return 'invalid';
