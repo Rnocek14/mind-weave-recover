@@ -239,7 +239,7 @@ export function FixSentenceGame({
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
-    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.broken });
+    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
     if (!validation.valid || candidate.length < 2) return;
 
     // Reset stability timer on every new transcript (user still speaking)
