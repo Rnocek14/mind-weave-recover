@@ -97,6 +97,8 @@ export function DescribeGuessGame({
   const listeningStartRef = useRef<number>(0);
   const lastTranscriptChangeRef = useRef<number>(0);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isListeningRef = useRef(false);
+  const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
@@ -180,7 +182,7 @@ export function DescribeGuessGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
+  useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
 
   // Start prompt cooldown timers when trial begins
   const startPromptTimers = useCallback(() => {
