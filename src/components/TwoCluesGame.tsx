@@ -160,6 +160,7 @@ export function TwoCluesGame({
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
+  const beginAttemptRef = useRef<(attemptNumber?: number) => void>(() => {});
   
   const { speak } = useTextToSpeech();
   const { playHint } = useGameSounds();
