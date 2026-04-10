@@ -19,8 +19,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface MultiStepPlanningGameProps {
   userId?: string;

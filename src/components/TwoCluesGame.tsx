@@ -20,8 +20,9 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
 import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
-import { validateSpokenResponse, getRejectionCoachingText } from '@/lib/evaluation/responseValidation';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
+import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -661,7 +662,7 @@ export function TwoCluesGame({
     if (!validation.valid || candidate.length < 2) {
       console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
       if (validation.rejectionReason) {
-        setValidationHint(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speak).then(line => setValidationHint(line));
       }
       return;
     }
