@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Use environment variables for Supabase config
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 export type PipelineOpsStats = {
