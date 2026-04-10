@@ -25,6 +25,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -136,6 +137,14 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Track phrases completed correctly on first/second attempt — never repeat these
   const masteredPhraseIdsRef = useRef<Set<string>>(new Set());
   
+  // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
+  const { logShadowEvent } = useShadowEventLogger({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    runtimeConfig: activeProfile?.runtime_config as Record<string, any> | null,
+  });
+
   // Auto-create session for standalone games
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
     user?.id,
@@ -626,6 +635,16 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           utteranceAnalysis
         ) : undefined;
         
+        // Persist shadow event (fire-and-forget, gated by feature flag)
+        if (shadowEvent) {
+          logShadowEvent(shadowEvent, undefined, {
+            cueTypeCandidate: currentCueLevel > 0 ? 'visual' : undefined,
+            triggerReason: currentCueLevel > 0 ? 'cue_level_active' : undefined,
+            userSelfRecovered: false,
+            environment: 'structured',
+          });
+        }
+
         // Log trial
         onTrialComplete?.({
           correct: true,

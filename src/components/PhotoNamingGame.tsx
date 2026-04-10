@@ -36,6 +36,7 @@ import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -230,6 +231,14 @@ export const PhotoNamingGame = ({
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   const { speak: speakMaya } = useTextToSpeech();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
+  
+  // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
+  const { logShadowEvent } = useShadowEventLogger({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    runtimeConfig: activeProfile?.runtime_config as Record<string, any> | null,
+  });
   
   // FIX 1: Auto-create session for standalone games (use canonical slug)
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
@@ -1848,6 +1857,16 @@ export const PhotoNamingGame = ({
           }
         ) : null;
         
+        // Persist shadow event (fire-and-forget, gated by feature flag)
+        if (shadowEvent) {
+          logShadowEvent(shadowEvent, undefined, {
+            cueTypeCandidate: capturedCueLevel > 0 ? cueTypeGiven : undefined,
+            triggerReason: capturedCueLevel > 0 ? 'cue_level_active' : undefined,
+            userSelfRecovered: errorClassification.errorType === 'self_corrected',
+            environment: 'structured',
+          });
+        }
+
         // Log telemetry with unified analysis
         onTrialComplete?.({
           correct,
