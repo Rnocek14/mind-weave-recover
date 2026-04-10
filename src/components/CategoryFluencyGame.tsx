@@ -165,66 +165,81 @@ export function CategoryFluencyGame({
 
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
+  const pendingWordRef = useRef<string | null>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const flushPending = useCallback(() => {
+    const word = pendingWordRef.current;
+    if (!word || processedRef.current.has(word)) {
+      pendingWordRef.current = null;
+      return;
+    }
+    processedRef.current.add(word);
+    const status = validateCategoryWord(word, config.category);
+    if (status !== 'filler') {
+      setWords(prev => [...prev, { text: word, status }]);
+      if (status === 'valid') {
+        setLastAddedWord(word);
+        setTimeout(() => setLastAddedWord(null), 800);
+      }
+    }
+    pendingWordRef.current = null;
+  }, [config.category]);
+
+  // Clean up pending timer on unmount
+  useEffect(() => {
+    return () => { if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current); };
+  }, []);
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
-    const tokens = transcript
-      .toLowerCase()
-      .split(/[,]+/)
-      .flatMap(chunk => {
-        const cleaned = chunk.trim().replace(/[^a-zA-Z' -]/g, '');
-        return cleaned ? [cleaned] : [];
-      });
 
-    // Build single words from all tokens, preserving order
-    const singleWords: string[] = [];
-    for (const token of tokens) {
-      const parts = token.split(/\s+/).filter(w => w.length >= 2);
-      singleWords.push(...parts);
-    }
+    // Extract all words from transcript
+    const allWords = transcript
+      .toLowerCase()
+      .replace(/[^a-zA-Z' -]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length >= 2);
 
     const newEntries: Array<{ text: string; status: WordValidation }> = [];
-    const skipIndices = new Set<number>();
 
-    // First pass: try bigrams (two consecutive words) for compound matches
-    // e.g. "guinea pig", "ice cream", "ping pong", "polar bear"
-    for (let i = 0; i < singleWords.length - 1; i++) {
-      const bigram = `${singleWords[i]} ${singleWords[i + 1]}`;
-      if (processedRef.current.has(bigram)) {
-        skipIndices.add(i);
-        skipIndices.add(i + 1);
-        continue;
-      }
-      // Only combine if the bigram is an EXACT entry in the word list
-      if (isExactCategoryMatch(bigram, config.category)) {
-        processedRef.current.add(bigram);
-        // Also mark individual words as processed so they don't show as invalid
-        processedRef.current.add(singleWords[i]);
-        processedRef.current.add(singleWords[i + 1]);
-        skipIndices.add(i);
-        skipIndices.add(i + 1);
-        newEntries.push({ text: bigram, status: 'valid' });
-      }
-    }
-
-    // Second pass: remaining single words
-    for (let i = 0; i < singleWords.length; i++) {
-      if (skipIndices.has(i)) continue;
-      const word = singleWords[i];
+    for (const word of allWords) {
       if (processedRef.current.has(word)) continue;
-      processedRef.current.add(word);
-      const status = validateCategoryWord(word, config.category);
-      if (status === 'filler') continue;
-      newEntries.push({ text: word, status });
+
+      // Check if pending + current form a valid compound word
+      if (pendingWordRef.current) {
+        const bigram = `${pendingWordRef.current} ${word}`;
+        if (isExactCategoryMatch(bigram, config.category) && !processedRef.current.has(bigram)) {
+          // Clear pending timer — we're consuming the pending word
+          if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+          processedRef.current.add(bigram);
+          processedRef.current.add(pendingWordRef.current);
+          processedRef.current.add(word);
+          pendingWordRef.current = null;
+          newEntries.push({ text: bigram, status: 'valid' });
+          continue;
+        }
+        // Pending word didn't form a bigram — flush it now
+        if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+        flushPending();
+      }
+
+      // Hold this word as pending briefly, in case the next word forms a compound
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      pendingWordRef.current = word;
+      pendingTimerRef.current = setTimeout(() => flushPending(), 600);
     }
 
+    // Show any fully resolved entries immediately
     if (newEntries.length > 0) {
       setWords(prev => [...prev, ...newEntries]);
       const lastValid = newEntries.filter(e => e.status === 'valid').pop();
-      setLastAddedWord(lastValid?.text ?? newEntries[newEntries.length - 1].text);
-      setTimeout(() => setLastAddedWord(null), 800);
+      if (lastValid) {
+        setLastAddedWord(lastValid.text);
+        setTimeout(() => setLastAddedWord(null), 800);
+      }
     }
-  }, [phase, config.category]);
+  }, [phase, config.category, flushPending]);
 
   const {
     isListening,
