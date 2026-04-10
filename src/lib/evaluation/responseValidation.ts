@@ -170,14 +170,11 @@ function detectInstructionEcho(
   const totalWords = lower.split(/\s+/).filter(w => w.length > 1).length;
   const instructionTokenRatio = totalWords > 0 ? 1 - (remainingWords.length / totalWords) : 1;
 
-  // Echo is dominant if instruction tokens are ≥70% of total AND remaining content is ≤ 2 words
-  const isEchoDominant = instructionTokenRatio >= 0.7 && remainingWords.length <= 2;
-
-  // Also catch pure instruction with zero remaining content
+  // Echo is dominant if there's NO meaningful content remaining after stripping instructions
   const isPureInstruction = remainingWords.length === 0;
 
   return {
-    isEchoDominant: isEchoDominant || isPureInstruction,
+    isEchoDominant: isPureInstruction,
     matchedPhrases,
     instructionTokenRatio,
     answerAfterStrip: stripped,
@@ -203,13 +200,20 @@ function isPromptRepeat(normalizedText: string, promptText?: string): boolean {
   const cleanInput = normalizedText.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
   if (!cleanPrompt || !cleanInput) return false;
 
-  // User repeated ≥80% of the prompt tokens with little else
-  const promptTokens = new Set(cleanPrompt.split(' '));
+  // Check if user repeated the prompt verbatim (or near-verbatim)
+  // Must match ≥90% of tokens AND not have added/changed meaningful words
+  const promptTokens = cleanPrompt.split(' ');
   const inputTokens = cleanInput.split(' ');
-  const overlapCount = inputTokens.filter(t => promptTokens.has(t)).length;
+  
+  // Exact or near-exact match only
+  if (cleanInput === cleanPrompt) return true;
+  
+  // Token-level: every input token must appear in prompt, and lengths must be very close
+  const promptSet = new Set(promptTokens);
+  const overlapCount = inputTokens.filter(t => promptSet.has(t)).length;
   const overlapRatio = inputTokens.length > 0 ? overlapCount / inputTokens.length : 0;
 
-  return overlapRatio >= 0.8 && inputTokens.length <= promptTokens.size + 2;
+  return overlapRatio >= 0.95 && Math.abs(inputTokens.length - promptTokens.length) <= 1;
 }
 
 // ═══════════════════════════════════════════════════════════════
