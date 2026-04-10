@@ -25,6 +25,7 @@ import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 
 interface NarrativeRetellGameProps {
   userId?: string;
@@ -331,8 +332,9 @@ export function NarrativeRetellGame({
 
     setTimeout(async () => {
       const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
+      const validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
       const durationMs = Date.now() - startTimeRef.current;
-      const result = submitRetell(transcript, durationMs);
+      const result = submitRetell(validation.valid ? transcript : '', durationMs);
 
       let audioStoragePath: string | null = null;
       if (recordingResult?.audioBlob && userId && sessionId) {

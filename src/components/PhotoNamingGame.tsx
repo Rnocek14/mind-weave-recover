@@ -19,6 +19,7 @@ import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedb
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -617,16 +618,8 @@ export const PhotoNamingGame = ({
   
   // Helper: Check if transcript is high enough quality to score
   const isTranscriptScoreable = useCallback((transcript: string): boolean => {
-    const normalized = transcript.toLowerCase().trim();
-    
-    // Too short - likely incomplete
-    if (normalized.length < 2) return false;
-    
-    // Just noise/filler words
-    const fillerOnly = /^(uh+|um+|ah+|er+|hmm+|the|a|an)$/i.test(normalized);
-    if (fillerOnly) return false;
-    
-    return true;
+    const validation = validateSpokenResponse({ transcript, expectedMode: 'naming' });
+    return validation.valid;
   }, []);
   
   // Helper: Debounced scoring logic (called after transcript stabilizes)
