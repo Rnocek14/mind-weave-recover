@@ -2095,16 +2095,22 @@ export type Database = {
       shadow_events: {
         Row: {
           analysis_data: Json | null
+          asr_confidence: number | null
           attempt_id: string | null
           created_at: string
+          cue_type_candidate: string | null
           domain: string | null
+          environment: string | null
           id: string
           interaction_mode: string | null
           latency_ms: number | null
+          model_version: string | null
           outcome_correct: boolean | null
           outcome_error_type: string | null
           profile_id: string | null
+          review_status: string
           session_id: string | null
+          source_type: string
           system_action: string | null
           system_confidence: number | null
           system_guess: string | null
@@ -2112,22 +2118,30 @@ export type Database = {
           target_word: string | null
           task_data: Json | null
           task_type: string
+          trigger_reason: string | null
           user_id: string
+          user_self_recovered: boolean | null
           user_spoke: boolean | null
           user_transcript: string | null
         }
         Insert: {
           analysis_data?: Json | null
+          asr_confidence?: number | null
           attempt_id?: string | null
           created_at?: string
+          cue_type_candidate?: string | null
           domain?: string | null
+          environment?: string | null
           id?: string
           interaction_mode?: string | null
           latency_ms?: number | null
+          model_version?: string | null
           outcome_correct?: boolean | null
           outcome_error_type?: string | null
           profile_id?: string | null
+          review_status?: string
           session_id?: string | null
+          source_type?: string
           system_action?: string | null
           system_confidence?: number | null
           system_guess?: string | null
@@ -2135,22 +2149,30 @@ export type Database = {
           target_word?: string | null
           task_data?: Json | null
           task_type: string
+          trigger_reason?: string | null
           user_id: string
+          user_self_recovered?: boolean | null
           user_spoke?: boolean | null
           user_transcript?: string | null
         }
         Update: {
           analysis_data?: Json | null
+          asr_confidence?: number | null
           attempt_id?: string | null
           created_at?: string
+          cue_type_candidate?: string | null
           domain?: string | null
+          environment?: string | null
           id?: string
           interaction_mode?: string | null
           latency_ms?: number | null
+          model_version?: string | null
           outcome_correct?: boolean | null
           outcome_error_type?: string | null
           profile_id?: string | null
+          review_status?: string
           session_id?: string | null
+          source_type?: string
           system_action?: string | null
           system_confidence?: number | null
           system_guess?: string | null
@@ -2158,7 +2180,9 @@ export type Database = {
           target_word?: string | null
           task_data?: Json | null
           task_type?: string
+          trigger_reason?: string | null
           user_id?: string
+          user_self_recovered?: boolean | null
           user_spoke?: boolean | null
           user_transcript?: string | null
         }
