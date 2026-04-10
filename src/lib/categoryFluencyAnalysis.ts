@@ -193,6 +193,21 @@ export function buildFluencyFeedback(analysis: FluencyAnalysis, category: string
   const weaknesses: string[] = [];
   let nextStep: string;
 
+  // Category-specific group examples for concrete feedback
+  const groupExamples: Record<string, string> = {
+    animals: 'e.g. pets → farm animals → ocean creatures',
+    foods: 'e.g. fruits → vegetables → meats',
+    clothes: 'e.g. tops → shoes → accessories',
+    kitchen: 'e.g. utensils → pots → appliances',
+    tools: 'e.g. hand tools → power tools → garden tools',
+    vehicles: 'e.g. road → water → air',
+    professions: 'e.g. medical → trades → service',
+    emotions: 'e.g. happy feelings → sad feelings',
+    sports: 'e.g. ball sports → water sports',
+    colors: 'e.g. warm colors → cool colors',
+  };
+  const exampleHint = groupExamples[category] || '';
+
   // Strengths
   if (analysis.uniqueWords >= 5) {
     strengths.push(`Generated ${analysis.uniqueWords} unique words — strong retrieval`);
@@ -206,37 +221,37 @@ export function buildFluencyFeedback(analysis: FluencyAnalysis, category: string
   }
 
   if (analysis.retrievalPattern === 'flexible') {
-    strengths.push('Good flexibility — switched between different groups');
+    strengths.push('Good flexibility — moved between different groups to find more words');
   }
 
   if (analysis.averageClusterSize >= 3) {
     strengths.push('Strong depth within groups');
   }
 
-  // Weaknesses
+  // Weaknesses — avoid duplicating switching advice (save it for nextStep)
   if (analysis.perseverations > 0) {
     weaknesses.push(`Repeated ${analysis.perseverations} word${analysis.perseverations > 1 ? 's' : ''} — try to track what you've said`);
   }
 
-  if (analysis.retrievalPattern === 'focused' && analysis.uniqueWords >= 3) {
-    weaknesses.push('Stayed in one group — try switching to a new group when you get stuck');
-  }
-
   if (analysis.retrievalPattern === 'scattered') {
-    weaknesses.push('Words jumped between groups quickly — try staying in one group longer');
+    weaknesses.push('Words jumped between groups quickly — try listing a few from one group before moving on');
   }
 
   if (analysis.uniqueWords < 3) {
-    weaknesses.push("Finding words was harder this time — that\u2019s okay, it builds with practice");
+    weaknesses.push("Finding words was harder this time — that's okay, it builds with practice");
   }
 
-  // Next step
+  // Next step — concrete, example-driven
   if (analysis.retrievalPattern === 'focused') {
-    nextStep = 'Try the "switch" strategy: when you run out of words in one group, jump to a new group.';
+    nextStep = exampleHint
+      ? `Think of ${category} in groups (${exampleHint}). List a few from one group, then jump to the next — this helps you find more words.`
+      : `Think in groups: list a few words from one type, then jump to a different type to find more.`;
   } else if (analysis.retrievalPattern === 'scattered') {
-    nextStep = "Try staying in one group (like \"pets\") until you can\u2019t think of more, then switch.";
+    nextStep = `Try staying in one group a bit longer — list 2–3 words from "pets" before jumping to "farm animals." A little patience in each group adds up.`;
   } else if (analysis.uniqueWords < 5) {
-    nextStep = `Think about subcategories within ${category} — it helps you find more words.`;
+    nextStep = exampleHint
+      ? `Think about types within ${category} (${exampleHint}) — it gives your brain more paths to find words.`
+      : `Think about subcategories within ${category} — it helps you find more words.`;
   } else {
     nextStep = 'Keep practicing to make word retrieval faster and more automatic.';
   }
