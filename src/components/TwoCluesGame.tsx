@@ -863,7 +863,7 @@ export function TwoCluesGame({
           resetAttempt();
           setProcessingGuard(false);
           beginAttempt(currentAttemptNum + 1);
-        }, 4000);
+        }, 6000);
       }
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
