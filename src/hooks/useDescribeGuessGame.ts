@@ -339,7 +339,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     setPromptsShown([]);
     wordRetrievalTimeRef.current = null;
     roundStartTimeRef.current = Date.now();
-  }, [currentIndex, trials.length, results, onGameComplete]);
+  }, [currentIndex, trials.length, onGameComplete]);
 
   const startRound = useCallback(() => {
     roundStartTimeRef.current = Date.now();
