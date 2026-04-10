@@ -406,6 +406,9 @@ export function AbstractCompareGame({
                   <p className="text-sm italic">"{lastResult.transcript}"</p>
                 </div>
               )}
+              {validationCoaching && !lastResult.transcript && (
+                <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
+              )}
             </CardContent>
           </Card>
           <Button onClick={() => nextItem()} className="w-full" size="lg">
