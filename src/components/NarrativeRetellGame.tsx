@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 
 interface NarrativeRetellGameProps {
   userId?: string;
@@ -340,9 +340,10 @@ export function NarrativeRetellGame({
       logValidationDetail('narrative_retell', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speakTTS).then(line => setValidationCoaching(line));
+        speakMayaCoaching(validation.rejectionReason, speakTTS, { exerciseKey: 'narrative_retell' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
+        resetCoachingState('narrative_retell');
       }
       const result = submitRetell(validation.valid ? transcript : '', durationMs);
 

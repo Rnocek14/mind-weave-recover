@@ -26,7 +26,7 @@ import { Mic, MicOff, Layers, ChevronRight, SkipForward } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface AbstractCompareGameProps {
@@ -245,8 +245,10 @@ export function AbstractCompareGame({
       logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setValidationCoaching(line));
+        speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'abstract_compare' }).then(line => setValidationCoaching(line));
       } else {
+        setValidationCoaching(null);
+        resetCoachingState('abstract_compare');
         setValidationCoaching(null);
       }
       const result = submitAnswer(validation.valid ? transcript : '', durationMs);

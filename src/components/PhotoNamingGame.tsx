@@ -21,7 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
@@ -626,8 +626,9 @@ export const PhotoNamingGame = ({
     trackValidation('photo_naming', validation);
     logValidationDetail('photo_naming', transcript, validation);
     if (!validation.valid && validation.rejectionReason) {
-      speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setRetryPrompt(line));
+      speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'photo_naming' }).then(line => setRetryPrompt(line));
     }
+    if (validation.valid) resetCoachingState('photo_naming');
     return validation.valid;
   }, []);
   

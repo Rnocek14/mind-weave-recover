@@ -25,7 +25,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -247,11 +247,12 @@ export function FixSentenceGame({
     logValidationDetail('fix_sentence', transcript, validation);
     if (!validation.valid || candidate.length < 2) {
       if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak).then(line => setValidationHint(line));
+        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'fix_sentence' }).then(line => setValidationHint(line));
       }
       return;
     }
     setValidationHint(null);
+    resetCoachingState('fix_sentence');
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);

@@ -21,7 +21,7 @@ import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface MultiStepPlanningGameProps {
@@ -159,9 +159,10 @@ export function MultiStepPlanningGame({
       logValidationDetail('multi_step_planning', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setValidationCoaching(line));
+        speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'multi_step_planning' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
+        resetCoachingState('multi_step_planning');
       }
       const result = submitPlan(validation.valid ? transcript : '', durationMs);
 
