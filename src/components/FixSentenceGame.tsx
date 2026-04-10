@@ -255,6 +255,20 @@ export function FixSentenceGame({
     const trial = currentTrialRef.current;
     if (!transcript || !trial || processingRef.current || showFeedback) return;
 
+    const candidate = extractAnswerFromTranscript(transcript);
+    if (candidate === lastScoredRef.current && candidate.length > 0) return;
+    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
+    trackValidation('fix_sentence', validation);
+    logValidationDetail('fix_sentence', transcript, validation);
+    if (!validation.valid || candidate.length < 2) {
+      if (validation.rejectionReason) {
+        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'fix_sentence' }).then(line => setValidationHint(line));
+      }
+      return;
+    }
+    setValidationHint(null);
+    resetCoachingState('fix_sentence', speak);
+
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
@@ -332,6 +346,12 @@ export function FixSentenceGame({
 
         if (!result.isCorrect && !result.isPartialCredit) {
           setPrevWrongAttempt(finalCandidate);
+          
+          // Auto-retry after wrong answer (with dismiss option in UI)
+          if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+          autoRetryTimerRef.current = setTimeout(() => {
+            handleTryAgain();
+          }, WRONG_ANSWER_DISPLAY_MS);
         }
 
         // Auto-advance on correct/partial
@@ -352,7 +372,7 @@ export function FixSentenceGame({
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript, showFeedback]);
+  }, [transcript]);
 
   // Render sentence with highlighted wrong word
   const renderSentence = () => {
