@@ -232,6 +232,14 @@ export const PhotoNamingGame = ({
   const { speak: speakMaya } = useTextToSpeech();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
+  // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
+  const { logShadowEvent } = useShadowEventLogger({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    runtimeConfig: activeProfile?.runtime_config as Record<string, any> | null,
+  });
+  
   // FIX 1: Auto-create session for standalone games (use canonical slug)
   const { activeSessionId, isCreatingSession, profileId: standaloneProfileId } = useStandaloneSession(
     user?.id,
