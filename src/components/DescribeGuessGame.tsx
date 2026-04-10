@@ -356,10 +356,11 @@ export function DescribeGuessGame({
         setShowFeedback(true);
         setAwaitingWordAttempt(false);
 
+        // Success — short feedback, advance quickly
         feedbackTimerRef.current = setTimeout(() => {
           resetAttempt();
           game.nextTrial();
-        }, 6000);
+        }, 2000);
       }
     }
   }, [fullTranscript, transcript, awaitingWordAttempt, game, stopListening, logFinalAnalysis, recordAdaptiveTrial, resetAttempt]);
