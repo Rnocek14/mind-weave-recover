@@ -164,16 +164,29 @@ export function FixSentenceGame({
   // Speak the sentence when trial changes
   useEffect(() => {
     if (game.currentTrial && !game.isComplete) {
-      // Wait for intro speech to complete before reading the sentence
-      const waitForIntro = () => {
-        if (!introCompleteRef.current) {
-          setTimeout(waitForIntro, 200);
-          return;
+      ttsAbortRef.current = false;
+      
+      // Wait for intro speech to complete, then speak sentence, THEN start mic
+      const startTrialFlow = async () => {
+        // Wait for intro if needed
+        while (!introCompleteRef.current) {
+          await new Promise(r => setTimeout(r, 200));
         }
-        if (!game.currentTrial) return;
-        speak(game.currentTrial.sentence);
+        if (!game.currentTrial || ttsAbortRef.current) return;
+        
+        // Speak the sentence and WAIT for it to finish
+        await speak(game.currentTrial.sentence);
+        
+        // Only start mic AFTER TTS completes
+        if (ttsAbortRef.current) return;
+        
+        if (sessionId && userId) {
+          startListening();
+          setIsListening(true);
+          if (isRecordingSupported) startRecording();
+        }
       };
-      waitForIntro();
+
       game.startRound();
 
       // Stall timer
@@ -184,7 +197,7 @@ export function FixSentenceGame({
         }
       }, 10000);
 
-      // Begin attempt
+      // Begin attempt tracking
       if (sessionId && userId) {
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
         lastScoredRef.current = '';
@@ -203,16 +216,15 @@ export function FixSentenceGame({
           targetWord: game.currentTrial.acceptedFixes[0] || game.currentTrial.wrongWord,
           category: game.currentTrial.category,
         });
-
-        // Start listening after brief delay for TTS
-        setTimeout(() => {
-          startListening();
-          setIsListening(true);
-          if (isRecordingSupported) startRecording();
-        }, 500);
       }
+
+      startTrialFlow();
     }
-    return () => { if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current); };
+    return () => {
+      ttsAbortRef.current = true;
+      if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
