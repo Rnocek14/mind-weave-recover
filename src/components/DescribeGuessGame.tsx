@@ -322,6 +322,48 @@ export function DescribeGuessGame({
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt]);
 
+  // Real-time word detection during "say the word" phase — finalize early
+  useEffect(() => {
+    if (!awaitingWordAttempt) return;
+    const trial = currentTrialRef.current;
+    const textToCheck = fullTranscript || transcript;
+    if (!textToCheck || !trial) return;
+
+    if (game.checkWordMatch(textToCheck, trial)) {
+      game.recordWordRetrieval();
+      // Early finalize — cancel the 6s timer
+      if (feedbackTimerRef.current) {
+        clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = null;
+      }
+      stopListening();
+      setIsListening(false);
+      
+      const ctx = wordAttemptContextRef.current;
+      if (ctx) {
+        const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
+        if (finalResult) {
+          logFinalAnalysis({
+            transcript: ctx.originalTranscript,
+            transcriptSource: 'browser',
+            isCorrect: true,
+            errorType: 'word_retrieved',
+            semanticSimilarity: ctx.guessResult.confidence,
+          });
+          recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
+        }
+        wordAttemptContextRef.current = null;
+        setShowFeedback(true);
+        setAwaitingWordAttempt(false);
+
+        feedbackTimerRef.current = setTimeout(() => {
+          resetAttempt();
+          game.nextTrial();
+        }, 6000);
+      }
+    }
+  }, [fullTranscript, transcript, awaitingWordAttempt, game, stopListening, logFinalAnalysis, recordAdaptiveTrial, resetAttempt]);
+
   /**
    * Core evaluation function — extracted so it can be awaited properly.
    * Stops mic, evaluates speech, shows feedback, then advances.
