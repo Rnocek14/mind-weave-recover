@@ -160,6 +160,7 @@ export function TwoCluesGame({
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
   const finalizeAttemptRef = useRef<(errorType: 'cancelled' | 'skipped' | 'abandoned') => Promise<void>>(async () => {});
+  const beginAttemptRef = useRef<(attemptNumber?: number) => void>(() => {});
   
   const { speak } = useTextToSpeech();
   const { playHint } = useGameSounds();
@@ -361,6 +362,8 @@ export function TwoCluesGame({
     }
   }, [sessionId, userId, startAttempt, startListening, isRecordingSupported, startRecording, setProcessingGuard]);
 
+  useEffect(() => { beginAttemptRef.current = beginAttempt; }, [beginAttempt]);
+
   const finalizeAttempt = useCallback(async (
     errorType: 'cancelled' | 'skipped' | 'abandoned',
     extra?: Record<string, any>
@@ -431,16 +434,17 @@ export function TwoCluesGame({
     return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
-  // Auto-start listening when puzzle changes
+  // Auto-start listening when puzzle changes (new puzzle only — NOT on showFeedback toggle)
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     
     game.startRound();
 
-    if (!showFeedback && sessionId && userId) {
-      beginAttempt(1);
+    if (sessionId && userId) {
+      beginAttemptRef.current(1);
     }
-  }, [game.currentPuzzle?.id, game.isComplete, showFeedback, sessionId, userId, beginAttempt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.currentPuzzle?.id, game.isComplete, sessionId, userId]);
 
   // Cleanup on unmount
   useEffect(() => {
