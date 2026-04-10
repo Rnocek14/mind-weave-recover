@@ -517,6 +517,14 @@ export function DescribeGuessGame({
     speak(chip.question);
   }, [game, speak]);
 
+  const handleDismissFeedback = useCallback(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    resetAttempt();
+    game.nextTrial();
+    setShowFeedback(false);
+  }, [resetAttempt, game]);
+
   const handleSkip = useCallback(() => {
     if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -524,6 +532,7 @@ export function DescribeGuessGame({
     stopListening();
     setIsListening(false);
     setIsEvaluating(false);
+    setAwaitingWordAttempt(false);
     if (isRecording) stopRecording();
     resetAttempt();
     game.nextTrial();
