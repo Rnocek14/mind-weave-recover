@@ -362,6 +362,8 @@ export function TwoCluesGame({
     }
   }, [sessionId, userId, startAttempt, startListening, isRecordingSupported, startRecording, setProcessingGuard]);
 
+  useEffect(() => { beginAttemptRef.current = beginAttempt; }, [beginAttempt]);
+
   const finalizeAttempt = useCallback(async (
     errorType: 'cancelled' | 'skipped' | 'abandoned',
     extra?: Record<string, any>
