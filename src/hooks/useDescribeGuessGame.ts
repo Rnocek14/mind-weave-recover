@@ -22,7 +22,8 @@ import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/
 import { matchAnswer } from '@/lib/answerMatcher';
 import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
 import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
-import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { useGameSounds } from '@/hooks/useGameSounds';
 
 export interface DescribeGuessTrialResult {
@@ -169,30 +170,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     transcript: string,
     trial: DescribeGuessTrial
   ): Promise<GuessResult> => {
+    // Universal validation pipeline — rejects empty, filler, instruction echo
+    const validation = validateSpokenResponse({
+      transcript,
+      expectedMode: 'description',
+    });
+
+    if (!validation.valid) {
+      console.log('[DescribeGuess] Pre-scoring rejection:', validation.rejectionReason);
+      return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
+    }
+
     const analysisText = getSemanticAnalysisText(transcript);
-    const cleanedAnswer = extractAnswerFromTranscript(transcript);
-
-    if (!analysisText || (isMostlyFiller(cleanedAnswer) && getContentWordCount(analysisText) < 2)) {
-      return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
-    }
-
-    // Filter out instruction-echoing: user just repeated the prompt/task instructions
-    const INSTRUCTION_PHRASES = [
-      'describe what you see',
-      'tell me about it',
-      'describe it',
-      'what do you see',
-      'tell me what you see',
-      'describe what i see',
-      'describe the picture',
-      'what is it',
-      'what is this',
-    ];
-    const lowerAnalysis = analysisText.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-    if (INSTRUCTION_PHRASES.some(p => lowerAnalysis === p || lowerAnalysis === p.replace(/\s+/g, ' '))) {
-      console.log('[DescribeGuess] Filtered instruction-echoing:', analysisText);
-      return { guessed: false, confidence: 0, bestWord: null, bestSimilarity: 0, top3Avg: 0, featureCount: 0, rulesPassed: [] };
-    }
 
     const directMatch = matchAnswer(transcript, trial.target, trial.acceptedWords, trial.category);
     if (directMatch.isMatch && directMatch.countsAsCorrect) {

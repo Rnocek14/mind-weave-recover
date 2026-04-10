@@ -19,7 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
-import { extractAnswerFromTranscript, isMostlyFiller, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
+import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -651,9 +652,10 @@ export function TwoCluesGame({
       return;
     }
 
-    // GUARD: Filler-only or too short
-    if (isMostlyFiller(latestWithoutClues) || candidate.length < 2) {
-      console.log('[TwoClues] processStableTranscript blocked - filler/too short:', JSON.stringify(candidate));
+    // GUARD: Universal validation pipeline
+    const validation = validateSpokenResponse({ transcript: latestWithoutClues, expectedMode: 'naming' });
+    if (!validation.valid || candidate.length < 2) {
+      console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
       return;
     }
 
