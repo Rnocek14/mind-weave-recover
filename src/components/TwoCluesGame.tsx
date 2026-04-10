@@ -1100,6 +1100,11 @@ export function TwoCluesGame({
                     Take your time. What connects these clues?
                   </p>
                 )}
+                {validationHint && !showFeedback && !filteredDisplay && (
+                  <p className="text-sm text-muted-foreground italic animate-in fade-in duration-300">
+                    💡 {validationHint}
+                  </p>
+                )}
               </>
             )}
           </div>
