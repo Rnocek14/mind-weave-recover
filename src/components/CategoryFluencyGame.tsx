@@ -168,20 +168,54 @@ export function CategoryFluencyGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
-    const spokenWords = transcript
+    const tokens = transcript
       .toLowerCase()
-      .split(/[\s,]+/)
-      .map(w => w.trim().replace(/[^a-zA-Z'-]/g, ''))
-      .filter(w => w.length >= 2);
+      .split(/[,]+/)
+      .flatMap(chunk => {
+        const cleaned = chunk.trim().replace(/[^a-zA-Z' -]/g, '');
+        return cleaned ? [cleaned] : [];
+      });
+
+    // Build single words from all tokens, preserving order
+    const singleWords: string[] = [];
+    for (const token of tokens) {
+      const parts = token.split(/\s+/).filter(w => w.length >= 2);
+      singleWords.push(...parts);
+    }
 
     const newEntries: Array<{ text: string; status: WordValidation }> = [];
-    for (const word of spokenWords) {
-      if (!processedRef.current.has(word)) {
-        processedRef.current.add(word);
-        const status = validateCategoryWord(word, config.category);
-        if (status === 'filler') continue;
-        newEntries.push({ text: word, status });
+    const skipIndices = new Set<number>();
+
+    // First pass: try bigrams (two consecutive words) for compound matches
+    // e.g. "guinea pig", "ice cream", "ping pong", "polar bear"
+    for (let i = 0; i < singleWords.length - 1; i++) {
+      const bigram = `${singleWords[i]} ${singleWords[i + 1]}`;
+      if (processedRef.current.has(bigram)) {
+        skipIndices.add(i);
+        skipIndices.add(i + 1);
+        continue;
       }
+      const status = validateCategoryWord(bigram, config.category);
+      if (status === 'valid') {
+        processedRef.current.add(bigram);
+        // Also mark individual words as processed so they don't show as invalid
+        processedRef.current.add(singleWords[i]);
+        processedRef.current.add(singleWords[i + 1]);
+        skipIndices.add(i);
+        skipIndices.add(i + 1);
+        newEntries.push({ text: bigram, status: 'valid' });
+      }
+    }
+
+    // Second pass: remaining single words
+    for (let i = 0; i < singleWords.length; i++) {
+      if (skipIndices.has(i)) continue;
+      const word = singleWords[i];
+      if (processedRef.current.has(word)) continue;
+      processedRef.current.add(word);
+      const status = validateCategoryWord(word, config.category);
+      if (status === 'filler') continue;
+      newEntries.push({ text: word, status });
     }
 
     if (newEntries.length > 0) {
@@ -615,8 +649,24 @@ export function CategoryFluencyGame({
   // === ACTIVE — speech-first with gentler timer ===
   return (
     <div className="flex flex-col gap-4 max-w-sm mx-auto">
-      {/* Category label */}
-      <div className="text-center mb-1">
+      {/* Round progress + Category label */}
+      <div className="text-center mb-1 space-y-2">
+        <div className="flex items-center justify-center gap-1.5">
+          {Array.from({ length: roundCount }, (_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "w-2 h-2 rounded-full transition-all",
+                i < currentRound ? "bg-primary" :
+                i === currentRound ? "bg-primary w-4" :
+                "bg-muted-foreground/25"
+              )}
+            />
+          ))}
+          <span className="text-xs text-muted-foreground ml-2">
+            Round {currentRound + 1}/{roundCount}
+          </span>
+        </div>
         <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
       </div>
 
