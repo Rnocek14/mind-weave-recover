@@ -49,6 +49,7 @@ export function MultiStepPlanningGame({
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<PlanningTrialResult | null>(null);
   const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
+  const { speak: speakMaya } = useTextToSpeech();
   const [collectedTranscript, setCollectedTranscript] = useState('');
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -158,7 +159,7 @@ export function MultiStepPlanningGame({
       logValidationDetail('multi_step_planning', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
       }

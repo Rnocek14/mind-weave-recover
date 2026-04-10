@@ -340,7 +340,7 @@ export function NarrativeRetellGame({
       logValidationDetail('narrative_retell', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        setValidationCoaching(getRejectionCoachingText(validation.rejectionReason));
+        speakMayaCoaching(validation.rejectionReason, speakTTS).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
       }

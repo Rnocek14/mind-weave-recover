@@ -228,6 +228,7 @@ export const PhotoNamingGame = ({
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
+  const { speak: speakMaya } = useTextToSpeech();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // FIX 1: Auto-create session for standalone games (use canonical slug)
@@ -625,7 +626,7 @@ export const PhotoNamingGame = ({
     trackValidation('photo_naming', validation);
     logValidationDetail('photo_naming', transcript, validation);
     if (!validation.valid && validation.rejectionReason) {
-      setRetryPrompt(getRejectionCoachingText(validation.rejectionReason));
+      speakMayaCoaching(validation.rejectionReason, speakMaya).then(line => setRetryPrompt(line));
     }
     return validation.valid;
   }, []);
