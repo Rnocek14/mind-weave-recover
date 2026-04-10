@@ -98,6 +98,7 @@ interface CategoryFluencyGameProps {
   onRoundComplete?: (result: CategoryFluencyResult) => void;
   onGameComplete?: (results: CategoryFluencyResult[]) => void;
   onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
+  onFinish?: () => void;
   roundCount?: number;
   bounds?: DifficultyBounds;
   autoStartFirst?: boolean;
@@ -110,6 +111,7 @@ export function CategoryFluencyGame({
   onRoundComplete,
   onGameComplete,
   onDifficultyChange,
+  onFinish,
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
   autoStartFirst = false,
@@ -669,6 +671,12 @@ export function CategoryFluencyGame({
           mayaReflection={summaryData.maya.reflection}
           realLifeLine={summaryData.maya.realLifeLine}
         />
+
+        {onFinish && (
+          <Button size="lg" onClick={onFinish} className="min-h-[48px] w-full mt-2">
+            Continue
+          </Button>
+        )}
       </div>
     );
   }
