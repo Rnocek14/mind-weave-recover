@@ -703,6 +703,23 @@ export function CategoryFluencyGame({
           </span>
         </div>
         <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
+        {/* Coaching hint — visible early or when stuck */}
+        {timeLeft > totalTime - 6 && (
+          <p className="text-xs text-muted-foreground animate-in fade-in duration-500">
+            💡 Tip: Think in groups — {
+              config.category === 'animals' ? 'pets, farm, ocean…' :
+              config.category === 'foods' ? 'fruits, vegetables, meats…' :
+              config.category === 'clothes' ? 'tops, shoes, accessories…' :
+              config.category === 'kitchen' ? 'utensils, pots, appliances…' :
+              config.category === 'tools' ? 'hand tools, power tools, garden…' :
+              config.category === 'vehicles' ? 'road, water, air…' :
+              config.category === 'professions' ? 'medical, trades, service…' :
+              config.category === 'emotions' ? 'happy feelings, sad feelings…' :
+              config.category === 'sports' ? 'ball sports, water sports…' :
+              'one type, then another…'
+            } then jump to the next group
+          </p>
+        )}
       </div>
 
       {/* Gentler timer: progress bar + count */}
