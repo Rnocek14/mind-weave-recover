@@ -123,11 +123,13 @@ export function NarrativeRetellGame({
 
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('narrative-retell');
+  const { interrupt: interruptVoiceGuidance } = vg;
 
-  // Stop TTS on unmount or when leaving reading phase
+  // Stop TTS on unmount only. Do not depend on the full `vg` object here — it is
+  // recreated on render, and the cleanup would interrupt story playback instantly.
   useEffect(() => {
-    return () => { stopTTS(); vg.interrupt(); };
-  }, [stopTTS, vg]);
+    return () => { stopTTS(); interruptVoiceGuidance(); };
+  }, [stopTTS, interruptVoiceGuidance]);
 
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
