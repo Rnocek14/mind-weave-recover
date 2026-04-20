@@ -12,6 +12,28 @@ interface TTSOptions {
   useStreaming?: boolean;
 }
 
+let globalAudio: HTMLAudioElement | null = null;
+let globalAudioUrl: string | null = null;
+let globalAbortController: AbortController | null = null;
+
+const stopGlobalTTS = () => {
+  globalAbortController?.abort();
+  globalAbortController = null;
+
+  if (globalAudio) {
+    globalAudio.pause();
+    globalAudio.currentTime = 0;
+    globalAudio = null;
+  }
+
+  if (globalAudioUrl) {
+    URL.revokeObjectURL(globalAudioUrl);
+    globalAudioUrl = null;
+  }
+
+  window.speechSynthesis?.cancel();
+};
+
 export const useTextToSpeech = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -30,8 +52,8 @@ export const useTextToSpeech = () => {
 
       console.log('[TTS] Starting browser TTS for:', text.substring(0, 50) + '...');
       
-      // Cancel any ongoing speech first
-      window.speechSynthesis.cancel();
+      // Cancel any ongoing speech first, including audio from other exercises
+      stopGlobalTTS();
       
       let hasResolved = false;
       const safeResolve = () => {
@@ -194,11 +216,10 @@ export const useTextToSpeech = () => {
     setIsSpeaking(false);
     setError(null);
 
-    // Cancel any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+      // Cancel any previous request/audio across all exercise instances
+      stopGlobalTTS();
     abortControllerRef.current = new AbortController();
+      globalAbortController = abortControllerRef.current;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -248,6 +269,8 @@ export const useTextToSpeech = () => {
         
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
+        globalAudio = audio;
+        globalAudioUrl = audioUrl;
         
         setIsLoading(false);
         setIsSpeaking(true);
@@ -262,6 +285,8 @@ export const useTextToSpeech = () => {
           const safetyTimeout = setTimeout(() => {
             console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
             setIsSpeaking(false);
+            if (globalAudio === audio) globalAudio = null;
+            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
             resolve();
           }, timeoutMs);
@@ -273,6 +298,8 @@ export const useTextToSpeech = () => {
               const accurateTimeout = setTimeout(() => {
                 console.warn('[TTS] Duration-based timeout — resolving');
                 setIsSpeaking(false);
+                if (globalAudio === audio) globalAudio = null;
+                if (globalAudioUrl === audioUrl) globalAudioUrl = null;
                 URL.revokeObjectURL(audioUrl);
                 resolve();
               }, (audio.duration + 2) * 1000);
@@ -285,6 +312,8 @@ export const useTextToSpeech = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
             setIsSpeaking(false);
+            if (globalAudio === audio) globalAudio = null;
+            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
             resolve();
           };
@@ -293,6 +322,8 @@ export const useTextToSpeech = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
             setIsSpeaking(false);
+            if (globalAudio === audio) globalAudio = null;
+            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
             // Don't reject — fall through gracefully so session continues
             console.warn('[TTS] Audio playback error, falling back to browser TTS');
@@ -302,6 +333,8 @@ export const useTextToSpeech = () => {
           audio.play().catch((playError) => {
             clearTimeout(safetyTimeout);
             setIsSpeaking(false);
+            if (globalAudio === audio) globalAudio = null;
+            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
             console.warn('[TTS] Play failed, falling back to browser:', playError);
             speakBrowser(text).then(resolve).catch(() => resolve());
@@ -332,16 +365,12 @@ export const useTextToSpeech = () => {
   }, [speakStream]);
 
   const stop = useCallback(() => {
-    // Abort any pending requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    stopGlobalTTS();
     
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    window.speechSynthesis?.cancel();
     setIsSpeaking(false);
     setIsLoading(false);
   }, []);
