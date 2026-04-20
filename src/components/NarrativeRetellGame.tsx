@@ -203,13 +203,19 @@ export function NarrativeRetellGame({
   }, [isComplete, results, onGameComplete]);
 
   const handleSpeechResult = useCallback((transcript: string) => {
-    if (hasProcessedRef.current || !transcript.trim()) return;
+    if (phase !== 'retelling' || hasProcessedRef.current || !transcript.trim()) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
-  }, []);
+  }, [phase]);
 
   const { isListening, fullTranscript, startListening, stopListening, isSupported, error: speechError } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
+
+  useEffect(() => {
+    if (phase === 'reading' && isListening) {
+      stopListening();
+    }
+  }, [phase, isListening, stopListening]);
 
   // Auto-response mic for Full Coaching: auto-start mic after Maya speaks retell prompt
   const { scheduleAutoListen, cancelAutoListen, isAutoResponseActive } = useAutoResponseMic({
@@ -239,7 +245,7 @@ export function NarrativeRetellGame({
   // Auto-submit after 3s silence once user has spoken 2+ words
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (phase !== 'retelling') return;
+    if (phase !== 'retelling' || isTTSSpeaking || vg.isSpeaking) return;
     const transcript = collectedTranscript || latestTranscriptRef.current || '';
     const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -287,7 +293,7 @@ export function NarrativeRetellGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       clearInterval(interval);
     };
-  }, [phase, collectedTranscript, stallPromptIndex, vg]);
+  }, [phase, collectedTranscript, stallPromptIndex, isTTSSpeaking, vg]);
 
   const handleStartRetelling = useCallback(() => {
     stopTTS(); // Stop Maya reading if still playing
