@@ -109,6 +109,7 @@ export function NarrativeRetellGame({
   const [typedText, setTypedText] = useState('');
   const [stallPromptIndex, setStallPromptIndex] = useState(-1);
   const [micFailed, setMicFailed] = useState(false);
+  const [storyReadComplete, setStoryReadComplete] = useState(false);
   const realLifeLineRef = useRef(REAL_LIFE_CONNECTIONS[Math.floor(Math.random() * REAL_LIFE_CONNECTIONS.length)]);
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
@@ -134,7 +135,6 @@ export function NarrativeRetellGame({
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
   const hasAutoReadRef = useRef(false);
-  const autoTransitioningRef = useRef(false);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
     if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
@@ -159,26 +159,19 @@ export function NarrativeRetellGame({
       try {
         await speakTTS(fullText);
         console.log('[NarrativeRetell] Auto-read complete');
+        setStoryReadComplete(true);
       } catch (e) {
         console.warn('[NarrativeRetell] Story auto-read TTS failed:', e);
-      }
-
-      // Full Coaching: auto-transition to retelling after story is read
-      if (vg.isVoiceLed && !autoTransitioningRef.current) {
-        autoTransitioningRef.current = true;
-        console.log('[NarrativeRetell] Auto-transitioning to retelling phase');
-        // Brief pause before retell prompt
-        await new Promise(r => setTimeout(r, 800));
-        handleStartRetelling();
       }
     };
     doAutoRead();
   }, [phase, currentStory, currentIndex, vg, speakTTS]);
 
-  const handleListenToStory = useCallback(() => {
+  const handleListenToStory = useCallback(async () => {
     if (!currentStory) return;
     const fullText = currentStory.scenes.map(s => s.text).join(' ');
-    speakTTS(fullText);
+    await speakTTS(fullText);
+    setStoryReadComplete(true);
   }, [currentStory, speakTTS]);
 
   // Reset on story change
@@ -191,7 +184,7 @@ export function NarrativeRetellGame({
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
     hasAutoReadRef.current = false;
-    autoTransitioningRef.current = false;
+    setStoryReadComplete(false);
   }, [currentIndex]);
 
   const completedRef = useRef(false);
