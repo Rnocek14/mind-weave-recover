@@ -228,7 +228,7 @@ export function NarrativeRetellGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'retelling' || hasProcessedRef.current || !transcript.trim()) return;
     setCollectedTranscript(transcript);
-    latestTranscriptRef.current = transcript;
+    latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, transcript);
   }, [phase]);
 
   const { isListening, fullTranscript, startListening, stopListening, isSupported, error: speechError } =
@@ -254,6 +254,59 @@ export function NarrativeRetellGame({
     isListening,
   });
 
+  const handleStopSpeech = useCallback(() => {
+    invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+    setIsRetellPlaybackActive(false);
+    stopTTS();
+    interruptVoiceGuidance();
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, stopTTS, interruptVoiceGuidance]);
+
+  const beginRetellPlayback = useCallback(() => {
+    const sequenceId = invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+
+    const snapshot = mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript, fullTranscript);
+    transcriptPrefixRef.current = snapshot;
+    latestTranscriptRef.current = snapshot;
+    setCollectedTranscript('');
+    setIsRetellPlaybackActive(true);
+
+    if (!useTyping) {
+      stopListening();
+      cancelRecording();
+    }
+
+    return sequenceId;
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, collectedTranscript, fullTranscript, useTyping, stopListening, cancelRecording]);
+
+  const resumeRetellingAfterPlayback = useCallback((sequenceId?: number) => {
+    if (sequenceId != null && !isVoiceSequenceCurrent(sequenceId)) return;
+
+    setIsRetellPlaybackActive(false);
+    if (phase !== 'retelling' || hasProcessedRef.current || useTyping) return;
+
+    if (vg.isVoiceLed) {
+      scheduleAutoListen();
+      return;
+    }
+
+    startRecording();
+    startListening();
+  }, [phase, useTyping, vg.isVoiceLed, isVoiceSequenceCurrent, scheduleAutoListen, startRecording, startListening]);
+
+  const visibleTranscript = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript || collectedTranscript);
+  const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
+
+  useEffect(() => {
+    return () => {
+      handleStopSpeech();
+      cancelRecording();
+    };
+  }, [handleStopSpeech, cancelRecording]);
+
   // Track mic failures for persistent UI
   useEffect(() => {
     if (speechError && phase === 'retelling' && !useTyping) {
@@ -262,23 +315,27 @@ export function NarrativeRetellGame({
   }, [speechError, phase, useTyping]);
 
   useEffect(() => {
-    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
+    if (fullTranscript) {
+      latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript);
+    }
   }, [fullTranscript]);
 
-  // Auto-submit after 3s silence once user has spoken 2+ words
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Auto-submit after a longer pause so users have enough retell time
   useEffect(() => {
-    if (phase !== 'retelling' || isTTSSpeaking || vg.isSpeaking) return;
-    const transcript = collectedTranscript || latestTranscriptRef.current || '';
-    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (wordCount >= 2) {
+    if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
+
+    const transcript = latestTranscriptRef.current || visibleTranscript;
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+
+    if (wordCount >= RETELL_AUTO_SUBMIT_MIN_WORDS) {
       silenceTimerRef.current = setTimeout(() => {
         if (!hasProcessedRef.current) handleDoneRetelling();
-      }, 3000);
+      }, RETELL_AUTO_SUBMIT_MS);
     }
+
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, collectedTranscript, fullTranscript]);
+  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, handleDoneRetelling]);
 
   // Stall support: show progressive prompts if user hasn't spoken much
   // In Full Coaching mode, speak the prompts aloud
