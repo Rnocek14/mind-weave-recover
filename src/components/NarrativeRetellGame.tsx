@@ -131,6 +131,7 @@ export function NarrativeRetellGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const voiceSequenceRef = useRef(0);
   const transcriptPrefixRef = useRef('');
+  const handleDoneRetellingRef = useRef<() => void>(() => {});
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -456,6 +457,10 @@ export function NarrativeRetellGame({
   }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
 
   useEffect(() => {
+    handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
+  }, [handleDoneRetelling]);
+
+  useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
 
@@ -465,13 +470,13 @@ export function NarrativeRetellGame({
     if (wordCount >= RETELL_AUTO_SUBMIT_MIN_WORDS) {
       silenceTimerRef.current = setTimeout(() => {
         if (!hasProcessedRef.current) {
-          void handleDoneRetelling();
+          handleDoneRetellingRef.current();
         }
       }, RETELL_AUTO_SUBMIT_MS);
     }
 
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, handleDoneRetelling]);
+  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
