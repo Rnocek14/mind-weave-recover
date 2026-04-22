@@ -457,6 +457,10 @@ export function NarrativeRetellGame({
   }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
 
   useEffect(() => {
+    handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
+  }, [handleDoneRetelling]);
+
+  useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
 
