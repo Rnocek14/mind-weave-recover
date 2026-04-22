@@ -131,6 +131,7 @@ export function NarrativeRetellGame({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const voiceSequenceRef = useRef(0);
   const transcriptPrefixRef = useRef('');
+  const handleDoneRetellingRef = useRef<() => void>(() => {});
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -465,13 +466,13 @@ export function NarrativeRetellGame({
     if (wordCount >= RETELL_AUTO_SUBMIT_MIN_WORDS) {
       silenceTimerRef.current = setTimeout(() => {
         if (!hasProcessedRef.current) {
-          void handleDoneRetelling();
+          handleDoneRetellingRef.current();
         }
       }, RETELL_AUTO_SUBMIT_MS);
     }
 
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, handleDoneRetelling]);
+  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
