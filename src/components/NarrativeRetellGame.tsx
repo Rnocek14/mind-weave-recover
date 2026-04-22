@@ -29,6 +29,18 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 
+const RETELL_AUTO_SUBMIT_MS = 5000;
+const RETELL_AUTO_SUBMIT_MIN_WORDS = 2;
+
+function mergeTranscriptSegments(...segments: Array<string | null | undefined>) {
+  return segments
+    .map((segment) => (segment ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 interface NarrativeRetellGameProps {
   userId?: string;
   sessionId?: string | null;
@@ -116,21 +128,94 @@ export function NarrativeRetellGame({
   const hasProcessedRef = useRef(false);
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retellStartRef = useRef(Date.now());
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceSequenceRef = useRef(0);
+  const transcriptPrefixRef = useRef('');
+  const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
   const { startAttempt, logFinalAnalysis, resetAttempt, currentAttemptId } = useUtteranceLogger();
-  const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
+  const { startRecording, stopRecording, uploadRecording, cancelRecording } = useAudioRecorder();
   const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
 
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('narrative-retell');
   const { interrupt: interruptVoiceGuidance } = vg;
 
+  const clearRetellTimers = useCallback(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const invalidateVoiceSequence = useCallback(() => {
+    voiceSequenceRef.current += 1;
+    return voiceSequenceRef.current;
+  }, []);
+
+  const isVoiceSequenceCurrent = useCallback((sequenceId: number) => {
+    return voiceSequenceRef.current === sequenceId;
+  }, []);
+
+  const handleStopSpeech = useCallback(() => {
+    invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+    setIsRetellPlaybackActive(false);
+    stopTTS();
+    interruptVoiceGuidance();
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, stopTTS, interruptVoiceGuidance]);
+
+  const beginRetellPlayback = useCallback(() => {
+    const sequenceId = invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+    const snapshot = mergeTranscriptSegments(collectedTranscript, latestTranscriptRef.current);
+    transcriptPrefixRef.current = snapshot;
+    latestTranscriptRef.current = snapshot;
+    setIsRetellPlaybackActive(true);
+
+    if (!useTyping) {
+      stopListening();
+      cancelRecording();
+    }
+
+    return sequenceId;
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, collectedTranscript, useTyping, stopListening, cancelRecording]);
+
+  const resumeRetellingAfterPlayback = useCallback(() => {
+    setIsRetellPlaybackActive(false);
+    if (phase !== 'retelling' || hasProcessedRef.current || useTyping) return;
+
+    if (vg.isVoiceLed) {
+      scheduleAutoListen();
+      return;
+    }
+
+    startRecording();
+    startListening();
+  }, [phase, useTyping, vg.isVoiceLed, scheduleAutoListen, startRecording, startListening]);
+
+  const visibleTranscript = mergeTranscriptSegments(
+    transcriptPrefixRef.current,
+    fullTranscript,
+    !fullTranscript ? collectedTranscript : '',
+  );
+  const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
+
   // Stop TTS on unmount only. Do not depend on the full `vg` object here — it is
   // recreated on render, and the cleanup would interrupt story playback instantly.
   useEffect(() => {
-    return () => { stopTTS(); interruptVoiceGuidance(); };
-  }, [stopTTS, interruptVoiceGuidance]);
+    return () => {
+      handleStopSpeech();
+      cancelRecording();
+    };
+  }, [handleStopSpeech, cancelRecording]);
 
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
