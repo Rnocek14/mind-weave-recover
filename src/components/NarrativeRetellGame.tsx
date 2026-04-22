@@ -162,61 +162,6 @@ export function NarrativeRetellGame({
     return voiceSequenceRef.current === sequenceId;
   }, []);
 
-  const handleStopSpeech = useCallback(() => {
-    invalidateVoiceSequence();
-    clearRetellTimers();
-    cancelAutoListen();
-    setIsRetellPlaybackActive(false);
-    stopTTS();
-    interruptVoiceGuidance();
-  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, stopTTS, interruptVoiceGuidance]);
-
-  const beginRetellPlayback = useCallback(() => {
-    const sequenceId = invalidateVoiceSequence();
-    clearRetellTimers();
-    cancelAutoListen();
-    const snapshot = mergeTranscriptSegments(collectedTranscript, latestTranscriptRef.current);
-    transcriptPrefixRef.current = snapshot;
-    latestTranscriptRef.current = snapshot;
-    setIsRetellPlaybackActive(true);
-
-    if (!useTyping) {
-      stopListening();
-      cancelRecording();
-    }
-
-    return sequenceId;
-  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, collectedTranscript, useTyping, stopListening, cancelRecording]);
-
-  const resumeRetellingAfterPlayback = useCallback(() => {
-    setIsRetellPlaybackActive(false);
-    if (phase !== 'retelling' || hasProcessedRef.current || useTyping) return;
-
-    if (vg.isVoiceLed) {
-      scheduleAutoListen();
-      return;
-    }
-
-    startRecording();
-    startListening();
-  }, [phase, useTyping, vg.isVoiceLed, scheduleAutoListen, startRecording, startListening]);
-
-  const visibleTranscript = mergeTranscriptSegments(
-    transcriptPrefixRef.current,
-    fullTranscript,
-    !fullTranscript ? collectedTranscript : '',
-  );
-  const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
-
-  // Stop TTS on unmount only. Do not depend on the full `vg` object here — it is
-  // recreated on render, and the cleanup would interrupt story playback instantly.
-  useEffect(() => {
-    return () => {
-      handleStopSpeech();
-      cancelRecording();
-    };
-  }, [handleStopSpeech, cancelRecording]);
-
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
   const hasAutoReadRef = useRef(false);
