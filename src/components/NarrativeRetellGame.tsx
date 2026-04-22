@@ -29,6 +29,18 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 
+const RETELL_AUTO_SUBMIT_MS = 5000;
+const RETELL_AUTO_SUBMIT_MIN_WORDS = 2;
+
+function mergeTranscriptSegments(...segments: Array<string | null | undefined>) {
+  return segments
+    .map((segment) => (segment ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 interface NarrativeRetellGameProps {
   userId?: string;
   sessionId?: string | null;
@@ -116,21 +128,39 @@ export function NarrativeRetellGame({
   const hasProcessedRef = useRef(false);
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
   const retellStartRef = useRef(Date.now());
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceSequenceRef = useRef(0);
+  const transcriptPrefixRef = useRef('');
+  const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
   const { startAttempt, logFinalAnalysis, resetAttempt, currentAttemptId } = useUtteranceLogger();
-  const { startRecording, stopRecording, uploadRecording } = useAudioRecorder();
+  const { startRecording, stopRecording, uploadRecording, cancelRecording } = useAudioRecorder();
   const { speak: speakTTS, isSpeaking: isTTSSpeaking, stop: stopTTS } = useTextToSpeech();
 
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('narrative-retell');
   const { interrupt: interruptVoiceGuidance } = vg;
 
-  // Stop TTS on unmount only. Do not depend on the full `vg` object here — it is
-  // recreated on render, and the cleanup would interrupt story playback instantly.
-  useEffect(() => {
-    return () => { stopTTS(); interruptVoiceGuidance(); };
-  }, [stopTTS, interruptVoiceGuidance]);
+  const clearRetellTimers = useCallback(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const invalidateVoiceSequence = useCallback(() => {
+    voiceSequenceRef.current += 1;
+    return voiceSequenceRef.current;
+  }, []);
+
+  const isVoiceSequenceCurrent = useCallback((sequenceId: number) => {
+    return voiceSequenceRef.current === sequenceId;
+  }, []);
 
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
@@ -198,7 +228,7 @@ export function NarrativeRetellGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'retelling' || hasProcessedRef.current || !transcript.trim()) return;
     setCollectedTranscript(transcript);
-    latestTranscriptRef.current = transcript;
+    latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, transcript);
   }, [phase]);
 
   const { isListening, fullTranscript, startListening, stopListening, isSupported, error: speechError } =
@@ -224,6 +254,59 @@ export function NarrativeRetellGame({
     isListening,
   });
 
+  const handleStopSpeech = useCallback(() => {
+    invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+    setIsRetellPlaybackActive(false);
+    stopTTS();
+    interruptVoiceGuidance();
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, stopTTS, interruptVoiceGuidance]);
+
+  const beginRetellPlayback = useCallback(() => {
+    const sequenceId = invalidateVoiceSequence();
+    clearRetellTimers();
+    cancelAutoListen();
+
+    const snapshot = mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript, fullTranscript);
+    transcriptPrefixRef.current = snapshot;
+    latestTranscriptRef.current = snapshot;
+    setCollectedTranscript('');
+    setIsRetellPlaybackActive(true);
+
+    if (!useTyping) {
+      stopListening();
+      cancelRecording();
+    }
+
+    return sequenceId;
+  }, [invalidateVoiceSequence, clearRetellTimers, cancelAutoListen, collectedTranscript, fullTranscript, useTyping, stopListening, cancelRecording]);
+
+  const resumeRetellingAfterPlayback = useCallback((sequenceId?: number) => {
+    if (sequenceId != null && !isVoiceSequenceCurrent(sequenceId)) return;
+
+    setIsRetellPlaybackActive(false);
+    if (phase !== 'retelling' || hasProcessedRef.current || useTyping) return;
+
+    if (vg.isVoiceLed) {
+      scheduleAutoListen();
+      return;
+    }
+
+    startRecording();
+    startListening();
+  }, [phase, useTyping, vg.isVoiceLed, isVoiceSequenceCurrent, scheduleAutoListen, startRecording, startListening]);
+
+  const visibleTranscript = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript || collectedTranscript);
+  const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
+
+  useEffect(() => {
+    return () => {
+      handleStopSpeech();
+      cancelRecording();
+    };
+  }, [handleStopSpeech, cancelRecording]);
+
   // Track mic failures for persistent UI
   useEffect(() => {
     if (speechError && phase === 'retelling' && !useTyping) {
@@ -232,33 +315,21 @@ export function NarrativeRetellGame({
   }, [speechError, phase, useTyping]);
 
   useEffect(() => {
-    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
+    if (fullTranscript) {
+      latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript);
+    }
   }, [fullTranscript]);
 
-  // Auto-submit after 3s silence once user has spoken 2+ words
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (phase !== 'retelling' || isTTSSpeaking || vg.isSpeaking) return;
-    const transcript = collectedTranscript || latestTranscriptRef.current || '';
-    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (wordCount >= 2) {
-      silenceTimerRef.current = setTimeout(() => {
-        if (!hasProcessedRef.current) handleDoneRetelling();
-      }, 3000);
-    }
-    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, collectedTranscript, fullTranscript]);
-
+  // Auto-submit after a longer pause so users have enough retell time
   // Stall support: show progressive prompts if user hasn't spoken much
   // In Full Coaching mode, speak the prompts aloud
   const lastSpokenStallRef = useRef(-1);
   useEffect(() => {
-    if (phase !== 'retelling') return;
+    if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
 
     const checkStall = () => {
-      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+      const transcript = latestTranscriptRef.current || visibleTranscript;
       const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
       const elapsed = Date.now() - retellStartRef.current;
 
@@ -286,17 +357,19 @@ export function NarrativeRetellGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       clearInterval(interval);
     };
-  }, [phase, collectedTranscript, stallPromptIndex, isTTSSpeaking, vg]);
+  }, [phase, visibleTranscript, stallPromptIndex, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, vg]);
 
   const handleStartRetelling = useCallback(() => {
-    stopTTS(); // Stop Maya reading if still playing
-    vg.interrupt(); // Stop any Full Coaching speech
+    handleStopSpeech();
     setPhase('retelling');
     startTimeRef.current = Date.now();
     retellStartRef.current = Date.now();
     setTypedText('');
+    setCollectedTranscript('');
     setStallPromptIndex(-1);
     setMicFailed(false);
+    transcriptPrefixRef.current = '';
+    latestTranscriptRef.current = '';
     lastSpokenStallRef.current = -1;
 
     if (currentStory && userId) {
@@ -325,11 +398,14 @@ export function NarrativeRetellGame({
       startRecording();
       startListening();
     }
-  }, [startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, stopTTS, vg, scheduleAutoListen]);
+  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, scheduleAutoListen]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
+    clearRetellTimers();
+    cancelAutoListen();
+    setIsRetellPlaybackActive(false);
     stopListening();
 
     const recordingResult = useTyping ? null : await stopRecording();
@@ -377,11 +453,32 @@ export function NarrativeRetellGame({
         onTrialComplete(result);
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
+
+  useEffect(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
+
+    const transcript = latestTranscriptRef.current || visibleTranscript;
+    const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+
+    if (wordCount >= RETELL_AUTO_SUBMIT_MIN_WORDS) {
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasProcessedRef.current) {
+          void handleDoneRetelling();
+        }
+      }, RETELL_AUTO_SUBMIT_MS);
+    }
+
+    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, handleDoneRetelling]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
+    clearRetellTimers();
+    cancelAutoListen();
+    setIsRetellPlaybackActive(false);
     stopListening();
     await stopRecording();
 
@@ -406,7 +503,7 @@ export function NarrativeRetellGame({
       setPhase('scored');
       onTrialComplete(result);
     }
-  }, [stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   const handleContinue = useCallback(() => {
     nextStory();
