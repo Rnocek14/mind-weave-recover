@@ -517,7 +517,7 @@ async function main() {
   const blank = checkBlankCardGuard();
   console.log(`\n[Describe & Guess blank-card guard]`);
   console.log(`  trials returned: ${blank.total}, blanks: ${blank.blanks}`);
-  console.log(`  sample[0]: targetWord="${blank.sample[0]?.targetWord}" photoId="${blank.sample[0]?.targetPhotoId}"`);
+  console.log(`  sample[0]: target="${(blank.sample[0] as any)?.target}" photoBankId="${(blank.sample[0] as any)?.photoBankId}"`);
   const blankPass = blank.total > 0 && blank.blanks === 0;
   console.log(`  → ${blankPass ? "✅ PASS" : "❌ FAIL"} no blank cards`);
 
