@@ -135,7 +135,8 @@ async function main() {
     console.log(`\n→ Turn ${turnIdx} (${turn.label}): "${turn.transcript.slice(0, 60)}…"`);
 
     const wordCount = turn.transcript.trim().split(/\s+/).length;
-    const input = {
+    const input: ScoreInput = {
+      exerciseSlug: "conversation_partner",
       promptText: turn.prompt,
       transcript: turn.transcript,
       wordCount,
@@ -147,20 +148,58 @@ async function main() {
       turnNumber: turnIdx,
     };
 
-    // Call the production edge function directly (same path the client hook hits)
-    const t0 = Date.now();
-    const { data: signal, error: scoreErr } = await supabase.functions.invoke(
-      "score-discourse-turn",
-      { body: input },
-    );
-    const elapsed = Date.now() - t0;
+    // Mirror src/lib/discourseSignalScorer.ts:scoreDiscourseTurn() exactly
+    let signal: ClinicalSignal;
+    const sc = shortCircuit(input);
+    if (sc) {
+      signal = sc;
+      console.log(`  ↳ short-circuit: ${signal.errorType} (no LLM call)`);
+    } else if (input.wordCount <= 2) {
+      const fast = localFallbackScore(input);
+      signal = { ...fast, reasoning: `Short input fast-path (≤2 words). ${fast.reasoning}` };
+      console.log(`  ↳ ≤2-word fast-path: ${signal.errorType}`);
+    } else {
+      const t0 = Date.now();
+      const { data, error: scoreErr } = await supabase.functions.invoke(
+        "score-discourse-turn",
+        { body: input },
+      );
+      const elapsed = Date.now() - t0;
 
-    if (scoreErr || !signal) {
-      console.error(`  ✗ scorer failed (${elapsed}ms):`, scoreErr?.message);
-      continue;
+      if (scoreErr || !data || (data as any).error) {
+        console.warn(`  ⚠ edge fn failed (${elapsed}ms): ${scoreErr?.message ?? (data as any)?.error} → falling back locally`);
+        signal = localFallbackScore(input);
+      } else {
+        const d = data as any;
+        const rawSub = {
+          onTopicScore: clamp01(d.onTopicScore),
+          targetAchievementScore: clamp01(d.targetAchievementScore),
+          responseQualityScore: clamp01(d.responseQualityScore),
+        };
+        const errorType = (ERROR_TYPES.has(d.errorType) ? d.errorType : "unclear") as DiscourseErrorType;
+        const confidence = clamp01(d.confidence ?? 0.7);
+        const sub = applyErrorTypeCaps(rawSub, errorType, ACTIVE_CALIBRATION);
+        const successScore = computeSuccessScoreCalibrated(sub, ACTIVE_CALIBRATION);
+        const recommendedAdaptation = resolveAdaptation(successScore, errorType, confidence, ACTIVE_CALIBRATION);
+        signal = {
+          ...sub,
+          errorType,
+          confidence,
+          recommendedAdaptation,
+          reasoning: typeof d.reasoning === "string" ? d.reasoning.slice(0, 240) : "",
+          source: "llm",
+          model: typeof d.model === "string" ? d.model : undefined,
+          latencyMs: typeof d.latencyMs === "number" ? d.latencyMs : undefined,
+          successScore,
+          // promptVersion is metadata not on ClinicalSignal type; pass-through for log
+          ...(typeof d.promptVersion === "string" ? { promptVersion: d.promptVersion } : {}),
+        } as ClinicalSignal & { promptVersion?: string };
+        console.log(`  ✓ LLM (${elapsed}ms) model=${d.model} promptV=${d.promptVersion}`);
+      }
     }
+
     console.log(
-      `  ✓ scorer (${elapsed}ms): errorType=${signal.errorType} success=${signal.successScore?.toFixed(2)} adapt=${signal.recommendedAdaptation} model=${signal.model ?? "—"} promptVersion=${signal.promptVersion ?? "—"}`,
+      `  → errorType=${signal.errorType} success=${signal.successScore?.toFixed(2)} adapt=${signal.recommendedAdaptation} src=${signal.source}`,
     );
 
     // Mirror useDiscourseSignalScorer.log() exactly
