@@ -120,7 +120,7 @@ export default function MultiStepPlanExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, dynamicTier]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier]);
 
   const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
     setCompleted(true);
