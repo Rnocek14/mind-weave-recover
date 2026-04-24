@@ -191,6 +191,8 @@ export default function PatternMatchExercise() {
           onTrialComplete={(data) => {
             console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
           }}
+          userId={user?.id}
+          sessionId={sessionId}
         />
         </div>
       </main>
