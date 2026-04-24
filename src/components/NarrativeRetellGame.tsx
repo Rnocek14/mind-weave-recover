@@ -539,9 +539,14 @@ export function NarrativeRetellGame({
     if (result) {
       setLastResult(result);
       setPhase('scored');
+      // Skipped retell = unsuccessful trial; engine should ease the next story.
+      adaptation.recordTrial({
+        correct: false,
+        reactionTimeMs: durationMs,
+      });
       onTrialComplete(result);
     }
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation]);
 
   const handleContinue = useCallback(() => {
     nextStory();
