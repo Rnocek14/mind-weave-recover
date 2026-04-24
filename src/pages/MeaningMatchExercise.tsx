@@ -55,12 +55,11 @@ export default function MeaningMatchExercise() {
   const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
-  // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
+  // Adaptive difficulty from shared contract (session-static seed)
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
-  const difficultyLevel = adaptation.difficultyTier;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -68,6 +67,19 @@ export default function MeaningMatchExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  // Per-trial dynamic tier (1..3) — adapts based on rolling success rate.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+  const difficultyLevel = dynamicTier.currentTier;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
