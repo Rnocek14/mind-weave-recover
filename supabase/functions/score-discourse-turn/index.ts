@@ -23,6 +23,11 @@ interface ScoreRequest {
   durationMs: number | null;
   scaffoldUsed?: boolean;          // Did we give a hint?
   turnNumber?: number;
+  /**
+   * Prompt rubric version. Defaults to the active version (v3).
+   * v2 is preserved for offline calibration A/B comparisons.
+   */
+  promptVersion?: "v2" | "v3";
 }
 
 const ERROR_TYPES = [
