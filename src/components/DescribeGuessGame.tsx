@@ -876,10 +876,11 @@ export function DescribeGuessGame({
 
             <div className={cn(
               'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+              speechError ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
               isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
             )}>
-              {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-              {isListening ? 'Listening...' : 'Mic off'}
+              {speechError ? <MicOff className="h-3.5 w-3.5" /> : isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+              {speechError ? 'Use typing instead' : isListening ? 'Listening...' : 'Mic off'}
             </div>
 
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
