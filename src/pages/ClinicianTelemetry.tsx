@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, RefreshCw, Search, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -19,12 +22,15 @@ const WINDOW_LABEL: Record<Window, string> = {
   "7d": "Last 7 days",
 };
 
-function windowToTimestamp(w: Window): string {
-  const ms =
-    w === "1h" ? 60 * 60 * 1000 :
-    w === "24h" ? 24 * 60 * 60 * 1000 :
-    7 * 24 * 60 * 60 * 1000;
-  return new Date(Date.now() - ms).toISOString();
+const WINDOW_MS: Record<Window, number> = {
+  "1h": 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+};
+
+function windowToTimestamp(w: Window, offsetWindows = 0): string {
+  const ms = WINDOW_MS[w];
+  return new Date(Date.now() - ms * (offsetWindows + 1) + (offsetWindows > 0 ? 0 : 0)).toISOString();
 }
 
 function pct(n: number, d: number): number {
@@ -62,10 +68,28 @@ function CopyButton({ sql, label = "Copy SQL" }: { sql: string; label?: string }
   );
 }
 
+const AUTO_REFRESH_MS = 8000;
+
+interface CoverageRow {
+  slug: string;
+  total: number;
+  errorPct: number;
+  adaptPct: number;
+}
+
 export default function ClinicianTelemetry() {
   const navigate = useNavigate();
   const [windowSel, setWindowSel] = useState<Window>("24h");
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [drillSlug, setDrillSlug] = useState<string | null>(null);
+
   const since = useMemo(() => windowToTimestamp(windowSel), [windowSel]);
+  // Previous comparable window (e.g. previous 1h before the current 1h)
+  const prevSince = useMemo(
+    () => new Date(Date.now() - WINDOW_MS[windowSel] * 2).toISOString(),
+    [windowSel]
+  );
+  const prevUntil = since;
 
   const eventsQuery = useQuery({
     queryKey: ["telemetry-events", windowSel],
@@ -79,6 +103,7 @@ export default function ClinicianTelemetry() {
       if (error) throw error;
       return data || [];
     },
+    refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
   });
 
   const adaptQuery = useQuery({
@@ -93,9 +118,26 @@ export default function ClinicianTelemetry() {
       if (error) throw error;
       return data || [];
     },
+    refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
   });
 
-  const coverage = useMemo(() => {
+  // Previous-window snapshot (for break detection only — coverage % per slug)
+  const prevQuery = useQuery({
+    queryKey: ["telemetry-events-prev", windowSel],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercise_events")
+        .select("exercise_slug, error_type")
+        .gte("created_at", prevSince)
+        .lt("created_at", prevUntil)
+        .limit(5000);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
+  });
+
+  const coverage: CoverageRow[] = useMemo(() => {
     const rows = eventsQuery.data || [];
     const map = new Map<string, { total: number; withErrorType: number; withAdaptations: number }>();
     for (const r of rows as any[]) {
@@ -120,6 +162,52 @@ export default function ClinicianTelemetry() {
       }))
       .sort((a, b) => b.total - a.total);
   }, [eventsQuery.data]);
+
+  const prevCoverage = useMemo(() => {
+    const rows = prevQuery.data || [];
+    const map = new Map<string, { total: number; withErrorType: number }>();
+    for (const r of rows as any[]) {
+      const slug = r.exercise_slug || "(unknown)";
+      const cur = map.get(slug) || { total: 0, withErrorType: 0 };
+      cur.total += 1;
+      if (r.error_type !== null && r.error_type !== undefined && String(r.error_type).length > 0) {
+        cur.withErrorType += 1;
+      }
+      map.set(slug, cur);
+    }
+    return map;
+  }, [prevQuery.data]);
+
+  // Pipeline-break detector: an exercise that had healthy error_type % previously
+  // but dropped sharply (or to 0) in the current window.
+  const breaks = useMemo(() => {
+    const list: Array<{
+      slug: string;
+      prevPct: number;
+      curPct: number;
+      curTotal: number;
+      drop: number;
+      severity: "critical" | "warning";
+    }> = [];
+    for (const cur of coverage) {
+      const prev = prevCoverage.get(cur.slug);
+      if (!prev || prev.total < 5) continue;
+      const prevPct = pct(prev.withErrorType, prev.total);
+      if (prevPct < 80) continue; // wasn't healthy before, not a regression
+      const drop = prevPct - cur.errorPct;
+      if (drop >= 30) {
+        list.push({
+          slug: cur.slug,
+          prevPct,
+          curPct: cur.errorPct,
+          curTotal: cur.total,
+          drop,
+          severity: cur.errorPct < 20 ? "critical" : "warning",
+        });
+      }
+    }
+    return list.sort((a, b) => b.drop - a.drop);
+  }, [coverage, prevCoverage]);
 
   const clinicalSignals = useMemo(() => {
     const rows = (eventsQuery.data || []) as any[];
@@ -162,7 +250,20 @@ export default function ClinicianTelemetry() {
   const refresh = () => {
     eventsQuery.refetch();
     adaptQuery.refetch();
+    prevQuery.refetch();
   };
+
+  // Toast on new break detection
+  const breakSlugs = breaks.map((b) => b.slug).join(",");
+  useEffect(() => {
+    if (!autoRefresh) return;
+    if (breaks.length > 0) {
+      toast.error(`Pipeline break detected: ${breaks.map((b) => b.slug).join(", ")}`, {
+        id: `break-${breakSlugs}`,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breakSlugs, autoRefresh]);
 
   const intervalSql =
     windowSel === "1h" ? "interval '1 hour'" :
@@ -223,6 +324,7 @@ LIMIT 50;
 `;
 
   const isLoading = eventsQuery.isLoading || adaptQuery.isLoading;
+  const isFetching = eventsQuery.isFetching || adaptQuery.isFetching || prevQuery.isFetching;
 
   return (
     <div className="min-h-screen bg-gradient-calm py-8 px-4">
@@ -248,9 +350,20 @@ LIMIT 50;
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={refresh} disabled={isLoading}>
-            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          <div className="flex items-center gap-2 ml-1">
+            <Switch
+              id="auto-refresh"
+              checked={autoRefresh}
+              onCheckedChange={setAutoRefresh}
+            />
+            <Label htmlFor="auto-refresh" className="text-xs flex items-center gap-1 cursor-pointer">
+              <Zap className={`w-3 h-3 ${autoRefresh ? "text-emerald-600" : "text-muted-foreground"}`} />
+              Live ({AUTO_REFRESH_MS / 1000}s)
+            </Label>
+          </div>
           <span className="text-xs text-muted-foreground">
             {health.total.toLocaleString()} trials in window
           </span>
@@ -302,6 +415,49 @@ LIMIT 50;
           </div>
         </Card>
 
+        {/* Pipeline-break detector */}
+        {breaks.length > 0 && (
+          <Card className="p-4 border-2 border-red-500/50 bg-red-50/40">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-700">Pipeline break detected</h3>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Exercises whose <code>error_type</code> coverage dropped sharply vs the previous {WINDOW_LABEL[windowSel].toLowerCase()}.
+                </p>
+                <div className="space-y-1.5">
+                  {breaks.map((b) => (
+                    <div
+                      key={b.slug}
+                      className="flex items-center gap-2 text-sm flex-wrap"
+                    >
+                      <Badge
+                        variant={b.severity === "critical" ? "destructive" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {b.severity}
+                      </Badge>
+                      <code className="font-mono text-xs">{b.slug}</code>
+                      <span className="text-muted-foreground text-xs">
+                        {b.prevPct.toFixed(0)}% → <span className="font-bold text-red-600">{b.curPct.toFixed(0)}%</span>
+                        {" "}({b.curTotal} trials, drop {b.drop.toFixed(0)} pts)
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs ml-auto"
+                        onClick={() => setDrillSlug(b.slug)}
+                      >
+                        <Search className="w-3 h-3 mr-1" /> Inspect
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <Tabs defaultValue="coverage">
           <TabsList>
             <TabsTrigger value="coverage">Coverage</TabsTrigger>
@@ -316,7 +472,7 @@ LIMIT 50;
                 <CopyButton sql={sqlErrorCoverage} />
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Red if &lt; 95%. Indicates trials where the centralized telemetry guard set <code>error_type</code>.
+                Red if &lt; 95%. Click a row to drill into raw events, inputs, outputs, and adaptation decisions.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -325,58 +481,38 @@ LIMIT 50;
                       <th className="py-2 px-2">exercise_slug</th>
                       <th className="py-2 px-2 text-right">trials</th>
                       <th className="py-2 px-2 text-right">error_type %</th>
+                      <th className="py-2 px-2 text-right">adaptations_active %</th>
+                      <th className="py-2 px-2"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {coverage.length === 0 && (
-                      <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">No trials in window</td></tr>
+                      <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No trials in window</td></tr>
                     )}
                     {coverage.map((r) => (
-                      <tr key={`et-${r.slug}`} className="border-b last:border-0">
+                      <tr
+                        key={`cov-${r.slug}`}
+                        className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
+                        onClick={() => setDrillSlug(r.slug)}
+                      >
                         <td className="py-2 px-2 font-mono text-xs">{r.slug}</td>
                         <td className="py-2 px-2 text-right font-mono">{r.total}</td>
                         <td className="py-2 px-2 text-right">
                           <PctCell value={r.errorPct} threshold={95} />
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">2 · adaptations_active coverage by exercise</h3>
-                <CopyButton sql={sqlAdaptCoverage} />
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Red if &lt; 80%. Indicates trials carrying which adaptive parameters were active.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="py-2 px-2">exercise_slug</th>
-                      <th className="py-2 px-2 text-right">trials</th>
-                      <th className="py-2 px-2 text-right">adaptations_active %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coverage.length === 0 && (
-                      <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">No trials in window</td></tr>
-                    )}
-                    {coverage.map((r) => (
-                      <tr key={`ad-${r.slug}`} className="border-b last:border-0">
-                        <td className="py-2 px-2 font-mono text-xs">{r.slug}</td>
-                        <td className="py-2 px-2 text-right font-mono">{r.total}</td>
                         <td className="py-2 px-2 text-right">
                           <PctCell value={r.adaptPct} threshold={80} />
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <Search className="w-3.5 h-3.5 text-muted-foreground inline" />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <CopyButton sql={sqlAdaptCoverage} label="Copy adaptations SQL" />
               </div>
             </Card>
           </TabsContent>
@@ -386,7 +522,7 @@ LIMIT 50;
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Activity className="w-4 h-4" />
-                  3 · Recent adaptation_events ({(adaptQuery.data || []).length})
+                  Recent adaptation_events ({(adaptQuery.data || []).length})
                 </h3>
                 <CopyButton sql={sqlAdaptEvents} />
               </div>
@@ -406,7 +542,11 @@ LIMIT 50;
                       <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No adaptation events in window</td></tr>
                     )}
                     {(adaptQuery.data || []).map((e: any, i: number) => (
-                      <tr key={i} className="border-b last:border-0 align-top">
+                      <tr
+                        key={i}
+                        className="border-b last:border-0 align-top hover:bg-muted/40 cursor-pointer"
+                        onClick={() => e.exercise_slug && setDrillSlug(e.exercise_slug)}
+                      >
                         <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
                         </td>
@@ -433,7 +573,7 @@ LIMIT 50;
           <TabsContent value="signals">
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">4 · Recent clinical_signal rows ({clinicalSignals.length})</h3>
+                <h3 className="font-semibold">Recent clinical_signal rows ({clinicalSignals.length})</h3>
                 <CopyButton sql={sqlClinicalSignals} />
               </div>
               <p className="text-xs text-muted-foreground mb-3">
@@ -458,7 +598,11 @@ LIMIT 50;
                       <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">No clinical_signal rows in window</td></tr>
                     )}
                     {clinicalSignals.map((s, i) => (
-                      <tr key={i} className="border-b last:border-0">
+                      <tr
+                        key={i}
+                        className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
+                        onClick={() => s.exercise_slug && setDrillSlug(s.exercise_slug)}
+                      >
                         <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDistanceToNow(new Date(s.created_at), { addSuffix: true })}
                         </td>
@@ -488,6 +632,170 @@ LIMIT 50;
           Internal diagnostic. Numbers reflect what is currently persisted to the database in the selected window.
         </p>
       </div>
+
+      {/* Drill-down panel */}
+      <ExerciseDrilldown
+        slug={drillSlug}
+        since={since}
+        onClose={() => setDrillSlug(null)}
+      />
     </div>
+  );
+}
+
+// =====================================================================
+// Drill-down sheet
+// =====================================================================
+
+function ExerciseDrilldown({
+  slug,
+  since,
+  onClose,
+}: {
+  slug: string | null;
+  since: string;
+  onClose: () => void;
+}) {
+  const open = !!slug;
+
+  const eventsQ = useQuery({
+    queryKey: ["telemetry-drill-events", slug, since],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercise_events")
+        .select("id, created_at, error_type, score, cue_level, reaction_time_ms, adaptations_active, inputs, outputs, exercise_slug, session_id, trial_index")
+        .eq("exercise_slug", slug!)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const adaptQ = useQuery({
+    queryKey: ["telemetry-drill-adapt", slug, since],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("adaptation_events")
+        .select("id, created_at, adaptation_type, value_before, value_after, trigger_condition, trigger_type, layer, evidence, confidence, trial_index")
+        .eq("exercise_slug", slug!)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Search className="w-4 h-4" />
+            <code className="font-mono text-base">{slug}</code>
+          </SheetTitle>
+          <SheetDescription>
+            Most recent events &amp; adaptation decisions in the selected window.
+          </SheetDescription>
+        </SheetHeader>
+
+        <Tabs defaultValue="events" className="mt-4">
+          <TabsList>
+            <TabsTrigger value="events">Events ({eventsQ.data?.length || 0})</TabsTrigger>
+            <TabsTrigger value="adapt">Adaptations ({adaptQ.data?.length || 0})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="events" className="space-y-2 mt-3">
+            {eventsQ.isLoading && <div className="text-sm text-muted-foreground p-4">Loading…</div>}
+            {!eventsQ.isLoading && (eventsQ.data?.length || 0) === 0 && (
+              <div className="text-sm text-muted-foreground p-4">No events.</div>
+            )}
+            {(eventsQ.data || []).map((e: any) => (
+              <Card key={e.id} className="p-3 text-xs">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                  <span className="text-muted-foreground">
+                    {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+                    {e.trial_index !== null && <> · trial {e.trial_index}</>}
+                  </span>
+                  <div className="flex gap-1.5">
+                    {e.error_type ? (
+                      <Badge variant="outline" className="text-[10px]">{e.error_type}</Badge>
+                    ) : (
+                      <Badge variant="destructive" className="text-[10px]">no error_type</Badge>
+                    )}
+                    {typeof e.score === "number" && (
+                      <Badge variant="secondary" className="text-[10px]">score {e.score}</Badge>
+                    )}
+                    {typeof e.cue_level === "number" && (
+                      <Badge variant="secondary" className="text-[10px]">cue {e.cue_level}</Badge>
+                    )}
+                  </div>
+                </div>
+                <details className="mb-1">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">inputs</summary>
+                  <pre className="bg-muted/50 p-2 rounded mt-1 overflow-x-auto text-[10px] leading-relaxed">
+                    {JSON.stringify(e.inputs, null, 2)}
+                  </pre>
+                </details>
+                <details className="mb-1">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">outputs</summary>
+                  <pre className="bg-muted/50 p-2 rounded mt-1 overflow-x-auto text-[10px] leading-relaxed">
+                    {JSON.stringify(e.outputs, null, 2)}
+                  </pre>
+                </details>
+                <details>
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">adaptations_active</summary>
+                  <pre className="bg-muted/50 p-2 rounded mt-1 overflow-x-auto text-[10px] leading-relaxed">
+                    {JSON.stringify(e.adaptations_active, null, 2)}
+                  </pre>
+                </details>
+              </Card>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="adapt" className="space-y-2 mt-3">
+            {adaptQ.isLoading && <div className="text-sm text-muted-foreground p-4">Loading…</div>}
+            {!adaptQ.isLoading && (adaptQ.data?.length || 0) === 0 && (
+              <div className="text-sm text-muted-foreground p-4">No adaptation events.</div>
+            )}
+            {(adaptQ.data || []).map((a: any) => (
+              <Card key={a.id} className="p-3 text-xs">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                  <span className="text-muted-foreground">
+                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                    {a.trial_index !== null && <> · trial {a.trial_index}</>}
+                  </span>
+                  <div className="flex gap-1.5">
+                    <Badge variant="outline" className="text-[10px]">{a.adaptation_type}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{a.layer}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{a.confidence}</Badge>
+                  </div>
+                </div>
+                <div className="font-mono text-[11px] mb-1">
+                  <span className="text-muted-foreground">{JSON.stringify(a.value_before)}</span>
+                  <span className="mx-1">→</span>
+                  <span className="font-semibold">{JSON.stringify(a.value_after)}</span>
+                </div>
+                {a.trigger_condition && (
+                  <div className="text-muted-foreground">
+                    trigger: <code className="text-[10px]">{a.trigger_condition}</code>
+                  </div>
+                )}
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">evidence</summary>
+                  <pre className="bg-muted/50 p-2 rounded mt-1 overflow-x-auto text-[10px] leading-relaxed">
+                    {JSON.stringify(a.evidence, null, 2)}
+                  </pre>
+                </details>
+              </Card>
+            ))}
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   );
 }
