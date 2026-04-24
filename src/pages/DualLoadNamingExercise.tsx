@@ -15,6 +15,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
