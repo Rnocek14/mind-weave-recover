@@ -325,6 +325,16 @@ export function ConversationPartnerGame({
         {progressDots}
       </div>
 
+      {adaptation.shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge
+            direction={adaptation.shiftDirection}
+            reason={adaptation.shiftReason}
+            variant="card"
+          />
+        </div>
+      )}
+
       <Card className="overflow-hidden">
         <CardContent className="p-6 space-y-6">
           {currentAIText && (
