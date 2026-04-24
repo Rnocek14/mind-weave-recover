@@ -96,6 +96,16 @@ const SCORED_EXERCISE_SLUGS = new Set<string>([
 // counts as adaptive. We track this dynamically off the loaded data.
 type HealthStatus = "Healthy" | "Watch" | "Broken";
 
+interface HealthComponent {
+  key: "error_type" | "adaptations_active" | "adaptation_events" | "clinical_signal";
+  label: string;
+  value: number;       // 0–100 component score
+  weight: number;      // effective weight after redistribution (0–1)
+  contribution: number; // value * weight (points contributed to the final score)
+  included: boolean;   // whether this component counted for this exercise
+  note?: string;       // e.g. "n/a — non-adaptive"
+}
+
 interface HealthScore {
   slug: string;
   total: number;
@@ -108,6 +118,7 @@ interface HealthScore {
   adaptPct: number;
   signalPct: number;
   adaptEventCount: number;
+  components: HealthComponent[];
 }
 
 function statusFromScore(score: number): HealthStatus {
