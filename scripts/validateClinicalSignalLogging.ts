@@ -87,13 +87,14 @@ async function main() {
   console.log("✓ Authenticated as", auth.user.id);
 
   console.log("→ Resolving profile");
-  const { data: profile, error: profErr } = await supabase
+  const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("id")
-    .eq("user_id", auth.user.id)
-    .single();
-  if (profErr || !profile) {
-    console.error("✗ Profile lookup failed:", profErr?.message);
+    .select("id, user_id")
+    .eq("user_id", auth.user.id);
+  console.log("  profiles query:", { count: profiles?.length, err: profErr?.message });
+  const profile = profiles?.[0];
+  if (!profile) {
+    console.error("✗ Profile lookup returned no rows (RLS or missing row)");
     process.exit(1);
   }
   console.log("✓ Profile", profile.id);
