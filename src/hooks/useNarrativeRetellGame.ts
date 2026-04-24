@@ -7,9 +7,17 @@
  * 3. Score against key events with structure breakdown
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { NARRATIVE_STORIES, NarrativeStory } from '@/data/narrativeRetellStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+
+/** Build a queue of stories at a given tier, avoiding ones already seen. */
+function buildStories(tier: number, count: number, excludeIds: Set<string>): NarrativeStory[] {
+  const pool = NARRATIVE_STORIES.filter(
+    (s) => s.tier <= Math.min(tier + 1, 3) && !excludeIds.has(s.id),
+  );
+  return shuffleArray(pool).slice(0, count);
+}
 import { scoreExplanation } from '@/lib/explanationScorer';
 
 export type SectionStatus = 'covered' | 'partial' | 'missed';
