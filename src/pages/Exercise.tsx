@@ -509,8 +509,12 @@ const Exercise = () => {
     // Initialize session tracking
     if (!sessionStartTime) {
       setSessionStartTime(Date.now());
-      
-      if (user?.id) {
+
+      // Reuse lesson session if present (prevents duplicate session rows)
+      if (fromLesson && lessonSessionId) {
+        console.log('[Exercise/probe] Reusing lesson sessionId:', lessonSessionId);
+        setSessionId(lessonSessionId);
+      } else if (user?.id) {
         try {
           const session = await startSession(user.id, {
             blocks: [

@@ -282,6 +282,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         profile_id: activeProfile?.id,
         started_at: new Date().toISOString(),
         plan: lesson as any,
+        // Stamp mode so analytics/auditors can filter Full Coaching vs standalone games.
+        // 'lesson' covers both Guided and Full Coaching modes (LessonFlow owns both).
+        summary: { mode: 'lesson' } as any,
       })
       .select()
       .single();
