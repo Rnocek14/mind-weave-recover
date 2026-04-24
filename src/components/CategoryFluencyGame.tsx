@@ -102,6 +102,8 @@ interface CategoryFluencyGameProps {
   roundCount?: number;
   bounds?: DifficultyBounds;
   autoStartFirst?: boolean;
+  userId?: string;
+  sessionId?: string | null;
 }
 
 const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
@@ -115,6 +117,8 @@ export function CategoryFluencyGame({
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
   autoStartFirst = false,
+  userId,
+  sessionId,
 }: CategoryFluencyGameProps) {
   const {
     currentDifficulty,
@@ -130,6 +134,9 @@ export function CategoryFluencyGame({
       const dir = newLevel > currentDifficulty ? 'up' : 'down';
       onDifficultyChange?.(newLevel, dir);
     },
+    userId,
+    sessionId,
+    exerciseSlug: 'category-fluency',
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });

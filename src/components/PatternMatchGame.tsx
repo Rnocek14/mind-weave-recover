@@ -21,6 +21,8 @@ interface PatternMatchGameProps {
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
+  userId?: string;
+  sessionId?: string | null;
 }
 
 type ShapeType = 'circle' | 'square' | 'triangle' | 'star';
@@ -50,6 +52,8 @@ export const PatternMatchGame = ({
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
+  userId,
+  sessionId,
 }: PatternMatchGameProps) => {
   const [currentTrial, setCurrentTrial] = useState(1);
   const [score, setScore] = useState(0);
@@ -85,6 +89,9 @@ export const PatternMatchGame = ({
       if (direction === 'up') playLevelUp(); else playLevelDown();
       onDifficultyChange?.(newLevel, direction === 'up' ? `Level ${newLevel}` : `Level ${newLevel}`);
     },
+    userId,
+    sessionId,
+    exerciseSlug: 'pattern-match',
   });
 
   const getPatternSize = (difficulty: number): number => Math.min(5, Math.max(2, Math.floor(difficulty / 2) + 1));

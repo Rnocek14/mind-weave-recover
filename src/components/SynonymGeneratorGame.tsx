@@ -176,6 +176,8 @@ interface SynonymGeneratorGameProps {
   roundCount?: number;
   bounds?: DifficultyBounds;
   autoStartFirst?: boolean;
+  userId?: string;
+  sessionId?: string | null;
 }
 
 const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
@@ -188,6 +190,8 @@ export function SynonymGeneratorGame({
   roundCount = 3,
   bounds = DEFAULT_BOUNDS,
   autoStartFirst = false,
+  userId,
+  sessionId,
 }: SynonymGeneratorGameProps) {
   const {
     currentDifficulty,
@@ -203,6 +207,9 @@ export function SynonymGeneratorGame({
       const dir = newLevel > currentDifficulty ? 'up' : 'down';
       onDifficultyChange?.(newLevel, dir);
     },
+    userId,
+    sessionId,
+    exerciseSlug: 'synonym-generator',
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'synonym-generator' });
