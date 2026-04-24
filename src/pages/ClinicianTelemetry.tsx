@@ -75,6 +75,148 @@ interface CoverageRow {
   total: number;
   errorPct: number;
   adaptPct: number;
+  signalPct: number;        // % of trials with outputs.clinical_signal (only meaningful for scored exercises)
+  adaptEventCount: number;  // # of adaptation_events in window for this slug
+}
+
+// Exercises that produce LLM clinical_signal (discourse / scored exercises).
+// For these, signal completeness counts toward the health score.
+const SCORED_EXERCISE_SLUGS = new Set<string>([
+  "conversation-partner",
+  "thought-continuation",
+  "narrative-retell",
+  "describe-guess",
+  "category-fluency",
+]);
+
+// Exercises that emit adaptation_events. For others, adaptation_events absence
+// is not a regression — we just don't penalize them.
+// Conservative heuristic: any slug we have *ever* seen in adaptation_events
+// counts as adaptive. We track this dynamically off the loaded data.
+type HealthStatus = "Healthy" | "Watch" | "Broken";
+
+interface HealthScore {
+  slug: string;
+  total: number;
+  score: number;
+  status: HealthStatus;
+  reasons: string[];
+  isScored: boolean;
+  isAdaptive: boolean;
+  errorPct: number;
+  adaptPct: number;
+  signalPct: number;
+  adaptEventCount: number;
+}
+
+function statusFromScore(score: number): HealthStatus {
+  if (score >= 90) return "Healthy";
+  if (score >= 75) return "Watch";
+  return "Broken";
+}
+
+function statusBadgeClass(status: HealthStatus): string {
+  switch (status) {
+    case "Healthy":
+      return "bg-emerald-100 text-emerald-700 border-emerald-300";
+    case "Watch":
+      return "bg-amber-100 text-amber-700 border-amber-300";
+    case "Broken":
+      return "bg-red-100 text-red-700 border-red-300";
+  }
+}
+
+function scoreColorClass(score: number): string {
+  if (score >= 90) return "text-emerald-600";
+  if (score >= 75) return "text-amber-600";
+  return "text-red-600";
+}
+
+/**
+ * Compute a 0–100 health score for one exercise.
+ *
+ * Weighting:
+ *   - 40% error_type coverage         (always applies)
+ *   - 30% adaptations_active coverage (always applies)
+ *   - 20% adaptation_events presence  (only counted if exercise is adaptive;
+ *                                      otherwise weight redistributes)
+ *   - 10% clinical_signal completeness (only counted if scored exercise;
+ *                                       otherwise weight redistributes)
+ *
+ * If a component is excluded (non-adaptive / non-scored), its weight is
+ * redistributed proportionally across the remaining components so the
+ * score still tops out at 100.
+ *
+ * Trials with NO telemetry still count as low — we never hide missing data.
+ */
+function computeHealth(row: CoverageRow, isAdaptive: boolean): HealthScore {
+  const isScored = SCORED_EXERCISE_SLUGS.has(row.slug);
+  const reasons: string[] = [];
+
+  // Component scores (0–100)
+  const errorComp = row.errorPct;
+  const adaptCovComp = row.adaptPct;
+  // Adaptation-events component: presence-based.
+  //   0 events → 0, 1 event → 50, ≥1 event per 10 trials → 100.
+  const expectedEvents = Math.max(1, Math.floor(row.total / 10));
+  const adaptEvtComp = isAdaptive
+    ? Math.min(100, (row.adaptEventCount / expectedEvents) * 100)
+    : 0;
+  const signalComp = isScored ? row.signalPct : 0;
+
+  // Weights — start nominal, then redistribute for excluded components.
+  let wErr = 0.4;
+  let wAdaptCov = 0.3;
+  let wAdaptEvt = isAdaptive ? 0.2 : 0;
+  let wSignal = isScored ? 0.1 : 0;
+  const totalW = wErr + wAdaptCov + wAdaptEvt + wSignal;
+  if (totalW > 0 && totalW < 1) {
+    const k = 1 / totalW;
+    wErr *= k;
+    wAdaptCov *= k;
+    wAdaptEvt *= k;
+    wSignal *= k;
+  }
+
+  const score =
+    errorComp * wErr +
+    adaptCovComp * wAdaptCov +
+    adaptEvtComp * wAdaptEvt +
+    signalComp * wSignal;
+
+  // Reason chips — explain what dragged the score down
+  if (row.total === 0) {
+    reasons.push("no trials");
+  }
+  if (row.errorPct < 95) {
+    reasons.push(`error_type ${row.errorPct.toFixed(0)}%`);
+  }
+  if (row.adaptPct < 80) {
+    reasons.push(`adaptations_active ${row.adaptPct.toFixed(0)}%`);
+  }
+  if (isAdaptive && row.adaptEventCount === 0 && row.total >= 5) {
+    reasons.push("no adaptation_events");
+  }
+  if (isScored && row.signalPct < 80) {
+    reasons.push(`clinical_signal ${row.signalPct.toFixed(0)}%`);
+  }
+  if (reasons.length === 0) {
+    reasons.push("all checks passing");
+  }
+
+  return {
+    slug: row.slug,
+    total: row.total,
+    score: Math.round(score),
+    status: statusFromScore(score),
+    reasons,
+    isScored,
+    isAdaptive,
+    errorPct: row.errorPct,
+    adaptPct: row.adaptPct,
+    signalPct: row.signalPct,
+    adaptEventCount: row.adaptEventCount,
+  };
 }
 
 export default function ClinicianTelemetry() {
