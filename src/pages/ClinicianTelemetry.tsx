@@ -1549,3 +1549,109 @@ function ExerciseDrilldown({
     </Sheet>
   );
 }
+
+// =====================================================================
+// Trend detail chart — health score + components + adaptation event markers
+// =====================================================================
+
+function TrendDetailChart({
+  points,
+  window: trendWindow,
+}: {
+  points: TrendPoint[];
+  window: TrendWindow;
+}) {
+  if (points.length === 0) {
+    return <div className="p-4 text-sm text-muted-foreground">No data.</div>;
+  }
+  // Pre-format x labels per window
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    if (trendWindow === "1h" || trendWindow === "24h") return format(d, "HH:mm");
+    return format(d, "MMM d");
+  };
+  const data = points.map((p) => ({
+    label: fmt(p.bucket_start),
+    bucket_start: p.bucket_start,
+    score: p.total > 0 ? p.score : null,
+    errorPct: p.total > 0 ? Math.round(p.errorPct) : null,
+    adaptPct: p.total > 0 ? Math.round(p.adaptPct) : null,
+    signalPct: p.isScored && p.total > 0 ? Math.round(p.signalPct) : null,
+    adaptEvents: p.adaptEvents,
+    total: p.total,
+  }));
+
+  // Adaptation-event markers: place a dot at score line for buckets with events
+  const eventMarkers = data.filter((d) => d.adaptEvents > 0 && d.score !== null);
+
+  const isScored = points.some((p) => p.isScored);
+
+  return (
+    <div className="border-t p-3 bg-muted/20">
+      <div style={{ width: "100%", height: 260 }}>
+        <ResponsiveContainer>
+          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={32} />
+            <RTooltip
+              contentStyle={{ fontSize: 11, borderRadius: 6 }}
+              formatter={(value: any, name: string) => [value === null ? "—" : value, name]}
+              labelFormatter={(_, payload) => {
+                const p = payload && payload[0]?.payload;
+                if (!p) return "";
+                const d = new Date(p.bucket_start);
+                return `${format(d, "MMM d, HH:mm")} · ${p.total} trial${p.total === 1 ? "" : "s"}${p.adaptEvents ? ` · ${p.adaptEvents} adapt event${p.adaptEvents === 1 ? "" : "s"}` : ""}`;
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Line
+              type="monotone" dataKey="score" name="health score"
+              stroke="hsl(var(--primary))" strokeWidth={2}
+              dot={{ r: 2 }} connectNulls
+            />
+            <Line
+              type="monotone" dataKey="errorPct" name="error_type %"
+              stroke="hsl(220 70% 55%)" strokeWidth={1.5}
+              dot={false} strokeDasharray="4 2" connectNulls
+            />
+            <Line
+              type="monotone" dataKey="adaptPct" name="adaptations_active %"
+              stroke="hsl(160 65% 45%)" strokeWidth={1.5}
+              dot={false} strokeDasharray="4 2" connectNulls
+            />
+            {isScored && (
+              <Line
+                type="monotone" dataKey="signalPct" name="clinical_signal %"
+                stroke="hsl(280 60% 55%)" strokeWidth={1.5}
+                dot={false} strokeDasharray="4 2" connectNulls
+              />
+            )}
+            {eventMarkers.map((d, i) => (
+              <ReferenceDot
+                key={`evt-${i}`}
+                x={d.label}
+                y={d.score ?? 0}
+                r={4}
+                fill="hsl(35 90% 55%)"
+                stroke="white"
+                strokeWidth={1}
+                ifOverflow="extendDomain"
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: "hsl(35 90% 55%)" }} />
+          adaptation_event
+        </span>
+        <span>·</span>
+        <span>solid = health score · dashed = component coverage</span>
+        <span>·</span>
+        <span>gaps = no trials in that bucket</span>
+      </div>
+    </div>
+  );
+}
