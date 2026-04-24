@@ -175,8 +175,11 @@ SCORING RULES
 
 Return ONLY via the score_turn tool.`;
 
+// v3 underperformed v2 on the labeled dataset (overall -17.4%, fluent_correct
+// + off_topic regressions, no movement on weak categories). Default stays v2
+// until v4 beats it. Callers can opt into v3 for experiments.
 function pickPrompt(version?: "v2" | "v3"): string {
-  return version === "v2" ? SYSTEM_PROMPT_V2 : SYSTEM_PROMPT_V3;
+  return version === "v3" ? SYSTEM_PROMPT_V3 : SYSTEM_PROMPT_V2;
 }
 
 const TOOL = {
