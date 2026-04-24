@@ -47,9 +47,9 @@ export {
   type ScoreInput,
 };
 
-// Must stay > server TIMEOUT_MS (9000) so the edge function gets a chance to
+// Must stay > server TIMEOUT_MS (12000) so the edge function gets a chance to
 // either succeed or return a structured error before the client aborts.
-const LLM_CLIENT_TIMEOUT_MS = 10000;
+const LLM_CLIENT_TIMEOUT_MS = 13000;
 
 /**
  * Tokens that are safe to fast-path even at ≤2 words: pure fillers, isolated
