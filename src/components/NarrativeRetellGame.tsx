@@ -456,9 +456,8 @@ export function NarrativeRetellGame({
     }, 150);
   }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
 
-  useEffect(() => {
-    handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
-  }, [handleDoneRetelling]);
+  // Keep ref in sync on every render so auto-submit timer always calls latest version
+  handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
 
   useEffect(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
