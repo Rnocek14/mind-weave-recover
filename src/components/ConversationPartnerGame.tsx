@@ -18,6 +18,8 @@ import { useConversationPartner } from '@/hooks/useConversationPartner';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { getRandomOpener } from '@/lib/conversationFollowups';
+import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
+import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 
 interface ConversationPartnerGameProps {
