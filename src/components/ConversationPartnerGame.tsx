@@ -88,6 +88,10 @@ export function ConversationPartnerGame({
     maxTurns: 3
   });
 
+  // Discourse Adaptation Bridge — turns conversational signals into
+  // visible up/down/hold cues mirroring the trial-based games.
+  const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
       firstWordTimeRef.current = Date.now();
