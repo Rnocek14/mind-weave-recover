@@ -41,6 +41,7 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
@@ -121,6 +122,8 @@ export function DescribeGuessGame({
 
   const bounds = getCapabilityDifficultyBounds('describe_guess', null);
 
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -132,8 +135,9 @@ export function DescribeGuessGame({
     windowSize: 5,
     targetSuccessRate: 0.75,
     enableDifficultyAutoStepDown: true,
-    enableDifficultyToasts: true,
+    enableDifficultyToasts: false,
     enableAutoHints: false,
+    onDifficultyChange: (_lvl, reason, dir) => signalShift(dir, reason),
   });
 
   const {
@@ -694,9 +698,10 @@ export function DescribeGuessGame({
       )}
       {/* Progress — compact */}
       <div className="shrink-0">
-        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+        <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
             <span>🎯{game.meaningWins}</span>
             <span>💬{game.wordWins}</span>
             <span>⭐{game.strategyWins}</span>

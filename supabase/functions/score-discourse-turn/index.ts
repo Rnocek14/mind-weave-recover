@@ -24,11 +24,15 @@ interface ScoreRequest {
   scaffoldUsed?: boolean;          // Did we give a hint?
   turnNumber?: number;
   /**
-   * Prompt rubric version. Defaults to the active version (v3).
-   * v2 is preserved for offline calibration A/B comparisons.
+   * Prompt rubric version. Defaults to the calibrated production version (v2).
+   * v3 underperformed v2 on the labeled dataset (-17.4% overall accuracy) and
+   * is kept ONLY for offline calibration A/B experiments. Do not promote
+   * without re-running the calibration runner and beating v2.
    */
   promptVersion?: "v2" | "v3";
 }
+
+const DEFAULT_PROMPT_VERSION: "v2" | "v3" = "v2";
 
 const ERROR_TYPES = [
   "fluent_correct",
@@ -178,7 +182,11 @@ Return ONLY via the score_turn tool.`;
 // v3 underperformed v2 on the labeled dataset (overall -17.4%, fluent_correct
 // + off_topic regressions, no movement on weak categories). Default stays v2
 // until v4 beats it. Callers can opt into v3 for experiments.
-function pickPrompt(version?: "v2" | "v3"): string {
+function resolvePromptVersion(version?: "v2" | "v3"): "v2" | "v3" {
+  return version === "v2" || version === "v3" ? version : DEFAULT_PROMPT_VERSION;
+}
+
+function pickPrompt(version: "v2" | "v3"): string {
   return version === "v3" ? SYSTEM_PROMPT_V3 : SYSTEM_PROMPT_V2;
 }
 
@@ -262,6 +270,7 @@ Deno.serve(async (req) => {
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     const startedAt = Date.now();
+    const promptVersion = resolvePromptVersion(body.promptVersion);
     let aiResp: Response;
     try {
       aiResp = await fetch(LOVABLE_AI_URL, {
@@ -274,7 +283,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: MODEL,
           messages: [
-            { role: "system", content: pickPrompt(body.promptVersion) },
+            { role: "system", content: pickPrompt(promptVersion) },
             { role: "user", content: buildUserMessage(body) },
           ],
           tools: [TOOL],
@@ -350,7 +359,7 @@ Deno.serve(async (req) => {
       ...parsed,
       source: "llm" as const,
       model: MODEL,
-      promptVersion: body.promptVersion ?? "v3",
+      promptVersion,
       latencyMs: Date.now() - startedAt,
     };
 

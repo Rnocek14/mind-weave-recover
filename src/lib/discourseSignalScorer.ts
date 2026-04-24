@@ -57,6 +57,14 @@ export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSig
   const sc = shortCircuit(input);
   if (sc) return sc;
 
+  // 1b) Very short inputs (≤2 words) are LLM worst-case: minimal context,
+  // disproportionate latency, and high timeout risk. Route them straight to
+  // the deterministic local fallback to keep interaction snappy.
+  if (input.wordCount <= 2) {
+    const fast = localFallbackScore(input);
+    return { ...fast, reasoning: `Short input fast-path (≤2 words). ${fast.reasoning}` };
+  }
+
   // 2) LLM primary path with client-side timeout safety net.
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), LLM_CLIENT_TIMEOUT_MS);
