@@ -51,7 +51,29 @@ export function DualLoadNamingGame({
     currentSet, currentSetIndex, totalSets, isComplete,
     phase, currentNamingTarget, namingIndex, namingAttempts, results,
     startNaming, submitNaming, submitRecall, nextSet,
+    activeTier, setActiveTier,
   } = useDualLoadNamingGame(roundCount, tier, focusPhonemes);
+
+  // Visible adaptation cue
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: drives mid-session content tier shifts based on combined
+  // naming + recall performance.
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'dual-load-naming',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [recallInputs, setRecallInputs] = useState<string[]>(['', '', '']);
   const [lastResult, setLastResult] = useState<DualLoadTrialResult | null>(null);
