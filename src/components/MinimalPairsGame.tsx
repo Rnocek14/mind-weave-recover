@@ -242,6 +242,7 @@ export function MinimalPairsGame({
           {trialIndex + 1} / {state.totalTrials}
         </span>
         <div className="flex items-center gap-2">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Check className="w-3 h-3" /> {correctCount}
           </span>
