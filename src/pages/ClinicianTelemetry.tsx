@@ -10,10 +10,21 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, Info, RefreshCw, Search, Zap } from "lucide-react";
+import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Copy, Database, Info, Minus, RefreshCw, Search, TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as RTooltip,
+  CartesianGrid,
+  ReferenceDot,
+  Legend,
+} from "recharts";
 
 type Window = "1h" | "24h" | "7d";
 
