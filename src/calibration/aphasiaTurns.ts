@@ -15,7 +15,7 @@ import type {
   DiscourseErrorType,
   DiscourseAdaptationDirection,
   ScoreInput,
-} from "@/lib/discourseSignalScorer";
+} from "@/lib/discourseSignalScorerCore";
 
 export interface LabeledTurn {
   id: string;

@@ -68,24 +68,10 @@ const CANDIDATE_VERSION = args.candidate ?? "v2";
 // Score one turn under a given calibration (offline; no network)
 // ---------------------------------------------------------------------------
 function scoreOffline(turn: LabeledTurn, cal: ScorerCalibration): ClinicalSignal {
-  // Run the existing local fallback to get an initial signal (errorType + raw subs).
-  const base = localFallbackScore(turn.input);
-
-  // Then re-apply calibration explicitly so we can A/B different configs
-  // without mutating ACTIVE_CALIBRATION.
-  const sub = applyErrorTypeCaps(
-    {
-      onTopicScore: base.onTopicScore,
-      targetAchievementScore: base.targetAchievementScore,
-      responseQualityScore: base.responseQualityScore,
-    },
-    base.errorType,
-    cal,
-  );
-  const successScore = computeSuccessScoreCalibrated(sub, cal);
-  const recommendedAdaptation = resolveAdaptation(successScore, base.errorType, base.confidence, cal);
-
-  return { ...base, ...sub, successScore, recommendedAdaptation };
+  // Match production order: short-circuit first, then local fallback.
+  const sc = shortCircuit(turn.input, cal);
+  if (sc) return sc;
+  return localFallbackScore(turn.input, cal);
 }
 
 // ---------------------------------------------------------------------------
