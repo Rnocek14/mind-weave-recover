@@ -19,6 +19,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { getRandomOpener } from '@/lib/conversationFollowups';
 import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
+import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 
@@ -91,6 +92,13 @@ export function ConversationPartnerGame({
   // Discourse Adaptation Bridge — turns conversational signals into
   // visible up/down/hold cues mirroring the trial-based games.
   const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+
+  // LLM-first clinical scorer (with local fallback). Replaces word-count
+  // heuristics with semantic / target-achievement / error-type judgement.
+  const scorer = useDiscourseSignalScorer({
+    sessionId,
+    exerciseSlug: 'conversation_partner',
+  });
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
@@ -208,27 +216,22 @@ export function ConversationPartnerGame({
       resetAttempt();
     }
 
-    // Feed conversational signals into the Discourse Adaptation Bridge
+    // Score this turn with the LLM-first clinical scorer.
+    // Falls back to local heuristics on timeout/failure. Logs to DB.
     const userWordCount = userTranscript.trim().split(/\s+/).filter(Boolean).length;
-    const surrendered = /^(i don'?t know|idk|no idea|skip|pass|nothing|i can'?t)\.?$/i.test(
-      userTranscript.trim(),
+    await scorer.scoreAndRecord(
+      {
+        exerciseSlug: 'conversation_partner',
+        promptText: currentAIText,
+        transcript: userTranscript,
+        wordCount: userWordCount,
+        latencyToFirstWordMs: latencyMs,
+        durationMs: durationMs,
+        scaffoldUsed: false,
+        turnNumber: currentTurn + 1,
+      },
+      adaptation.recordTurn,
     );
-    adaptation.recordTurn({
-      meaningful: userWordCount >= 2 && !surrendered,
-      wordCount: userWordCount,
-      latencyToFirstWordMs: latencyMs,
-      surrendered,
-      stuckType:
-        userWordCount === 0
-          ? 'no_speech'
-          : surrendered
-          ? 'surrender'
-          : userWordCount >= 6
-          ? 'fluent'
-          : userWordCount >= 3
-          ? 'fluent_complete'
-          : 'incomplete',
-    });
 
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
@@ -271,10 +274,11 @@ export function ConversationPartnerGame({
       setPhase('ready');
     }
   }, [
-    phase, stopListening, silenceTimer, userTranscript, 
-    processUserTurn, currentTurn, maxTurns, speak, 
+    phase, stopListening, silenceTimer, userTranscript, currentAIText,
+    processUserTurn, currentTurn, maxTurns, speak,
     addAITurn, onComplete, metrics, stopRecording, uploadRecording,
-    userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt
+    userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt,
+    scorer, adaptation,
   ]);
 
   // Start silence timer when listening begins

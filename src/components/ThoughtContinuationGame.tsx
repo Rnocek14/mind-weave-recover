@@ -23,6 +23,7 @@ import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lu
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
+import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
@@ -142,6 +143,13 @@ export function ThoughtContinuationGame({
   // Discourse Adaptation Bridge — mirrors the trial-based games' visible
   // up/down/hold cues based on conversational signals.
   const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+
+  // LLM-first clinical scorer (with local fallback). Replaces stuck-type-only
+  // heuristics with semantic / target-achievement / error-type judgement.
+  const scorer = useDiscourseSignalScorer({
+    sessionId,
+    exerciseSlug: 'thought_continuation',
+  });
 
   
   // Speech recognition with callback - PATIENT MODE enabled
@@ -503,24 +511,23 @@ export function ThoughtContinuationGame({
       stuckType,
     }]);
 
-    // Feed conversational signals into the Discourse Adaptation Bridge.
-    // Map ThoughtContinuation's StuckType to the bridge's vocabulary.
-    const bridgeStuckType =
-      stuckType === 'no_speech' ? 'no_speech'
-      : stuckType === 'prompt_overload' ? 'long_latency'
-      : stuckType === 'word_search_stall' ? 'incomplete'
-      : stuckType === 'thought_abandonment' ? 'incomplete'
-      : stuckType === 'strong_flow' ? 'fluent'
-      : 'incomplete';
-    adaptation.recordTurn({
-      meaningful: didSpeak && wordCount >= 2,
-      wordCount,
-      latencyToFirstWordMs: latencyToFirstWordMs ?? null,
-      stuckType: bridgeStuckType,
-      surrendered: stuckType === 'no_speech' || stuckType === 'thought_abandonment',
-      scaffoldUsed: narrowingLevel > 0,
-      momentum: flowMetrics.momentumScore,
-    });
+    // Score this turn with the LLM-first clinical scorer (with local fallback).
+    // The scorer drives both the adaptation badge AND DB logging for the
+    // clinician audit trail.
+    await scorer.scoreAndRecord(
+      {
+        exerciseSlug: 'thought_continuation',
+        promptText: currentPrompt.promptText,
+        transcript,
+        wordCount,
+        latencyToFirstWordMs: latencyToFirstWordMs ?? null,
+        durationMs: speechDuration,
+        scaffoldUsed: narrowingLevel > 0,
+        taskGoal: `Finish the thought (${currentPrompt.intentType}, theme: ${currentPrompt.theme})`,
+        turnNumber: promptCount,
+      },
+      adaptation.recordTurn,
+    );
 
 
     
@@ -543,7 +550,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation]);
 
   // ---------------------------------------------------------------------------
   // Handle speech end detection - REMOVED for patient mode
