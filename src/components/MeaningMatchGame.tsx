@@ -343,7 +343,10 @@ export function MeaningMatchGame({
         <span className="font-medium text-muted-foreground">
           {currentIndex + 1} of {totalItems}
         </span>
-        <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
+        <div className="flex items-center gap-2">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
+        </div>
       </div>
 
       <Progress value={progressPercent} className="h-1.5" />
