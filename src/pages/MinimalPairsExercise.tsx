@@ -19,6 +19,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
