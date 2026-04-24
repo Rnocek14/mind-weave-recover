@@ -99,9 +99,18 @@ export default function SynonymGeneratorExercise() {
       reactionTimeMs: result.durationSec * 1000,
     });
 
+    const isCorrect = result.matchCount >= 2;
+    let errorType: string | undefined;
+    if (!isCorrect) {
+      if (result.totalEntered === 0) errorType = 'no_response';
+      else if (result.matchCount === 0) errorType = 'no_valid_synonyms';
+      else errorType = 'low_synonym_count';
+    }
+
     logTrial({
-      correct: result.matchCount >= 2,
+      correct: isCorrect,
       reactionTimeMs: result.durationSec * 1000,
+      errorType,
       taskParameters: {
         target_word: result.targetWord,
         matched_synonyms: result.matchedSynonyms,
