@@ -45,10 +45,11 @@ import {
 import { APHASIA_TURNS, type LabeledTurn } from "../src/calibration/aphasiaTurns";
 import {
   localFallbackScore,
+  shortCircuit,
   type ClinicalSignal,
   type DiscourseErrorType,
   type DiscourseAdaptationDirection,
-} from "../src/lib/discourseSignalScorer";
+} from "../src/lib/discourseSignalScorerCore";
 
 // ---------------------------------------------------------------------------
 // CLI args
