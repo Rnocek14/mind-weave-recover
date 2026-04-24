@@ -104,6 +104,19 @@ export const endSession = async (
   summary: SessionSummary,
   reason: 'completed' | 'abandoned' | 'skipped' | 'manual' = 'completed'
 ) => {
+  // Preserve any mode/metadata that was stamped at session creation time
+  // (e.g. 'lesson' from LessonFlow, 'standalone' from useStandaloneSession,
+  // 'smart_coach' from SmartCoach). Without merging, the final UPDATE would
+  // wipe these flags and analytics could no longer distinguish session types.
+  const { data: existing } = await supabase
+    .from('sessions')
+    .select('summary')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
+  const mergedSummary = { ...existingSummary, ...summary };
+
   // Idempotent: only set ended_at + ended_reason if not already ended.
   // This prevents overwriting a server-side sweeper close or a prior call.
   const { error } = await supabase
@@ -111,7 +124,7 @@ export const endSession = async (
     .update({
       ended_at: new Date().toISOString(),
       duration_sec: summary.durationSec,
-      summary: summary as any,
+      summary: mergedSummary as any,
       ended_reason: reason,
     })
     .eq('id', sessionId)
