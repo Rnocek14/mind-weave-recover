@@ -1,18 +1,31 @@
 /**
  * C3 Validation: Prove clinical_signal logging end-to-end.
  *
- * Mirrors useDiscourseSignalScorer.scoreAndRecord exactly:
+ * Mirrors useDiscourseSignalScorer.scoreAndRecord + scoreDiscourseTurn exactly:
  *   1. Authenticate as demo.admin@gmail.com (real RLS path).
  *   2. Create a session row.
- *   3. For 4 representative aphasia turns:
- *        a. Call the deployed score-discourse-turn edge function (production path).
- *        b. Insert into exercise_events with the EXACT payload shape the hook writes.
+ *   3. For each aphasia turn: shortCircuit → edge fn → calibration post-processing → insert.
  *   4. Re-query and confirm every required field is present.
  *
  * Run: bun scripts/validateClinicalSignalLogging.ts
  */
 
 import { createClient } from "@supabase/supabase-js";
+import {
+  shortCircuit,
+  localFallbackScore,
+  ERROR_TYPES,
+  clamp01,
+  type ClinicalSignal,
+  type DiscourseErrorType,
+  type ScoreInput,
+} from "../src/lib/discourseSignalScorerCore";
+import {
+  ACTIVE_CALIBRATION,
+  applyErrorTypeCaps,
+  computeSuccessScoreCalibrated,
+  resolveAdaptation,
+} from "../src/lib/scorerCalibration";
 
 const SUPABASE_URL = "https://wjedbpjaiqdxhmjzkcxo.supabase.co";
 const SUPABASE_ANON_KEY =
