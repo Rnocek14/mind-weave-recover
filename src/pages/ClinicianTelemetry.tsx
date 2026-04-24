@@ -9,7 +9,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, RefreshCw, Search, Zap } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, Info, RefreshCw, Search, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -95,6 +96,16 @@ const SCORED_EXERCISE_SLUGS = new Set<string>([
 // counts as adaptive. We track this dynamically off the loaded data.
 type HealthStatus = "Healthy" | "Watch" | "Broken";
 
+interface HealthComponent {
+  key: "error_type" | "adaptations_active" | "adaptation_events" | "clinical_signal";
+  label: string;
+  value: number;       // 0–100 component score
+  weight: number;      // effective weight after redistribution (0–1)
+  contribution: number; // value * weight (points contributed to the final score)
+  included: boolean;   // whether this component counted for this exercise
+  note?: string;       // e.g. "n/a — non-adaptive"
+}
+
 interface HealthScore {
   slug: string;
   total: number;
@@ -107,6 +118,7 @@ interface HealthScore {
   adaptPct: number;
   signalPct: number;
   adaptEventCount: number;
+  components: HealthComponent[];
 }
 
 function statusFromScore(score: number): HealthStatus {
@@ -216,6 +228,44 @@ function computeHealth(row: CoverageRow, isAdaptive: boolean): HealthScore {
     adaptPct: row.adaptPct,
     signalPct: row.signalPct,
     adaptEventCount: row.adaptEventCount,
+    components: [
+      {
+        key: "error_type",
+        label: "error_type coverage",
+        value: errorComp,
+        weight: wErr,
+        contribution: errorComp * wErr,
+        included: true,
+      },
+      {
+        key: "adaptations_active",
+        label: "adaptations_active coverage",
+        value: adaptCovComp,
+        weight: wAdaptCov,
+        contribution: adaptCovComp * wAdaptCov,
+        included: true,
+      },
+      {
+        key: "adaptation_events",
+        label: "adaptation_events presence",
+        value: adaptEvtComp,
+        weight: wAdaptEvt,
+        contribution: adaptEvtComp * wAdaptEvt,
+        included: isAdaptive,
+        note: isAdaptive
+          ? `${row.adaptEventCount} event${row.adaptEventCount === 1 ? "" : "s"} / ${expectedEvents} expected`
+          : "n/a — non-adaptive exercise",
+      },
+      {
+        key: "clinical_signal",
+        label: "clinical_signal completeness",
+        value: signalComp,
+        weight: wSignal,
+        contribution: signalComp * wSignal,
+        included: isScored,
+        note: isScored ? undefined : "n/a — not an LLM-scored exercise",
+      },
+    ],
   };
 }
 
@@ -654,7 +704,93 @@ LIMIT 50;
                         </div>
                       </td>
                       <td className={`py-2 px-2 text-right font-mono font-bold text-base ${scoreColorClass(h.score)}`}>
-                        {h.score}
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>{h.score}</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                aria-label={`Score breakdown for ${h.slug}`}
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="end"
+                              className="w-80 p-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-baseline justify-between border-b pb-2">
+                                  <div>
+                                    <div className="font-mono text-xs">{h.slug}</div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {h.total} trial{h.total === 1 ? "" : "s"} ·{" "}
+                                      {h.isAdaptive ? "adaptive" : "non-adaptive"} ·{" "}
+                                      {h.isScored ? "scored" : "non-scored"}
+                                    </div>
+                                  </div>
+                                  <div className={`font-mono font-bold text-2xl ${scoreColorClass(h.score)}`}>
+                                    {h.score}
+                                  </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {h.components.map((c) => (
+                                    <div key={c.key} className="text-xs">
+                                      <div className="flex items-baseline justify-between gap-2">
+                                        <span className={`font-mono ${c.included ? "" : "text-muted-foreground line-through"}`}>
+                                          {c.label}
+                                        </span>
+                                        <span className="font-mono tabular-nums text-muted-foreground">
+                                          {c.included ? `${c.value.toFixed(0)}%` : "—"}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-baseline justify-between gap-2 text-[10px] text-muted-foreground">
+                                        <span>
+                                          weight {(c.weight * 100).toFixed(0)}%
+                                          {c.note ? ` · ${c.note}` : ""}
+                                        </span>
+                                        <span className="font-mono tabular-nums">
+                                          {c.included ? `+${c.contribution.toFixed(1)} pts` : "0 pts"}
+                                        </span>
+                                      </div>
+                                      {c.included && (
+                                        <div className="mt-0.5 h-1 rounded bg-muted overflow-hidden">
+                                          <div
+                                            className={`h-full ${
+                                              c.value >= 90
+                                                ? "bg-emerald-500"
+                                                : c.value >= 75
+                                                ? "bg-amber-500"
+                                                : "bg-red-500"
+                                            }`}
+                                            style={{ width: `${Math.min(100, c.value)}%` }}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="border-t pt-2 flex items-baseline justify-between text-[10px] text-muted-foreground">
+                                  <span>Sum of contributions</span>
+                                  <span className="font-mono tabular-nums">
+                                    {h.components
+                                      .reduce((s, c) => s + (c.included ? c.contribution : 0), 0)
+                                      .toFixed(1)}{" "}
+                                    / 100
+                                  </span>
+                                </div>
+                                {h.components.some((c) => !c.included) && (
+                                  <div className="text-[10px] text-muted-foreground italic">
+                                    Excluded components have their weight redistributed across the rest.
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </td>
                       <td className="py-2 px-2">
                         <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(h.status)}`}>
