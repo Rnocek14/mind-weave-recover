@@ -121,6 +121,13 @@ export default function MeaningMatchExercise() {
       cueLevel: result.usedHint ? 1 : 0,
     });
 
+    // Drive adaptive tier based on per-trial outcome
+    dynamicTier.recordTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      errorType: result.correct ? undefined : 'wrong_option',
+    });
+
     logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -139,6 +146,7 @@ export default function MeaningMatchExercise() {
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
@@ -148,7 +156,7 @@ export default function MeaningMatchExercise() {
       console.log('[MeaningMatch] Mid-session pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot, dynamicTier, trialLimit, blockIndex, lessonSource, presetId]);
 
   const handleGameComplete = useCallback((results: MeaningMatchTrialResult[]) => {
     setCompleted(true);
