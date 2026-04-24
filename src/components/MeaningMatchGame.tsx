@@ -19,6 +19,10 @@ import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { levelToTier } from '@/data/meaningMatchItems';
 
 interface MeaningMatchGameProps {
   onTrialComplete: (result: MeaningMatchTrialResult) => void;
@@ -67,7 +71,29 @@ export function MeaningMatchGame({
     totalPoints,
     submitAnswer,
     nextItem,
+    activeTier,
+    setActiveTier,
   } = useMeaningMatchGame(roundCount, difficultyLevel);
+
+  // ============ Adaptive Difficulty Layer ============
+  // Real-time tier shifts based on rolling success rate
+  const bounds = useMemo(() => getCapabilityDifficultyBounds('meaning-match', null), []);
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'meaning-match',
+    sessionId: null,
+    initialDifficulty: difficultyLevel,
+    bounds,
+    enableDifficultyToasts: false, // We use the inline badge instead
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTier(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -146,8 +172,13 @@ export function MeaningMatchGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
+      // Feed the unified adaptive controller — drives mid-game tier shifts
+      adaptation.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+      });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer]);
+  }, [phase, selectedOption, usedHint, submitAnswer, adaptation]);
 
   const handleHint = useCallback(() => {
     if (!firstInteractionRef.current) {
@@ -312,7 +343,10 @@ export function MeaningMatchGame({
         <span className="font-medium text-muted-foreground">
           {currentIndex + 1} of {totalItems}
         </span>
-        <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
+        <div className="flex items-center gap-2">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
+        </div>
       </div>
 
       <Progress value={progressPercent} className="h-1.5" />

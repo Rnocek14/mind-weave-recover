@@ -102,6 +102,32 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
       };
     });
   }, []);
+
+  /**
+   * Adapt mid-game: replace upcoming trials with new difficulty.
+   * Past + current trial preserved; remaining trials swapped to new pool.
+   */
+  const setActiveDifficulty = useCallback((newDifficulty: number) => {
+    setState(prev => {
+      const upcomingNeeded = prev.totalTrials - prev.trialIndex - 1;
+      if (upcomingNeeded <= 0) return prev;
+      const fresh = getMinimalPairTrialsForLevel(newDifficulty, upcomingNeeded, { focusPhonemes })
+        .map(trial => {
+          const targetIndex = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+          return {
+            ...trial,
+            targetIndex,
+            targetWord: targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
+          };
+        });
+      const past = prev.trials.slice(0, prev.trialIndex + 1);
+      return {
+        ...prev,
+        trials: [...past, ...fresh],
+      };
+    });
+  }, [focusPhonemes]);
+
   
   // Reset game
   const reset = useCallback((newDifficulty?: number) => {
@@ -137,5 +163,6 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     selectAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
   };
 }

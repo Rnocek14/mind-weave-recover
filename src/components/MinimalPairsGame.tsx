@@ -5,7 +5,7 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,9 @@ import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
@@ -43,15 +46,38 @@ export function MinimalPairsGame({
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
-  const { state, selectAnswer, nextTrial, reset } = useMinimalPairsGame({
+  const { state, selectAnswer, nextTrial, reset, setActiveDifficulty } = useMinimalPairsGame({
     totalTrials,
     difficultyLevel: difficulty,
     focusPhonemes,
   });
-  
+
   const { speak, isLoading: isSpeaking } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'minimal-pairs' });
   const vg = useVoiceGuidance('minimal-pairs');
+
+  // ============ Adaptive Difficulty Layer ============
+  // Map difficulty 1-10 → MinimalPairs internal 1-3 tier
+  const levelToBankTier = (lvl: number): number => (lvl <= 3 ? 1 : lvl <= 6 ? 2 : 3);
+  const bounds = useMemo(() => getCapabilityDifficultyBounds('minimal-pairs', null), []);
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+  const lastTierRef = useRef(levelToBankTier(difficulty));
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'minimal-pairs',
+    sessionId: null,
+    initialDifficulty: difficulty,
+    bounds,
+    enableDifficultyToasts: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToBankTier(newLevel);
+      if (newTier !== lastTierRef.current) {
+        lastTierRef.current = newTier;
+        setActiveDifficulty(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   // Speak intro on first mount in Full Coaching mode
   const hasSpokenIntroRef = useRef(false);
@@ -64,8 +90,28 @@ export function MinimalPairsGame({
 
   // Stall timer for voice reminder
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
+
+  // Track trial completions for adaptation
+  const trialStartRef = useRef(Date.now());
+  useEffect(() => {
+    if (currentTrial && !showFeedback) {
+      trialStartRef.current = Date.now();
+    }
+  }, [currentTrial, showFeedback]);
+
+  const lastReportedTrialRef = useRef<number>(-1);
+  useEffect(() => {
+    if (showFeedback && state.isCorrect !== null && lastReportedTrialRef.current !== trialIndex) {
+      lastReportedTrialRef.current = trialIndex;
+      adaptation.recordTrial({
+        correct: state.isCorrect === true,
+        reactionTimeMs: Date.now() - trialStartRef.current,
+      });
+    }
+  }, [showFeedback, state.isCorrect, trialIndex, adaptation]);
+
   
   // Auto-play target word when trial changes + stall timer
   useEffect(() => {
@@ -196,6 +242,7 @@ export function MinimalPairsGame({
           {trialIndex + 1} / {state.totalTrials}
         </span>
         <div className="flex items-center gap-2">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Check className="w-3 h-3" /> {correctCount}
           </span>
