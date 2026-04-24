@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { AdaptationBadge } from '@/components/AdaptationBadge';
+import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
@@ -136,6 +138,11 @@ export function ThoughtContinuationGame({
     uploadRecording,
   } = useAudioRecorder();
   const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
+
+  // Discourse Adaptation Bridge — mirrors the trial-based games' visible
+  // up/down/hold cues based on conversational signals.
+  const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+
   
   // Speech recognition with callback - PATIENT MODE enabled
   const handleSpeechResult = useCallback((text: string) => {
@@ -495,6 +502,27 @@ export function ThoughtContinuationGame({
       hintUsed: narrowingLevel > 0,
       stuckType,
     }]);
+
+    // Feed conversational signals into the Discourse Adaptation Bridge.
+    // Map ThoughtContinuation's StuckType to the bridge's vocabulary.
+    const bridgeStuckType =
+      stuckType === 'no_speech' ? 'no_speech'
+      : stuckType === 'prompt_overload' ? 'long_latency'
+      : stuckType === 'word_search_stall' ? 'incomplete'
+      : stuckType === 'thought_abandonment' ? 'incomplete'
+      : stuckType === 'strong_flow' ? 'fluent'
+      : 'incomplete';
+    adaptation.recordTurn({
+      meaningful: didSpeak && wordCount >= 2,
+      wordCount,
+      latencyToFirstWordMs: latencyToFirstWordMs ?? null,
+      stuckType: bridgeStuckType,
+      surrendered: stuckType === 'no_speech' || stuckType === 'thought_abandonment',
+      scaffoldUsed: narrowingLevel > 0,
+      momentum: flowMetrics.momentumScore,
+    });
+
+
     
     // =========================================================================
     // FEEDBACK
@@ -666,7 +694,17 @@ export function ThoughtContinuationGame({
         )}
       </div>
 
-      {/* Debug overlay (dev only) */}
+      {/* Visible adaptation cue — shown when difficulty actually shifts */}
+      {adaptation.shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge
+            direction={adaptation.shiftDirection}
+            reason={adaptation.shiftReason}
+            variant="card"
+          />
+        </div>
+      )}
+
       {showDebug && DEV_MODE && (
         <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
           <div><strong>Session:</strong> {sessionHistory.attemptCount} attempts, {sessionHistory.completionCount} complete</div>

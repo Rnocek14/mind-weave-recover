@@ -18,6 +18,8 @@ import { useConversationPartner } from '@/hooks/useConversationPartner';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { getRandomOpener } from '@/lib/conversationFollowups';
+import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
+import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 
 interface ConversationPartnerGameProps {
@@ -85,6 +87,10 @@ export function ConversationPartnerGame({
     sessionId,
     maxTurns: 3
   });
+
+  // Discourse Adaptation Bridge — turns conversational signals into
+  // visible up/down/hold cues mirroring the trial-based games.
+  const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (!firstWordTimeRef.current && transcript.trim().length > 0) {
@@ -202,6 +208,28 @@ export function ConversationPartnerGame({
       resetAttempt();
     }
 
+    // Feed conversational signals into the Discourse Adaptation Bridge
+    const userWordCount = userTranscript.trim().split(/\s+/).filter(Boolean).length;
+    const surrendered = /^(i don'?t know|idk|no idea|skip|pass|nothing|i can'?t)\.?$/i.test(
+      userTranscript.trim(),
+    );
+    adaptation.recordTurn({
+      meaningful: userWordCount >= 2 && !surrendered,
+      wordCount: userWordCount,
+      latencyToFirstWordMs: latencyMs,
+      surrendered,
+      stuckType:
+        userWordCount === 0
+          ? 'no_speech'
+          : surrendered
+          ? 'surrender'
+          : userWordCount >= 6
+          ? 'fluent'
+          : userWordCount >= 3
+          ? 'fluent_complete'
+          : 'incomplete',
+    });
+
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
 
@@ -296,6 +324,16 @@ export function ConversationPartnerGame({
       <div className="flex justify-center gap-2">
         {progressDots}
       </div>
+
+      {adaptation.shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge
+            direction={adaptation.shiftDirection}
+            reason={adaptation.shiftReason}
+            variant="card"
+          />
+        </div>
+      )}
 
       <Card className="overflow-hidden">
         <CardContent className="p-6 space-y-6">
