@@ -47,7 +47,9 @@ const ERROR_TYPES = [
   "unclear",
 ] as const;
 
-// v2 — original rubric. Preserved for A/B baselines.
+// v2 — production rubric. Hardened (2026-04-24) to prevent fluent-but-unrelated
+// answers from being rewarded as `fluent_correct` and to anchor `off_topic`
+// to topical relevance, not grammaticality.
 const SYSTEM_PROMPT_V2 = `You are a clinical aphasia speech-language pathologist scoring a single user turn in a stroke rehabilitation exercise.
 
 Score the user's response against the prompt. Be honest but charitable: stroke survivors have language impairments, so partial answers can still be successful.
@@ -75,11 +77,25 @@ Return ONLY via the score_turn tool with these fields:
   - hold: Right at the optimal challenge band.
 - reasoning: One short clinician-readable sentence.
 
-Rules:
-- Fluency without correctness is NOT success. A long off-topic ramble = low targetAchievement.
-- A short but accurate answer to a yes/no-ish prompt CAN be high targetAchievement.
-- Surrender is always errorType=surrender, recommendedAdaptation=down.
-- No speech is always errorType=no_response, recommendedAdaptation=down.`;
+CRITICAL CLASSIFICATION RULES (do not violate):
+- Fluency is NEVER sufficient for fluent_correct. A grammatically smooth answer about the wrong subject is off_topic, not fluent_correct.
+- fluent_correct REQUIRES onTopicScore ≥ 0.7 AND targetAchievementScore ≥ 0.7. If either is below 0.7, you MUST pick a different errorType.
+- off_topic REQUIRES onTopicScore ≤ 0.3 AND targetAchievementScore ≤ 0.3. Use it whenever the response is recognizable language about a different subject than the prompt asked about — even if it's eloquent.
+- A short but accurate answer to a focused prompt CAN be fluent_correct (e.g. "spoon" for "what do you eat soup with?").
+- A short but WRONG answer in the right semantic neighborhood (e.g. "fork" for soup) is semantic_paraphasia, not incomplete.
+- Surrender → errorType=surrender, recommendedAdaptation=down.
+- No speech → errorType=no_response, recommendedAdaptation=down.
+
+Worked examples:
+  Prompt: "What did you do this morning?"
+  Response: "Yesterday I went to the beach with my brother and had a great lunch."
+    → off_topic (fluent but addresses a different time/event). Do NOT score fluent_correct.
+  Prompt: "What do you eat soup with?"
+  Response: "fork"
+    → semantic_paraphasia (wrong utensil, related category). Do NOT score incomplete.
+  Prompt: "What do you eat soup with?"
+  Response: "spoon"
+    → fluent_correct.`;
 
 // v3 — sharpened rubric with explicit decision tree + worked examples for the
 // categories the offline runner exposed as weak: circumlocution,
