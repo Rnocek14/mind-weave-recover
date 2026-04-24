@@ -18,6 +18,8 @@ import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPromp
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -25,6 +27,14 @@ interface DetectiveMindGameProps {
   roundCount?: number;
   difficultyLevel?: number;
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
+  sessionId?: string | null;
+}
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
 }
 
 const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
@@ -51,6 +61,7 @@ export function DetectiveMindGame({
   roundCount = 10,
   difficultyLevel = 1,
   recommendedCueType,
+  sessionId = null,
 }: DetectiveMindGameProps) {
   const {
     currentCase,
@@ -60,9 +71,31 @@ export function DetectiveMindGame({
     results,
     totalPoints,
     rank,
+    activeTier,
+    setActiveTier,
     submitAnswer,
     nextCase,
   } = useDetectiveMindGame(roundCount, difficultyLevel);
+
+  // Visible adaptation badge controller
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation engine: drives content-tier swaps based on rolling success window
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'detective-mind',
+    sessionId,
+    initialDifficulty: difficultyLevel,
+    bounds: { floor: 1, ceiling: 10, suggestedStart: difficultyLevel },
+    enableDifficultyToasts: false, // we render AdaptationBadge instead
+    enableAutoHints: true,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -161,8 +194,13 @@ export function DetectiveMindGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
+      adaptation.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+        cueWasShown: usedHint,
+      });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer, vg]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -238,6 +276,13 @@ export function DetectiveMindGame({
       </div>
 
       <Progress value={progressPercent} className="h-1.5" />
+
+      {/* Visible adaptation cue */}
+      {shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        </div>
+      )}
 
       {/* Purpose banner — first case only */}
       {isFirstCase && phase === 'answering' && (

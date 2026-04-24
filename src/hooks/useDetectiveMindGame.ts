@@ -40,29 +40,53 @@ const RANK_THRESHOLDS: { rank: DetectiveRank; minPoints: number }[] = [
   { rank: 'Rookie', minPoints: 0 },
 ];
 
+function buildCasePool(tier: number, roundCount: number, seen: Set<string>): DetectiveCase[] {
+  const primary = DETECTIVE_CASES.filter(c => c.tier === tier);
+  const adjacent = DETECTIVE_CASES.filter(c => Math.abs(c.tier - tier) === 1);
+  const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
+  const unique = pool.filter(c => !seen.has(c.id));
+  const finalPool = unique.length >= roundCount ? unique : shuffleArray(pool);
+  return finalPool.slice(0, roundCount);
+}
+
 export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: number = 1) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DetectiveTrialResult[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [activeTier, setActiveTierState] = useState<number>(levelToTier(difficultyLevel));
   const seenCaseIdsRef = useRef<Set<string>>(new Set());
+  const [cases, setCases] = useState<DetectiveCase[]>(() =>
+    buildCasePool(levelToTier(difficultyLevel), roundCount, new Set())
+  );
 
   // Reset seen state when difficulty/round changes (e.g. replay)
   useEffect(() => {
     seenCaseIdsRef.current = new Set();
+    const t = levelToTier(difficultyLevel);
+    setActiveTierState(t);
+    setCases(buildCasePool(t, roundCount, seenCaseIdsRef.current));
+    setCurrentIndex(0);
   }, [difficultyLevel, roundCount]);
 
-  // Select cases based on difficulty tier, shuffled, deduplicated
-  const cases = useMemo(() => {
-    const tier = levelToTier(difficultyLevel);
-    const primary = DETECTIVE_CASES.filter(c => c.tier === tier);
-    const adjacent = DETECTIVE_CASES.filter(c => Math.abs(c.tier - tier) === 1);
-    
-    const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
-    const unique = pool.filter(c => !seenCaseIdsRef.current.has(c.id));
-    
-    const finalPool = unique.length >= roundCount ? unique : shuffleArray(pool);
-    return finalPool.slice(0, roundCount);
-  }, [difficultyLevel, roundCount]);
+  /**
+   * Mid-session adaptation: swap UPCOMING cases to a new tier.
+   * Preserves played cases; replaces the rest from the new tier pool.
+   */
+  const setActiveTier = useCallback((newTier: number) => {
+    const tier = Math.max(1, Math.min(3, newTier));
+    setActiveTierState(prev => {
+      if (prev === tier) return prev;
+      setCases(prevCases => {
+        const played = prevCases.slice(0, currentIndex);
+        played.forEach(c => seenCaseIdsRef.current.add(c.id));
+        const remainingNeeded = roundCount - played.length;
+        if (remainingNeeded <= 0) return prevCases;
+        const fresh = buildCasePool(tier, remainingNeeded, seenCaseIdsRef.current);
+        return [...played, ...fresh];
+      });
+      return tier;
+    });
+  }, [currentIndex, roundCount]);
 
   const currentCase: DetectiveCase | null = cases[currentIndex] ?? null;
   const isComplete = currentIndex >= cases.length || currentIndex >= roundCount;
@@ -119,6 +143,8 @@ export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: n
     totalPoints,
     rank,
     accuracy,
+    activeTier,
+    setActiveTier,
     submitAnswer,
     nextCase,
   };

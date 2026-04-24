@@ -23,6 +23,15 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+}
 
 interface MultiStepPlanningGameProps {
   userId?: string;
@@ -43,8 +52,28 @@ export function MultiStepPlanningGame({
   onTrialComplete, onGameComplete, roundCount = 3, tier = 1,
   autoStart = false,
 }: MultiStepPlanningGameProps) {
-  const { currentItem, currentIndex, totalItems, isComplete, results, submitPlan, nextItem } =
+  const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitPlan, nextItem } =
     useMultiStepPlanningGame(roundCount, tier);
+
+  // Visible adaptation
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: success = goalCoverage ≥ 0.6 + sequenceScore ≥ 0.5
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'multi-step-planning',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<PlanningTrialResult | null>(null);
@@ -194,9 +223,19 @@ export function MultiStepPlanningGame({
         resetAttempt();
       }
 
-      if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
+      if (result) {
+        setLastResult(result);
+        setPhase('scored');
+        onTrialComplete(result);
+        // Feed adaptive engine: success = covering steps AND in correct order
+        const success = result.goalCoverage >= 0.6 && result.sequenceScore >= 0.5;
+        adaptation.recordTrial({
+          correct: success,
+          reactionTimeMs: durationMs,
+        });
+      }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, speakMaya]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -255,6 +294,12 @@ export function MultiStepPlanningGame({
         <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
       </div>
       <Progress value={(currentIndex / totalItems) * 100} className="h-1.5" />
+
+      {shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        </div>
+      )}
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-3">

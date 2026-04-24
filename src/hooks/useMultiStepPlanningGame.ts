@@ -5,7 +5,7 @@
  * Scores step coverage and sequence ordering.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { PLANNING_ITEMS, PlanningItem } from '@/data/multiStepPlanningStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
@@ -29,14 +29,47 @@ export interface PlanningTrialResult {
   };
 }
 
+function buildPlanningItems(tier: number, roundCount: number, exclude: Set<string>): PlanningItem[] {
+  const t = Math.max(1, Math.min(3, tier));
+  const pool = PLANNING_ITEMS.filter(i => i.tier <= Math.min(t + 1, 3) && i.tier >= Math.max(t - 1, 1));
+  const fresh = pool.filter(i => !exclude.has(i.id));
+  const finalPool = fresh.length >= roundCount ? fresh : pool;
+  return shuffleArray(finalPool).slice(0, roundCount);
+}
+
 export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 1) {
-  const items = useMemo(() => {
-    const pool = PLANNING_ITEMS.filter(i => i.tier <= Math.min(tier + 1, 3));
-    return shuffleArray(pool).slice(0, roundCount);
-  }, [roundCount, tier]);
+  const [activeTier, setActiveTierState] = useState<number>(tier);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const [items, setItems] = useState<PlanningItem[]>(() =>
+    buildPlanningItems(tier, roundCount, new Set())
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<PlanningTrialResult[]>([]);
+
+  useEffect(() => {
+    seenIdsRef.current = new Set();
+    setActiveTierState(tier);
+    setItems(buildPlanningItems(tier, roundCount, seenIdsRef.current));
+    setCurrentIndex(0);
+  }, [tier, roundCount]);
+
+  /** Mid-session adaptation: swap upcoming planning items to new tier */
+  const setActiveTier = useCallback((newTier: number) => {
+    const t = Math.max(1, Math.min(3, newTier));
+    setActiveTierState(prev => {
+      if (prev === t) return prev;
+      setItems(prevItems => {
+        const played = prevItems.slice(0, currentIndex);
+        played.forEach(i => seenIdsRef.current.add(i.id));
+        const remaining = roundCount - played.length;
+        if (remaining <= 0) return prevItems;
+        const fresh = buildPlanningItems(t, remaining, seenIdsRef.current);
+        return [...played, ...fresh];
+      });
+      return t;
+    });
+  }, [currentIndex, roundCount]);
 
   const currentItem: PlanningItem | null = items[currentIndex] ?? null;
   const isComplete = currentIndex >= items.length;
@@ -101,5 +134,5 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
     setCurrentIndex(prev => prev + 1);
   }, []);
 
-  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, submitPlan, nextItem };
+  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, activeTier, setActiveTier, submitPlan, nextItem };
 }
