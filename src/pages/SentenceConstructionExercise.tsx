@@ -16,6 +16,8 @@ import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
+import { useDynamicTier } from "@/hooks/useDynamicTier";
+import { useProfile } from "@/hooks/useProfile";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
