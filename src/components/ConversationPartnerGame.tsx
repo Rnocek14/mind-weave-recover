@@ -208,6 +208,28 @@ export function ConversationPartnerGame({
       resetAttempt();
     }
 
+    // Feed conversational signals into the Discourse Adaptation Bridge
+    const userWordCount = userTranscript.trim().split(/\s+/).filter(Boolean).length;
+    const surrendered = /^(i don'?t know|idk|no idea|skip|pass|nothing|i can'?t)\.?$/i.test(
+      userTranscript.trim(),
+    );
+    adaptation.recordTurn({
+      meaningful: userWordCount >= 2 && !surrendered,
+      wordCount: userWordCount,
+      latencyToFirstWordMs: latencyMs,
+      surrendered,
+      stuckType:
+        userWordCount === 0
+          ? 'no_speech'
+          : surrendered
+          ? 'surrender'
+          : userWordCount >= 6
+          ? 'fluent'
+          : userWordCount >= 3
+          ? 'fluent_complete'
+          : 'incomplete',
+    });
+
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
 
