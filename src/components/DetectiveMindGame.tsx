@@ -61,6 +61,7 @@ export function DetectiveMindGame({
   roundCount = 10,
   difficultyLevel = 1,
   recommendedCueType,
+  sessionId = null,
 }: DetectiveMindGameProps) {
   const {
     currentCase,
@@ -70,9 +71,31 @@ export function DetectiveMindGame({
     results,
     totalPoints,
     rank,
+    activeTier,
+    setActiveTier,
     submitAnswer,
     nextCase,
   } = useDetectiveMindGame(roundCount, difficultyLevel);
+
+  // Visible adaptation badge controller
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation engine: drives content-tier swaps based on rolling success window
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'detective-mind',
+    sessionId,
+    initialDifficulty: difficultyLevel,
+    bounds: { floor: 1, ceiling: 10, suggestedStart: difficultyLevel },
+    enableDifficultyToasts: false, // we render AdaptationBadge instead
+    enableAutoHints: true,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
