@@ -502,6 +502,18 @@ export function ThoughtContinuationGame({
       hintUsed: narrowingLevel > 0,
       stuckType,
     }]);
+
+    // Feed conversational signals into the Discourse Adaptation Bridge
+    adaptation.recordTurn({
+      meaningful: didSpeak && wordCount >= 2,
+      wordCount,
+      latencyToFirstWordMs: latencyToFirstWordMs ?? null,
+      stuckType,
+      surrendered: stuckType === 'surrender' || stuckType === 'no_speech',
+      scaffoldUsed: narrowingLevel > 0,
+      momentum: flowMetrics.momentumScore,
+    });
+
     
     // =========================================================================
     // FEEDBACK
