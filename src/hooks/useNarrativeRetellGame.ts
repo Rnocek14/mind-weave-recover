@@ -116,10 +116,18 @@ function generateNextStepHint(breakdown: StructureBreakdown): string {
 }
 
 export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1) {
-  const stories = useMemo(() => {
-    const pool = NARRATIVE_STORIES.filter(s => s.tier <= Math.min(tier + 1, 3));
-    return shuffleArray(pool).slice(0, roundCount);
-  }, [roundCount, tier]);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  const initialStories = useMemo(() => {
+    const built = buildStories(tier, roundCount, seenIdsRef.current);
+    built.forEach((s) => seenIdsRef.current.add(s.id));
+    return built;
+    // Initial seed only — subsequent tier changes happen via setActiveTier below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [stories, setStories] = useState<NarrativeStory[]>(initialStories);
+  const [activeTier, setActiveTierState] = useState<number>(tier);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<NarrativeTrialResult[]>([]);
