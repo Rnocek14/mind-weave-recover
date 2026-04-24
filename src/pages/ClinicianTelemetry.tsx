@@ -407,6 +407,25 @@ export default function ClinicianTelemetry() {
     return { errorPct, adaptPct, adaptEvents, pass, total: totals.total };
   }, [coverage, adaptQuery.data]);
 
+  // Per-exercise health scores. An exercise is "adaptive" if it has emitted
+  // any adaptation_events in this window OR is in the scored set (which all
+  // run the discourse adaptation engine).
+  const [healthSort, setHealthSort] = useState<"score-asc" | "score-desc" | "trials-desc">("score-asc");
+
+  const healthScores: HealthScore[] = useMemo(() => {
+    const scores = coverage
+      .filter((r) => r.total > 0 || r.adaptEventCount > 0)
+      .map((r) => {
+        const isAdaptive = r.adaptEventCount > 0 || SCORED_EXERCISE_SLUGS.has(r.slug);
+        return computeHealth(r, isAdaptive);
+      });
+    const sorted = [...scores];
+    if (healthSort === "score-asc") sorted.sort((a, b) => a.score - b.score || b.total - a.total);
+    else if (healthSort === "score-desc") sorted.sort((a, b) => b.score - a.score || b.total - a.total);
+    else sorted.sort((a, b) => b.total - a.total);
+    return sorted;
+  }, [coverage, healthSort]);
+
   const refresh = () => {
     eventsQuery.refetch();
     adaptQuery.refetch();
