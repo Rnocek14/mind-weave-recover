@@ -119,7 +119,10 @@ export const useSessionLifecycle = ({
       try {
         const stats = getStatsRef.current();
         const durationSec = Math.floor((Date.now() - stats.startTime) / 1000);
-        
+
+        // Re-check ownership at the moment we end (sessionStorage may have updated)
+        const isOwnedByParent = ownedByParentFlow ?? detectParentOwnership(sid);
+
         console.log(`[SessionLifecycle] Ending session`, {
           sessionId: sid,
           reason,
@@ -127,32 +130,82 @@ export const useSessionLifecycle = ({
           score: stats.score,
           trials: stats.totalTrials,
           exerciseSlug,
+          ownedByParentFlow: isOwnedByParent,
         });
-        
-        // Use direct update to include ended_reason
-        const { error } = await supabase
-          .from('sessions')
-          .update({
-            ended_at: new Date().toISOString(),
-            duration_sec: durationSec,
-            summary: {
-              durationSec,
-              scores: { [exerciseSlug]: stats.score },
-              reps: stats.totalTrials,
-            },
-            ended_reason: reason,
-          })
-          .eq('id', sid)
-          .is('ended_at', null); // Only update if not already ended (idempotent)
-        
-        if (error) {
-          console.error(`[SessionLifecycle] Failed to end session:`, error);
+
+        let updateError: { message?: string } | null = null;
+
+        if (isOwnedByParent) {
+          // Parent flow (LessonFlow / SmartCoach) owns ended_at + ended_reason.
+          // We must NOT close the session here, otherwise the next exercise
+          // in the lesson will be orphaned. We also must NOT replace summary —
+          // we merge our exercise stats into it so analytics keep mode/etc.
+          const { data: existing } = await supabase
+            .from('sessions')
+            .select('summary')
+            .eq('id', sid)
+            .maybeSingle();
+
+          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
+          const exerciseScores = (existingSummary.scores as Record<string, number> | undefined) ?? {};
+
+          const mergedSummary = {
+            ...existingSummary,
+            scores: { ...exerciseScores, [exerciseSlug]: stats.score },
+            // Track per-exercise reps without clobbering totals owned by parent
+            lastExerciseReps: stats.totalTrials,
+            lastExerciseDurationSec: durationSec,
+            lastExerciseSlug: exerciseSlug,
+            lastExerciseEndedAt: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
+            .from('sessions')
+            .update({ summary: mergedSummary as any })
+            .eq('id', sid)
+            .is('ended_at', null);
+          updateError = error;
+        } else {
+          // Standalone exercise — we own the session, close it.
+          // Merge into existing summary so prior metadata (mode, etc.) survives.
+          const { data: existing } = await supabase
+            .from('sessions')
+            .select('summary')
+            .eq('id', sid)
+            .maybeSingle();
+
+          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
+          const existingScores = (existingSummary.scores as Record<string, number> | undefined) ?? {};
+
+          const mergedSummary = {
+            ...existingSummary,
+            durationSec,
+            scores: { ...existingScores, [exerciseSlug]: stats.score },
+            reps: stats.totalTrials,
+          };
+
+          const { error } = await supabase
+            .from('sessions')
+            .update({
+              ended_at: new Date().toISOString(),
+              duration_sec: durationSec,
+              summary: mergedSummary as any,
+              ended_reason: reason,
+            })
+            .eq('id', sid)
+            .is('ended_at', null);
+          updateError = error;
+        }
+
+        if (updateError) {
+          console.error(`[SessionLifecycle] Failed to end session:`, updateError);
           // Reset flag to allow retry, but only if it was a real failure
-          if (!error.message?.includes('0 rows')) {
+          if (!updateError.message?.includes('0 rows')) {
             endedRef.current = false;
           }
         } else {
-          console.log(`[SessionLifecycle] Session ended successfully: ${reason}`);
+          console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
+
           
           // Auto-populate speech dose into recovery spine
           if (durationSec > 0) {
