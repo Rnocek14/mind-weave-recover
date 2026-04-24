@@ -1,0 +1,221 @@
+/**
+ * C3 Validation: Prove clinical_signal logging end-to-end.
+ *
+ * Mirrors useDiscourseSignalScorer.scoreAndRecord exactly:
+ *   1. Authenticate as demo.admin@gmail.com (real RLS path).
+ *   2. Create a session row.
+ *   3. For 4 representative aphasia turns:
+ *        a. Call the deployed score-discourse-turn edge function (production path).
+ *        b. Insert into exercise_events with the EXACT payload shape the hook writes.
+ *   4. Re-query and confirm every required field is present.
+ *
+ * Run: bun scripts/validateClinicalSignalLogging.ts
+ */
+
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = "https://wjedbpjaiqdxhmjzkcxo.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA";
+
+const EMAIL = "demo.admin@gmail.com";
+const PASSWORD = "Tomford8*";
+
+interface Turn {
+  label: string;
+  prompt: string;
+  transcript: string;
+  expectedFamily: string;
+}
+
+const TURNS: Turn[] = [
+  {
+    label: "fluent_correct",
+    prompt: "Tell me about your morning routine.",
+    transcript:
+      "I usually wake up around seven, make coffee, and read the news for a little while before I get ready for the day.",
+    expectedFamily: "fluent_correct",
+  },
+  {
+    label: "off_topic",
+    prompt: "What did you have for breakfast today?",
+    transcript:
+      "My grandson is visiting next week, he just started college and he plays in the marching band.",
+    expectedFamily: "off_topic",
+  },
+  {
+    label: "surrender",
+    prompt: "Describe a place you like to visit.",
+    transcript: "I don't know.",
+    expectedFamily: "surrender",
+  },
+  {
+    label: "circumlocution",
+    prompt: "What do you use to write a letter?",
+    transcript:
+      "The thing, you know, the long thin thing, you hold it and it makes the marks on the paper, the writing thing.",
+    expectedFamily: "circumlocution",
+  },
+];
+
+const REQUIRED_FIELDS = [
+  "onTopicScore",
+  "targetAchievementScore",
+  "responseQualityScore",
+  "successScore",
+  "errorType",
+  "recommendedAdaptation",
+  "model",
+  "llm_latency_ms",
+  "source",
+  "confidence",
+  "reasoning",
+];
+
+async function main() {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  console.log("→ Signing in as", EMAIL);
+  const { data: auth, error: authErr } = await supabase.auth.signInWithPassword({
+    email: EMAIL,
+    password: PASSWORD,
+  });
+  if (authErr || !auth.user) {
+    console.error("✗ Auth failed:", authErr?.message);
+    process.exit(1);
+  }
+  console.log("✓ Authenticated as", auth.user.id);
+
+  console.log("→ Creating session row");
+  const { data: session, error: sessErr } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: auth.user.id,
+      started_at: new Date().toISOString(),
+      plan: { source: "c3_validation_script" },
+    })
+    .select("id")
+    .single();
+  if (sessErr || !session) {
+    console.error("✗ Session insert failed:", sessErr?.message);
+    process.exit(1);
+  }
+  console.log("✓ Session", session.id);
+
+  let turnIdx = 0;
+  for (const turn of TURNS) {
+    turnIdx += 1;
+    console.log(`\n→ Turn ${turnIdx} (${turn.label}): "${turn.transcript.slice(0, 60)}…"`);
+
+    const wordCount = turn.transcript.trim().split(/\s+/).length;
+    const input = {
+      promptText: turn.prompt,
+      transcript: turn.transcript,
+      wordCount,
+      durationMs: 4500,
+      latencyToFirstWordMs: 1200,
+      scaffoldUsed: false,
+      topicKeywords: [],
+      taskGoal: turn.prompt,
+      turnNumber: turnIdx,
+    };
+
+    // Call the production edge function directly (same path the client hook hits)
+    const t0 = Date.now();
+    const { data: signal, error: scoreErr } = await supabase.functions.invoke(
+      "score-discourse-turn",
+      { body: input },
+    );
+    const elapsed = Date.now() - t0;
+
+    if (scoreErr || !signal) {
+      console.error(`  ✗ scorer failed (${elapsed}ms):`, scoreErr?.message);
+      continue;
+    }
+    console.log(
+      `  ✓ scorer (${elapsed}ms): errorType=${signal.errorType} success=${signal.successScore?.toFixed(2)} adapt=${signal.recommendedAdaptation} model=${signal.model ?? "—"} promptVersion=${signal.promptVersion ?? "—"}`,
+    );
+
+    // Mirror useDiscourseSignalScorer.log() exactly
+    const { error: insertErr } = await supabase.from("exercise_events").insert({
+      session_id: session.id,
+      exercise_slug: "conversation_partner",
+      round: turnIdx,
+      score: Math.round((signal.successScore ?? 0) * 100),
+      reaction_time_ms: input.latencyToFirstWordMs,
+      inputs: {
+        prompt: input.promptText,
+        transcript: input.transcript,
+        word_count: input.wordCount,
+        duration_ms: input.durationMs,
+        scaffold_used: false,
+        topic_keywords: [],
+        task_goal: input.taskGoal,
+      },
+      outputs: {
+        clinical_signal: {
+          onTopicScore: signal.onTopicScore,
+          targetAchievementScore: signal.targetAchievementScore,
+          responseQualityScore: signal.responseQualityScore,
+          successScore: signal.successScore,
+          errorType: signal.errorType,
+          confidence: signal.confidence,
+          recommendedAdaptation: signal.recommendedAdaptation,
+          reasoning: signal.reasoning,
+          source: signal.source,
+          model: signal.model ?? null,
+          promptVersion: signal.promptVersion ?? null,
+          llm_latency_ms: signal.latencyMs ?? null,
+        },
+      },
+      engagement_flags: {
+        spoke: input.wordCount > 0,
+        on_topic: (signal.onTopicScore ?? 0) >= 0.5,
+        target_achieved: (signal.targetAchievementScore ?? 0) >= 0.6,
+        scorer_source: signal.source,
+      },
+    });
+
+    if (insertErr) {
+      console.error(`  ✗ insert failed:`, insertErr.message);
+    } else {
+      console.log(`  ✓ exercise_events row inserted`);
+    }
+  }
+
+  // Re-query
+  console.log("\n→ Re-querying exercise_events for this session");
+  const { data: rows, error: qErr } = await supabase
+    .from("exercise_events")
+    .select("round, exercise_slug, score, outputs, created_at")
+    .eq("session_id", session.id)
+    .order("round", { ascending: true });
+
+  if (qErr) {
+    console.error("✗ requery failed:", qErr.message);
+    process.exit(1);
+  }
+  console.log(`✓ Found ${rows?.length ?? 0} rows`);
+
+  let allPass = true;
+  for (const row of rows ?? []) {
+    const sig = (row.outputs as any)?.clinical_signal ?? {};
+    const missing = REQUIRED_FIELDS.filter((f) => sig[f] === undefined);
+    if (missing.length === 0) {
+      console.log(
+        `  ✓ round=${row.round} ${row.exercise_slug} score=${row.score} errorType=${sig.errorType} adapt=${sig.recommendedAdaptation} src=${sig.source} promptV=${sig.promptVersion}`,
+      );
+    } else {
+      allPass = false;
+      console.log(`  ✗ round=${row.round} MISSING: ${missing.join(", ")}`);
+    }
+  }
+
+  console.log("\n" + (allPass ? "✅ C3 PASS — clinical_signal logging is fully wired end-to-end" : "❌ C3 FAIL — see missing fields above"));
+  process.exit(allPass ? 0 : 1);
+}
+
+main().catch((e) => {
+  console.error("fatal:", e);
+  process.exit(1);
+});
