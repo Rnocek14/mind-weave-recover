@@ -119,8 +119,28 @@ export function NarrativeRetellGame({
   tier = 1,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
-  const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory } =
+  const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
     useNarrativeRetellGame(roundCount, tier);
+
+  // Visible adaptation cue
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: shifts story tier mid-session based on retell coverage
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'narrative-retell',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
