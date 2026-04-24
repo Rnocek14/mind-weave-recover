@@ -5,7 +5,7 @@
  * Scores shared properties mentioned.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ABSTRACT_COMPARE_ITEMS, AbstractCompareItem } from '@/data/abstractCompareStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
