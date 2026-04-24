@@ -19,6 +19,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -54,12 +55,11 @@ export default function MeaningMatchExercise() {
   const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
-  // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
+  // Adaptive difficulty from shared contract (session-static seed)
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
-  const difficultyLevel = adaptation.difficultyTier;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -67,6 +67,19 @@ export default function MeaningMatchExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  // Per-trial dynamic tier (1..3) — adapts based on rolling success rate.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+  const difficultyLevel = dynamicTier.currentTier;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -108,6 +121,13 @@ export default function MeaningMatchExercise() {
       cueLevel: result.usedHint ? 1 : 0,
     });
 
+    // Drive adaptive tier based on per-trial outcome
+    dynamicTier.recordTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      errorType: result.correct ? undefined : 'wrong_option',
+    });
+
     logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -126,6 +146,7 @@ export default function MeaningMatchExercise() {
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
@@ -135,7 +156,7 @@ export default function MeaningMatchExercise() {
       console.log('[MeaningMatch] Mid-session pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot, dynamicTier, trialLimit, blockIndex, lessonSource, presetId]);
 
   const handleGameComplete = useCallback((results: MeaningMatchTrialResult[]) => {
     setCompleted(true);

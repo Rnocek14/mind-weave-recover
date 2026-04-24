@@ -19,6 +19,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -46,11 +47,24 @@ export default function MinimalPairsExercise() {
     defaultErrorType: 'phonemic_paraphasia',
   });
   
-  const difficulty = adaptation.difficultyTier;
+  
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
     phonemeSensitive: true,
     cueSensitive: false,
   });
+
+  // Per-trial dynamic tier — adapts based on rolling success rate.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: 'minimal-pairs',
+    sessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.80, // listening is high-success domain
+  });
+  const difficulty = dynamicTier.currentTier;
   
   // Get stats about available pairs
   const stats = getMinimalPairStats();
@@ -115,6 +129,13 @@ export default function MinimalPairsExercise() {
     pair: { word1: string; word2: string };
   }) => {
     startTrial();
+
+    // Drive adaptive tier based on per-trial outcome
+    dynamicTier.recordTrial({
+      correct: trialData.isCorrect,
+      errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
+    });
+
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -125,6 +146,7 @@ export default function MinimalPairsExercise() {
         pair: trialData.pair,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
     });
   };
   

@@ -20,6 +20,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -48,12 +49,11 @@ export default function DetectiveMindExercise() {
   const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
-  // Adaptive difficulty from shared contract (replaces hardcoded DIFFICULTY_LEVEL = 1)
+  // Adaptive difficulty from shared contract (session-static seed)
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
-  const difficultyLevel = adaptation.difficultyTier;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -61,6 +61,19 @@ export default function DetectiveMindExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  // Per-trial dynamic tier — adapts based on rolling success rate.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+  const difficultyLevel = dynamicTier.currentTier;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -88,6 +101,11 @@ export default function DetectiveMindExercise() {
     scoreRef.current += result.points;
     trialsRef.current += 1;
     pivot.recordTrialResult({ wasCorrect: result.correct, reactionTimeMs: result.reactionTimeMs, cueLevel: result.usedHint ? 1 : 0 });
+    dynamicTier.recordTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      errorType: result.correct ? undefined : 'wrong_option',
+    });
     logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -99,11 +117,12 @@ export default function DetectiveMindExercise() {
         lesson_source: lessonSource, preset_id: presetId, pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
     if (pivot.shouldStepDown) { console.log('[DetectiveMind] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot, dynamicTier, trialLimit, blockIndex, lessonSource, presetId]);
 
   const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
     setCompleted(true);
