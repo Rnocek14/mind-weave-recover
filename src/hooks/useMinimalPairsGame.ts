@@ -163,5 +163,6 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     selectAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
   };
 }
