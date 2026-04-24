@@ -694,7 +694,17 @@ export function ThoughtContinuationGame({
         )}
       </div>
 
-      {/* Debug overlay (dev only) */}
+      {/* Visible adaptation cue — shown when difficulty actually shifts */}
+      {adaptation.shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge
+            direction={adaptation.shiftDirection}
+            reason={adaptation.shiftReason}
+            variant="card"
+          />
+        </div>
+      )}
+
       {showDebug && DEV_MODE && (
         <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
           <div><strong>Session:</strong> {sessionHistory.attemptCount} attempts, {sessionHistory.completionCount} complete</div>
