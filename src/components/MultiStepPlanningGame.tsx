@@ -223,9 +223,19 @@ export function MultiStepPlanningGame({
         resetAttempt();
       }
 
-      if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
+      if (result) {
+        setLastResult(result);
+        setPhase('scored');
+        onTrialComplete(result);
+        // Feed adaptive engine: success = covering steps AND in correct order
+        const success = result.goalCoverage >= 0.6 && result.sequenceScore >= 0.5;
+        adaptation.recordTrial({
+          correct: success,
+          reactionTimeMs: durationMs,
+        });
+      }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, speakMaya]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
