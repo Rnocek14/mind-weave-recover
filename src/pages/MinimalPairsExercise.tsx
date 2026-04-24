@@ -47,7 +47,7 @@ export default function MinimalPairsExercise() {
     defaultErrorType: 'phonemic_paraphasia',
   });
   
-  const difficulty = adaptation.difficultyTier;
+  
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
     phonemeSensitive: true,
     cueSensitive: false,
