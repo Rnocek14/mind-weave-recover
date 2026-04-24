@@ -172,8 +172,13 @@ export function MeaningMatchGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
+      // Feed the unified adaptive controller — drives mid-game tier shifts
+      adaptation.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+      });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer]);
+  }, [phase, selectedOption, usedHint, submitAnswer, adaptation]);
 
   const handleHint = useCallback(() => {
     if (!firstInteractionRef.current) {
