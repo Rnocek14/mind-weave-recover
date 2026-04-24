@@ -169,7 +169,7 @@ export default function AbstractCompareExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
+          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
