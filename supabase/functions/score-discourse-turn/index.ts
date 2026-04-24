@@ -347,6 +347,7 @@ Deno.serve(async (req) => {
       ...parsed,
       source: "llm" as const,
       model: MODEL,
+      promptVersion: body.promptVersion ?? "v3",
       latencyMs: Date.now() - startedAt,
     };
 
