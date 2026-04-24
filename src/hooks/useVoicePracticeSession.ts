@@ -122,15 +122,22 @@ export function useVoicePracticeSession(
   ) => {
     if (!sessionId) return;
     try {
+      const isCorrect = roundResult.score >= 0.5;
+      const resolvedErrorType: string = isCorrect
+        ? 'correct'
+        : (roundResult.wordCount === 0 ? 'no_response' : 'low_match');
+
       await supabase.from('exercise_events').insert({
         session_id: sessionId,
         exercise_slug: 'voice-practice',
         round: roundIndex + 1,
         score: Math.round(roundResult.score * 100) / 100,
+        error_type: resolvedErrorType,
         inputs: {
           transcript: roundResult.transcript,
           word_count: roundResult.wordCount,
           game_type: round.gameType,
+          error_type: resolvedErrorType,
         },
         outputs: {
           feedback: roundResult.feedback,
