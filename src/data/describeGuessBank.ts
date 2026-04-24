@@ -514,12 +514,37 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
 /**
  * Get trials filtered by difficulty — guaranteed no repeated targets
  */
+import { PHOTO_BANK } from './photoBank';
+
+/** Quiet remap for trials whose original photoBankId is missing in PHOTO_BANK. */
+const PHOTO_ID_REMAP: Record<string, string> = {
+  cat_1: 'cat_3',
+};
+
+/**
+ * Returns playable trials only. A trial is "playable" iff its (possibly
+ * remapped) photoBankId resolves to an entry in PHOTO_BANK. This is the
+ * single guard that prevents the blank-card regression in Describe & Guess.
+ */
 export function getDescribeGuessTrials(options?: {
   difficulty?: number;
   count?: number;
 }): DescribeGuessTrial[] {
-  let trials = [...DESCRIBE_GUESS_BANK];
-  
+  const validPhotoIds = new Set(PHOTO_BANK.map(p => p.id));
+
+  let trials = DESCRIBE_GUESS_BANK
+    .map(t => {
+      const remapped = PHOTO_ID_REMAP[t.photoBankId] ?? t.photoBankId;
+      return remapped === t.photoBankId ? t : { ...t, photoBankId: remapped };
+    })
+    .filter(t => {
+      if (validPhotoIds.has(t.photoBankId)) return true;
+      if (typeof console !== 'undefined') {
+        console.warn(`[describeGuessBank] dropping trial ${t.id} — missing photo "${t.photoBankId}"`);
+      }
+      return false;
+    });
+
   if (options?.difficulty) {
     trials = trials.filter(t => t.difficulty <= options.difficulty!);
   }
@@ -532,16 +557,17 @@ export function getDescribeGuessTrials(options?: {
     seen.add(key);
     return true;
   });
-  
+
   // Shuffle
   for (let i = trials.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [trials[i], trials[j]] = [trials[j], trials[i]];
   }
-  
+
   if (options?.count) {
     trials = trials.slice(0, options.count);
   }
-  
+
   return trials;
 }
+
