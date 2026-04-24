@@ -179,7 +179,9 @@ export function CategoryFluencyGame({
     processedRef.current.add(word);
     const status = validateCategoryWord(word, config.category);
     if (status !== 'filler') {
-      setWords(prev => [...prev, { text: word, status }]);
+      const next = [...wordsRef.current, { text: word, status }];
+      wordsRef.current = next;
+      setWords(next);
       if (status === 'valid') {
         setLastAddedWord(word);
         setTimeout(() => setLastAddedWord(null), 800);
