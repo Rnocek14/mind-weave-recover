@@ -704,7 +704,93 @@ LIMIT 50;
                         </div>
                       </td>
                       <td className={`py-2 px-2 text-right font-mono font-bold text-base ${scoreColorClass(h.score)}`}>
-                        {h.score}
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>{h.score}</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                aria-label={`Score breakdown for ${h.slug}`}
+                              >
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="end"
+                              className="w-80 p-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-baseline justify-between border-b pb-2">
+                                  <div>
+                                    <div className="font-mono text-xs">{h.slug}</div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {h.total} trial{h.total === 1 ? "" : "s"} ·{" "}
+                                      {h.isAdaptive ? "adaptive" : "non-adaptive"} ·{" "}
+                                      {h.isScored ? "scored" : "non-scored"}
+                                    </div>
+                                  </div>
+                                  <div className={`font-mono font-bold text-2xl ${scoreColorClass(h.score)}`}>
+                                    {h.score}
+                                  </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {h.components.map((c) => (
+                                    <div key={c.key} className="text-xs">
+                                      <div className="flex items-baseline justify-between gap-2">
+                                        <span className={`font-mono ${c.included ? "" : "text-muted-foreground line-through"}`}>
+                                          {c.label}
+                                        </span>
+                                        <span className="font-mono tabular-nums text-muted-foreground">
+                                          {c.included ? `${c.value.toFixed(0)}%` : "—"}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-baseline justify-between gap-2 text-[10px] text-muted-foreground">
+                                        <span>
+                                          weight {(c.weight * 100).toFixed(0)}%
+                                          {c.note ? ` · ${c.note}` : ""}
+                                        </span>
+                                        <span className="font-mono tabular-nums">
+                                          {c.included ? `+${c.contribution.toFixed(1)} pts` : "0 pts"}
+                                        </span>
+                                      </div>
+                                      {c.included && (
+                                        <div className="mt-0.5 h-1 rounded bg-muted overflow-hidden">
+                                          <div
+                                            className={`h-full ${
+                                              c.value >= 90
+                                                ? "bg-emerald-500"
+                                                : c.value >= 75
+                                                ? "bg-amber-500"
+                                                : "bg-red-500"
+                                            }`}
+                                            style={{ width: `${Math.min(100, c.value)}%` }}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="border-t pt-2 flex items-baseline justify-between text-[10px] text-muted-foreground">
+                                  <span>Sum of contributions</span>
+                                  <span className="font-mono tabular-nums">
+                                    {h.components
+                                      .reduce((s, c) => s + (c.included ? c.contribution : 0), 0)
+                                      .toFixed(1)}{" "}
+                                    / 100
+                                  </span>
+                                </div>
+                                {h.components.some((c) => !c.included) && (
+                                  <div className="text-[10px] text-muted-foreground italic">
+                                    Excluded components have their weight redistributed across the rest.
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </td>
                       <td className="py-2 px-2">
                         <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(h.status)}`}>
