@@ -82,29 +82,77 @@ export default function Today() {
     sessionId: string | null;
   } | null>(null);
 
-  // Check for in-progress session (from localStorage which persists across navigation)
+  // Check for in-progress session.
+  // 1) Prefer localStorage (full client state — survives refresh).
+  // 2) Fallback to DB (recovers after logout/HMR loss).
+  // Also fires a server-side sweep that closes anything older than 4h.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('lessonFlowState_resume');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Expire after 4 hours
-        if (parsed.savedAt && Date.now() - parsed.savedAt > 4 * 60 * 60 * 1000) {
-          localStorage.removeItem('lessonFlowState_resume');
-          return;
+    if (!user?.id) return;
+
+    let cancelled = false;
+    (async () => {
+      // Local-first
+      try {
+        const saved = localStorage.getItem('lessonFlowState_resume');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.savedAt && Date.now() - parsed.savedAt > 4 * 60 * 60 * 1000) {
+            localStorage.removeItem('lessonFlowState_resume');
+          } else if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
+            if (!cancelled) {
+              setSavedSession({
+                currentBlockIndex: parsed.currentBlockIndex,
+                blockCount: parsed.blockCount,
+                lesson: parsed.lesson,
+                clinicalProfile: parsed.clinicalProfile || null,
+                sessionId: parsed.sessionId || null,
+              });
+            }
+            return; // Local hit wins — skip DB query
+          }
         }
-        if (parsed.lesson && parsed.blockCount && typeof parsed.currentBlockIndex === 'number') {
+      } catch { /* ignore */ }
+
+      // Sweep stale sessions then look for a resumable one in the DB
+      try {
+        await supabase.rpc('close_stale_sessions');
+        const { data, error } = await supabase.rpc('get_resumable_session');
+        if (cancelled || error || !data || data.length === 0) return;
+
+        const row = data[0] as {
+          id: string;
+          started_at: string;
+          plan: any;
+          summary: any;
+        };
+        const planLesson = row.plan?.lesson ?? row.plan;
+        const blocks = planLesson?.blocks ?? [];
+        if (!Array.isArray(blocks) || blocks.length === 0) return;
+
+        // Reconstruct progress from summary.scores keys (each completed exercise writes one)
+        const scoredSlugs = Object.keys(row.summary?.scores ?? {});
+        const completedCount = blocks.findIndex(
+          (b: any) => !scoredSlugs.includes(b.slug)
+        );
+        const currentBlockIndex = completedCount === -1 ? blocks.length : completedCount;
+
+        // Only show resume card if user actually made progress
+        if (currentBlockIndex > 0 && currentBlockIndex < blocks.length) {
           setSavedSession({
-            currentBlockIndex: parsed.currentBlockIndex,
-            blockCount: parsed.blockCount,
-            lesson: parsed.lesson,
-            clinicalProfile: parsed.clinicalProfile || null,
-            sessionId: parsed.sessionId || null,
+            currentBlockIndex,
+            blockCount: blocks.length,
+            lesson: planLesson,
+            clinicalProfile: row.plan?.clinicalProfile ?? null,
+            sessionId: row.id,
           });
         }
-      }
-    } catch { /* ignore */ }
-  }, []);
+      } catch { /* ignore */ }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Generate the daily lesson
   const { lesson, todayFocus } = useDailyLesson(
