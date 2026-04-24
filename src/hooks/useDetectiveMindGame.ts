@@ -143,6 +143,8 @@ export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: n
     totalPoints,
     rank,
     accuracy,
+    activeTier,
+    setActiveTier,
     submitAnswer,
     nextCase,
   };
