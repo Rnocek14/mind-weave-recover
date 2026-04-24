@@ -281,10 +281,16 @@ export default function ClinicianTelemetry() {
 
   const coverage: CoverageRow[] = useMemo(() => {
     const rows = eventsQuery.data || [];
-    const map = new Map<string, { total: number; withErrorType: number; withAdaptations: number }>();
+    const adaptRows = (adaptQuery.data || []) as any[];
+    const adaptCounts = new Map<string, number>();
+    for (const a of adaptRows) {
+      const slug = a.exercise_slug || "(unknown)";
+      adaptCounts.set(slug, (adaptCounts.get(slug) || 0) + 1);
+    }
+    const map = new Map<string, { total: number; withErrorType: number; withAdaptations: number; withSignal: number }>();
     for (const r of rows as any[]) {
       const slug = r.exercise_slug || "(unknown)";
-      const cur = map.get(slug) || { total: 0, withErrorType: 0, withAdaptations: 0 };
+      const cur = map.get(slug) || { total: 0, withErrorType: 0, withAdaptations: 0, withSignal: 0 };
       cur.total += 1;
       if (r.error_type !== null && r.error_type !== undefined && String(r.error_type).length > 0) {
         cur.withErrorType += 1;
@@ -293,7 +299,17 @@ export default function ClinicianTelemetry() {
       if (ad && typeof ad === "object" && Object.keys(ad).length > 0) {
         cur.withAdaptations += 1;
       }
+      const cs = r.outputs?.clinical_signal;
+      if (cs && typeof cs === "object" && (cs.errorType || typeof cs.successScore === "number")) {
+        cur.withSignal += 1;
+      }
       map.set(slug, cur);
+    }
+    // Ensure exercises that only show up in adaptation_events also appear (rare)
+    for (const slug of adaptCounts.keys()) {
+      if (!map.has(slug)) {
+        map.set(slug, { total: 0, withErrorType: 0, withAdaptations: 0, withSignal: 0 });
+      }
     }
     return Array.from(map.entries())
       .map(([slug, v]) => ({
@@ -301,9 +317,11 @@ export default function ClinicianTelemetry() {
         total: v.total,
         errorPct: pct(v.withErrorType, v.total),
         adaptPct: pct(v.withAdaptations, v.total),
+        signalPct: pct(v.withSignal, v.total),
+        adaptEventCount: adaptCounts.get(slug) || 0,
       }))
       .sort((a, b) => b.total - a.total);
-  }, [eventsQuery.data]);
+  }, [eventsQuery.data, adaptQuery.data]);
 
   const prevCoverage = useMemo(() => {
     const rows = prevQuery.data || [];
