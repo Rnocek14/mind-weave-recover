@@ -206,6 +206,29 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     setCurrentIndex(prev => prev + 1);
   }, []);
 
+  /**
+   * Mid-session content tier shift. Preserves already-played stories and
+   * refreshes the upcoming queue with stories matching the new tier.
+   */
+  const setActiveTier = useCallback(
+    (newTier: number) => {
+      const clamped = Math.max(1, Math.min(3, newTier));
+      if (clamped === activeTier) return;
+      setActiveTierState(clamped);
+
+      setStories((prev) => {
+        const played = prev.slice(0, currentIndex + 1);
+        played.forEach((s) => seenIdsRef.current.add(s.id));
+        const remaining = Math.max(0, roundCount - played.length);
+        if (remaining === 0) return played;
+        const fresh = buildStories(clamped, remaining, seenIdsRef.current);
+        fresh.forEach((s) => seenIdsRef.current.add(s.id));
+        return [...played, ...fresh];
+      });
+    },
+    [activeTier, currentIndex, roundCount],
+  );
+
   return {
     currentStory,
     currentIndex,
@@ -214,5 +237,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     results,
     submitRetell,
     nextStory,
+    activeTier,
+    setActiveTier,
   };
 }
