@@ -1025,6 +1025,24 @@ LIMIT 50;
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-xs">{h.total}</td>
                       <td className="py-2 px-2">
+                        {(() => {
+                          const points = sparkBySlug.get(h.slug) || [];
+                          const direction = classifyTrend(points);
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <HealthSparkline points={points} />
+                              <span
+                                className={`text-[9px] uppercase tracking-wide px-1 py-px rounded border inline-flex items-center gap-0.5 ${trendChipClass(direction)}`}
+                                title={`Trend over ${TREND_WINDOW_LABEL[trendWindow]}`}
+                              >
+                                <TrendIcon d={direction} />
+                                {direction}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="py-2 px-2">
                         <div className="flex flex-wrap gap-1 max-w-md">
                           {h.reasons.map((r, i) => {
                             const isGood = r === "all checks passing";
