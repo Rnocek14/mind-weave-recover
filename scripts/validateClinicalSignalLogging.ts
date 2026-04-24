@@ -71,19 +71,18 @@ const TURNS: Turn[] = [
   },
 ];
 
-const REQUIRED_FIELDS = [
+const CORE_FIELDS = [
   "onTopicScore",
   "targetAchievementScore",
   "responseQualityScore",
   "successScore",
   "errorType",
   "recommendedAdaptation",
-  "model",
-  "llm_latency_ms",
   "source",
   "confidence",
   "reasoning",
 ];
+const LLM_FIELDS = ["model", "llm_latency_ms", "promptVersion"];
 
 async function main() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
