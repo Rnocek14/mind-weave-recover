@@ -179,18 +179,16 @@ export function localFallbackScore(input: ScoreInput): ClinicalSignal {
     errorType = "circumlocution";
   }
 
-  const sub = { onTopicScore, targetAchievementScore, responseQualityScore };
+  const rawSub = { onTopicScore, targetAchievementScore, responseQualityScore };
+  const sub = applyErrorTypeCaps(rawSub, errorType);
   const successScore = computeSuccessScore(sub);
-
-  // Adaptation recommendation
-  let recommendedAdaptation: DiscourseAdaptationDirection = "hold";
-  if (successScore >= 0.78) recommendedAdaptation = "up";
-  else if (successScore <= 0.4) recommendedAdaptation = "down";
+  const confidence = 0.45; // Lower than LLM by design
+  const recommendedAdaptation = resolveAdaptation(successScore, errorType, confidence);
 
   return {
     ...sub,
     errorType,
-    confidence: 0.45, // Lower than LLM by design
+    confidence,
     recommendedAdaptation,
     reasoning: `Local heuristic: words=${wc}, topicHits=${topicHits}/${keywords.length}, latency=${input.latencyToFirstWordMs ?? "?"}ms.`,
     source: "fallback",
@@ -225,21 +223,31 @@ export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSig
       return localFallbackScore(input);
     }
 
-    const sub = {
+    const rawSub = {
       onTopicScore: clamp01(data.onTopicScore),
       targetAchievementScore: clamp01(data.targetAchievementScore),
       responseQualityScore: clamp01(data.responseQualityScore),
     };
+    const errorType = (ERROR_TYPES.has(data.errorType) ? data.errorType : "unclear") as DiscourseErrorType;
+    const confidence = clamp01(data.confidence ?? 0.7);
+
+    // Apply calibration: error-type caps + calibrated success + calibrated adaptation.
+    const sub = applyErrorTypeCaps(rawSub, errorType);
     const successScore = computeSuccessScore(sub);
+
+    // LLM hint is advisory; calibration arbitrates the final direction.
+    const llmHint =
+      data.recommendedAdaptation === "up" || data.recommendedAdaptation === "down"
+        ? data.recommendedAdaptation
+        : "hold";
+    const recommendedAdaptation =
+      resolveAdaptation(successScore, errorType, confidence) ?? llmHint;
 
     return {
       ...sub,
-      errorType: (ERROR_TYPES.has(data.errorType) ? data.errorType : "unclear") as DiscourseErrorType,
-      confidence: clamp01(data.confidence ?? 0.7),
-      recommendedAdaptation:
-        data.recommendedAdaptation === "up" || data.recommendedAdaptation === "down"
-          ? data.recommendedAdaptation
-          : "hold",
+      errorType,
+      confidence,
+      recommendedAdaptation,
       reasoning: typeof data.reasoning === "string" ? data.reasoning.slice(0, 240) : "",
       source: "llm",
       model: typeof data.model === "string" ? data.model : undefined,
