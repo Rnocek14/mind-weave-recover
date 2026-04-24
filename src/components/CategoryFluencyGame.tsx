@@ -179,7 +179,9 @@ export function CategoryFluencyGame({
     processedRef.current.add(word);
     const status = validateCategoryWord(word, config.category);
     if (status !== 'filler') {
-      setWords(prev => [...prev, { text: word, status }]);
+      const next = [...wordsRef.current, { text: word, status }];
+      wordsRef.current = next;
+      setWords(next);
       if (status === 'valid') {
         setLastAddedWord(word);
         setTimeout(() => setLastAddedWord(null), 800);
@@ -234,7 +236,9 @@ export function CategoryFluencyGame({
 
     // Show any fully resolved entries immediately
     if (newEntries.length > 0) {
-      setWords(prev => [...prev, ...newEntries]);
+      const next = [...wordsRef.current, ...newEntries];
+      wordsRef.current = next;
+      setWords(next);
       const lastValid = newEntries.filter(e => e.status === 'valid').pop();
       if (lastValid) {
         setLastAddedWord(lastValid.text);
@@ -460,11 +464,25 @@ export function CategoryFluencyGame({
   }, [beginCountdown]);
 
   const addWord = useCallback(() => {
-    const word = currentInput.trim();
+    const word = currentInput.trim().toLowerCase();
     if (!word) return;
+    // Dedupe against words already processed (speech or typing)
+    if (processedRef.current.has(word)) {
+      setCurrentInput('');
+      inputRef.current?.focus();
+      return;
+    }
     const status = validateCategoryWord(word, config.category);
     if (status !== 'filler') {
-      setWords(prev => [...prev, { text: word, status }]);
+      processedRef.current.add(word);
+      // Sync ref immediately so finishRound (timer) can't miss this entry
+      const next = [...wordsRef.current, { text: word, status }];
+      wordsRef.current = next;
+      setWords(next);
+      if (status === 'valid') {
+        setLastAddedWord(word);
+        setTimeout(() => setLastAddedWord(null), 800);
+      }
     }
     setCurrentInput('');
     inputRef.current?.focus();
