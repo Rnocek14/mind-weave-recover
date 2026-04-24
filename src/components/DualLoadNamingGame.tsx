@@ -16,11 +16,20 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+}
 
 interface DualLoadNamingGameProps {
   userId?: string;
