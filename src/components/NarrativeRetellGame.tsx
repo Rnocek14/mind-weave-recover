@@ -480,10 +480,15 @@ export function NarrativeRetellGame({
       if (result) {
         setLastResult(result);
         setPhase('scored');
+        // Feed adaptation engine: 60% event coverage = strong retell, drives tier shifts
+        adaptation.recordTrial({
+          correct: result.eventCoverage >= 0.6,
+          reactionTimeMs: result.durationMs,
+        });
         onTrialComplete(result);
       }
     }, 150);
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText, adaptation]);
 
   // Keep ref in sync on every render so auto-submit timer always calls latest version
   handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
