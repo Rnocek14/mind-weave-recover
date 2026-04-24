@@ -15,6 +15,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -54,6 +55,18 @@ export default function DualLoadNamingExercise() {
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
+  // Per-trial dynamic tier controller (1..3)
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
   }), []);
@@ -77,6 +90,11 @@ export default function DualLoadNamingExercise() {
       reactionTimeMs: result.durationMs,
     });
 
+    dynamicTier.recordTrial({
+      correct: result.recallAccuracy >= 0.33,
+      reactionTimeMs: result.durationMs,
+    });
+
     logTrial({
       correct: result.recallAccuracy >= 0.33,
       reactionTimeMs: result.durationMs,
@@ -86,13 +104,15 @@ export default function DualLoadNamingExercise() {
         recall_accuracy: result.recallAccuracy,
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
+        tier: dynamicTier.currentTier,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       trialOutputs: {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier]);
 
   const handleGameComplete = useCallback((results: DualLoadTrialResult[]) => {
     setCompleted(true);
@@ -137,7 +157,7 @@ export default function DualLoadNamingExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />
+          <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

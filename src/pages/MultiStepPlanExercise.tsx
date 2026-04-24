@@ -19,6 +19,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useDynamicTier } from '@/hooks/useDynamicTier';
 
 const EXERCISE_SLUG = 'multi-step-plan';
 
@@ -49,6 +50,18 @@ export default function MultiStepPlanExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
+  // Per-trial dynamic tier controller (1..3)
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
   }), []);
@@ -72,6 +85,11 @@ export default function MultiStepPlanExercise() {
       reactionTimeMs: result.durationMs,
     });
 
+    dynamicTier.recordTrial({
+      correct: result.goalCoverage >= 0.3,
+      reactionTimeMs: result.durationMs,
+    });
+
     logTrial({
       correct: result.goalCoverage >= 0.3,
       reactionTimeMs: result.durationMs,
@@ -79,8 +97,10 @@ export default function MultiStepPlanExercise() {
         item_id: result.itemId, goal: result.goal,
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
+        tier: dynamicTier.currentTier,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       trialOutputs: {
         explanation: {
           coverageRatio: result.goalCoverage,
@@ -91,7 +111,7 @@ export default function MultiStepPlanExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit]);
+  }, [activeSessionId, logTrial, trialLimit, dynamicTier]);
 
   const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
     setCompleted(true);
@@ -136,7 +156,7 @@ export default function MultiStepPlanExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} autoStart={fromLesson} />
+          <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} autoStart={fromLesson} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
