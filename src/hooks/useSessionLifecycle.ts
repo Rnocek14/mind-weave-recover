@@ -72,6 +72,7 @@ export const useSessionLifecycle = ({
   getSessionStats,
   onSessionEnded,
   visibilityTimeoutMs = 5 * 60 * 1000, // 5 minutes
+  ownedByParentFlow,
 }: SessionLifecycleOptions) => {
   // Capture values at mount time to prevent stale closure issues
   const sessionRef = useRef<string | null>(null);
