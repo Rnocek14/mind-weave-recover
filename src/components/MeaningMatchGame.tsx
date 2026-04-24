@@ -19,6 +19,10 @@ import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { levelToTier } from '@/data/meaningMatchItems';
 
 interface MeaningMatchGameProps {
   onTrialComplete: (result: MeaningMatchTrialResult) => void;
