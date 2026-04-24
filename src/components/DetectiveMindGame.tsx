@@ -18,6 +18,8 @@ import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPromp
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -25,6 +27,14 @@ interface DetectiveMindGameProps {
   roundCount?: number;
   difficultyLevel?: number;
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
+  sessionId?: string | null;
+}
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
 }
 
 const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
