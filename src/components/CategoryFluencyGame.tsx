@@ -586,10 +586,15 @@ export function CategoryFluencyGame({
             )}
           </div>
         )}
-        <Button size="lg" onClick={beginCountdown} className="min-h-[48px] min-w-[140px]">
-          <Mic className="w-4 h-4 mr-2" />
-          {currentRound === 0 ? 'Start' : 'Next Round'}
+        <Button size="lg" onClick={beginCountdown} className="min-h-[56px] min-w-[200px] text-base">
+          <Mic className="w-5 h-5 mr-2" />
+          {currentRound === 0 ? "Start when you're ready" : 'Next Round'}
         </Button>
+        {currentRound === 0 && (
+          <p className="text-xs text-muted-foreground -mt-3">
+            The timer starts after a 3-2-1 countdown.
+          </p>
+        )}
       </div>
     );
   }
