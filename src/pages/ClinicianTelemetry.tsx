@@ -155,6 +155,179 @@ function scoreColorClass(score: number): string {
   return "text-red-600";
 }
 
+// =====================================================================
+// Trend types
+// =====================================================================
+
+type TrendWindow = "1h" | "24h" | "7d" | "30d";
+
+const TREND_WINDOW_LABEL: Record<TrendWindow, string> = {
+  "1h": "Last 1h · 5-min buckets",
+  "24h": "Last 24h · hourly buckets",
+  "7d": "Last 7d · daily buckets",
+  "30d": "Last 30d · daily buckets",
+};
+
+interface BucketRow {
+  bucket_start: string;
+  exercise_slug: string;
+  total: number;
+  with_error_type: number;
+  with_adaptations: number;
+  with_signal: number;
+  adaptation_event_count: number;
+}
+
+interface TrendPoint {
+  bucket_start: string; // ISO
+  score: number;
+  errorPct: number;
+  adaptPct: number;
+  signalPct: number;
+  adaptEvents: number;
+  total: number;
+  isAdaptive: boolean;
+  isScored: boolean;
+}
+
+type TrendDirection = "improving" | "stable" | "declining" | "broken" | "no-data";
+
+function classifyTrend(points: TrendPoint[]): TrendDirection {
+  const valid = points.filter((p) => p.total > 0);
+  if (valid.length === 0) return "no-data";
+  const last = valid[valid.length - 1];
+  if (last.score < 75) return "broken";
+  if (valid.length < 3) return "stable";
+  // Compare last 1/3 average vs first 1/3 average
+  const third = Math.max(1, Math.floor(valid.length / 3));
+  const head = valid.slice(0, third);
+  const tail = valid.slice(-third);
+  const avg = (arr: TrendPoint[]) => arr.reduce((s, p) => s + p.score, 0) / arr.length;
+  const delta = avg(tail) - avg(head);
+  if (delta >= 5) return "improving";
+  if (delta <= -5) return "declining";
+  return "stable";
+}
+
+function trendChipClass(d: TrendDirection): string {
+  switch (d) {
+    case "improving": return "bg-emerald-100 text-emerald-700 border-emerald-300";
+    case "stable":    return "bg-slate-100 text-slate-700 border-slate-300";
+    case "declining": return "bg-amber-100 text-amber-700 border-amber-300";
+    case "broken":    return "bg-red-100 text-red-700 border-red-300";
+    case "no-data":   return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function TrendIcon({ d }: { d: TrendDirection }) {
+  if (d === "improving") return <TrendingUp className="w-3 h-3" />;
+  if (d === "declining" || d === "broken") return <TrendingDown className="w-3 h-3" />;
+  return <Minus className="w-3 h-3" />;
+}
+
+/**
+ * Tiny inline sparkline for the per-exercise health table.
+ * Renders the last N health-score points; colors by trend direction.
+ */
+function HealthSparkline({
+  points,
+  width = 80,
+  height = 24,
+}: {
+  points: TrendPoint[];
+  width?: number;
+  height?: number;
+}) {
+  if (points.length < 2) {
+    return <span className="text-[10px] text-muted-foreground italic">need more data</span>;
+  }
+  const direction = classifyTrend(points);
+  const colorClass =
+    direction === "improving" ? "text-emerald-600"
+    : direction === "declining" ? "text-amber-600"
+    : direction === "broken" ? "text-red-600"
+    : "text-muted-foreground";
+
+  const padding = 2;
+  const innerW = width - padding * 2;
+  const innerH = height - padding * 2;
+  // Y range fixed 0–100
+  const yScale = (v: number) => padding + innerH - (Math.max(0, Math.min(100, v)) / 100) * innerH;
+  const xStep = innerW / (points.length - 1);
+  const xScale = (i: number) => padding + i * xStep;
+  const poly = points.map((p, i) => `${xScale(i)},${yScale(p.score)}`).join(" ");
+  const last = points[points.length - 1];
+
+  return (
+    <svg width={width} height={height} className={colorClass} aria-label={`Trend: ${direction}`}>
+      {/* 75-line (Watch threshold) */}
+      <line
+        x1={padding} x2={width - padding}
+        y1={yScale(75)} y2={yScale(75)}
+        className="stroke-muted" strokeWidth={1} strokeDasharray="2,2"
+      />
+      <polyline
+        points={poly}
+        fill="none" stroke="currentColor" strokeWidth={1.5}
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+      <circle cx={xScale(points.length - 1)} cy={yScale(last.score)} r={2.5} fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * Group raw bucket rows into per-exercise time series. Reuses `computeHealth`
+ * so the sparkline + chart use the EXACT same scoring formula as the live
+ * health table — no second source of truth.
+ */
+function buildTrendSeries(
+  rows: BucketRow[],
+  liveAdaptiveSlugs: Set<string>,
+): Map<string, TrendPoint[]> {
+  // Determine adaptive set: any slug we've seen in the bucket data with
+  // adaptation_event_count > 0, plus any slug currently flagged adaptive in
+  // the live coverage (so a slug stays adaptive even in a quiet bucket).
+  const adaptiveSlugs = new Set<string>(liveAdaptiveSlugs);
+  for (const r of rows) {
+    if (r.adaptation_event_count > 0) adaptiveSlugs.add(r.exercise_slug);
+  }
+
+  const bySlug = new Map<string, TrendPoint[]>();
+  for (const r of rows) {
+    const isAdaptive = adaptiveSlugs.has(r.exercise_slug) || SCORED_EXERCISE_SLUGS.has(r.exercise_slug);
+    const cov: CoverageRow = {
+      slug: r.exercise_slug,
+      total: r.total,
+      errorPct: pct(r.with_error_type, r.total),
+      adaptPct: pct(r.with_adaptations, r.total),
+      signalPct: pct(r.with_signal, r.total),
+      adaptEventCount: r.adaptation_event_count,
+    };
+    const h = computeHealth(cov, isAdaptive);
+    const point: TrendPoint = {
+      bucket_start: r.bucket_start,
+      score: h.score,
+      errorPct: cov.errorPct,
+      adaptPct: cov.adaptPct,
+      signalPct: cov.signalPct,
+      adaptEvents: r.adaptation_event_count,
+      total: r.total,
+      isAdaptive,
+      isScored: SCORED_EXERCISE_SLUGS.has(r.exercise_slug),
+    };
+    const arr = bySlug.get(r.exercise_slug) || [];
+    arr.push(point);
+    bySlug.set(r.exercise_slug, arr);
+  }
+  // Ensure each series is sorted by time
+  for (const [k, arr] of bySlug) {
+    arr.sort((a, b) => a.bucket_start.localeCompare(b.bucket_start));
+    bySlug.set(k, arr);
+  }
+  return bySlug;
+}
+
 /**
  * Compute a 0–100 health score for one exercise.
  *
