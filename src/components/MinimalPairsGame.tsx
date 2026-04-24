@@ -5,7 +5,7 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,9 @@ import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
