@@ -85,6 +85,11 @@ export default function MultiStepPlanExercise() {
       reactionTimeMs: result.durationMs,
     });
 
+    dynamicTier.recordTrial({
+      correct: result.goalCoverage >= 0.3,
+      reactionTimeMs: result.durationMs,
+    });
+
     logTrial({
       correct: result.goalCoverage >= 0.3,
       reactionTimeMs: result.durationMs,
@@ -92,8 +97,10 @@ export default function MultiStepPlanExercise() {
         item_id: result.itemId, goal: result.goal,
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
+        tier: dynamicTier.currentTier,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       trialOutputs: {
         explanation: {
           coverageRatio: result.goalCoverage,
@@ -104,7 +111,7 @@ export default function MultiStepPlanExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit]);
+  }, [activeSessionId, logTrial, trialLimit, dynamicTier]);
 
   const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
     setCompleted(true);
