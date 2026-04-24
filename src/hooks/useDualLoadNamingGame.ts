@@ -5,9 +5,36 @@
  * Measures executive load tolerance and interference.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { DUAL_LOAD_SETS, DualLoadSet } from '@/data/dualLoadNamingStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+
+/** Build a list of dual-load sets for a given tier, prioritising focus phonemes and avoiding repeats. */
+function buildSets(
+  tier: number,
+  count: number,
+  focusPhonemes: string[],
+  excludeIds: Set<string>,
+): DualLoadSet[] {
+  const pool = DUAL_LOAD_SETS.filter(
+    (s) => s.tier <= Math.min(tier + 1, 3) && !excludeIds.has(s.id),
+  );
+
+  if (focusPhonemes.length > 0) {
+    const normalizedFocus = new Set(focusPhonemes.map((p) => p.replace(/\//g, '').toLowerCase()));
+    const scored = pool.map((set) => {
+      const matchCount = set.namingTargets.filter((t) => {
+        const word = t.word.toLowerCase();
+        return Array.from(normalizedFocus).some((phoneme) => word.includes(phoneme));
+      }).length;
+      return { set, matchCount };
+    });
+    scored.sort((a, b) => b.matchCount - a.matchCount);
+    return scored.map((s) => s.set).slice(0, count);
+  }
+
+  return shuffleArray(pool).slice(0, count);
+}
 
 export type DualLoadPhase = 'memorize' | 'naming' | 'recall' | 'results';
 
