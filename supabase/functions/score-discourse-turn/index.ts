@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: MODEL,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: pickPrompt(body.promptVersion) },
             { role: "user", content: buildUserMessage(body) },
           ],
           tools: [TOOL],
