@@ -355,6 +355,8 @@ export default function SmartCoach() {
         profile_id: activeProfile?.id,
         started_at: new Date().toISOString(),
         plan: plan as any,
+        // Stamp mode so analytics can distinguish Smart Coach from lessons/standalone.
+        summary: { mode: 'smart_coach' } as any,
       })
       .select()
       .single();
