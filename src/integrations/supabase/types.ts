@@ -3168,6 +3168,18 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: undefined
       }
+      telemetry_bucketed: {
+        Args: { _window: string }
+        Returns: {
+          adaptation_event_count: number
+          bucket_start: string
+          exercise_slug: string
+          total: number
+          with_adaptations: number
+          with_error_type: number
+          with_signal: number
+        }[]
+      }
       upsert_worker_heartbeat: {
         Args: { p_meta?: Json; p_status?: string; p_worker_id: string }
         Returns: undefined

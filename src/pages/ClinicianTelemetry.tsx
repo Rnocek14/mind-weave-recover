@@ -10,10 +10,21 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, Copy, Database, Info, RefreshCw, Search, Zap } from "lucide-react";
+import { ChevronLeft, Activity, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Copy, Database, Info, Minus, RefreshCw, Search, TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as RTooltip,
+  CartesianGrid,
+  ReferenceDot,
+  Legend,
+} from "recharts";
 
 type Window = "1h" | "24h" | "7d";
 
@@ -142,6 +153,179 @@ function scoreColorClass(score: number): string {
   if (score >= 90) return "text-emerald-600";
   if (score >= 75) return "text-amber-600";
   return "text-red-600";
+}
+
+// =====================================================================
+// Trend types
+// =====================================================================
+
+type TrendWindow = "1h" | "24h" | "7d" | "30d";
+
+const TREND_WINDOW_LABEL: Record<TrendWindow, string> = {
+  "1h": "Last 1h · 5-min buckets",
+  "24h": "Last 24h · hourly buckets",
+  "7d": "Last 7d · daily buckets",
+  "30d": "Last 30d · daily buckets",
+};
+
+interface BucketRow {
+  bucket_start: string;
+  exercise_slug: string;
+  total: number;
+  with_error_type: number;
+  with_adaptations: number;
+  with_signal: number;
+  adaptation_event_count: number;
+}
+
+interface TrendPoint {
+  bucket_start: string; // ISO
+  score: number;
+  errorPct: number;
+  adaptPct: number;
+  signalPct: number;
+  adaptEvents: number;
+  total: number;
+  isAdaptive: boolean;
+  isScored: boolean;
+}
+
+type TrendDirection = "improving" | "stable" | "declining" | "broken" | "no-data";
+
+function classifyTrend(points: TrendPoint[]): TrendDirection {
+  const valid = points.filter((p) => p.total > 0);
+  if (valid.length === 0) return "no-data";
+  const last = valid[valid.length - 1];
+  if (last.score < 75) return "broken";
+  if (valid.length < 3) return "stable";
+  // Compare last 1/3 average vs first 1/3 average
+  const third = Math.max(1, Math.floor(valid.length / 3));
+  const head = valid.slice(0, third);
+  const tail = valid.slice(-third);
+  const avg = (arr: TrendPoint[]) => arr.reduce((s, p) => s + p.score, 0) / arr.length;
+  const delta = avg(tail) - avg(head);
+  if (delta >= 5) return "improving";
+  if (delta <= -5) return "declining";
+  return "stable";
+}
+
+function trendChipClass(d: TrendDirection): string {
+  switch (d) {
+    case "improving": return "bg-emerald-100 text-emerald-700 border-emerald-300";
+    case "stable":    return "bg-slate-100 text-slate-700 border-slate-300";
+    case "declining": return "bg-amber-100 text-amber-700 border-amber-300";
+    case "broken":    return "bg-red-100 text-red-700 border-red-300";
+    case "no-data":   return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function TrendIcon({ d }: { d: TrendDirection }) {
+  if (d === "improving") return <TrendingUp className="w-3 h-3" />;
+  if (d === "declining" || d === "broken") return <TrendingDown className="w-3 h-3" />;
+  return <Minus className="w-3 h-3" />;
+}
+
+/**
+ * Tiny inline sparkline for the per-exercise health table.
+ * Renders the last N health-score points; colors by trend direction.
+ */
+function HealthSparkline({
+  points,
+  width = 80,
+  height = 24,
+}: {
+  points: TrendPoint[];
+  width?: number;
+  height?: number;
+}) {
+  if (points.length < 2) {
+    return <span className="text-[10px] text-muted-foreground italic">need more data</span>;
+  }
+  const direction = classifyTrend(points);
+  const colorClass =
+    direction === "improving" ? "text-emerald-600"
+    : direction === "declining" ? "text-amber-600"
+    : direction === "broken" ? "text-red-600"
+    : "text-muted-foreground";
+
+  const padding = 2;
+  const innerW = width - padding * 2;
+  const innerH = height - padding * 2;
+  // Y range fixed 0–100
+  const yScale = (v: number) => padding + innerH - (Math.max(0, Math.min(100, v)) / 100) * innerH;
+  const xStep = innerW / (points.length - 1);
+  const xScale = (i: number) => padding + i * xStep;
+  const poly = points.map((p, i) => `${xScale(i)},${yScale(p.score)}`).join(" ");
+  const last = points[points.length - 1];
+
+  return (
+    <svg width={width} height={height} className={colorClass} aria-label={`Trend: ${direction}`}>
+      {/* 75-line (Watch threshold) */}
+      <line
+        x1={padding} x2={width - padding}
+        y1={yScale(75)} y2={yScale(75)}
+        className="stroke-muted" strokeWidth={1} strokeDasharray="2,2"
+      />
+      <polyline
+        points={poly}
+        fill="none" stroke="currentColor" strokeWidth={1.5}
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+      <circle cx={xScale(points.length - 1)} cy={yScale(last.score)} r={2.5} fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * Group raw bucket rows into per-exercise time series. Reuses `computeHealth`
+ * so the sparkline + chart use the EXACT same scoring formula as the live
+ * health table — no second source of truth.
+ */
+function buildTrendSeries(
+  rows: BucketRow[],
+  liveAdaptiveSlugs: Set<string>,
+): Map<string, TrendPoint[]> {
+  // Determine adaptive set: any slug we've seen in the bucket data with
+  // adaptation_event_count > 0, plus any slug currently flagged adaptive in
+  // the live coverage (so a slug stays adaptive even in a quiet bucket).
+  const adaptiveSlugs = new Set<string>(liveAdaptiveSlugs);
+  for (const r of rows) {
+    if (r.adaptation_event_count > 0) adaptiveSlugs.add(r.exercise_slug);
+  }
+
+  const bySlug = new Map<string, TrendPoint[]>();
+  for (const r of rows) {
+    const isAdaptive = adaptiveSlugs.has(r.exercise_slug) || SCORED_EXERCISE_SLUGS.has(r.exercise_slug);
+    const cov: CoverageRow = {
+      slug: r.exercise_slug,
+      total: r.total,
+      errorPct: pct(r.with_error_type, r.total),
+      adaptPct: pct(r.with_adaptations, r.total),
+      signalPct: pct(r.with_signal, r.total),
+      adaptEventCount: r.adaptation_event_count,
+    };
+    const h = computeHealth(cov, isAdaptive);
+    const point: TrendPoint = {
+      bucket_start: r.bucket_start,
+      score: h.score,
+      errorPct: cov.errorPct,
+      adaptPct: cov.adaptPct,
+      signalPct: cov.signalPct,
+      adaptEvents: r.adaptation_event_count,
+      total: r.total,
+      isAdaptive,
+      isScored: SCORED_EXERCISE_SLUGS.has(r.exercise_slug),
+    };
+    const arr = bySlug.get(r.exercise_slug) || [];
+    arr.push(point);
+    bySlug.set(r.exercise_slug, arr);
+  }
+  // Ensure each series is sorted by time
+  for (const [k, arr] of bySlug) {
+    arr.sort((a, b) => a.bucket_start.localeCompare(b.bucket_start));
+    bySlug.set(k, arr);
+  }
+  return bySlug;
 }
 
 /**
@@ -274,6 +458,8 @@ export default function ClinicianTelemetry() {
   const [windowSel, setWindowSel] = useState<Window>("24h");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [drillSlug, setDrillSlug] = useState<string | null>(null);
+  const [trendWindow, setTrendWindow] = useState<TrendWindow>("24h");
+  const [expandedTrendSlug, setExpandedTrendSlug] = useState<string | null>(null);
 
   const since = useMemo(() => windowToTimestamp(windowSel), [windowSel]);
   // Previous comparable window (e.g. previous 1h before the current 1h)
@@ -476,10 +662,49 @@ export default function ClinicianTelemetry() {
     return sorted;
   }, [coverage, healthSort]);
 
+  // ---------------------------------------------------------------------
+  // Trends — bucketed RPC, reuses computeHealth for single source of truth
+  // ---------------------------------------------------------------------
+  const trendsQuery = useQuery({
+    queryKey: ["telemetry-trends", trendWindow],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("telemetry_bucketed", { _window: trendWindow });
+      if (error) throw error;
+      return (data || []) as BucketRow[];
+    },
+    refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
+  });
+
+  // Adaptive slugs from the live coverage view — used to keep series classification
+  // stable across quiet buckets.
+  const liveAdaptiveSlugs = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of coverage) {
+      if (c.adaptEventCount > 0 || SCORED_EXERCISE_SLUGS.has(c.slug)) s.add(c.slug);
+    }
+    return s;
+  }, [coverage]);
+
+  const trendSeries = useMemo(
+    () => buildTrendSeries(trendsQuery.data || [], liveAdaptiveSlugs),
+    [trendsQuery.data, liveAdaptiveSlugs]
+  );
+
+  // Sparkline data for the live health table — last 7 buckets per exercise
+  // from the same trends RPC. Falls back gracefully when no trend data yet.
+  const sparkBySlug = useMemo(() => {
+    const m = new Map<string, TrendPoint[]>();
+    for (const [slug, points] of trendSeries) {
+      m.set(slug, points.slice(-7));
+    }
+    return m;
+  }, [trendSeries]);
+
   const refresh = () => {
     eventsQuery.refetch();
     adaptQuery.refetch();
     prevQuery.refetch();
+    trendsQuery.refetch();
   };
 
   // Toast on new break detection
@@ -681,6 +906,7 @@ LIMIT 50;
                     <th className="py-2 px-2 text-right">score</th>
                     <th className="py-2 px-2">status</th>
                     <th className="py-2 px-2 text-right">trials</th>
+                    <th className="py-2 px-2">trend</th>
                     <th className="py-2 px-2">why</th>
                     <th className="py-2 px-2"></th>
                   </tr>
@@ -799,6 +1025,24 @@ LIMIT 50;
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-xs">{h.total}</td>
                       <td className="py-2 px-2">
+                        {(() => {
+                          const points = sparkBySlug.get(h.slug) || [];
+                          const direction = classifyTrend(points);
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <HealthSparkline points={points} />
+                              <span
+                                className={`text-[9px] uppercase tracking-wide px-1 py-px rounded border inline-flex items-center gap-0.5 ${trendChipClass(direction)}`}
+                                title={`Trend over ${TREND_WINDOW_LABEL[trendWindow]}`}
+                              >
+                                <TrendIcon d={direction} />
+                                {direction}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="py-2 px-2">
                         <div className="flex flex-wrap gap-1 max-w-md">
                           {h.reasons.map((r, i) => {
                             const isGood = r === "all checks passing";
@@ -871,12 +1115,105 @@ LIMIT 50;
           </Card>
         )}
 
-        <Tabs defaultValue="coverage">
+        <Tabs defaultValue="trends">
           <TabsList>
+            <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="coverage">Coverage</TabsTrigger>
             <TabsTrigger value="adaptations">Adaptation events</TabsTrigger>
             <TabsTrigger value="signals">Clinical signals</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="trends" className="space-y-4">
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Health trend by exercise
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Bucketed live from <code>telemetry_bucketed()</code>. Same scoring formula as the live health table — no second source of truth.
+                    Click an exercise to expand the full chart.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={trendWindow} onValueChange={(v) => setTrendWindow(v as TrendWindow)}>
+                    <SelectTrigger className="w-56 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1h">{TREND_WINDOW_LABEL["1h"]}</SelectItem>
+                      <SelectItem value="24h">{TREND_WINDOW_LABEL["24h"]}</SelectItem>
+                      <SelectItem value="7d">{TREND_WINDOW_LABEL["7d"]}</SelectItem>
+                      <SelectItem value="30d">{TREND_WINDOW_LABEL["30d"]}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <CopyButton
+                    sql={`-- Bucketed telemetry trends (${TREND_WINDOW_LABEL[trendWindow]})
+SELECT * FROM public.telemetry_bucketed('${trendWindow}')
+ORDER BY exercise_slug, bucket_start;`}
+                  />
+                </div>
+              </div>
+
+              {trendsQuery.isLoading && (
+                <div className="text-sm text-muted-foreground py-6 text-center">Loading trend data…</div>
+              )}
+              {!trendsQuery.isLoading && trendSeries.size === 0 && (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No telemetry in this window yet.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {Array.from(trendSeries.entries())
+                  .map(([slug, points]) => {
+                    const direction = classifyTrend(points);
+                    const last = [...points].reverse().find((p) => p.total > 0) || points[points.length - 1];
+                    return { slug, points, direction, last };
+                  })
+                  // Worst / most-broken first, then declining, then stable, then improving
+                  .sort((a, b) => {
+                    const order: Record<TrendDirection, number> = {
+                      broken: 0, declining: 1, "no-data": 2, stable: 3, improving: 4,
+                    };
+                    if (order[a.direction] !== order[b.direction]) return order[a.direction] - order[b.direction];
+                    return (a.last?.score ?? 100) - (b.last?.score ?? 100);
+                  })
+                  .map(({ slug, points, direction, last }) => {
+                    const expanded = expandedTrendSlug === slug;
+                    return (
+                      <div key={`trend-${slug}`} className="border rounded-md">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-3 p-3 hover:bg-muted/40 text-left"
+                          onClick={() => setExpandedTrendSlug(expanded ? null : slug)}
+                        >
+                          {expanded
+                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <code className="font-mono text-xs flex-1">{slug}</code>
+                          <span
+                            className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border inline-flex items-center gap-1 ${trendChipClass(direction)}`}
+                          >
+                            <TrendIcon d={direction} />
+                            {direction}
+                          </span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            latest:{" "}
+                            <span className={`font-mono font-semibold ${last ? scoreColorClass(last.score) : ""}`}>
+                              {last && last.total > 0 ? last.score : "—"}
+                            </span>
+                          </span>
+                          <HealthSparkline points={points.slice(-12)} width={120} height={28} />
+                        </button>
+                        {expanded && <TrendDetailChart points={points} window={trendWindow} />}
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="coverage" className="space-y-4">
             <Card className="p-4">
@@ -1210,5 +1547,111 @@ function ExerciseDrilldown({
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// =====================================================================
+// Trend detail chart — health score + components + adaptation event markers
+// =====================================================================
+
+function TrendDetailChart({
+  points,
+  window: trendWindow,
+}: {
+  points: TrendPoint[];
+  window: TrendWindow;
+}) {
+  if (points.length === 0) {
+    return <div className="p-4 text-sm text-muted-foreground">No data.</div>;
+  }
+  // Pre-format x labels per window
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    if (trendWindow === "1h" || trendWindow === "24h") return format(d, "HH:mm");
+    return format(d, "MMM d");
+  };
+  const data = points.map((p) => ({
+    label: fmt(p.bucket_start),
+    bucket_start: p.bucket_start,
+    score: p.total > 0 ? p.score : null,
+    errorPct: p.total > 0 ? Math.round(p.errorPct) : null,
+    adaptPct: p.total > 0 ? Math.round(p.adaptPct) : null,
+    signalPct: p.isScored && p.total > 0 ? Math.round(p.signalPct) : null,
+    adaptEvents: p.adaptEvents,
+    total: p.total,
+  }));
+
+  // Adaptation-event markers: place a dot at score line for buckets with events
+  const eventMarkers = data.filter((d) => d.adaptEvents > 0 && d.score !== null);
+
+  const isScored = points.some((p) => p.isScored);
+
+  return (
+    <div className="border-t p-3 bg-muted/20">
+      <div style={{ width: "100%", height: 260 }}>
+        <ResponsiveContainer>
+          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={32} />
+            <RTooltip
+              contentStyle={{ fontSize: 11, borderRadius: 6 }}
+              formatter={(value: any, name: string) => [value === null ? "—" : value, name]}
+              labelFormatter={(_, payload) => {
+                const p = payload && payload[0]?.payload;
+                if (!p) return "";
+                const d = new Date(p.bucket_start);
+                return `${format(d, "MMM d, HH:mm")} · ${p.total} trial${p.total === 1 ? "" : "s"}${p.adaptEvents ? ` · ${p.adaptEvents} adapt event${p.adaptEvents === 1 ? "" : "s"}` : ""}`;
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Line
+              type="monotone" dataKey="score" name="health score"
+              stroke="hsl(var(--primary))" strokeWidth={2}
+              dot={{ r: 2 }} connectNulls
+            />
+            <Line
+              type="monotone" dataKey="errorPct" name="error_type %"
+              stroke="hsl(220 70% 55%)" strokeWidth={1.5}
+              dot={false} strokeDasharray="4 2" connectNulls
+            />
+            <Line
+              type="monotone" dataKey="adaptPct" name="adaptations_active %"
+              stroke="hsl(160 65% 45%)" strokeWidth={1.5}
+              dot={false} strokeDasharray="4 2" connectNulls
+            />
+            {isScored && (
+              <Line
+                type="monotone" dataKey="signalPct" name="clinical_signal %"
+                stroke="hsl(280 60% 55%)" strokeWidth={1.5}
+                dot={false} strokeDasharray="4 2" connectNulls
+              />
+            )}
+            {eventMarkers.map((d, i) => (
+              <ReferenceDot
+                key={`evt-${i}`}
+                x={d.label}
+                y={d.score ?? 0}
+                r={4}
+                fill="hsl(35 90% 55%)"
+                stroke="white"
+                strokeWidth={1}
+                ifOverflow="extendDomain"
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: "hsl(35 90% 55%)" }} />
+          adaptation_event
+        </span>
+        <span>·</span>
+        <span>solid = health score · dashed = component coverage</span>
+        <span>·</span>
+        <span>gaps = no trials in that bucket</span>
+      </div>
+    </div>
   );
 }
