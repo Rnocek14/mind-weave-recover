@@ -317,6 +317,7 @@ export function DualLoadNamingGame({
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" />
           <span className="font-medium">Dual-Load Naming</span>
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
         <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
       </div>
