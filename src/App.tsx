@@ -68,6 +68,7 @@ import SynonymGeneratorExercise from "./pages/SynonymGeneratorExercise";
 import VoicePractice from "./pages/VoicePractice";
 import SpeechProfile from "./pages/SpeechProfile";
 import ShadowAnalytics from "./pages/ShadowAnalytics";
+import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
