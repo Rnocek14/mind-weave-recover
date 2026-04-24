@@ -138,6 +138,11 @@ export function ThoughtContinuationGame({
     uploadRecording,
   } = useAudioRecorder();
   const { logDecision, logCurrentOutcome } = useThoughtDecisionLog();
+
+  // Discourse Adaptation Bridge — mirrors the trial-based games' visible
+  // up/down/hold cues based on conversational signals.
+  const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+
   
   // Speech recognition with callback - PATIENT MODE enabled
   const handleSpeechResult = useCallback((text: string) => {
