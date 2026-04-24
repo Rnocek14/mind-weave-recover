@@ -273,9 +273,18 @@ export function DualLoadNamingGame({
     const result = submitRecall(recallInputs.filter(w => w.trim()));
     if (result) {
       setLastResult(result);
+      // Combined success: at least 2/3 words recalled AND naming above 60% — true
+      // dual-load proficiency. Feeds the adaptation engine so tier shifts reflect
+      // genuine mastery under cognitive load, not just one or the other.
+      const combinedSuccess =
+        result.recallAccuracy >= 0.67 && result.namingAccuracy >= 0.6;
+      adaptation.recordTrial({
+        correct: combinedSuccess,
+        reactionTimeMs: result.durationMs,
+      });
       onTrialComplete(result);
     }
-  }, [recallInputs, submitRecall, onTrialComplete]);
+  }, [recallInputs, submitRecall, onTrialComplete, adaptation]);
 
   const handleContinue = useCallback(() => {
     nextSet();
