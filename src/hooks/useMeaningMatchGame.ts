@@ -1,12 +1,15 @@
 /**
  * Meaning Match Arena Game State Machine
- * 
+ *
  * Manages item selection, scoring, and deduplication.
- * Mirrors useDetectiveMindGame pattern.
+ * 
+ * ADAPTIVE: Supports mid-game tier shifts via `setActiveTier()`. The current
+ * upcoming item is replaced with one matching the new tier so the user
+ * sees a real content change in response to their performance.
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { MEANING_MATCH_ITEMS, MeaningMatchItem, levelToTier } from '@/data/meaningMatchItems';
+import { MEANING_MATCH_ITEMS, MeaningMatchItem, levelToTier, MeaningMatchTier } from '@/data/meaningMatchItems';
 import { shuffleArray } from '@/lib/shuffle';
 
 export interface MeaningMatchTrialResult {
@@ -31,32 +34,63 @@ export interface MeaningMatchTrialResult {
   };
 }
 
+function buildPool(tier: MeaningMatchTier, seen: Set<string>): MeaningMatchItem[] {
+  const primary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier && !seen.has(i.id));
+  const adjacent = MEANING_MATCH_ITEMS.filter(i => Math.abs(i.tier - tier) === 1 && !seen.has(i.id));
+  const fallbackPrimary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier);
+  const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
+  return pool.length > 0 ? pool : shuffleArray(fallbackPrimary);
+}
+
 export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: number = 1) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<MeaningMatchTrialResult[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const seenItemIdsRef = useRef<Set<string>>(new Set());
 
-  // Reset seen state on replay
+  // Active tier — initially derived from initial level, mutable mid-game
+  const [activeTier, setActiveTierState] = useState<MeaningMatchTier>(() => levelToTier(difficultyLevel));
+
+  // Dynamic queue: regenerated when tier changes
+  const initialQueue = useMemo(
+    () => buildPool(levelToTier(difficultyLevel), seenItemIdsRef.current).slice(0, roundCount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const [queue, setQueue] = useState<MeaningMatchItem[]>(initialQueue);
+
+  // Reset on roundCount change (replay)
   useEffect(() => {
     seenItemIdsRef.current = new Set();
-  }, [difficultyLevel, roundCount]);
+    const t = levelToTier(difficultyLevel);
+    setActiveTierState(t);
+    setQueue(buildPool(t, seenItemIdsRef.current).slice(0, roundCount));
+    setCurrentIndex(0);
+    setResults([]);
+    setTotalPoints(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundCount]);
 
-  // Select items based on difficulty tier, shuffled, deduplicated
-  const items = useMemo(() => {
-    const tier = levelToTier(difficultyLevel);
-    const primary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier);
-    const adjacent = MEANING_MATCH_ITEMS.filter(i => Math.abs(i.tier - tier) === 1);
-    
-    const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
-    const unique = pool.filter(i => !seenItemIdsRef.current.has(i.id));
-    
-    const finalPool = unique.length >= roundCount ? unique : shuffleArray(pool);
-    return finalPool.slice(0, roundCount);
-  }, [difficultyLevel, roundCount]);
+  /**
+   * Set the active tier mid-game. The current upcoming item (and beyond) is
+   * replaced with items at the new tier so the user immediately sees the
+   * content shift. Past items are preserved.
+   */
+  const setActiveTier = useCallback((tier: MeaningMatchTier) => {
+    setActiveTierState(prev => {
+      if (prev === tier) return prev;
+      setQueue(prevQueue => {
+        const past = prevQueue.slice(0, currentIndex);
+        const remainingNeeded = roundCount - currentIndex;
+        const fresh = buildPool(tier, seenItemIdsRef.current).slice(0, remainingNeeded);
+        return [...past, ...fresh];
+      });
+      return tier;
+    });
+  }, [currentIndex, roundCount]);
 
-  const currentItem: MeaningMatchItem | null = items[currentIndex] ?? null;
-  const isComplete = currentIndex >= items.length || currentIndex >= roundCount;
+  const currentItem: MeaningMatchItem | null = queue[currentIndex] ?? null;
+  const isComplete = currentIndex >= queue.length || currentIndex >= roundCount;
 
   const submitAnswer = useCallback((selectedIndex: number, reactionTimeMs: number, usedHint: boolean): MeaningMatchTrialResult | null => {
     if (!currentItem) return null;
@@ -66,7 +100,7 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
     if (correct) {
       points = 10;
       if (!usedHint) points += 5;
-      if (reactionTimeMs < 10000) points += 3; // Speed bonus for quick answers
+      if (reactionTimeMs < 10000) points += 3;
     }
 
     const result: MeaningMatchTrialResult = {
@@ -100,12 +134,14 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
   return {
     currentItem,
     currentIndex,
-    totalItems: Math.min(items.length, roundCount),
+    totalItems: Math.min(queue.length, roundCount),
     isComplete,
     results,
     totalPoints,
     accuracy,
     submitAnswer,
     nextItem,
+    activeTier,
+    setActiveTier,
   };
 }
