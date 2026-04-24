@@ -310,9 +310,18 @@ export function AbstractCompareGame({
         resetAttempt();
       }
       
-      if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
+      if (result) {
+        setLastResult(result);
+        setPhase('scored');
+        onTrialComplete(result);
+        // Feed adaptive engine: ≥0.6 coverage = "success", <0.3 = clear miss
+        adaptation.recordTrial({
+          correct: result.coverageRatio >= 0.6,
+          reactionTimeMs: durationMs,
+        });
+      }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, speakMaya]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
