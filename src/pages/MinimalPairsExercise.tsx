@@ -129,6 +129,13 @@ export default function MinimalPairsExercise() {
     pair: { word1: string; word2: string };
   }) => {
     startTrial();
+
+    // Drive adaptive tier based on per-trial outcome
+    dynamicTier.recordTrial({
+      correct: trialData.isCorrect,
+      errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
+    });
+
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -139,6 +146,7 @@ export default function MinimalPairsExercise() {
         pair: trialData.pair,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
     });
   };
   
