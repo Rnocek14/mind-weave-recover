@@ -253,7 +253,7 @@ export const useSessionLifecycle = ({
     
     pendingEndPromiseRef.current = endPromise;
     return endPromise;
-  }, [exerciseSlug, onSessionEnded]);
+  }, [exerciseSlug, onSessionEnded, ownedByParentFlow]);
   
   /**
    * Complete session normally (user finished all trials)
