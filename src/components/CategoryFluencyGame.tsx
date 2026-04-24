@@ -236,7 +236,9 @@ export function CategoryFluencyGame({
 
     // Show any fully resolved entries immediately
     if (newEntries.length > 0) {
-      setWords(prev => [...prev, ...newEntries]);
+      const next = [...wordsRef.current, ...newEntries];
+      wordsRef.current = next;
+      setWords(next);
       const lastValid = newEntries.filter(e => e.status === 'valid').pop();
       if (lastValid) {
         setLastAddedWord(lastValid.text);
