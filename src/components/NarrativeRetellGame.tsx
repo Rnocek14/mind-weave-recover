@@ -610,6 +610,7 @@ export function NarrativeRetellGame({
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium">Narrative Retell</span>
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
         <div className="text-muted-foreground">
           Story {currentIndex + 1} of {totalStories}
