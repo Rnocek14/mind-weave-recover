@@ -265,14 +265,15 @@ async function main() {
   let allPass = true;
   for (const row of rows ?? []) {
     const sig = (row.outputs as any)?.clinical_signal ?? {};
-    const missing = REQUIRED_FIELDS.filter((f) => sig[f] === undefined);
+    const required = sig.source === "llm" ? [...CORE_FIELDS, ...LLM_FIELDS] : CORE_FIELDS;
+    const missing = required.filter((f) => sig[f] === undefined || sig[f] === null);
     if (missing.length === 0) {
       console.log(
-        `  ✓ round=${row.round} ${row.exercise_slug} score=${row.score} errorType=${sig.errorType} adapt=${sig.recommendedAdaptation} src=${sig.source} promptV=${sig.promptVersion}`,
+        `  ✓ round=${row.round} ${row.exercise_slug} score=${row.score} errorType=${sig.errorType} adapt=${sig.recommendedAdaptation} src=${sig.source}${sig.promptVersion ? ` promptV=${sig.promptVersion}` : ""}${sig.model ? ` model=${sig.model}` : ""}`,
       );
     } else {
       allPass = false;
-      console.log(`  ✗ round=${row.round} MISSING: ${missing.join(", ")}`);
+      console.log(`  ✗ round=${row.round} src=${sig.source} MISSING: ${missing.join(", ")}`);
     }
   }
 
