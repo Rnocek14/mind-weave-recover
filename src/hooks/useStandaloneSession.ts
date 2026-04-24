@@ -2,85 +2,124 @@ import { useState, useEffect } from 'react';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
 
+interface UseStandaloneSessionOptions {
+  /**
+   * If true, the hook will NOT create a session even when providedSessionId is null.
+   * Use this when the exercise is part of a lesson/coaching flow that owns its own
+   * session lifecycle but route state may temporarily be missing (e.g. on remount).
+   */
+  disabled?: boolean;
+  /**
+   * Mode to stamp on the created session's plan/summary. Defaults to 'standalone'.
+   */
+  mode?: 'standalone' | 'lesson' | 'smart_coach';
+}
+
 /**
  * Hook to auto-create a session for standalone game usage.
- * When games are launched from the game picker (not lesson flow),
- * they don't have a sessionId. This hook creates one so audio
- * recording and analytics can work.
+ *
+ * IMPORTANT: To prevent duplicate sessions during lesson/coach flow, this hook
+ *  - skips creation if `providedSessionId` is set, AND
+ *  - skips creation if `disabled` is true (caller signals lesson context), AND
+ *  - skips creation if `lessonFlowState` or `smartCoachState` exist in sessionStorage
+ *    (defensive guard for race conditions where route state hasn't propagated yet).
  */
 export const useStandaloneSession = (
   userId: string | undefined,
   providedSessionId: string | null | undefined,
-  exerciseSlug: string
+  exerciseSlug: string,
+  options: UseStandaloneSessionOptions = {}
 ) => {
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const { activeProfile } = useProfile();
 
+  const { disabled = false, mode = 'standalone' } = options;
+
+  // Defensive: detect an in-flight lesson/coach session via sessionStorage.
+  // This prevents the hook from racing LessonFlow when route state is briefly
+  // missing on a remount.
+  const hasOwnedSessionContext = (): boolean => {
+    try {
+      const lessonRaw = sessionStorage.getItem('lessonFlowState');
+      if (lessonRaw) {
+        const parsed = JSON.parse(lessonRaw);
+        if (parsed?.sessionId) return true;
+      }
+      const coachRaw = sessionStorage.getItem('smartCoachState');
+      if (coachRaw) {
+        const parsed = JSON.parse(coachRaw);
+        if (parsed?.sessionId) return true;
+      }
+    } catch {
+      /* ignore */
+    }
+    return false;
+  };
+
   // The effective sessionId to use throughout the game
   const activeSessionId = providedSessionId || localSessionId;
 
   useEffect(() => {
-    // Debug: log every mount to see what's blocking
-    console.log('[useStandaloneSession] mount', {
-      userId,
-      providedSessionId,
-      localSessionId,
-      isCreatingSession,
-      exerciseSlug,
-      activeProfileId: activeProfile?.id ?? null,
-    });
-
-    // Only create a session if:
-    // 1. No sessionId was provided (standalone mode)
-    // 2. We have a user
-    // 3. We have a profile (required for RLS)
-    // 4. We haven't already created one
-    // 5. We're not currently creating one
-    if (!providedSessionId && userId && activeProfile?.id && !localSessionId && !isCreatingSession) {
-      console.log('[useStandaloneSession] creating session NOW', {
-        userId,
-        exerciseSlug,
-        activeProfileId: activeProfile?.id,
-      });
-      setIsCreatingSession(true);
-      
-      console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id);
-      
-      startSession(userId, {
-        blocks: [{ exercise: exerciseSlug, duration: 10 }]
-      }, activeProfile.id)
-        .then((session) => {
-          if (session?.id) {
-            console.log('✅ [useStandaloneSession] Session created successfully:', {
-              sessionId: session.id,
-              profileId: activeProfile?.id,
-              userId,
-              exerciseSlug
-            });
-            setLocalSessionId(session.id);
-          } else {
-            console.warn('⚠️ [useStandaloneSession] startSession returned no session:', session);
-          }
-        })
-        .catch((error) => {
-          console.error('❌ [useStandaloneSession] Failed to create session:', {
-            error,
-            userId,
-            profileId: activeProfile?.id,
-            exerciseSlug
-          });
-        })
-        .finally(() => {
-          setIsCreatingSession(false);
-        });
+    if (providedSessionId || localSessionId || isCreatingSession) return;
+    if (!userId || !activeProfile?.id) return;
+    if (disabled) {
+      console.log('[useStandaloneSession] skipped: disabled by caller (lesson/coach flow)', { exerciseSlug });
+      return;
     }
-  }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug]);
+    if (hasOwnedSessionContext()) {
+      console.log('[useStandaloneSession] skipped: lessonFlowState/smartCoachState present in sessionStorage', { exerciseSlug });
+      return;
+    }
+
+    setIsCreatingSession(true);
+    console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id, 'mode:', mode);
+
+    startSession(
+      userId,
+      {
+        blocks: [{ exercise: exerciseSlug, duration: 10 }],
+      },
+      { profileId: activeProfile.id }
+    )
+      .then(async (session) => {
+        if (!session?.id) {
+          console.warn('⚠️ [useStandaloneSession] startSession returned no session');
+          return;
+        }
+        setLocalSessionId(session.id);
+
+        // Stamp mode on summary so analytics can filter
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          await supabase
+            .from('sessions')
+            .update({ summary: { mode } as any })
+            .eq('id', session.id)
+            .is('ended_at', null);
+        } catch (err) {
+          console.warn('[useStandaloneSession] failed to stamp summary.mode:', err);
+        }
+
+        console.log('✅ [useStandaloneSession] Session created:', {
+          sessionId: session.id,
+          profileId: activeProfile?.id,
+          exerciseSlug,
+          mode,
+        });
+      })
+      .catch((error) => {
+        console.error('❌ [useStandaloneSession] Failed to create session:', { error, exerciseSlug });
+      })
+      .finally(() => {
+        setIsCreatingSession(false);
+      });
+  }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug, disabled, mode]);
 
   return {
     activeSessionId,
     isCreatingSession,
-    isStandaloneMode: !providedSessionId,
-    profileId: activeProfile?.id
+    isStandaloneMode: !providedSessionId && !disabled,
+    profileId: activeProfile?.id,
   };
 };
