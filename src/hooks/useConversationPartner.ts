@@ -248,15 +248,23 @@ async function logConversationTurn(
   stuckType: StuckType
 ) {
   try {
+    const meaningful = (userTurn.wordCount || 0) >= 2;
+    const isCorrect = meaningful;
+    const resolvedErrorType: string = isCorrect
+      ? 'correct'
+      : ((userTurn.wordCount || 0) === 0 ? 'no_response' : 'minimal_response');
+
     await supabase.from('exercise_events').insert({
       session_id: sessionId,
       exercise_slug: 'conversation-partner',
       round: 1,
-      score: userTurn.wordCount && userTurn.wordCount >= 2 ? 1 : 0,
+      score: isCorrect ? 1 : 0,
       reaction_time_ms: userTurn.latencyMs,
+      error_type: resolvedErrorType,
       inputs: {
         user_text: userTurn.text,
-        word_count: userTurn.wordCount
+        word_count: userTurn.wordCount,
+        error_type: resolvedErrorType,
       },
       outputs: {
         followup_type: followupType,
@@ -264,7 +272,7 @@ async function logConversationTurn(
       },
       engagement_flags: {
         did_speak: (userTurn.wordCount || 0) > 0,
-        meaningful_response: (userTurn.wordCount || 0) >= 2
+        meaningful_response: meaningful
       }
     });
   } catch (err) {

@@ -85,6 +85,7 @@ export const useExerciseDifficulty = (
         exercise_slug: normalizeExerciseSlug(exerciseSlug),
         round: 0,
         score: null,
+        error_type: 'system_step_down',
         inputs: { action: 'step_down', from_level: level, to_level: next },
         outputs: {}
       });

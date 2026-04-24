@@ -24,11 +24,17 @@ export interface TransferCheckEvent {
  */
 export async function persistTransferCheck(event: TransferCheckEvent): Promise<boolean> {
   try {
+    const passed = event.result.transferScore >= 2; // pass = score 2-4 of 4
+    const resolvedErrorType: string = passed
+      ? 'correct'
+      : (event.result.targetResults.every(r => !r.found) ? 'no_target_use' : 'partial_transfer');
+
     const { error } = await supabase.from('exercise_events').insert([{
       session_id: event.sessionId,
       exercise_slug: event.drillSlug,
       round: event.turnNumber,
-      score: Math.round(event.result.transferScore / 4 * 100) / 100 > 0.5 ? 1 : 0, // Integer column — store as binary pass/fail
+      score: passed ? 1 : 0, // Integer column — store as binary pass/fail
+      error_type: resolvedErrorType,
       browser_transcript: event.userResponse,
       
       inputs: JSON.parse(JSON.stringify({
