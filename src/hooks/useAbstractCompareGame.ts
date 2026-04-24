@@ -116,5 +116,5 @@ export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1)
     setCurrentIndex(prev => prev + 1);
   }, []);
 
-  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, submitAnswer, nextItem };
+  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem };
 }
