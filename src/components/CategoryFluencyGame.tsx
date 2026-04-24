@@ -460,11 +460,25 @@ export function CategoryFluencyGame({
   }, [beginCountdown]);
 
   const addWord = useCallback(() => {
-    const word = currentInput.trim();
+    const word = currentInput.trim().toLowerCase();
     if (!word) return;
+    // Dedupe against words already processed (speech or typing)
+    if (processedRef.current.has(word)) {
+      setCurrentInput('');
+      inputRef.current?.focus();
+      return;
+    }
     const status = validateCategoryWord(word, config.category);
     if (status !== 'filler') {
-      setWords(prev => [...prev, { text: word, status }]);
+      processedRef.current.add(word);
+      // Sync ref immediately so finishRound (timer) can't miss this entry
+      const next = [...wordsRef.current, { text: word, status }];
+      wordsRef.current = next;
+      setWords(next);
+      if (status === 'valid') {
+        setLastAddedWord(word);
+        setTimeout(() => setLastAddedWord(null), 800);
+      }
     }
     setCurrentInput('');
     inputRef.current?.focus();
