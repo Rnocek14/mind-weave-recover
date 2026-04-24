@@ -167,9 +167,33 @@ export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1, 
     setNamingAttempts([]);
   }, []);
 
+  /**
+   * Mid-session content tier shift. Preserves already-played sets and refreshes
+   * the upcoming queue with sets matching the new tier (deduplicated).
+   */
+  const setActiveTier = useCallback(
+    (newTier: number) => {
+      const clamped = Math.max(1, Math.min(3, newTier));
+      if (clamped === activeTier) return;
+      setActiveTierState(clamped);
+
+      setSets((prev) => {
+        const played = prev.slice(0, currentSetIndex + 1);
+        played.forEach((s) => seenIdsRef.current.add(s.id));
+        const remaining = Math.max(0, roundCount - played.length);
+        if (remaining === 0) return played;
+        const fresh = buildSets(clamped, remaining, focusPhonemes, seenIdsRef.current);
+        fresh.forEach((s) => seenIdsRef.current.add(s.id));
+        return [...played, ...fresh];
+      });
+    },
+    [activeTier, currentSetIndex, focusPhonemes, roundCount],
+  );
+
   return {
     currentSet, currentSetIndex, totalSets: sets.length, isComplete,
     phase, currentNamingTarget, namingIndex, namingAttempts, results,
     startNaming, submitNaming, submitRecall, nextSet,
+    activeTier, setActiveTier,
   };
 }
