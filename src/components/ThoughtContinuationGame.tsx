@@ -503,16 +503,25 @@ export function ThoughtContinuationGame({
       stuckType,
     }]);
 
-    // Feed conversational signals into the Discourse Adaptation Bridge
+    // Feed conversational signals into the Discourse Adaptation Bridge.
+    // Map ThoughtContinuation's StuckType to the bridge's vocabulary.
+    const bridgeStuckType =
+      stuckType === 'no_speech' ? 'no_speech'
+      : stuckType === 'prompt_overload' ? 'long_latency'
+      : stuckType === 'word_search_stall' ? 'incomplete'
+      : stuckType === 'thought_abandonment' ? 'incomplete'
+      : stuckType === 'strong_flow' ? 'fluent'
+      : 'incomplete';
     adaptation.recordTurn({
       meaningful: didSpeak && wordCount >= 2,
       wordCount,
       latencyToFirstWordMs: latencyToFirstWordMs ?? null,
-      stuckType,
-      surrendered: stuckType === 'surrender' || stuckType === 'no_speech',
+      stuckType: bridgeStuckType,
+      surrendered: stuckType === 'no_speech' || stuckType === 'thought_abandonment',
       scaffoldUsed: narrowingLevel > 0,
       momentum: flowMetrics.momentumScore,
     });
+
 
     
     // =========================================================================
