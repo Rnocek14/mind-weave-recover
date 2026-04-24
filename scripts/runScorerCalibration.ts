@@ -245,6 +245,38 @@ function printDiff(baseline: VersionReport, candidate: VersionReport) {
   console.log(`  Adaptation ${arrow(dAdapt)} ${pct(dAdapt)}`);
   console.log(`  Success    ${arrow(dSucc)} ${pct(dSucc)}`);
 
+  // Weak categories — the v3 promotion target.
+  console.log(`\n  Weak categories (recall focus):`);
+  let weakImproved = 0;
+  let weakWorsened = 0;
+  for (const label of WEAK_CATEGORIES) {
+    const b = baseline.perErrorType[label] ?? { precision: 0, recall: 0, n: 0 };
+    const c = candidate.perErrorType[label] ?? { precision: 0, recall: 0, n: 0 };
+    const dP = c.precision - b.precision;
+    const dR = c.recall - b.recall;
+    if (dR > 0 || dP > 0) weakImproved++;
+    if (dR < 0 || dP < 0) weakWorsened++;
+    console.log(
+      `    ${label.padEnd(22)} P ${pct(b.precision)}→${pct(c.precision)} (${arrow(dP)}${pct(dP)})  ` +
+        `R ${pct(b.recall)}→${pct(c.recall)} (${arrow(dR)}${pct(dR)})`,
+    );
+  }
+
+  // Protected categories — must NOT regress to promote.
+  console.log(`\n  Protected categories (must hold):`);
+  const protectedRegressions: string[] = [];
+  for (const label of PROTECTED_CATEGORIES) {
+    const b = baseline.perErrorType[label] ?? { precision: 0, recall: 0, n: 0 };
+    const c = candidate.perErrorType[label] ?? { precision: 0, recall: 0, n: 0 };
+    const dP = c.precision - b.precision;
+    const dR = c.recall - b.recall;
+    if (dR < 0 || dP < 0) protectedRegressions.push(label);
+    console.log(
+      `    ${label.padEnd(22)} P ${pct(b.precision)}→${pct(c.precision)} (${arrow(dP)}${pct(dP)})  ` +
+        `R ${pct(b.recall)}→${pct(c.recall)} (${arrow(dR)}${pct(dR)})`,
+    );
+  }
+
   const improvements: string[] = [];
   const regressions: string[] = [];
   baseline.cases.forEach((b, i) => {
@@ -260,15 +292,30 @@ function printDiff(baseline: VersionReport, candidate: VersionReport) {
     }
   });
   if (improvements.length) {
-    console.log(`\n  Improvements (${improvements.length}):`);
+    console.log(`\n  Per-case improvements (${improvements.length}):`);
     improvements.forEach((l) => console.log(l));
   }
   if (regressions.length) {
-    console.log(`\n  Regressions (${regressions.length}):`);
+    console.log(`\n  Per-case regressions (${regressions.length}):`);
     regressions.forEach((l) => console.log(l));
   }
   if (!improvements.length && !regressions.length) {
     console.log(`\n  (no per-case changes)`);
+  }
+
+  // Promotion verdict
+  console.log(`\n  Promotion verdict:`);
+  const verdict: string[] = [];
+  if (weakImproved === 0) verdict.push("✗ no weak categories improved");
+  if (protectedRegressions.length) {
+    verdict.push(`✗ protected category regression: ${protectedRegressions.join(", ")}`);
+  }
+  if (dOverall < 0) verdict.push(`✗ overall accuracy regressed (${pct(dOverall)})`);
+  if (verdict.length === 0) {
+    console.log(`    ✅ PROMOTE — weak categories improved (${weakImproved}/${WEAK_CATEGORIES.length}), no protected regressions, overall ${arrow(dOverall)} ${pct(dOverall)}`);
+  } else {
+    console.log(`    ⛔ DO NOT PROMOTE`);
+    verdict.forEach((v) => console.log(`       ${v}`));
   }
 }
 
@@ -276,25 +323,44 @@ function printDiff(baseline: VersionReport, candidate: VersionReport) {
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
-  console.log(`Calibration runner — mode=${MODE}, dataset=${APHASIA_TURNS.length} turns`);
+  if (MODE === "llm") {
+    console.log(`Calibration runner — mode=llm, dataset=${APHASIA_TURNS.length} turns`);
+    console.log(`Comparing PROMPT versions on the ACTIVE calibration.`);
+    const cal = ALL_CALIBRATIONS[ALL_CALIBRATIONS.length - 1]; // latest = ACTIVE
+    const promptVersions: ("v2" | "v3")[] = ["v2", "v3"];
+    const reports: VersionReport[] = [];
+    for (const pv of promptVersions) {
+      console.log(`\n--- Scoring with prompt ${pv} (calibration ${cal.version}) ---`);
+      const cases: CaseResult[] = [];
+      for (const turn of APHASIA_TURNS) {
+        const signal = await scoreLLM(turn, cal, pv);
+        cases.push(compareCases(turn, signal));
+      }
+      const report = evaluate(`prompt-${pv}`, cases);
+      reports.push(report);
+      printReport(report);
+    }
+    const baseline = reports.find((r) => r.version === `prompt-${BASELINE_VERSION}`) ?? reports[0];
+    const candidate = reports.find((r) => r.version === `prompt-${CANDIDATE_VERSION}`) ?? reports[1];
+    if (baseline && candidate && baseline !== candidate) printDiff(baseline, candidate);
+    return;
+  }
 
+  console.log(`Calibration runner — mode=local, dataset=${APHASIA_TURNS.length} turns`);
   const reports: VersionReport[] = [];
   for (const cal of ALL_CALIBRATIONS) {
     const cases: CaseResult[] = [];
     for (const turn of APHASIA_TURNS) {
-      const signal = MODE === "llm" ? await scoreLLM(turn, cal) : scoreOffline(turn, cal);
+      const signal = scoreOffline(turn, cal);
       cases.push(compareCases(turn, signal));
     }
     const report = evaluate(cal.version, cases);
     reports.push(report);
     printReport(report);
   }
-
   const baseline = reports.find((r) => r.version === BASELINE_VERSION);
   const candidate = reports.find((r) => r.version === CANDIDATE_VERSION);
-  if (baseline && candidate && baseline !== candidate) {
-    printDiff(baseline, candidate);
-  }
+  if (baseline && candidate && baseline !== candidate) printDiff(baseline, candidate);
 }
 
 main().catch((err) => {
