@@ -458,6 +458,8 @@ export default function ClinicianTelemetry() {
   const [windowSel, setWindowSel] = useState<Window>("24h");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [drillSlug, setDrillSlug] = useState<string | null>(null);
+  const [trendWindow, setTrendWindow] = useState<TrendWindow>("24h");
+  const [expandedTrendSlug, setExpandedTrendSlug] = useState<string | null>(null);
 
   const since = useMemo(() => windowToTimestamp(windowSel), [windowSel]);
   // Previous comparable window (e.g. previous 1h before the current 1h)
