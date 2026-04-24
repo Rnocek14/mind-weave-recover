@@ -450,8 +450,8 @@ async function runScenario(
 // ---------- Standalone capability checks ----------
 
 function checkBlankCardGuard() {
-  const trials = getDescribeGuessTrials({ count: 20, difficulty: "easy" });
-  const blanks = trials.filter((t) => !t.targetPhotoId || !t.targetWord);
+  const trials = getDescribeGuessTrials({ count: 20, difficulty: 3 });
+  const blanks = trials.filter((t: any) => !t.photoBankId || !t.target);
   return { total: trials.length, blanks: blanks.length, sample: trials.slice(0, 3) };
 }
 
