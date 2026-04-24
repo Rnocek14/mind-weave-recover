@@ -43,12 +43,18 @@ export function useDiscourseSignalScorer(opts: UseDiscourseSignalScorerOptions) 
     ) => {
       if (!logToDatabase || !sessionId) return;
       try {
+        const isCorrect = signal.successScore >= 0.5;
+        const resolvedErrorType: string = isCorrect
+          ? 'correct'
+          : (signal.errorType?.trim() || 'incorrect_unspecified');
+
         await supabase.from("exercise_events").insert({
           session_id: sessionId,
           exercise_slug: exerciseSlug,
           round: input.turnNumber ?? turnIndexRef.current,
           score: Math.round(signal.successScore * 100),
           reaction_time_ms: input.latencyToFirstWordMs ?? null,
+          error_type: resolvedErrorType,
           inputs: {
             prompt: input.promptText,
             transcript: input.transcript,
@@ -57,6 +63,7 @@ export function useDiscourseSignalScorer(opts: UseDiscourseSignalScorerOptions) 
             scaffold_used: !!input.scaffoldUsed,
             topic_keywords: input.topicKeywords ?? [],
             task_goal: input.taskGoal ?? null,
+            error_type: resolvedErrorType,
           },
           outputs: {
             clinical_signal: {

@@ -178,7 +178,7 @@ export async function emitConversationTurnEvent(
       cue_level: event.cueLevel,
       cue_type_given: event.cueTypeOffered,
       cue_was_effective: event.cueLevel > 0 && event.cueAccepted,
-      error_type: event.stuckType,
+      error_type: (event.stuckType && String(event.stuckType).trim()) || (score === 1 ? 'correct' : 'incorrect_unspecified'),
 
       // CRITICAL: Persist transcript for session review and debugging
       browser_transcript: event.transcript || null,
