@@ -141,6 +141,15 @@ const SentenceConstructionExercise = () => {
   }) => {
     startTrial();
 
+    // Feed adaptive controller (skip when manual override active)
+    if (manualDifficulty === null) {
+      dynamicTier.recordTrial({
+        correct: data.correct,
+        reactionTimeMs: data.reactionTime,
+        errorType: data.errorType ?? undefined,
+      });
+    }
+
     if (sessionId) {
       await trackRound(
         sessionId,
@@ -167,8 +176,10 @@ const SentenceConstructionExercise = () => {
         difficulty: level,
         grammarFocus: data.grammarFocus,
         trial_source: data.trialSource,
+        manual_override: manualDifficulty !== null,
         ...adaptationTelemetry,
-      }
+      },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
     });
   };
 
