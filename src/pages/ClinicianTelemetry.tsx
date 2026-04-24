@@ -662,10 +662,49 @@ export default function ClinicianTelemetry() {
     return sorted;
   }, [coverage, healthSort]);
 
+  // ---------------------------------------------------------------------
+  // Trends — bucketed RPC, reuses computeHealth for single source of truth
+  // ---------------------------------------------------------------------
+  const trendsQuery = useQuery({
+    queryKey: ["telemetry-trends", trendWindow],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("telemetry_bucketed", { _window: trendWindow });
+      if (error) throw error;
+      return (data || []) as BucketRow[];
+    },
+    refetchInterval: autoRefresh ? AUTO_REFRESH_MS : false,
+  });
+
+  // Adaptive slugs from the live coverage view — used to keep series classification
+  // stable across quiet buckets.
+  const liveAdaptiveSlugs = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of coverage) {
+      if (c.adaptEventCount > 0 || SCORED_EXERCISE_SLUGS.has(c.slug)) s.add(c.slug);
+    }
+    return s;
+  }, [coverage]);
+
+  const trendSeries = useMemo(
+    () => buildTrendSeries(trendsQuery.data || [], liveAdaptiveSlugs),
+    [trendsQuery.data, liveAdaptiveSlugs]
+  );
+
+  // Sparkline data for the live health table — last 7 buckets per exercise
+  // from the same trends RPC. Falls back gracefully when no trend data yet.
+  const sparkBySlug = useMemo(() => {
+    const m = new Map<string, TrendPoint[]>();
+    for (const [slug, points] of trendSeries) {
+      m.set(slug, points.slice(-7));
+    }
+    return m;
+  }, [trendSeries]);
+
   const refresh = () => {
     eventsQuery.refetch();
     adaptQuery.refetch();
     prevQuery.refetch();
+    trendsQuery.refetch();
   };
 
   // Toast on new break detection
