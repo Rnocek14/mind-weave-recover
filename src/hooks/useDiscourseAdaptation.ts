@@ -74,14 +74,17 @@ export function useDiscourseAdaptation(
         signals,
       );
 
-      // Always show a badge — "hold" is meaningful too (system actively decided).
-      // But to avoid fatigue, only render hold every ~3rd turn.
-      const shouldShowHold =
-        decision.direction === "hold" && (turnCount + 1) % 3 === 0;
-      const willShowBadge =
-        decision.direction !== "hold" || shouldShowHold;
+      // Badge MUST reflect what actually happened to difficulty, not the
+      // raw scorer recommendation. If the bridge wanted "up" but is holding
+      // (window not yet stable, ceiling/floor reached, etc.) the user must
+      // see "Holding steady" — never "Made it harder" with no change.
+      const levelChanged = decision.level !== levelRef.current;
+      const effectiveDirection: DiscourseDirection =
+        decision.direction !== "hold" && levelChanged
+          ? decision.direction
+          : "hold";
 
-      if (decision.direction !== "hold" && decision.level !== levelRef.current) {
+      if (levelChanged) {
         levelRef.current = decision.level;
         setLevel(decision.level);
       }
@@ -89,8 +92,13 @@ export function useDiscourseAdaptation(
       setSuccessRate(decision.successRateInWindow);
       setTurnCount(t => t + 1);
 
+      // Show real shifts immediately. Show "hold" sparingly (every 3rd turn)
+      // to confirm the system is alive without being noisy.
+      const shouldShowHold = effectiveDirection === "hold" && (turnCount + 1) % 3 === 0;
+      const willShowBadge = effectiveDirection !== "hold" || shouldShowHold;
+
       if (willShowBadge) {
-        setShiftDirection(decision.direction);
+        setShiftDirection(effectiveDirection);
         setShiftReason(decision.reason);
         if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
         clearTimerRef.current = setTimeout(() => {

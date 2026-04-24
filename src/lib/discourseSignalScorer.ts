@@ -47,9 +47,25 @@ export {
   type ScoreInput,
 };
 
-// Must stay > server TIMEOUT_MS (9000) so the edge function gets a chance to
+// Must stay > server TIMEOUT_MS (12000) so the edge function gets a chance to
 // either succeed or return a structured error before the client aborts.
-const LLM_CLIENT_TIMEOUT_MS = 10000;
+const LLM_CLIENT_TIMEOUT_MS = 13000;
+
+/**
+ * Tokens that are safe to fast-path even at ≤2 words: pure fillers, isolated
+ * yes/no/ok acknowledgements, and discourse markers with no semantic content.
+ * Anything else (including a single content word like "fork", "spoon", "dog")
+ * MUST be sent to the LLM so semantic_paraphasia / off_topic / incomplete
+ * are graded by clinical judgment, not word count.
+ */
+const NON_CONTENT_SHORT_RE =
+  /^(?:(?:um+|uh+|er+|ah+|hmm+|mm+|mhm+|hm+|eh+|oh+)|(?:yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|right|alright|fine|maybe|whatever|so|well|like|anyway))(?:\s+(?:um+|uh+|er+|ah+|hmm+|mm+|mhm+|hm+|eh+|oh+|yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|right|alright|fine|maybe|whatever|so|well|like|anyway))?[\s.!?,]*$/i;
+
+function isNonContentShort(transcript: string): boolean {
+  const cleaned = transcript.trim();
+  if (!cleaned) return true;
+  return NON_CONTENT_SHORT_RE.test(cleaned);
+}
 
 /**
  * Main entry point. Always returns a ClinicalSignal; never throws.
@@ -59,12 +75,22 @@ export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSig
   const sc = shortCircuit(input);
   if (sc) return sc;
 
-  // 1b) Very short inputs (≤2 words) are LLM worst-case: minimal context,
-  // disproportionate latency, and high timeout risk. Route them straight to
-  // the deterministic local fallback to keep interaction snappy.
-  if (input.wordCount <= 2) {
+  // 1b) Short-input fast-path — but ONLY for non-content tokens.
+  //
+  // Critical clinical rule: "fork" (1 word) in response to "What do you use to
+  // eat soup?" is a textbook semantic_paraphasia and MUST go to the LLM.
+  // The previous blanket ≤2-word fallback misclassified meaningful short
+  // answers as `incomplete` and destroyed semantic-paraphasia detection.
+  //
+  // We only fast-path when the short input is clearly non-content
+  // (single filler, isolated yes/no, isolated discourse marker). Real
+  // content words — even one of them — go through the LLM.
+  if (input.wordCount > 0 && input.wordCount <= 2 && isNonContentShort(input.transcript)) {
     const fast = localFallbackScore(input);
-    return { ...fast, reasoning: `Short input fast-path (≤2 words). ${fast.reasoning}` };
+    return {
+      ...fast,
+      reasoning: `Short non-content fast-path. ${fast.reasoning}`,
+    };
   }
 
   // 2) LLM primary path with client-side timeout safety net.
