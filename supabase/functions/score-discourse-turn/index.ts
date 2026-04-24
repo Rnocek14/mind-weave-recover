@@ -100,7 +100,7 @@ const TOOL = {
   },
 };
 
-const TIMEOUT_MS = 1500;
+const TIMEOUT_MS = 4000;
 
 function buildUserMessage(req: ScoreRequest): string {
   const lines = [
