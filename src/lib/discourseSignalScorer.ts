@@ -16,6 +16,13 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import {
+  ACTIVE_CALIBRATION,
+  applyErrorTypeCaps,
+  computeSuccessScoreCalibrated,
+  resolveAdaptation,
+  type ScorerCalibration,
+} from "./scorerCalibration";
 
 export type DiscourseErrorType =
   | "fluent_correct"
@@ -66,19 +73,14 @@ const FILLER_ONLY_RE = /^(um+|uh+|er+|ah+|hmm+)(\s+(um+|uh+|er+|ah+|hmm+))*\.{0,
 const LLM_CLIENT_TIMEOUT_MS = 7000; // slightly above edge-function 6s server cap
 
 /**
- * Compute the composite success score from the four sub-scores.
- * Weights tuned for stroke rehab where target achievement matters most.
+ * Compute the composite success score from the three sub-scores.
+ * Delegates to the active calibration so weights stay tunable.
  */
-function computeSuccessScore(s: {
-  onTopicScore: number;
-  targetAchievementScore: number;
-  responseQualityScore: number;
-}): number {
-  const composite =
-    s.targetAchievementScore * 0.55 +
-    s.onTopicScore * 0.25 +
-    s.responseQualityScore * 0.2;
-  return Math.max(0, Math.min(1, composite));
+function computeSuccessScore(
+  s: { onTopicScore: number; targetAchievementScore: number; responseQualityScore: number },
+  cal: ScorerCalibration = ACTIVE_CALIBRATION,
+): number {
+  return computeSuccessScoreCalibrated(s, cal);
 }
 
 /**
