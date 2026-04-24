@@ -374,6 +374,12 @@ export function AbstractCompareGame({
       </div>
       <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
 
+      {shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        </div>
+      )}
+
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-2">
           <p className="text-sm text-muted-foreground">How are these two things similar?</p>
