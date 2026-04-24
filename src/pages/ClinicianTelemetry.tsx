@@ -906,6 +906,7 @@ LIMIT 50;
                     <th className="py-2 px-2 text-right">score</th>
                     <th className="py-2 px-2">status</th>
                     <th className="py-2 px-2 text-right">trials</th>
+                    <th className="py-2 px-2">trend</th>
                     <th className="py-2 px-2">why</th>
                     <th className="py-2 px-2"></th>
                   </tr>
