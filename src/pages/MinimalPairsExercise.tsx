@@ -52,6 +52,19 @@ export default function MinimalPairsExercise() {
     phonemeSensitive: true,
     cueSensitive: false,
   });
+
+  // Per-trial dynamic tier — adapts based on rolling success rate.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: 'minimal-pairs',
+    sessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.80, // listening is high-success domain
+  });
+  const difficulty = dynamicTier.currentTier;
   
   // Get stats about available pairs
   const stats = getMinimalPairStats();
