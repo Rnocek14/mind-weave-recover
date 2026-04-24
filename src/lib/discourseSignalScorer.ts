@@ -59,12 +59,22 @@ export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSig
   const sc = shortCircuit(input);
   if (sc) return sc;
 
-  // 1b) Very short inputs (≤2 words) are LLM worst-case: minimal context,
-  // disproportionate latency, and high timeout risk. Route them straight to
-  // the deterministic local fallback to keep interaction snappy.
-  if (input.wordCount <= 2) {
+  // 1b) Short-input fast-path — but ONLY for non-content tokens.
+  //
+  // Critical clinical rule: "fork" (1 word) in response to "What do you use to
+  // eat soup?" is a textbook semantic_paraphasia and MUST go to the LLM.
+  // The previous blanket ≤2-word fallback misclassified meaningful short
+  // answers as `incomplete` and destroyed semantic-paraphasia detection.
+  //
+  // We only fast-path when the short input is clearly non-content
+  // (single filler, isolated yes/no, isolated discourse marker). Real
+  // content words — even one of them — go through the LLM.
+  if (input.wordCount > 0 && input.wordCount <= 2 && isNonContentShort(input.transcript)) {
     const fast = localFallbackScore(input);
-    return { ...fast, reasoning: `Short input fast-path (≤2 words). ${fast.reasoning}` };
+    return {
+      ...fast,
+      reasoning: `Short non-content fast-path. ${fast.reasoning}`,
+    };
   }
 
   // 2) LLM primary path with client-side timeout safety net.
