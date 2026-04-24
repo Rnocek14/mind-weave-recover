@@ -19,6 +19,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
@@ -90,6 +91,7 @@ export function FixSentenceGame({
   }, [vg.shouldAutoSpeak]);
 
   const bounds = getCapabilityDifficultyBounds('fix_sentence', null);
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
   const {
     currentDifficulty,
@@ -102,8 +104,9 @@ export function FixSentenceGame({
     windowSize: 5,
     targetSuccessRate: 0.75,
     enableDifficultyAutoStepDown: true,
-    enableDifficultyToasts: true,
+    enableDifficultyToasts: false,
     enableAutoHints: false,
+    onDifficultyChange: (_lvl, reason, dir) => signalShift(dir, reason),
   });
 
   const {
@@ -469,9 +472,12 @@ export function FixSentenceGame({
     <div className="max-w-2xl mx-auto space-y-2 sm:space-y-6">
       {/* Progress */}
       <div className="space-y-1">
-        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+        <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
-          <span>{game.correctCount} correct</span>
+          <div className="flex items-center gap-2">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+            <span>{game.correctCount} correct</span>
+          </div>
         </div>
         <Progress value={game.progress} className="h-1.5" />
       </div>
