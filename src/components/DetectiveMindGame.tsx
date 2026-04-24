@@ -277,6 +277,13 @@ export function DetectiveMindGame({
 
       <Progress value={progressPercent} className="h-1.5" />
 
+      {/* Visible adaptation cue */}
+      {shiftDirection && (
+        <div className="flex justify-center">
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        </div>
+      )}
+
       {/* Purpose banner — first case only */}
       {isFirstCase && phase === 'answering' && (
         <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 text-sm text-center">
