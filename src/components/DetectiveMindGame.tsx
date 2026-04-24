@@ -194,8 +194,13 @@ export function DetectiveMindGame({
     if (result) {
       setLastResult(result);
       setPhase('feedback');
+      adaptation.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+        cueWasShown: usedHint,
+      });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer, vg]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
