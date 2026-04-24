@@ -228,6 +228,44 @@ function computeHealth(row: CoverageRow, isAdaptive: boolean): HealthScore {
     adaptPct: row.adaptPct,
     signalPct: row.signalPct,
     adaptEventCount: row.adaptEventCount,
+    components: [
+      {
+        key: "error_type",
+        label: "error_type coverage",
+        value: errorComp,
+        weight: wErr,
+        contribution: errorComp * wErr,
+        included: true,
+      },
+      {
+        key: "adaptations_active",
+        label: "adaptations_active coverage",
+        value: adaptCovComp,
+        weight: wAdaptCov,
+        contribution: adaptCovComp * wAdaptCov,
+        included: true,
+      },
+      {
+        key: "adaptation_events",
+        label: "adaptation_events presence",
+        value: adaptEvtComp,
+        weight: wAdaptEvt,
+        contribution: adaptEvtComp * wAdaptEvt,
+        included: isAdaptive,
+        note: isAdaptive
+          ? `${row.adaptEventCount} event${row.adaptEventCount === 1 ? "" : "s"} / ${expectedEvents} expected`
+          : "n/a — non-adaptive exercise",
+      },
+      {
+        key: "clinical_signal",
+        label: "clinical_signal completeness",
+        value: signalComp,
+        weight: wSignal,
+        contribution: signalComp * wSignal,
+        included: isScored,
+        note: isScored ? undefined : "n/a — not an LLM-scored exercise",
+      },
+    ],
   };
 }
 
