@@ -201,7 +201,7 @@ export default function SynonymGeneratorExercise() {
             roundCount={roundCount}
             autoStartFirst={fromLesson}
             userId={user?.id}
-            sessionId={sessionId}
+            sessionId={activeSessionId}
           />
         )}
       </main>

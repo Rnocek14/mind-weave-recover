@@ -226,7 +226,7 @@ export default function CategoryFluencyExercise() {
             roundCount={roundCount}
             autoStartFirst={fromLesson}
             userId={user?.id}
-            sessionId={sessionId}
+            sessionId={activeSessionId}
           />
       </main>
 
