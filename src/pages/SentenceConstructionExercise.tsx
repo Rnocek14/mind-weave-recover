@@ -87,7 +87,21 @@ const SentenceConstructionExercise = () => {
   );
   
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
-  const level = manualDifficulty ?? adaptation.difficultyTier;
+  const { activeProfile } = useProfile();
+
+  // Per-trial dynamic tier controller (1..10 — sentence construction has 10 difficulty levels)
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: 'sentence-construction',
+    sessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 10,
+    targetSuccessRate: 0.75,
+  });
+
+  const level = manualDifficulty ?? dynamicTier.currentTier;
   
   const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
     sessionId || "temp",
