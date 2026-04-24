@@ -594,6 +594,104 @@ LIMIT 50;
           </div>
         </Card>
 
+        {/* Per-exercise health scores */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Per-exercise health
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                0–100 score per exercise. Click a row to drill into raw events.
+                Weights: 40% error_type · 30% adaptations_active · 20% adaptation_events · 10% clinical_signal.
+              </p>
+            </div>
+            <Select value={healthSort} onValueChange={(v) => setHealthSort(v as typeof healthSort)}>
+              <SelectTrigger className="w-44 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="score-asc">Worst first</SelectItem>
+                <SelectItem value="score-desc">Best first</SelectItem>
+                <SelectItem value="trials-desc">Most trials</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {healthScores.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-6 text-center">
+              No exercise activity in window.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs text-muted-foreground">
+                    <th className="py-2 px-2">exercise</th>
+                    <th className="py-2 px-2 text-right">score</th>
+                    <th className="py-2 px-2">status</th>
+                    <th className="py-2 px-2 text-right">trials</th>
+                    <th className="py-2 px-2">why</th>
+                    <th className="py-2 px-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {healthScores.map((h) => (
+                    <tr
+                      key={`health-${h.slug}`}
+                      className="border-b last:border-0 hover:bg-muted/40 cursor-pointer align-top"
+                      onClick={() => setDrillSlug(h.slug)}
+                    >
+                      <td className="py-2 px-2 font-mono text-xs whitespace-nowrap">
+                        {h.slug}
+                        <div className="flex gap-1 mt-0.5">
+                          {h.isScored && (
+                            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">scored</span>
+                          )}
+                          {h.isAdaptive && (
+                            <span className="text-[9px] uppercase tracking-wide text-muted-foreground">adaptive</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className={`py-2 px-2 text-right font-mono font-bold text-base ${scoreColorClass(h.score)}`}>
+                        {h.score}
+                      </td>
+                      <td className="py-2 px-2">
+                        <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(h.status)}`}>
+                          {h.status}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-xs">{h.total}</td>
+                      <td className="py-2 px-2">
+                        <div className="flex flex-wrap gap-1 max-w-md">
+                          {h.reasons.map((r, i) => {
+                            const isGood = r === "all checks passing";
+                            return (
+                              <span
+                                key={i}
+                                className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                  isGood
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-red-50 text-red-700 border-red-200"
+                                }`}
+                              >
+                                {r}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <Search className="w-3.5 h-3.5 text-muted-foreground inline" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
         {/* Pipeline-break detector */}
         {breaks.length > 0 && (
           <Card className="p-4 border-2 border-red-500/50 bg-red-50/40">
