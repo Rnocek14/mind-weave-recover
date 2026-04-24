@@ -157,7 +157,7 @@ export default function DualLoadNamingExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />
+          <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
