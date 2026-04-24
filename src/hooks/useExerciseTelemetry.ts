@@ -184,10 +184,7 @@ export const useExerciseTelemetry = (
           eventData.engagement_flags = trial.engagementFlags;
         }
 
-        // Add adaptation tracking if available
-        if (trial.adaptationsActive) {
-          eventData.adaptations_active = trial.adaptationsActive;
-        }
+        // (adaptations_active is already populated above via inferredAdaptations)
 
         // Add audio recording metadata if available
         if (trial.audioStoragePath) {
