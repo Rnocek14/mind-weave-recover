@@ -67,28 +67,21 @@ export interface DualLoadTrialResult {
 }
 
 export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1, focusPhonemes: string[] = []) {
-  const sets = useMemo(() => {
-    const pool = DUAL_LOAD_SETS.filter(s => s.tier <= Math.min(tier + 1, 3));
-    
-    // Prioritize sets whose naming targets contain focus phonemes
-    if (focusPhonemes.length > 0) {
-      const normalizedFocus = new Set(focusPhonemes.map(p => p.replace(/\//g, '').toLowerCase()));
-      
-      const scored = pool.map(set => {
-        const matchCount = set.namingTargets.filter(t => {
-          const word = t.word.toLowerCase();
-          return Array.from(normalizedFocus).some(phoneme => word.includes(phoneme));
-        }).length;
-        return { set, matchCount };
-      });
-      
-      // Sort by match count descending, then shuffle within equal groups
-      scored.sort((a, b) => b.matchCount - a.matchCount);
-      return scored.map(s => s.set).slice(0, roundCount);
-    }
-    
-    return shuffleArray(pool).slice(0, roundCount);
-  }, [roundCount, tier, focusPhonemes.join(',')]);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  const initialSets = useMemo(
+    () => {
+      const built = buildSets(tier, roundCount, focusPhonemes, seenIdsRef.current);
+      built.forEach((s) => seenIdsRef.current.add(s.id));
+      return built;
+    },
+    // Initial seed only — subsequent tier changes happen via setActiveTier below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [sets, setSets] = useState<DualLoadSet[]>(initialSets);
+  const [activeTier, setActiveTierState] = useState<number>(tier);
 
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [phase, setPhase] = useState<DualLoadPhase>('memorize');
