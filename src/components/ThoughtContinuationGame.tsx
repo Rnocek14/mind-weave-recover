@@ -550,7 +550,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation]);
 
   // ---------------------------------------------------------------------------
   // Handle speech end detection - REMOVED for patient mode
