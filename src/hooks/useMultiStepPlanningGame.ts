@@ -5,7 +5,7 @@
  * Scores step coverage and sequence ordering.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { PLANNING_ITEMS, PlanningItem } from '@/data/multiStepPlanningStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
