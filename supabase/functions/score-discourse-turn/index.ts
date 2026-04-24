@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "openai/gpt-5-mini";
+const MODEL = "google/gemini-3-flash-preview";
 
 interface ScoreRequest {
   exerciseSlug: string;            // 'conversation_partner' | 'thought_continuation'
@@ -100,7 +100,7 @@ const TOOL = {
   },
 };
 
-const TIMEOUT_MS = 4000;
+const TIMEOUT_MS = 6000;
 
 function buildUserMessage(req: ScoreRequest): string {
   const lines = [

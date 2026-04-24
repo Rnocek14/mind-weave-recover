@@ -63,7 +63,7 @@ const SURRENDER_RE =
   /^(i don'?t know|idk|no idea|i can'?t|nothing|i forget|i forgot|don'?t remember|not sure|i'?m not sure|pass|skip)\.{0,3}$/i;
 const FILLER_ONLY_RE = /^(um+|uh+|er+|ah+|hmm+)(\s+(um+|uh+|er+|ah+|hmm+))*\.{0,3}$/i;
 
-const LLM_CLIENT_TIMEOUT_MS = 5000; // slightly above edge-function 4s server cap
+const LLM_CLIENT_TIMEOUT_MS = 7000; // slightly above edge-function 6s server cap
 
 /**
  * Compute the composite success score from the four sub-scores.
