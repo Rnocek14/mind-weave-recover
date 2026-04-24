@@ -57,12 +57,32 @@ export function AbstractCompareGame({
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
   autoStart = false,
 }: AbstractCompareGameProps) {
-  const { currentItem, currentIndex, totalItems, isComplete, results, submitAnswer, nextItem } =
+  const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem } =
     useAbstractCompareGame(roundCount, tier);
 
   const { mode } = useCoachingMode();
   const vg = useVoiceGuidance('abstract-compare');
   const { speak: speakMaya } = useTextToSpeech();
+
+  // Visible adaptation
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: drives mid-session content tier shifts based on coverage success
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'abstract-compare',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<AbstractCompareTrialResult | null>(null);
