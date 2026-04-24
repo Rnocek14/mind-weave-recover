@@ -134,5 +134,5 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
     setCurrentIndex(prev => prev + 1);
   }, []);
 
-  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, submitPlan, nextItem };
+  return { currentItem, currentIndex, totalItems: items.length, isComplete, results, activeTier, setActiveTier, submitPlan, nextItem };
 }
