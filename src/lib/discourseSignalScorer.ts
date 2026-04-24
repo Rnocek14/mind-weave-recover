@@ -52,6 +52,22 @@ export {
 const LLM_CLIENT_TIMEOUT_MS = 10000;
 
 /**
+ * Tokens that are safe to fast-path even at ≤2 words: pure fillers, isolated
+ * yes/no/ok acknowledgements, and discourse markers with no semantic content.
+ * Anything else (including a single content word like "fork", "spoon", "dog")
+ * MUST be sent to the LLM so semantic_paraphasia / off_topic / incomplete
+ * are graded by clinical judgment, not word count.
+ */
+const NON_CONTENT_SHORT_RE =
+  /^(?:(?:um+|uh+|er+|ah+|hmm+|mm+|mhm+|hm+|eh+|oh+)|(?:yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|right|alright|fine|maybe|whatever|so|well|like|anyway))(?:\s+(?:um+|uh+|er+|ah+|hmm+|mm+|mhm+|hm+|eh+|oh+|yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|right|alright|fine|maybe|whatever|so|well|like|anyway))?[\s.!?,]*$/i;
+
+function isNonContentShort(transcript: string): boolean {
+  const cleaned = transcript.trim();
+  if (!cleaned) return true;
+  return NON_CONTENT_SHORT_RE.test(cleaned);
+}
+
+/**
  * Main entry point. Always returns a ClinicalSignal; never throws.
  */
 export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSignal> {
