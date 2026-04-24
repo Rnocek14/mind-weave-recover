@@ -834,6 +834,8 @@ const Exercise = () => {
               totalTrials={totalRounds}
               initialDifficulty={lessonAdaptations?.startDifficulty || level}
               slowMode={lessonAdaptations?.largeTargets || true} // largeTargets → slowMode (larger targets + longer timeouts)
+              userId={user?.id}
+              sessionId={sessionId}
               onTrialComplete={async (result) => {
                 await logTrial({
                   correct: result.correct,
@@ -957,6 +959,8 @@ const Exercise = () => {
               initialDifficulty={lessonAdaptations?.startDifficulty || level}
               variant="left-side-hunt"
               slowMode={lessonAdaptations?.largeTargets || true}
+              userId={user?.id}
+              sessionId={sessionId}
               onTrialComplete={async (result) => {
                 await logTrial({
                   correct: result.correct,

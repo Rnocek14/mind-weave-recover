@@ -225,6 +225,8 @@ export default function CategoryFluencyExercise() {
             onFinish={!fromLesson ? handleFinish : undefined}
             roundCount={roundCount}
             autoStartFirst={fromLesson}
+            userId={user?.id}
+            sessionId={activeSessionId}
           />
       </main>
 

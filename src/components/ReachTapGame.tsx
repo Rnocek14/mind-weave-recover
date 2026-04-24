@@ -20,6 +20,8 @@ interface ReachTapGameProps {
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
+  userId?: string;
+  sessionId?: string | null;
 }
 
 interface TargetPosition {
@@ -38,6 +40,8 @@ export const ReachTapGame = ({
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
+  userId,
+  sessionId,
 }: ReachTapGameProps) => {
   const [currentTrial, setCurrentTrial] = useState(1);
   const [score, setScore] = useState(0);
@@ -80,6 +84,9 @@ export const ReachTapGame = ({
       onDifficultyChange?.(newLevel, reason);
       setTimeout(() => setDifficultyChanged(null), 2000);
     },
+    userId,
+    sessionId,
+    exerciseSlug: 'reach-tap',
   });
 
   // Calculate target size in pixels based on difficulty

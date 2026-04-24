@@ -200,6 +200,8 @@ export default function SynonymGeneratorExercise() {
             onDifficultyChange={handleDifficultyChange}
             roundCount={roundCount}
             autoStartFirst={fromLesson}
+            userId={user?.id}
+            sessionId={activeSessionId}
           />
         )}
       </main>
