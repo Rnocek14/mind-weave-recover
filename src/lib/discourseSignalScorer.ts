@@ -47,7 +47,9 @@ export {
   type ScoreInput,
 };
 
-const LLM_CLIENT_TIMEOUT_MS = 7000;
+// Must stay > server TIMEOUT_MS (9000) so the edge function gets a chance to
+// either succeed or return a structured error before the client aborts.
+const LLM_CLIENT_TIMEOUT_MS = 10000;
 
 /**
  * Main entry point. Always returns a ClinicalSignal; never throws.
