@@ -68,6 +68,7 @@ import SynonymGeneratorExercise from "./pages/SynonymGeneratorExercise";
 import VoicePractice from "./pages/VoicePractice";
 import SpeechProfile from "./pages/SpeechProfile";
 import ShadowAnalytics from "./pages/ShadowAnalytics";
+import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
@@ -163,6 +164,7 @@ const App = () => (
                   <Route path="/clinician/dashboard" element={<AppLayout><ClinicianPanel /></AppLayout>} />
                   <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
                   <Route path="/clinician/report" element={<Navigate to="/clinician/review" replace />} />
+                  <Route path="/clinician/telemetry" element={<AppLayout><AdminProtectedRoute><ClinicianTelemetry /></AdminProtectedRoute></AppLayout>} />
                   
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
