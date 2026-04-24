@@ -311,6 +311,10 @@ Deno.serve(async (req) => {
       );
     }
     clearTimeout(timeoutId);
+    const upstreamMs = Date.now() - startedAt;
+    console.log(
+      `[score-discourse-turn] upstream=${upstreamMs}ms status=${aiResp.status} promptV=${promptVersion} model=${MODEL}`,
+    );
 
     if (!aiResp.ok) {
       const text = await aiResp.text();
