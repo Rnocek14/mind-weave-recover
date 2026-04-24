@@ -253,6 +253,7 @@ export function CategoryFluencyGame({
     startListening,
     stopListening,
     isSupported: speechSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     patientMode: true,
@@ -260,6 +261,15 @@ export function CategoryFluencyGame({
     discourseMode: true,
     autoStart: false,
   });
+
+  // Auto-flip to typing if mic permission is denied — prevents the
+  // muted-mic + "Listening…" contradiction.
+  useEffect(() => {
+    if (speechError && /denied|not-allowed|permission/i.test(speechError) && !showTextInput) {
+      setShowTextInput(true);
+      sessionStorage.setItem('preferTypingInput', 'true');
+    }
+  }, [speechError, showTextInput]);
 
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
