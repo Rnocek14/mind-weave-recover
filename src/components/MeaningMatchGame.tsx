@@ -71,7 +71,29 @@ export function MeaningMatchGame({
     totalPoints,
     submitAnswer,
     nextItem,
+    activeTier,
+    setActiveTier,
   } = useMeaningMatchGame(roundCount, difficultyLevel);
+
+  // ============ Adaptive Difficulty Layer ============
+  // Real-time tier shifts based on rolling success rate
+  const bounds = useMemo(() => getCapabilityDifficultyBounds('meaning-match', null), []);
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'meaning-match',
+    sessionId: null,
+    initialDifficulty: difficultyLevel,
+    bounds,
+    enableDifficultyToasts: false, // We use the inline badge instead
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTier(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
