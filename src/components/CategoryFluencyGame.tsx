@@ -253,6 +253,7 @@ export function CategoryFluencyGame({
     startListening,
     stopListening,
     isSupported: speechSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     patientMode: true,
@@ -260,6 +261,15 @@ export function CategoryFluencyGame({
     discourseMode: true,
     autoStart: false,
   });
+
+  // Auto-flip to typing if mic permission is denied — prevents the
+  // muted-mic + "Listening…" contradiction.
+  useEffect(() => {
+    if (speechError && /denied|not-allowed|permission/i.test(speechError) && !showTextInput) {
+      setShowTextInput(true);
+      sessionStorage.setItem('preferTypingInput', 'true');
+    }
+  }, [speechError, showTextInput]);
 
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -440,19 +450,19 @@ export function CategoryFluencyGame({
     }
   }, [currentDifficulty, speechSupported, startListening, vg]);
 
-  // Auto-start on first mount — Full Coaching OR when coming from lesson flow.
+  // Auto-start on first mount — ONLY in Full Coaching (voice-led) where Maya
+  // narrates the start. In Guided/lesson mode, the patient MUST tap Start so
+  // the timer never begins before they're ready (clinical-safety standard).
   // IMPORTANT: beginCountdown is NOT in the dep array — we use a ref instead.
-  // This prevents React cleanup from clearing the timeout when TTS state changes
-  // cause useVoiceGuidance to re-render and give beginCountdown a new reference.
   const hasStartedRef = useRef(false);
   useEffect(() => {
-    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && (vg.isVoiceLed || autoStartFirst)) {
+    if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && vg.isVoiceLed) {
       hasStartedRef.current = true;
       const delay = setTimeout(() => beginCountdownRef.current(), 400);
       return () => { clearTimeout(delay); hasStartedRef.current = false; };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentRound, vg.isVoiceLed, autoStartFirst]);
+  }, [phase, currentRound, vg.isVoiceLed]);
 
   const nextRound = useCallback(() => {
     setCurrentRound(prev => prev + 1);
@@ -586,10 +596,15 @@ export function CategoryFluencyGame({
             )}
           </div>
         )}
-        <Button size="lg" onClick={beginCountdown} className="min-h-[48px] min-w-[140px]">
-          <Mic className="w-4 h-4 mr-2" />
-          {currentRound === 0 ? 'Start' : 'Next Round'}
+        <Button size="lg" onClick={beginCountdown} className="min-h-[56px] min-w-[200px] text-base">
+          <Mic className="w-5 h-5 mr-2" />
+          {currentRound === 0 ? "Start when you're ready" : 'Next Round'}
         </Button>
+        {currentRound === 0 && (
+          <p className="text-xs text-muted-foreground -mt-3">
+            The timer starts after a 3-2-1 countdown.
+          </p>
+        )}
       </div>
     );
   }

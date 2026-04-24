@@ -720,7 +720,7 @@ export function DescribeGuessGame({
         </p>
       </div>
 
-      {/* Image Card — fills available space */}
+      {/* Image Card — fills available space. Hard-block render if no image resolves. */}
       <Card className="border-2 overflow-hidden flex-1 min-h-0">
         <CardContent className="p-0 h-full">
           {currentImage ? (
@@ -732,8 +732,11 @@ export function DescribeGuessGame({
               />
             </div>
           ) : (
-            <div className="h-full min-h-[120px] flex items-center justify-center bg-muted/30 text-muted-foreground">
-              Loading image...
+            <div className="h-full min-h-[180px] flex flex-col items-center justify-center gap-3 bg-muted/30 text-muted-foreground p-6 text-center">
+              <p className="text-sm">This one didn't load — let's skip to the next.</p>
+              <Button size="sm" variant="outline" onClick={handleSkip}>
+                <SkipForward className="h-4 w-4 mr-1.5" /> Next item
+              </Button>
             </div>
           )}
         </CardContent>
@@ -873,10 +876,11 @@ export function DescribeGuessGame({
 
             <div className={cn(
               'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+              speechError ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
               isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
             )}>
-              {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-              {isListening ? 'Listening...' : 'Mic off'}
+              {speechError ? <MicOff className="h-3.5 w-3.5" /> : isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+              {speechError ? 'Use typing instead' : isListening ? 'Listening...' : 'Mic off'}
             </div>
 
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">

@@ -587,7 +587,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Maya session transition (between exercises)
   if (phase === "maya-transition" && sessionFrame) {
-    const transitionText = sessionFrame.mayaTransitions[currentBlockIndex] || '';
+    const baseTransition = sessionFrame.mayaTransitions[currentBlockIndex] || '';
+    const score = lastExerciseScoreRef.current;
+    // Honest reflection when score is low or exercise was effectively skipped.
+    // Replace the canned positive reflection with truthful, non-judgmental copy.
+    let transitionText = baseTransition;
+    if (score !== null && score < 30) {
+      // Strip everything before the first "Now" / "Let's" purpose clause and prepend honest line.
+      const purposeMatch = baseTransition.match(/(Now |Let'?s ).*/i);
+      const purposePart = purposeMatch ? purposeMatch[0] : baseTransition;
+      transitionText = `That one was tough — let's make the next one easier. ${purposePart}`;
+    }
     const nextBlock = runtimeBlocks[currentBlockIndex];
     if (nextBlock) prefetchExerciseRoute(nextBlock.exerciseId);
     return (

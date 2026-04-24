@@ -696,6 +696,19 @@ export function NarrativeRetellGame({
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
+            {/* Compact story strip — keeps story visible to reduce working-memory load */}
+            <div className="rounded-lg bg-muted/40 border border-border/50 p-2 space-y-1">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-1">
+                The story
+              </p>
+              {currentStory.scenes.map((scene, i) => (
+                <div key={i} className="flex items-start gap-2 px-1">
+                  <span className="text-base leading-snug">{scene.emoji}</span>
+                  <p className="text-xs leading-snug text-foreground/80">{scene.text}</p>
+                </div>
+              ))}
+            </div>
+
             {/* Mic failure recovery — persistent, not toast */}
             <MicFailureRecovery
               visible={micFailed && !useTyping}
