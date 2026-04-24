@@ -274,10 +274,11 @@ export function ConversationPartnerGame({
       setPhase('ready');
     }
   }, [
-    phase, stopListening, silenceTimer, userTranscript, 
-    processUserTurn, currentTurn, maxTurns, speak, 
+    phase, stopListening, silenceTimer, userTranscript, currentAIText,
+    processUserTurn, currentTurn, maxTurns, speak,
     addAITurn, onComplete, metrics, stopRecording, uploadRecording,
-    userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt
+    userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt,
+    scorer, adaptation,
   ]);
 
   // Start silence timer when listening begins
