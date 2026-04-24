@@ -61,8 +61,12 @@ const args = Object.fromEntries(
   }),
 );
 const MODE: "local" | "llm" = args.mode === "llm" ? "llm" : "local";
-const BASELINE_VERSION = args.baseline ?? "v1";
-const CANDIDATE_VERSION = args.candidate ?? "v2";
+const BASELINE_VERSION = args.baseline ?? (MODE === "llm" ? "v2" : "v1");
+const CANDIDATE_VERSION = args.candidate ?? (MODE === "llm" ? "v3" : "v2");
+/** Categories the calibration v3 work targets — used for promotion gating. */
+const WEAK_CATEGORIES = ["circumlocution", "semantic_paraphasia", "unclear"];
+/** Categories that must NOT regress when we promote. */
+const PROTECTED_CATEGORIES = ["fluent_correct", "off_topic", "surrender", "no_response"];
 
 // ---------------------------------------------------------------------------
 // Score one turn under a given calibration (offline; no network)
@@ -75,20 +79,30 @@ function scoreOffline(turn: LabeledTurn, cal: ScorerCalibration): ClinicalSignal
 }
 
 // ---------------------------------------------------------------------------
-// Score one turn under a given calibration via the LIVE edge function
+// Score one turn under a given calibration via the LIVE edge function.
+// `promptVersion` selects which system prompt rubric the edge function uses.
 // ---------------------------------------------------------------------------
-async function scoreLLM(turn: LabeledTurn, cal: ScorerCalibration): Promise<ClinicalSignal> {
+async function scoreLLM(
+  turn: LabeledTurn,
+  cal: ScorerCalibration,
+  promptVersion: "v2" | "v3",
+): Promise<ClinicalSignal> {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !anon) throw new Error("Set SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY env vars for --mode=llm");
 
+  // Production short-circuits run before the LLM. Mirror that here so
+  // surrender / no_response / filler-only never burn an API call.
+  const sc = shortCircuit(turn.input, cal);
+  if (sc) return sc;
+
   const resp = await fetch(`${url}/functions/v1/score-discourse-turn`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${anon}` },
-    body: JSON.stringify(turn.input),
+    body: JSON.stringify({ ...turn.input, promptVersion }),
   });
   if (!resp.ok) {
-    return { ...localFallbackScore(turn.input), reasoning: `LLM ${resp.status} fallback` };
+    return { ...localFallbackScore(turn.input, cal), reasoning: `LLM ${resp.status} fallback` };
   }
   const data = await resp.json();
   const rawSub = {
