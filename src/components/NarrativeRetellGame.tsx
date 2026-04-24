@@ -28,6 +28,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+}
 
 const RETELL_AUTO_SUBMIT_MS = 5000;
 const RETELL_AUTO_SUBMIT_MIN_WORDS = 2;
@@ -110,8 +119,28 @@ export function NarrativeRetellGame({
   tier = 1,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
-  const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory } =
+  const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
     useNarrativeRetellGame(roundCount, tier);
+
+  // Visible adaptation cue
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: shifts story tier mid-session based on retell coverage
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'narrative-retell',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
@@ -451,10 +480,15 @@ export function NarrativeRetellGame({
       if (result) {
         setLastResult(result);
         setPhase('scored');
+        // Feed adaptation engine: 60% event coverage = strong retell, drives tier shifts
+        adaptation.recordTrial({
+          correct: result.eventCoverage >= 0.6,
+          reactionTimeMs: result.durationMs,
+        });
         onTrialComplete(result);
       }
     }, 150);
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText, adaptation]);
 
   // Keep ref in sync on every render so auto-submit timer always calls latest version
   handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
@@ -505,9 +539,14 @@ export function NarrativeRetellGame({
     if (result) {
       setLastResult(result);
       setPhase('scored');
+      // Skipped retell = unsuccessful trial; engine should ease the next story.
+      adaptation.recordTrial({
+        correct: false,
+        reactionTimeMs: durationMs,
+      });
       onTrialComplete(result);
     }
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation]);
 
   const handleContinue = useCallback(() => {
     nextStory();
@@ -571,6 +610,7 @@ export function NarrativeRetellGame({
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium">Narrative Retell</span>
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
         <div className="text-muted-foreground">
           Story {currentIndex + 1} of {totalStories}

@@ -5,9 +5,36 @@
  * Measures executive load tolerance and interference.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { DUAL_LOAD_SETS, DualLoadSet } from '@/data/dualLoadNamingStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+
+/** Build a list of dual-load sets for a given tier, prioritising focus phonemes and avoiding repeats. */
+function buildSets(
+  tier: number,
+  count: number,
+  focusPhonemes: string[],
+  excludeIds: Set<string>,
+): DualLoadSet[] {
+  const pool = DUAL_LOAD_SETS.filter(
+    (s) => s.tier <= Math.min(tier + 1, 3) && !excludeIds.has(s.id),
+  );
+
+  if (focusPhonemes.length > 0) {
+    const normalizedFocus = new Set(focusPhonemes.map((p) => p.replace(/\//g, '').toLowerCase()));
+    const scored = pool.map((set) => {
+      const matchCount = set.namingTargets.filter((t) => {
+        const word = t.word.toLowerCase();
+        return Array.from(normalizedFocus).some((phoneme) => word.includes(phoneme));
+      }).length;
+      return { set, matchCount };
+    });
+    scored.sort((a, b) => b.matchCount - a.matchCount);
+    return scored.map((s) => s.set).slice(0, count);
+  }
+
+  return shuffleArray(pool).slice(0, count);
+}
 
 export type DualLoadPhase = 'memorize' | 'naming' | 'recall' | 'results';
 
@@ -40,28 +67,21 @@ export interface DualLoadTrialResult {
 }
 
 export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1, focusPhonemes: string[] = []) {
-  const sets = useMemo(() => {
-    const pool = DUAL_LOAD_SETS.filter(s => s.tier <= Math.min(tier + 1, 3));
-    
-    // Prioritize sets whose naming targets contain focus phonemes
-    if (focusPhonemes.length > 0) {
-      const normalizedFocus = new Set(focusPhonemes.map(p => p.replace(/\//g, '').toLowerCase()));
-      
-      const scored = pool.map(set => {
-        const matchCount = set.namingTargets.filter(t => {
-          const word = t.word.toLowerCase();
-          return Array.from(normalizedFocus).some(phoneme => word.includes(phoneme));
-        }).length;
-        return { set, matchCount };
-      });
-      
-      // Sort by match count descending, then shuffle within equal groups
-      scored.sort((a, b) => b.matchCount - a.matchCount);
-      return scored.map(s => s.set).slice(0, roundCount);
-    }
-    
-    return shuffleArray(pool).slice(0, roundCount);
-  }, [roundCount, tier, focusPhonemes.join(',')]);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  const initialSets = useMemo(
+    () => {
+      const built = buildSets(tier, roundCount, focusPhonemes, seenIdsRef.current);
+      built.forEach((s) => seenIdsRef.current.add(s.id));
+      return built;
+    },
+    // Initial seed only — subsequent tier changes happen via setActiveTier below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [sets, setSets] = useState<DualLoadSet[]>(initialSets);
+  const [activeTier, setActiveTierState] = useState<number>(tier);
 
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [phase, setPhase] = useState<DualLoadPhase>('memorize');
@@ -147,9 +167,33 @@ export function useDualLoadNamingGame(roundCount: number = 2, tier: number = 1, 
     setNamingAttempts([]);
   }, []);
 
+  /**
+   * Mid-session content tier shift. Preserves already-played sets and refreshes
+   * the upcoming queue with sets matching the new tier (deduplicated).
+   */
+  const setActiveTier = useCallback(
+    (newTier: number) => {
+      const clamped = Math.max(1, Math.min(3, newTier));
+      if (clamped === activeTier) return;
+      setActiveTierState(clamped);
+
+      setSets((prev) => {
+        const played = prev.slice(0, currentSetIndex + 1);
+        played.forEach((s) => seenIdsRef.current.add(s.id));
+        const remaining = Math.max(0, roundCount - played.length);
+        if (remaining === 0) return played;
+        const fresh = buildSets(clamped, remaining, focusPhonemes, seenIdsRef.current);
+        fresh.forEach((s) => seenIdsRef.current.add(s.id));
+        return [...played, ...fresh];
+      });
+    },
+    [activeTier, currentSetIndex, focusPhonemes, roundCount],
+  );
+
   return {
     currentSet, currentSetIndex, totalSets: sets.length, isComplete,
     phase, currentNamingTarget, namingIndex, namingAttempts, results,
     startNaming, submitNaming, submitRecall, nextSet,
+    activeTier, setActiveTier,
   };
 }

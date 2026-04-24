@@ -16,11 +16,20 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** Map adaptive level (1-10) → content tier (1-3) */
+function levelToTierLocal(level: number): number {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+}
 
 interface DualLoadNamingGameProps {
   userId?: string;
@@ -42,7 +51,29 @@ export function DualLoadNamingGame({
     currentSet, currentSetIndex, totalSets, isComplete,
     phase, currentNamingTarget, namingIndex, namingAttempts, results,
     startNaming, submitNaming, submitRecall, nextSet,
+    activeTier, setActiveTier,
   } = useDualLoadNamingGame(roundCount, tier, focusPhonemes);
+
+  // Visible adaptation cue
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: drives mid-session content tier shifts based on combined
+  // naming + recall performance.
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'dual-load-naming',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [recallInputs, setRecallInputs] = useState<string[]>(['', '', '']);
   const [lastResult, setLastResult] = useState<DualLoadTrialResult | null>(null);
@@ -242,9 +273,18 @@ export function DualLoadNamingGame({
     const result = submitRecall(recallInputs.filter(w => w.trim()));
     if (result) {
       setLastResult(result);
+      // Combined success: at least 2/3 words recalled AND naming above 60% — true
+      // dual-load proficiency. Feeds the adaptation engine so tier shifts reflect
+      // genuine mastery under cognitive load, not just one or the other.
+      const combinedSuccess =
+        result.recallAccuracy >= 0.67 && result.namingAccuracy >= 0.6;
+      adaptation.recordTrial({
+        correct: combinedSuccess,
+        reactionTimeMs: result.durationMs,
+      });
       onTrialComplete(result);
     }
-  }, [recallInputs, submitRecall, onTrialComplete]);
+  }, [recallInputs, submitRecall, onTrialComplete, adaptation]);
 
   const handleContinue = useCallback(() => {
     nextSet();
@@ -277,6 +317,7 @@ export function DualLoadNamingGame({
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" />
           <span className="font-medium">Dual-Load Naming</span>
+          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
         <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
       </div>
