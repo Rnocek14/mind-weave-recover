@@ -1115,12 +1115,105 @@ LIMIT 50;
           </Card>
         )}
 
-        <Tabs defaultValue="coverage">
+        <Tabs defaultValue="trends">
           <TabsList>
+            <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="coverage">Coverage</TabsTrigger>
             <TabsTrigger value="adaptations">Adaptation events</TabsTrigger>
             <TabsTrigger value="signals">Clinical signals</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="trends" className="space-y-4">
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Health trend by exercise
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Bucketed live from <code>telemetry_bucketed()</code>. Same scoring formula as the live health table — no second source of truth.
+                    Click an exercise to expand the full chart.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={trendWindow} onValueChange={(v) => setTrendWindow(v as TrendWindow)}>
+                    <SelectTrigger className="w-56 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1h">{TREND_WINDOW_LABEL["1h"]}</SelectItem>
+                      <SelectItem value="24h">{TREND_WINDOW_LABEL["24h"]}</SelectItem>
+                      <SelectItem value="7d">{TREND_WINDOW_LABEL["7d"]}</SelectItem>
+                      <SelectItem value="30d">{TREND_WINDOW_LABEL["30d"]}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <CopyButton
+                    sql={`-- Bucketed telemetry trends (${TREND_WINDOW_LABEL[trendWindow]})
+SELECT * FROM public.telemetry_bucketed('${trendWindow}')
+ORDER BY exercise_slug, bucket_start;`}
+                  />
+                </div>
+              </div>
+
+              {trendsQuery.isLoading && (
+                <div className="text-sm text-muted-foreground py-6 text-center">Loading trend data…</div>
+              )}
+              {!trendsQuery.isLoading && trendSeries.size === 0 && (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No telemetry in this window yet.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {Array.from(trendSeries.entries())
+                  .map(([slug, points]) => {
+                    const direction = classifyTrend(points);
+                    const last = [...points].reverse().find((p) => p.total > 0) || points[points.length - 1];
+                    return { slug, points, direction, last };
+                  })
+                  // Worst / most-broken first, then declining, then stable, then improving
+                  .sort((a, b) => {
+                    const order: Record<TrendDirection, number> = {
+                      broken: 0, declining: 1, "no-data": 2, stable: 3, improving: 4,
+                    };
+                    if (order[a.direction] !== order[b.direction]) return order[a.direction] - order[b.direction];
+                    return (a.last?.score ?? 100) - (b.last?.score ?? 100);
+                  })
+                  .map(({ slug, points, direction, last }) => {
+                    const expanded = expandedTrendSlug === slug;
+                    return (
+                      <div key={`trend-${slug}`} className="border rounded-md">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-3 p-3 hover:bg-muted/40 text-left"
+                          onClick={() => setExpandedTrendSlug(expanded ? null : slug)}
+                        >
+                          {expanded
+                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <code className="font-mono text-xs flex-1">{slug}</code>
+                          <span
+                            className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border inline-flex items-center gap-1 ${trendChipClass(direction)}`}
+                          >
+                            <TrendIcon d={direction} />
+                            {direction}
+                          </span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            latest:{" "}
+                            <span className={`font-mono font-semibold ${last ? scoreColorClass(last.score) : ""}`}>
+                              {last && last.total > 0 ? last.score : "—"}
+                            </span>
+                          </span>
+                          <HealthSparkline points={points.slice(-12)} width={120} height={28} />
+                        </button>
+                        {expanded && <TrendDetailChart points={points} window={trendWindow} />}
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="coverage" className="space-y-4">
             <Card className="p-4">
