@@ -20,7 +20,38 @@ interface SessionLifecycleOptions {
   onSessionEnded?: (reason: EndedReason) => void;
   /** Visibility hidden timeout (ms) before auto-ending - default 5 minutes */
   visibilityTimeoutMs?: number;
+  /**
+   * If true, the parent flow (e.g. LessonFlow / SmartCoach) owns the session
+   * lifecycle. This hook will NOT write `ended_at` and will NOT replace
+   * `summary`. It will only fire local callbacks and best-effort dose logging.
+   * Auto-detected from sessionStorage when not explicitly provided.
+   */
+  ownedByParentFlow?: boolean;
 }
+
+/**
+ * Detect whether the given sessionId is owned by a parent flow (LessonFlow
+ * or SmartCoach). Used to prevent child exercises from prematurely closing
+ * a multi-exercise session.
+ */
+const detectParentOwnership = (sessionId: string | null | undefined): boolean => {
+  if (!sessionId) return false;
+  try {
+    const lessonRaw = sessionStorage.getItem('lessonFlowState');
+    if (lessonRaw) {
+      const parsed = JSON.parse(lessonRaw);
+      if (parsed?.sessionId === sessionId) return true;
+    }
+    const coachRaw = sessionStorage.getItem('smartCoachState');
+    if (coachRaw) {
+      const parsed = JSON.parse(coachRaw);
+      if (parsed?.sessionId === sessionId) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+};
 
 /**
  * Hook to manage session lifecycle with guaranteed cleanup.
