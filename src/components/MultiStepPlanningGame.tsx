@@ -52,8 +52,28 @@ export function MultiStepPlanningGame({
   onTrialComplete, onGameComplete, roundCount = 3, tier = 1,
   autoStart = false,
 }: MultiStepPlanningGameProps) {
-  const { currentItem, currentIndex, totalItems, isComplete, results, submitPlan, nextItem } =
+  const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitPlan, nextItem } =
     useMultiStepPlanningGame(roundCount, tier);
+
+  // Visible adaptation
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // In-game adaptation: success = goalCoverage ≥ 0.6 + sequenceScore ≥ 0.5
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'multi-step-planning',
+    sessionId: sessionId ?? null,
+    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
+    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLevel, reason, dir) => {
+      const newTier = levelToTierLocal(newLevel);
+      if (newTier !== activeTier) {
+        setActiveTier(newTier);
+      }
+      signalShift(dir, reason);
+    },
+  });
 
   const [phase, setPhase] = useState<Phase>('prompt');
   const [lastResult, setLastResult] = useState<PlanningTrialResult | null>(null);
