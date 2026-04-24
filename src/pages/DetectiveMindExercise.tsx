@@ -101,6 +101,11 @@ export default function DetectiveMindExercise() {
     scoreRef.current += result.points;
     trialsRef.current += 1;
     pivot.recordTrialResult({ wasCorrect: result.correct, reactionTimeMs: result.reactionTimeMs, cueLevel: result.usedHint ? 1 : 0 });
+    dynamicTier.recordTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      errorType: result.correct ? undefined : 'wrong_option',
+    });
     logTrial({
       correct: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -112,11 +117,12 @@ export default function DetectiveMindExercise() {
         lesson_source: lessonSource, preset_id: presetId, pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       cueTypeGiven: result.usedHint ? 'semantic' : 'none',
       cueWasEffective: result.usedHint ? result.correct : null,
     });
     if (pivot.shouldStepDown) { console.log('[DetectiveMind] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, logTrial, adaptationTelemetry, pivot, dynamicTier, trialLimit, blockIndex, lessonSource, presetId]);
 
   const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
     setCompleted(true);
