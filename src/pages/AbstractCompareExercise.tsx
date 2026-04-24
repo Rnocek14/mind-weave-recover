@@ -42,13 +42,25 @@ export default function AbstractCompareExercise() {
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
-  // Shared adaptation contract
+  // Shared adaptation contract (session-static seed)
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
     defaultErrorType: 'no_response',
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
+
+  // Per-trial adaptive tier — drives content pool dynamically.
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -68,19 +80,29 @@ export default function AbstractCompareExercise() {
     scoreRef.current += Math.round(result.coverageRatio * 100);
     trialsRef.current += 1;
 
+    const wasCorrect = result.coverageRatio >= 0.3;
+
     pivot.recordTrialResult({
-      wasCorrect: result.coverageRatio >= 0.3,
+      wasCorrect,
       reactionTimeMs: result.durationMs,
     });
 
+    // Drive adaptive tier based on per-trial outcome
+    dynamicTier.recordTrial({
+      correct: wasCorrect,
+      reactionTimeMs: result.durationMs,
+      errorType: wasCorrect ? undefined : 'low_coverage',
+    });
+
     logTrial({
-      correct: result.coverageRatio >= 0.3,
+      correct: wasCorrect,
       reactionTimeMs: result.durationMs,
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
         ...adaptationTelemetry,
       },
+      adaptationsActive: dynamicTier.getAdaptationsActive(),
       trialOutputs: {
         explanation: {
           coverageRatio: result.coverageRatio,
@@ -91,7 +113,7 @@ export default function AbstractCompareExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot]);
 
   const handleGameComplete = useCallback((results: AbstractCompareTrialResult[]) => {
     setCompleted(true);
