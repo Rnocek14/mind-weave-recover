@@ -236,13 +236,11 @@ const TOOL = {
   },
 };
 
-// Bumped from 6s → 9s to absorb edge-runtime cold starts (Lovable AI gateway
-// p95 is 4–6s warm, but the first request after a boot routinely needs 7–8s).
-// Client-side LLM_CLIENT_TIMEOUT_MS is 7000 — keep server > client so the
-// client always receives a real fallback response, never an aborted socket.
-// (Note: client wrapper falls back locally on edge error, so even if the
-// client times out first, the user still gets a deterministic signal.)
-const TIMEOUT_MS = 9000;
+// Bumped 9s → 12s. Empirical: gpt-5-mini under tool-call constraint p95 is
+// 7-9s warm and routinely 8-10s on cold paths. 9s caused real-world short
+// semantic_paraphasia turns to time out (e.g. "a fork" for soup). Client
+// wrapper times out at 13s so the server still gets the last word.
+const TIMEOUT_MS = 12000;
 
 function buildUserMessage(req: ScoreRequest): string {
   const lines = [
