@@ -2994,6 +2994,7 @@ export type Database = {
         }
         Returns: Json
       }
+      close_stale_sessions: { Args: never; Returns: number }
       create_profile_version: {
         Args: {
           p_change_reason?: string
@@ -3106,6 +3107,15 @@ export type Database = {
           avg_accuracy: number
           median_rt: number
           trial_count: number
+        }[]
+      }
+      get_resumable_session: {
+        Args: never
+        Returns: {
+          id: string
+          plan: Json
+          started_at: string
+          summary: Json
         }[]
       }
       get_session_summary: {
