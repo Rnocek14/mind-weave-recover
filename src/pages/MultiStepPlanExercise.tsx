@@ -50,6 +50,18 @@ export default function MultiStepPlanExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
+  // Per-trial dynamic tier controller (1..3)
+  const dynamicTier = useDynamicTier({
+    exerciseSlug: EXERCISE_SLUG,
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    initialTier: adaptation.difficultyTier,
+    minTier: 1,
+    maxTier: 3,
+    targetSuccessRate: 0.75,
+  });
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
   }), []);
