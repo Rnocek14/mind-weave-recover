@@ -603,15 +603,22 @@ function PhotoNamingExerciseInner() {
   };
 
   const handleGameComplete = async () => {
-    // End session with caregiver notes
+    // End session with caregiver notes.
+    // CRITICAL: When part of a lesson, LessonFlow owns the session lifecycle.
+    // We must NOT set ended_at here, otherwise the next exercise in the
+    // lesson is orphaned. Only persist caregiver_notes in that case.
     if (sessionId) {
+      const updatePayload: Record<string, any> = {
+        caregiver_notes: caregiverNotes.trim() || null,
+      };
+      if (!fromLesson) {
+        updatePayload.ended_at = new Date().toISOString();
+      }
       await supabase
         .from('sessions')
-        .update({ 
-          ended_at: new Date().toISOString(),
-          caregiver_notes: caregiverNotes.trim() || null,
-        })
-        .eq('id', sessionId);
+        .update(updatePayload)
+        .eq('id', sessionId)
+        .is('ended_at', null);
     }
     
     // Show post-practice summary for targeted practice
