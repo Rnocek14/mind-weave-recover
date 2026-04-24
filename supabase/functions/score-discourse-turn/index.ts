@@ -9,7 +9,8 @@ const corsHeaders = {
 };
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+// User selected gpt-5-mini for clinical accuracy. ~3-5s typical latency.
+const MODEL = "openai/gpt-5-mini";
 
 interface ScoreRequest {
   exerciseSlug: string;            // 'conversation_partner' | 'thought_continuation'
