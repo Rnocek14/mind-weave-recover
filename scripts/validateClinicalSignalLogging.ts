@@ -230,7 +230,7 @@ async function main() {
           reasoning: signal.reasoning,
           source: signal.source,
           model: signal.model ?? null,
-          promptVersion: signal.promptVersion ?? null,
+          promptVersion: (signal as any).promptVersion ?? null,
           llm_latency_ms: signal.latencyMs ?? null,
         },
       },
