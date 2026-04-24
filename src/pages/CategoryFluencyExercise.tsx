@@ -101,9 +101,19 @@ export default function CategoryFluencyExercise() {
       reactionTimeMs: result.durationSec * 1000,
     });
 
+    // Derive a clinically meaningful errorType for fluency tasks
+    const isCorrect = result.uniqueWordCount >= 3;
+    let errorType: string | undefined;
+    if (!isCorrect) {
+      if (result.uniqueWordCount === 0) errorType = 'no_response';
+      else if (result.uniqueWordCount === 1) errorType = 'single_item';
+      else errorType = 'low_fluency';
+    }
+
     logTrial({
-      correct: result.uniqueWordCount >= 3,
+      correct: isCorrect,
       reactionTimeMs: result.durationSec * 1000,
+      errorType,
       taskParameters: {
         category: result.category,
         unique_words: result.uniqueWordCount,

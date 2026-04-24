@@ -112,6 +112,33 @@ export const useExerciseTelemetry = (
       }
 
       try {
+        // ── Telemetry coverage guarantees ────────────────────────────────
+        // 1. error_type is ALWAYS populated (never null) — clinicians/research
+        //    need to distinguish "logged but unclassified" from "missing data".
+        const resolvedErrorType: string =
+          trial.correct
+            ? 'correct'
+            : (trial.errorType?.trim() || 'incorrect_unspecified');
+
+        // 2. adaptations_active is auto-extracted from task_parameters when
+        //    the caller spread buildAdaptationTelemetry() into it. This means
+        //    every game using the shared adaptation contract gets the dedicated
+        //    column populated without per-game changes.
+        const tp = (trial.taskParameters ?? {}) as Record<string, any>;
+        const inferredAdaptations = trial.adaptationsActive ?? (
+          tp.adaptation_applied !== undefined || tp.adaptation_mode !== undefined
+            ? {
+                adaptation_applied: tp.adaptation_applied ?? false,
+                adaptation_mode: tp.adaptation_mode ?? 'none',
+                difficulty_level: tp.difficulty_level ?? null,
+                profile_confidence: tp.profile_confidence ?? null,
+                recommended_cue_type: tp.recommended_cue_type ?? null,
+                focus_phonemes: tp.focus_phonemes ?? null,
+                adaptation_reasons: tp.adaptation_reasons ?? [],
+              }
+            : null
+        );
+
         const eventData: any = {
           session_id: sessionId,
           exercise_slug: exerciseSlug,
@@ -119,12 +146,12 @@ export const useExerciseTelemetry = (
           score: trial.correct ? 100 : 0,
           reaction_time_ms: trial.reactionTimeMs,
           cue_level: trial.cueLevel ?? 0,
-          error_type: trial.errorType,
-          task_parameters: trial.taskParameters ?? {},
+          error_type: resolvedErrorType,
+          task_parameters: tp,
           inputs: {
             rt_ms: trial.reactionTimeMs,
             cue_level: trial.cueLevel ?? 0,
-            error_type: trial.errorType,
+            error_type: resolvedErrorType,
           },
           outputs: {
             task_params: trial.taskParameters,
@@ -132,6 +159,11 @@ export const useExerciseTelemetry = (
             ...sanitizeTrialOutputs(trial.trialOutputs, exerciseSlug),
           },
         };
+
+        // Always write adaptations_active when we have any adaptation signal
+        if (inferredAdaptations) {
+          eventData.adaptations_active = inferredAdaptations;
+        }
 
         // Add new error classification fields if available
         if (trial.errorClassification) {
@@ -152,10 +184,7 @@ export const useExerciseTelemetry = (
           eventData.engagement_flags = trial.engagementFlags;
         }
 
-        // Add adaptation tracking if available
-        if (trial.adaptationsActive) {
-          eventData.adaptations_active = trial.adaptationsActive;
-        }
+        // (adaptations_active is already populated above via inferredAdaptations)
 
         // Add audio recording metadata if available
         if (trial.audioStoragePath) {

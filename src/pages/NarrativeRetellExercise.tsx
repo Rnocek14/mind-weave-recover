@@ -89,9 +89,20 @@ export default function NarrativeRetellExercise() {
     scoreRef.current += points;
     trialsRef.current += 1;
 
+    // Derive errorType for narrative-retell from coverage and on-topic signals
+    const isCorrect = result.eventCoverage >= 0.3;
+    let errorType: string | undefined;
+    if (!isCorrect) {
+      if (result.wordCount < 5) errorType = 'minimal_output';
+      else if (result.onTopicScore != null && result.onTopicScore < 0.4) errorType = 'off_topic';
+      else if (result.eventCoverage === 0) errorType = 'no_event_coverage';
+      else errorType = 'low_event_coverage';
+    }
+
     logTrial({
-      correct: result.eventCoverage >= 0.3,
+      correct: isCorrect,
       reactionTimeMs: result.durationMs,
+      errorType,
       taskParameters: {
         story_id: result.storyId,
         events_found: result.eventsFound,

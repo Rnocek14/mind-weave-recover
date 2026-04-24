@@ -95,9 +95,18 @@ export default function DualLoadNamingExercise() {
       reactionTimeMs: result.durationMs,
     });
 
+    const isCorrect = result.recallAccuracy >= 0.33;
+    let errorType: string | undefined;
+    if (!isCorrect) {
+      if (result.recallAccuracy === 0) errorType = 'recall_failure';
+      else if (result.namingAccuracy < 0.5) errorType = 'naming_under_load';
+      else errorType = 'partial_recall';
+    }
+
     logTrial({
-      correct: result.recallAccuracy >= 0.33,
+      correct: isCorrect,
       reactionTimeMs: result.durationMs,
+      errorType,
       taskParameters: {
         set_id: result.setId,
         naming_accuracy: result.namingAccuracy,

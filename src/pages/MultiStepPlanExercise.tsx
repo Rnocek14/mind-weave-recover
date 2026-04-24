@@ -90,9 +90,18 @@ export default function MultiStepPlanExercise() {
       reactionTimeMs: result.durationMs,
     });
 
+    const isCorrect = result.goalCoverage >= 0.3;
+    let errorType: string | undefined;
+    if (!isCorrect) {
+      if (result.stepsFound === 0) errorType = 'no_plan_steps';
+      else if (result.sequenceScore != null && result.sequenceScore < 0.3) errorType = 'sequence_disorder';
+      else errorType = 'incomplete_plan';
+    }
+
     logTrial({
-      correct: result.goalCoverage >= 0.3,
+      correct: isCorrect,
       reactionTimeMs: result.durationMs,
+      errorType,
       taskParameters: {
         item_id: result.itemId, goal: result.goal,
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
@@ -111,7 +120,7 @@ export default function MultiStepPlanExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, dynamicTier]);
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier]);
 
   const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
     setCompleted(true);
