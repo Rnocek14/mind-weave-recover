@@ -99,15 +99,23 @@ export const trackRound = async (
   if (error) throw error;
 };
 
-export const endSession = async (sessionId: string, summary: SessionSummary) => {
+export const endSession = async (
+  sessionId: string,
+  summary: SessionSummary,
+  reason: 'completed' | 'abandoned' | 'skipped' | 'manual' = 'completed'
+) => {
+  // Idempotent: only set ended_at + ended_reason if not already ended.
+  // This prevents overwriting a server-side sweeper close or a prior call.
   const { error } = await supabase
     .from('sessions')
     .update({
       ended_at: new Date().toISOString(),
       duration_sec: summary.durationSec,
-      summary: summary as any
+      summary: summary as any,
+      ended_reason: reason,
     })
-    .eq('id', sessionId);
+    .eq('id', sessionId)
+    .is('ended_at', null);
   
   if (error) throw error;
   
