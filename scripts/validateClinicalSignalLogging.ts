@@ -86,11 +86,24 @@ async function main() {
   }
   console.log("✓ Authenticated as", auth.user.id);
 
+  console.log("→ Resolving profile");
+  const { data: profile, error: profErr } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("user_id", auth.user.id)
+    .single();
+  if (profErr || !profile) {
+    console.error("✗ Profile lookup failed:", profErr?.message);
+    process.exit(1);
+  }
+  console.log("✓ Profile", profile.id);
+
   console.log("→ Creating session row");
   const { data: session, error: sessErr } = await supabase
     .from("sessions")
     .insert({
       user_id: auth.user.id,
+      profile_id: profile.id,
       started_at: new Date().toISOString(),
       plan: { source: "c3_validation_script" },
     })
