@@ -38,26 +38,20 @@ export const usePhonoGame = (
     incorrectTrials: [],
   });
 
-  // Initialize trials with deduplication
+  // Initialize trials with deduplication.
+  // CRITICAL: difficultyLevel is intentionally NOT a dep — mid-session level
+  // changes must NOT reset score/progress. Use setActiveDifficulty() instead.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let allTrials = customTrials && customTrials.length > 0
       ? customTrials
-      : getMixedTrials(difficultyLevel, totalTrials * 3, { focusPhonemes: undefined }); // Extra to filter
-    
-    // Filter out recently shown (cross-session)
+      : getMixedTrials(difficultyLevel, totalTrials * 3, { focusPhonemes: undefined });
+
     allTrials = filterRecentlyShown(allTrials, 'phono_game', 2);
-    
-    // Filter out already shown this session
     const availableTrials = allTrials.filter(t => !shownTrialsRef.current.has(t.id));
-    
-    // If we've run out, reset session tracking
-    const trialsToUse = availableTrials.length >= totalTrials 
-      ? availableTrials 
-      : allTrials;
-    
-    // Shuffle and take needed amount
+    const trialsToUse = availableTrials.length >= totalTrials ? availableTrials : allTrials;
     const selectedTrials = shuffleArray(trialsToUse).slice(0, totalTrials);
-    
+
     setState(prev => ({
       ...prev,
       trials: selectedTrials,
@@ -68,7 +62,28 @@ export const usePhonoGame = (
       showFeedback: false,
       incorrectTrials: [],
     }));
-  }, [totalTrials, difficultyLevel, customTrials]);
+  }, [totalTrials, customTrials]);
+
+  /**
+   * Mid-session difficulty shift. Replaces ONLY the upcoming (unplayed) trials
+   * with ones at the new level. Preserves currentTrial index, score, history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    setState(prev => {
+      const upcomingNeeded = prev.trials.length - (prev.currentTrial + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const fresh = shuffleArray(
+        getMixedTrials(newLevel, upcomingNeeded * 3, { focusPhonemes: undefined })
+          .filter(t => !shownTrialsRef.current.has(t.id))
+      ).slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+      const playedAndCurrent = prev.trials.slice(0, prev.currentTrial + 1);
+      const padded = fresh.length < upcomingNeeded
+        ? [...fresh, ...prev.trials.slice(prev.currentTrial + 1 + fresh.length)]
+        : fresh;
+      return { ...prev, trials: [...playedAndCurrent, ...padded] };
+    });
+  }, []);
 
   const submitAnswer = (answer: 'same' | 'different'): {
     correct: boolean;
