@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localYYYYMMDD } from '@/lib/localDate';
 import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
+import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -205,6 +206,8 @@ export const useSessionLifecycle = ({
           }
         } else {
           console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
+          // Release standalone-session mutex once the session is closed
+          if (!isOwnedByParent) clearStandaloneSessionMutex();
 
           
           // Auto-populate speech dose into recovery spine
