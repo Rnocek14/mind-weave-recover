@@ -20,6 +20,8 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { levelToTier } from '@/data/meaningMatchItems';
