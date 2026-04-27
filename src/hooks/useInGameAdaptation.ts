@@ -415,6 +415,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const stepDown = useCallback((reason: string = 'Manual difficulty reduction'): number => {
     const newLevel = controllerRef.current.handleFrustration(currentDifficultyRef.current);
     currentDifficultyRef.current = newLevel;
+    trialsAtLevelRef.current = 0;
     setCurrentDifficulty(newLevel);
     onDifficultyChange?.(newLevel, reason, 'down');
     
