@@ -64,13 +64,12 @@ export const useStandaloneSession = (
 ) => {
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const inFlightRef = useRef(false); // synchronous guard against double-invoked effects
   const { activeProfile } = useProfile();
 
   const { disabled = false, mode = 'standalone' } = options;
 
   // Defensive: detect an in-flight lesson/coach session via sessionStorage.
-  // This prevents the hook from racing LessonFlow when route state is briefly
-  // missing on a remount.
   const hasOwnedSessionContext = (): boolean => {
     try {
       const lessonRaw = sessionStorage.getItem('lessonFlowState');
@@ -83,17 +82,15 @@ export const useStandaloneSession = (
         const parsed = JSON.parse(coachRaw);
         if (parsed?.sessionId) return true;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     return false;
   };
 
-  // The effective sessionId to use throughout the game
   const activeSessionId = providedSessionId || localSessionId;
 
   useEffect(() => {
     if (providedSessionId || localSessionId || isCreatingSession) return;
+    if (inFlightRef.current) return;
     if (!userId || !activeProfile?.id) return;
     if (disabled) {
       console.log('[useStandaloneSession] skipped: disabled by caller (lesson/coach flow)', { exerciseSlug });
@@ -104,24 +101,43 @@ export const useStandaloneSession = (
       return;
     }
 
+    // sessionStorage mutex — survives React 18 double-effect AND remounts
+    const existingMutex = readMutex();
+    if (existingMutex) {
+      if (existingMutex.sessionId) {
+        console.log('[useStandaloneSession] reusing session from mutex:', existingMutex.sessionId);
+        setLocalSessionId(existingMutex.sessionId);
+        return;
+      }
+      // Acquisition in flight elsewhere — wait, then check again
+      console.log('[useStandaloneSession] mutex held by concurrent acquisition, waiting…');
+      const waitId = setTimeout(() => {
+        const refreshed = readMutex();
+        if (refreshed?.sessionId && !localSessionId) setLocalSessionId(refreshed.sessionId);
+      }, 250);
+      return () => clearTimeout(waitId);
+    }
+
+    // Acquire mutex BEFORE async work
+    inFlightRef.current = true;
+    writeMutex({ exerciseSlug, createdAt: Date.now() });
     setIsCreatingSession(true);
     console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id, 'mode:', mode);
 
     startSession(
       userId,
-      {
-        blocks: [{ exercise: exerciseSlug, duration: 10 }],
-      },
+      { blocks: [{ exercise: exerciseSlug, duration: 10 }] },
       { profileId: activeProfile.id }
     )
       .then(async (session) => {
         if (!session?.id) {
           console.warn('⚠️ [useStandaloneSession] startSession returned no session');
+          clearStandaloneSessionMutex();
           return;
         }
         setLocalSessionId(session.id);
+        writeMutex({ exerciseSlug, createdAt: Date.now(), sessionId: session.id });
 
-        // Stamp mode on summary so analytics can filter
         try {
           const { supabase } = await import('@/integrations/supabase/client');
           await supabase
@@ -134,19 +150,30 @@ export const useStandaloneSession = (
         }
 
         console.log('✅ [useStandaloneSession] Session created:', {
-          sessionId: session.id,
-          profileId: activeProfile?.id,
-          exerciseSlug,
-          mode,
+          sessionId: session.id, profileId: activeProfile?.id, exerciseSlug, mode,
         });
       })
       .catch((error) => {
         console.error('❌ [useStandaloneSession] Failed to create session:', { error, exerciseSlug });
+        clearStandaloneSessionMutex();
       })
       .finally(() => {
         setIsCreatingSession(false);
+        inFlightRef.current = false;
       });
   }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug, disabled, mode]);
+
+  // On unmount, if we created the session, leave the mutex in place briefly
+  // so a remount within the same exercise reuses it; the TTL will clean it up.
+  useEffect(() => {
+    return () => {
+      const current = readMutex();
+      // Only clear if mutex belongs to us AND no sessionId resolved (acquisition aborted)
+      if (current && current.exerciseSlug === exerciseSlug && !current.sessionId) {
+        clearStandaloneSessionMutex();
+      }
+    };
+  }, [exerciseSlug]);
 
   return {
     activeSessionId,
