@@ -49,6 +49,8 @@ export const PhonologicalGame = ({
   const { speak, stop: stopSpeech, isSpeaking } = useTextToSpeech();
   const isPlayingAudioRef = useRef(false);
   
+  const game = usePhonoGame(totalTrials, config.startDifficulty || 1, customTrials);
+
   const {
     currentDifficulty,
     updateTrial,
@@ -60,6 +62,8 @@ export const PhonologicalGame = ({
       saveLevel(newLevel);
       setShowDifficultyChange(true);
       playLevelUp();
+      // Swap upcoming trials to new tier WITHOUT resetting score/progress
+      game.setActiveDifficulty(newLevel);
       onDifficultyChange?.(newLevel);
       setTimeout(() => setShowDifficultyChange(false), 2000);
     },
@@ -67,8 +71,7 @@ export const PhonologicalGame = ({
     sessionId: sessionId || undefined,
     exerciseSlug: 'phonological_awareness',
   });
-  
-  const game = usePhonoGame(totalTrials, currentDifficulty, customTrials);
+
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showDifficultyChange, setShowDifficultyChange] = useState(false);
   const [hasPlayedAudio, setHasPlayedAudio] = useState(false);
