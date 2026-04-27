@@ -65,11 +65,20 @@ export interface InGameAdaptationOptions {
   enableDifficultyToasts?: boolean;     // Default: true
   enableDifficultyAutoStepDown?: boolean; // Default: true - difficulty steps down even without UI
   enableInterventionUI?: boolean;       // Default: false - modals/confidence boosts opt-in
-  
+
+  // Cue-dependency safety gate (Phase 2 adaptive intelligence)
+  // If provided, escalations are blocked when cue dependency is high but
+  // the user hasn't yet shown ≥minTrialsAtLevelForEscalation independent trials.
+  getCueDependencyScore?: () => number | null;     // 0..1; null/undefined = unknown
+  cueDependencyEscalationThreshold?: number;        // Default: 0.5
+  minTrialsAtLevelForEscalation?: number;           // Default: 8
+
   // Callbacks
   onDifficultyChange?: (level: number, reason: string, direction: 'up' | 'down') => void;
   onFrustrationDetected?: (level: FrustrationLevel) => void;
   onInterventionRequired?: (type: InterventionType) => void;
+  /** Fired when an up-escalation is blocked by the cue-dependency gate. */
+  onEscalationBlocked?: (info: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number }) => void;
 }
 
 // Exported state for external use
