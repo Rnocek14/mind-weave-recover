@@ -4,6 +4,8 @@ import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
