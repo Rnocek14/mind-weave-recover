@@ -509,6 +509,13 @@ export function NarrativeRetellGame({
           correct: result.eventCoverage >= 0.6,
           reactionTimeMs: result.durationMs,
         });
+        engagement.recordTrial({
+          correct: result.eventCoverage >= 0.6,
+          reactionTimeMs: result.durationMs,
+          timeout: false,
+          cueLevel: 0,
+          timestamp: Date.now(),
+        });
         onTrialComplete(result);
       }
     }, 150);
