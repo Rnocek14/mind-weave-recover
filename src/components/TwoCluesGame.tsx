@@ -1084,6 +1084,7 @@ export function TwoCluesGame({
           <Badge variant="outline" className="text-xs">
             {currentIndex + 1}/{totalRounds}
           </Badge>
+          <AdaptationBadge direction={difficultyChanged} reason={adaptationNarration} />
           <Badge variant="secondary" className="text-xs">
             {game.totalScore} pts
           </Badge>
