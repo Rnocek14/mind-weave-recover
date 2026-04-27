@@ -19,6 +19,8 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
@@ -93,6 +95,9 @@ export function FixSentenceGame({
   const bounds = getCapabilityDifficultyBounds('fix_sentence', null);
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Phase 2: engagement monitor for cue dependency / fatigue signals.
+  const engagement = useEngagementMonitor(sessionId || null);
+
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -106,7 +111,15 @@ export function FixSentenceGame({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false,
     enableAutoHints: false,
-    onDifficultyChange: (_lvl, reason, dir) => signalShift(dir, reason),
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.debug('[fix_sentence] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+      void engagement.logIntervention('cue_dependency_gate', 'hold_difficulty', 'auto');
+    },
+    onDifficultyChange: (_lvl, reason, dir) => {
+      const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
+      signalShift(dir, narration || reason);
+    },
   });
 
   const {
