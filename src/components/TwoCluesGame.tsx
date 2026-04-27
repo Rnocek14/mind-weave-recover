@@ -177,6 +177,10 @@ export function TwoCluesGame({
   // Capability-based difficulty bounds (null scores = safe defaults)
   const bounds = useMemo(() => getCapabilityDifficultyBounds('two_clues', null), []);
 
+  // Phase 2: engagement monitor — feeds cue dependency into the safety gate.
+  const engagement = useEngagementMonitor(sessionId || null);
+  const [adaptationNarration, setAdaptationNarration] = useState<string | undefined>();
+
   // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
@@ -196,9 +200,23 @@ export function TwoCluesGame({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: true,
     enableAutoHints: false, // Cue ladder managed locally
-    onDifficultyChange: (_level, _reason, direction) => {
+    // Phase 2 safety gate: block UP-escalations when the cue ladder is doing the work.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.debug('[two_clues] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+      void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_cues', 'auto');
+    },
+    onDifficultyChange: (level, reason, direction) => {
       setDifficultyChanged(direction);
-      setTimeout(() => setDifficultyChanged(null), 2500);
+      const narration = narrateAdaptation({
+        direction,
+        reasonKind: classifyReason(reason),
+      });
+      setAdaptationNarration(narration || reason);
+      setTimeout(() => {
+        setDifficultyChanged(null);
+        setAdaptationNarration(undefined);
+      }, 4000);
     },
   });
 
