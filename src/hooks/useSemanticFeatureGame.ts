@@ -45,14 +45,16 @@ export const useSemanticFeatureGame = (
     recentErrors: [],
   });
 
-  // Initialize trials with deduplication
+  // Initialize trials with deduplication.
+  // CRITICAL: difficultyLevel is intentionally NOT a dep — mid-session level
+  // changes must NOT reset score/progress. Use setActiveDifficulty() instead.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let allTrials = customTrials && customTrials.length > 0 
       ? customTrials 
       : getTrialsForLevel(difficultyLevel, totalTrials * 2);
     if (allTrials.length === 0) return;
     
-    // Filter recently shown
     const trialsWithIds = allTrials.map((t, i) => ({ ...t, id: t.word + '_' + i }));
     const filtered = trialsWithIds.filter(t => !shownTrialsRef.current.has(t.id));
     const trialsToUse = filtered.length >= totalTrials ? filtered : trialsWithIds;
@@ -70,7 +72,30 @@ export const useSemanticFeatureGame = (
       showFeedback: false,
       recentErrors: [],
     }));
-  }, [totalTrials, difficultyLevel, customTrials]);
+  }, [totalTrials, customTrials]);
+
+  /**
+   * Mid-session difficulty shift. Replaces only the upcoming (unplayed) trials
+   * with ones at the new level. Preserves currentTrial index, score, history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    setState(prev => {
+      const upcomingNeeded = prev.trials.length - (prev.currentTrial + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const fresh = getTrialsForLevel(newLevel, upcomingNeeded * 2);
+      if (fresh.length === 0) return prev;
+      const freshWithIds = fresh
+        .map((t, i) => ({ ...t, id: `${t.word}_lv${newLevel}_${i}` }))
+        .filter(t => !shownTrialsRef.current.has(t.id));
+      const picked = shuffleArray(freshWithIds).slice(0, upcomingNeeded);
+      if (picked.length === 0) return prev;
+      const playedAndCurrent = prev.trials.slice(0, prev.currentTrial + 1);
+      const padded = picked.length < upcomingNeeded
+        ? [...picked, ...prev.trials.slice(prev.currentTrial + 1 + picked.length)]
+        : picked;
+      return { ...prev, trials: [...playedAndCurrent, ...padded] };
+    });
+  }, []);
 
   const toggleFeature = (featureText: string) => {
     if (state.showFeedback) return;
