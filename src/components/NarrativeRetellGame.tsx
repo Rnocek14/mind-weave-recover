@@ -127,6 +127,9 @@ export function NarrativeRetellGame({
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Engagement monitor — surfaces fatigue / cue dependency for the safety gate.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
   // In-game adaptation: shifts story tier mid-session based on retell coverage
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'narrative-retell',
@@ -135,12 +138,31 @@ export function NarrativeRetellGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Retell uses its own implicit cue model (replays/hints). Treat hesitations
+    // and timeout-rate as a soft proxy for cue dependency.
+    getCueDependencyScore: () => {
+      const sig = engagement.getState().signals;
+      const hesitationProxy = Math.min(1, sig.hesitationCount / 4);
+      const timeoutProxy = Math.min(1, sig.timeoutRate);
+      return Math.max(hesitationProxy, timeoutProxy);
+    },
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[NarrativeRetell] escalation blocked', {
+        reason,
+        cueDependencyScore,
+        trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
