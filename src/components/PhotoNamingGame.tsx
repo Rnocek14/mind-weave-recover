@@ -315,9 +315,10 @@ export const PhotoNamingGame = ({
     maxEventsPerSession: 50,
   });
 
-  // Track previous difficulty to detect changes
-  const previousDifficultyRef = useRef(initialDifficulty);
-  
+  // Engagement monitor — tracks fatigue/frustration signals at a session-window scale.
+  // Feeds the cue-dependency safety gate inside useInGameAdaptation.
+  const engagement = useEngagementMonitor(activeSessionId);
+
   // NEW: In-game adaptive layer - replaces manual AdaptiveDifficultyController
   const {
     currentDifficulty,
@@ -335,10 +336,20 @@ export const PhotoNamingGame = ({
     bounds: defaultBounds,
     enableAutoHints: autoHintsEnabled,
     enableDifficultyToasts: true,
-    enableDifficultyAutoStepDown: true, // Core: difficulty steps down on frustration
-    enableInterventionUI: false,         // UI modals disabled for now
+    enableDifficultyAutoStepDown: true,
+    enableInterventionUI: false,
+    // Cue-dependency safety gate — block escalations when avg cue use is high.
+    // engagement.signals.cueDependency is avg cue level (0..3) → normalize to 0..1.
+    getCueDependencyScore: () => {
+      const avg = engagement.getState().signals.cueDependency;
+      if (!Number.isFinite(avg) || avg <= 0) return 0;
+      return Math.min(1, avg / 3);
+    },
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[PhotoNaming] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+      void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_cues', 'auto');
+    },
     onDifficultyChange: (level, reason, direction) => {
-      // Log difficulty change to adaptation_events
       const prevLevel = previousDifficultyRef.current;
       logDifficultyChange(
         direction,
@@ -351,18 +362,25 @@ export const PhotoNamingGame = ({
         state.trialNumber
       );
       previousDifficultyRef.current = level;
-      
+
       setDifficultyChanged(direction);
       if (direction === 'up') {
         playLevelUp?.();
       } else {
         playLevelDown?.();
       }
-      onDifficultyChange?.(level, reason);
+
+      // Phase 2: patient-facing narration of the change (rendered by parent / Maya).
+      const narration = narrateAdaptation({
+        direction: level === prevLevel ? 'hold' : direction,
+        reasonKind: classifyReason(reason),
+        context: { successRate: recentSuccessRate },
+      });
+      onDifficultyChange?.(level, narration || reason);
       setTimeout(() => setDifficultyChanged(null), 2000);
     },
   });
-  
+
   // Ref to trigger voice restart after no-match
   const needsVoiceRestartRef = useRef(false);
   
