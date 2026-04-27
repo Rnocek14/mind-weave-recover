@@ -136,6 +136,8 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const frustrationLevelRef = useRef<FrustrationLevel>('none');
   const trialCountRef = useRef(0);
   const successRateRef = useRef(0);
+  /** Trials accumulated at the current difficulty level (resets on any change). */
+  const trialsAtLevelRef = useRef(0);
 
   // React state for UI re-renders (synced from refs)
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
