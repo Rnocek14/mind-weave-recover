@@ -789,6 +789,14 @@ export function TwoCluesGame({
         errorType: result.tier === 'uncertain' ? 'no_match' :
                    result.tier === 'creative' ? 'creative_link' : undefined,
       });
+      // Phase 2: feed engagement monitor with the actual cue level used this trial.
+      engagement.recordTrial({
+        correct: isSuccess,
+        reactionTimeMs: Date.now() - attemptStartTimeRef.current,
+        timeout: false,
+        cueLevel,
+        timestamp: Date.now(),
+      });
 
       // Compute cue efficacy before resetting cue state
       let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
