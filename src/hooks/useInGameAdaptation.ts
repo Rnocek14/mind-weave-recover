@@ -65,11 +65,20 @@ export interface InGameAdaptationOptions {
   enableDifficultyToasts?: boolean;     // Default: true
   enableDifficultyAutoStepDown?: boolean; // Default: true - difficulty steps down even without UI
   enableInterventionUI?: boolean;       // Default: false - modals/confidence boosts opt-in
-  
+
+  // Cue-dependency safety gate (Phase 2 adaptive intelligence)
+  // If provided, escalations are blocked when cue dependency is high but
+  // the user hasn't yet shown ≥minTrialsAtLevelForEscalation independent trials.
+  getCueDependencyScore?: () => number | null;     // 0..1; null/undefined = unknown
+  cueDependencyEscalationThreshold?: number;        // Default: 0.5
+  minTrialsAtLevelForEscalation?: number;           // Default: 8
+
   // Callbacks
   onDifficultyChange?: (level: number, reason: string, direction: 'up' | 'down') => void;
   onFrustrationDetected?: (level: FrustrationLevel) => void;
   onInterventionRequired?: (type: InterventionType) => void;
+  /** Fired when an up-escalation is blocked by the cue-dependency gate. */
+  onEscalationBlocked?: (info: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number }) => void;
 }
 
 // Exported state for external use
@@ -106,10 +115,16 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     enableDifficultyAutoStepDown = true,  // Core adaptive behavior
     enableInterventionUI = false,          // UI modals opt-in
     
+    // Cue-dependency safety gate
+    getCueDependencyScore,
+    cueDependencyEscalationThreshold = 0.5,
+    minTrialsAtLevelForEscalation = 8,
+
     // Callbacks
     onDifficultyChange,
     onFrustrationDetected,
     onInterventionRequired,
+    onEscalationBlocked,
   } = options;
 
   // ===========================================================================
@@ -121,6 +136,8 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const frustrationLevelRef = useRef<FrustrationLevel>('none');
   const trialCountRef = useRef(0);
   const successRateRef = useRef(0);
+  /** Trials accumulated at the current difficulty level (resets on any change). */
+  const trialsAtLevelRef = useRef(0);
 
   // React state for UI re-renders (synced from refs)
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
@@ -166,8 +183,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   } => {
     const controller = controllerRef.current;
     
-    // Increment trial count (ref-first)
+    // Increment trial counters (ref-first)
     trialCountRef.current += 1;
+    trialsAtLevelRef.current += 1;
     
     // Track reaction time for fatigue detection
     if (result.reactionTimeMs) {
@@ -214,6 +232,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       if (newDifficulty !== currentDifficultyRef.current) {
         difficultyAdjusted = true;
         currentDifficultyRef.current = newDifficulty;
+        trialsAtLevelRef.current = 0;
         onDifficultyChange?.(newDifficulty, 'Frustration detected - reducing difficulty', 'down');
         
         if (enableDifficultyToasts) {
@@ -236,29 +255,80 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       // CRITICAL: Capture previous level BEFORE updating the ref
       const previousLevel = currentDifficultyRef.current;
       const adjustedLevel = controller.adjustLevel(previousLevel);
-      
+
       if (adjustedLevel !== previousLevel) {
-        difficultyAdjusted = true;
-        newDifficulty = adjustedLevel;
-        currentDifficultyRef.current = adjustedLevel;
-        
-        // Direction computed from previous vs new (not new vs new)
-        const direction = adjustedLevel > previousLevel ? 'up' : 'down';
-        const successRate = controller.getSuccessRate();
-        const reason = direction === 'up' 
-          ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
-          : `Success rate ${(successRate * 100).toFixed(0)}% - providing support`;
-        
-        onDifficultyChange?.(adjustedLevel, reason, direction);
-        
-        if (enableDifficultyToasts) {
-          toast({
-            title: direction === 'up' ? "Great progress!" : "Adjusting difficulty",
-            description: direction === 'up' 
-              ? "Let's try something a bit harder."
-              : "Let's try a different approach.",
-            duration: 2500,
-          });
+        const proposedDirection = adjustedLevel > previousLevel ? 'up' : 'down';
+
+        // ── Cue-dependency safety gate ────────────────────────────────────
+        // Block UP-escalations when the user is still leaning heavily on cues
+        // and hasn't shown enough independent trials at the current level.
+        // Down-escalations always proceed (safety > escalation).
+        if (proposedDirection === 'up' && getCueDependencyScore) {
+          const cdScore = getCueDependencyScore();
+          if (
+            cdScore !== null &&
+            cdScore !== undefined &&
+            cdScore > cueDependencyEscalationThreshold &&
+            trialsAtLevelRef.current < minTrialsAtLevelForEscalation
+          ) {
+            const blockReason =
+              `Escalation blocked: cue_dependency=${cdScore.toFixed(2)} ` +
+              `> ${cueDependencyEscalationThreshold}, trials_at_level=` +
+              `${trialsAtLevelRef.current} < ${minTrialsAtLevelForEscalation}. ` +
+              `Holding level ${previousLevel} and fading cues first.`;
+
+            // Notify the engine — narrator can render "cue_dependency_hold".
+            onDifficultyChange?.(previousLevel, blockReason, 'down');
+            onEscalationBlocked?.({
+              reason: blockReason,
+              cueDependencyScore: cdScore,
+              trialsAtLevel: trialsAtLevelRef.current,
+              level: previousLevel,
+            });
+
+            // Skip applying the escalation; do NOT reset trialsAtLevel.
+          } else {
+            difficultyAdjusted = true;
+            newDifficulty = adjustedLevel;
+            currentDifficultyRef.current = adjustedLevel;
+            trialsAtLevelRef.current = 0;
+
+            const successRate = controller.getSuccessRate();
+            const reason = `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`;
+            onDifficultyChange?.(adjustedLevel, reason, 'up');
+
+            if (enableDifficultyToasts) {
+              toast({
+                title: 'Great progress!',
+                description: "Let's try something a bit harder.",
+                duration: 2500,
+              });
+            }
+          }
+        } else {
+          // Either a down-step, or no gate provided — apply normally.
+          difficultyAdjusted = true;
+          newDifficulty = adjustedLevel;
+          currentDifficultyRef.current = adjustedLevel;
+          trialsAtLevelRef.current = 0;
+
+          const direction = proposedDirection;
+          const successRate = controller.getSuccessRate();
+          const reason = direction === 'up'
+            ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
+            : `Success rate ${(successRate * 100).toFixed(0)}% - providing support`;
+
+          onDifficultyChange?.(adjustedLevel, reason, direction);
+
+          if (enableDifficultyToasts) {
+            toast({
+              title: direction === 'up' ? 'Great progress!' : 'Adjusting difficulty',
+              description: direction === 'up'
+                ? "Let's try something a bit harder."
+                : "Let's try a different approach.",
+              duration: 2500,
+            });
+          }
         }
       }
     }
@@ -281,9 +351,13 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     enableDifficultyAutoStepDown,
     enableInterventionUI,
     enableDifficultyToasts,
-    onDifficultyChange, 
+    onDifficultyChange,
     onFrustrationDetected,
-    onInterventionRequired
+    onInterventionRequired,
+    onEscalationBlocked,
+    getCueDependencyScore,
+    cueDependencyEscalationThreshold,
+    minTrialsAtLevelForEscalation,
   ]);
 
   // ===========================================================================
@@ -341,6 +415,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const stepDown = useCallback((reason: string = 'Manual difficulty reduction'): number => {
     const newLevel = controllerRef.current.handleFrustration(currentDifficultyRef.current);
     currentDifficultyRef.current = newLevel;
+    trialsAtLevelRef.current = 0;
     setCurrentDifficulty(newLevel);
     onDifficultyChange?.(newLevel, reason, 'down');
     
@@ -374,6 +449,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     frustrationLevelRef.current = 'none';
     trialCountRef.current = 0;
     successRateRef.current = 0;
+    trialsAtLevelRef.current = 0;
     reactionTimesRef.current = [];
     
     // Sync state
@@ -439,6 +515,8 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     trialCount,
     recentSuccessRate,
     shouldShowIntervention,
+    /** Trials accumulated at the current difficulty level. Resets on any change. */
+    trialsAtLevel: trialsAtLevelRef.current,
     
     // Computed (derived from refs for consistency)
     shouldSimplifyTask: frustrationLevel === 'medium' || frustrationLevel === 'high',

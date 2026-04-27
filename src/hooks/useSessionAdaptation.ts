@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useStrugglingPhonemes } from '@/hooks/useStrugglingPhonemes';
 import { useStrugglingWords } from '@/hooks/useStrugglingWords';
 import { useUserSpeechProfile, type UserSpeechProfile } from '@/hooks/useUserSpeechProfile';
+import { useUserAdaptationProfile, type UserAdaptationProfile } from '@/hooks/useUserAdaptationProfile';
 import { useRuntimeConfig } from '@/hooks/useRuntimeConfig';
 import { selectOptimalCue, type CueType, type CueRecommendation } from '@/lib/cueSelector';
 import { getScheduledWords, type ScheduledWord } from '@/lib/spacedRepetitionScheduler';
@@ -40,7 +41,17 @@ export interface AdaptationContract {
   
   // Raw profile for games that need deeper access
   speechProfile: UserSpeechProfile | null;
-  
+
+  // Phase 2 — cross-game adaptation profile
+  /** Long-running per-profile adaptation summary (errors, cue dependency, plateau). */
+  adaptationProfile: UserAdaptationProfile | null;
+  /** Cue dependency 0..1 (null when unknown). Drives the in-game safety gate. */
+  cueDependencyScore: number | null;
+  /** Whether the user is currently flagged as plateaued. */
+  plateauFlag: boolean;
+  /** Dominant error type, if any (e.g., 'semantic_paraphasia'). */
+  dominantErrorType: string | null;
+
   // Loading state
   loading: boolean;
 }
@@ -91,6 +102,13 @@ export function useSessionAdaptation(
     strugglingWords,
     loading: wordsLoading,
   } = useStrugglingWords({ userId: user?.id });
+
+  // Phase 2: long-running adaptation profile (cue dependency, plateau, dominant errors)
+  const { profile: adaptationProfile, loading: adaptationProfileLoading } =
+    useUserAdaptationProfile({
+      profileId: activeProfile?.id ?? null,
+      enabled: !!activeProfile?.id,
+    });
 
   return useMemo(() => {
     const reasons: string[] = [];
@@ -163,6 +181,23 @@ export function useSessionAdaptation(
       }
     }
 
+    // 4b. Cross-game adaptation profile bias — only applied when no stronger
+    // signal already set the cue type (engine override / lesson override).
+    if (
+      adaptationProfile?.recommended_cue_bias &&
+      adaptationProfile.recommended_cue_bias !== 'none' &&
+      cueRec.cueType === 'none'
+    ) {
+      cueRec = {
+        cueType: adaptationProfile.recommended_cue_bias as CueType,
+        reasoning:
+          `Cross-game profile bias: ${adaptationProfile.recommended_cue_bias} ` +
+          `(dominant error: ${adaptationProfile.dominant_error_type ?? 'n/a'})`,
+        confidence: adaptationProfile.data_confidence === 'high' ? 0.75 : 0.6,
+      };
+      reasons.push(cueRec.reasoning);
+    }
+
     // 5. Difficulty tier: runtime_config (clinician) > lesson override > adaptive engine > default
     const runtimeDiffOffset = getDifficulty(options.exerciseSlug);
     let difficultyTier = 1;
@@ -176,6 +211,25 @@ export function useSessionAdaptation(
     } else if (todayFocus?.adaptations?.startDifficulty) {
       difficultyTier = todayFocus.adaptations.startDifficulty;
       reasons.push(`Engine start difficulty: ${difficultyTier}`);
+    }
+
+    // 5c. Plateau / cue-dependency damping
+    // If the cross-game profile shows a plateau or high cue dependency,
+    // bias starting difficulty downward by 1 (floor 1) so the session opens
+    // with a winnable trial. Down-only — never escalates here.
+    if (
+      adaptationProfile?.plateau_flag ||
+      (adaptationProfile?.cue_dependency_score ?? 0) > 0.5
+    ) {
+      const before = difficultyTier;
+      difficultyTier = Math.max(1, difficultyTier - 1);
+      if (difficultyTier !== before) {
+        reasons.push(
+          adaptationProfile?.plateau_flag
+            ? `Plateau detected — opening 1 step easier (${before}→${difficultyTier})`
+            : `High cue dependency (${(adaptationProfile?.cue_dependency_score ?? 0).toFixed(2)}) — opening 1 step easier`,
+        );
+      }
     }
 
     // 5b. Cue level: runtime_config (clinician) > adaptive engine > speech profile
@@ -204,7 +258,12 @@ export function useSessionAdaptation(
       adaptationReasons: reasons,
       profileConfidence,
       speechProfile,
-      loading: profileLoading || phonemesLoading || wordsLoading,
+      adaptationProfile: adaptationProfile ?? null,
+      cueDependencyScore: adaptationProfile?.cue_dependency_score ?? null,
+      plateauFlag: !!adaptationProfile?.plateau_flag,
+      dominantErrorType: adaptationProfile?.dominant_error_type ?? null,
+      loading:
+        profileLoading || phonemesLoading || wordsLoading || adaptationProfileLoading,
     };
   }, [
     lessonFocusPhonemes,
@@ -215,6 +274,8 @@ export function useSessionAdaptation(
     profileTargetWords,
     strugglingWords,
     speechProfile,
+    adaptationProfile,
+    adaptationProfileLoading,
     profileLoading,
     phonemesLoading,
     wordsLoading,
