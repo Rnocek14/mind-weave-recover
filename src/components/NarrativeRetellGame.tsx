@@ -575,6 +575,13 @@ export function NarrativeRetellGame({
         correct: false,
         reactionTimeMs: durationMs,
       });
+      engagement.recordTrial({
+        correct: false,
+        reactionTimeMs: durationMs,
+        timeout: true,
+        cueLevel: 0,
+        timestamp: Date.now(),
+      });
       onTrialComplete(result);
     }
   }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation]);
