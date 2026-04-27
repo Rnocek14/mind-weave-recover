@@ -60,12 +60,14 @@ export function useSessionStallWatchdog({
 
       onStallDetected?.({ sessionId, elapsedMs });
 
-      // Best-effort telemetry write
+      // Best-effort telemetry write into shadow_events
       try {
-        await (supabase as any).from('shadow_event').insert({
+        await (supabase as any).from('shadow_events').insert({
           session_id: sessionId,
-          event_type: 'session_stall',
-          payload: {
+          task_type: 'session_stall',
+          system_action: 'stall_detected',
+          source_type: 'client_watchdog',
+          analysis_data: {
             exercise_slug: exerciseSlug,
             elapsed_ms: elapsedMs,
             stall_threshold_ms: stallThresholdMs,
