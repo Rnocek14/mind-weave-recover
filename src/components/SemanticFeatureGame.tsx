@@ -147,6 +147,8 @@ export const SemanticFeatureGame = ({
     }
   }, [vg.shouldAutoSpeak]);
 
+  const game = useSemanticFeatureGame(totalTrials, config.startDifficulty || 1, customTrials);
+
   const {
     currentDifficulty,
     updateTrial,
@@ -157,14 +159,14 @@ export const SemanticFeatureGame = ({
     onDifficultyChange: (newLevel) => {
       saveLevel(newLevel);
       playLevelUp();
+      // Swap upcoming trials to new tier WITHOUT resetting score/progress
+      game.setActiveDifficulty(newLevel);
       onDifficultyChange?.(newLevel);
     },
     userId,
     sessionId: sessionId || undefined,
     exerciseSlug: 'semantic_features',
   });
-
-  const game = useSemanticFeatureGame(totalTrials, currentDifficulty, customTrials);
 
   // Trial-level state
   const [phase, setPhase] = useState<TrialPhase>('features');
