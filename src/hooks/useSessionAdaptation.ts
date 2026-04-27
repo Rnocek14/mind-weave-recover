@@ -103,6 +103,13 @@ export function useSessionAdaptation(
     loading: wordsLoading,
   } = useStrugglingWords({ userId: user?.id });
 
+  // Phase 2: long-running adaptation profile (cue dependency, plateau, dominant errors)
+  const { profile: adaptationProfile, loading: adaptationProfileLoading } =
+    useUserAdaptationProfile({
+      profileId: activeProfile?.id ?? null,
+      enabled: !!activeProfile?.id,
+    });
+
   return useMemo(() => {
     const reasons: string[] = [];
     
