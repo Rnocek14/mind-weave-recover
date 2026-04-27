@@ -33,6 +33,7 @@ import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
 import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
+import { AdaptationProfileCard } from "@/components/patient-hub/AdaptationProfileCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
 import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
 import { ClinicianStrategyControls } from "@/components/clinician/ClinicianStrategyControls";
