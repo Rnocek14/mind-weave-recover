@@ -2435,6 +2435,72 @@ export type Database = {
         }
         Relationships: []
       }
+      user_adaptation_profiles: {
+        Row: {
+          avg_response_latency_ms: number | null
+          created_at: string
+          cue_dependency_score: number | null
+          cue_dependency_trend: string | null
+          data_confidence: string
+          dominant_error_type: string | null
+          engagement_baseline: Json
+          error_type_distribution: Json
+          id: string
+          last_computed_at: string
+          latency_trend_pct: number | null
+          plateau_domains: string[]
+          plateau_flag: boolean
+          profile_id: string
+          recommended_cue_bias: string | null
+          trial_count_window: number
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          avg_response_latency_ms?: number | null
+          created_at?: string
+          cue_dependency_score?: number | null
+          cue_dependency_trend?: string | null
+          data_confidence?: string
+          dominant_error_type?: string | null
+          engagement_baseline?: Json
+          error_type_distribution?: Json
+          id?: string
+          last_computed_at?: string
+          latency_trend_pct?: number | null
+          plateau_domains?: string[]
+          plateau_flag?: boolean
+          profile_id: string
+          recommended_cue_bias?: string | null
+          trial_count_window?: number
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          avg_response_latency_ms?: number | null
+          created_at?: string
+          cue_dependency_score?: number | null
+          cue_dependency_trend?: string | null
+          data_confidence?: string
+          dominant_error_type?: string | null
+          engagement_baseline?: Json
+          error_type_distribution?: Json
+          id?: string
+          last_computed_at?: string
+          latency_trend_pct?: number | null
+          plateau_domains?: string[]
+          plateau_flag?: boolean
+          profile_id?: string
+          recommended_cue_bias?: string | null
+          trial_count_window?: number
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -2892,6 +2958,29 @@ export type Database = {
           user_id: string | null
         }
         Relationships: []
+      }
+      v_adaptation_event_summary: {
+        Row: {
+          cue_escalations: number | null
+          difficulty_changes: number | null
+          event_date: string | null
+          exercise_slug: string | null
+          frustration_stepdowns: number | null
+          last_event_at: string | null
+          profile_id: string | null
+          sessions_touched: number | null
+          total_events: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptation_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

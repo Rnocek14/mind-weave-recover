@@ -33,6 +33,7 @@ import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
 import { ClinicalInterpretation } from "@/components/clinician/ClinicalInterpretation";
 import { ActionableNextSteps } from "@/components/clinician/ActionableNextSteps";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
+import { AdaptationProfileCard } from "@/components/patient-hub/AdaptationProfileCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
 import { WeekComparisonRow } from "@/components/clinician/WeekComparisonRow";
 import { ClinicianStrategyControls } from "@/components/clinician/ClinicianStrategyControls";
@@ -246,7 +247,10 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
         />
       </div>
 
-      {/* ═══════ SECTION 3: WHY (collapsible) ═══════ */}
+      {/* Adaptation Profile — why the system is adapting per patient */}
+      {profileId && <AdaptationProfileCard profileId={profileId} />}
+
+
       <Card className="border-border/50">
         <CollapsibleSection title="Why — Clinical Reasoning" icon={Brain} defaultOpen={false}>
           <div className="space-y-3 pb-3">
