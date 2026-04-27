@@ -84,6 +84,14 @@ export default function NarrativeRetellExercise() {
 
   const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
 
+  // Watchdog: warn + log if no trial advances within 90s of session start
+  useSessionStallWatchdog({
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    trialCount: trialsRef.current,
+    disabled: fromLesson, // lesson flow controls its own progression
+  });
+
   const handleTrialComplete = useCallback((result: NarrativeTrialResult) => {
     if (!activeSessionId) return;
     const points = Math.round(result.eventCoverage * 100);
