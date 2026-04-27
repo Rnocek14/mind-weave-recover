@@ -41,7 +41,17 @@ export interface AdaptationContract {
   
   // Raw profile for games that need deeper access
   speechProfile: UserSpeechProfile | null;
-  
+
+  // Phase 2 — cross-game adaptation profile
+  /** Long-running per-profile adaptation summary (errors, cue dependency, plateau). */
+  adaptationProfile: UserAdaptationProfile | null;
+  /** Cue dependency 0..1 (null when unknown). Drives the in-game safety gate. */
+  cueDependencyScore: number | null;
+  /** Whether the user is currently flagged as plateaued. */
+  plateauFlag: boolean;
+  /** Dominant error type, if any (e.g., 'semantic_paraphasia'). */
+  dominantErrorType: string | null;
+
   // Loading state
   loading: boolean;
 }
