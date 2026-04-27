@@ -515,6 +515,8 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     trialCount,
     recentSuccessRate,
     shouldShowIntervention,
+    /** Trials accumulated at the current difficulty level. Resets on any change. */
+    trialsAtLevel: trialsAtLevelRef.current,
     
     // Computed (derived from refs for consistency)
     shouldSimplifyTask: frustrationLevel === 'medium' || frustrationLevel === 'high',
