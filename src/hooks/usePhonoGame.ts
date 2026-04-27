@@ -165,6 +165,7 @@ export const usePhonoGame = (
     submitAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
     getCurrentTrial,
     getErrorAnalysis,
     progress: state.trials.length > 0
