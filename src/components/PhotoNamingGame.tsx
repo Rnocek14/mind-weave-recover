@@ -1741,6 +1741,13 @@ export const PhotoNamingGame = ({
       reactionTimeMs: reactionTime,
       errorType: isCorrectAnswer ? undefined : 'semantic_related'
     });
+    engagement.recordTrial({
+      correct: isCorrectAnswer,
+      reactionTimeMs: reactionTime,
+      timeout: false,
+      cueLevel,
+      timestamp: Date.now(),
+    });
     console.log('🎯 Trial recorded via adaptation hook:', adaptationResult);
 
     // Compute cue efficacy immediately (before cueState is reset)
