@@ -351,9 +351,13 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     enableDifficultyAutoStepDown,
     enableInterventionUI,
     enableDifficultyToasts,
-    onDifficultyChange, 
+    onDifficultyChange,
     onFrustrationDetected,
-    onInterventionRequired
+    onInterventionRequired,
+    onEscalationBlocked,
+    getCueDependencyScore,
+    cueDependencyEscalationThreshold,
+    minTrialsAtLevelForEscalation,
   ]);
 
   // ===========================================================================
