@@ -36,6 +36,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
