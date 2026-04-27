@@ -14,7 +14,23 @@ export const useEngagementMonitor = (sessionId: string | null) => {
    */
   const recordTrial = useCallback((trial: TrialResult): EngagementState => {
     monitorRef.current.addTrial(trial);
-    return monitorRef.current.assessState();
+    const state = monitorRef.current.assessState();
+    if (import.meta.env.DEV) {
+      // Per-trial visibility for validating engagement signals + cue dependency.
+      // Logged at debug level so it's easy to filter in DevTools.
+      console.debug('[engagement]', {
+        correct: trial.correct,
+        rt: trial.reactionTimeMs,
+        cueLevel: trial.cueLevel,
+        timeout: trial.timeout ?? false,
+        frustration: state.frustration,
+        fatigue: state.fatigue,
+        cueDependency: Number(state.signals.cueDependency.toFixed(2)),
+        errorStreak: state.signals.errorStreak,
+        recommended: state.recommendedAction,
+      });
+    }
+    return state;
   }, []);
 
   /**

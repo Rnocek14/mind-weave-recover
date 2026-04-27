@@ -20,6 +20,8 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { levelToTier } from '@/data/meaningMatchItems';
@@ -80,18 +82,26 @@ export function MeaningMatchGame({
   const bounds = useMemo(() => getCapabilityDifficultyBounds('meaning-match', null), []);
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Phase 2: engagement monitor — hint usage flows in as cueLevel.
+  const engagement = useEngagementMonitor(null);
+
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'meaning-match',
     sessionId: null,
     initialDifficulty: difficultyLevel,
     bounds,
     enableDifficultyToasts: false, // We use the inline badge instead
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.debug('[meaning-match] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTier(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
+      signalShift(dir, narration || reason);
     },
   });
 
@@ -176,6 +186,14 @@ export function MeaningMatchGame({
       adaptation.recordTrial({
         correct: result.correct,
         reactionTimeMs,
+      });
+      // Phase 2: cueLevel = 1 if first-letter hint was used, else 0.
+      engagement.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+        timeout: false,
+        cueLevel: usedHint ? 1 : 0,
+        timestamp: Date.now(),
       });
     }
   }, [phase, selectedOption, usedHint, submitAnswer, adaptation]);

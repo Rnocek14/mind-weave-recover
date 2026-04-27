@@ -26,6 +26,8 @@ import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoac
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
@@ -34,6 +36,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -175,6 +178,10 @@ export function TwoCluesGame({
   // Capability-based difficulty bounds (null scores = safe defaults)
   const bounds = useMemo(() => getCapabilityDifficultyBounds('two_clues', null), []);
 
+  // Phase 2: engagement monitor — feeds cue dependency into the safety gate.
+  const engagement = useEngagementMonitor(sessionId || null);
+  const [adaptationNarration, setAdaptationNarration] = useState<string | undefined>();
+
   // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
@@ -194,9 +201,23 @@ export function TwoCluesGame({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: true,
     enableAutoHints: false, // Cue ladder managed locally
-    onDifficultyChange: (_level, _reason, direction) => {
+    // Phase 2 safety gate: block UP-escalations when the cue ladder is doing the work.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.debug('[two_clues] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+      void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_cues', 'auto');
+    },
+    onDifficultyChange: (level, reason, direction) => {
       setDifficultyChanged(direction);
-      setTimeout(() => setDifficultyChanged(null), 2500);
+      const narration = narrateAdaptation({
+        direction,
+        reasonKind: classifyReason(reason),
+      });
+      setAdaptationNarration(narration || reason);
+      setTimeout(() => {
+        setDifficultyChanged(null);
+        setAdaptationNarration(undefined);
+      }, 4000);
     },
   });
 
@@ -769,6 +790,14 @@ export function TwoCluesGame({
         errorType: result.tier === 'uncertain' ? 'no_match' :
                    result.tier === 'creative' ? 'creative_link' : undefined,
       });
+      // Phase 2: feed engagement monitor with the actual cue level used this trial.
+      engagement.recordTrial({
+        correct: isSuccess,
+        reactionTimeMs: Date.now() - attemptStartTimeRef.current,
+        timeout: false,
+        cueLevel,
+        timestamp: Date.now(),
+      });
 
       // Compute cue efficacy before resetting cue state
       let cueTypeGiven: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'none';
@@ -1056,6 +1085,7 @@ export function TwoCluesGame({
           <Badge variant="outline" className="text-xs">
             {currentIndex + 1}/{totalRounds}
           </Badge>
+          <AdaptationBadge direction={difficultyChanged} reason={adaptationNarration} />
           <Badge variant="secondary" className="text-xs">
             {game.totalScore} pts
           </Badge>
