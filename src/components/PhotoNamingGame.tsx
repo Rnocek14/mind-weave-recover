@@ -1442,6 +1442,13 @@ export const PhotoNamingGame = ({
     
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ correct: false, timedOut: true });
+    engagement.recordTrial({
+      correct: false,
+      reactionTimeMs: 0,
+      timeout: true,
+      cueLevel,
+      timestamp: Date.now(),
+    });
     console.log('⏱️ Timeout recorded via adaptation hook:', adaptationResult);
 
     // Log telemetry with cue level and audio
