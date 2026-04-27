@@ -2125,6 +2125,13 @@ export const PhotoNamingGame = ({
       correct,
       reactionTimeMs: reactionTime
     });
+    engagement.recordTrial({
+      correct,
+      reactionTimeMs: reactionTime,
+      timeout: false,
+      cueLevel,
+      timestamp: Date.now(),
+    });
     console.log('🏥 Caregiver response recorded via adaptation hook:', adaptationResult);
 
     // Calculate encouragement score for caregiver response
