@@ -183,8 +183,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   } => {
     const controller = controllerRef.current;
     
-    // Increment trial count (ref-first)
+    // Increment trial counters (ref-first)
     trialCountRef.current += 1;
+    trialsAtLevelRef.current += 1;
     
     // Track reaction time for fatigue detection
     if (result.reactionTimeMs) {
