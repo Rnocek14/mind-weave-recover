@@ -232,6 +232,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       if (newDifficulty !== currentDifficultyRef.current) {
         difficultyAdjusted = true;
         currentDifficultyRef.current = newDifficulty;
+        trialsAtLevelRef.current = 0;
         onDifficultyChange?.(newDifficulty, 'Frustration detected - reducing difficulty', 'down');
         
         if (enableDifficultyToasts) {
