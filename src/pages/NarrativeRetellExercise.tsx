@@ -105,9 +105,16 @@ export default function NarrativeRetellExercise() {
       errorType,
       taskParameters: {
         story_id: result.storyId,
+        story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
+        prompt: result.allKeyEvents?.join(' | ') ?? null,
+        transcript: result.transcript ?? '',
+        word_count: result.wordCount,
+        duration_ms: result.durationMs,
         events_found: result.eventsFound,
         events_total: result.eventsTotal,
-        word_count: result.wordCount,
+        event_coverage: result.eventCoverage,
+        on_topic_score: result.onTopicScore,
+        skipped: result.skipped,
         trial_limit: trialLimit,
         ...adaptationTelemetry,
       },
