@@ -449,6 +449,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     frustrationLevelRef.current = 'none';
     trialCountRef.current = 0;
     successRateRef.current = 0;
+    trialsAtLevelRef.current = 0;
     reactionTimesRef.current = [];
     
     // Sync state
