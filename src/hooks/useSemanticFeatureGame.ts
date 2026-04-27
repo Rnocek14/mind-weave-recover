@@ -221,6 +221,7 @@ export const useSemanticFeatureGame = (
     submitAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
     getCurrentTrial,
     isFeatureSelected,
     isFeatureCorrect,
