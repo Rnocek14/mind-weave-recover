@@ -181,6 +181,23 @@ export function useSessionAdaptation(
       }
     }
 
+    // 4b. Cross-game adaptation profile bias — only applied when no stronger
+    // signal already set the cue type (engine override / lesson override).
+    if (
+      adaptationProfile?.recommended_cue_bias &&
+      adaptationProfile.recommended_cue_bias !== 'none' &&
+      cueRec.cueType === 'none'
+    ) {
+      cueRec = {
+        cueType: adaptationProfile.recommended_cue_bias as CueType,
+        reasoning:
+          `Cross-game profile bias: ${adaptationProfile.recommended_cue_bias} ` +
+          `(dominant error: ${adaptationProfile.dominant_error_type ?? 'n/a'})`,
+        confidence: adaptationProfile.data_confidence === 'high' ? 0.75 : 0.6,
+      };
+      reasons.push(cueRec.reasoning);
+    }
+
     // 5. Difficulty tier: runtime_config (clinician) > lesson override > adaptive engine > default
     const runtimeDiffOffset = getDifficulty(options.exerciseSlug);
     let difficultyTier = 1;
