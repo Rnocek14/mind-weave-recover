@@ -162,6 +162,7 @@ export function ExerciseModalHost({
       case 'story-retell':
         return (
           <StoryRetellProbe
+            difficultyTier={(config.difficultyTier as 1 | 2 | 3) ?? undefined}
             onComplete={(results) => {
               handleGameComplete('story-retell', results);
             }}
