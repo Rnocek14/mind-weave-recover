@@ -126,6 +126,9 @@ export function DescribeGuessGame({
 
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Phase 2: engagement monitor — describe & guess relies on prompts as implicit cues.
+  const engagement = useEngagementMonitor(sessionId || null);
+
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -139,7 +142,16 @@ export function DescribeGuessGame({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false,
     enableAutoHints: false,
-    onDifficultyChange: (_lvl, reason, dir) => signalShift(dir, reason),
+    // Cue dependency proxy: structured prompts shown count as soft cues.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.debug('[describe_guess] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
+      void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_prompts', 'auto');
+    },
+    onDifficultyChange: (_lvl, reason, dir) => {
+      const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
+      signalShift(dir, narration || reason);
+    },
   });
 
   const {
