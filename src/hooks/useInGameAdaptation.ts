@@ -115,10 +115,16 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     enableDifficultyAutoStepDown = true,  // Core adaptive behavior
     enableInterventionUI = false,          // UI modals opt-in
     
+    // Cue-dependency safety gate
+    getCueDependencyScore,
+    cueDependencyEscalationThreshold = 0.5,
+    minTrialsAtLevelForEscalation = 8,
+
     // Callbacks
     onDifficultyChange,
     onFrustrationDetected,
     onInterventionRequired,
+    onEscalationBlocked,
   } = options;
 
   // ===========================================================================
