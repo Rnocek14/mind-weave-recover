@@ -315,6 +315,9 @@ export const PhotoNamingGame = ({
     maxEventsPerSession: 50,
   });
 
+  // Track previous difficulty to detect changes
+  const previousDifficultyRef = useRef(initialDifficulty);
+
   // Engagement monitor — tracks fatigue/frustration signals at a session-window scale.
   // Feeds the cue-dependency safety gate inside useInGameAdaptation.
   const engagement = useEngagementMonitor(activeSessionId);
