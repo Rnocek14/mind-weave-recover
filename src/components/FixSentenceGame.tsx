@@ -354,6 +354,7 @@ export function FixSentenceGame({
 
         // Record for adaptive difficulty
         recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+        engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
 
         // Submit to game state
         game.submitResult(result);
