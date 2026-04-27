@@ -410,6 +410,7 @@ export function DescribeGuessGame({
             semanticSimilarity: ctx.guessResult.confidence,
           });
           recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
+          engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
         }
         wordAttemptContextRef.current = null;
         setShowFeedback(true);
@@ -539,6 +540,7 @@ export function DescribeGuessGame({
                 } : {}),
               });
               recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+              engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
             }
             setShowFeedback(true);
             setAwaitingWordAttempt(false);
@@ -568,6 +570,7 @@ export function DescribeGuessGame({
             } : {}),
           });
           recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+          engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
         }
         setShowFeedback(true);
 
