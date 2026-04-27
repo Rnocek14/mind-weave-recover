@@ -149,6 +149,9 @@ export const SentenceConstructionGame = ({
   const [showTiles, setShowTiles] = useState(false);
   const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
   const hasProcessedSpeechRef = useRef(false);
+  /** Guards against double-write of trial events (e.g. user taps Submit while
+   *  the speech-recognition auto-submit is also firing). Reset per trial. */
+  const trialCompletedRef = useRef(false);
   const [showPurpose, setShowPurpose] = useState(true);
   const [grammarStats, setGrammarStats] = useState<GrammarStats[]>([]);
 
@@ -178,6 +181,7 @@ export const SentenceConstructionGame = ({
     setHintUsed(false);
     setSpokenSentence(null);
     hasProcessedSpeechRef.current = false;
+    trialCompletedRef.current = false;
     stop();
     if (trial?.modelAudio && !completed) {
       const timer = setTimeout(() => { speak(trial.modelAudio!); }, 300);
@@ -255,7 +259,8 @@ export const SentenceConstructionGame = ({
       if (trial?.modelAudio) speak(trial.modelAudio);
       recordGrammarResult(result.trial.grammarFocus, result.correct);
       setShowPurpose(false);
-      if (onTrialComplete) {
+      if (onTrialComplete && !trialCompletedRef.current) {
+        trialCompletedRef.current = true;
         onTrialComplete({
           correct: result.correct,
           reactionTime,
@@ -290,7 +295,8 @@ export const SentenceConstructionGame = ({
     if (trial?.modelAudio) speak(trial.modelAudio);
     recordGrammarResult(result.trial.grammarFocus, result.correct);
     setShowPurpose(false);
-    if (onTrialComplete) {
+    if (onTrialComplete && !trialCompletedRef.current) {
+      trialCompletedRef.current = true;
       onTrialComplete({
         correct: result.correct,
         reactionTime,
