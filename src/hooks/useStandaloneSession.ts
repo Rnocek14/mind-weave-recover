@@ -1,6 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
+
+/** sessionStorage mutex preventing duplicate standalone session creation
+ *  during React 18 double-invoked effects or mobile re-hydration races. */
+const STANDALONE_MUTEX_KEY = 'standaloneSessionMutex';
+const STANDALONE_MUTEX_TTL_MS = 30_000;
+
+interface MutexEntry {
+  exerciseSlug: string;
+  createdAt: number;
+  sessionId?: string;
+}
+
+function readMutex(): MutexEntry | null {
+  try {
+    const raw = sessionStorage.getItem(STANDALONE_MUTEX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MutexEntry;
+    if (!parsed?.createdAt) return null;
+    if (!parsed.sessionId && Date.now() - parsed.createdAt > STANDALONE_MUTEX_TTL_MS) {
+      sessionStorage.removeItem(STANDALONE_MUTEX_KEY);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+function writeMutex(entry: MutexEntry) {
+  try { sessionStorage.setItem(STANDALONE_MUTEX_KEY, JSON.stringify(entry)); } catch { /* ignore */ }
+}
+function clearStandaloneSessionMutex() {
+  try { sessionStorage.removeItem(STANDALONE_MUTEX_KEY); } catch { /* ignore */ }
+}
+export { clearStandaloneSessionMutex };
 
 interface UseStandaloneSessionOptions {
   /**
