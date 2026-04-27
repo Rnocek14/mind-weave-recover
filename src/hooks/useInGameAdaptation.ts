@@ -254,29 +254,80 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       // CRITICAL: Capture previous level BEFORE updating the ref
       const previousLevel = currentDifficultyRef.current;
       const adjustedLevel = controller.adjustLevel(previousLevel);
-      
+
       if (adjustedLevel !== previousLevel) {
-        difficultyAdjusted = true;
-        newDifficulty = adjustedLevel;
-        currentDifficultyRef.current = adjustedLevel;
-        
-        // Direction computed from previous vs new (not new vs new)
-        const direction = adjustedLevel > previousLevel ? 'up' : 'down';
-        const successRate = controller.getSuccessRate();
-        const reason = direction === 'up' 
-          ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
-          : `Success rate ${(successRate * 100).toFixed(0)}% - providing support`;
-        
-        onDifficultyChange?.(adjustedLevel, reason, direction);
-        
-        if (enableDifficultyToasts) {
-          toast({
-            title: direction === 'up' ? "Great progress!" : "Adjusting difficulty",
-            description: direction === 'up' 
-              ? "Let's try something a bit harder."
-              : "Let's try a different approach.",
-            duration: 2500,
-          });
+        const proposedDirection = adjustedLevel > previousLevel ? 'up' : 'down';
+
+        // ── Cue-dependency safety gate ────────────────────────────────────
+        // Block UP-escalations when the user is still leaning heavily on cues
+        // and hasn't shown enough independent trials at the current level.
+        // Down-escalations always proceed (safety > escalation).
+        if (proposedDirection === 'up' && getCueDependencyScore) {
+          const cdScore = getCueDependencyScore();
+          if (
+            cdScore !== null &&
+            cdScore !== undefined &&
+            cdScore > cueDependencyEscalationThreshold &&
+            trialsAtLevelRef.current < minTrialsAtLevelForEscalation
+          ) {
+            const blockReason =
+              `Escalation blocked: cue_dependency=${cdScore.toFixed(2)} ` +
+              `> ${cueDependencyEscalationThreshold}, trials_at_level=` +
+              `${trialsAtLevelRef.current} < ${minTrialsAtLevelForEscalation}. ` +
+              `Holding level ${previousLevel} and fading cues first.`;
+
+            // Notify the engine — narrator can render "cue_dependency_hold".
+            onDifficultyChange?.(previousLevel, blockReason, 'down');
+            onEscalationBlocked?.({
+              reason: blockReason,
+              cueDependencyScore: cdScore,
+              trialsAtLevel: trialsAtLevelRef.current,
+              level: previousLevel,
+            });
+
+            // Skip applying the escalation; do NOT reset trialsAtLevel.
+          } else {
+            difficultyAdjusted = true;
+            newDifficulty = adjustedLevel;
+            currentDifficultyRef.current = adjustedLevel;
+            trialsAtLevelRef.current = 0;
+
+            const successRate = controller.getSuccessRate();
+            const reason = `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`;
+            onDifficultyChange?.(adjustedLevel, reason, 'up');
+
+            if (enableDifficultyToasts) {
+              toast({
+                title: 'Great progress!',
+                description: "Let's try something a bit harder.",
+                duration: 2500,
+              });
+            }
+          }
+        } else {
+          // Either a down-step, or no gate provided — apply normally.
+          difficultyAdjusted = true;
+          newDifficulty = adjustedLevel;
+          currentDifficultyRef.current = adjustedLevel;
+          trialsAtLevelRef.current = 0;
+
+          const direction = proposedDirection;
+          const successRate = controller.getSuccessRate();
+          const reason = direction === 'up'
+            ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
+            : `Success rate ${(successRate * 100).toFixed(0)}% - providing support`;
+
+          onDifficultyChange?.(adjustedLevel, reason, direction);
+
+          if (enableDifficultyToasts) {
+            toast({
+              title: direction === 'up' ? 'Great progress!' : 'Adjusting difficulty',
+              description: direction === 'up'
+                ? "Let's try something a bit harder."
+                : "Let's try a different approach.",
+              duration: 2500,
+            });
+          }
         }
       }
     }
