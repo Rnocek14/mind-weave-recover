@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localYYYYMMDD } from '@/lib/localDate';
 import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
+import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
