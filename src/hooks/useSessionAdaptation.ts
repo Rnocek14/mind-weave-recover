@@ -213,6 +213,25 @@ export function useSessionAdaptation(
       reasons.push(`Engine start difficulty: ${difficultyTier}`);
     }
 
+    // 5c. Plateau / cue-dependency damping
+    // If the cross-game profile shows a plateau or high cue dependency,
+    // bias starting difficulty downward by 1 (floor 1) so the session opens
+    // with a winnable trial. Down-only — never escalates here.
+    if (
+      adaptationProfile?.plateau_flag ||
+      (adaptationProfile?.cue_dependency_score ?? 0) > 0.5
+    ) {
+      const before = difficultyTier;
+      difficultyTier = Math.max(1, difficultyTier - 1);
+      if (difficultyTier !== before) {
+        reasons.push(
+          adaptationProfile?.plateau_flag
+            ? `Plateau detected — opening 1 step easier (${before}→${difficultyTier})`
+            : `High cue dependency (${(adaptationProfile?.cue_dependency_score ?? 0).toFixed(2)}) — opening 1 step easier`,
+        );
+      }
+    }
+
     // 5b. Cue level: runtime_config (clinician) > adaptive engine > speech profile
     const runtimeCueLevel = getCueLevel();
     if (runtimeCueLevel !== null) {
@@ -239,7 +258,12 @@ export function useSessionAdaptation(
       adaptationReasons: reasons,
       profileConfidence,
       speechProfile,
-      loading: profileLoading || phonemesLoading || wordsLoading,
+      adaptationProfile: adaptationProfile ?? null,
+      cueDependencyScore: adaptationProfile?.cue_dependency_score ?? null,
+      plateauFlag: !!adaptationProfile?.plateau_flag,
+      dominantErrorType: adaptationProfile?.dominant_error_type ?? null,
+      loading:
+        profileLoading || phonemesLoading || wordsLoading || adaptationProfileLoading,
     };
   }, [
     lessonFocusPhonemes,
@@ -250,6 +274,8 @@ export function useSessionAdaptation(
     profileTargetWords,
     strugglingWords,
     speechProfile,
+    adaptationProfile,
+    adaptationProfileLoading,
     profileLoading,
     phonemesLoading,
     wordsLoading,
