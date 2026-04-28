@@ -28,6 +28,8 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { TypingFallbackBar, getPreferTyping, setPreferTyping } from '@/components/TypingFallbackBar';
+import { Keyboard } from 'lucide-react';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
