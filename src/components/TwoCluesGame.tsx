@@ -639,6 +639,11 @@ export function TwoCluesGame({
       clearTimeout(stallTimerRef.current);
       stallTimerRef.current = null;
     }
+    // Safety net: ensure last puzzle's heard text/answer never lingers on screen.
+    setDisplayTranscript('');
+    setFilteredDisplay('');
+    rawTranscriptRef.current = '';
+    lastScoredCandidateRef.current = '';
   }, [game.currentIndex]);
 
   // ==========================================================================
