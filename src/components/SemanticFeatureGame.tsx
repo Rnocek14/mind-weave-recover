@@ -257,7 +257,30 @@ export const SemanticFeatureGame = ({
 
     // Overall success = features mostly right + retrieval correct
     const overallCorrect = featureResult.correct && isRetrievalCorrect;
-    updateTrial(overallCorrect);
+
+    // ── cueLevel reflects scaffolding actually used ─────────────────────
+    // SFA features ARE the cue scaffolding. Level the user's reliance:
+    //   0 = retrieved with no/very few features selected (independent)
+    //   1 = retrieved with some features selected (light cue use)
+    //   2 = retrieved with most features selected (heavy cue use)
+    const totalFeatures = trial.correctFeatures.length || 1;
+    const usedRatio = result.featuresCorrect / totalFeatures;
+    const sfaCueLevel = usedRatio >= 0.7 ? 2 : usedRatio >= 0.3 ? 1 : 0;
+
+    // Feed adaptive engine (rolling window + safety gate)
+    adaptation.recordTrial({
+      correct: overallCorrect,
+      reactionTimeMs: reactionTime,
+      cueWasShown: sfaCueLevel > 0,
+    });
+
+    // Feed engagement monitor (cue dependency + fatigue + frustration)
+    engagement.recordTrial({
+      correct: overallCorrect,
+      reactionTimeMs: reactionTime,
+      cueLevel: sfaCueLevel,
+      timeout: false,
+    });
 
     if (overallCorrect) playSuccess();
     else if (isRetrievalCorrect) playSuccess(); // partial success
@@ -266,7 +289,7 @@ export const SemanticFeatureGame = ({
     logTrial({
       correct: overallCorrect,
       reactionTimeMs: reactionTime,
-      cueLevel: 0,
+      cueLevel: sfaCueLevel,
       errorType: overallCorrect ? null : 'semantic_error',
       taskParameters: {
         difficulty: currentDifficulty,
@@ -288,17 +311,19 @@ export const SemanticFeatureGame = ({
     onTrialComplete?.({
       correct: overallCorrect,
       reactionTime,
+      cueLevel: sfaCueLevel,
       featureBreakdown: result.featureBreakdown,
       retrievalCorrect: isRetrievalCorrect,
     });
 
     setPhase('feedback');
-  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, updateTrial, logTrial, onTrialComplete, playSuccess, playError]);
+  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, adaptation, engagement, logTrial, onTrialComplete, playSuccess, playError]);
 
   const handleNext = useCallback(() => {
-    const { newLevel } = checkAndAdjust();
-    game.nextTrial(newLevel);
-  }, [checkAndAdjust, game]);
+    // useInGameAdaptation has already applied any difficulty change via
+    // onDifficultyChange (which calls game.setActiveDifficulty). Just advance.
+    game.nextTrial(adaptation.currentDifficulty);
+  }, [game, adaptation.currentDifficulty]);
 
   // Completion
   useEffect(() => {
