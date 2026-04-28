@@ -36,7 +36,8 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
@@ -86,6 +87,12 @@ export function DescribeGuessGame({
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
+  // Typing fallback — when mic fails or user opts in. Persisted across trials.
+  const [useTyping, setUseTyping] = useState(
+    () => typeof window !== 'undefined' && sessionStorage.getItem('preferTypingInput') === 'true'
+  );
+  const [typedAnswer, setTypedAnswer] = useState('');
+  const speechErrorCountRef = useRef(0);
   const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
