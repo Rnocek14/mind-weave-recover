@@ -341,6 +341,8 @@ export const PhotoNamingGame = ({
     reset: resetAdaptation,
     controller: adaptiveController,
   } = useInGameAdaptation({
+    autoLog: false, // we forward via onTrialLogged below
+
     exerciseSlug: 'photo_naming',
     sessionId: activeSessionId,
     initialDifficulty,
