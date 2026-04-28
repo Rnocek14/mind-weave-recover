@@ -383,9 +383,16 @@ export function CategoryFluencyGame({
       // No spoken feedback on final round — the transition card handles reflection
     } else {
       setPhase('round-done');
-      // Spoken feedback between rounds
+      // Spoken feedback between rounds — NEVER praise an empty/near-empty round.
+      // Clinical safety: zero-word output gets a neutral repair line instead of "Good — you named 0".
       if (vg.shouldAutoSpeak) {
-        vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+        if (validWords.length === 0) {
+          vg.speakIfVoiceLed(`That one was tough. Let's try a different category — I'll make it a little easier.`);
+        } else if (validWords.length === 1) {
+          vg.speakIfVoiceLed(`You found one ${config.label.toLowerCase().replace(/s$/, '')}. We'll try a different angle next.`);
+        } else {
+          vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+        }
       }
     }
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg]);
