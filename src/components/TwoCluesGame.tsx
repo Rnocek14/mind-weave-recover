@@ -27,6 +27,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
