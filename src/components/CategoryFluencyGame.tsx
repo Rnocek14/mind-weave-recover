@@ -34,6 +34,7 @@ import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/li
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { pickEncouragement } from '@/lib/feedbackPolicy';
 
 // Categories ordered by difficulty
 const CATEGORY_TIERS = [
