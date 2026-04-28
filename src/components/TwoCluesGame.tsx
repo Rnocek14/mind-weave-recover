@@ -227,6 +227,21 @@ export function TwoCluesGame({
         setAdaptationNarration(undefined);
       }, 4000);
     },
+    onTrialLogged: (snap) => {
+      logAdaptationTrial({
+        trialIndex: snap.trialIndex,
+        difficulty: snap.difficulty,
+        cueLevel,
+        cueDependency: snap.cueDependency,
+        successRate: snap.successRate,
+        correct: snap.correct,
+        reactionTimeMs: snap.reactionTimeMs,
+        frustration: snap.frustration,
+        trialsAtLevel: snap.trialsAtLevel,
+        difficultyChange: snap.difficultyChange,
+        escalationBlocked: snap.escalationBlocked,
+      });
+    },
   });
 
   // Adaptation event logger for cue telemetry
