@@ -4,6 +4,7 @@ import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ export const PhonologicalGame = ({
   const isPlayingAudioRef = useRef(false);
   
   const game = usePhonoGame(totalTrials, config.startDifficulty || 1, customTrials);
+  const engagement = useEngagementMonitor(sessionId || null);
 
   const {
     currentDifficulty,
@@ -70,6 +72,7 @@ export const PhonologicalGame = ({
     userId,
     sessionId: sessionId || undefined,
     exerciseSlug: 'phonological_awareness',
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -112,7 +115,8 @@ export const PhonologicalGame = ({
     setHasSubmitted(true);
     const result = game.submitAnswer(answer);
     const reactionTime = calculateReactionTime();
-    updateTrial(result.correct);
+    updateTrial(result.correct, reactionTime);
+    engagement.recordTrial({ correct: result.correct, reactionTimeMs: reactionTime, timeout: false, cueLevel: 0, timestamp: Date.now() });
     if (result.correct) { playSuccess(); } else { playError(); }
     
     const trial = game.getCurrentTrial();
