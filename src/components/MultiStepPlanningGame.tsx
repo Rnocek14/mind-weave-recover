@@ -276,6 +276,9 @@ export function MultiStepPlanningGame({
     }, 150);
   }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
 
+  // Bridge handleDone for typing-fallback path
+  useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
+
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
