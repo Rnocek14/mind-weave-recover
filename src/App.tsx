@@ -149,6 +149,8 @@ const App = () => (
 
                   {/* Dev-only validation harness */}
                   <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
+                  <Route path="/dev/session-replay" element={<SessionReplayDev />} />
+                  <Route path="/dev/session-replay/:sessionId" element={<SessionReplayDev />} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
