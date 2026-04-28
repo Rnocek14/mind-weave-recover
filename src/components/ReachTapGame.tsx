@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle, Star, Eye } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
