@@ -2,6 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 // ============================================================================
 // In-Game Adaptive Layer
