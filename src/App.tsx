@@ -70,6 +70,7 @@ import SpeechProfile from "./pages/SpeechProfile";
 import ShadowAnalytics from "./pages/ShadowAnalytics";
 import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
+import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -144,7 +145,10 @@ const App = () => (
                   <Route path="/exercise/synonym-generator" element={<SynonymGeneratorExercise />} />
                   <Route path="/exercise/voice-practice" element={<VoicePractice />} />
                   <Route path="/lesson" element={<Lesson />} />
-                  
+
+                  {/* Dev-only validation harness */}
+                  <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
+
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
                   <Route path="/insights" element={<AppLayout><Insights /></AppLayout>} />
