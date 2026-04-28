@@ -27,6 +27,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
@@ -182,6 +183,13 @@ export function TwoCluesGame({
   const engagement = useEngagementMonitor(sessionId || null);
   const [adaptationNarration, setAdaptationNarration] = useState<string | undefined>();
 
+  // Phase 4 — live trial logger.
+  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+    userId,
+    sessionId: sessionId || null,
+    exerciseSlug: 'two_clues',
+  });
+
   // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
@@ -218,6 +226,21 @@ export function TwoCluesGame({
         setDifficultyChanged(null);
         setAdaptationNarration(undefined);
       }, 4000);
+    },
+    onTrialLogged: (snap) => {
+      logAdaptationTrial({
+        trialIndex: snap.trialIndex,
+        difficulty: snap.difficulty,
+        cueLevel,
+        cueDependency: snap.cueDependency,
+        successRate: snap.successRate,
+        correct: snap.correct,
+        reactionTimeMs: snap.reactionTimeMs,
+        frustration: snap.frustration,
+        trialsAtLevel: snap.trialsAtLevel,
+        difficultyChange: snap.difficultyChange,
+        escalationBlocked: snap.escalationBlocked,
+      });
     },
   });
 

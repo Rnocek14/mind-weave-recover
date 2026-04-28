@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbu
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -322,6 +323,13 @@ export const PhotoNamingGame = ({
   // Feeds the cue-dependency safety gate inside useInGameAdaptation.
   const engagement = useEngagementMonitor(activeSessionId);
 
+  // Phase 4 — live per-trial logging for real-world adaptive validation.
+  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+    userId: user?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: 'photo_naming',
+  });
+
   // NEW: In-game adaptive layer - replaces manual AdaptiveDifficultyController
   const {
     currentDifficulty,
@@ -381,6 +389,21 @@ export const PhotoNamingGame = ({
       });
       onDifficultyChange?.(level, narration || reason);
       setTimeout(() => setDifficultyChanged(null), 2000);
+    },
+    onTrialLogged: (snap) => {
+      logAdaptationTrial({
+        trialIndex: snap.trialIndex,
+        difficulty: snap.difficulty,
+        cueLevel: showCueRef.current ? 1 : 0,
+        cueDependency: snap.cueDependency,
+        successRate: snap.successRate,
+        correct: snap.correct,
+        reactionTimeMs: snap.reactionTimeMs,
+        frustration: snap.frustration,
+        trialsAtLevel: snap.trialsAtLevel,
+        difficultyChange: snap.difficultyChange,
+        escalationBlocked: snap.escalationBlocked,
+      });
     },
   });
 

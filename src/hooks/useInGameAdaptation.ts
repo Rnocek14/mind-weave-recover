@@ -79,6 +79,22 @@ export interface InGameAdaptationOptions {
   onInterventionRequired?: (type: InterventionType) => void;
   /** Fired when an up-escalation is blocked by the cue-dependency gate. */
   onEscalationBlocked?: (info: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number }) => void;
+  /**
+   * Fired AFTER every trial computation with a complete snapshot.
+   * Used by useAdaptationTrialLogger to persist per-trial telemetry to Supabase.
+   */
+  onTrialLogged?: (snapshot: {
+    trialIndex: number;
+    difficulty: number;
+    successRate: number;
+    cueDependency: number | null;
+    trialsAtLevel: number;
+    correct: boolean;
+    reactionTimeMs?: number;
+    frustration: FrustrationLevel;
+    difficultyChange?: { direction: 'up' | 'down'; from: number; to: number; reason: string } | null;
+    escalationBlocked?: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number } | null;
+  }) => void;
 }
 
 // Exported state for external use
@@ -125,6 +141,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onFrustrationDetected,
     onInterventionRequired,
     onEscalationBlocked,
+    onTrialLogged,
   } = options;
 
   // ===========================================================================
@@ -223,17 +240,23 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     // Difficulty adjustment logic
     let difficultyAdjusted = false;
     let newDifficulty = currentDifficultyRef.current;
+    // Capture event metadata for onTrialLogged snapshot
+    let evtChange: { direction: 'up' | 'down'; from: number; to: number; reason: string } | null = null;
+    let evtBlocked: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number } | null = null;
     
     // Handle high frustration with emergency step-down
     // Note: step-down happens if enableDifficultyAutoStepDown is true (core behavior)
     // UI interventions (modals) only show if enableInterventionUI is true
     if (newFrustrationLevel === 'high' && enableDifficultyAutoStepDown) {
+      const fromLevel = currentDifficultyRef.current;
       newDifficulty = controller.handleFrustration(currentDifficultyRef.current);
       if (newDifficulty !== currentDifficultyRef.current) {
         difficultyAdjusted = true;
         currentDifficultyRef.current = newDifficulty;
         trialsAtLevelRef.current = 0;
-        onDifficultyChange?.(newDifficulty, 'Frustration detected - reducing difficulty', 'down');
+        const reason = 'Frustration detected - reducing difficulty';
+        evtChange = { direction: 'down', from: fromLevel, to: newDifficulty, reason };
+        onDifficultyChange?.(newDifficulty, reason, 'down');
         
         if (enableDifficultyToasts) {
           toast({
@@ -277,14 +300,16 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
               `${trialsAtLevelRef.current} < ${minTrialsAtLevelForEscalation}. ` +
               `Holding level ${previousLevel} and fading cues first.`;
 
-            // Notify the engine — narrator can render "cue_dependency_hold".
-            onDifficultyChange?.(previousLevel, blockReason, 'down');
-            onEscalationBlocked?.({
+            evtBlocked = {
               reason: blockReason,
               cueDependencyScore: cdScore,
               trialsAtLevel: trialsAtLevelRef.current,
               level: previousLevel,
-            });
+            };
+
+            // Notify the engine — narrator can render "cue_dependency_hold".
+            onDifficultyChange?.(previousLevel, blockReason, 'down');
+            onEscalationBlocked?.(evtBlocked);
 
             // Skip applying the escalation; do NOT reset trialsAtLevel.
           } else {
@@ -295,6 +320,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
 
             const successRate = controller.getSuccessRate();
             const reason = `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`;
+            evtChange = { direction: 'up', from: previousLevel, to: adjustedLevel, reason };
             onDifficultyChange?.(adjustedLevel, reason, 'up');
 
             if (enableDifficultyToasts) {
@@ -318,6 +344,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
             ? `Success rate ${(successRate * 100).toFixed(0)}% - increasing challenge`
             : `Success rate ${(successRate * 100).toFixed(0)}% - providing support`;
 
+          evtChange = { direction, from: previousLevel, to: adjustedLevel, reason };
           onDifficultyChange?.(adjustedLevel, reason, direction);
 
           if (enableDifficultyToasts) {
@@ -339,6 +366,27 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     setFrustrationLevel(frustrationLevelRef.current);
     setCurrentDifficulty(currentDifficultyRef.current);
     setRecentSuccessRate(successRateRef.current);
+
+    // Phase 4: emit a complete per-trial snapshot for live logging.
+    if (onTrialLogged) {
+      let cueDep: number | null = null;
+      try {
+        const v = getCueDependencyScore?.();
+        cueDep = v == null ? null : v;
+      } catch { /* noop */ }
+      onTrialLogged({
+        trialIndex: trialCountRef.current - 1,
+        difficulty: currentDifficultyRef.current,
+        successRate: successRateRef.current,
+        cueDependency: cueDep,
+        trialsAtLevel: trialsAtLevelRef.current,
+        correct: result.correct,
+        reactionTimeMs: result.reactionTimeMs,
+        frustration: frustrationLevelRef.current,
+        difficultyChange: evtChange,
+        escalationBlocked: evtBlocked,
+      });
+    }
     
     return {
       difficultyAdjusted,
@@ -355,6 +403,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onFrustrationDetected,
     onInterventionRequired,
     onEscalationBlocked,
+    onTrialLogged,
     getCueDependencyScore,
     cueDependencyEscalationThreshold,
     minTrialsAtLevelForEscalation,

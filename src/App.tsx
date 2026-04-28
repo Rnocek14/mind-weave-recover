@@ -71,6 +71,7 @@ import ShadowAnalytics from "./pages/ShadowAnalytics";
 import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
+import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -148,6 +149,8 @@ const App = () => (
 
                   {/* Dev-only validation harness */}
                   <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
+                  <Route path="/dev/session-replay" element={<SessionReplayDev />} />
+                  <Route path="/dev/session-replay/:sessionId" element={<SessionReplayDev />} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
