@@ -49,6 +49,45 @@ export type Database = {
           },
         ]
       }
+      adaptation_anomalies: {
+        Row: {
+          anomaly_type: string
+          created_at: string
+          detail: string | null
+          evidence: Json | null
+          exercise_slug: string | null
+          id: string
+          session_id: string | null
+          severity: string
+          trial_index: number | null
+          user_id: string
+        }
+        Insert: {
+          anomaly_type: string
+          created_at?: string
+          detail?: string | null
+          evidence?: Json | null
+          exercise_slug?: string | null
+          id?: string
+          session_id?: string | null
+          severity?: string
+          trial_index?: number | null
+          user_id: string
+        }
+        Update: {
+          anomaly_type?: string
+          created_at?: string
+          detail?: string | null
+          evidence?: Json | null
+          exercise_slug?: string | null
+          id?: string
+          session_id?: string | null
+          severity?: string
+          trial_index?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       adaptation_events: {
         Row: {
           adaptation_type: string
@@ -120,6 +159,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      adaptation_trial_logs: {
+        Row: {
+          correct: boolean | null
+          created_at: string
+          cue_dependency: number | null
+          cue_level: number | null
+          difficulty: number
+          difficulty_change_direction: string | null
+          difficulty_change_from: number | null
+          difficulty_change_reason: string | null
+          difficulty_change_to: number | null
+          escalation_block_reason: string | null
+          escalation_blocked: boolean
+          exercise_slug: string
+          fatigue: string | null
+          frustration: string | null
+          id: string
+          narration: string | null
+          reaction_time_ms: number | null
+          recommended_action: string | null
+          session_id: string | null
+          success_rate: number | null
+          trial_index: number
+          trials_at_level: number | null
+          user_id: string
+        }
+        Insert: {
+          correct?: boolean | null
+          created_at?: string
+          cue_dependency?: number | null
+          cue_level?: number | null
+          difficulty: number
+          difficulty_change_direction?: string | null
+          difficulty_change_from?: number | null
+          difficulty_change_reason?: string | null
+          difficulty_change_to?: number | null
+          escalation_block_reason?: string | null
+          escalation_blocked?: boolean
+          exercise_slug: string
+          fatigue?: string | null
+          frustration?: string | null
+          id?: string
+          narration?: string | null
+          reaction_time_ms?: number | null
+          recommended_action?: string | null
+          session_id?: string | null
+          success_rate?: number | null
+          trial_index: number
+          trials_at_level?: number | null
+          user_id: string
+        }
+        Update: {
+          correct?: boolean | null
+          created_at?: string
+          cue_dependency?: number | null
+          cue_level?: number | null
+          difficulty?: number
+          difficulty_change_direction?: string | null
+          difficulty_change_from?: number | null
+          difficulty_change_reason?: string | null
+          difficulty_change_to?: number | null
+          escalation_block_reason?: string | null
+          escalation_blocked?: boolean
+          exercise_slug?: string
+          fatigue?: string | null
+          frustration?: string | null
+          id?: string
+          narration?: string | null
+          reaction_time_ms?: number | null
+          recommended_action?: string | null
+          session_id?: string | null
+          success_rate?: number | null
+          trial_index?: number
+          trials_at_level?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       adaptive_decision_logs: {
         Row: {
