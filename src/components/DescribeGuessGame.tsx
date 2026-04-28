@@ -36,7 +36,8 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
@@ -86,6 +87,12 @@ export function DescribeGuessGame({
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
+  // Typing fallback — when mic fails or user opts in. Persisted across trials.
+  const [useTyping, setUseTyping] = useState(
+    () => typeof window !== 'undefined' && sessionStorage.getItem('preferTypingInput') === 'true'
+  );
+  const [typedAnswer, setTypedAnswer] = useState('');
+  const speechErrorCountRef = useRef(0);
   const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
@@ -213,6 +220,35 @@ export function DescribeGuessGame({
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
   useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
 
+  // Auto-flip to typing when mic permission is denied or after 2 speech errors.
+  // Mirrors the safety pattern in CategoryFluencyGame so a stroke patient is
+  // never stuck staring at "Mic off / Use typing instead" with nowhere to type.
+  useEffect(() => {
+    if (!speechError) return;
+    speechErrorCountRef.current += 1;
+    const isPermissionDenied = /denied|not-allowed|permission/i.test(speechError);
+    if ((isPermissionDenied || speechErrorCountRef.current >= 2) && !useTyping) {
+      setUseTyping(true);
+      try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
+    }
+  }, [speechError, useTyping]);
+
+  // When user switches to typing, stop the mic so the two inputs don't fight.
+  useEffect(() => {
+    if (useTyping && speechIsListening) {
+      stopListening();
+      setIsListening(false);
+    }
+  }, [useTyping, speechIsListening, stopListening]);
+
+  const handleTypedSubmit = useCallback(() => {
+    const text = typedAnswer.trim();
+    if (text.length < 3) return;
+    setDisplayTranscript(text);
+    rawTranscriptRef.current = text;
+    runEvaluationRef.current();
+  }, [typedAnswer]);
+
   // Start prompt cooldown timers when trial begins
   const startPromptTimers = useCallback(() => {
     promptTimersRef.current.forEach(t => clearTimeout(t));
@@ -302,13 +338,18 @@ export function DescribeGuessGame({
       });
     }
 
-    // Start listening regardless of session/user readiness
-    setTimeout(() => {
-      startListening();
-      setIsListening(true);
-      listeningStartRef.current = Date.now();
-      if (isRecordingSupported) startRecording();
-    }, 300);
+    // Start listening — but skip when the user is using the typing fallback,
+    // otherwise the mic would activate every trial and overwrite typed input.
+    if (!useTyping) {
+      setTimeout(() => {
+        startListening();
+        setIsListening(true);
+        listeningStartRef.current = Date.now();
+        if (isRecordingSupported) startRecording();
+      }, 300);
+    } else {
+      setTypedAnswer('');
+    }
 
     startPromptTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -870,8 +911,30 @@ export function DescribeGuessGame({
         compact
       />
 
+      {/* Typing fallback — appears when mic fails or user opts in */}
+      {useTyping && !showFeedback && !awaitingWordAttempt && !isEvaluating && (
+        <div className="px-4 space-y-2">
+          <Textarea
+            value={typedAnswer}
+            onChange={(e) => setTypedAnswer(e.target.value)}
+            placeholder="Type your description here…"
+            className="min-h-[88px] text-base"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleTypedSubmit();
+              }
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Press <kbd className="rounded border bg-muted px-1">⌘/Ctrl + Enter</kbd> or tap “I'm done”.
+          </p>
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="flex justify-center gap-3 shrink-0 pb-1">
+      <div className="flex justify-center gap-3 shrink-0 pb-1 flex-wrap">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
             🤔 Guessing...
@@ -883,23 +946,78 @@ export function DescribeGuessGame({
               size="sm"
               onClick={() => {
                 if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
-                runEvaluation();
+                if (useTyping) {
+                  handleTypedSubmit();
+                } else {
+                  runEvaluation();
+                }
               }}
-              disabled={!displayTranscript || displayTranscript.trim().length < 3}
+              disabled={
+                useTyping
+                  ? typedAnswer.trim().length < 3
+                  : !displayTranscript || displayTranscript.trim().length < 3
+              }
               className="h-9"
             >
               <Check className="h-4 w-4 mr-1" /> I'm done
             </Button>
 
+            {/* Typing toggle — REAL button, not a status pill.
+                Always available so the patient can switch even before mic fails. */}
+            {useTyping ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setUseTyping(false);
+                  try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
+                  speechErrorCountRef.current = 0;
+                  setTimeout(() => { startListening(); setIsListening(true); }, 200);
+                }}
+                className="h-9"
+              >
+                <Mic className="h-3.5 w-3.5 mr-1" /> Use mic
+              </Button>
+            ) : (
+              <Button
+                variant={speechError ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setUseTyping(true);
+                  try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
+                  if (speechIsListening) stopListening();
+                }}
+                className="h-9"
+              >
+                <Keyboard className="h-3.5 w-3.5 mr-1" />
+                {speechError ? 'Use typing instead' : 'Type instead'}
+              </Button>
+            )}
+
+            {/* Mic status pill — visual only, not interactive */}
+            {!useTyping && (
+              <div className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+              )}>
+                {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+                {isListening ? 'Listening...' : 'Mic off'}
+              </div>
+            )}
+
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
+              <SkipForward className="h-4 w-4 mr-1" /> Skip
+            </Button>
+          </>
+        ) : awaitingWordAttempt ? (
+          <>
             <div className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-              speechError ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
               isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
             )}>
-              {speechError ? <MicOff className="h-3.5 w-3.5" /> : isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-              {speechError ? 'Use typing instead' : isListening ? 'Listening...' : 'Mic off'}
+              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+              {isListening ? 'Say the word...' : 'Mic off'}
             </div>
-
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
               <SkipForward className="h-4 w-4 mr-1" /> Skip
             </Button>

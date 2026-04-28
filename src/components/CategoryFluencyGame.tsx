@@ -383,9 +383,16 @@ export function CategoryFluencyGame({
       // No spoken feedback on final round — the transition card handles reflection
     } else {
       setPhase('round-done');
-      // Spoken feedback between rounds
+      // Spoken feedback between rounds — NEVER praise an empty/near-empty round.
+      // Clinical safety: zero-word output gets a neutral repair line instead of "Good — you named 0".
       if (vg.shouldAutoSpeak) {
-        vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+        if (validWords.length === 0) {
+          vg.speakIfVoiceLed(`That one was tough. Let's try a different category — I'll make it a little easier.`);
+        } else if (validWords.length === 1) {
+          vg.speakIfVoiceLed(`You found one ${config.label.toLowerCase().replace(/s$/, '')}. We'll try a different angle next.`);
+        } else {
+          vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
+        }
       }
     }
   }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg]);
@@ -665,14 +672,30 @@ export function CategoryFluencyGame({
   if (phase === 'round-done') {
     const lastResult = results[results.length - 1];
     const roundAnalysis = lastResult.analysis;
+    const isEmptyRound = lastResult.uniqueWordCount === 0;
     return (
-      <RoundDoneAutoAdvance onAdvance={nextRound}>
-        <p className="text-2xl font-bold">{lastResult.uniqueWordCount} {lastResult.uniqueWordCount === 1 ? 'word' : 'words'}</p>
-        <div className="flex flex-wrap gap-1 justify-center">
-          {lastResult.words.map((w, i) => (
-            <Badge key={i} variant="secondary" className="text-xs">{w}</Badge>
-          ))}
-        </div>
+      <RoundDoneAutoAdvance
+        onAdvance={nextRound}
+        delayMs={isEmptyRound ? 6000 : 3000}
+        buttonLabel={isEmptyRound ? 'Try a different one' : 'Next Round'}
+      >
+        {isEmptyRound ? (
+          <>
+            <p className="text-base font-medium text-foreground">That one was tough.</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              No problem — we'll switch to an easier category and give you more time.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-2xl font-bold">{lastResult.uniqueWordCount} {lastResult.uniqueWordCount === 1 ? 'word' : 'words'}</p>
+            <div className="flex flex-wrap gap-1 justify-center">
+              {lastResult.words.map((w, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">{w}</Badge>
+              ))}
+            </div>
+          </>
+        )}
         {roundAnalysis && roundAnalysis.clusterCount > 0 && (
           <p className="text-sm text-muted-foreground">
             {roundAnalysis.clusterCount} group{roundAnalysis.clusterCount > 1 ? 's' : ''} found

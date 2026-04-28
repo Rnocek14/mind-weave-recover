@@ -55,7 +55,7 @@ export interface InGameAdaptationOptions {
   bounds: DifficultyBounds;
   
   // Thresholds (with sensible research-aligned defaults)
-  windowSize?: number;                  // Default: 5 (rolling window for success rate)
+  windowSize?: number;                  // Default: 4 (rolling window for success rate; was 5 — too large for short 3-round games)
   targetSuccessRate?: number;           // Default: 0.80 (research: 75-85% sweet spot)
   adjustmentThreshold?: number;         // Default: 0.10 (70-90% flow zone)
   
@@ -132,7 +132,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     bounds,
     
     // Thresholds with research-aligned defaults
-    windowSize = 5,
+    windowSize = 4,
     targetSuccessRate = 0.80,
     adjustmentThreshold = 0.10,
     frustrationErrorThreshold = 3,
