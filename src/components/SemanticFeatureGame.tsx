@@ -457,6 +457,16 @@ export const SemanticFeatureGame = ({
       </div>
       <Progress value={game.progress} className="h-1.5" />
 
+      {/* Visible adaptation cue + narration */}
+      {shiftDirection && (
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
+        </div>
+      )}
+
       {/* Purpose banner — first trial only */}
       {showPurpose && game.currentTrial === 0 && (
         <ExercisePurposeBanner exerciseSlug="semantic-features" />
