@@ -394,13 +394,14 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     setRecentSuccessRate(successRateRef.current);
 
     // Phase 4: emit a complete per-trial snapshot for live logging.
-    if (onTrialLogged) {
+    {
       let cueDep: number | null = null;
       try {
         const v = getCueDependencyScore?.();
         cueDep = v == null ? null : v;
       } catch { /* noop */ }
-      onTrialLogged({
+
+      const snapshot = {
         trialIndex: trialCountRef.current - 1,
         difficulty: currentDifficultyRef.current,
         successRate: successRateRef.current,
@@ -411,9 +412,32 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
         frustration: frustrationLevelRef.current,
         difficultyChange: evtChange,
         escalationBlocked: evtBlocked,
-      });
+      };
+
+      // Caller-supplied subscriber (e.g. PhotoNaming/TwoClues forward to logger)
+      onTrialLogged?.(snapshot);
+
+      // Auto-wired logger — fires for every adaptive game unless autoLog=false.
+      if (autoLog && user?.id) {
+        try {
+          autoLogTrial({
+            trialIndex: snapshot.trialIndex,
+            difficulty: snapshot.difficulty,
+            cueDependency: snapshot.cueDependency,
+            successRate: snapshot.successRate,
+            correct: snapshot.correct,
+            reactionTimeMs: snapshot.reactionTimeMs ?? null,
+            frustration: snapshot.frustration,
+            trialsAtLevel: snapshot.trialsAtLevel,
+            difficultyChange: snapshot.difficultyChange ?? null,
+            escalationBlocked: snapshot.escalationBlocked ?? null,
+          });
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);
+        }
+      }
     }
-    
+
     return {
       difficultyAdjusted,
       newDifficulty,
