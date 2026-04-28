@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbu
 import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { TrialTimer } from '@/components/TrialTimer';
