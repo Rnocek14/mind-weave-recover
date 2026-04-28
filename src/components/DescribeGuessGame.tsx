@@ -338,13 +338,18 @@ export function DescribeGuessGame({
       });
     }
 
-    // Start listening regardless of session/user readiness
-    setTimeout(() => {
-      startListening();
-      setIsListening(true);
-      listeningStartRef.current = Date.now();
-      if (isRecordingSupported) startRecording();
-    }, 300);
+    // Start listening — but skip when the user is using the typing fallback,
+    // otherwise the mic would activate every trial and overwrite typed input.
+    if (!useTyping) {
+      setTimeout(() => {
+        startListening();
+        setIsListening(true);
+        listeningStartRef.current = Date.now();
+        if (isRecordingSupported) startRecording();
+      }, 300);
+    } else {
+      setTypedAnswer('');
+    }
 
     startPromptTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
