@@ -24,7 +24,10 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -57,6 +60,7 @@ export function MultiStepPlanningGame({
 
   // Visible adaptation
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+  const engagement = useEngagementMonitor(sessionId ?? null);
 
   // In-game adaptation: success = goalCoverage ≥ 0.6 + sequenceScore ≥ 0.5
   const adaptation = useInGameAdaptation({
@@ -66,12 +70,28 @@ export function MultiStepPlanningGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    getCueDependencyScore: () => {
+      const sig = engagement.getState().signals;
+      return Math.max(
+        Math.min(1, sig.hesitationCount / 4),
+        Math.min(1, sig.timeoutRate),
+      );
+    },
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[MultiStep] escalation blocked', {
+        reason, cueDependencyScore, trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
@@ -233,9 +253,16 @@ export function MultiStepPlanningGame({
           correct: success,
           reactionTimeMs: durationMs,
         });
+        engagement.recordTrial({
+          correct: success,
+          reactionTimeMs: durationMs,
+          cueLevel: 0,
+          timeout: !collectedTranscript.trim(),
+          timestamp: Date.now(),
+        });
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, speakMaya]);
+  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
