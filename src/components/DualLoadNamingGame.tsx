@@ -17,7 +17,10 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -57,6 +60,9 @@ export function DualLoadNamingGame({
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
   // In-game adaptation: drives mid-session content tier shifts based on combined
   // naming + recall performance.
   const adaptation = useInGameAdaptation({
@@ -66,12 +72,22 @@ export function DualLoadNamingGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[DualLoad] escalation blocked', {
+        reason, cueDependencyScore, trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
@@ -282,9 +298,17 @@ export function DualLoadNamingGame({
         correct: combinedSuccess,
         reactionTimeMs: result.durationMs,
       });
+      // DualLoad has no explicit cue ladder; cueLevel: 0
+      engagement.recordTrial({
+        correct: combinedSuccess,
+        reactionTimeMs: result.durationMs,
+        cueLevel: 0,
+        timeout: false,
+        timestamp: Date.now(),
+      });
       onTrialComplete(result);
     }
-  }, [recallInputs, submitRecall, onTrialComplete, adaptation]);
+  }, [recallInputs, submitRecall, onTrialComplete, adaptation, engagement]);
 
   const handleContinue = useCallback(() => {
     nextSet();

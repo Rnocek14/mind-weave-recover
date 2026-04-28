@@ -302,10 +302,13 @@ export function DetectiveMindGame({
 
       <Progress value={progressPercent} className="h-1.5" />
 
-      {/* Visible adaptation cue */}
+      {/* Visible adaptation cue + narration */}
       {shiftDirection && (
-        <div className="flex justify-center">
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
         </div>
       )}
 
