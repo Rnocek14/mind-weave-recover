@@ -55,6 +55,7 @@ export const ReachTapGame = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const { playSuccess, playTimeout, playLevelUp, playLevelDown, playStreak } = useGameSounds();
+  const engagement = useEngagementMonitor(sessionId || null);
   
   const {
     currentDifficulty,
@@ -63,9 +64,9 @@ export const ReachTapGame = ({
   } = useAdaptiveDifficulty({
     initialDifficulty: initialDifficulty || 5,
     bounds: { floor: 1, ceiling: 10, suggestedStart: 5 },
-    windowSize: 5,
+    windowSize: 4,
     targetSuccessRate: 0.75,
-    adjustmentThreshold: 0.20,
+    adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
@@ -88,6 +89,7 @@ export const ReachTapGame = ({
     userId,
     sessionId,
     exerciseSlug: 'reach-tap',
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
   // Calculate target size in pixels based on difficulty
