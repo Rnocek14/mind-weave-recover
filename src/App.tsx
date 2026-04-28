@@ -71,6 +71,7 @@ import ShadowAnalytics from "./pages/ShadowAnalytics";
 import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
+import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
