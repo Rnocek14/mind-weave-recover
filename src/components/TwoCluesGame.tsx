@@ -933,11 +933,17 @@ export function TwoCluesGame({
 
       if (result.tier === 'strong' || result.tier === 'related') {
         shouldHoldProcessing = true;
+        // Stop the mic immediately so a late onResult event from the
+        // previous attempt cannot repopulate the transcript on the next puzzle
+        // (Bug fix: "answer stays in from first answer").
+        try { stopListeningRef.current?.(); } catch {}
+        setIsListening(false);
         setTimeout(() => {
           if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
           setShowFeedback(false);
           resetAttempt();
           setProcessingGuard(false);
+          clearTranscriptState();
           game.nextRound();
         }, AUTO_ADVANCE_DELAY_MS);
       } else {
