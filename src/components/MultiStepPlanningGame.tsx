@@ -145,6 +145,16 @@ export function MultiStepPlanningGame({
     latestTranscriptRef.current = transcript;
   }, []);
 
+  // Typing fallback (clinical safety)
+  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
+  const handleDoneRef = useRef<(() => void) | null>(null);
+  const handleTypedSubmit = useCallback((text: string) => {
+    if (hasProcessedRef.current) return;
+    setCollectedTranscript(text);
+    latestTranscriptRef.current = text;
+    setTimeout(() => { if (!hasProcessedRef.current) handleDoneRef.current?.(); }, 0);
+  }, []);
+
   const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
