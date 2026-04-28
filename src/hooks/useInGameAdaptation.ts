@@ -141,6 +141,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onFrustrationDetected,
     onInterventionRequired,
     onEscalationBlocked,
+    onTrialLogged,
   } = options;
 
   // ===========================================================================
