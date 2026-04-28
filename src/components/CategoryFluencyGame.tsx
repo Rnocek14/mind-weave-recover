@@ -23,7 +23,11 @@ import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
-import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
@@ -120,24 +124,46 @@ export function CategoryFluencyGame({
   userId,
   sessionId,
 }: CategoryFluencyGameProps) {
-  const {
-    currentDifficulty,
-    updateTrial,
-    checkAndAdjust,
-  } = useAdaptiveDifficulty({
+  // Visible adaptation cue + narration
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  // For verbal fluency, "cue dependency" maps to a hesitation/stall signal:
+  // long pauses or low output despite time remaining.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'category-fluency',
+    sessionId: sessionId ?? null,
     initialDifficulty: difficulty,
     bounds,
     windowSize: 3,
     targetSuccessRate: 0.80,
     adjustmentThreshold: 0.15,
-    onDifficultyChange: (newLevel) => {
-      const dir = newLevel > currentDifficulty ? 'up' : 'down';
-      onDifficultyChange?.(newLevel, dir);
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    getCueDependencyScore: () => {
+      const sig = engagement.getState().signals;
+      // Use hesitation count as a proxy for needing more support.
+      return Math.min(1, sig.hesitationCount / 4);
     },
-    userId,
-    sessionId,
-    exerciseSlug: 'category-fluency',
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[CategoryFluency] escalation blocked', {
+        reason,
+        cueDependencyScore,
+        trialsAtLevel,
+      });
+    },
+    onDifficultyChange: (newLevel, reason, dir) => {
+      onDifficultyChange?.(newLevel, dir);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
+    },
   });
+  const currentDifficulty = adaptation.currentDifficulty;
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'category-fluency' });
   const vg = useVoiceGuidance('category-fluency');
@@ -309,10 +335,29 @@ export function CategoryFluencyGame({
 
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
-    updateTrial(wasSuccessful);
 
+    // Cue level for fluency: 0 if independent, 1 if examples were visible during round.
+    // Examples banner is always shown in this exercise → treat as cueLevel: 1.
+    const fluencyCueLevel = 1;
+
+    // Feed adaptive engine
     const prevDiff = currentDifficulty;
-    const { newLevel } = checkAndAdjust();
+    adaptation.recordTrial({
+      correct: wasSuccessful,
+      reactionTimeMs: Math.round(durationSec * 1000),
+      cueWasShown: true,
+    });
+
+    // Feed engagement monitor for cue dependency / fatigue tracking
+    engagement.recordTrial({
+      correct: wasSuccessful,
+      reactionTimeMs: Math.round(durationSec * 1000),
+      cueLevel: fluencyCueLevel,
+      timeout: validWords.length === 0,
+      timestamp: Date.now(),
+    });
+
+    const newLevel = adaptation.currentDifficulty;
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
     setDifficultyShift(shift);
 
@@ -343,7 +388,7 @@ export function CategoryFluencyGame({
         vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
       }
     }
-  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
+  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg]);
 
   // Handle timer expiry outside of setState updater to avoid progress bar glitch
   useEffect(() => {
@@ -642,6 +687,13 @@ export function CategoryFluencyGame({
               <><TrendingDown className="w-3 h-3 mr-1" /> Next: easier category + more time</>
             )}
           </Badge>
+        )}
+        {shiftDirection && shiftReason && (
+          <AdaptationNarrationCard
+            direction={shiftDirection}
+            message={shiftReason}
+            className="mx-auto max-w-xs"
+          />
         )}
       </RoundDoneAutoAdvance>
     );

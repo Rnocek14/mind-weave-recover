@@ -19,7 +19,10 @@ import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -80,6 +83,9 @@ export function DetectiveMindGame({
   // Visible adaptation badge controller
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  const engagement = useEngagementMonitor(sessionId);
+
   // In-game adaptation engine: drives content-tier swaps based on rolling success window
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'detective-mind',
@@ -88,12 +94,23 @@ export function DetectiveMindGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: difficultyLevel },
     enableDifficultyToasts: false, // we render AdaptationBadge instead
     enableAutoHints: true,
+    // Hint usage = direct cue dependency signal for this comprehension task.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[DetectiveMind] escalation blocked', {
+        reason, cueDependencyScore, trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
@@ -199,8 +216,16 @@ export function DetectiveMindGame({
         reactionTimeMs,
         cueWasShown: usedHint,
       });
+      // cueLevel: hints in DetectiveMind are binary → 0 or 1
+      engagement.recordTrial({
+        correct: result.correct,
+        reactionTimeMs,
+        cueLevel: usedHint ? 1 : 0,
+        timeout: false,
+        timestamp: Date.now(),
+      });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation, engagement]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -277,10 +302,13 @@ export function DetectiveMindGame({
 
       <Progress value={progressPercent} className="h-1.5" />
 
-      {/* Visible adaptation cue */}
+      {/* Visible adaptation cue + narration */}
       {shiftDirection && (
-        <div className="flex justify-center">
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
         </div>
       )}
 

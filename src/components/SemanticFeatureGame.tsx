@@ -12,7 +12,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSemanticFeatureGame } from '@/hooks/useSemanticFeatureGame';
 import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
+import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
@@ -149,24 +153,43 @@ export const SemanticFeatureGame = ({
 
   const game = useSemanticFeatureGame(totalTrials, config.startDifficulty || 1, customTrials);
 
-  const {
-    currentDifficulty,
-    updateTrial,
-    checkAndAdjust,
-  } = useAdaptiveDifficulty({
+  // Visible adaptation cue + narration
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'semantic-features',
+    sessionId: sessionId ?? null,
     initialDifficulty: config.startDifficulty || 1,
     bounds,
-    onDifficultyChange: (newLevel) => {
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    // SFA cue dependency = how reliant the user is on the visible feature
+    // options (the scaffolding) to retrieve the target word.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[SemanticFeature] escalation blocked', {
+        reason,
+        cueDependencyScore,
+        trialsAtLevel,
+      });
+    },
+    onDifficultyChange: (newLevel, reason, dir) => {
       saveLevel(newLevel);
       playLevelUp();
       // Swap upcoming trials to new tier WITHOUT resetting score/progress
       game.setActiveDifficulty(newLevel);
       onDifficultyChange?.(newLevel);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
-    userId,
-    sessionId: sessionId || undefined,
-    exerciseSlug: 'semantic_features',
   });
+  const currentDifficulty = adaptation.currentDifficulty;
 
   // Trial-level state
   const [phase, setPhase] = useState<TrialPhase>('features');
@@ -234,7 +257,31 @@ export const SemanticFeatureGame = ({
 
     // Overall success = features mostly right + retrieval correct
     const overallCorrect = featureResult.correct && isRetrievalCorrect;
-    updateTrial(overallCorrect);
+
+    // ── cueLevel reflects scaffolding actually used ─────────────────────
+    // SFA features ARE the cue scaffolding. Level the user's reliance:
+    //   0 = retrieved with no/very few features selected (independent)
+    //   1 = retrieved with some features selected (light cue use)
+    //   2 = retrieved with most features selected (heavy cue use)
+    const totalFeatures = trial.correctFeatures.length || 1;
+    const usedRatio = result.featuresCorrect / totalFeatures;
+    const sfaCueLevel = usedRatio >= 0.7 ? 2 : usedRatio >= 0.3 ? 1 : 0;
+
+    // Feed adaptive engine (rolling window + safety gate)
+    adaptation.recordTrial({
+      correct: overallCorrect,
+      reactionTimeMs: reactionTime,
+      cueWasShown: sfaCueLevel > 0,
+    });
+
+    // Feed engagement monitor (cue dependency + fatigue + frustration)
+    engagement.recordTrial({
+      correct: overallCorrect,
+      reactionTimeMs: reactionTime,
+      cueLevel: sfaCueLevel,
+      timeout: false,
+      timestamp: Date.now(),
+    });
 
     if (overallCorrect) playSuccess();
     else if (isRetrievalCorrect) playSuccess(); // partial success
@@ -243,7 +290,7 @@ export const SemanticFeatureGame = ({
     logTrial({
       correct: overallCorrect,
       reactionTimeMs: reactionTime,
-      cueLevel: 0,
+      cueLevel: sfaCueLevel,
       errorType: overallCorrect ? null : 'semantic_error',
       taskParameters: {
         difficulty: currentDifficulty,
@@ -265,17 +312,19 @@ export const SemanticFeatureGame = ({
     onTrialComplete?.({
       correct: overallCorrect,
       reactionTime,
+      cueLevel: sfaCueLevel,
       featureBreakdown: result.featureBreakdown,
       retrievalCorrect: isRetrievalCorrect,
     });
 
     setPhase('feedback');
-  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, updateTrial, logTrial, onTrialComplete, playSuccess, playError]);
+  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, adaptation, engagement, logTrial, onTrialComplete, playSuccess, playError]);
 
   const handleNext = useCallback(() => {
-    const { newLevel } = checkAndAdjust();
-    game.nextTrial(newLevel);
-  }, [checkAndAdjust, game]);
+    // useInGameAdaptation has already applied any difficulty change via
+    // onDifficultyChange (which calls game.setActiveDifficulty). Just advance.
+    game.nextTrial(adaptation.currentDifficulty);
+  }, [game, adaptation.currentDifficulty]);
 
   // Completion
   useEffect(() => {
@@ -407,6 +456,16 @@ export const SemanticFeatureGame = ({
         </div>
       </div>
       <Progress value={game.progress} className="h-1.5" />
+
+      {/* Visible adaptation cue + narration */}
+      {shiftDirection && (
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
+        </div>
+      )}
 
       {/* Purpose banner — first trial only */}
       {showPurpose && game.currentTrial === 0 && (
