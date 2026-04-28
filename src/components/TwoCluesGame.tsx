@@ -445,13 +445,18 @@ export function TwoCluesGame({
     setScoringPhase('idle');
   }, []);
 
-  // Voice guidance: speak intro on first trial
+  // Voice guidance: speak intro on first trial.
+  // Tracks whether the intro/clues TTS has finished so the mic-start effect can wait.
+  const introTtsCompleteRef = useRef(false);
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
       hasSpokenIntroRef.current = true;
+      introTtsCompleteRef.current = false;
       vg.speakIntro().then(() => {
-        vg.speakIfVoiceLed('What word am I describing?');
+        return vg.speakIfVoiceLed('What word am I describing?');
+      }).finally(() => {
+        introTtsCompleteRef.current = true;
       });
     }
   }, [game.currentPuzzle, game.isComplete, game.currentIndex, vg]);
