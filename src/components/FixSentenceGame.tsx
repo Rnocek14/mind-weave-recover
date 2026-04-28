@@ -280,6 +280,10 @@ export function FixSentenceGame({
   useEffect(() => {
     const trial = currentTrialRef.current;
     if (!transcript || !trial || processingRef.current || showFeedback) return;
+    // Gate: only score when the mic is actually open for THIS trial.
+    // Prevents stale transcripts from a previous trial leaking in (the
+    // "same answer reused for every sentence" bug).
+    if (!speechIsListening) return;
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
