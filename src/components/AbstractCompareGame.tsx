@@ -29,7 +29,10 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -67,6 +70,9 @@ export function AbstractCompareGame({
   // Visible adaptation
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
   // In-game adaptation: drives mid-session content tier shifts based on coverage success
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'abstract-compare',
@@ -75,12 +81,29 @@ export function AbstractCompareGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Discourse task: hesitations / timeouts proxy "needs more support".
+    getCueDependencyScore: () => {
+      const sig = engagement.getState().signals;
+      return Math.max(
+        Math.min(1, sig.hesitationCount / 4),
+        Math.min(1, sig.timeoutRate),
+      );
+    },
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[AbstractCompare] escalation blocked', {
+        reason, cueDependencyScore, trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
