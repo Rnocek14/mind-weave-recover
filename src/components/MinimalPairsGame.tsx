@@ -272,6 +272,9 @@ export function MinimalPairsGame({
           <span className="font-medium">Score: {score}</span>
         </div>
       </div>
+      {shiftDirection && (
+        <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} className="my-2" />
+      )}
       
       <Progress value={progress} className="h-1.5" />
       
