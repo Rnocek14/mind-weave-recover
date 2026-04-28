@@ -18,8 +18,11 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
+import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
@@ -63,19 +66,31 @@ export function MinimalPairsGame({
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
   const lastTierRef = useRef(levelToBankTier(difficulty));
 
+  const engagement = useEngagementMonitor(null);
+
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'minimal-pairs',
     sessionId: null,
     initialDifficulty: difficulty,
     bounds,
     enableDifficultyToasts: false,
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[MinimalPairs] escalation blocked', {
+        reason, cueDependencyScore, trialsAtLevel,
+      });
+    },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToBankTier(newLevel);
       if (newTier !== lastTierRef.current) {
         lastTierRef.current = newTier;
         setActiveDifficulty(newTier);
       }
-      signalShift(dir, reason);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
   });
 
@@ -109,8 +124,16 @@ export function MinimalPairsGame({
         correct: state.isCorrect === true,
         reactionTimeMs: Date.now() - trialStartRef.current,
       });
+      // MinimalPairs: target word is auto-spoken — treat as cueLevel 1 (audio support).
+      engagement.recordTrial({
+        correct: state.isCorrect === true,
+        reactionTimeMs: Date.now() - trialStartRef.current,
+        cueLevel: 1,
+        timeout: false,
+        timestamp: Date.now(),
+      });
     }
-  }, [showFeedback, state.isCorrect, trialIndex, adaptation]);
+  }, [showFeedback, state.isCorrect, trialIndex, adaptation, engagement]);
 
   
   // Auto-play target word when trial changes + stall timer
