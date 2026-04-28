@@ -28,6 +28,8 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
+import { TypingFallbackBar, getPreferTyping, setPreferTyping } from '@/components/TypingFallbackBar';
+import { Keyboard } from 'lucide-react';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -141,6 +143,16 @@ export function MultiStepPlanningGame({
     if (hasProcessedRef.current || !transcript.trim()) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
+  }, []);
+
+  // Typing fallback (clinical safety)
+  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
+  const handleDoneRef = useRef<(() => void) | null>(null);
+  const handleTypedSubmit = useCallback((text: string) => {
+    if (hasProcessedRef.current) return;
+    setCollectedTranscript(text);
+    latestTranscriptRef.current = text;
+    setTimeout(() => { if (!hasProcessedRef.current) handleDoneRef.current?.(); }, 0);
   }, []);
 
   const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
@@ -264,6 +276,9 @@ export function MultiStepPlanningGame({
     }, 150);
   }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
 
+  // Bridge handleDone for typing-fallback path
+  useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
+
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
@@ -341,41 +356,65 @@ export function MultiStepPlanningGame({
       </Card>
 
       {phase === 'prompt' && (
-        <div className="flex gap-2">
-          {isSupported ? (
-            <Button onClick={handleStart} className="flex-1" size="lg">
-              <Mic className="h-4 w-4 mr-2" /> Start planning
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            {isSupported && !useTyping ? (
+              <Button onClick={handleStart} className="flex-1" size="lg">
+                <Mic className="h-4 w-4 mr-2" /> Start planning
+              </Button>
+            ) : (
+              <Button onClick={() => setPhase('speaking')} className="flex-1" size="lg" variant="secondary">
+                <Keyboard className="h-4 w-4 mr-2" /> Type your plan
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSkip}><SkipForward className="h-4 w-4" /></Button>
+          </div>
+          {isSupported && (
+            <Button
+              variant="link"
+              size="sm"
+              className="text-xs h-auto p-0"
+              onClick={() => { const next = !useTyping; setUseTyping(next); setPreferTyping(next); }}
+            >
+              {useTyping ? 'Switch to speech' : 'Type instead'}
             </Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">Speech not supported.
-              <Button variant="ghost" size="sm" onClick={handleSkip} className="ml-2">Skip</Button>
-            </p>
           )}
-          <Button variant="ghost" size="sm" onClick={handleSkip}><SkipForward className="h-4 w-4" /></Button>
         </div>
       )}
 
       {phase === 'speaking' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Mic className="h-5 w-5 text-primary" />
-                {isListening && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-                  </span>
+            {!useTyping && (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Mic className="h-5 w-5 text-primary" />
+                    {isListening && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-semibold text-sm">Tell me the steps...</span>
+                  <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
+                </div>
+                {(fullTranscript || collectedTranscript) && (
+                  <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
                 )}
-              </div>
-              <span className="font-semibold text-sm">Tell me the steps...</span>
-              <span className="text-xs text-muted-foreground ml-auto">Auto-submits when you pause</span>
-            </div>
-            {(fullTranscript || collectedTranscript) && (
-              <div className="bg-muted/50 rounded-lg p-3 max-h-[8rem] overflow-y-auto"><p className="text-sm italic">"{collectedTranscript || fullTranscript}"</p></div>
+              </>
             )}
+            <TypingFallbackBar
+              visible={useTyping}
+              onSubmit={handleTypedSubmit}
+              placeholder="Type the steps in your plan…"
+              buttonLabel="Submit"
+            />
             <div className="flex gap-2">
-              <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
+              {!useTyping && (
+                <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
+              )}
               <Button variant="ghost" size="sm" onClick={handleSkip}><SkipForward className="h-4 w-4" /></Button>
             </div>
           </CardContent>

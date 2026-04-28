@@ -828,14 +828,14 @@ export function ConversationCoachGame({
               <p className="text-sm text-muted-foreground">
                 Turn {metrics.turnsCompleted + 1}
               </p>
-              {metrics.turnsCompleted === 5 && (
+              {metrics.turnsCompleted === 5 && (metrics.avgFluency ?? 0) >= 60 && (
                 <span className="text-xs px-2 py-0.5 bg-success/10 text-success rounded-full">
-                  Great flow! 🔥
+                  Great flow
                 </span>
               )}
-              {metrics.turnsCompleted === 10 && (
+              {metrics.turnsCompleted === 10 && (metrics.avgFluency ?? 0) >= 50 && (
                 <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                  Nice session! 🎉
+                  Nice session
                 </span>
               )}
               {metrics.avgFluency !== undefined && metrics.turnsCompleted >= 2 && (
