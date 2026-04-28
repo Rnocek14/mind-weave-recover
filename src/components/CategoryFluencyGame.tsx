@@ -688,6 +688,13 @@ export function CategoryFluencyGame({
             )}
           </Badge>
         )}
+        {shiftDirection && shiftReason && (
+          <AdaptationNarrationCard
+            direction={shiftDirection}
+            message={shiftReason}
+            className="mx-auto max-w-xs"
+          />
+        )}
       </RoundDoneAutoAdvance>
     );
   }
