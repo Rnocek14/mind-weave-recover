@@ -280,6 +280,7 @@ export const SemanticFeatureGame = ({
       reactionTimeMs: reactionTime,
       cueLevel: sfaCueLevel,
       timeout: false,
+      timestamp: Date.now(),
     });
 
     if (overallCorrect) playSuccess();
