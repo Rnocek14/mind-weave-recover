@@ -98,6 +98,16 @@ export interface InGameAdaptationOptions {
     difficultyChange?: { direction: 'up' | 'down'; from: number; to: number; reason: string } | null;
     escalationBlocked?: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number } | null;
   }) => void;
+
+  /**
+   * Auto-wire useAdaptationTrialLogger inside this hook so every game that uses
+   * useInGameAdaptation persists per-trial telemetry to `adaptation_trial_logs`
+   * without each game having to call the logger manually.
+   *
+   * Default: true. Set to false if the parent component already wires its own
+   * logger (e.g. PhotoNaming, TwoClues) to avoid double inserts.
+   */
+  autoLog?: boolean;
 }
 
 // Exported state for external use
