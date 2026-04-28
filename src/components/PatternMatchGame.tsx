@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Check, X, Star, Award } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -73,6 +74,7 @@ export const PatternMatchGame = ({
   };
 
   const { playSuccess, playError, playLevelUp, playLevelDown } = useGameSounds();
+  const engagement = useEngagementMonitor(sessionId || null);
 
   const {
     currentDifficulty,
@@ -81,9 +83,9 @@ export const PatternMatchGame = ({
   } = useAdaptiveDifficulty({
     initialDifficulty,
     bounds,
-    windowSize: 5,
+    windowSize: 4,
     targetSuccessRate: 0.80,
-    adjustmentThreshold: 0.15,
+    adjustmentThreshold: 0.10,
     onDifficultyChange: (newLevel) => {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       if (direction === 'up') playLevelUp(); else playLevelDown();
@@ -92,6 +94,7 @@ export const PatternMatchGame = ({
     userId,
     sessionId,
     exerciseSlug: 'pattern-match',
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
   const getPatternSize = (difficulty: number): number => Math.min(5, Math.max(2, Math.floor(difficulty / 2) + 1));
@@ -157,7 +160,8 @@ export const PatternMatchGame = ({
     if (phase !== 'matching') return;
     const reactionTimeMs = Date.now() - trialStartTime;
     const correct = selectedIndex === correctIndex;
-    updateTrial(correct);
+    updateTrial(correct, reactionTimeMs);
+    engagement.recordTrial({ correct, reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
     if (correct) { setScore(s => s + 1); playSuccess(); setFeedbackType('success'); }
     else { playError(); setFeedbackType('incorrect'); }
     setPhase('feedback');
