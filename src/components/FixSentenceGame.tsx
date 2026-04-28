@@ -181,7 +181,24 @@ export function FixSentenceGame({
   useEffect(() => {
     if (game.currentTrial && !game.isComplete) {
       ttsAbortRef.current = false;
-      
+
+      // CRITICAL: hard-reset all transcript/scoring state before the next trial begins,
+      // independent of session/user gating. Without this, the previous trial's
+      // transcript/lastScored/displayTranscript leaks into the next trial and the
+      // scoring effect re-fires with the old answer (the "all correct, same word"
+      // bug from daily session report).
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+      if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+      lastScoredRef.current = '';
+      rawTranscriptRef.current = '';
+      stableTranscriptRef.current = '';
+      processingRef.current = false;
+      setDisplayTranscript('');
+      setShowFeedback(false);
+      setPrevWrongAttempt(null);
+      setValidationHint(null);
+
       // Wait for intro speech to complete, then speak sentence, THEN start mic
       const startTrialFlow = async () => {
         // Wait for intro if needed
@@ -189,13 +206,13 @@ export function FixSentenceGame({
           await new Promise(r => setTimeout(r, 200));
         }
         if (!game.currentTrial || ttsAbortRef.current) return;
-        
+
         // Speak the sentence and WAIT for it to finish
         await speak(game.currentTrial.sentence);
-        
+
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
-        
+
         if (sessionId && userId) {
           startListening();
           setIsListening(true);
@@ -215,14 +232,6 @@ export function FixSentenceGame({
 
       // Begin attempt tracking
       if (sessionId && userId) {
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        lastScoredRef.current = '';
-        rawTranscriptRef.current = '';
-        setDisplayTranscript('');
-        setShowFeedback(false);
-        setPrevWrongAttempt(null);
-        processingRef.current = false;
-
         startAttempt({
           sessionId,
           userId,
