@@ -220,6 +220,35 @@ export function DescribeGuessGame({
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
   useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
 
+  // Auto-flip to typing when mic permission is denied or after 2 speech errors.
+  // Mirrors the safety pattern in CategoryFluencyGame so a stroke patient is
+  // never stuck staring at "Mic off / Use typing instead" with nowhere to type.
+  useEffect(() => {
+    if (!speechError) return;
+    speechErrorCountRef.current += 1;
+    const isPermissionDenied = /denied|not-allowed|permission/i.test(speechError);
+    if ((isPermissionDenied || speechErrorCountRef.current >= 2) && !useTyping) {
+      setUseTyping(true);
+      try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
+    }
+  }, [speechError, useTyping]);
+
+  // When user switches to typing, stop the mic so the two inputs don't fight.
+  useEffect(() => {
+    if (useTyping && speechIsListening) {
+      stopListening();
+      setIsListening(false);
+    }
+  }, [useTyping, speechIsListening, stopListening]);
+
+  const handleTypedSubmit = useCallback(() => {
+    const text = typedAnswer.trim();
+    if (text.length < 3) return;
+    setDisplayTranscript(text);
+    rawTranscriptRef.current = text;
+    runEvaluationRef.current();
+  }, [typedAnswer]);
+
   // Start prompt cooldown timers when trial begins
   const startPromptTimers = useCallback(() => {
     promptTimersRef.current.forEach(t => clearTimeout(t));
