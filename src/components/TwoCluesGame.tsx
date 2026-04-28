@@ -183,6 +183,13 @@ export function TwoCluesGame({
   const engagement = useEngagementMonitor(sessionId || null);
   const [adaptationNarration, setAdaptationNarration] = useState<string | undefined>();
 
+  // Phase 4 — live trial logger.
+  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+    userId,
+    sessionId: sessionId || null,
+    exerciseSlug: 'two_clues',
+  });
+
   // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
