@@ -438,21 +438,47 @@ export function NarrativeRetellGame({
       });
     }
 
-    // Full Coaching: speak retell prompt, then auto-start mic via auto-response
+    // Helper: actually open the mic + recorder, with a small retry safety net
+    // because Web Speech API silently no-ops when called too soon after TTS.
+    const openMic = async () => {
+      if (useTyping) return;
+      // Belt-and-braces: wait until any residual TTS is fully stopped.
+      let waited = 0;
+      while ((isTTSSpeaking || vg.isSpeaking) && waited < 3000) {
+        await new Promise(r => setTimeout(r, 150));
+        waited += 150;
+      }
+      // Tiny pad so the audio tail doesn't bleed into the recogniser.
+      await new Promise(r => setTimeout(r, 200));
+      try { startRecording(); } catch (e) { console.warn('[NarrativeRetell] startRecording failed', e); }
+      try { startListening(); } catch (e) { console.warn('[NarrativeRetell] startListening failed', e); }
+      // Verify mic actually opened; if not, surface the failure UI so the
+      // user isn't talking into a dead mic (the "doesn't hear any audio" bug).
+      setTimeout(() => {
+        if (!isListening && phase === 'retelling' && !useTyping && !hasProcessedRef.current) {
+          console.warn('[NarrativeRetell] mic did not open after start, retrying');
+          try { startListening(); } catch {}
+          setTimeout(() => {
+            if (!isListening && phase === 'retelling' && !useTyping && !hasProcessedRef.current) {
+              setMicFailed(true);
+            }
+          }, 1200);
+        }
+      }, 1500);
+    };
+
+    // Full Coaching: speak retell prompt, then open mic AFTER speech ends.
     if (vg.isVoiceLed && !useTyping) {
-      const speakAndListen = async () => {
-        await new Promise(r => setTimeout(r, 300)); // Brief pause
-        await vg.speakTask(); // "Now tell it back in your own words"
-        // After speech ends, auto-response mic kicks in via scheduleAutoListen
-        scheduleAutoListen();
-      };
-      speakAndListen();
+      (async () => {
+        await new Promise(r => setTimeout(r, 300));
+        try { await vg.speakTask(); } catch {}
+        await openMic();
+      })();
     } else if (!useTyping) {
-      // Non-voice-led: start mic immediately
-      startRecording();
-      startListening();
+      // Non voice-led: still wait for any auto-read tail before opening mic.
+      void openMic();
     }
-  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, scheduleAutoListen]);
+  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, isTTSSpeaking, isListening, phase]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;

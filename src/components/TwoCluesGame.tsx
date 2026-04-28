@@ -445,13 +445,18 @@ export function TwoCluesGame({
     setScoringPhase('idle');
   }, []);
 
-  // Voice guidance: speak intro on first trial
+  // Voice guidance: speak intro on first trial.
+  // Tracks whether the intro/clues TTS has finished so the mic-start effect can wait.
+  const introTtsCompleteRef = useRef(false);
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
     if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
       hasSpokenIntroRef.current = true;
+      introTtsCompleteRef.current = false;
       vg.speakIntro().then(() => {
-        vg.speakIfVoiceLed('What word am I describing?');
+        return vg.speakIfVoiceLed('What word am I describing?');
+      }).finally(() => {
+        introTtsCompleteRef.current = true;
       });
     }
   }, [game.currentPuzzle, game.isComplete, game.currentIndex, vg]);
@@ -460,8 +465,12 @@ export function TwoCluesGame({
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete || showFeedback) return;
     if (vg.shouldAutoSpeak && game.currentIndex > 0) {
+      introTtsCompleteRef.current = false;
       const clues = game.currentPuzzle.clues.join(', and ');
-      vg.speakIfVoiceLed(clues);
+      const p = vg.speakIfVoiceLed(clues);
+      Promise.resolve(p).finally(() => {
+        introTtsCompleteRef.current = true;
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback]);
@@ -478,15 +487,38 @@ export function TwoCluesGame({
     return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
-  // Auto-start listening when puzzle changes (new puzzle only — NOT on showFeedback toggle)
+  // Auto-start listening when puzzle changes.
+  // SYNC-WAIT: do not open the mic while Maya/TTS is still speaking the intro
+  // or the clues — otherwise the recogniser captures Maya's own voice as the
+  // user's answer (the "Two Clues is listening to its own audio" bug).
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete) return;
-    
-    game.startRound();
 
-    if (sessionId && userId) {
+    game.startRound();
+    if (!(sessionId && userId)) return;
+
+    let cancelled = false;
+
+    // No auto-TTS (e.g. Games-Only mode) — safe to start immediately.
+    if (!vg.shouldAutoSpeak) {
       beginAttemptRef.current(1);
+      return () => { cancelled = true; };
     }
+
+    const tryStart = () => {
+      if (cancelled) return;
+      if (!introTtsCompleteRef.current || vg.isSpeaking) {
+        setTimeout(tryStart, 200);
+        return;
+      }
+      // Small grace pad so the audio tail doesn't bleed into the recogniser.
+      setTimeout(() => {
+        if (!cancelled) beginAttemptRef.current(1);
+      }, 250);
+    };
+    tryStart();
+
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentPuzzle?.id, game.isComplete, sessionId, userId]);
 
