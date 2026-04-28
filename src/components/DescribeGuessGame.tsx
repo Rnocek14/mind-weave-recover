@@ -911,8 +911,30 @@ export function DescribeGuessGame({
         compact
       />
 
+      {/* Typing fallback — appears when mic fails or user opts in */}
+      {useTyping && !showFeedback && !awaitingWordAttempt && !isEvaluating && (
+        <div className="px-4 space-y-2">
+          <Textarea
+            value={typedAnswer}
+            onChange={(e) => setTypedAnswer(e.target.value)}
+            placeholder="Type your description here…"
+            className="min-h-[88px] text-base"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleTypedSubmit();
+              }
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Press <kbd className="rounded border bg-muted px-1">⌘/Ctrl + Enter</kbd> or tap “I'm done”.
+          </p>
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="flex justify-center gap-3 shrink-0 pb-1">
+      <div className="flex justify-center gap-3 shrink-0 pb-1 flex-wrap">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
             🤔 Guessing...
@@ -924,23 +946,78 @@ export function DescribeGuessGame({
               size="sm"
               onClick={() => {
                 if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
-                runEvaluation();
+                if (useTyping) {
+                  handleTypedSubmit();
+                } else {
+                  runEvaluation();
+                }
               }}
-              disabled={!displayTranscript || displayTranscript.trim().length < 3}
+              disabled={
+                useTyping
+                  ? typedAnswer.trim().length < 3
+                  : !displayTranscript || displayTranscript.trim().length < 3
+              }
               className="h-9"
             >
               <Check className="h-4 w-4 mr-1" /> I'm done
             </Button>
 
+            {/* Typing toggle — REAL button, not a status pill.
+                Always available so the patient can switch even before mic fails. */}
+            {useTyping ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setUseTyping(false);
+                  try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
+                  speechErrorCountRef.current = 0;
+                  setTimeout(() => { startListening(); setIsListening(true); }, 200);
+                }}
+                className="h-9"
+              >
+                <Mic className="h-3.5 w-3.5 mr-1" /> Use mic
+              </Button>
+            ) : (
+              <Button
+                variant={speechError ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setUseTyping(true);
+                  try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
+                  if (speechIsListening) stopListening();
+                }}
+                className="h-9"
+              >
+                <Keyboard className="h-3.5 w-3.5 mr-1" />
+                {speechError ? 'Use typing instead' : 'Type instead'}
+              </Button>
+            )}
+
+            {/* Mic status pill — visual only, not interactive */}
+            {!useTyping && (
+              <div className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+              )}>
+                {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+                {isListening ? 'Listening...' : 'Mic off'}
+              </div>
+            )}
+
+            <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
+              <SkipForward className="h-4 w-4 mr-1" /> Skip
+            </Button>
+          </>
+        ) : awaitingWordAttempt ? (
+          <>
             <div className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-              speechError ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
+              'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
               isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
             )}>
-              {speechError ? <MicOff className="h-3.5 w-3.5" /> : isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-              {speechError ? 'Use typing instead' : isListening ? 'Listening...' : 'Mic off'}
+              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+              {isListening ? 'Say the word...' : 'Mic off'}
             </div>
-
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
               <SkipForward className="h-4 w-4 mr-1" /> Skip
             </Button>
