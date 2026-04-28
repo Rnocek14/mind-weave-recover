@@ -153,24 +153,43 @@ export const SemanticFeatureGame = ({
 
   const game = useSemanticFeatureGame(totalTrials, config.startDifficulty || 1, customTrials);
 
-  const {
-    currentDifficulty,
-    updateTrial,
-    checkAndAdjust,
-  } = useAdaptiveDifficulty({
+  // Visible adaptation cue + narration
+  const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
+
+  // Engagement monitor — feeds the cue-dependency safety gate.
+  const engagement = useEngagementMonitor(sessionId ?? null);
+
+  const adaptation = useInGameAdaptation({
+    exerciseSlug: 'semantic-features',
+    sessionId: sessionId ?? null,
     initialDifficulty: config.startDifficulty || 1,
     bounds,
-    onDifficultyChange: (newLevel) => {
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    // SFA cue dependency = how reliant the user is on the visible feature
+    // options (the scaffolding) to retrieve the target word.
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
+    onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
+      console.info('[SemanticFeature] escalation blocked', {
+        reason,
+        cueDependencyScore,
+        trialsAtLevel,
+      });
+    },
+    onDifficultyChange: (newLevel, reason, dir) => {
       saveLevel(newLevel);
       playLevelUp();
       // Swap upcoming trials to new tier WITHOUT resetting score/progress
       game.setActiveDifficulty(newLevel);
       onDifficultyChange?.(newLevel);
+      const narration = narrateAdaptation({
+        direction: dir,
+        reasonKind: classifyReason(reason),
+      });
+      signalShift(dir, narration || reason);
     },
-    userId,
-    sessionId: sessionId || undefined,
-    exerciseSlug: 'semantic_features',
   });
+  const currentDifficulty = adaptation.currentDifficulty;
 
   // Trial-level state
   const [phase, setPhase] = useState<TrialPhase>('features');
