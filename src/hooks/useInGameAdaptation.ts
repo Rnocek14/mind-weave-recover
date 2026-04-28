@@ -155,7 +155,20 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onInterventionRequired,
     onEscalationBlocked,
     onTrialLogged,
+    autoLog = true,
   } = options;
+
+  // ── Auto-wired Phase 4 trial logger ──────────────────────────────────────
+  // If a parent already supplies onTrialLogged we still call it; the auto-logger
+  // also fires unless autoLog is false. PhotoNamingGame / TwoCluesGame pass
+  // autoLog={false} to remain the single writer.
+  const { user } = useAuth();
+  const { logTrial: autoLogTrial } = useAdaptationTrialLogger({
+    userId: user?.id,
+    sessionId: sessionId ?? null,
+    exerciseSlug: normalizeExerciseSlug(exerciseSlug),
+    enabled: autoLog && !!user?.id,
+  });
 
   // ===========================================================================
   // AUTHORITATIVE REFS - these are the source of truth inside recordTrial
