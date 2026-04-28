@@ -323,8 +323,11 @@ export function MultiStepPlanningGame({
       <Progress value={(currentIndex / totalItems) * 100} className="h-1.5" />
 
       {shiftDirection && (
-        <div className="flex justify-center">
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
         </div>
       )}
 

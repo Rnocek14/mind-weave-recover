@@ -346,6 +346,9 @@ export function DualLoadNamingGame({
         <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
       </div>
       <Progress value={(currentSetIndex / totalSets) * 100} className="h-1.5" />
+      {shiftDirection && (
+        <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
+      )}
 
       {/* Memorize phase */}
       {phase === 'memorize' && (
