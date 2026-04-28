@@ -322,6 +322,13 @@ export const PhotoNamingGame = ({
   // Feeds the cue-dependency safety gate inside useInGameAdaptation.
   const engagement = useEngagementMonitor(activeSessionId);
 
+  // Phase 4 — live per-trial logging for real-world adaptive validation.
+  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+    userId: user?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: 'photo_naming',
+  });
+
   // NEW: In-game adaptive layer - replaces manual AdaptiveDifficultyController
   const {
     currentDifficulty,
