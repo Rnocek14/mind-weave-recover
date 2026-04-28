@@ -1024,11 +1024,19 @@ export function TwoCluesGame({
   // ── Render ─────────────────────────────────────────────────────────
 
   if (game.isComplete) {
+    const totalAttempts = game.strongCount + game.relatedCount + game.creativeCount;
+    const strongRatio = totalAttempts > 0 ? game.strongCount / totalAttempts : 0;
+    const headline = strongRatio >= 0.5
+      ? 'Nice Work!'
+      : totalAttempts > 0
+      ? 'Session complete'
+      : 'Good effort — keep practicing';
+    const emoji = strongRatio >= 0.5 ? '🎉' : totalAttempts > 0 ? '✅' : '💪';
     return (
       <Card className="max-w-md mx-auto">
         <CardContent className="p-6 text-center space-y-4">
-          <div className="text-4xl">🎉</div>
-          <h2 className="text-2xl font-bold">Great Work!</h2>
+          <div className="text-4xl">{emoji}</div>
+          <h2 className="text-2xl font-bold">{headline}</h2>
           <div className="space-y-2 text-sm">
             <p className="text-lg font-semibold">
               Total Score: {game.totalScore} points

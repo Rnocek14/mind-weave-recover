@@ -473,10 +473,17 @@ export function FixSentenceGame({
   }, [game.currentTrial, speak]);
 
   if (game.isComplete) {
+    const accuracy = game.totalTrials > 0 ? game.correctCount / game.totalTrials : 0;
+    const headline = accuracy >= 0.7
+      ? 'Nice work!'
+      : accuracy >= 0.4
+      ? 'Session complete'
+      : 'Good effort — keep practicing';
+    const emoji = accuracy >= 0.7 ? '🎉' : accuracy >= 0.4 ? '✅' : '💪';
     return (
       <div className="max-w-md mx-auto text-center space-y-6 py-8">
-        <div className="text-6xl">🎉</div>
-        <h2 className="text-2xl font-bold">Great job!</h2>
+        <div className="text-6xl">{emoji}</div>
+        <h2 className="text-2xl font-bold">{headline}</h2>
         <div className="flex justify-center gap-6 text-lg">
           <div className="text-center">
             <div className="text-3xl font-bold text-green-600">{game.correctCount}</div>

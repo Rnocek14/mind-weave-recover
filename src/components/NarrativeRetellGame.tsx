@@ -696,7 +696,9 @@ export function NarrativeRetellGame({
               {currentIndex === 0
                 ? `📖 Listen to "${currentStory.title}" — then tell it back`
                 : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
-                ? `📖 Great retelling! Here's your next story: "${currentStory.title}"`
+                ? `📖 Nice retelling. Here's your next story: "${currentStory.title}"`
+                : results.length > 0 && results[results.length - 1].eventCoverage < 0.3
+                ? `📖 Let's try a different story: "${currentStory.title}"`
                 : `📖 Next story: "${currentStory.title}" — tell it back when ready`}
             </p>
             {isTTSSpeaking && (
