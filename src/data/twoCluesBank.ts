@@ -870,6 +870,138 @@ const musicPuzzles: TwoCluesPuzzle[] = [
 ];
 
 // ============================================
+// HARD PACK (tier 3 — abstract / multi-step)
+// ============================================
+const hardPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-hard-1', clues: ['measures', 'pressure'], category: 'tools', difficulty: 3,
+    anchors: ['barometer'], anchorAliases: { 'barometer': ['barometers'] },
+    cluster: ['gauge', 'meter', 'forecast', 'weather', 'altimeter'],
+    nearMisses: ['thermometer', 'scale', 'clock'],
+    coachHints: { 'thermometer': "Thermometers measure heat. What measures pressure?", 'scale': "Scales measure weight. What measures pressure?" }
+  },
+  {
+    id: 'tc-hard-2', clues: ['holds', 'argument'], category: 'abstract', difficulty: 3,
+    anchors: ['debate', 'court', 'lawyer'], anchorAliases: { 'debate': ['debates'], 'lawyer': ['lawyers', 'attorney'] },
+    cluster: ['judge', 'trial', 'discussion', 'case', 'jury'],
+    nearMisses: ['fight', 'meeting', 'class'],
+    coachHints: { 'fight': "Fights are physical. What formal setting holds arguments?", 'meeting': "Meetings discuss. What's specifically for arguments?" }
+  },
+  {
+    id: 'tc-hard-3', clues: ['echoes', 'cave'], category: 'nature', difficulty: 3,
+    anchors: ['sound', 'voice', 'echo'], anchorAliases: { 'echo': ['echoes'] },
+    cluster: ['noise', 'shout', 'reverberation', 'acoustic', 'reflection'],
+    nearMisses: ['bat', 'darkness', 'silence'],
+    coachHints: { 'bat': "Bats live in caves! What bounces back?", 'silence': "Silence is the opposite. What echoes?" }
+  },
+  {
+    id: 'tc-hard-4', clues: ['carries', 'current'], category: 'science', difficulty: 3,
+    anchors: ['wire', 'cable', 'river'], anchorAliases: { 'wire': ['wires'], 'cable': ['cables'] },
+    cluster: ['conductor', 'electricity', 'flow', 'channel', 'circuit'],
+    nearMisses: ['battery', 'plug', 'switch'],
+    coachHints: { 'battery': "Batteries store current. What carries it?", 'plug': "Plugs deliver. What runs between them?" }
+  },
+  {
+    id: 'tc-hard-5', clues: ['silent', 'witness'], category: 'abstract', difficulty: 3,
+    anchors: ['camera', 'photograph'], anchorAliases: { 'camera': ['cameras'], 'photograph': ['photo', 'photos'] },
+    cluster: ['recording', 'evidence', 'video', 'observer', 'lens'],
+    nearMisses: ['ghost', 'mute', 'spy'],
+    coachHints: { 'ghost': "Ghosts are silent. What records what it sees?", 'spy': "Spies watch. What captures it silently?" }
+  },
+  {
+    id: 'tc-hard-6', clues: ['weighs', 'evidence'], category: 'abstract', difficulty: 3,
+    anchors: ['judge', 'jury'], anchorAliases: { 'judge': ['judges'], 'jury': ['juries'] },
+    cluster: ['court', 'verdict', 'decide', 'law', 'trial', 'gavel'],
+    nearMisses: ['scale', 'detective', 'lawyer'],
+    coachHints: { 'scale': "Scales weigh objects. Who weighs evidence?", 'detective': "Detectives gather it. Who decides on it?" }
+  },
+  {
+    id: 'tc-hard-7', clues: ['ferments', 'grapes'], category: 'food', difficulty: 3,
+    anchors: ['wine'], anchorAliases: { 'wine': ['wines'] },
+    cluster: ['vineyard', 'cellar', 'red', 'white', 'bottle', 'cork'],
+    nearMisses: ['juice', 'beer', 'vinegar'],
+    coachHints: { 'juice': "Juice is unfermented! What's the alcoholic version?", 'vinegar': "Vinegar is over-fermented. What comes from grapes?" }
+  },
+  {
+    id: 'tc-hard-8', clues: ['orbits', 'gravity'], category: 'science', difficulty: 3,
+    anchors: ['planet', 'moon', 'satellite'], anchorAliases: { 'planet': ['planets'], 'satellite': ['satellites'] },
+    cluster: ['earth', 'space', 'astronaut', 'star', 'sun', 'cosmos'],
+    nearMisses: ['rocket', 'sky', 'cloud'],
+    coachHints: { 'rocket': "Rockets launch into orbit. What stays in orbit?", 'sky': "The sky is above. What orbits in space?" }
+  },
+  {
+    id: 'tc-hard-9', clues: ['hidden', 'meaning'], category: 'abstract', difficulty: 3,
+    anchors: ['symbol', 'metaphor', 'code'], anchorAliases: { 'symbol': ['symbols'], 'code': ['codes'] },
+    cluster: ['sign', 'puzzle', 'riddle', 'cipher', 'message'],
+    nearMisses: ['secret', 'word', 'book'],
+    coachHints: { 'secret': "Secrets hide things. What CARRIES hidden meaning?", 'word': "Words have meaning. What hides one inside?" }
+  },
+  {
+    id: 'tc-hard-10', clues: ['heals', 'time'], category: 'abstract', difficulty: 3,
+    anchors: ['wound', 'scar', 'grief'], anchorAliases: { 'wound': ['wounds'], 'scar': ['scars'] },
+    cluster: ['cut', 'injury', 'pain', 'memory', 'broken heart'],
+    nearMisses: ['doctor', 'medicine', 'bandage'],
+    coachHints: { 'doctor': "Doctors heal. What gets healed by time?", 'medicine': "Medicine helps. What does TIME heal?" }
+  },
+  {
+    id: 'tc-hard-11', clues: ['conducts', 'orchestra'], category: 'music', difficulty: 3,
+    anchors: ['conductor', 'maestro'], anchorAliases: { 'conductor': ['conductors'] },
+    cluster: ['baton', 'symphony', 'leader', 'director', 'tempo'],
+    nearMisses: ['violinist', 'pianist', 'singer'],
+    coachHints: { 'violinist': "Violinists play. Who LEADS the orchestra?", 'singer': "Singers sing. Who waves the baton?" }
+  },
+  {
+    id: 'tc-hard-12', clues: ['ancient', 'ruin'], category: 'history', difficulty: 3,
+    anchors: ['castle', 'temple', 'pyramid'], anchorAliases: { 'castle': ['castles'], 'pyramid': ['pyramids'] },
+    cluster: ['stone', 'history', 'archaeology', 'fortress', 'monument'],
+    nearMisses: ['museum', 'old house', 'rubble'],
+    coachHints: { 'museum': "Museums hold ruins. What IS the ruin?", 'rubble': "Rubble is broken stone. What ancient structure?" }
+  },
+  {
+    id: 'tc-hard-13', clues: ['filters', 'blood'], category: 'body', difficulty: 3,
+    anchors: ['kidney', 'liver'], anchorAliases: { 'kidney': ['kidneys'], 'liver': ['livers'] },
+    cluster: ['organ', 'dialysis', 'urine', 'toxins', 'cleanse'],
+    nearMisses: ['heart', 'lung', 'brain'],
+    coachHints: { 'heart': "Hearts pump blood. What FILTERS it?", 'lung': "Lungs filter air. What filters blood?" }
+  },
+  {
+    id: 'tc-hard-14', clues: ['breaks', 'silence'], category: 'abstract', difficulty: 3,
+    anchors: ['sound', 'noise', 'voice', 'scream'], anchorAliases: { 'noise': ['noises'], 'scream': ['screams'] },
+    cluster: ['shout', 'music', 'word', 'whisper', 'shot'],
+    nearMisses: ['glass', 'rock', 'hammer'],
+    coachHints: { 'glass': "Glass breaks physically. What breaks SILENCE?", 'hammer': "Hammers break objects. What breaks quiet?" }
+  },
+  {
+    id: 'tc-hard-15', clues: ['negotiates', 'peace'], category: 'people', difficulty: 3,
+    anchors: ['diplomat', 'ambassador', 'mediator'], anchorAliases: { 'diplomat': ['diplomats'], 'ambassador': ['ambassadors'] },
+    cluster: ['treaty', 'embassy', 'envoy', 'politician', 'negotiator'],
+    nearMisses: ['soldier', 'general', 'president'],
+    coachHints: { 'soldier': "Soldiers fight. Who negotiates peace?", 'general': "Generals lead war. Who LEADS peace talks?" }
+  },
+  {
+    id: 'tc-hard-16', clues: ['fades', 'memory'], category: 'abstract', difficulty: 3,
+    anchors: ['photograph', 'memory', 'dream'], anchorAliases: { 'photograph': ['photographs', 'photo'], 'memory': ['memories'], 'dream': ['dreams'] },
+    cluster: ['recall', 'past', 'image', 'old', 'forget'],
+    nearMisses: ['paint', 'color', 'flower'],
+    coachHints: { 'paint': "Paint fades on walls. What fades in your MIND?", 'color': "Colors fade. What mental thing fades?" }
+  },
+  {
+    id: 'tc-hard-17', clues: ['governs', 'country'], category: 'people', difficulty: 3,
+    anchors: ['president', 'prime minister', 'government'], anchorAliases: { 'president': ['presidents'] },
+    cluster: ['leader', 'parliament', 'congress', 'ruler', 'nation'],
+    nearMisses: ['mayor', 'king', 'boss'],
+    coachHints: { 'mayor': "Mayors govern cities. Who governs the COUNTRY?", 'king': "Kings ruled. Who governs democratically?" }
+  },
+  {
+    id: 'tc-hard-18', clues: ['absorbs', 'shock'], category: 'science', difficulty: 3,
+    anchors: ['cushion', 'spring', 'shock absorber', 'airbag'], anchorAliases: { 'cushion': ['cushions'], 'spring': ['springs'] },
+    cluster: ['suspension', 'foam', 'pad', 'buffer', 'bumper'],
+    nearMisses: ['pillow', 'tire', 'helmet'],
+    coachHints: { 'pillow': "Pillows are soft. What absorbs IMPACT?", 'tire': "Tires roll. What absorbs the bumps?" }
+  },
+];
+
+// ============================================
 // EXPORT ALL PUZZLES
 // ============================================
 export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
@@ -885,6 +1017,7 @@ export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
   ...transportPuzzles,
   ...bodyPuzzles,
   ...musicPuzzles,
+  ...hardPuzzles,
 ];
 
 export const PUZZLE_CATEGORIES = ['animals', 'kitchen', 'weather', 'sports', 'home', 'people', 'clothing', 'nature', 'food', 'transport', 'body', 'music'] as const;

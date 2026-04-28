@@ -200,6 +200,8 @@ export function TwoCluesGame({
     clearStallTimer,
     reset: resetAdaptation,
   } = useInGameAdaptation({
+    autoLog: false, // we forward via onTrialLogged below
+
     exerciseSlug: 'two_clues',
     sessionId: sessionId || null,
     initialDifficulty: bounds.suggestedStart,

@@ -2,6 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 // ============================================================================
 // In-Game Adaptive Layer
@@ -95,6 +98,16 @@ export interface InGameAdaptationOptions {
     difficultyChange?: { direction: 'up' | 'down'; from: number; to: number; reason: string } | null;
     escalationBlocked?: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number } | null;
   }) => void;
+
+  /**
+   * Auto-wire useAdaptationTrialLogger inside this hook so every game that uses
+   * useInGameAdaptation persists per-trial telemetry to `adaptation_trial_logs`
+   * without each game having to call the logger manually.
+   *
+   * Default: true. Set to false if the parent component already wires its own
+   * logger (e.g. PhotoNaming, TwoClues) to avoid double inserts.
+   */
+  autoLog?: boolean;
 }
 
 // Exported state for external use
@@ -142,7 +155,20 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onInterventionRequired,
     onEscalationBlocked,
     onTrialLogged,
+    autoLog = true,
   } = options;
+
+  // ── Auto-wired Phase 4 trial logger ──────────────────────────────────────
+  // If a parent already supplies onTrialLogged we still call it; the auto-logger
+  // also fires unless autoLog is false. PhotoNamingGame / TwoCluesGame pass
+  // autoLog={false} to remain the single writer.
+  const { user } = useAuth();
+  const { logTrial: autoLogTrial } = useAdaptationTrialLogger({
+    userId: user?.id,
+    sessionId: sessionId ?? null,
+    exerciseSlug: normalizeExerciseSlug(exerciseSlug),
+    enabled: autoLog && !!user?.id,
+  });
 
   // ===========================================================================
   // AUTHORITATIVE REFS - these are the source of truth inside recordTrial
@@ -368,13 +394,14 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     setRecentSuccessRate(successRateRef.current);
 
     // Phase 4: emit a complete per-trial snapshot for live logging.
-    if (onTrialLogged) {
+    {
       let cueDep: number | null = null;
       try {
         const v = getCueDependencyScore?.();
         cueDep = v == null ? null : v;
       } catch { /* noop */ }
-      onTrialLogged({
+
+      const snapshot = {
         trialIndex: trialCountRef.current - 1,
         difficulty: currentDifficultyRef.current,
         successRate: successRateRef.current,
@@ -385,9 +412,32 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
         frustration: frustrationLevelRef.current,
         difficultyChange: evtChange,
         escalationBlocked: evtBlocked,
-      });
+      };
+
+      // Caller-supplied subscriber (e.g. PhotoNaming/TwoClues forward to logger)
+      onTrialLogged?.(snapshot);
+
+      // Auto-wired logger — fires for every adaptive game unless autoLog=false.
+      if (autoLog && user?.id) {
+        try {
+          autoLogTrial({
+            trialIndex: snapshot.trialIndex,
+            difficulty: snapshot.difficulty,
+            cueDependency: snapshot.cueDependency,
+            successRate: snapshot.successRate,
+            correct: snapshot.correct,
+            reactionTimeMs: snapshot.reactionTimeMs ?? null,
+            frustration: snapshot.frustration,
+            trialsAtLevel: snapshot.trialsAtLevel,
+            difficultyChange: snapshot.difficultyChange ?? null,
+            escalationBlocked: snapshot.escalationBlocked ?? null,
+          });
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);
+        }
+      }
     }
-    
+
     return {
       difficultyAdjusted,
       newDifficulty,
@@ -407,6 +457,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     getCueDependencyScore,
     cueDependencyEscalationThreshold,
     minTrialsAtLevelForEscalation,
+    autoLog,
+    autoLogTrial,
+    user?.id,
   ]);
 
   // ===========================================================================
