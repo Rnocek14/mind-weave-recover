@@ -457,6 +457,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     getCueDependencyScore,
     cueDependencyEscalationThreshold,
     minTrialsAtLevelForEscalation,
+    autoLog,
+    autoLogTrial,
+    user?.id,
   ]);
 
   // ===========================================================================
