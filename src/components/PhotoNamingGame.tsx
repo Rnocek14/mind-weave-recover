@@ -390,6 +390,21 @@ export const PhotoNamingGame = ({
       onDifficultyChange?.(level, narration || reason);
       setTimeout(() => setDifficultyChanged(null), 2000);
     },
+    onTrialLogged: (snap) => {
+      logAdaptationTrial({
+        trialIndex: snap.trialIndex,
+        difficulty: snap.difficulty,
+        cueLevel: showCueRef.current ? 1 : 0,
+        cueDependency: snap.cueDependency,
+        successRate: snap.successRate,
+        correct: snap.correct,
+        reactionTimeMs: snap.reactionTimeMs,
+        frustration: snap.frustration,
+        trialsAtLevel: snap.trialsAtLevel,
+        difficultyChange: snap.difficultyChange,
+        escalationBlocked: snap.escalationBlocked,
+      });
+    },
   });
 
   // Ref to trigger voice restart after no-match
