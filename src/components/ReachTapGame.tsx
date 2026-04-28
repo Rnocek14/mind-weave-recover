@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, Zap, Award, XCircle, Star, Eye } from 'lucide-react';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 
@@ -54,6 +55,7 @@ export const ReachTapGame = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const { playSuccess, playTimeout, playLevelUp, playLevelDown, playStreak } = useGameSounds();
+  const engagement = useEngagementMonitor(sessionId || null);
   
   const {
     currentDifficulty,
@@ -62,9 +64,9 @@ export const ReachTapGame = ({
   } = useAdaptiveDifficulty({
     initialDifficulty: initialDifficulty || 5,
     bounds: { floor: 1, ceiling: 10, suggestedStart: 5 },
-    windowSize: 5,
+    windowSize: 4,
     targetSuccessRate: 0.75,
-    adjustmentThreshold: 0.20,
+    adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
@@ -87,6 +89,7 @@ export const ReachTapGame = ({
     userId,
     sessionId,
     exerciseSlug: 'reach-tap',
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
   // Calculate target size in pixels based on difficulty
@@ -230,7 +233,8 @@ export const ReachTapGame = ({
     setScore((prev) => prev + points);
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(true);
+    updateTrial(true, reactionTime);
+    engagement.recordTrial({ correct: true, reactionTimeMs: reactionTime, timeout: false, cueLevel: 0, timestamp: Date.now() });
     checkAndAdjust();
 
     // Log telemetry (Note: ReachTap adaptations handled by parent component)
@@ -269,7 +273,8 @@ export const ReachTapGame = ({
     const reactionTime = target ? Date.now() - target.appearTime : 0;
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(false);
+    updateTrial(false, reactionTime);
+    engagement.recordTrial({ correct: false, reactionTimeMs: reactionTime, timeout: true, cueLevel: 0, timestamp: Date.now() });
     checkAndAdjust();
 
     // Log telemetry
