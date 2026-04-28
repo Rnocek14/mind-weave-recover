@@ -447,33 +447,34 @@ export function TwoCluesGame({
     setScoringPhase('idle');
   }, []);
 
-  // Voice guidance: speak intro on first trial.
-  // Tracks whether the intro/clues TTS has finished so the mic-start effect can wait.
+  // Voice guidance: speak intro on first trial, then ALWAYS speak the actual
+  // clues for the visible puzzle so what the user HEARS matches what they SEE.
+  // (Bug fix: previously on puzzle 0 we only spoke the example "animal/barks/dog"
+  // from the intro, which didn't match the on-screen clues.)
   const introTtsCompleteRef = useRef(false);
   useEffect(() => {
-    if (!game.currentPuzzle || game.isComplete) return;
-    if (game.currentIndex === 0 && !hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
-      hasSpokenIntroRef.current = true;
-      introTtsCompleteRef.current = false;
-      vg.speakIntro().then(() => {
-        return vg.speakIfVoiceLed('What word am I describing?');
-      }).finally(() => {
-        introTtsCompleteRef.current = true;
-      });
-    }
-  }, [game.currentPuzzle, game.isComplete, game.currentIndex, vg]);
-
-  // Voice guidance: speak clues aloud for each new puzzle
-  useEffect(() => {
     if (!game.currentPuzzle || game.isComplete || showFeedback) return;
-    if (vg.shouldAutoSpeak && game.currentIndex > 0) {
-      introTtsCompleteRef.current = false;
-      const clues = game.currentPuzzle.clues.join(', and ');
-      const p = vg.speakIfVoiceLed(clues);
-      Promise.resolve(p).finally(() => {
-        introTtsCompleteRef.current = true;
-      });
+    if (!vg.shouldAutoSpeak) return;
+
+    const puzzle = game.currentPuzzle;
+    const clueText = puzzle.clues.join(', and ');
+    introTtsCompleteRef.current = false;
+
+    const speakPuzzleClues = () => vg.speakIfVoiceLed(clueText);
+
+    let p: Promise<void>;
+    if (game.currentIndex === 0 && !hasSpokenIntroRef.current) {
+      hasSpokenIntroRef.current = true;
+      p = vg
+        .speakIntro()
+        .then(() => speakPuzzleClues());
+    } else {
+      p = speakPuzzleClues();
     }
+
+    Promise.resolve(p).finally(() => {
+      introTtsCompleteRef.current = true;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback]);
 
