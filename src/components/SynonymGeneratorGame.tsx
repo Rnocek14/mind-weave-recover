@@ -21,6 +21,7 @@ import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummar
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { cn } from '@/lib/utils';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
+import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
@@ -193,6 +194,7 @@ export function SynonymGeneratorGame({
   userId,
   sessionId,
 }: SynonymGeneratorGameProps) {
+  const engagement = useEngagementMonitor(sessionId || null);
   const {
     currentDifficulty,
     updateTrial,
@@ -210,6 +212,7 @@ export function SynonymGeneratorGame({
     userId,
     sessionId,
     exerciseSlug: 'synonym-generator',
+    getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'synonym-generator' });
@@ -307,7 +310,9 @@ export function SynonymGeneratorGame({
 
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = result.matchCount >= threshold;
-    updateTrial(wasSuccessful);
+    const reactionMs = Math.round(result.durationSec * 1000);
+    updateTrial(wasSuccessful, reactionMs);
+    engagement.recordTrial({ correct: wasSuccessful, reactionTimeMs: reactionMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
 
     const prevDiff = currentDifficulty;
     const { newLevel } = checkAndAdjust();
