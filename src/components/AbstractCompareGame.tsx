@@ -338,13 +338,22 @@ export function AbstractCompareGame({
         setPhase('scored');
         onTrialComplete(result);
         // Feed adaptive engine: ≥0.6 coverage = "success", <0.3 = clear miss
+        const correctForAdaptation = result.coverageRatio >= 0.6;
         adaptation.recordTrial({
-          correct: result.coverageRatio >= 0.6,
+          correct: correctForAdaptation,
           reactionTimeMs: durationMs,
+        });
+        // Feed engagement monitor (cueLevel 0: discourse task has no explicit cues)
+        engagement.recordTrial({
+          correct: correctForAdaptation,
+          reactionTimeMs: durationMs,
+          cueLevel: 0,
+          timeout: !transcript.trim(),
+          timestamp: Date.now(),
         });
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, speakMaya]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -398,8 +407,11 @@ export function AbstractCompareGame({
       <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
 
       {shiftDirection && (
-        <div className="flex justify-center">
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+          </div>
+          <AdaptationNarrationCard direction={shiftDirection} message={shiftReason} />
         </div>
       )}
 
