@@ -335,10 +335,29 @@ export function CategoryFluencyGame({
 
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
-    updateTrial(wasSuccessful);
 
+    // Cue level for fluency: 0 if independent, 1 if examples were visible during round.
+    // Examples banner is always shown in this exercise → treat as cueLevel: 1.
+    const fluencyCueLevel = 1;
+
+    // Feed adaptive engine
     const prevDiff = currentDifficulty;
-    const { newLevel } = checkAndAdjust();
+    adaptation.recordTrial({
+      correct: wasSuccessful,
+      reactionTimeMs: Math.round(durationSec * 1000),
+      cueWasShown: true,
+    });
+
+    // Feed engagement monitor for cue dependency / fatigue tracking
+    engagement.recordTrial({
+      correct: wasSuccessful,
+      reactionTimeMs: Math.round(durationSec * 1000),
+      cueLevel: fluencyCueLevel,
+      timeout: validWords.length === 0,
+      timestamp: Date.now(),
+    });
+
+    const newLevel = adaptation.currentDifficulty;
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
     setDifficultyShift(shift);
 
@@ -369,7 +388,7 @@ export function CategoryFluencyGame({
         vg.speakIfVoiceLed(`Good — you named ${validWords.length} ${config.label.toLowerCase()}.`);
       }
     }
-  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, updateTrial, checkAndAdjust, stopListening]);
+  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg]);
 
   // Handle timer expiry outside of setState updater to avoid progress bar glitch
   useEffect(() => {
