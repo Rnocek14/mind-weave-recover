@@ -79,6 +79,22 @@ export interface InGameAdaptationOptions {
   onInterventionRequired?: (type: InterventionType) => void;
   /** Fired when an up-escalation is blocked by the cue-dependency gate. */
   onEscalationBlocked?: (info: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number }) => void;
+  /**
+   * Fired AFTER every trial computation with a complete snapshot.
+   * Used by useAdaptationTrialLogger to persist per-trial telemetry to Supabase.
+   */
+  onTrialLogged?: (snapshot: {
+    trialIndex: number;
+    difficulty: number;
+    successRate: number;
+    cueDependency: number | null;
+    trialsAtLevel: number;
+    correct: boolean;
+    reactionTimeMs?: number;
+    frustration: FrustrationLevel;
+    difficultyChange?: { direction: 'up' | 'down'; from: number; to: number; reason: string } | null;
+    escalationBlocked?: { reason: string; cueDependencyScore: number; trialsAtLevel: number; level: number } | null;
+  }) => void;
 }
 
 // Exported state for external use
