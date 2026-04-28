@@ -20,7 +20,7 @@ export const ExerciseAdaptationBanner = ({
   if (summary.length === 0) return null;
 
   return (
-    <Alert className="hidden sm:flex border-primary/50 bg-primary/5">
+    <Alert className="flex border-primary/50 bg-primary/5">
       <Sparkles className="h-4 w-4 text-primary" />
       <AlertTitle className="text-primary"><HelpLabel term="Adapted">Exercise Adapted to Your Capabilities</HelpLabel></AlertTitle>
       <AlertDescription className="space-y-2">
