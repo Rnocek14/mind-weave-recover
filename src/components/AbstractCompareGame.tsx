@@ -135,6 +135,16 @@ export function AbstractCompareGame({
   const voiceIntroPlayedRef = useRef(false);
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Typing fallback (clinical safety: never leave a patient stuck if mic fails)
+  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
+  const handleDoneRef = useRef<(() => void) | null>(null);
+  const handleTypedSubmit = useCallback((text: string) => {
+    if (hasProcessedRef.current) return;
+    setCollectedTranscript(text);
+    latestTranscriptRef.current = text;
+    setTimeout(() => { if (!hasProcessedRef.current) handleDoneRef.current?.(); }, 0);
+  }, []);
+
   useEffect(() => {
     setPhase('prompt');
     setLastResult(null);
