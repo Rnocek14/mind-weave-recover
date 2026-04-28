@@ -231,7 +231,8 @@ export const ReachTapGame = ({
     setScore((prev) => prev + points);
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(true);
+    updateTrial(true, reactionTime);
+    engagement.recordTrial({ correct: true, reactionTimeMs: reactionTime, timeout: false, cueLevel: 0, timestamp: Date.now() });
     checkAndAdjust();
 
     // Log telemetry (Note: ReachTap adaptations handled by parent component)
@@ -270,7 +271,8 @@ export const ReachTapGame = ({
     const reactionTime = target ? Date.now() - target.appearTime : 0;
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(false);
+    updateTrial(false, reactionTime);
+    engagement.recordTrial({ correct: false, reactionTimeMs: reactionTime, timeout: true, cueLevel: 0, timestamp: Date.now() });
     checkAndAdjust();
 
     // Log telemetry
