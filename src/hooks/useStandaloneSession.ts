@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 /** sessionStorage mutex preventing duplicate standalone session creation
  *  during React 18 double-invoked effects or mobile re-hydration races. */
@@ -59,9 +60,12 @@ interface UseStandaloneSessionOptions {
 export const useStandaloneSession = (
   userId: string | undefined,
   providedSessionId: string | null | undefined,
-  exerciseSlug: string,
+  rawExerciseSlug: string,
   options: UseStandaloneSessionOptions = {}
 ) => {
+  // Single normalization at the write boundary — every downstream read
+  // (sessions.plan.blocks[].exercise, mutex, logs) gets the canonical slug.
+  const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const inFlightRef = useRef(false); // synchronous guard against double-invoked effects
