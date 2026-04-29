@@ -253,6 +253,7 @@ export const useSentenceGame = (
     submitAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
     getWeakestGrammarArea,
     getAnswerAsWords
   };
